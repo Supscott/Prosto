@@ -5,11 +5,19 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -61,6 +69,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -96,15 +105,35 @@ fun DualTierBottomBar(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val defaultBg = MaterialTheme.colorScheme.background
+    val isHome = uiState.activeOverlay == OverlayType.HOME ||
+            uiState.currentUrl.isEmpty() ||
+            uiState.currentUrl == "about:blank"
+    val resolvedThemeColor = uiState.activeThemeColor ?: uiState.activeTab?.themeColor
+    val targetBgColor = if (isHome) defaultBg else (resolvedThemeColor?.let { Color(it) } ?: defaultBg)
+    val animatedBgColor by animateColorAsState(
+        targetValue = targetBgColor,
+        animationSpec = tween(durationMillis = 350),
+        label = "BottomBarDynamicColor"
+    )
+
+    val isLightSite = animatedBgColor.luminance() > 0.5f
+
+    val animDuration = 300
+    val offsetSpec = tween<IntOffset>(durationMillis = animDuration, easing = FastOutSlowInEasing)
+    val sizeSpec = tween<IntSize>(durationMillis = animDuration, easing = FastOutSlowInEasing)
+    val alphaSpec = tween<Float>(durationMillis = animDuration, easing = FastOutSlowInEasing)
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .background(
                 Brush.verticalGradient(
                     colors = listOf(
-                        Color.Transparent,
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.65f),
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.95f)
+                        animatedBgColor.copy(alpha = 0f),
+                        animatedBgColor.copy(alpha = 0.70f),
+                        animatedBgColor.copy(alpha = 0.95f),
+                        animatedBgColor
                     )
                 )
             )
@@ -112,6 +141,7 @@ fun DualTierBottomBar(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
+                .animateContentSize(animationSpec = tween(durationMillis = animDuration, easing = FastOutSlowInEasing))
                 .navigationBarsPadding()
                 .padding(bottom = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -120,19 +150,25 @@ fun DualTierBottomBar(
             Tier1TabStrip(
                 tabs = uiState.tabs,
                 activeTabId = uiState.activeTabId,
+                isLightSite = isLightSite,
                 onEvent = onEvent
             )
 
             // Tier 2: Persistent Action Dock (hides when scrolling down on websites)
             AnimatedVisibility(
                 visible = uiState.isBottomBarVisible,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                enter = slideInVertically(animationSpec = offsetSpec, initialOffsetY = { it }) +
+                        expandVertically(animationSpec = sizeSpec) +
+                        fadeIn(animationSpec = alphaSpec),
+                exit = slideOutVertically(animationSpec = offsetSpec, targetOffsetY = { it }) +
+                       shrinkVertically(animationSpec = sizeSpec) +
+                       fadeOut(animationSpec = alphaSpec)
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Spacer(modifier = Modifier.height(6.dp))
                     Tier2ActionDock(
                         activeOverlay = uiState.activeOverlay,
+                        isLightSite = isLightSite,
                         onEvent = onEvent
                     )
                 }
@@ -145,6 +181,7 @@ fun DualTierBottomBar(
 private fun Tier1TabStrip(
     tabs: List<Tab>,
     activeTabId: String?,
+    isLightSite: Boolean,
     onEvent: (BrowserUiEvent) -> Unit
 ) {
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
@@ -292,6 +329,7 @@ private fun Tier1TabStrip(
                 ActiveTabPill(
                     tab = tab,
                     width = activePillWidth,
+                    isLightSite = isLightSite,
                     isMenuExpanded = menuTabId == tab.id,
                     onDismissMenu = { if (menuTabId == tab.id) menuTabId = null },
                     onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
@@ -301,6 +339,7 @@ private fun Tier1TabStrip(
             } else {
                 InactiveTabCircle(
                     tab = tab,
+                    isLightSite = isLightSite,
                     isMenuExpanded = menuTabId == tab.id,
                     onDismissMenu = { if (menuTabId == tab.id) menuTabId = null },
                     onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
@@ -312,18 +351,22 @@ private fun Tier1TabStrip(
 
         item {
             // Trailing + Action Button
+            val addBtnBg = if (isLightSite) Color.White.copy(alpha = 0.90f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+            val addBtnBorder = if (isLightSite) BorderStroke(1.dp, Color.Black.copy(alpha = 0.12f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+            val addBtnTint = if (isLightSite) Color(0xFF374151) else MaterialTheme.colorScheme.onSurfaceVariant
+
             IconButton(
                 onClick = { onEvent(BrowserUiEvent.OpenNewTab("")) },
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
-                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)), CircleShape)
+                    .background(addBtnBg)
+                    .border(addBtnBorder, CircleShape)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "New Tab",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = addBtnTint
                 )
             }
         }
@@ -334,6 +377,7 @@ private fun Tier1TabStrip(
 private fun ActiveTabPill(
     tab: Tab,
     width: androidx.compose.ui.unit.Dp,
+    isLightSite: Boolean,
     isMenuExpanded: Boolean,
     onDismissMenu: () -> Unit,
     onClose: () -> Unit,
@@ -341,12 +385,16 @@ private fun ActiveTabPill(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val pillBg = if (isLightSite) Color.White.copy(alpha = 0.92f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+    val pillBorder = if (isLightSite) BorderStroke(1.dp, Color.Black.copy(alpha = 0.12f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+    val textTint = if (isLightSite) Color(0xFF1F2937) else MaterialTheme.colorScheme.onSurface
+    val iconTint = if (isLightSite) Color(0xFF4B5563) else MaterialTheme.colorScheme.onSurfaceVariant
 
     Surface(
         shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-        shadowElevation = 3.dp,
+        color = pillBg,
+        border = pillBorder,
+        shadowElevation = if (isLightSite) 4.dp else 3.dp,
         modifier = modifier
             .width(width)
             .height(48.dp)
@@ -372,7 +420,7 @@ private fun ActiveTabPill(
                         Icon(
                             imageVector = Icons.Default.Language,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = iconTint,
                             modifier = Modifier.size(20.dp)
                         )
                     },
@@ -380,7 +428,7 @@ private fun ActiveTabPill(
                         Icon(
                             imageVector = Icons.Default.Language,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = iconTint,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -389,7 +437,7 @@ private fun ActiveTabPill(
                 Icon(
                     imageVector = Icons.Default.Language,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = iconTint,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -406,7 +454,7 @@ private fun ActiveTabPill(
             Text(
                 text = displayTitle,
                 style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = textTint,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
@@ -464,6 +512,7 @@ private fun ActiveTabPill(
 @Composable
 private fun InactiveTabCircle(
     tab: Tab,
+    isLightSite: Boolean,
     isMenuExpanded: Boolean,
     onDismissMenu: () -> Unit,
     onClose: () -> Unit,
@@ -471,13 +520,16 @@ private fun InactiveTabCircle(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val circleBg = if (isLightSite) Color.White.copy(alpha = 0.92f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+    val circleBorder = if (isLightSite) BorderStroke(1.dp, Color.Black.copy(alpha = 0.12f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+    val iconTint = if (isLightSite) Color(0xFF4B5563) else MaterialTheme.colorScheme.onSurfaceVariant
 
     Box(
         modifier = modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)), CircleShape),
+            .background(circleBg)
+            .border(circleBorder, CircleShape),
         contentAlignment = Alignment.Center
     ) {
         if (!tab.faviconUrl.isNullOrEmpty()) {
@@ -492,7 +544,7 @@ private fun InactiveTabCircle(
                     Icon(
                         imageVector = Icons.Default.Language,
                         contentDescription = tab.title,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = iconTint,
                         modifier = Modifier.size(22.dp)
                     )
                 },
@@ -500,7 +552,7 @@ private fun InactiveTabCircle(
                     Icon(
                         imageVector = Icons.Default.Language,
                         contentDescription = tab.title,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = iconTint,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -509,7 +561,7 @@ private fun InactiveTabCircle(
             Icon(
                 imageVector = Icons.Default.Language,
                 contentDescription = tab.title,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = iconTint,
                 modifier = Modifier.size(22.dp)
             )
         }
@@ -565,13 +617,20 @@ private fun InactiveTabCircle(
 @Composable
 private fun Tier2ActionDock(
     activeOverlay: OverlayType,
+    isLightSite: Boolean,
     onEvent: (BrowserUiEvent) -> Unit
 ) {
+    val dockBg = if (isLightSite) Color.White.copy(alpha = 0.92f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
+    val dockBorder = if (isLightSite) BorderStroke(1.dp, Color.Black.copy(alpha = 0.12f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
+    val activeContainer = if (isLightSite) Color(0xFFE5E7EB) else MaterialTheme.colorScheme.primaryContainer
+    val activeOnContainer = if (isLightSite) Color(0xFF111827) else MaterialTheme.colorScheme.onPrimaryContainer
+    val inactiveIconTint = if (isLightSite) Color(0xFF4B5563) else MaterialTheme.colorScheme.onSurfaceVariant
+
     Surface(
         shape = RoundedCornerShape(32.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-        shadowElevation = 4.dp,
+        color = dockBg,
+        border = dockBorder,
+        shadowElevation = if (isLightSite) 5.dp else 4.dp,
         modifier = Modifier
             .padding(horizontal = 24.dp)
             .height(56.dp)
@@ -595,7 +654,7 @@ private fun Tier2ActionDock(
                     .clip(CircleShape)
                     .background(
                         if (activeOverlay == OverlayType.HOME)
-                            MaterialTheme.colorScheme.primaryContainer
+                            activeContainer
                         else Color.Transparent
                     )
             ) {
@@ -603,8 +662,8 @@ private fun Tier2ActionDock(
                     imageVector = Icons.Default.Home,
                     contentDescription = "Home",
                     tint = if (activeOverlay == OverlayType.HOME)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        activeOnContainer
+                    else inactiveIconTint
                 )
             }
 
@@ -622,7 +681,7 @@ private fun Tier2ActionDock(
                     .clip(CircleShape)
                     .background(
                         if (activeOverlay == OverlayType.SEARCH)
-                            MaterialTheme.colorScheme.primaryContainer
+                            activeContainer
                         else Color.Transparent
                     )
             ) {
@@ -630,8 +689,8 @@ private fun Tier2ActionDock(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Search",
                     tint = if (activeOverlay == OverlayType.SEARCH)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        activeOnContainer
+                    else inactiveIconTint
                 )
             }
 
@@ -649,7 +708,7 @@ private fun Tier2ActionDock(
                     .clip(CircleShape)
                     .background(
                         if (activeOverlay == OverlayType.TAB_GRID)
-                            MaterialTheme.colorScheme.primaryContainer
+                            activeContainer
                         else Color.Transparent
                     )
             ) {
@@ -657,8 +716,8 @@ private fun Tier2ActionDock(
                     imageVector = Icons.Default.GridView,
                     contentDescription = "All Tabs",
                     tint = if (activeOverlay == OverlayType.TAB_GRID)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        activeOnContainer
+                    else inactiveIconTint
                 )
             }
 
@@ -676,7 +735,7 @@ private fun Tier2ActionDock(
                     .clip(CircleShape)
                     .background(
                         if (activeOverlay == OverlayType.SETTINGS)
-                            MaterialTheme.colorScheme.primaryContainer
+                            activeContainer
                         else Color.Transparent
                     )
             ) {
@@ -684,8 +743,8 @@ private fun Tier2ActionDock(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "Settings",
                     tint = if (activeOverlay == OverlayType.SETTINGS)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                        activeOnContainer
+                    else inactiveIconTint
                 )
             }
         }

@@ -3,6 +3,8 @@ package com.jestk.browser.ui
 import android.app.Activity
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -12,13 +14,17 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.engine.WebViewPool
@@ -107,16 +113,40 @@ fun JestkApp(
         }
     }
 
+    val currentTab = uiState.tabs.find { it.id == uiState.activeTabId }
+    val siteColor = uiState.activeThemeColor ?: currentTab?.themeColor
+    val showHomeScreen = uiState.activeOverlay == OverlayType.HOME ||
+            uiState.currentUrl.isEmpty() ||
+            uiState.currentUrl == "about:blank"
+
+    val defaultBg = MaterialTheme.colorScheme.background
+    val targetAppBg = if (showHomeScreen || siteColor == null) defaultBg else Color(siteColor)
+    val animatedAppBg by animateColorAsState(
+        targetValue = targetAppBg,
+        animationSpec = tween(durationMillis = 350),
+        label = "JestkAppRootBgColor"
+    )
+
+    val view = LocalView.current
+    val isLightSite = animatedAppBg.luminance() > 0.5f
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            if (window != null) {
+                val insetsController = WindowCompat.getInsetsController(window, view)
+                insetsController.isAppearanceLightStatusBars = isLightSite
+                insetsController.isAppearanceLightNavigationBars = isLightSite
+            }
+        }
+    }
+
     JestkBrowserTheme(themeMode = uiState.settings.themeMode) {
         Box(
             modifier = modifier
                 .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
+                .background(animatedAppBg)
         ) {
             // Main Viewport: WebView Container or Home Screen
-            val showHomeScreen = uiState.activeOverlay == OverlayType.HOME ||
-                    uiState.currentUrl.isEmpty() ||
-                    uiState.currentUrl == "about:blank"
 
             if (showHomeScreen) {
                 HomeScreen(

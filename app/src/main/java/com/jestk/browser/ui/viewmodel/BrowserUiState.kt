@@ -37,6 +37,7 @@ data class BrowserUiState(
     // UI Dynamics & Gestures
     val isBottomBarVisible: Boolean = true,
     val bottomBarOffsetY: Float = 0f,
+    val activeThemeColor: Int? = null,
 
     // Media & Fullscreen
     val isVideoPlaying: Boolean = false,

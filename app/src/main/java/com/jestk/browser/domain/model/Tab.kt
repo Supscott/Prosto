@@ -11,5 +11,6 @@ data class Tab @JvmOverloads constructor(
     val isIncognito: Boolean = false,
     val isActive: Boolean = false,
     val canGoBack: Boolean = false,
-    val canGoForward: Boolean = false
+    val canGoForward: Boolean = false,
+    val themeColor: Int? = null
 )

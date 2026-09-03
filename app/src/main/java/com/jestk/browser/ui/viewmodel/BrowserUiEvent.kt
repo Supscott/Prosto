@@ -42,6 +42,7 @@ sealed interface BrowserUiEvent {
     data class OnSnapshotCaptured(val tabId: String, val snapshotPath: String) : BrowserUiEvent
     data class OnFaviconReceived(val tabId: String, val icon: android.graphics.Bitmap) : BrowserUiEvent
     data class UpdateFaviconUrl(val tabId: String, val faviconUrl: String) : BrowserUiEvent
+    data class OnThemeColorReceived(val tabId: String, val color: Int?) : BrowserUiEvent
 
     // Favorites & History
     data object AddCurrentTabToFavorites : BrowserUiEvent

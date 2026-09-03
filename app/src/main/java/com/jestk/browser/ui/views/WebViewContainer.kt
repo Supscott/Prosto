@@ -3,8 +3,12 @@ package com.jestk.browser.ui.views
 import android.content.MutableContextWrapper
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
@@ -78,9 +82,17 @@ fun WebViewContainer(
     }
 
     val isImeVisible = WindowInsets.isImeVisible
-    val bottomPadding = if (isImeVisible) 0.dp else 124.dp
+    val targetBottomPadding = when {
+        isImeVisible -> 0.dp
+        uiState.isBottomBarVisible -> 124.dp
+        else -> 60.dp
+    }
+    val bottomPadding by animateDpAsState(
+        targetValue = targetBottomPadding,
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "WebViewBottomPadding"
+    )
 
-    // Stable fixed bottom padding: web content can scroll past the bottom bar without triggering continuous 60fps WebView physical resizing during scrolling
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -122,7 +134,10 @@ fun WebViewContainer(
                         onNavigationStateChanged = { id, canBack, canForward ->
                             currentOnEvent(BrowserUiEvent.OnNavigationStateChanged(id, canBack, canForward))
                         },
-                        onSnapshotReady = { id, path -> currentOnEvent(BrowserUiEvent.OnSnapshotCaptured(id, path)) }
+                        onSnapshotReady = { id, path -> currentOnEvent(BrowserUiEvent.OnSnapshotCaptured(id, path)) },
+                        onThemeColorDetected = { id, color ->
+                            currentOnEvent(BrowserUiEvent.OnThemeColorReceived(id, color))
+                        }
                     )
 
                     webView.webChromeClient = JestkWebChromeClient(
@@ -151,6 +166,31 @@ fun WebViewContainer(
                     if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
                         if (isUnloaded && (webView.url.isNullOrEmpty() || webView.url == "about:blank")) {
                             webView.loadUrl(targetUrl)
+                        } else if (currentTab?.themeColor == null) {
+                            val js = """
+                                (function() {
+                                    try {
+                                        var meta = document.querySelector('meta[name="theme-color"]');
+                                        if (meta && meta.content) return meta.content.trim();
+                                        function getBg(el) {
+                                            if (!el) return null;
+                                            var style = window.getComputedStyle(el);
+                                            var bg = style ? style.backgroundColor : null;
+                                            if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'rgba(0,0,0,0)') return bg.trim();
+                                            return null;
+                                        }
+                                        return getBg(document.body) || getBg(document.documentElement) || '';
+                                    } catch(e) {
+                                        return '';
+                                    }
+                                })()
+                            """.trimIndent()
+                            webView.evaluateJavascript(js) { raw ->
+                                val color = JestkWebViewClient.parseCssColor(raw)
+                                if (color != null) {
+                                    currentOnEvent(BrowserUiEvent.OnThemeColorReceived(tabId, color))
+                                }
+                            }
                         }
                     }
 

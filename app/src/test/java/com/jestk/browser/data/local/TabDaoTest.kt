@@ -141,4 +141,15 @@ class TabDaoTest {
         val remaining = tabDao.getAllTabs()
         assertThat(remaining.map { it.id }).containsExactly("tab-2")
     }
+
+    @Test
+    fun updateThemeColor_updatesTargetTabThemeColor() = runTest {
+        val tab = TabEntity(id = "tab-theme-1", url = "https://theme.test", themeColor = null)
+        tabDao.insertTab(tab)
+
+        tabDao.updateThemeColor("tab-theme-1", 0xFF123456.toInt())
+
+        val updated = tabDao.getTabById("tab-theme-1")
+        assertThat(updated?.themeColor).isEqualTo(0xFF123456.toInt())
+    }
 }

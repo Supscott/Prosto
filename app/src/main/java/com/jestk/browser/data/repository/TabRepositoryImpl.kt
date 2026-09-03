@@ -89,6 +89,10 @@ class TabRepositoryImpl(
         tabDao.updateFavicon(id, faviconUrl)
     }
 
+    override suspend fun updateThemeColor(id: String, themeColor: Int?) = withContext(ioDispatcher) {
+        tabDao.updateThemeColor(id, themeColor)
+    }
+
     override suspend fun setActiveTab(id: String) = withContext(ioDispatcher) {
         tabDao.setActiveTab(id)
     }
