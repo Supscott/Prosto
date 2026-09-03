@@ -64,16 +64,19 @@ class BrowserViewModel(
         val currentTabs = tabRepository.getInitialTabs()
         val tabsWithActive = if (currentTabs.isEmpty()) listOf(activeTab) else currentTabs
 
+        val hasWebUrl = activeTab.url.isNotEmpty() && activeTab.url != "about:blank"
         _uiState.update { state ->
             state.copy(
                 tabs = tabsWithActive,
                 activeTabId = activeTab.id,
                 currentUrl = activeTab.url,
                 pageTitle = activeTab.title,
-                canGoBack = activeTab.canGoBack,
-                canGoForward = activeTab.canGoForward,
+                canGoBack = false,
+                canGoForward = false,
+                isLoading = hasWebUrl,
+                loadingProgress = if (hasWebUrl) 0.15f else 0f,
                 settings = initialSettings,
-                activeOverlay = if (activeTab.url.isEmpty() || activeTab.url == "about:blank") OverlayType.HOME else OverlayType.NONE
+                activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME
             )
         }
     }

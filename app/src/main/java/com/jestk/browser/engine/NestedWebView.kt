@@ -20,6 +20,18 @@ class NestedWebView @JvmOverloads constructor(
     defStyleAttr: Int = 0
 ) : WebView(context, attrs, defStyleAttr), NestedScrollingChild3 {
 
+    var loadedUrl: String? = null
+
+    override fun loadUrl(url: String) {
+        loadedUrl = url
+        super.loadUrl(url)
+    }
+
+    override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
+        loadedUrl = url
+        super.loadUrl(url, additionalHttpHeaders)
+    }
+
     private val childHelper: NestedScrollingChildHelper = NestedScrollingChildHelper(this).apply {
         isNestedScrollingEnabled = true
     }

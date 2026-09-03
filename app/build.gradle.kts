@@ -95,6 +95,7 @@ dependencies {
 
     // Android WebKit & System WebView
     implementation("androidx.webkit:webkit:1.12.1")
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 
     // Room Database
     val roomVersion = "2.6.1"

@@ -85,7 +85,15 @@ fun JestkApp(
                     webViewPool.getWebView(activeId)?.goForward()
                 }
                 is NavigationCommand.Reload -> {
-                    webViewPool.getWebView(activeId)?.reload()
+                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId)
+                    if (webView.url.isNullOrEmpty() || webView.url == "about:blank") {
+                        val url = viewModel.uiState.value.currentUrl
+                        if (url.isNotEmpty() && url != "about:blank") {
+                            webView.loadUrl(url)
+                        }
+                    } else {
+                        webView.reload()
+                    }
                 }
                 is NavigationCommand.StopLoading -> {
                     webViewPool.getWebView(activeId)?.stopLoading()

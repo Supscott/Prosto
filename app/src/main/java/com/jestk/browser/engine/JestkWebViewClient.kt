@@ -32,6 +32,7 @@ class JestkWebViewClient(
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         val validUrl = url.orEmpty()
+        (view as? NestedWebView)?.loadedUrl = validUrl
         onPageStarted(tabId, validUrl)
         view?.let {
             onNavigationStateChanged(tabId, it.canGoBack(), it.canGoForward())
@@ -41,6 +42,7 @@ class JestkWebViewClient(
     override fun onPageFinished(view: WebView?, url: String?) {
         super.onPageFinished(view, url)
         val validUrl = url.orEmpty()
+        (view as? NestedWebView)?.loadedUrl = validUrl
         val title = view?.title.orEmpty()
         onPageFinished(tabId, validUrl, title)
         view?.let { wv ->

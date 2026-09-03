@@ -59,6 +59,7 @@ class WebViewPool(private val applicationContext: Context) {
         try {
             webView.stopLoading()
             webView.loadUrl("about:blank")
+            (webView as? NestedWebView)?.loadedUrl = null
             webView.clearHistory()
             webView.destroy()
         } catch (_: Exception) {}
