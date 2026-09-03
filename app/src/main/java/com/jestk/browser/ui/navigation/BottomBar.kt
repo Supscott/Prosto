@@ -6,10 +6,14 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -55,15 +59,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
@@ -75,11 +83,18 @@ fun DualTierBottomBar(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    AnimatedVisibility(
-        visible = uiState.isBottomBarVisible,
-        enter = slideInVertically(initialOffsetY = { it }),
-        exit = slideOutVertically(targetOffsetY = { it }),
+    Box(
         modifier = modifier
+            .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        MaterialTheme.colorScheme.background.copy(alpha = 0.65f),
+                        MaterialTheme.colorScheme.background.copy(alpha = 0.95f)
+                    )
+                )
+            )
     ) {
         Column(
             modifier = Modifier
@@ -95,13 +110,20 @@ fun DualTierBottomBar(
                 onEvent = onEvent
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // Tier 2: Persistent Action Dock
-            Tier2ActionDock(
-                activeOverlay = uiState.activeOverlay,
-                onEvent = onEvent
-            )
+            // Tier 2: Persistent Action Dock (hides when scrolling down on websites)
+            AnimatedVisibility(
+                visible = uiState.isBottomBarVisible,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Tier2ActionDock(
+                        activeOverlay = uiState.activeOverlay,
+                        onEvent = onEvent
+                    )
+                }
+            }
         }
     }
 }
@@ -146,7 +168,9 @@ private fun Tier1TabStrip(
                         onEvent(BrowserUiEvent.OpenSearch(tab.url))
                     },
                     onSwipeNext = { onEvent(BrowserUiEvent.SwipeNextTab) },
-                    onSwipePrev = { onEvent(BrowserUiEvent.SwipePrevTab) }
+                    onSwipePrev = { onEvent(BrowserUiEvent.SwipePrevTab) },
+                    onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
+                    onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) }
                 )
             } else {
                 InactiveTabCircle(
@@ -165,7 +189,8 @@ private fun Tier1TabStrip(
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)), CircleShape)
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
@@ -177,24 +202,34 @@ private fun Tier1TabStrip(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ActiveTabPill(
     tab: Tab,
     width: androidx.compose.ui.unit.Dp,
     onTap: () -> Unit,
     onSwipeNext: () -> Unit,
-    onSwipePrev: () -> Unit
+    onSwipePrev: () -> Unit,
+    onClose: () -> Unit,
+    onAddFavorite: () -> Unit
 ) {
     var totalDrag by remember { mutableFloatStateOf(0f) }
+    var isMenuExpanded by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     Surface(
-        onClick = onTap,
         shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shadowElevation = 2.dp,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        shadowElevation = 3.dp,
         modifier = Modifier
             .width(width)
             .height(48.dp)
+            .clip(RoundedCornerShape(26.dp))
+            .combinedClickable(
+                onClick = onTap,
+                onLongClick = { isMenuExpanded = true }
+            )
             .pointerInput(tab.id) {
                 detectHorizontalDragGestures(
                     onDragStart = { totalDrag = 0f },
@@ -219,14 +254,31 @@ private fun ActiveTabPill(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Start
         ) {
-            // Favicon
+            // Favicon with fallback to globe
             if (!tab.faviconUrl.isNullOrEmpty()) {
-                AsyncImage(
+                SubcomposeAsyncImage(
                     model = tab.faviconUrl,
                     contentDescription = null,
                     modifier = Modifier
                         .size(20.dp)
-                        .clip(CircleShape)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Crop,
+                    loading = {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    },
+                    error = {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 )
             } else {
                 Icon(
@@ -255,6 +307,39 @@ private fun ActiveTabPill(
                 modifier = Modifier.weight(1f)
             )
         }
+
+        DropdownMenu(
+            expanded = isMenuExpanded,
+            onDismissRequest = { isMenuExpanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Close Tab") },
+                leadingIcon = { Icon(Icons.Default.Close, null) },
+                onClick = {
+                    isMenuExpanded = false
+                    onClose()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Copy URL") },
+                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                onClick = {
+                    isMenuExpanded = false
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
+                    Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Add to Favorites") },
+                leadingIcon = { Icon(Icons.Default.Bookmark, null) },
+                onClick = {
+                    isMenuExpanded = false
+                    onAddFavorite()
+                    Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
     }
 }
 
@@ -273,7 +358,8 @@ private fun InactiveTabCircle(
         modifier = Modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f))
+            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)), CircleShape)
             .combinedClickable(
                 onClick = onSelect,
                 onLongClick = { isMenuExpanded = true }
@@ -281,12 +367,29 @@ private fun InactiveTabCircle(
         contentAlignment = Alignment.Center
     ) {
         if (!tab.faviconUrl.isNullOrEmpty()) {
-            AsyncImage(
+            SubcomposeAsyncImage(
                 model = tab.faviconUrl,
                 contentDescription = tab.title,
                 modifier = Modifier
                     .size(22.dp)
-                    .clip(CircleShape)
+                    .clip(CircleShape),
+                contentScale = ContentScale.Crop,
+                loading = {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = tab.title,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
+                    )
+                },
+                error = {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = tab.title,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
             )
         } else {
             Icon(
@@ -339,7 +442,8 @@ private fun Tier2ActionDock(
 ) {
     Surface(
         shape = RoundedCornerShape(32.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
         shadowElevation = 4.dp,
         modifier = Modifier
             .padding(horizontal = 24.dp)

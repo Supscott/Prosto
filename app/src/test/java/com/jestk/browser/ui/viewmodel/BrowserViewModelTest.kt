@@ -19,6 +19,7 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -202,5 +203,74 @@ class BrowserViewModelTest {
         assertThat(state.settings.themeMode).isEqualTo(ThemeMode.DARK)
         assertThat(state.settings.searchEngine).isEqualTo(SearchEngine.GOOGLE)
         assertThat(state.settings.isAdBlockerEnabled).isFalse()
+    }
+
+    @Test
+    fun loadUrl_setsFallbackFaviconForDomain() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.LoadUrl("https://en.wikipedia.org/wiki/Kotlin"))
+        advanceUntilIdle()
+
+        val activeTab = viewModel.uiState.value.activeTab
+        assertThat(activeTab).isNotNull()
+        assertThat(activeTab?.faviconUrl).contains("en.wikipedia.org")
+    }
+
+    @Test
+    fun updateFavicon_updatesActiveTabFavicon() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val activeId = viewModel.uiState.value.activeTabId!!
+        viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(activeId, "/data/user/0/favicons/favicon_$activeId.png"))
+        advanceUntilIdle()
+
+        val activeTab = viewModel.uiState.value.activeTab
+        assertThat(activeTab?.faviconUrl).isEqualTo("/data/user/0/favicons/favicon_$activeId.png")
+    }
+
+    @Test
+    fun handleBackPress_whenHistoryExhaustedOnWebsite_resetsToHome() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.LoadUrl("https://kotlinlang.org"))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.currentUrl).isEqualTo("https://kotlinlang.org")
+
+        // Back when history is exhausted on single website tab resets to Home
+        viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.currentUrl).isEmpty()
+        assertThat(state.pageTitle).isEqualTo("Home")
+        assertThat(state.activeOverlay).isEqualTo(OverlayType.HOME)
+    }
+
+    @Test
+    fun handleBackPress_whenAlreadyOnCleanHomeTab_emitsExitApp() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Tab is already on clean home tab
+        assertThat(viewModel.uiState.value.currentUrl).isEmpty()
+        assertThat(viewModel.uiState.value.activeOverlay).isEqualTo(OverlayType.HOME)
+
+        var exitAppReceived = false
+        backgroundScope.launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.navigationCommands.collect { command ->
+                if (command is NavigationCommand.ExitApp) {
+                    exitAppReceived = true
+                }
+            }
+        }
+
+        viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+        advanceUntilIdle()
+
+        assertThat(exitAppReceived).isTrue()
     }
 }

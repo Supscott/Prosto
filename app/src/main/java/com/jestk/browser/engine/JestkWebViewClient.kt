@@ -52,4 +52,11 @@ class JestkWebViewClient(
             }
         }
     }
+
+    override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+        super.doUpdateVisitedHistory(view, url, isReload)
+        view?.let { wv ->
+            onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
+        }
+    }
 }

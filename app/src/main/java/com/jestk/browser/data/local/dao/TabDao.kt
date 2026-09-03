@@ -65,6 +65,9 @@ interface TabDao {
     @Query("UPDATE tabs SET snapshotPath = :snapshotPath WHERE id = :id")
     suspend fun updateSnapshotPath(id: String, snapshotPath: String)
 
+    @Query("UPDATE tabs SET faviconUrl = :faviconUrl WHERE id = :id")
+    suspend fun updateFavicon(id: String, faviconUrl: String)
+
     @Query("UPDATE tabs SET url = :url, title = :title, canGoBack = :canGoBack, canGoForward = :canGoForward WHERE id = :id")
     suspend fun updateTabDetails(
         id: String,

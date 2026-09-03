@@ -21,7 +21,7 @@ class WebViewPool(private val applicationContext: Context) {
         }
 
         // Initialize with applicationContext to prevent leaking Activity context
-        val webView = WebView(applicationContext).apply {
+        val webView = NestedWebView(applicationContext).apply {
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true

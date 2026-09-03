@@ -160,6 +160,8 @@ class BrowserViewModel(
             is BrowserUiEvent.OnProgressChanged -> handleProgressChanged(event.tabId, event.progress)
             is BrowserUiEvent.OnNavigationStateChanged -> handleNavState(event.tabId, event.canGoBack, event.canGoForward)
             is BrowserUiEvent.OnSnapshotCaptured -> handleSnapshot(event.tabId, event.snapshotPath)
+            is BrowserUiEvent.OnFaviconReceived -> Unit
+            is BrowserUiEvent.UpdateFaviconUrl -> handleUpdateFavicon(event.tabId, event.faviconUrl)
 
             is BrowserUiEvent.AddCurrentTabToFavorites -> addCurrentToFavorites()
             is BrowserUiEvent.AddFavorite -> viewModelScope.launch(ioDispatcher) {
@@ -364,6 +366,10 @@ class BrowserViewModel(
                 activeOverlay = OverlayType.NONE
             )
         }
+        val fallbackFavicon = com.jestk.browser.engine.FaviconManager.extractFallbackFaviconUrl(finalUrl)
+        if (fallbackFavicon != null) {
+            handleUpdateFavicon(activeId, fallbackFavicon)
+        }
         viewModelScope.launch(ioDispatcher) {
             tabRepository.updateTabDetails(activeId, finalUrl, finalUrl, canGoBack = false, canGoForward = false)
         }
@@ -390,6 +396,10 @@ class BrowserViewModel(
         if (_uiState.value.activeTabId == tabId) {
             _uiState.update { it.copy(currentUrl = url, isLoading = true, loadingProgress = 0.15f) }
         }
+        val fallbackFavicon = com.jestk.browser.engine.FaviconManager.extractFallbackFaviconUrl(url)
+        if (fallbackFavicon != null) {
+            handleUpdateFavicon(tabId, fallbackFavicon)
+        }
     }
 
     private fun handlePageFinished(tabId: String, url: String, title: String) {
@@ -405,7 +415,14 @@ class BrowserViewModel(
             }
         }
         viewModelScope.launch(ioDispatcher) {
-            tabRepository.updateTabDetails(tabId, url, displayTitle, canGoBack = true, canGoForward = false)
+            val tab = tabRepository.getTabById(tabId)
+            tabRepository.updateTabDetails(
+                id = tabId,
+                url = url,
+                title = displayTitle,
+                canGoBack = tab?.canGoBack ?: _uiState.value.canGoBack,
+                canGoForward = tab?.canGoForward ?: false
+            )
             if (url.isNotEmpty() && !url.startsWith("about:")) {
                 historyRepository.recordVisit(url, displayTitle)
             }
@@ -427,11 +444,36 @@ class BrowserViewModel(
         if (_uiState.value.activeTabId == tabId) {
             _uiState.update { it.copy(canGoBack = canGoBack, canGoForward = canGoForward) }
         }
+        viewModelScope.launch(ioDispatcher) {
+            val tab = tabRepository.getTabById(tabId)
+            if (tab != null) {
+                tabRepository.updateTabDetails(
+                    id = tabId,
+                    url = tab.url,
+                    title = tab.title,
+                    canGoBack = canGoBack,
+                    canGoForward = canGoForward
+                )
+            }
+        }
     }
 
     private fun handleSnapshot(tabId: String, path: String) {
         viewModelScope.launch(ioDispatcher) {
             tabRepository.updateSnapshot(tabId, path)
+        }
+    }
+
+    private fun handleUpdateFavicon(tabId: String, faviconUrl: String) {
+        _uiState.update { state ->
+            state.copy(
+                tabs = state.tabs.map { tab ->
+                    if (tab.id == tabId) tab.copy(faviconUrl = faviconUrl) else tab
+                }
+            )
+        }
+        viewModelScope.launch(ioDispatcher) {
+            tabRepository.updateFavicon(tabId, faviconUrl)
         }
     }
 
@@ -462,15 +504,43 @@ class BrowserViewModel(
     private fun handleBackNavigation() {
         val current = _uiState.value
         val isDismissibleOverlay = current.activeOverlay != OverlayType.NONE && current.activeOverlay != OverlayType.HOME
-        when {
-            isDismissibleOverlay -> {
-                _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
-            }
-            current.canGoBack -> {
-                _navigationCommands.tryEmit(NavigationCommand.GoBack)
-            }
-            else -> {
-                current.activeTabId?.let { closeTab(it) }
+        if (isDismissibleOverlay) {
+            _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
+            return
+        }
+
+        if (current.canGoBack) {
+            _navigationCommands.tryEmit(NavigationCommand.GoBack)
+            return
+        }
+
+        // Web history is exhausted!
+        if (current.tabs.size > 1) {
+            current.activeTabId?.let { closeTab(it) }
+        } else {
+            val isCurrentTabBlankOrHome = current.currentUrl.isEmpty() ||
+                    current.currentUrl == "about:blank" ||
+                    current.activeOverlay == OverlayType.HOME
+
+            if (!isCurrentTabBlankOrHome) {
+                // If it was on a website, close website and return to clean Home tab
+                current.activeTabId?.let { tabId ->
+                    _uiState.update {
+                        it.copy(
+                            currentUrl = "",
+                            pageTitle = "Home",
+                            canGoBack = false,
+                            canGoForward = false,
+                            activeOverlay = OverlayType.HOME
+                        )
+                    }
+                    viewModelScope.launch(ioDispatcher) {
+                        tabRepository.updateTabDetails(tabId, "", "Home", canGoBack = false, canGoForward = false)
+                    }
+                }
+            } else {
+                // History exhausted and already on clean Home tab: exit app cleanly without crashing
+                _navigationCommands.tryEmit(NavigationCommand.ExitApp)
             }
         }
     }

@@ -85,6 +85,10 @@ class TabRepositoryImpl(
         tabDao.updateSnapshotPath(id, snapshotPath)
     }
 
+    override suspend fun updateFavicon(id: String, faviconUrl: String) = withContext(ioDispatcher) {
+        tabDao.updateFavicon(id, faviconUrl)
+    }
+
     override suspend fun setActiveTab(id: String) = withContext(ioDispatcher) {
         tabDao.setActiveTab(id)
     }

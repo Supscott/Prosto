@@ -6,4 +6,5 @@ sealed interface NavigationCommand {
     data object GoForward : NavigationCommand
     data object Reload : NavigationCommand
     data object StopLoading : NavigationCommand
+    data object ExitApp : NavigationCommand
 }

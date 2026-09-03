@@ -1,5 +1,6 @@
 package com.jestk.browser.ui
 
+import android.app.Activity
 import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -9,9 +10,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jestk.browser.domain.model.OverlayType
@@ -35,6 +38,8 @@ fun JestkApp(
     webViewPool: WebViewPool,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    val activity = context as? Activity
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Handle back button press hierarchy
@@ -42,7 +47,7 @@ fun JestkApp(
         viewModel.onEvent(BrowserUiEvent.HandleBackPress)
     }
 
-    // Handle navigation commands targeting WebView
+    // Handle navigation commands targeting WebView & Application
     LaunchedEffect(viewModel, uiState.activeTabId) {
         viewModel.navigationCommands.collectLatest { command ->
             val activeId = uiState.activeTabId ?: return@collectLatest
@@ -62,6 +67,9 @@ fun JestkApp(
                 }
                 is NavigationCommand.StopLoading -> {
                     webViewPool.getWebView(activeId)?.stopLoading()
+                }
+                is NavigationCommand.ExitApp -> {
+                    activity?.finish()
                 }
             }
         }
@@ -86,13 +94,15 @@ fun JestkApp(
                 )
             } else {
                 uiState.activeTabId?.let { activeId ->
-                    WebViewContainer(
-                        tabId = activeId,
-                        webViewPool = webViewPool,
-                        uiState = uiState,
-                        onEvent = viewModel::onEvent,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    key(activeId) {
+                        WebViewContainer(
+                            tabId = activeId,
+                            webViewPool = webViewPool,
+                            uiState = uiState,
+                            onEvent = viewModel::onEvent,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
                 }
             }
 
