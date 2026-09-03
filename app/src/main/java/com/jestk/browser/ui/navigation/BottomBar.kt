@@ -1,0 +1,462 @@
+package com.jestk.browser.ui.navigation
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.jestk.browser.domain.model.OverlayType
+import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.ui.viewmodel.BrowserUiEvent
+import com.jestk.browser.ui.viewmodel.BrowserUiState
+
+@Composable
+fun DualTierBottomBar(
+    uiState: BrowserUiState,
+    onEvent: (BrowserUiEvent) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AnimatedVisibility(
+        visible = uiState.isBottomBarVisible,
+        enter = slideInVertically(initialOffsetY = { it }),
+        exit = slideOutVertically(targetOffsetY = { it }),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(bottom = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Tier 1: Horizontal Tab Strip
+            Tier1TabStrip(
+                tabs = uiState.tabs,
+                activeTabId = uiState.activeTabId,
+                onEvent = onEvent
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Tier 2: Persistent Action Dock
+            Tier2ActionDock(
+                activeOverlay = uiState.activeOverlay,
+                onEvent = onEvent
+            )
+        }
+    }
+}
+
+@Composable
+private fun Tier1TabStrip(
+    tabs: List<Tab>,
+    activeTabId: String?,
+    onEvent: (BrowserUiEvent) -> Unit
+) {
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val activePillWidth = screenWidth * 0.50f
+    val listState = rememberLazyListState()
+
+    val activeIndex = tabs.indexOfFirst { it.id == activeTabId }.coerceAtLeast(0)
+
+    LaunchedEffect(activeIndex) {
+        if (tabs.isNotEmpty() && activeIndex in tabs.indices) {
+            listState.animateScrollToItem(activeIndex)
+        }
+    }
+
+    LazyRow(
+        state = listState,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(52.dp),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        itemsIndexed(
+            items = tabs,
+            key = { _, tab -> tab.id }
+        ) { _, tab ->
+            val isActive = tab.id == activeTabId
+            if (isActive) {
+                ActiveTabPill(
+                    tab = tab,
+                    width = activePillWidth,
+                    onTap = {
+                        onEvent(BrowserUiEvent.OpenSearch(tab.url))
+                    },
+                    onSwipeNext = { onEvent(BrowserUiEvent.SwipeNextTab) },
+                    onSwipePrev = { onEvent(BrowserUiEvent.SwipePrevTab) }
+                )
+            } else {
+                InactiveTabCircle(
+                    tab = tab,
+                    onSelect = { onEvent(BrowserUiEvent.SelectTab(tab.id)) },
+                    onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
+                    onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) }
+                )
+            }
+        }
+
+        item {
+            // Trailing + Action Button
+            IconButton(
+                onClick = { onEvent(BrowserUiEvent.OpenNewTab("")) },
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "New Tab",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActiveTabPill(
+    tab: Tab,
+    width: androidx.compose.ui.unit.Dp,
+    onTap: () -> Unit,
+    onSwipeNext: () -> Unit,
+    onSwipePrev: () -> Unit
+) {
+    var totalDrag by remember { mutableFloatStateOf(0f) }
+
+    Surface(
+        onClick = onTap,
+        shape = RoundedCornerShape(26.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shadowElevation = 2.dp,
+        modifier = Modifier
+            .width(width)
+            .height(48.dp)
+            .pointerInput(tab.id) {
+                detectHorizontalDragGestures(
+                    onDragStart = { totalDrag = 0f },
+                    onDragEnd = {
+                        if (totalDrag > 50f) {
+                            onSwipePrev()
+                        } else if (totalDrag < -50f) {
+                            onSwipeNext()
+                        }
+                        totalDrag = 0f
+                    },
+                    onHorizontalDrag = { _, dragAmount ->
+                        totalDrag += dragAmount
+                    }
+                )
+            }
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
+        ) {
+            // Favicon
+            if (!tab.faviconUrl.isNullOrEmpty()) {
+                AsyncImage(
+                    model = tab.faviconUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape)
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Language,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            // Title / Hostname (truncated)
+            val displayTitle = when {
+                tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
+                tab.url.isNotEmpty() -> tab.url.removePrefix("https://").removePrefix("http://").removePrefix("www.")
+                else -> "Search or enter URL"
+            }
+
+            Text(
+                text = displayTitle,
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun InactiveTabCircle(
+    tab: Tab,
+    onSelect: () -> Unit,
+    onClose: () -> Unit,
+    onAddFavorite: () -> Unit
+) {
+    val context = LocalContext.current
+    var isMenuExpanded by remember { mutableStateOf(false) }
+
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f))
+            .combinedClickable(
+                onClick = onSelect,
+                onLongClick = { isMenuExpanded = true }
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        if (!tab.faviconUrl.isNullOrEmpty()) {
+            AsyncImage(
+                model = tab.faviconUrl,
+                contentDescription = tab.title,
+                modifier = Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.Language,
+                contentDescription = tab.title,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        DropdownMenu(
+            expanded = isMenuExpanded,
+            onDismissRequest = { isMenuExpanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Close Tab") },
+                leadingIcon = { Icon(Icons.Default.Close, null) },
+                onClick = {
+                    isMenuExpanded = false
+                    onClose()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Copy URL") },
+                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                onClick = {
+                    isMenuExpanded = false
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
+                    Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Add to Favorites") },
+                leadingIcon = { Icon(Icons.Default.Bookmark, null) },
+                onClick = {
+                    isMenuExpanded = false
+                    onAddFavorite()
+                    Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun Tier2ActionDock(
+    activeOverlay: OverlayType,
+    onEvent: (BrowserUiEvent) -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(32.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        shadowElevation = 4.dp,
+        modifier = Modifier
+            .padding(horizontal = 24.dp)
+            .height(56.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Home Button
+            IconButton(
+                onClick = {
+                    if (activeOverlay == OverlayType.HOME) {
+                        onEvent(BrowserUiEvent.DismissOverlay)
+                    } else {
+                        onEvent(BrowserUiEvent.OpenHome)
+                    }
+                },
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (activeOverlay == OverlayType.HOME)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else Color.Transparent
+                    )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = "Home",
+                    tint = if (activeOverlay == OverlayType.HOME)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Search Button
+            IconButton(
+                onClick = {
+                    if (activeOverlay == OverlayType.SEARCH) {
+                        onEvent(BrowserUiEvent.DismissOverlay)
+                    } else {
+                        onEvent(BrowserUiEvent.OpenSearch(null))
+                    }
+                },
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (activeOverlay == OverlayType.SEARCH)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else Color.Transparent
+                    )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "Search",
+                    tint = if (activeOverlay == OverlayType.SEARCH)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // All Tabs (Grid) Button
+            IconButton(
+                onClick = {
+                    if (activeOverlay == OverlayType.TAB_GRID) {
+                        onEvent(BrowserUiEvent.DismissOverlay)
+                    } else {
+                        onEvent(BrowserUiEvent.OpenTabGrid)
+                    }
+                },
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (activeOverlay == OverlayType.TAB_GRID)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else Color.Transparent
+                    )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.GridView,
+                    contentDescription = "All Tabs",
+                    tint = if (activeOverlay == OverlayType.TAB_GRID)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Settings Button
+            IconButton(
+                onClick = {
+                    if (activeOverlay == OverlayType.SETTINGS) {
+                        onEvent(BrowserUiEvent.DismissOverlay)
+                    } else {
+                        onEvent(BrowserUiEvent.OpenSettings)
+                    }
+                },
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (activeOverlay == OverlayType.SETTINGS)
+                            MaterialTheme.colorScheme.primaryContainer
+                        else Color.Transparent
+                    )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = if (activeOverlay == OverlayType.SETTINGS)
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
