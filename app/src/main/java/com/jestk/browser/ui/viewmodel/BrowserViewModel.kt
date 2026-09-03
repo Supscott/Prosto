@@ -3,9 +3,11 @@ package com.jestk.browser.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jestk.browser.domain.model.OverlayType
+import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
+import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import kotlinx.coroutines.CoroutineDispatcher
@@ -27,6 +29,7 @@ class BrowserViewModel(
     private val historyRepository: HistoryRepository,
     private val favoriteRepository: FavoriteRepository,
     private val settingsRepository: SettingsRepository,
+    private val recentTabRepository: RecentTabRepository? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
@@ -104,9 +107,29 @@ class BrowserViewModel(
             }
         }
 
-        viewModelScope.launch(ioDispatcher) {
-            tabRepository.getRecentTabs(6).collectLatest { recents ->
-                _uiState.update { it.copy(recentTabs = recents) }
+        if (recentTabRepository != null) {
+            viewModelScope.launch(ioDispatcher) {
+                recentTabRepository.getRecentTabs(10).collectLatest { recents ->
+                    _uiState.update { it.copy(recentTabs = recents) }
+                }
+            }
+        } else {
+            viewModelScope.launch(ioDispatcher) {
+                tabRepository.getRecentTabs(6).collectLatest { recents ->
+                    _uiState.update { state ->
+                        state.copy(
+                            recentTabs = recents.map { tab ->
+                                RecentTabItem(
+                                    url = tab.url,
+                                    title = tab.title,
+                                    snapshotPath = tab.snapshotPath,
+                                    faviconUrl = tab.faviconUrl,
+                                    lastVisitedTimestamp = tab.lastActiveTimestamp
+                                )
+                            }
+                        )
+                    }
+                }
             }
         }
 
@@ -126,6 +149,7 @@ class BrowserViewModel(
     fun onEvent(event: BrowserUiEvent) {
         when (event) {
             is BrowserUiEvent.OpenNewTab -> openNewTab(event.url)
+            is BrowserUiEvent.OpenRecentTab -> openRecentTab(event.item)
             is BrowserUiEvent.SelectTab -> selectTab(event.tabId)
             is BrowserUiEvent.CloseTab -> closeTab(event.tabId)
             is BrowserUiEvent.CloseAllTabs -> closeAllTabs()
@@ -234,6 +258,23 @@ class BrowserViewModel(
                 if (url.isNotEmpty() && url != "about:blank") {
                     _navigationCommands.tryEmit(NavigationCommand.LoadUrl(url))
                 }
+            }
+        }
+    }
+
+    private fun openRecentTab(item: RecentTabItem) {
+        val existingOpenTab = _uiState.value.tabs.firstOrNull { it.url == item.url }
+        if (existingOpenTab != null) {
+            selectTab(existingOpenTab.id)
+            _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
+        } else {
+            val currentTab = _uiState.value.activeTab
+            if (currentTab != null && (currentTab.url.isEmpty() || currentTab.url == "about:blank")) {
+                loadUrl(item.url)
+                _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
+            } else {
+                openNewTab(item.url)
+                _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
             }
         }
     }
@@ -434,6 +475,12 @@ class BrowserViewModel(
             )
             if (url.isNotEmpty() && !url.startsWith("about:")) {
                 historyRepository.recordVisit(url, displayTitle)
+                recentTabRepository?.recordRecentTab(
+                    url = url,
+                    title = displayTitle,
+                    snapshotPath = tab?.snapshotPath,
+                    faviconUrl = tab?.faviconUrl
+                )
             }
         }
     }
@@ -470,6 +517,10 @@ class BrowserViewModel(
     private fun handleSnapshot(tabId: String, path: String) {
         viewModelScope.launch(ioDispatcher) {
             tabRepository.updateSnapshot(tabId, path)
+            val tab = tabRepository.getTabById(tabId)
+            if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:")) {
+                recentTabRepository?.updateSnapshot(tab.url, path)
+            }
         }
     }
 
@@ -483,6 +534,10 @@ class BrowserViewModel(
         }
         viewModelScope.launch(ioDispatcher) {
             tabRepository.updateFavicon(tabId, faviconUrl)
+            val tab = tabRepository.getTabById(tabId)
+            if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:")) {
+                recentTabRepository?.updateFavicon(tab.url, faviconUrl)
+            }
         }
     }
 

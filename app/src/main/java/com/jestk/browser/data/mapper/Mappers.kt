@@ -94,3 +94,19 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
         isAdBlockerEnabled = isAdBlockerEnabled
     )
 }
+
+fun com.jestk.browser.data.local.entity.RecentTabEntity.toDomain(): com.jestk.browser.domain.model.RecentTabItem = com.jestk.browser.domain.model.RecentTabItem(
+    url = url,
+    title = title,
+    snapshotPath = snapshotPath,
+    faviconUrl = faviconUrl,
+    lastVisitedTimestamp = lastVisitedTimestamp
+)
+
+fun com.jestk.browser.domain.model.RecentTabItem.toEntity(): com.jestk.browser.data.local.entity.RecentTabEntity = com.jestk.browser.data.local.entity.RecentTabEntity(
+    url = url,
+    title = title,
+    snapshotPath = snapshotPath,
+    faviconUrl = faviconUrl,
+    lastVisitedTimestamp = lastVisitedTimestamp
+)

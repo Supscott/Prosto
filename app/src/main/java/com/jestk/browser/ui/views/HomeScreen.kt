@@ -58,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.FavoriteItem
+import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
@@ -107,12 +108,11 @@ fun HomeScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(recentTabs, key = { it.id }) { tab ->
+                items(recentTabs, key = { it.url }) { item ->
                     RecentTabCard(
-                        tab = tab,
+                        item = item,
                         onClick = {
-                            onEvent(BrowserUiEvent.SelectTab(tab.id))
-                            onEvent(BrowserUiEvent.DismissOverlay)
+                            onEvent(BrowserUiEvent.OpenRecentTab(item))
                         }
                     )
                 }
@@ -181,7 +181,7 @@ fun HomeScreen(
 
 @Composable
 private fun RecentTabCard(
-    tab: Tab,
+    item: RecentTabItem,
     onClick: () -> Unit
 ) {
     Card(
@@ -201,11 +201,11 @@ private fun RecentTabCard(
                     .height(85.dp)
                     .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.5f))
             ) {
-                val file = tab.snapshotPath?.let { File(it) }
+                val file = item.snapshotPath?.let { File(it) }
                 if (file != null && file.exists()) {
                     AsyncImage(
                         model = file,
-                        contentDescription = tab.title,
+                        contentDescription = item.title,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -231,9 +231,9 @@ private fun RecentTabCard(
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                if (!tab.faviconUrl.isNullOrEmpty()) {
+                if (!item.faviconUrl.isNullOrEmpty()) {
                     AsyncImage(
-                        model = tab.faviconUrl,
+                        model = item.faviconUrl,
                         contentDescription = null,
                         modifier = Modifier
                             .size(16.dp)
@@ -249,7 +249,7 @@ private fun RecentTabCard(
                 }
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = tab.title.ifEmpty { "Tab" },
+                    text = item.title.ifEmpty { item.url },
                     style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,

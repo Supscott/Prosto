@@ -46,6 +46,7 @@ class BrowserViewModelTest {
     private lateinit var historyRepo: HistoryRepository
     private lateinit var favoriteRepo: FavoriteRepository
     private lateinit var settingsRepo: SettingsRepository
+    private lateinit var recentTabRepo: com.jestk.browser.domain.repository.RecentTabRepository
 
     @Before
     fun setup() {
@@ -56,6 +57,7 @@ class BrowserViewModelTest {
         historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
         favoriteRepo = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher)
         settingsRepo = SettingsRepositoryImpl(db.settingDao(), testDispatcher)
+        recentTabRepo = com.jestk.browser.data.repository.RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher)
     }
 
     @After
@@ -71,6 +73,7 @@ class BrowserViewModelTest {
             historyRepository = historyRepo,
             favoriteRepository = favoriteRepo,
             settingsRepository = settingsRepo,
+            recentTabRepository = recentTabRepo,
             ioDispatcher = testDispatcher
         )
     }
@@ -272,5 +275,104 @@ class BrowserViewModelTest {
         advanceUntilIdle()
 
         assertThat(exitAppReceived).isTrue()
+    }
+
+    @Test
+    fun openRecentTab_whenAlreadyOpen_switchesToIt() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://site1.com"))
+        advanceUntilIdle()
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://site2.com"))
+        advanceUntilIdle()
+
+        val item1 = com.jestk.browser.domain.model.RecentTabItem(url = "https://site1.com", title = "Site 1")
+        viewModel.onEvent(BrowserUiEvent.OpenRecentTab(item1))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.currentUrl).isEqualTo("https://site1.com")
+        assertThat(state.activeOverlay).isEqualTo(OverlayType.NONE)
+    }
+
+    @Test
+    fun openRecentTab_whenClosedAndCurrentIsHome_loadsUrlInCurrentTab() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Current active tab is clean Home tab
+        assertThat(viewModel.uiState.value.currentUrl).isEmpty()
+
+        val item = com.jestk.browser.domain.model.RecentTabItem(url = "https://jestk.org", title = "Jestk")
+        viewModel.onEvent(BrowserUiEvent.OpenRecentTab(item))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.tabs).hasSize(1)
+        assertThat(state.currentUrl).isEqualTo("https://jestk.org")
+    }
+
+    @Test
+    fun openRecentTab_whenClosedAndCurrentIsNonEmpty_opensNewTab() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.LoadUrl("https://existing.com"))
+        advanceUntilIdle()
+
+        val item = com.jestk.browser.domain.model.RecentTabItem(url = "https://newsite.com", title = "New")
+        viewModel.onEvent(BrowserUiEvent.OpenRecentTab(item))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.tabs).hasSize(2)
+        assertThat(state.currentUrl).isEqualTo("https://newsite.com")
+    }
+
+    @Test
+    fun closingTab_doesNotRemoveFromRecentTabs() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Open a tab and finish page load
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://persistent.com"))
+        advanceUntilIdle()
+
+        val tabId = viewModel.uiState.value.activeTabId!!
+        viewModel.onEvent(BrowserUiEvent.OnPageFinished(tabId, "https://persistent.com", "Persistent Tab"))
+        advanceUntilIdle()
+
+        // Verify recentTabs contains this entry
+        assertThat(viewModel.uiState.value.recentTabs.any { it.url == "https://persistent.com" }).isTrue()
+
+        // Now close the tab
+        viewModel.onEvent(BrowserUiEvent.CloseTab(tabId))
+        advanceUntilIdle()
+
+        // Tab is gone from active tabs, but still present in recentTabs!
+        assertThat(viewModel.uiState.value.tabs.any { it.id == tabId }).isFalse()
+        assertThat(viewModel.uiState.value.recentTabs.any { it.url == "https://persistent.com" }).isTrue()
+    }
+
+    @Test
+    fun reorderTabs_updatesTabPositions() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://first.com"))
+        advanceUntilIdle()
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://second.com"))
+        advanceUntilIdle()
+
+        val currentTabs = viewModel.uiState.value.tabs
+        val reversed = currentTabs.reversed()
+
+        viewModel.onEvent(BrowserUiEvent.ReorderTabs(reversed))
+        advanceUntilIdle()
+
+        val reorderedTabs = viewModel.uiState.value.tabs
+        assertThat(reorderedTabs.first().id).isEqualTo(reversed.first().id)
+        assertThat(reorderedTabs.last().id).isEqualTo(reversed.last().id)
     }
 }

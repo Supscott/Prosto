@@ -7,10 +7,12 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
+import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
+import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.WebViewPool
@@ -22,6 +24,7 @@ interface AppContainer {
     val historyRepository: HistoryRepository
     val favoriteRepository: FavoriteRepository
     val settingsRepository: SettingsRepository
+    val recentTabRepository: RecentTabRepository
     val webViewPool: WebViewPool
     val viewModelFactory: ViewModelProvider.Factory
 }
@@ -52,13 +55,18 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         SettingsRepositoryImpl(database.settingDao())
     }
 
+    override val recentTabRepository: RecentTabRepository by lazy {
+        RecentTabRepositoryImpl(database.recentTabDao())
+    }
+
     override val viewModelFactory: ViewModelProvider.Factory = viewModelFactory {
         initializer {
             BrowserViewModel(
                 tabRepository = tabRepository,
                 historyRepository = historyRepository,
                 favoriteRepository = favoriteRepository,
-                settingsRepository = settingsRepository
+                settingsRepository = settingsRepository,
+                recentTabRepository = recentTabRepository
             )
         }
     }

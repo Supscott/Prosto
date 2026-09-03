@@ -61,10 +61,25 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.zIndex
+import java.util.Collections
+import kotlin.math.abs
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -135,11 +150,29 @@ private fun Tier1TabStrip(
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
     val activePillWidth = screenWidth * 0.50f
     val listState = rememberLazyListState()
+    val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
 
-    val activeIndex = tabs.indexOfFirst { it.id == activeTabId }.coerceAtLeast(0)
+    var currentTabs by remember(tabs) { mutableStateOf(tabs) }
+    var draggingTabId by remember { mutableStateOf<String?>(null) }
+    var dragOffsetPx by remember { mutableFloatStateOf(0f) }
+    var isDragging by remember { mutableStateOf(false) }
+    var menuTabId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(activeIndex) {
-        if (tabs.isNotEmpty() && activeIndex in tabs.indices) {
+    val activeIndex = currentTabs.indexOfFirst { it.id == activeTabId }.coerceAtLeast(0)
+
+    val inactiveCount = (currentTabs.size - 1).coerceAtLeast(0)
+    val totalContentWidth = activePillWidth + (44.dp * inactiveCount) + (8.dp * currentTabs.size) + 44.dp
+    val fitsOnScreen = totalContentWidth <= (screenWidth - 32.dp)
+
+    val horizontalPadding = if (fitsOnScreen) {
+        16.dp
+    } else {
+        ((screenWidth - activePillWidth) / 2).coerceAtLeast(16.dp)
+    }
+
+    LaunchedEffect(activeIndex, fitsOnScreen, currentTabs.size) {
+        if (!fitsOnScreen && currentTabs.isNotEmpty() && activeIndex in currentTabs.indices) {
             listState.animateScrollToItem(activeIndex)
         }
     }
@@ -149,31 +182,130 @@ private fun Tier1TabStrip(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = horizontalPadding),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
         itemsIndexed(
-            items = tabs,
+            items = currentTabs,
             key = { _, tab -> tab.id }
         ) { _, tab ->
             val isActive = tab.id == activeTabId
+            val isDraggingThis = draggingTabId == tab.id
+            val touchSlop = with(density) { 10.dp.toPx() }
+
+            val tabModifier = Modifier
+                .zIndex(if (isDraggingThis) 10f else 0f)
+                .graphicsLayer {
+                    if (isDraggingThis) {
+                        translationX = dragOffsetPx
+                        scaleX = 1.05f
+                        scaleY = 1.05f
+                        shadowElevation = 8.dp.toPx()
+                    }
+                }
+                .pointerInput(tab.id) {
+                    awaitEachGesture {
+                        val down = awaitFirstDown(requireUnconsumed = false)
+                        val longPress = awaitLongPressOrCancellation(down.id)
+                        if (longPress != null) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            draggingTabId = tab.id
+                            dragOffsetPx = 0f
+                            isDragging = false
+
+                            // Open menu immediately upon long press
+                            menuTabId = tab.id
+
+                            val currentPointerId = longPress.id
+                            while (true) {
+                                val event = awaitPointerEvent()
+                                val dragChange = event.changes.firstOrNull { it.id == currentPointerId } ?: break
+
+                                if (dragChange.isConsumed) {
+                                    break
+                                }
+
+                                if (dragChange.changedToUp()) {
+                                    dragChange.consume()
+                                    break
+                                }
+
+                                val dragAmount = dragChange.positionChange()
+                                dragOffsetPx += dragAmount.x
+                                dragChange.consume()
+
+                                if (!isDragging && abs(dragOffsetPx) > touchSlop) {
+                                    isDragging = true
+                                    // Close menu as soon as dragging begins
+                                    if (menuTabId != null) {
+                                        menuTabId = null
+                                    }
+                                }
+
+                                if (isDragging) {
+                                    val currentIndex = currentTabs.indexOfFirst { it.id == draggingTabId }
+                                    if (currentIndex != -1) {
+                                        val swapThreshold = with(density) { 44.dp.toPx() }
+                                        if (dragOffsetPx > swapThreshold && currentIndex < currentTabs.lastIndex) {
+                                            val targetIndex = currentIndex + 1
+                                            val mutable = currentTabs.toMutableList()
+                                            Collections.swap(mutable, currentIndex, targetIndex)
+                                            currentTabs = mutable
+                                            dragOffsetPx -= swapThreshold
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        } else if (dragOffsetPx < -swapThreshold && currentIndex > 0) {
+                                            val targetIndex = currentIndex - 1
+                                            val mutable = currentTabs.toMutableList()
+                                            Collections.swap(mutable, currentIndex, targetIndex)
+                                            currentTabs = mutable
+                                            dragOffsetPx += swapThreshold
+                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (isDragging) {
+                                if (currentTabs != tabs) {
+                                    onEvent(BrowserUiEvent.ReorderTabs(currentTabs))
+                                }
+                            }
+                            draggingTabId = null
+                            dragOffsetPx = 0f
+                            isDragging = false
+                        } else {
+                            val up = currentEvent.changes.firstOrNull { it.id == down.id }
+                            if (up != null && !up.isConsumed) {
+                                up.consume()
+                                if (isActive) {
+                                    onEvent(BrowserUiEvent.OpenSearch(tab.url))
+                                } else {
+                                    onEvent(BrowserUiEvent.SelectTab(tab.id))
+                                }
+                            }
+                        }
+                    }
+                }
+
             if (isActive) {
                 ActiveTabPill(
                     tab = tab,
                     width = activePillWidth,
-                    onTap = {
-                        onEvent(BrowserUiEvent.OpenSearch(tab.url))
-                    },
+                    isMenuExpanded = menuTabId == tab.id,
+                    onDismissMenu = { if (menuTabId == tab.id) menuTabId = null },
                     onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
-                    onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) }
+                    onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) },
+                    modifier = tabModifier
                 )
             } else {
                 InactiveTabCircle(
                     tab = tab,
-                    onSelect = { onEvent(BrowserUiEvent.SelectTab(tab.id)) },
+                    isMenuExpanded = menuTabId == tab.id,
+                    onDismissMenu = { if (menuTabId == tab.id) menuTabId = null },
                     onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
-                    onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) }
+                    onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) },
+                    modifier = tabModifier
                 )
             }
         }
@@ -198,16 +330,16 @@ private fun Tier1TabStrip(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ActiveTabPill(
     tab: Tab,
     width: androidx.compose.ui.unit.Dp,
-    onTap: () -> Unit,
+    isMenuExpanded: Boolean,
+    onDismissMenu: () -> Unit,
     onClose: () -> Unit,
-    onAddFavorite: () -> Unit
+    onAddFavorite: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    var isMenuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     Surface(
@@ -215,14 +347,10 @@ private fun ActiveTabPill(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
         shadowElevation = 3.dp,
-        modifier = Modifier
+        modifier = modifier
             .width(width)
             .height(48.dp)
             .clip(RoundedCornerShape(26.dp))
-            .combinedClickable(
-                onClick = onTap,
-                onLongClick = { isMenuExpanded = true }
-            )
     ) {
         Row(
             modifier = Modifier
@@ -287,13 +415,18 @@ private fun ActiveTabPill(
 
         DropdownMenu(
             expanded = isMenuExpanded,
-            onDismissRequest = { isMenuExpanded = false }
+            onDismissRequest = onDismissMenu,
+            properties = PopupProperties(
+                focusable = false,
+                dismissOnClickOutside = true,
+                dismissOnBackPress = true
+            )
         ) {
             DropdownMenuItem(
                 text = { Text("Close Tab") },
                 leadingIcon = { Icon(Icons.Default.Close, null) },
                 onClick = {
-                    isMenuExpanded = false
+                    onDismissMenu()
                     onClose()
                 }
             )
@@ -301,7 +434,7 @@ private fun ActiveTabPill(
                 text = { Text("Copy URL") },
                 leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
                 onClick = {
-                    isMenuExpanded = false
+                    onDismissMenu()
                     if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
@@ -315,7 +448,7 @@ private fun ActiveTabPill(
                 text = { Text("Add to Favorites") },
                 leadingIcon = { Icon(Icons.Default.Bookmark, null) },
                 onClick = {
-                    isMenuExpanded = false
+                    onDismissMenu()
                     if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
                         onAddFavorite()
                         Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
@@ -328,27 +461,23 @@ private fun ActiveTabPill(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun InactiveTabCircle(
     tab: Tab,
-    onSelect: () -> Unit,
+    isMenuExpanded: Boolean,
+    onDismissMenu: () -> Unit,
     onClose: () -> Unit,
-    onAddFavorite: () -> Unit
+    onAddFavorite: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    var isMenuExpanded by remember { mutableStateOf(false) }
 
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(44.dp)
             .clip(CircleShape)
             .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)), CircleShape)
-            .combinedClickable(
-                onClick = onSelect,
-                onLongClick = { isMenuExpanded = true }
-            ),
+            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)), CircleShape),
         contentAlignment = Alignment.Center
     ) {
         if (!tab.faviconUrl.isNullOrEmpty()) {
@@ -387,13 +516,18 @@ private fun InactiveTabCircle(
 
         DropdownMenu(
             expanded = isMenuExpanded,
-            onDismissRequest = { isMenuExpanded = false }
+            onDismissRequest = onDismissMenu,
+            properties = PopupProperties(
+                focusable = false,
+                dismissOnClickOutside = true,
+                dismissOnBackPress = true
+            )
         ) {
             DropdownMenuItem(
                 text = { Text("Close Tab") },
                 leadingIcon = { Icon(Icons.Default.Close, null) },
                 onClick = {
-                    isMenuExpanded = false
+                    onDismissMenu()
                     onClose()
                 }
             )
@@ -401,7 +535,7 @@ private fun InactiveTabCircle(
                 text = { Text("Copy URL") },
                 leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
                 onClick = {
-                    isMenuExpanded = false
+                    onDismissMenu()
                     if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
                         clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
@@ -415,7 +549,7 @@ private fun InactiveTabCircle(
                 text = { Text("Add to Favorites") },
                 leadingIcon = { Icon(Icons.Default.Bookmark, null) },
                 onClick = {
-                    isMenuExpanded = false
+                    onDismissMenu()
                     if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
                         onAddFavorite()
                         Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()

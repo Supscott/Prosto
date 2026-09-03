@@ -9,7 +9,7 @@ import com.jestk.browser.domain.model.Tab
 data class BrowserUiState(
     // Tabs & Sessions
     val tabs: List<Tab> = emptyList(),
-    val recentTabs: List<Tab> = emptyList(),
+    val recentTabs: List<com.jestk.browser.domain.model.RecentTabItem> = emptyList(),
     val activeTabId: String? = null,
 
     // Active Viewport / Overlay

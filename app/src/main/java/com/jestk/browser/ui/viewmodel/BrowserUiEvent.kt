@@ -9,6 +9,7 @@ import com.jestk.browser.domain.model.ThemeMode
 sealed interface BrowserUiEvent {
     // Tab Management
     data class OpenNewTab(val url: String = "") : BrowserUiEvent
+    data class OpenRecentTab(val item: com.jestk.browser.domain.model.RecentTabItem) : BrowserUiEvent
     data class SelectTab(val tabId: String) : BrowserUiEvent
     data class CloseTab(val tabId: String) : BrowserUiEvent
     data object CloseAllTabs : BrowserUiEvent
