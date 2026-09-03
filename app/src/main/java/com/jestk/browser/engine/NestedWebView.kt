@@ -46,6 +46,11 @@ class NestedWebView @JvmOverloads constructor(
             MotionEvent.ACTION_MOVE -> {
                 var deltaY = lastMotionY - y
 
+                scrollConsumed[0] = 0
+                scrollConsumed[1] = 0
+                scrollOffset[0] = 0
+                scrollOffset[1] = 0
+
                 // Step 1: Dispatch pre-scroll to Compose parent
                 if (dispatchNestedPreScroll(0, deltaY, scrollConsumed, scrollOffset, ViewCompat.TYPE_TOUCH)) {
                     deltaY -= scrollConsumed[1]
@@ -58,9 +63,23 @@ class NestedWebView @JvmOverloads constructor(
                 val dyConsumed = newScrollY - oldScrollY
                 val dyUnconsumed = deltaY - dyConsumed
 
-                // Step 2: Dispatch unconsumed scroll to parent (e.g. for PullToRefresh when at top, or overscroll)
-                if (dispatchNestedScroll(0, dyConsumed, 0, dyUnconsumed, scrollOffset, ViewCompat.TYPE_TOUCH)) {
-                    lastMotionY -= scrollOffset[1]
+                // Step 2: Dispatch downward unconsumed scroll ONLY when at the very top of webpage (!canScrollVertically(-1))
+                // This prevents pull-to-refresh from hijacking scrolls in the middle of a web page
+                val canScrollUp = canScrollVertically(-1)
+                val canScrollDown = canScrollVertically(1)
+
+                val unconsumedToDispatch = when {
+                    !canScrollUp && dyUnconsumed < 0 -> dyUnconsumed
+                    !canScrollDown && dyUnconsumed > 0 -> dyUnconsumed
+                    else -> 0
+                }
+
+                if (unconsumedToDispatch != 0) {
+                    if (dispatchNestedScroll(0, dyConsumed, 0, unconsumedToDispatch, scrollOffset, ViewCompat.TYPE_TOUCH)) {
+                        lastMotionY -= scrollOffset[1]
+                    }
+                } else if (dyConsumed != 0) {
+                    dispatchNestedScroll(0, dyConsumed, 0, 0, scrollOffset, ViewCompat.TYPE_TOUCH)
                 }
 
                 return handled

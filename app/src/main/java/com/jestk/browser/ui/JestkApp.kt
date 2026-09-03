@@ -32,6 +32,15 @@ import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
 import kotlinx.coroutines.flow.collectLatest
 
+private fun android.content.Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is android.content.ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
+
 @Composable
 fun JestkApp(
     viewModel: BrowserViewModel,
@@ -39,7 +48,6 @@ fun JestkApp(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val activity = context as? Activity
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     // Handle back button press hierarchy
@@ -47,10 +55,24 @@ fun JestkApp(
         viewModel.onEvent(BrowserUiEvent.HandleBackPress)
     }
 
+    // Automatically destroy closed WebViews when tabs are closed
+    val currentTabIds = androidx.compose.runtime.remember(uiState.tabs) {
+        uiState.tabs.map { it.id }.toSet()
+    }
+    LaunchedEffect(currentTabIds) {
+        if (currentTabIds.isNotEmpty()) {
+            webViewPool.retainTabs(currentTabIds)
+        }
+    }
+
     // Handle navigation commands targeting WebView & Application
-    LaunchedEffect(viewModel, uiState.activeTabId) {
+    LaunchedEffect(viewModel) {
         viewModel.navigationCommands.collectLatest { command ->
-            val activeId = uiState.activeTabId ?: return@collectLatest
+            if (command is NavigationCommand.ExitApp) {
+                context.findActivity()?.finish()
+                return@collectLatest
+            }
+            val activeId = viewModel.uiState.value.activeTabId ?: return@collectLatest
             when (command) {
                 is NavigationCommand.LoadUrl -> {
                     val webView = webViewPool.getOrCreateWebView(activeId)
@@ -68,9 +90,7 @@ fun JestkApp(
                 is NavigationCommand.StopLoading -> {
                     webViewPool.getWebView(activeId)?.stopLoading()
                 }
-                is NavigationCommand.ExitApp -> {
-                    activity?.finish()
-                }
+                is NavigationCommand.ExitApp -> Unit
             }
         }
     }

@@ -366,9 +366,12 @@ class BrowserViewModel(
                 activeOverlay = OverlayType.NONE
             )
         }
-        val fallbackFavicon = com.jestk.browser.engine.FaviconManager.extractFallbackFaviconUrl(finalUrl)
-        if (fallbackFavicon != null) {
-            handleUpdateFavicon(activeId, fallbackFavicon)
+        val currentTab = _uiState.value.tabs.firstOrNull { it.id == activeId }
+        if (currentTab?.faviconUrl.isNullOrEmpty()) {
+            val fallbackFavicon = com.jestk.browser.engine.FaviconManager.extractFallbackFaviconUrl(finalUrl)
+            if (fallbackFavicon != null) {
+                handleUpdateFavicon(activeId, fallbackFavicon)
+            }
         }
         viewModelScope.launch(ioDispatcher) {
             tabRepository.updateTabDetails(activeId, finalUrl, finalUrl, canGoBack = false, canGoForward = false)
@@ -396,9 +399,12 @@ class BrowserViewModel(
         if (_uiState.value.activeTabId == tabId) {
             _uiState.update { it.copy(currentUrl = url, isLoading = true, loadingProgress = 0.15f) }
         }
-        val fallbackFavicon = com.jestk.browser.engine.FaviconManager.extractFallbackFaviconUrl(url)
-        if (fallbackFavicon != null) {
-            handleUpdateFavicon(tabId, fallbackFavicon)
+        val currentTab = _uiState.value.tabs.firstOrNull { it.id == tabId }
+        if (currentTab?.faviconUrl.isNullOrEmpty()) {
+            val fallbackFavicon = com.jestk.browser.engine.FaviconManager.extractFallbackFaviconUrl(url)
+            if (fallbackFavicon != null) {
+                handleUpdateFavicon(tabId, fallbackFavicon)
+            }
         }
     }
 

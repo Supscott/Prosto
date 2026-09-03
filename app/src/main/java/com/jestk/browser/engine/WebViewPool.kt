@@ -64,6 +64,11 @@ class WebViewPool(private val applicationContext: Context) {
         } catch (_: Exception) {}
     }
 
+    fun retainTabs(activeTabIds: Set<String>) {
+        val toRemove = pool.keys().toList().filter { it !in activeTabIds }
+        toRemove.forEach { removeWebView(it) }
+    }
+
     fun clearAll() {
         pool.keys().toList().forEach { removeWebView(it) }
     }

@@ -20,7 +20,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -30,17 +32,15 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
-
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.runtime.key
-import com.jestk.browser.engine.FaviconManager
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -51,15 +51,10 @@ fun WebViewContainer(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val scope = rememberCoroutineScope()
     val pullRefreshState = rememberPullRefreshState(
         refreshing = uiState.isLoading,
         onRefresh = { onEvent(BrowserUiEvent.Reload) }
-    )
-
-    // Dynamic bottom padding so web content is never obscured by the bottom bars
-    val bottomBarPadding by animateDpAsState(
-        targetValue = if (uiState.isBottomBarVisible) 128.dp else 62.dp,
-        label = "BottomBarPadding"
     )
 
     // NestedScrollConnection to report scroll delta for dynamic auto-hide of bottom bar
@@ -74,11 +69,12 @@ fun WebViewContainer(
         }
     }
 
+    // Stable fixed bottom padding: web content can scroll past the bottom bar without triggering continuous 60fps WebView physical resizing during scrolling
     Box(
         modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .padding(bottom = bottomBarPadding)
+            .padding(bottom = 124.dp)
             .navigationBarsPadding()
             .pullRefresh(pullRefreshState)
             .nestedScroll(nestedScrollConnection)
@@ -104,9 +100,6 @@ fun WebViewContainer(
                         isAdBlockerEnabled = { uiState.settings.isAdBlockerEnabled },
                         onPageStarted = { id, url ->
                             onEvent(BrowserUiEvent.OnPageStarted(id, url))
-                            FaviconManager.extractFallbackFaviconUrl(url)?.let {
-                                onEvent(BrowserUiEvent.UpdateFaviconUrl(id, it))
-                            }
                         },
                         onPageFinished = { id, url, title ->
                             onEvent(BrowserUiEvent.OnPageFinished(id, url, title))
@@ -128,9 +121,11 @@ fun WebViewContainer(
                             onEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
                         },
                         onFaviconReceived = { id, icon ->
-                            val path = FaviconManager.saveFavicon(context, id, icon)
-                            if (path != null) {
-                                onEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
+                            scope.launch {
+                                val path = FaviconManager.saveFavicon(context, id, icon)
+                                if (path != null) {
+                                    onEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
+                                }
                             }
                         }
                     )
@@ -138,9 +133,10 @@ fun WebViewContainer(
                     webView
                 },
                 update = { webView ->
-                    // Ensure parent detachment safety
-                    if (webView.parent != null && webView.parent !is ViewGroup) {
-                        (webView.parent as? ViewGroup)?.removeView(webView)
+                    // Detach from previous parent if needed
+                    val currentParent = webView.parent as? ViewGroup
+                    if (currentParent != null && currentParent.childCount > 1) {
+                        currentParent.removeView(webView)
                     }
                 },
                 onReset = { webView ->

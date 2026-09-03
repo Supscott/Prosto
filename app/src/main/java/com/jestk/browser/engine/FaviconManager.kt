@@ -23,18 +23,19 @@ object FaviconManager {
         }
     }
 
-    fun saveFavicon(context: Context, tabId: String, icon: Bitmap): String? {
-        return try {
-            val dir = File(context.filesDir, "favicons").apply {
-                if (!exists()) mkdirs()
+    suspend fun saveFavicon(context: Context, tabId: String, icon: Bitmap): String? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val dir = File(context.filesDir, "favicons").apply {
+                    if (!exists()) mkdirs()
+                }
+                val targetFile = File(dir, "favicon_${tabId}.png")
+                FileOutputStream(targetFile).use { out ->
+                    icon.compress(Bitmap.CompressFormat.PNG, 100, out)
+                }
+                targetFile.absolutePath
+            } catch (_: Exception) {
+                null
             }
-            val targetFile = File(dir, "favicon_${tabId}.png")
-            FileOutputStream(targetFile).use { out ->
-                icon.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
-            targetFile.absolutePath
-        } catch (_: Exception) {
-            null
         }
-    }
 }

@@ -15,7 +15,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,7 +52,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -167,8 +165,6 @@ private fun Tier1TabStrip(
                     onTap = {
                         onEvent(BrowserUiEvent.OpenSearch(tab.url))
                     },
-                    onSwipeNext = { onEvent(BrowserUiEvent.SwipeNextTab) },
-                    onSwipePrev = { onEvent(BrowserUiEvent.SwipePrevTab) },
                     onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
                     onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) }
                 )
@@ -208,12 +204,9 @@ private fun ActiveTabPill(
     tab: Tab,
     width: androidx.compose.ui.unit.Dp,
     onTap: () -> Unit,
-    onSwipeNext: () -> Unit,
-    onSwipePrev: () -> Unit,
     onClose: () -> Unit,
     onAddFavorite: () -> Unit
 ) {
-    var totalDrag by remember { mutableFloatStateOf(0f) }
     var isMenuExpanded by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
@@ -230,22 +223,6 @@ private fun ActiveTabPill(
                 onClick = onTap,
                 onLongClick = { isMenuExpanded = true }
             )
-            .pointerInput(tab.id) {
-                detectHorizontalDragGestures(
-                    onDragStart = { totalDrag = 0f },
-                    onDragEnd = {
-                        if (totalDrag > 50f) {
-                            onSwipePrev()
-                        } else if (totalDrag < -50f) {
-                            onSwipeNext()
-                        }
-                        totalDrag = 0f
-                    },
-                    onHorizontalDrag = { _, dragAmount ->
-                        totalDrag += dragAmount
-                    }
-                )
-            }
     ) {
         Row(
             modifier = Modifier
@@ -325,9 +302,13 @@ private fun ActiveTabPill(
                 leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
                 onClick = {
                     isMenuExpanded = false
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
-                    Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
+                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
             DropdownMenuItem(
@@ -335,8 +316,12 @@ private fun ActiveTabPill(
                 leadingIcon = { Icon(Icons.Default.Bookmark, null) },
                 onClick = {
                     isMenuExpanded = false
-                    onAddFavorite()
-                    Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
+                        onAddFavorite()
+                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
         }
@@ -417,9 +402,13 @@ private fun InactiveTabCircle(
                 leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
                 onClick = {
                     isMenuExpanded = false
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
-                    Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
+                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
             DropdownMenuItem(
@@ -427,8 +416,12 @@ private fun InactiveTabCircle(
                 leadingIcon = { Icon(Icons.Default.Bookmark, null) },
                 onClick = {
                     isMenuExpanded = false
-                    onAddFavorite()
-                    Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
+                        onAddFavorite()
+                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
+                    }
                 }
             )
         }
