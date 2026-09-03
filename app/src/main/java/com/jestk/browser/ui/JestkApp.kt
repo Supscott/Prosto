@@ -5,7 +5,10 @@ import android.view.ViewGroup
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +44,7 @@ private fun android.content.Context.findActivity(): Activity? {
     return null
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun JestkApp(
     viewModel: BrowserViewModel,
@@ -75,7 +79,7 @@ fun JestkApp(
             val activeId = viewModel.uiState.value.activeTabId ?: return@collectLatest
             when (command) {
                 is NavigationCommand.LoadUrl -> {
-                    val webView = webViewPool.getOrCreateWebView(activeId)
+                    val webView = webViewPool.getOrCreateWebView(activeId, context)
                     webView.loadUrl(command.url)
                 }
                 is NavigationCommand.GoBack -> {
@@ -85,7 +89,7 @@ fun JestkApp(
                     webViewPool.getWebView(activeId)?.goForward()
                 }
                 is NavigationCommand.Reload -> {
-                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId)
+                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context)
                     if (webView.url.isNullOrEmpty() || webView.url == "about:blank") {
                         val url = viewModel.uiState.value.currentUrl
                         if (url.isNotEmpty() && url != "about:blank") {
@@ -135,7 +139,7 @@ fun JestkApp(
             }
 
             // Dual-Tier Bottom Navigation Bar (Tier 1 Tab Strip + Tier 2 Action Dock)
-            if (!uiState.isFullscreenCustomView) {
+            if (!uiState.isFullscreenCustomView && !WindowInsets.isImeVisible) {
                 DualTierBottomBar(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,

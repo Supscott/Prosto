@@ -42,6 +42,8 @@ class NestedWebView @JvmOverloads constructor(
 
     init {
         isNestedScrollingEnabled = true
+        isFocusable = true
+        isFocusableInTouchMode = true
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -51,6 +53,9 @@ class NestedWebView @JvmOverloads constructor(
 
         when (action) {
             MotionEvent.ACTION_DOWN -> {
+                if (!hasFocus()) {
+                    requestFocus()
+                }
                 lastMotionY = y
                 startNestedScroll(ViewCompat.SCROLL_AXIS_VERTICAL, ViewCompat.TYPE_TOUCH)
                 return super.onTouchEvent(event)

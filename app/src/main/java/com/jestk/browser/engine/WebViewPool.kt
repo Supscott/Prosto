@@ -1,27 +1,45 @@
 package com.jestk.browser.engine
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
+import android.content.MutableContextWrapper
 import android.view.ViewGroup
 import android.webkit.WebSettings
 import android.webkit.WebView
 import java.util.concurrent.ConcurrentHashMap
+
+fun Context.findActivity(): Activity? {
+    var ctx = this
+    while (ctx is ContextWrapper) {
+        if (ctx is Activity) return ctx
+        ctx = ctx.baseContext
+    }
+    return null
+}
 
 class WebViewPool(private val applicationContext: Context) {
 
     private val pool = ConcurrentHashMap<String, WebView>()
 
     @SuppressLint("SetJavaScriptEnabled")
-    fun getOrCreateWebView(tabId: String): WebView {
+    fun getOrCreateWebView(tabId: String, context: Context? = null): WebView {
+        val targetContext = context?.findActivity() ?: context ?: applicationContext
         val existing = pool[tabId]
         if (existing != null) {
             // Ensure parent detachment before returning for Compose AndroidView mounting
             detachFromParent(existing)
+            (existing.context as? MutableContextWrapper)?.baseContext = targetContext
             return existing
         }
 
-        // Initialize with applicationContext to prevent leaking Activity context
-        val webView = NestedWebView(applicationContext).apply {
+        // Initialize with MutableContextWrapper using Activity context so Chromium can attach to Window
+        // and display the soft keyboard when input fields are focused.
+        val contextWrapper = MutableContextWrapper(targetContext)
+        val webView = NestedWebView(contextWrapper).apply {
+            isFocusable = true
+            isFocusableInTouchMode = true
             settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
@@ -56,6 +74,7 @@ class WebViewPool(private val applicationContext: Context) {
     fun removeWebView(tabId: String) {
         val webView = pool.remove(tabId) ?: return
         detachFromParent(webView)
+        (webView.context as? MutableContextWrapper)?.baseContext = applicationContext
         try {
             webView.stopLoading()
             webView.loadUrl("about:blank")

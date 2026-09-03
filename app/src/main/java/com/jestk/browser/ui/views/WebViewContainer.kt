@@ -1,13 +1,18 @@
 package com.jestk.browser.ui.views
 
+import android.content.MutableContextWrapper
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -35,10 +40,12 @@ import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.engine.findActivity
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WebViewContainer(
     tabId: String,
@@ -70,21 +77,29 @@ fun WebViewContainer(
         }
     }
 
+    val isImeVisible = WindowInsets.isImeVisible
+    val bottomPadding = if (isImeVisible) 0.dp else 124.dp
+
     // Stable fixed bottom padding: web content can scroll past the bottom bar without triggering continuous 60fps WebView physical resizing during scrolling
     Box(
         modifier = modifier
             .fillMaxSize()
             .statusBarsPadding()
-            .padding(bottom = 124.dp)
+            .padding(bottom = bottomPadding)
             .navigationBarsPadding()
+            .imePadding()
             .nestedScroll(nestedScrollConnection)
     ) {
         key(tabId) {
             AndroidView<SwipeRefreshLayout>(
                 factory = { context ->
-                    val webView = webViewPool.getOrCreateWebView(tabId)
+                    val activity = context.findActivity() ?: context
+                    val webView = webViewPool.getOrCreateWebView(tabId, activity)
                     // Enforce proper parent detachment when recycling WebViews in Compose
                     (webView.parent as? ViewGroup)?.removeView(webView)
+                    (webView.context as? MutableContextWrapper)?.baseContext = activity
+                    webView.isFocusable = true
+                    webView.isFocusableInTouchMode = true
 
                     webView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
                         val dy = scrollY - oldScrollY
@@ -142,6 +157,7 @@ fun WebViewContainer(
                     SwipeRefreshLayout(context).apply {
                         setColorSchemeColors(primaryColor)
                         setProgressBackgroundColorSchemeColor(surfaceColor)
+                        descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
                         setOnRefreshListener {
                             currentOnEvent(BrowserUiEvent.Reload)
                         }
@@ -163,6 +179,11 @@ fun WebViewContainer(
                     swipeRefresh.setProgressBackgroundColorSchemeColor(surfaceColor)
 
                     val currentWebView = swipeRefresh.getChildAt(0) as? android.webkit.WebView ?: webViewPool.getWebView(tabId)
+                    val activity = swipeRefresh.context.findActivity() ?: swipeRefresh.context
+                    (currentWebView?.context as? MutableContextWrapper)?.baseContext = activity
+                    currentWebView?.isFocusable = true
+                    currentWebView?.isFocusableInTouchMode = true
+
                     val currentNested = currentWebView as? NestedWebView
                     val currentLoadedUrl = currentNested?.loadedUrl
                     val isCurrentUnloaded = currentLoadedUrl.isNullOrEmpty() || currentLoadedUrl == "about:blank"
