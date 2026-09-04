@@ -148,7 +148,6 @@ fun WebViewContainer(
 
                     webView.webChromeClient = JestkWebChromeClient(
                         tabId = tabId,
-                        webView = webView,
                         onProgressChanged = { id, progress -> currentOnEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
                         onTitleReceived = { _, _ -> },
                         onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
@@ -209,17 +208,11 @@ fun WebViewContainer(
                             currentOnEvent(BrowserUiEvent.Reload)
                         }
                         setOnChildScrollUpCallback { _, _ ->
-                            val url = webView.url.orEmpty()
-                            val isVideoPage = url.contains("youtube.com/watch") || url.contains("youtu.be/")
-                            if (isVideoPage || currentUiState.isVideoPlaying) {
+                            val nested = webView as? NestedWebView
+                            if (nested != null && !nested.isPullToRefreshEligible()) {
                                 true
                             } else {
-                                val nested = webView as? NestedWebView
-                                if (nested != null && !nested.isPullToRefreshEligible()) {
-                                    true
-                                } else {
-                                    webView.canScrollVertically(-1) || webView.scrollY > 0
-                                }
+                                webView.canScrollVertically(-1) || webView.scrollY > 0
                             }
                         }
                         addView(

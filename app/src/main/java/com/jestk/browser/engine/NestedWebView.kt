@@ -4,10 +4,13 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.util.AttributeSet
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.webkit.WebView
 import androidx.core.view.NestedScrollingChild3
 import androidx.core.view.NestedScrollingChildHelper
 import androidx.core.view.ViewCompat
+import kotlin.math.abs
+import kotlin.math.max
 
 /**
  * A WebView subclass implementing NestedScrollingChild3.
@@ -19,6 +22,10 @@ class NestedWebView @JvmOverloads constructor(
     attrs: AttributeSet? = null,
     defStyleAttr: Int = 0
 ) : WebView(context, attrs, defStyleAttr), NestedScrollingChild3 {
+
+    companion object {
+        const val PULL_TO_REFRESH_SLOP_DP = 40f
+    }
 
     var loadedUrl: String? = null
 
@@ -36,7 +43,25 @@ class NestedWebView @JvmOverloads constructor(
         isNestedScrollingEnabled = true
     }
 
+    private var initialDownX: Float = 0f
+    private var initialDownY: Float = 0f
     private var lastMotionY: Int = 0
+    private var isLockedHorizontal: Boolean = false
+    private var isPullToRefreshActive: Boolean = false
+    private var accumulatedPullDistance: Float = 0f
+
+    private val touchSlop: Int by lazy {
+        ViewConfiguration.get(context).scaledTouchSlop
+    }
+
+    private val pullThresholdPx: Float by lazy {
+        PULL_TO_REFRESH_SLOP_DP * resources.displayMetrics.density
+    }
+
+    fun isPullToRefreshEligible(): Boolean {
+        return !isLockedHorizontal && !canScrollVertically(-1) && scrollY <= 0
+    }
+
     private val scrollConsumed = IntArray(2)
     private val scrollOffset = IntArray(2)
 
@@ -56,11 +81,41 @@ class NestedWebView @JvmOverloads constructor(
                 if (!hasFocus()) {
                     requestFocus()
                 }
+                initialDownX = event.x
+                initialDownY = event.y
                 lastMotionY = y
+                isLockedHorizontal = false
+                isPullToRefreshActive = false
+                accumulatedPullDistance = 0f
                 startNestedScroll(ViewCompat.SCROLL_AXIS_VERTICAL, ViewCompat.TYPE_TOUCH)
                 return super.onTouchEvent(event)
             }
+            MotionEvent.ACTION_POINTER_DOWN -> {
+                if (event.pointerCount > 1) {
+                    isLockedHorizontal = true
+                    isPullToRefreshActive = false
+                    accumulatedPullDistance = 0f
+                }
+                return super.onTouchEvent(event)
+            }
             MotionEvent.ACTION_MOVE -> {
+                if (event.pointerCount > 1) {
+                    isLockedHorizontal = true
+                    isPullToRefreshActive = false
+                    accumulatedPullDistance = 0f
+                }
+
+                val totalDx = event.x - initialDownX
+                val totalDy = event.y - initialDownY
+                val absDx = abs(totalDx)
+                val absDy = abs(totalDy)
+
+                if (!isLockedHorizontal && !isPullToRefreshActive) {
+                    if (absDx > touchSlop && absDx > absDy) {
+                        isLockedHorizontal = true
+                    }
+                }
+
                 var deltaY = lastMotionY - y
 
                 scrollConsumed[0] = 0
@@ -68,11 +123,19 @@ class NestedWebView @JvmOverloads constructor(
                 scrollOffset[0] = 0
                 scrollOffset[1] = 0
 
-                // Step 1: Dispatch pre-scroll to Compose parent
+                // Step 1: Dispatch pre-scroll to Compose parent / SwipeRefreshLayout
                 if (dispatchNestedPreScroll(0, deltaY, scrollConsumed, scrollOffset, ViewCompat.TYPE_TOUCH)) {
                     deltaY -= scrollConsumed[1]
                 }
                 lastMotionY = y - scrollOffset[1]
+
+                // If parent consumed upward motion while pull-to-refresh was active, reduce accumulated distance
+                if (scrollConsumed[1] > 0 && accumulatedPullDistance > 0f) {
+                    accumulatedPullDistance = max(0f, accumulatedPullDistance - scrollConsumed[1])
+                    if (accumulatedPullDistance < pullThresholdPx) {
+                        isPullToRefreshActive = false
+                    }
+                }
 
                 val oldScrollY = scrollY
                 val handled = super.onTouchEvent(event)
@@ -80,15 +143,38 @@ class NestedWebView @JvmOverloads constructor(
                 val dyConsumed = newScrollY - oldScrollY
                 val dyUnconsumed = deltaY - dyConsumed
 
-                // Step 2: Dispatch downward unconsumed scroll ONLY when at the very top of webpage (!canScrollVertically(-1))
-                // This prevents pull-to-refresh from hijacking scrolls in the middle of a web page
                 val canScrollUp = canScrollVertically(-1)
                 val canScrollDown = canScrollVertically(1)
 
-                val unconsumedToDispatch = when {
-                    !canScrollUp && dyUnconsumed < 0 -> dyUnconsumed
-                    !canScrollDown && dyUnconsumed > 0 -> dyUnconsumed
-                    else -> 0
+                if (canScrollUp || scrollY > 0) {
+                    accumulatedPullDistance = 0f
+                    isPullToRefreshActive = false
+                }
+
+                // Step 2: Dispatch downward unconsumed scroll ONLY when at the very top of webpage (!canScrollVertically(-1))
+                // and ONLY after a longer swipe down threshold has been reached, and gesture is not horizontal.
+                var unconsumedToDispatch = 0
+                if (!canScrollUp && dyUnconsumed < 0) {
+                    if (!isLockedHorizontal) {
+                        val pullDelta = -dyUnconsumed.toFloat()
+                        accumulatedPullDistance += pullDelta
+                        if (accumulatedPullDistance >= pullThresholdPx) {
+                            if (!isPullToRefreshActive) {
+                                isPullToRefreshActive = true
+                                val excess = accumulatedPullDistance - pullThresholdPx
+                                unconsumedToDispatch = -(excess.toInt().coerceAtLeast(1))
+                            } else {
+                                unconsumedToDispatch = dyUnconsumed
+                            }
+                        }
+                    }
+                } else if (!canScrollDown && dyUnconsumed > 0) {
+                    unconsumedToDispatch = dyUnconsumed
+                } else if (dyUnconsumed > 0 && accumulatedPullDistance > 0f) {
+                    accumulatedPullDistance = max(0f, accumulatedPullDistance - dyUnconsumed)
+                    if (accumulatedPullDistance < pullThresholdPx) {
+                        isPullToRefreshActive = false
+                    }
                 }
 
                 if (unconsumedToDispatch != 0) {
@@ -103,6 +189,9 @@ class NestedWebView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 val handled = super.onTouchEvent(event)
+                isLockedHorizontal = false
+                isPullToRefreshActive = false
+                accumulatedPullDistance = 0f
                 stopNestedScroll(ViewCompat.TYPE_TOUCH)
                 return handled
             }
