@@ -637,4 +637,30 @@ class BrowserViewModelTest {
         assertThat(viewModel.uiState.value.isMenuExpanded).isFalse()
         assertThat(viewModel.uiState.value.tabs).hasSize(1)
     }
+
+    @Test
+    fun search_onActiveTabWithExistingUrl_updatesUrlAndDismissesOverlay() = runTest(testDispatcher) {
+        val tab = tabRepo.createTab(url = "https://example.com", title = "Example")
+        tabRepo.setActiveTab(tab.id)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // User taps active tab to open search overlay
+        viewModel.onEvent(BrowserUiEvent.OpenSearch(tab.url))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.activeOverlay).isEqualTo(OverlayType.SEARCH)
+        assertThat(viewModel.uiState.value.searchQuery).isEqualTo("https://example.com")
+
+        // User types new query and submits
+        viewModel.onEvent(BrowserUiEvent.SubmitSearch("https://newsite.org"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.currentUrl).isEqualTo("https://newsite.org")
+        assertThat(state.activeOverlay).isEqualTo(OverlayType.NONE)
+        assertThat(state.tabs.find { it.id == tab.id }?.url).isEqualTo("https://newsite.org")
+        assertThat(state.activeThemeColor).isNull()
+        assertThat(state.isVideoPlaying).isFalse()
+    }
 }

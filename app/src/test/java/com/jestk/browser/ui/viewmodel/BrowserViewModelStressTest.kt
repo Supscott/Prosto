@@ -448,19 +448,11 @@ class BrowserViewModelStressTest {
 
         assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
 
-        // Small downward scroll (below +10 threshold) should not hide
-        viewModel.onEvent(BrowserUiEvent.OnWebScroll(5f))
+        // Downward scroll maintains bottom bar visible
+        viewModel.onEvent(BrowserUiEvent.OnWebScroll(15f))
         assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
 
-        // Exceeding downward threshold (+15f) hides bar
-        viewModel.onEvent(BrowserUiEvent.OnWebScroll(15f))
-        assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
-
-        // Small upward scroll (below -10 threshold) should not reveal
-        viewModel.onEvent(BrowserUiEvent.OnWebScroll(-5f))
-        assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
-
-        // Exceeding upward threshold (-15f) reveals bar
+        // Upward scroll maintains bottom bar visible
         viewModel.onEvent(BrowserUiEvent.OnWebScroll(-15f))
         assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
     }

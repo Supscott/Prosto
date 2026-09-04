@@ -28,8 +28,6 @@ class WebViewPool(private val applicationContext: Context) {
         val targetContext = context?.findActivity() ?: context ?: applicationContext
         val existing = pool[tabId]
         if (existing != null) {
-            // Ensure parent detachment before returning for Compose AndroidView mounting
-            detachFromParent(existing)
             (existing.context as? MutableContextWrapper)?.baseContext = targetContext
             return existing
         }

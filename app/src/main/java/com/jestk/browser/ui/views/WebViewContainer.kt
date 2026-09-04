@@ -201,7 +201,7 @@ fun WebViewContainer(
                         }
                     }
 
-                    SwipeRefreshLayout(context).apply {
+                    JestkSwipeRefreshLayout(context).apply {
                         setColorSchemeColors(primaryColor)
                         setProgressBackgroundColorSchemeColor(surfaceColor)
                         descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -214,7 +214,12 @@ fun WebViewContainer(
                             if (isVideoPage || currentUiState.isVideoPlaying) {
                                 true
                             } else {
-                                webView.canScrollVertically(-1) || webView.scrollY > 0
+                                val nested = webView as? NestedWebView
+                                if (nested != null && !nested.isPullToRefreshEligible()) {
+                                    true
+                                } else {
+                                    webView.canScrollVertically(-1) || webView.scrollY > 0
+                                }
                             }
                         }
                         addView(
@@ -231,18 +236,30 @@ fun WebViewContainer(
                     swipeRefresh.setColorSchemeColors(primaryColor)
                     swipeRefresh.setProgressBackgroundColorSchemeColor(surfaceColor)
 
-                    val currentWebView = swipeRefresh.getChildAt(0) as? android.webkit.WebView ?: webViewPool.getWebView(tabId)
                     val activity = swipeRefresh.context.findActivity() ?: swipeRefresh.context
-                    (currentWebView?.context as? MutableContextWrapper)?.baseContext = activity
-                    currentWebView?.isFocusable = true
-                    currentWebView?.isFocusableInTouchMode = true
+                    val currentWebView = (swipeRefresh.getChildAt(0) as? android.webkit.WebView)
+                        ?: webViewPool.getOrCreateWebView(tabId, activity)
+                    (currentWebView.context as? MutableContextWrapper)?.baseContext = activity
+                    currentWebView.isFocusable = true
+                    currentWebView.isFocusableInTouchMode = true
+
+                    if (currentWebView.parent !== swipeRefresh) {
+                        (currentWebView.parent as? ViewGroup)?.removeView(currentWebView)
+                        swipeRefresh.addView(
+                            currentWebView,
+                            ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                        )
+                    }
 
                     val currentNested = currentWebView as? NestedWebView
                     val currentLoadedUrl = currentNested?.loadedUrl
                     val isCurrentUnloaded = currentLoadedUrl.isNullOrEmpty() || currentLoadedUrl == "about:blank"
                     if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
-                        if (isCurrentUnloaded && (currentWebView?.url.isNullOrEmpty() || currentWebView?.url == "about:blank")) {
-                            currentWebView?.loadUrl(targetUrl)
+                        if (isCurrentUnloaded && (currentWebView.url.isNullOrEmpty() || currentWebView.url == "about:blank")) {
+                            currentWebView.loadUrl(targetUrl)
                         }
                     }
                 },

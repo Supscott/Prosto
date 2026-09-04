@@ -522,10 +522,16 @@ class BrowserViewModel(
         }
 
         _uiState.update {
+            val updatedTabs = it.tabs.map { tab ->
+                if (tab.id == activeId) tab.copy(url = finalUrl, title = finalUrl) else tab
+            }
             it.copy(
+                tabs = updatedTabs,
                 currentUrl = finalUrl,
                 isLoading = true,
                 loadingProgress = 0.1f,
+                activeThemeColor = null,
+                isVideoPlaying = false,
                 isMenuExpanded = it.settings.isMenuExpandedOnWeb,
                 activeOverlay = OverlayType.NONE
             )

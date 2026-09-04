@@ -95,7 +95,7 @@ fun JestkApp(
             val activeId = viewModel.uiState.value.activeTabId ?: return@collectLatest
             when (command) {
                 is NavigationCommand.LoadUrl -> {
-                    val webView = webViewPool.getOrCreateWebView(activeId, context)
+                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context)
                     webView.loadUrl(command.url)
                 }
                 is NavigationCommand.GoBack -> {

@@ -135,4 +135,21 @@ class SessionRestoreWebViewTest {
         webView.onTouchEvent(downEvent)
         downEvent.recycle()
     }
+
+    @Test
+    fun webViewPool_getOrCreateWebView_doesNotDetachFromExistingParent() {
+        val appContext = ApplicationProvider.getApplicationContext<Context>()
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val pool = WebViewPool(appContext)
+
+        val webView = pool.getOrCreateWebView("tab-1", activity)
+        val parent = android.widget.FrameLayout(activity)
+        parent.addView(webView)
+        assertThat(webView.parent).isSameInstanceAs(parent)
+
+        // Calling getOrCreateWebView or getting from pool must NOT detach webView from parent
+        val retrieved = pool.getOrCreateWebView("tab-1", activity)
+        assertThat(retrieved).isSameInstanceAs(webView)
+        assertThat(retrieved.parent).isSameInstanceAs(parent)
+    }
 }
