@@ -219,7 +219,7 @@ class BrowserViewModelTest {
     }
 
     @Test
-    fun onWebScroll_togglesBottomBarVisibility() = runTest(testDispatcher) {
+    fun onWebScroll_maintainsBottomBarVisible() = runTest(testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
@@ -227,7 +227,7 @@ class BrowserViewModelTest {
 
         // Scroll down
         viewModel.onEvent(BrowserUiEvent.OnWebScroll(25f))
-        assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
+        assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
 
         // Scroll up
         viewModel.onEvent(BrowserUiEvent.OnWebScroll(-25f))

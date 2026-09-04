@@ -698,14 +698,9 @@ class BrowserViewModel(
         if (deltaY > 10f) {
             val current = _uiState.value
             val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
-            _uiState.update {
-                it.copy(
-                    isBottomBarVisible = false,
-                    isMenuExpanded = if (!isHome) false else it.isMenuExpanded
-                )
+            if (!isHome && current.isMenuExpanded) {
+                _uiState.update { it.copy(isMenuExpanded = false) }
             }
-        } else if (deltaY < -10f && !_uiState.value.isBottomBarVisible) {
-            _uiState.update { it.copy(isBottomBarVisible = true) }
         }
     }
 
