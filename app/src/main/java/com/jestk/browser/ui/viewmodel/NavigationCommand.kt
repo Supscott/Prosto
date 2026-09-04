@@ -7,4 +7,5 @@ sealed interface NavigationCommand {
     data object Reload : NavigationCommand
     data object StopLoading : NavigationCommand
     data object ExitApp : NavigationCommand
+    data object ExitFullscreen : NavigationCommand
 }

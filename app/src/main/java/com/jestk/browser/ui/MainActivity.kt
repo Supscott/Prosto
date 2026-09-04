@@ -6,10 +6,14 @@ import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.util.Rational
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.ViewModelProvider
 import com.jestk.browser.JestkApplication
 import com.jestk.browser.engine.AdBlockerEngine
@@ -95,6 +99,25 @@ class MainActivity : ComponentActivity() {
             viewModel.onEvent(BrowserUiEvent.SetBottomBarVisibility(false))
         } else {
             viewModel.onEvent(BrowserUiEvent.SetBottomBarVisibility(true))
+        }
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (viewModel.uiState.value.isFullscreenCustomView) {
+            val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+            insetsController.systemBarsBehavior =
+                WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            insetsController.hide(WindowInsetsCompat.Type.systemBars())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val attrs = window.attributes
+                attrs.layoutInDisplayCutoutMode =
+                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                window.attributes = attrs
+            }
+            val activeId = viewModel.uiState.value.activeTabId
+            val webView = activeId?.let { (application as JestkApplication).container.webViewPool.getWebView(it) }
+            (webView?.webChromeClient as? com.jestk.browser.engine.JestkWebChromeClient)?.resumeVideoPlayback()
         }
     }
 }
