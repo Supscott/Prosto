@@ -49,154 +49,12 @@ class JestkWebViewClient(
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
             extractThemeColor(wv)
-            injectVideoGestureHandler(wv)
             SnapshotEngine.captureSnapshot(wv, tabId, wv.context) { path ->
                 if (path != null) {
                     onSnapshotReady(tabId, path)
                 }
             }
         }
-    }
-
-    private fun injectVideoGestureHandler(webView: WebView) {
-        val js = """
-            (function() {
-                if (window.__jestkVideoGestureInjected) return;
-                window.__jestkVideoGestureInjected = true;
-
-                var startX = 0;
-                var startY = 0;
-                var lastX = 0;
-                var lastY = 0;
-                var startTime = 0;
-                var gestureTriggered = false;
-
-                function triggerFullscreen() {
-                    if (gestureTriggered) return;
-                    gestureTriggered = true;
-
-                    // 1. Try YouTube's dedicated fullscreen button if available
-                    var ytBtn = document.querySelector(
-                        'button.fullscreen-icon, button.fullscreen-button, button.ytp-fullscreen-button, ' +
-                        '.ytp-fullscreen-button, .fullscreen-icon, ' +
-                        'button[aria-label*="Fullscreen" i], button[aria-label*="fullscreen" i], ' +
-                        'button[aria-label*="Полноэкранный" i], button[aria-label*="во весь экран" i], ' +
-                        'button[aria-keyshortcuts="f"]'
-                    );
-                    if (ytBtn) {
-                        try {
-                            ytBtn.click();
-                            return;
-                        } catch(e) {}
-                    }
-
-                    // 2. Try player container or video element
-                    var player = document.getElementById('player') ||
-                                 document.querySelector('#movie_player') ||
-                                 document.querySelector('.player-container') ||
-                                 document.querySelector('#player-control-overlay');
-                    var video = document.querySelector('video.html5-main-video') ||
-                                document.querySelector('video');
-                    var target = player || video;
-
-                    if (target) {
-                        var req = target.requestFullscreen ||
-                                  target.webkitRequestFullscreen ||
-                                  target.webkitEnterFullscreen;
-                        if (req) {
-                            try {
-                                req.call(target);
-                                return;
-                            } catch(e) {}
-                        }
-                    }
-
-                    if (video && target !== video) {
-                        var reqV = video.requestFullscreen ||
-                                   video.webkitRequestFullscreen ||
-                                   video.webkitEnterFullscreen;
-                        if (reqV) {
-                            try {
-                                reqV.call(video);
-                            } catch(e) {}
-                        }
-                    }
-                }
-
-                function isUnderVideo(y) {
-                    var video = document.querySelector('video.html5-main-video') ||
-                                document.querySelector('video');
-                    if (!video) return false;
-                    var rect = video.getBoundingClientRect();
-                    return y >= rect.top;
-                }
-
-                window.addEventListener('touchstart', function(e) {
-                    if (e.touches && e.touches.length === 1) {
-                        startX = e.touches[0].clientX;
-                        startY = e.touches[0].clientY;
-                        lastX = startX;
-                        lastY = startY;
-                        startTime = Date.now();
-                        gestureTriggered = false;
-                    }
-                }, { passive: true });
-
-                window.addEventListener('touchmove', function(e) {
-                    if (gestureTriggered) return;
-                    if (e.touches && e.touches.length === 1) {
-                        lastX = e.touches[0].clientX;
-                        lastY = e.touches[0].clientY;
-                        var dx = lastX - startX;
-                        var dy = lastY - startY;
-                        var dt = Date.now() - startTime;
-
-                        if (dy > 60 && Math.abs(dx) < dy * 1.5 && dt < 1000) {
-                            var isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-                            if (!isFullscreen && isUnderVideo(startY)) {
-                                if (e.cancelable) {
-                                    try { e.preventDefault(); } catch(_) {}
-                                }
-                                triggerFullscreen();
-                            }
-                        }
-                    }
-                }, { passive: false });
-
-                window.addEventListener('touchend', function(e) {
-                    if (gestureTriggered) return;
-                    if (e.changedTouches && e.changedTouches.length === 1) {
-                        var dx = e.changedTouches[0].clientX - startX;
-                        var dy = e.changedTouches[0].clientY - startY;
-                        var dt = Date.now() - startTime;
-
-                        if (dy > 60 && Math.abs(dx) < dy * 1.5 && dt < 1000) {
-                            var isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-                            if (!isFullscreen && isUnderVideo(startY)) {
-                                triggerFullscreen();
-                            }
-                        }
-                    }
-                }, { passive: true });
-
-                window.addEventListener('touchcancel', function(e) {
-                    if (gestureTriggered) return;
-                    var dx = lastX - startX;
-                    var dy = lastY - startY;
-                    var dt = Date.now() - startTime;
-
-                    if (dy > 60 && Math.abs(dx) < dy * 1.5 && dt < 1000) {
-                        var isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
-                        if (!isFullscreen && isUnderVideo(startY)) {
-                            triggerFullscreen();
-                        }
-                    }
-                }, { passive: true });
-            })();
-        """.trimIndent()
-        try {
-            webView.evaluateJavascript(js, null)
-        } catch (_: Exception) {}
     }
 
     private fun extractThemeColor(webView: WebView) {
@@ -233,7 +91,6 @@ class JestkWebViewClient(
         super.doUpdateVisitedHistory(view, url, isReload)
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
-            injectVideoGestureHandler(wv)
         }
     }
 

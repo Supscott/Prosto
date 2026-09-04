@@ -24,7 +24,6 @@ class JestkWebChromeClientTest {
 
         val client = JestkWebChromeClient(
             tabId = "tab-1",
-            webView = null,
             onProgressChanged = { _, _ -> },
             onTitleReceived = { _, _ -> },
             onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
@@ -69,7 +68,6 @@ class JestkWebChromeClientTest {
 
         val client = JestkWebChromeClient(
             tabId = "tab-1",
-            webView = null,
             onProgressChanged = { _, _ -> },
             onTitleReceived = { _, _ -> },
             onFullscreenCustomViewChanged = { _, _, orientation ->
@@ -94,7 +92,6 @@ class JestkWebChromeClientTest {
 
         val client = JestkWebChromeClient(
             tabId = "tab-1",
-            webView = null,
             onProgressChanged = { _, _ -> },
             onTitleReceived = { _, _ -> },
             onFullscreenCustomViewChanged = { _, _, orientation ->
@@ -121,7 +118,6 @@ class JestkWebChromeClientTest {
 
         val client = JestkWebChromeClient(
             tabId = "tab-1",
-            webView = null,
             onProgressChanged = { _, _ -> },
             onTitleReceived = { _, _ -> },
             onFullscreenCustomViewChanged = { view, _, _ -> lastReceivedView = view },
@@ -148,7 +144,6 @@ class JestkWebChromeClientTest {
 
         val client = JestkWebChromeClient(
             tabId = "tab-1",
-            webView = null,
             onProgressChanged = { _, _ -> },
             onTitleReceived = { _, _ -> },
             onFullscreenCustomViewChanged = { _, _, _ -> },

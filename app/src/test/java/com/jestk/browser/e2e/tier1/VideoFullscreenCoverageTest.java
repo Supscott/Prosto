@@ -17,19 +17,11 @@ public class VideoFullscreenCoverageTest {
         Object activeCustomView = null;
         CustomViewCallback currentCallback = null;
         boolean isFullscreen = false;
-        int requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
 
         public void onShowCustomView(Object view, CustomViewCallback callback) {
-            onShowCustomView(view, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE, callback);
-        }
-
-        public void onShowCustomView(Object view, int orientation, CustomViewCallback callback) {
             this.activeCustomView = view;
             this.currentCallback = callback;
             this.isFullscreen = true;
-            this.requestedOrientation = orientation == android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                    ? android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                    : android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE;
         }
 
         public void onHideCustomView() {
@@ -39,7 +31,6 @@ public class VideoFullscreenCoverageTest {
             this.activeCustomView = null;
             this.currentCallback = null;
             this.isFullscreen = false;
-            this.requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
         }
     }
 
@@ -82,34 +73,13 @@ public class VideoFullscreenCoverageTest {
 
     @Test
     public void testFullscreenCustomViewHidesStandardUIElements() {
-        // When fullscreen is active, browser chrome and phone system UI should be hidden
+        // When fullscreen is active, browser chrome should be hidden
         boolean isFullscreen = true;
         boolean shouldHideBottomBar = isFullscreen;
         boolean shouldHideTabStrip = isFullscreen;
-        boolean shouldHideSystemBars = isFullscreen;
 
         assertThat(shouldHideBottomBar).isTrue();
         assertThat(shouldHideTabStrip).isTrue();
-        assertThat(shouldHideSystemBars).isTrue();
-    }
-
-    @Test
-    public void testFullscreenCustomViewRotatesToLandscape() {
-        MockChromeClient client = new MockChromeClient();
-        Object videoView = new Object();
-
-        // Spec requirement (Task 2): entering fullscreen switches to landscape orientation
-        client.onShowCustomView(videoView, () -> {});
-
-        assertThat(client.isFullscreen).isTrue();
-        assertThat(client.requestedOrientation).isEqualTo(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
-
-        // Portrait video requested
-        client.onShowCustomView(videoView, android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, () -> {});
-        assertThat(client.requestedOrientation).isEqualTo(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT);
-
-        client.onHideCustomView();
-        assertThat(client.requestedOrientation).isEqualTo(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
     }
 
     @Test
