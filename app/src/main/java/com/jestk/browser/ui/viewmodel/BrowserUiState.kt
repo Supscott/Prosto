@@ -38,11 +38,13 @@ data class BrowserUiState(
     val isBottomBarVisible: Boolean = true,
     val bottomBarOffsetY: Float = 0f,
     val activeThemeColor: Int? = null,
+    val isMenuExpanded: Boolean = false,
 
     // Media & Fullscreen
     val isVideoPlaying: Boolean = false,
     val isFullscreenCustomView: Boolean = false,
-    val fullscreenCustomView: Any? = null
+    val fullscreenCustomView: Any? = null,
+    val fullscreenRequestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
 ) {
     val activeTab: Tab?
         get() = tabs.find { it.id == activeTabId }

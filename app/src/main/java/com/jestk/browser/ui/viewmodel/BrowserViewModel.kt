@@ -75,6 +75,8 @@ class BrowserViewModel(
 
         val hasWebUrl = activeTab.url.isNotEmpty() && activeTab.url != "about:blank"
         val initialThemeColor = if (hasWebUrl) (tabThemeColors[activeTab.id] ?: activeTab.themeColor) else null
+        val isHome = !hasWebUrl
+        val menuExpandedInitial = if (isHome) true else initialSettings.isMenuExpandedOnWeb
 
         _uiState.update { state ->
             state.copy(
@@ -88,6 +90,7 @@ class BrowserViewModel(
                 isLoading = hasWebUrl,
                 loadingProgress = if (hasWebUrl) 0.15f else 0f,
                 settings = initialSettings,
+                isMenuExpanded = menuExpandedInitial,
                 activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME
             )
         }
@@ -178,11 +181,15 @@ class BrowserViewModel(
 
             is BrowserUiEvent.OpenOverlay -> _uiState.update { it.copy(activeOverlay = event.overlay) }
             is BrowserUiEvent.DismissOverlay -> _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
-            is BrowserUiEvent.OpenHome -> _uiState.update { it.copy(activeOverlay = OverlayType.HOME) }
+            is BrowserUiEvent.OpenHome -> _uiState.update { it.copy(activeOverlay = OverlayType.HOME, isMenuExpanded = true) }
             is BrowserUiEvent.OpenSearch -> {
-                val prefill = event.prefilledUrl ?: _uiState.value.currentUrl
-                _uiState.update { it.copy(activeOverlay = OverlayType.SEARCH, searchQuery = prefill) }
-                updateHistorySuggestions(prefill)
+                if (event.openInNewTab) {
+                    openNewTabForSearch()
+                } else {
+                    val prefill = event.prefilledUrl ?: _uiState.value.currentUrl
+                    _uiState.update { it.copy(activeOverlay = OverlayType.SEARCH, searchQuery = prefill) }
+                    updateHistorySuggestions(prefill)
+                }
             }
             is BrowserUiEvent.OpenTabGrid -> _uiState.update { it.copy(activeOverlay = OverlayType.TAB_GRID) }
             is BrowserUiEvent.OpenSettings -> _uiState.update { it.copy(activeOverlay = OverlayType.SETTINGS) }
@@ -247,13 +254,74 @@ class BrowserViewModel(
 
             is BrowserUiEvent.OnWebScroll -> handleWebScroll(event.deltaY)
             is BrowserUiEvent.SetBottomBarVisibility -> _uiState.update { it.copy(isBottomBarVisible = event.visible) }
+            is BrowserUiEvent.ToggleMenu -> {
+                val current = _uiState.value
+                val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
+                val target = event.expanded ?: !current.isMenuExpanded
+                _uiState.update { it.copy(isMenuExpanded = target) }
+                if (!isHome) {
+                    viewModelScope.launch(ioDispatcher) {
+                        settingsRepository.setMenuExpandedOnWeb(target)
+                    }
+                }
+            }
+            is BrowserUiEvent.SetMenuExpanded -> {
+                val current = _uiState.value
+                val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
+                _uiState.update { it.copy(isMenuExpanded = event.expanded) }
+                if (!isHome) {
+                    viewModelScope.launch(ioDispatcher) {
+                        settingsRepository.setMenuExpandedOnWeb(event.expanded)
+                    }
+                }
+            }
 
             is BrowserUiEvent.SetVideoPlaying -> _uiState.update { it.copy(isVideoPlaying = event.isPlaying) }
             is BrowserUiEvent.SetFullscreenCustomView -> _uiState.update {
-                it.copy(fullscreenCustomView = event.view, isFullscreenCustomView = event.isFullscreen)
+                it.copy(
+                    fullscreenCustomView = event.view,
+                    isFullscreenCustomView = event.isFullscreen,
+                    fullscreenRequestedOrientation = event.requestedOrientation
+                )
+            }
+            is BrowserUiEvent.ExitFullscreen -> {
+                _navigationCommands.tryEmit(NavigationCommand.ExitFullscreen)
+                _uiState.update {
+                    it.copy(
+                        isFullscreenCustomView = false,
+                        fullscreenCustomView = null,
+                        fullscreenRequestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    )
+                }
             }
 
             is BrowserUiEvent.HandleBackPress -> handleBackNavigation()
+        }
+    }
+
+    private fun openNewTabForSearch() {
+        viewModelScope.launch(ioDispatcher) {
+            tabOperationMutex.withLock {
+                val created = tabRepository.createTab(url = "", title = "Search")
+                tabRepository.setActiveTab(created.id)
+                val currentTabs = _uiState.value.tabs.map { it.copy(isActive = false) }
+                val updatedTabs = currentTabs + created.copy(isActive = true)
+                _uiState.update {
+                    it.copy(
+                        tabs = updatedTabs,
+                        activeTabId = created.id,
+                        currentUrl = "",
+                        pageTitle = "Search",
+                        isLoading = false,
+                        activeThemeColor = null,
+                        activeOverlay = OverlayType.SEARCH,
+                        searchQuery = "",
+                        canGoBack = false,
+                        canGoForward = false
+                    )
+                }
+                updateHistorySuggestions("")
+            }
         }
     }
 
@@ -265,6 +333,8 @@ class BrowserViewModel(
                 tabRepository.setActiveTab(created.id)
                 val currentTabs = _uiState.value.tabs.map { it.copy(isActive = false) }
                 val updatedTabs = currentTabs + created.copy(isActive = true)
+                val isHome = url.isEmpty() || url == "about:blank"
+                val targetMenuExpanded = if (isHome) true else _uiState.value.settings.isMenuExpandedOnWeb
                 _uiState.update {
                     it.copy(
                         tabs = updatedTabs,
@@ -273,7 +343,8 @@ class BrowserViewModel(
                         pageTitle = title,
                         isLoading = url.isNotEmpty(),
                         activeThemeColor = null,
-                        activeOverlay = if (url.isEmpty() || url == "about:blank") OverlayType.HOME else OverlayType.NONE
+                        isMenuExpanded = targetMenuExpanded,
+                        activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE
                     )
                 }
                 if (url.isNotEmpty() && url != "about:blank") {
@@ -305,6 +376,7 @@ class BrowserViewModel(
         if (selected != null) {
             val isHome = selected.url.isEmpty() || selected.url == "about:blank"
             val cachedColor = tabThemeColors[tabId] ?: selected.themeColor
+            val targetMenuExpanded = if (isHome) true else _uiState.value.settings.isMenuExpandedOnWeb
             _uiState.update { state ->
                 val updatedTabs = state.tabs.map { t ->
                     val c = tabThemeColors[t.id] ?: t.themeColor
@@ -318,6 +390,7 @@ class BrowserViewModel(
                     canGoBack = selected.canGoBack,
                     canGoForward = selected.canGoForward,
                     activeThemeColor = if (isHome) null else cachedColor,
+                    isMenuExpanded = targetMenuExpanded,
                     activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE
                 )
             }
@@ -434,6 +507,7 @@ class BrowserViewModel(
                     currentUrl = "",
                     pageTitle = "Home",
                     isLoading = false,
+                    isMenuExpanded = true,
                     activeOverlay = OverlayType.HOME
                 )
             }
@@ -448,6 +522,7 @@ class BrowserViewModel(
                 currentUrl = finalUrl,
                 isLoading = true,
                 loadingProgress = 0.1f,
+                isMenuExpanded = it.settings.isMenuExpandedOnWeb,
                 activeOverlay = OverlayType.NONE
             )
         }
@@ -616,8 +691,15 @@ class BrowserViewModel(
     }
 
     private fun handleWebScroll(deltaY: Float) {
-        if (deltaY > 10f && _uiState.value.isBottomBarVisible) {
-            _uiState.update { it.copy(isBottomBarVisible = false) }
+        if (deltaY > 10f) {
+            val current = _uiState.value
+            val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
+            _uiState.update {
+                it.copy(
+                    isBottomBarVisible = false,
+                    isMenuExpanded = if (!isHome) false else it.isMenuExpanded
+                )
+            }
         } else if (deltaY < -10f && !_uiState.value.isBottomBarVisible) {
             _uiState.update { it.copy(isBottomBarVisible = true) }
         }
@@ -629,6 +711,15 @@ class BrowserViewModel(
 
     private fun handleBackNavigation() {
         val current = _uiState.value
+        if (current.isFullscreenCustomView) {
+            onEvent(BrowserUiEvent.ExitFullscreen)
+            return
+        }
+        val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
+        if (!isHome && current.isMenuExpanded) {
+            _uiState.update { it.copy(isMenuExpanded = false) }
+            return
+        }
         val isDismissibleOverlay = current.activeOverlay != OverlayType.NONE && current.activeOverlay != OverlayType.HOME
         if (isDismissibleOverlay) {
             _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }

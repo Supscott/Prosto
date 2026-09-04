@@ -4,31 +4,23 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -41,6 +33,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
@@ -60,22 +54,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
@@ -85,22 +74,21 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.window.PopupProperties
-import androidx.compose.ui.zIndex
-import java.util.Collections
-import kotlin.math.abs
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.zIndex
 import coil.compose.SubcomposeAsyncImage
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import java.util.Collections
+import kotlin.math.abs
 
 @Composable
-fun DualTierBottomBar(
+fun UnifiedBottomBar(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
@@ -119,11 +107,6 @@ fun DualTierBottomBar(
 
     val isLightSite = animatedBgColor.luminance() > 0.5f
 
-    val animDuration = 300
-    val offsetSpec = tween<IntOffset>(durationMillis = animDuration, easing = FastOutSlowInEasing)
-    val sizeSpec = tween<IntSize>(durationMillis = animDuration, easing = FastOutSlowInEasing)
-    val alphaSpec = tween<Float>(durationMillis = animDuration, easing = FastOutSlowInEasing)
-
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -138,39 +121,265 @@ fun DualTierBottomBar(
                 )
             )
     ) {
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .animateContentSize(animationSpec = tween(durationMillis = animDuration, easing = FastOutSlowInEasing))
                 .navigationBarsPadding()
-                .padding(bottom = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(bottom = 8.dp)
+                .height(56.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Tier 1: Horizontal Tab Strip
-            Tier1TabStrip(
+            // Scrollable Tab Strip (placed in background layer)
+            CenterTabStrip(
                 tabs = uiState.tabs,
                 activeTabId = uiState.activeTabId,
                 isLightSite = isLightSite,
+                isHome = isHome,
+                isMenuExpanded = uiState.isMenuExpanded,
                 onEvent = onEvent
             )
 
-            // Tier 2: Persistent Action Dock (hides when scrolling down on websites)
-            AnimatedVisibility(
-                visible = uiState.isBottomBarVisible,
-                enter = slideInVertically(animationSpec = offsetSpec, initialOffsetY = { it }) +
-                        expandVertically(animationSpec = sizeSpec) +
-                        fadeIn(animationSpec = alphaSpec),
-                exit = slideOutVertically(animationSpec = offsetSpec, targetOffsetY = { it }) +
-                       shrinkVertically(animationSpec = sizeSpec) +
-                       fadeOut(animationSpec = alphaSpec)
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Tier2ActionDock(
-                        activeOverlay = uiState.activeOverlay,
-                        isLightSite = isLightSite,
-                        onEvent = onEvent
+            // Left Edge Gradient Scrim (soft fade under absolute menu button)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(68.dp)
+                    .fillMaxHeight()
+                    .zIndex(1f)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                animatedBgColor.copy(alpha = 0.95f),
+                                animatedBgColor.copy(alpha = 0f)
+                            )
+                        )
                     )
+            )
+
+            // Right Edge Gradient Scrim (soft fade under all tabs button)
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(68.dp)
+                    .fillMaxHeight()
+                    .zIndex(1f)
+                    .background(
+                        Brush.horizontalGradient(
+                            colors = listOf(
+                                animatedBgColor.copy(alpha = 0f),
+                                animatedBgColor.copy(alpha = 0.95f)
+                            )
+                        )
+                    )
+            )
+
+            // Absolute Left Menu (Expandable with Arrow >)
+            AbsoluteLeftMenu(
+                isMenuExpanded = uiState.isMenuExpanded,
+                isHome = isHome,
+                activeOverlay = uiState.activeOverlay,
+                isLightSite = isLightSite,
+                onToggleMenu = {
+                    if (isHome) {
+                        // On home, keep open
+                        onEvent(BrowserUiEvent.ToggleMenu(true))
+                    } else {
+                        onEvent(BrowserUiEvent.ToggleMenu())
+                    }
+                },
+                onOpenHome = {
+                    if (!isHome) {
+                        onEvent(BrowserUiEvent.SetMenuExpanded(true))
+                    }
+                    onEvent(BrowserUiEvent.OpenHome)
+                },
+                onOpenSearch = {
+                    if (!isHome) {
+                        onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                    }
+                    onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                },
+                onOpenSettings = {
+                    if (!isHome) {
+                        onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                    }
+                    onEvent(BrowserUiEvent.OpenSettings)
+                },
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 12.dp)
+                    .zIndex(5f)
+            )
+
+            // Absolute Right Button ("All Tabs" Grid)
+            AbsoluteAllTabsButton(
+                activeOverlay = uiState.activeOverlay,
+                isLightSite = isLightSite,
+                onClick = {
+                    if (!isHome) {
+                        onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                    }
+                    if (uiState.activeOverlay == OverlayType.TAB_GRID) {
+                        onEvent(BrowserUiEvent.DismissOverlay)
+                    } else {
+                        onEvent(BrowserUiEvent.OpenTabGrid)
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 12.dp)
+                    .zIndex(5f)
+            )
+        }
+    }
+}
+
+/**
+ * Backward compatibility alias for DualTierBottomBar
+ */
+@Composable
+fun DualTierBottomBar(
+    uiState: BrowserUiState,
+    onEvent: (BrowserUiEvent) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    UnifiedBottomBar(
+        uiState = uiState,
+        onEvent = onEvent,
+        modifier = modifier
+    )
+}
+
+@Composable
+private fun AbsoluteLeftMenu(
+    isMenuExpanded: Boolean,
+    isHome: Boolean,
+    activeOverlay: OverlayType,
+    isLightSite: Boolean,
+    onToggleMenu: () -> Unit,
+    onOpenHome: () -> Unit,
+    onOpenSearch: () -> Unit,
+    onOpenSettings: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val buttonBgGradient = if (isLightSite) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color.White.copy(alpha = 0.98f),
+                Color(0xFFEDEDED).copy(alpha = 0.95f)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF333842).copy(alpha = 0.95f),
+                Color(0xFF1E222B).copy(alpha = 0.95f)
+            )
+        )
+    }
+
+    val buttonBorder = if (isLightSite) {
+        BorderStroke(1.dp, Color.Black.copy(alpha = 0.15f))
+    } else {
+        BorderStroke(1.dp, Color.White.copy(alpha = 0.20f))
+    }
+
+    val iconTint = if (isLightSite) Color(0xFF1F2937) else Color(0xFFF9FAFB)
+    val activeIndicatorBg = if (isLightSite) Color(0xFFD1D5DB).copy(alpha = 0.6f) else Color(0xFF4B5563).copy(alpha = 0.6f)
+    val dividerColor = if (isLightSite) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.15f)
+
+    Surface(
+        shape = RoundedCornerShape(24.dp),
+        border = buttonBorder,
+        shadowElevation = 6.dp,
+        color = Color.Transparent,
+        modifier = modifier
+            .animateContentSize(animationSpec = tween(280, easing = FastOutSlowInEasing))
+    ) {
+        Box(
+            modifier = Modifier
+                .background(buttonBgGradient)
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Toggle Button (Arrow right when closed, arrow left when open)
+                IconButton(
+                    onClick = onToggleMenu,
+                    modifier = Modifier.size(38.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isMenuExpanded) {
+                            Icons.AutoMirrored.Filled.ArrowBackIos
+                        } else {
+                            Icons.AutoMirrored.Filled.ArrowForwardIos
+                        },
+                        contentDescription = if (isMenuExpanded) "Close Menu" else "Open Menu",
+                        tint = iconTint,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+
+                // Expanded Action Buttons: Home, Search, Settings
+                if (isMenuExpanded) {
+                    // Divider
+                    Box(
+                        modifier = Modifier
+                            .width(1.dp)
+                            .height(20.dp)
+                            .background(dividerColor)
+                    )
+
+                    // Home Button
+                    IconButton(
+                        onClick = onOpenHome,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(if (activeOverlay == OverlayType.HOME || isHome) activeIndicatorBg else Color.Transparent)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "Home",
+                            tint = iconTint,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    // Search Button
+                    IconButton(
+                        onClick = onOpenSearch,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(if (activeOverlay == OverlayType.SEARCH) activeIndicatorBg else Color.Transparent)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "Search",
+                            tint = iconTint,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    // Settings Button
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(if (activeOverlay == OverlayType.SETTINGS) activeIndicatorBg else Color.Transparent)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = iconTint,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }
@@ -178,10 +387,78 @@ fun DualTierBottomBar(
 }
 
 @Composable
-private fun Tier1TabStrip(
+private fun AbsoluteAllTabsButton(
+    activeOverlay: OverlayType,
+    isLightSite: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val buttonBgGradient = if (isLightSite) {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color.White.copy(alpha = 0.98f),
+                Color(0xFFEDEDED).copy(alpha = 0.95f)
+            )
+        )
+    } else {
+        Brush.verticalGradient(
+            colors = listOf(
+                Color(0xFF333842).copy(alpha = 0.95f),
+                Color(0xFF1E222B).copy(alpha = 0.95f)
+            )
+        )
+    }
+
+    val buttonBorder = if (isLightSite) {
+        BorderStroke(1.dp, Color.Black.copy(alpha = 0.15f))
+    } else {
+        BorderStroke(1.dp, Color.White.copy(alpha = 0.20f))
+    }
+
+    val iconTint = if (isLightSite) Color(0xFF1F2937) else Color(0xFFF9FAFB)
+    val isGridActive = activeOverlay == OverlayType.TAB_GRID
+    val activeIndicatorBg = if (isLightSite) Color(0xFFD1D5DB).copy(alpha = 0.6f) else Color(0xFF4B5563).copy(alpha = 0.6f)
+
+    Surface(
+        shape = CircleShape,
+        border = buttonBorder,
+        shadowElevation = 6.dp,
+        color = Color.Transparent,
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier
+                .size(46.dp)
+                .background(buttonBgGradient)
+                .clip(CircleShape)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(CircleShape)
+                    .background(if (isGridActive) activeIndicatorBg else Color.Transparent),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.GridView,
+                    contentDescription = "All Tabs",
+                    tint = iconTint,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CenterTabStrip(
     tabs: List<Tab>,
     activeTabId: String?,
     isLightSite: Boolean,
+    isHome: Boolean,
+    isMenuExpanded: Boolean,
     onEvent: (BrowserUiEvent) -> Unit
 ) {
     val screenWidth = LocalConfiguration.current.screenWidthDp.dp
@@ -198,18 +475,15 @@ private fun Tier1TabStrip(
 
     val activeIndex = currentTabs.indexOfFirst { it.id == activeTabId }.coerceAtLeast(0)
 
-    val inactiveCount = (currentTabs.size - 1).coerceAtLeast(0)
-    val totalContentWidth = activePillWidth + (44.dp * inactiveCount) + (8.dp * currentTabs.size) + 44.dp
-    val fitsOnScreen = totalContentWidth <= (screenWidth - 32.dp)
-
-    val horizontalPadding = if (fitsOnScreen) {
-        16.dp
-    } else {
-        ((screenWidth - activePillWidth) / 2).coerceAtLeast(16.dp)
+    // Close menu when user starts scrolling tabs (on web pages)
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress && !isHome && isMenuExpanded) {
+            onEvent(BrowserUiEvent.SetMenuExpanded(false))
+        }
     }
 
-    LaunchedEffect(activeIndex, fitsOnScreen, currentTabs.size) {
-        if (!fitsOnScreen && currentTabs.isNotEmpty() && activeIndex in currentTabs.indices) {
+    LaunchedEffect(activeIndex, currentTabs.size) {
+        if (currentTabs.isNotEmpty() && activeIndex in currentTabs.indices) {
             listState.animateScrollToItem(activeIndex)
         }
     }
@@ -219,7 +493,7 @@ private fun Tier1TabStrip(
         modifier = Modifier
             .fillMaxWidth()
             .height(52.dp),
-        contentPadding = PaddingValues(horizontal = horizontalPadding),
+        contentPadding = PaddingValues(start = 68.dp, end = 68.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -315,6 +589,9 @@ private fun Tier1TabStrip(
                             val up = currentEvent.changes.firstOrNull { it.id == down.id }
                             if (up != null && !up.isConsumed) {
                                 up.consume()
+                                if (!isHome && isMenuExpanded) {
+                                    onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                                }
                                 if (isActive) {
                                     onEvent(BrowserUiEvent.OpenSearch(tab.url))
                                 } else {
@@ -610,143 +887,6 @@ private fun InactiveTabCircle(
                     }
                 }
             )
-        }
-    }
-}
-
-@Composable
-private fun Tier2ActionDock(
-    activeOverlay: OverlayType,
-    isLightSite: Boolean,
-    onEvent: (BrowserUiEvent) -> Unit
-) {
-    val dockBg = if (isLightSite) Color.White.copy(alpha = 0.92f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-    val dockBorder = if (isLightSite) BorderStroke(1.dp, Color.Black.copy(alpha = 0.12f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-    val activeContainer = if (isLightSite) Color(0xFFE5E7EB) else MaterialTheme.colorScheme.primaryContainer
-    val activeOnContainer = if (isLightSite) Color(0xFF111827) else MaterialTheme.colorScheme.onPrimaryContainer
-    val inactiveIconTint = if (isLightSite) Color(0xFF4B5563) else MaterialTheme.colorScheme.onSurfaceVariant
-
-    Surface(
-        shape = RoundedCornerShape(32.dp),
-        color = dockBg,
-        border = dockBorder,
-        shadowElevation = if (isLightSite) 5.dp else 4.dp,
-        modifier = Modifier
-            .padding(horizontal = 24.dp)
-            .height(56.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Home Button
-            IconButton(
-                onClick = {
-                    if (activeOverlay == OverlayType.HOME) {
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        onEvent(BrowserUiEvent.OpenHome)
-                    }
-                },
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (activeOverlay == OverlayType.HOME)
-                            activeContainer
-                        else Color.Transparent
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Home",
-                    tint = if (activeOverlay == OverlayType.HOME)
-                        activeOnContainer
-                    else inactiveIconTint
-                )
-            }
-
-            // Search Button
-            IconButton(
-                onClick = {
-                    if (activeOverlay == OverlayType.SEARCH) {
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        onEvent(BrowserUiEvent.OpenSearch(null))
-                    }
-                },
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (activeOverlay == OverlayType.SEARCH)
-                            activeContainer
-                        else Color.Transparent
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = if (activeOverlay == OverlayType.SEARCH)
-                        activeOnContainer
-                    else inactiveIconTint
-                )
-            }
-
-            // All Tabs (Grid) Button
-            IconButton(
-                onClick = {
-                    if (activeOverlay == OverlayType.TAB_GRID) {
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        onEvent(BrowserUiEvent.OpenTabGrid)
-                    }
-                },
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (activeOverlay == OverlayType.TAB_GRID)
-                            activeContainer
-                        else Color.Transparent
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.GridView,
-                    contentDescription = "All Tabs",
-                    tint = if (activeOverlay == OverlayType.TAB_GRID)
-                        activeOnContainer
-                    else inactiveIconTint
-                )
-            }
-
-            // Settings Button
-            IconButton(
-                onClick = {
-                    if (activeOverlay == OverlayType.SETTINGS) {
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        onEvent(BrowserUiEvent.OpenSettings)
-                    }
-                },
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (activeOverlay == OverlayType.SETTINGS)
-                            activeContainer
-                        else Color.Transparent
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = if (activeOverlay == OverlayType.SETTINGS)
-                        activeOnContainer
-                    else inactiveIconTint
-                )
-            }
         }
     }
 }

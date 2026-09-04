@@ -26,9 +26,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.engine.WebViewPool
-import com.jestk.browser.ui.navigation.DualTierBottomBar
+import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.SearchOverlay
 import com.jestk.browser.ui.overlays.SettingsSheet
 import com.jestk.browser.ui.overlays.TabOverviewGrid
@@ -39,6 +42,13 @@ import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
+import android.content.pm.ActivityInfo
+import android.os.Build
+import android.view.WindowManager
+import androidx.compose.runtime.DisposableEffect
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import com.jestk.browser.engine.JestkWebChromeClient
 import kotlinx.coroutines.flow.collectLatest
 
 private fun android.content.Context.findActivity(): Activity? {
@@ -108,6 +118,11 @@ fun JestkApp(
                 is NavigationCommand.StopLoading -> {
                     webViewPool.getWebView(activeId)?.stopLoading()
                 }
+                is NavigationCommand.ExitFullscreen -> {
+                    val activeId = viewModel.uiState.value.activeTabId
+                    val webView = activeId?.let { webViewPool.getWebView(it) }
+                    (webView?.webChromeClient as? JestkWebChromeClient)?.onHideCustomView()
+                }
                 is NavigationCommand.ExitApp -> Unit
             }
         }
@@ -130,12 +145,67 @@ fun JestkApp(
     val view = LocalView.current
     val isLightSite = animatedAppBg.luminance() > 0.5f
     if (!view.isInEditMode) {
+        val isFullscreen = uiState.isFullscreenCustomView
         SideEffect {
-            val window = (view.context as? Activity)?.window
+            val activity = view.context.findActivity()
+            val window = activity?.window
             if (window != null) {
                 val insetsController = WindowCompat.getInsetsController(window, view)
                 insetsController.isAppearanceLightStatusBars = isLightSite
                 insetsController.isAppearanceLightNavigationBars = isLightSite
+                if (isFullscreen) {
+                    insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                    insetsController.systemBarsBehavior =
+                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        window.attributes.layoutInDisplayCutoutMode =
+                            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                    }
+                } else {
+                    insetsController.show(WindowInsetsCompat.Type.systemBars())
+                    insetsController.systemBarsBehavior =
+                        WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        window.attributes.layoutInDisplayCutoutMode =
+                            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                    }
+                }
+            }
+        }
+    }
+
+    val isFullscreenVideo = uiState.isFullscreenCustomView
+    val fullscreenOrientation = uiState.fullscreenRequestedOrientation
+    LaunchedEffect(isFullscreenVideo, fullscreenOrientation) {
+        val activity = context.findActivity() ?: return@LaunchedEffect
+        if (isFullscreenVideo) {
+            val target = when (fullscreenOrientation) {
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT,
+                ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            }
+            activity.requestedOrientation = target
+        } else {
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            val activity = context.findActivity()
+            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            activity?.window?.let { window ->
+                val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+                insetsController.show(WindowInsetsCompat.Type.systemBars())
+                insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    window.attributes.layoutInDisplayCutoutMode =
+                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                }
             }
         }
     }
@@ -168,9 +238,23 @@ fun JestkApp(
                 }
             }
 
-            // Dual-Tier Bottom Navigation Bar (Tier 1 Tab Strip + Tier 2 Action Dock)
+            // Outside scrim to close expanded menu when tapping on webpage
+            if (uiState.isMenuExpanded && !showHomeScreen) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            viewModel.onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                        }
+                )
+            }
+
+            // Unified Single-Tier Bottom Navigation Bar
             if (!uiState.isFullscreenCustomView && !WindowInsets.isImeVisible) {
-                DualTierBottomBar(
+                UnifiedBottomBar(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
                     modifier = Modifier.align(Alignment.BottomCenter)
@@ -211,7 +295,29 @@ fun JestkApp(
                     AndroidView<android.view.View>(
                         factory = {
                             (customView.parent as? ViewGroup)?.removeView(customView)
-                            customView
+                            customView.apply {
+                                layoutParams = ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT
+                                )
+                                keepScreenOn = true
+                                isFocusable = true
+                                isFocusableInTouchMode = true
+                                requestFocus()
+                            }
+                        },
+                        update = { view ->
+                            view.layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                            view.keepScreenOn = true
+                            view.isFocusable = true
+                            view.isFocusableInTouchMode = true
+                            view.requestFocus()
+                        },
+                        onReset = { view ->
+                            (view.parent as? ViewGroup)?.removeView(view)
                         },
                         modifier = Modifier.fillMaxSize()
                     )

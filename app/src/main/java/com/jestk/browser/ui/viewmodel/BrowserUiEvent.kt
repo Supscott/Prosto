@@ -21,7 +21,10 @@ sealed interface BrowserUiEvent {
     data class OpenOverlay(val overlay: OverlayType) : BrowserUiEvent
     data object DismissOverlay : BrowserUiEvent
     data object OpenHome : BrowserUiEvent
-    data class OpenSearch(val prefilledUrl: String? = null) : BrowserUiEvent
+    data class OpenSearch(
+        val prefilledUrl: String? = null,
+        val openInNewTab: Boolean = prefilledUrl.isNullOrEmpty()
+    ) : BrowserUiEvent
     data object OpenTabGrid : BrowserUiEvent
     data object OpenSettings : BrowserUiEvent
 
@@ -61,10 +64,17 @@ sealed interface BrowserUiEvent {
     // Dynamic UI Translation
     data class OnWebScroll(val deltaY: Float) : BrowserUiEvent
     data class SetBottomBarVisibility(val visible: Boolean) : BrowserUiEvent
+    data class ToggleMenu(val expanded: Boolean? = null) : BrowserUiEvent
+    data class SetMenuExpanded(val expanded: Boolean) : BrowserUiEvent
 
     // Media & Fullscreen
     data class SetVideoPlaying(val isPlaying: Boolean) : BrowserUiEvent
-    data class SetFullscreenCustomView(val view: Any?, val isFullscreen: Boolean) : BrowserUiEvent
+    data class SetFullscreenCustomView(
+        val view: Any?,
+        val isFullscreen: Boolean,
+        val requestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    ) : BrowserUiEvent
+    data object ExitFullscreen : BrowserUiEvent
 
     // System Back Handling
     data object HandleBackPress : BrowserUiEvent

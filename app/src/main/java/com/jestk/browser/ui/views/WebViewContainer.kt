@@ -83,9 +83,10 @@ fun WebViewContainer(
 
     val isImeVisible = WindowInsets.isImeVisible
     val targetBottomPadding = when {
+        uiState.isFullscreenCustomView -> 0.dp
         isImeVisible -> 0.dp
-        uiState.isBottomBarVisible -> 124.dp
-        else -> 60.dp
+        uiState.isBottomBarVisible -> 60.dp
+        else -> 0.dp
     }
     val bottomPadding by animateDpAsState(
         targetValue = targetBottomPadding,
@@ -93,14 +94,20 @@ fun WebViewContainer(
         label = "WebViewBottomPadding"
     )
 
-    Box(
-        modifier = modifier
+    val contentModifier = if (uiState.isFullscreenCustomView) {
+        modifier.fillMaxSize()
+    } else {
+        modifier
             .fillMaxSize()
             .statusBarsPadding()
             .padding(bottom = bottomPadding)
             .navigationBarsPadding()
             .imePadding()
             .nestedScroll(nestedScrollConnection)
+    }
+
+    Box(
+        modifier = contentModifier
     ) {
         key(tabId) {
             AndroidView<SwipeRefreshLayout>(
@@ -142,10 +149,11 @@ fun WebViewContainer(
 
                     webView.webChromeClient = JestkWebChromeClient(
                         tabId = tabId,
+                        webView = webView,
                         onProgressChanged = { id, progress -> currentOnEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
                         onTitleReceived = { _, _ -> },
-                        onFullscreenCustomViewChanged = { view, isFullscreen ->
-                            currentOnEvent(BrowserUiEvent.SetFullscreenCustomView(view, isFullscreen))
+                        onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
+                            currentOnEvent(BrowserUiEvent.SetFullscreenCustomView(view, isFullscreen, orientation))
                         },
                         onVideoPlayingStateChanged = { isPlaying ->
                             currentOnEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))

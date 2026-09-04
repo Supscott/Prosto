@@ -417,4 +417,198 @@ class BrowserViewModelTest {
         assertThat(reorderedTabs.first().id).isEqualTo(reversed.first().id)
         assertThat(reorderedTabs.last().id).isEqualTo(reversed.last().id)
     }
+
+    @Test
+    fun openSearch_withOpenInNewTab_createsNewTabAndOpensSearchOverlay() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Initially 1 tab
+        assertThat(viewModel.uiState.value.tabs).hasSize(1)
+        val initialTabId = viewModel.uiState.value.activeTabId
+
+        // Clicking search in bottom bar opens a new tab for search
+        viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.tabs).hasSize(2)
+        assertThat(state.activeTabId).isNotEqualTo(initialTabId)
+        assertThat(state.activeOverlay).isEqualTo(OverlayType.SEARCH)
+        assertThat(state.searchQuery).isEmpty()
+        assertThat(state.currentUrl).isEmpty()
+    }
+
+    @Test
+    fun openSearch_withOpenInNewTabFalse_editsCurrentTabWithoutCreatingNewTab() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.LoadUrl("https://example.com"))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.tabs).hasSize(1)
+
+        // Clicking URL editor on current tab
+        viewModel.onEvent(BrowserUiEvent.OpenSearch("https://example.com", openInNewTab = false))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.tabs).hasSize(1)
+        assertThat(state.activeOverlay).isEqualTo(OverlayType.SEARCH)
+        assertThat(state.searchQuery).isEqualTo("https://example.com")
+    }
+
+    @Test
+    fun setFullscreenCustomView_updatesStateWithOrientation() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val fakeView = Any()
+        viewModel.onEvent(
+            BrowserUiEvent.SetFullscreenCustomView(
+                view = fakeView,
+                isFullscreen = true,
+                requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            )
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isFullscreenCustomView).isTrue()
+        assertThat(state.fullscreenCustomView).isSameInstanceAs(fakeView)
+        assertThat(state.fullscreenRequestedOrientation).isEqualTo(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+    }
+
+    @Test
+    fun handleBackPress_whenFullscreenCustomView_exitsFullscreen() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val fakeView = Any()
+        viewModel.onEvent(
+            BrowserUiEvent.SetFullscreenCustomView(
+                view = fakeView,
+                isFullscreen = true,
+                requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            )
+        )
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isFullscreenCustomView).isTrue()
+
+        // Pressing back in fullscreen must exit fullscreen without closing tab
+        viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.isFullscreenCustomView).isFalse()
+        assertThat(state.fullscreenCustomView).isNull()
+        assertThat(state.tabs).hasSize(1)
+    }
+
+    @Test
+    fun openSearch_withEmptyStringPrefilledUrl_createsNewTab() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.tabs).hasSize(1)
+        val initialTabId = viewModel.uiState.value.activeTabId
+
+        // OpenSearch with empty string should default openInNewTab to true
+        viewModel.onEvent(BrowserUiEvent.OpenSearch(""))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.tabs).hasSize(2)
+        assertThat(state.activeTabId).isNotEqualTo(initialTabId)
+        assertThat(state.activeOverlay).isEqualTo(OverlayType.SEARCH)
+    }
+
+    @Test
+    fun menu_homeScreen_isAlwaysExpandedOnBootAndNavigation() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Home screen on boot should have menu expanded
+        assertThat(viewModel.uiState.value.isMenuExpanded).isTrue()
+
+        // Navigate to a web page -> menu should follow web preference (default false)
+        viewModel.onEvent(BrowserUiEvent.LoadUrl("https://example.com"))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isMenuExpanded).isFalse()
+
+        // Navigate back to Home -> menu should be expanded
+        viewModel.onEvent(BrowserUiEvent.OpenHome)
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isMenuExpanded).isTrue()
+    }
+
+    @Test
+    fun menu_toggleOnWebPage_persistsStateAndAppliesToNewPages() = runTest(testDispatcher) {
+        val tab = tabRepo.createTab(url = "https://example.com", title = "Example")
+        tabRepo.setActiveTab(tab.id)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Default on web page is closed
+        assertThat(viewModel.uiState.value.isMenuExpanded).isFalse()
+
+        // User opens menu on web page
+        viewModel.onEvent(BrowserUiEvent.ToggleMenu())
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isMenuExpanded).isTrue()
+
+        // Verify it was saved in settings repo
+        val savedSettings = settingsRepo.getCurrentSettings()
+        assertThat(savedSettings.isMenuExpandedOnWeb).isTrue()
+
+        // Opening a new web tab should now respect the remembered preference
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://kotlinlang.org"))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isMenuExpanded).isTrue()
+
+        // User closes menu on web page
+        viewModel.onEvent(BrowserUiEvent.ToggleMenu())
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isMenuExpanded).isFalse()
+        assertThat(settingsRepo.getCurrentSettings().isMenuExpandedOnWeb).isFalse()
+    }
+
+    @Test
+    fun menu_webScrollDown_closesMenuOnWebPage() = runTest(testDispatcher) {
+        val tab = tabRepo.createTab(url = "https://example.com", title = "Example")
+        tabRepo.setActiveTab(tab.id)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.SetMenuExpanded(true))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isMenuExpanded).isTrue()
+
+        // Scrolling down web page should close menu
+        viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 15f))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isMenuExpanded).isFalse()
+    }
+
+    @Test
+    fun menu_handleBackPress_closesMenuOnWebPageFirst() = runTest(testDispatcher) {
+        val tab = tabRepo.createTab(url = "https://example.com", title = "Example")
+        tabRepo.setActiveTab(tab.id)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.SetMenuExpanded(true))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isMenuExpanded).isTrue()
+
+        // Back press closes menu before navigating back
+        viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.isMenuExpanded).isFalse()
+        assertThat(viewModel.uiState.value.tabs).hasSize(1)
+    }
 }
