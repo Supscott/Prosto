@@ -3,24 +3,29 @@ package com.jestk.browser.ui.navigation
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.widget.Toast
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -33,17 +38,18 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -54,188 +60,666 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
-import androidx.compose.ui.zIndex
-import coil.compose.SubcomposeAsyncImage
+import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
+import com.jestk.browser.ui.theme.LiquidPrimary
+import com.jestk.browser.ui.theme.LiquidPrimaryFixed
+import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
+import com.jestk.browser.ui.theme.LiquidTertiary
+import com.jestk.browser.ui.theme.PastelRose
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
-import java.util.Collections
-import kotlin.math.abs
+import java.net.URI
 
+/**
+ * Floating Capsule Dock & Menu - Liquid Pastel Sunset design system.
+ * Features:
+ * - Floating capsule dock (<, active tab card with lock/title/domain/share, >)
+ * - Dedicated floating circular Menu button (58x58dp)
+ * - Animated popup actions card (Home, Search, Tabs, Settings)
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun UnifiedBottomBar(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val defaultBg = MaterialTheme.colorScheme.background
+    val context = LocalContext.current
+    val isDark = isSystemInDarkTheme()
     val isHome = uiState.activeOverlay == OverlayType.HOME ||
             uiState.currentUrl.isEmpty() ||
             uiState.currentUrl == "about:blank"
-    val resolvedThemeColor = uiState.activeThemeColor ?: uiState.activeTab?.themeColor
-    val targetBgColor = if (isHome) defaultBg else (resolvedThemeColor?.let { Color(it) } ?: defaultBg)
-    val animatedBgColor by animateColorAsState(
-        targetValue = targetBgColor,
-        animationSpec = tween(durationMillis = 350),
-        label = "BottomBarDynamicColor"
-    )
 
-    val isLightSite = animatedBgColor.luminance() > 0.5f
+    val activeTab = uiState.activeTab
+
+    // Display title & domain
+    val displayTitle = when {
+        activeTab?.title?.isNotEmpty() == true && activeTab.title != "Home" && activeTab.title != "New Tab" -> activeTab.title
+        uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
+        else -> "Jestk Browser"
+    }
+
+    val displayDomain = when {
+        !activeTab?.url.isNullOrEmpty() && activeTab?.url != "about:blank" -> {
+            try {
+                URI(activeTab!!.url).host?.removePrefix("www.") ?: activeTab.url.removePrefix("https://").removePrefix("http://")
+            } catch (_: Exception) {
+                activeTab.url
+            }
+        }
+        else -> "duckduckgo.com"
+    }
+
+    // Colors & Glassmorphism
+    val dockBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.78f)
+    val dockBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.60f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
+    val centerPillBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.92f)
+    val centerPillBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.85f))
+    val circleBtnBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.70f) else LiquidSurfaceContainerHigh.copy(alpha = 0.65f)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        animatedBgColor.copy(alpha = 0f),
-                        animatedBgColor.copy(alpha = 0.70f),
-                        animatedBgColor.copy(alpha = 0.95f),
-                        animatedBgColor
-                    )
+            .navigationBarsPadding()
+            .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.End
+        ) {
+            // 1. Animated Popup Menu Card anchored above the Menu Button
+            AnimatedVisibility(
+                visible = uiState.isMenuExpanded,
+                enter = fadeIn(animationSpec = tween(180)) + slideInVertically(animationSpec = tween(220)) { it / 3 },
+                exit = fadeOut(animationSpec = tween(150)) + slideOutVertically(animationSpec = tween(180)) { it / 3 }
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.92f) else Color.White.copy(alpha = 0.88f),
+                    border = dockBorder,
+                    shadowElevation = 12.dp,
+                    modifier = Modifier
+                        .padding(bottom = 8.dp, end = 2.dp)
+                        .width(148.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        // Home
+                        PopupMenuItem(
+                            icon = Icons.Default.Home,
+                            label = "Home",
+                            isActive = isHome && uiState.activeOverlay == OverlayType.HOME,
+                            isDark = isDark,
+                            onClick = {
+                                onEvent(BrowserUiEvent.OpenHome)
+                                onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                            }
+                        )
+
+                        // Search
+                        PopupMenuItem(
+                            icon = Icons.Default.Search,
+                            label = "Search",
+                            isActive = uiState.activeOverlay == OverlayType.SEARCH,
+                            isDark = isDark,
+                            onClick = {
+                                onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                                onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                            }
+                        )
+
+                        // Tabs
+                        PopupMenuItem(
+                            icon = Icons.Default.FilterNone,
+                            label = "Tabs",
+                            isActive = uiState.activeOverlay == OverlayType.TAB_GRID,
+                            isDark = isDark,
+                            onClick = {
+                                onEvent(BrowserUiEvent.OpenTabGrid)
+                                onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                            }
+                        )
+
+                        // Settings
+                        PopupMenuItem(
+                            icon = Icons.Default.Settings,
+                            label = "Settings",
+                            isActive = uiState.activeOverlay == OverlayType.SETTINGS,
+                            isDark = isDark,
+                            onClick = {
+                                onEvent(BrowserUiEvent.OpenSettings)
+                                onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                            }
+                        )
+                    }
+                }
+            }
+
+            // 2. Floating Dock Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Floating Capsule Dock
+                Surface(
+                    shape = RoundedCornerShape(29.dp),
+                    color = dockBg,
+                    border = dockBorder,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(58.dp)
+                ) {
+                    BoxWithConstraints(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        val totalChipWidth = maxWidth
+                        val activeTabWidth = totalChipWidth * 0.5f
+                        val lazyListState = rememberLazyListState()
+
+                        val displayTabs = remember(uiState.tabs, activeTab) {
+                            if (uiState.tabs.isNotEmpty()) {
+                                uiState.tabs
+                            } else {
+                                listOf(
+                                    activeTab ?: Tab(
+                                        id = "default_tab",
+                                        url = uiState.currentUrl,
+                                        title = displayTitle,
+                                        isActive = true
+                                    )
+                                )
+                            }
+                        }
+
+                        val activeIndex = remember(displayTabs, uiState.activeTabId, uiState.activeTabIndex) {
+                            val idx = displayTabs.indexOfFirst { it.id == uiState.activeTabId }
+                            if (idx >= 0) idx else uiState.activeTabIndex.coerceIn(0, displayTabs.lastIndex)
+                        }
+
+                        LaunchedEffect(uiState.activeTabId, activeIndex) {
+                            if (activeIndex in displayTabs.indices) {
+                                lazyListState.animateScrollToItem(activeIndex)
+                            }
+                        }
+
+                        LazyRow(
+                            state = lazyListState,
+                            modifier = Modifier.fillMaxWidth(),
+                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            itemsIndexed(
+                                items = displayTabs,
+                                key = { _, tab -> tab.id }
+                            ) { index, tab ->
+                                val isActive = index == activeIndex
+
+                                if (isActive) {
+                                    val currentTitle = when {
+                                        tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
+                                        uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
+                                        else -> "Jestk Browser"
+                                    }
+                                    val currentDomain = when {
+                                        tab.url.isNotEmpty() && tab.url != "about:blank" -> {
+                                            try {
+                                                URI(tab.url).host?.removePrefix("www.") ?: tab.url.removePrefix("https://").removePrefix("http://")
+                                            } catch (_: Exception) {
+                                                tab.url
+                                            }
+                                        }
+                                        else -> "duckduckgo.com"
+                                    }
+
+                                    ActiveTabCenterCapsule(
+                                        title = currentTitle,
+                                        domain = currentDomain,
+                                        url = tab.url.ifEmpty { uiState.currentUrl },
+                                        backgroundColor = centerPillBg,
+                                        border = centerPillBorder,
+                                        isDark = isDark,
+                                        onOpenSearch = {
+                                            onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = tab.url.ifEmpty { null }, openInNewTab = false))
+                                        },
+                                        onAddFavorite = { favTitle, favUrl ->
+                                            onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
+                                        },
+                                        onShare = { urlToShare ->
+                                            if (urlToShare.isNotBlank() && !urlToShare.startsWith("about:")) {
+                                                try {
+                                                    val sendIntent = Intent().apply {
+                                                        action = Intent.ACTION_SEND
+                                                        putExtra(Intent.EXTRA_TEXT, urlToShare)
+                                                        type = "text/plain"
+                                                    }
+                                                    val shareIntent = Intent.createChooser(sendIntent, "Share Webpage")
+                                                    context.startActivity(shareIntent)
+                                                } catch (_: Exception) {
+                                                    Toast.makeText(context, "Could not share link", Toast.LENGTH_SHORT).show()
+                                                }
+                                            } else {
+                                                Toast.makeText(context, "No URL to share", Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        modifier = Modifier.width(activeTabWidth)
+                                    )
+                                } else {
+                                    InactiveTabButton(
+                                        tab = tab,
+                                        isDark = isDark,
+                                        backgroundColor = circleBtnBg,
+                                        border = centerPillBorder,
+                                        onClick = {
+                                            onEvent(BrowserUiEvent.SelectTab(tab.id))
+                                        },
+                                        onClose = {
+                                            onEvent(BrowserUiEvent.CloseTab(tab.id))
+                                        },
+                                        onAddFavorite = { favTitle, favUrl ->
+                                            onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
+                                        }
+                                    )
+                                }
+                            }
+
+                            item(key = "dock_add_tab_button") {
+                                AddTabDockButton(
+                                    isDark = isDark,
+                                    backgroundColor = circleBtnBg,
+                                    border = centerPillBorder,
+                                    onClick = {
+                                        onEvent(BrowserUiEvent.OpenNewTab(""))
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Dedicated Floating Menu Button (58x58dp)
+                Surface(
+                    shape = CircleShape,
+                    color = dockBg,
+                    border = dockBorder,
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.size(58.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(58.dp)
+                            .clip(CircleShape)
+                            .clickable {
+                                onEvent(BrowserUiEvent.ToggleMenu())
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "Menu",
+                            tint = if (uiState.isMenuExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun ActiveTabCenterCapsule(
+    title: String,
+    domain: String,
+    url: String,
+    backgroundColor: Color,
+    border: BorderStroke,
+    isDark: Boolean,
+    onOpenSearch: () -> Unit,
+    onAddFavorite: (String, String) -> Unit,
+    onShare: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var showMenu by remember { mutableStateOf(false) }
+
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = backgroundColor,
+        border = border,
+        shadowElevation = 2.dp,
+        modifier = modifier
+            .height(44.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .combinedClickable(
+                onClick = onOpenSearch,
+                onLongClick = { showMenu = true }
+            )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
+        ) {
+            // Lock glyph
+            Icon(
+                imageVector = Icons.Default.Lock,
+                contentDescription = "Secure Connection",
+                tint = if (isDark) PastelRose else LiquidTertiary,
+                modifier = Modifier.size(13.dp)
+            )
+
+            // Truncated Title & Domain
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(vertical = 2.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Text(
+                    text = domain,
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 9.5.sp,
+                        fontWeight = FontWeight.Normal
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            // Share Action Glyph
+            IconButton(
+                onClick = { onShare(url) },
+                modifier = Modifier.size(26.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Share,
+                    contentDescription = "Share",
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
+
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+            properties = PopupProperties(focusable = false, dismissOnClickOutside = true, dismissOnBackPress = true)
+        ) {
+            DropdownMenuItem(
+                text = { Text("Copy URL") },
+                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                onClick = {
+                    showMenu = false
+                    if (url.isNotBlank() && !url.startsWith("about:")) {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
+                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Add to Favorites") },
+                leadingIcon = { Icon(Icons.Default.Bookmark, null) },
+                onClick = {
+                    showMenu = false
+                    if (url.isNotBlank() && !url.startsWith("about:")) {
+                        onAddFavorite(title, url)
+                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+            DropdownMenuItem(
+                text = { Text("Share Link") },
+                leadingIcon = { Icon(Icons.Default.Share, null) },
+                onClick = {
+                    showMenu = false
+                    onShare(url)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PopupMenuItem(
+    icon: ImageVector,
+    label: String,
+    isActive: Boolean,
+    isDark: Boolean,
+    onClick: () -> Unit
+) {
+    val activeBg = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else LiquidPrimaryFixed.copy(alpha = 0.65f)
+    val activeTint = if (isDark) Color(0xFF9ECAFC) else MaterialTheme.colorScheme.primary
+    val normalTint = if (isDark) Color(0xFFD0C5C6) else MaterialTheme.colorScheme.onSurfaceVariant
+
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (isActive) activeBg else Color.Transparent,
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(38.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                tint = if (isActive) activeTint else normalTint,
+                modifier = Modifier.size(19.dp)
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 13.sp,
+                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium
+                ),
+                color = if (isActive) activeTint else normalTint
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun InactiveTabButton(
+    tab: Tab,
+    isDark: Boolean,
+    backgroundColor: Color,
+    border: BorderStroke,
+    onClick: () -> Unit,
+    onClose: () -> Unit,
+    onAddFavorite: (String, String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    Surface(
+        shape = CircleShape,
+        color = backgroundColor,
+        border = border,
+        shadowElevation = 2.dp,
+        modifier = modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = { showMenu = true }
             )
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(bottom = 8.dp)
-                .height(56.dp),
+            modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            // Scrollable Tab Strip (placed in background layer)
-            CenterTabStrip(
-                tabs = uiState.tabs,
-                activeTabId = uiState.activeTabId,
-                isLightSite = isLightSite,
-                isHome = isHome,
-                isMenuExpanded = uiState.isMenuExpanded,
-                onEvent = onEvent
-            )
-
-            // Left Edge Gradient Scrim (soft fade under absolute menu button)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .width(68.dp)
-                    .fillMaxHeight()
-                    .zIndex(1f)
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                animatedBgColor.copy(alpha = 0.95f),
-                                animatedBgColor.copy(alpha = 0f)
-                            )
-                        )
+            val isHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home"
+            if (isHome) {
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = "Home",
+                    tint = if (isDark) Color(0xFFD0C5C6) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(19.dp)
+                )
+            } else if (!tab.faviconUrl.isNullOrEmpty()) {
+                AsyncImage(
+                    model = tab.faviconUrl,
+                    contentDescription = tab.title,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                val initial = tab.title.trim().firstOrNull()?.uppercaseChar()
+                if (initial != null && initial.isLetterOrDigit() && tab.title != "New Tab") {
+                    Text(
+                        text = initial.toString(),
+                        style = MaterialTheme.typography.labelMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp
+                        ),
+                        color = if (isDark) Color(0xFFF6EFF0) else MaterialTheme.colorScheme.onSurface
                     )
-            )
-
-            // Right Edge Gradient Scrim (soft fade under all tabs button)
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .width(68.dp)
-                    .fillMaxHeight()
-                    .zIndex(1f)
-                    .background(
-                        Brush.horizontalGradient(
-                            colors = listOf(
-                                animatedBgColor.copy(alpha = 0f),
-                                animatedBgColor.copy(alpha = 0.95f)
-                            )
-                        )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = tab.title,
+                        tint = if (isDark) Color(0xFFD0C5C6) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(19.dp)
                     )
-            )
+                }
+            }
 
-            // Absolute Left Menu (Expandable with Arrow >)
-            AbsoluteLeftMenu(
-                isMenuExpanded = uiState.isMenuExpanded,
-                isHome = isHome,
-                activeOverlay = uiState.activeOverlay,
-                isLightSite = isLightSite,
-                onToggleMenu = {
-                    if (isHome) {
-                        // On home, keep open
-                        onEvent(BrowserUiEvent.ToggleMenu(true))
-                    } else {
-                        onEvent(BrowserUiEvent.ToggleMenu())
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                properties = PopupProperties(focusable = false, dismissOnClickOutside = true, dismissOnBackPress = true)
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Close Tab") },
+                    leadingIcon = { Icon(Icons.Default.Close, null) },
+                    onClick = {
+                        showMenu = false
+                        onClose()
                     }
-                },
-                onOpenHome = {
-                    if (!isHome) {
-                        onEvent(BrowserUiEvent.SetMenuExpanded(true))
+                )
+                DropdownMenuItem(
+                    text = { Text("Copy URL") },
+                    leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+                    onClick = {
+                        showMenu = false
+                        if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
+                            Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                    onEvent(BrowserUiEvent.OpenHome)
-                },
-                onOpenSearch = {
-                    if (!isHome) {
-                        onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                )
+                DropdownMenuItem(
+                    text = { Text("Add to Favorites") },
+                    leadingIcon = { Icon(Icons.Default.Bookmark, null) },
+                    onClick = {
+                        showMenu = false
+                        if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
+                            onAddFavorite(tab.title, tab.url)
+                            Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                        } else {
+                            Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
+                        }
                     }
-                    onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
-                },
-                onOpenSettings = {
-                    if (!isHome) {
-                        onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                    }
-                    onEvent(BrowserUiEvent.OpenSettings)
-                },
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(start = 12.dp)
-                    .zIndex(5f)
-            )
+                )
+            }
+        }
+    }
+}
 
-            // Absolute Right Button ("All Tabs" Grid)
-            AbsoluteAllTabsButton(
-                activeOverlay = uiState.activeOverlay,
-                isLightSite = isLightSite,
-                onClick = {
-                    if (!isHome) {
-                        onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                    }
-                    if (uiState.activeOverlay == OverlayType.TAB_GRID) {
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        onEvent(BrowserUiEvent.OpenTabGrid)
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 12.dp)
-                    .zIndex(5f)
+@Composable
+private fun AddTabDockButton(
+    isDark: Boolean,
+    backgroundColor: Color,
+    border: BorderStroke,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = CircleShape,
+        color = backgroundColor,
+        border = border,
+        shadowElevation = 2.dp,
+        modifier = modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = "New Tab",
+                tint = if (isDark) Color(0xFFD0C5C6) else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
             )
         }
     }
 }
 
 /**
- * Backward compatibility alias for DualTierBottomBar
+ * Backward compatibility alias for DualTierBottomBar.
  */
 @Composable
 fun DualTierBottomBar(
@@ -248,645 +732,4 @@ fun DualTierBottomBar(
         onEvent = onEvent,
         modifier = modifier
     )
-}
-
-@Composable
-private fun AbsoluteLeftMenu(
-    isMenuExpanded: Boolean,
-    isHome: Boolean,
-    activeOverlay: OverlayType,
-    isLightSite: Boolean,
-    onToggleMenu: () -> Unit,
-    onOpenHome: () -> Unit,
-    onOpenSearch: () -> Unit,
-    onOpenSettings: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val buttonBgGradient = if (isLightSite) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.White.copy(alpha = 0.98f),
-                Color(0xFFEDEDED).copy(alpha = 0.95f)
-            )
-        )
-    } else {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color(0xFF333842).copy(alpha = 0.95f),
-                Color(0xFF1E222B).copy(alpha = 0.95f)
-            )
-        )
-    }
-
-    val buttonBorder = if (isLightSite) {
-        BorderStroke(1.dp, Color.Black.copy(alpha = 0.15f))
-    } else {
-        BorderStroke(1.dp, Color.White.copy(alpha = 0.20f))
-    }
-
-    val iconTint = if (isLightSite) Color(0xFF1F2937) else Color(0xFFF9FAFB)
-    val activeIndicatorBg = if (isLightSite) Color(0xFFD1D5DB).copy(alpha = 0.6f) else Color(0xFF4B5563).copy(alpha = 0.6f)
-    val dividerColor = if (isLightSite) Color.Black.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.15f)
-
-    Surface(
-        shape = RoundedCornerShape(24.dp),
-        border = buttonBorder,
-        shadowElevation = 6.dp,
-        color = Color.Transparent,
-        modifier = modifier
-            .animateContentSize(animationSpec = tween(280, easing = FastOutSlowInEasing))
-    ) {
-        Box(
-            modifier = Modifier
-                .background(buttonBgGradient)
-                .padding(horizontal = 4.dp, vertical = 4.dp),
-            contentAlignment = Alignment.CenterStart
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Toggle Button (Arrow right when closed, arrow left when open)
-                IconButton(
-                    onClick = onToggleMenu,
-                    modifier = Modifier.size(38.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isMenuExpanded) {
-                            Icons.AutoMirrored.Filled.ArrowBackIos
-                        } else {
-                            Icons.AutoMirrored.Filled.ArrowForwardIos
-                        },
-                        contentDescription = if (isMenuExpanded) "Close Menu" else "Open Menu",
-                        tint = iconTint,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-
-                // Expanded Action Buttons: Home, Search, Settings
-                if (isMenuExpanded) {
-                    // Divider
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(20.dp)
-                            .background(dividerColor)
-                    )
-
-                    // Home Button
-                    IconButton(
-                        onClick = onOpenHome,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(if (activeOverlay == OverlayType.HOME || isHome) activeIndicatorBg else Color.Transparent)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Home,
-                            contentDescription = "Home",
-                            tint = iconTint,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    // Search Button
-                    IconButton(
-                        onClick = onOpenSearch,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(if (activeOverlay == OverlayType.SEARCH) activeIndicatorBg else Color.Transparent)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = "Search",
-                            tint = iconTint,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    // Settings Button
-                    IconButton(
-                        onClick = onOpenSettings,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(if (activeOverlay == OverlayType.SETTINGS) activeIndicatorBg else Color.Transparent)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = iconTint,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AbsoluteAllTabsButton(
-    activeOverlay: OverlayType,
-    isLightSite: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val buttonBgGradient = if (isLightSite) {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color.White.copy(alpha = 0.98f),
-                Color(0xFFEDEDED).copy(alpha = 0.95f)
-            )
-        )
-    } else {
-        Brush.verticalGradient(
-            colors = listOf(
-                Color(0xFF333842).copy(alpha = 0.95f),
-                Color(0xFF1E222B).copy(alpha = 0.95f)
-            )
-        )
-    }
-
-    val buttonBorder = if (isLightSite) {
-        BorderStroke(1.dp, Color.Black.copy(alpha = 0.15f))
-    } else {
-        BorderStroke(1.dp, Color.White.copy(alpha = 0.20f))
-    }
-
-    val iconTint = if (isLightSite) Color(0xFF1F2937) else Color(0xFFF9FAFB)
-    val isGridActive = activeOverlay == OverlayType.TAB_GRID
-    val activeIndicatorBg = if (isLightSite) Color(0xFFD1D5DB).copy(alpha = 0.6f) else Color(0xFF4B5563).copy(alpha = 0.6f)
-
-    Surface(
-        shape = CircleShape,
-        border = buttonBorder,
-        shadowElevation = 6.dp,
-        color = Color.Transparent,
-        modifier = modifier
-    ) {
-        Box(
-            modifier = Modifier
-                .size(46.dp)
-                .background(buttonBgGradient)
-                .clip(CircleShape)
-                .clickable(onClick = onClick),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(CircleShape)
-                    .background(if (isGridActive) activeIndicatorBg else Color.Transparent),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.GridView,
-                    contentDescription = "All Tabs",
-                    tint = iconTint,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun CenterTabStrip(
-    tabs: List<Tab>,
-    activeTabId: String?,
-    isLightSite: Boolean,
-    isHome: Boolean,
-    isMenuExpanded: Boolean,
-    onEvent: (BrowserUiEvent) -> Unit
-) {
-    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-    val activePillWidth = screenWidth * 0.50f
-    val listState = rememberLazyListState()
-    val density = LocalDensity.current
-    val haptic = LocalHapticFeedback.current
-
-    var currentTabs by remember(tabs) { mutableStateOf(tabs) }
-    var draggingTabId by remember { mutableStateOf<String?>(null) }
-    var dragOffsetPx by remember { mutableFloatStateOf(0f) }
-    var isDragging by remember { mutableStateOf(false) }
-    var menuTabId by remember { mutableStateOf<String?>(null) }
-
-    val activeIndex = currentTabs.indexOfFirst { it.id == activeTabId }.coerceAtLeast(0)
-
-    // Close menu when user starts scrolling tabs (on web pages)
-    LaunchedEffect(listState.isScrollInProgress) {
-        if (listState.isScrollInProgress && !isHome && isMenuExpanded) {
-            onEvent(BrowserUiEvent.SetMenuExpanded(false))
-        }
-    }
-
-    LaunchedEffect(activeIndex, currentTabs.size) {
-        if (currentTabs.isNotEmpty() && activeIndex in currentTabs.indices) {
-            listState.animateScrollToItem(activeIndex)
-        }
-    }
-
-    LazyRow(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp),
-        contentPadding = PaddingValues(start = 68.dp, end = 68.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        itemsIndexed(
-            items = currentTabs,
-            key = { _, tab -> tab.id }
-        ) { _, tab ->
-            val isActive = tab.id == activeTabId
-            val isDraggingThis = draggingTabId == tab.id
-            val touchSlop = with(density) { 10.dp.toPx() }
-
-            val tabModifier = Modifier
-                .zIndex(if (isDraggingThis) 10f else 0f)
-                .graphicsLayer {
-                    if (isDraggingThis) {
-                        translationX = dragOffsetPx
-                        scaleX = 1.05f
-                        scaleY = 1.05f
-                        shadowElevation = 8.dp.toPx()
-                    }
-                }
-                .pointerInput(tab.id) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        val longPress = awaitLongPressOrCancellation(down.id)
-                        if (longPress != null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            draggingTabId = tab.id
-                            dragOffsetPx = 0f
-                            isDragging = false
-
-                            // Open menu immediately upon long press
-                            menuTabId = tab.id
-
-                            val currentPointerId = longPress.id
-                            while (true) {
-                                val event = awaitPointerEvent()
-                                val dragChange = event.changes.firstOrNull { it.id == currentPointerId } ?: break
-
-                                if (dragChange.isConsumed) {
-                                    break
-                                }
-
-                                if (dragChange.changedToUp()) {
-                                    dragChange.consume()
-                                    break
-                                }
-
-                                val dragAmount = dragChange.positionChange()
-                                dragOffsetPx += dragAmount.x
-                                dragChange.consume()
-
-                                if (!isDragging && abs(dragOffsetPx) > touchSlop) {
-                                    isDragging = true
-                                    // Close menu as soon as dragging begins
-                                    if (menuTabId != null) {
-                                        menuTabId = null
-                                    }
-                                }
-
-                                if (isDragging) {
-                                    val currentIndex = currentTabs.indexOfFirst { it.id == draggingTabId }
-                                    if (currentIndex != -1) {
-                                        val swapThreshold = with(density) { 44.dp.toPx() }
-                                        if (dragOffsetPx > swapThreshold && currentIndex < currentTabs.lastIndex) {
-                                            val targetIndex = currentIndex + 1
-                                            val mutable = currentTabs.toMutableList()
-                                            Collections.swap(mutable, currentIndex, targetIndex)
-                                            currentTabs = mutable
-                                            dragOffsetPx -= swapThreshold
-                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        } else if (dragOffsetPx < -swapThreshold && currentIndex > 0) {
-                                            val targetIndex = currentIndex - 1
-                                            val mutable = currentTabs.toMutableList()
-                                            Collections.swap(mutable, currentIndex, targetIndex)
-                                            currentTabs = mutable
-                                            dragOffsetPx += swapThreshold
-                                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                        }
-                                    }
-                                }
-                            }
-
-                            if (isDragging) {
-                                if (currentTabs != tabs) {
-                                    onEvent(BrowserUiEvent.ReorderTabs(currentTabs))
-                                }
-                            }
-                            draggingTabId = null
-                            dragOffsetPx = 0f
-                            isDragging = false
-                        } else {
-                            val up = currentEvent.changes.firstOrNull { it.id == down.id }
-                            if (up != null && !up.isConsumed) {
-                                up.consume()
-                                if (!isHome && isMenuExpanded) {
-                                    onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                                }
-                                if (isActive) {
-                                    onEvent(BrowserUiEvent.OpenSearch(tab.url))
-                                } else {
-                                    onEvent(BrowserUiEvent.SelectTab(tab.id))
-                                }
-                            }
-                        }
-                    }
-                }
-
-            if (isActive) {
-                ActiveTabPill(
-                    tab = tab,
-                    width = activePillWidth,
-                    isLightSite = isLightSite,
-                    isMenuExpanded = menuTabId == tab.id,
-                    onDismissMenu = { if (menuTabId == tab.id) menuTabId = null },
-                    onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
-                    onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) },
-                    modifier = tabModifier
-                )
-            } else {
-                InactiveTabCircle(
-                    tab = tab,
-                    isLightSite = isLightSite,
-                    isMenuExpanded = menuTabId == tab.id,
-                    onDismissMenu = { if (menuTabId == tab.id) menuTabId = null },
-                    onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
-                    onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) },
-                    modifier = tabModifier
-                )
-            }
-        }
-
-        item {
-            // Trailing + Action Button
-            val addBtnBg = if (isLightSite) Color.White.copy(alpha = 0.90f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-            val addBtnBorder = if (isLightSite) BorderStroke(1.dp, Color.Black.copy(alpha = 0.12f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-            val addBtnTint = if (isLightSite) Color(0xFF374151) else MaterialTheme.colorScheme.onSurfaceVariant
-
-            IconButton(
-                onClick = { onEvent(BrowserUiEvent.OpenNewTab("")) },
-                modifier = Modifier
-                    .size(44.dp)
-                    .clip(CircleShape)
-                    .background(addBtnBg)
-                    .border(addBtnBorder, CircleShape)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "New Tab",
-                    tint = addBtnTint
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ActiveTabPill(
-    tab: Tab,
-    width: androidx.compose.ui.unit.Dp,
-    isLightSite: Boolean,
-    isMenuExpanded: Boolean,
-    onDismissMenu: () -> Unit,
-    onClose: () -> Unit,
-    onAddFavorite: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val pillBg = if (isLightSite) Color.White.copy(alpha = 0.92f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-    val pillBorder = if (isLightSite) BorderStroke(1.dp, Color.Black.copy(alpha = 0.12f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-    val textTint = if (isLightSite) Color(0xFF1F2937) else MaterialTheme.colorScheme.onSurface
-    val iconTint = if (isLightSite) Color(0xFF4B5563) else MaterialTheme.colorScheme.onSurfaceVariant
-
-    Surface(
-        shape = RoundedCornerShape(26.dp),
-        color = pillBg,
-        border = pillBorder,
-        shadowElevation = if (isLightSite) 4.dp else 3.dp,
-        modifier = modifier
-            .width(width)
-            .height(48.dp)
-            .clip(RoundedCornerShape(26.dp))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
-        ) {
-            // Favicon with fallback to globe
-            if (!tab.faviconUrl.isNullOrEmpty()) {
-                SubcomposeAsyncImage(
-                    model = tab.faviconUrl,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                    loading = {
-                        Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = null,
-                            tint = iconTint,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    },
-                    error = {
-                        Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = null,
-                            tint = iconTint,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Language,
-                    contentDescription = null,
-                    tint = iconTint,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Title / Hostname (truncated)
-            val displayTitle = when {
-                tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
-                tab.url.isNotEmpty() -> tab.url.removePrefix("https://").removePrefix("http://").removePrefix("www.")
-                else -> "Search or enter URL"
-            }
-
-            Text(
-                text = displayTitle,
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                color = textTint,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        DropdownMenu(
-            expanded = isMenuExpanded,
-            onDismissRequest = onDismissMenu,
-            properties = PopupProperties(
-                focusable = false,
-                dismissOnClickOutside = true,
-                dismissOnBackPress = true
-            )
-        ) {
-            DropdownMenuItem(
-                text = { Text("Close Tab") },
-                leadingIcon = { Icon(Icons.Default.Close, null) },
-                onClick = {
-                    onDismissMenu()
-                    onClose()
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Copy URL") },
-                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
-                onClick = {
-                    onDismissMenu()
-                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
-                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Add to Favorites") },
-                leadingIcon = { Icon(Icons.Default.Bookmark, null) },
-                onClick = {
-                    onDismissMenu()
-                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                        onAddFavorite()
-                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun InactiveTabCircle(
-    tab: Tab,
-    isLightSite: Boolean,
-    isMenuExpanded: Boolean,
-    onDismissMenu: () -> Unit,
-    onClose: () -> Unit,
-    onAddFavorite: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val circleBg = if (isLightSite) Color.White.copy(alpha = 0.92f) else MaterialTheme.colorScheme.surface.copy(alpha = 0.85f)
-    val circleBorder = if (isLightSite) BorderStroke(1.dp, Color.Black.copy(alpha = 0.12f)) else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
-    val iconTint = if (isLightSite) Color(0xFF4B5563) else MaterialTheme.colorScheme.onSurfaceVariant
-
-    Box(
-        modifier = modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(circleBg)
-            .border(circleBorder, CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        if (!tab.faviconUrl.isNullOrEmpty()) {
-            SubcomposeAsyncImage(
-                model = tab.faviconUrl,
-                contentDescription = tab.title,
-                modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop,
-                loading = {
-                    Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = tab.title,
-                        tint = iconTint,
-                        modifier = Modifier.size(22.dp)
-                    )
-                },
-                error = {
-                    Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = tab.title,
-                        tint = iconTint,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Default.Language,
-                contentDescription = tab.title,
-                tint = iconTint,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-
-        DropdownMenu(
-            expanded = isMenuExpanded,
-            onDismissRequest = onDismissMenu,
-            properties = PopupProperties(
-                focusable = false,
-                dismissOnClickOutside = true,
-                dismissOnBackPress = true
-            )
-        ) {
-            DropdownMenuItem(
-                text = { Text("Close Tab") },
-                leadingIcon = { Icon(Icons.Default.Close, null) },
-                onClick = {
-                    onDismissMenu()
-                    onClose()
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Copy URL") },
-                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
-                onClick = {
-                    onDismissMenu()
-                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
-                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Add to Favorites") },
-                leadingIcon = { Icon(Icons.Default.Bookmark, null) },
-                onClick = {
-                    onDismissMenu()
-                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                        onAddFavorite()
-                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-        }
-    }
 }

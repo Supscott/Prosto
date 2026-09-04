@@ -554,12 +554,13 @@ class BrowserViewModel(
     }
 
     private fun updateHistorySuggestions(query: String) {
-        if (query.isBlank()) {
-            _uiState.update { it.copy(searchHistorySuggestions = emptyList()) }
-            return
-        }
         viewModelScope.launch(ioDispatcher) {
-            historyRepository.searchHistory(query).collectLatest { results ->
+            val historyFlow = if (query.isBlank()) {
+                historyRepository.getRecentHistory(10)
+            } else {
+                historyRepository.searchHistory(query)
+            }
+            historyFlow.collectLatest { results ->
                 _uiState.update { it.copy(searchHistorySuggestions = results) }
             }
         }

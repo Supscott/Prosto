@@ -663,4 +663,57 @@ class BrowserViewModelTest {
         assertThat(state.activeThemeColor).isNull()
         assertThat(state.isVideoPlaying).isFalse()
     }
+
+    @Test
+    fun search_blankQuery_populatesRecentHistorySuggestions() = runTest(testDispatcher) {
+        historyRepo.recordVisit("https://apple.com", "Apple")
+        historyRepo.recordVisit("https://google.com", "Google")
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null))
+        advanceUntilIdle()
+
+        val suggestions = viewModel.uiState.value.searchHistorySuggestions
+        assertThat(suggestions).hasSize(2)
+        assertThat(suggestions.map { it.url }).containsExactly("https://google.com", "https://apple.com").inOrder()
+    }
+
+    @Test
+    fun search_queryWithFilter_filtersHistorySuggestions() = runTest(testDispatcher) {
+        historyRepo.recordVisit("https://apple.com", "Apple")
+        historyRepo.recordVisit("https://google.com", "Google")
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null))
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.UpdateSearchQuery("app"))
+        advanceUntilIdle()
+
+        val suggestions = viewModel.uiState.value.searchHistorySuggestions
+        assertThat(suggestions).hasSize(1)
+        assertThat(suggestions.first().title).isEqualTo("Apple")
+    }
+
+    @Test
+    fun search_clearAllHistory_clearsHistoryAndSuggestions() = runTest(testDispatcher) {
+        historyRepo.recordVisit("https://apple.com", "Apple")
+        historyRepo.recordVisit("https://google.com", "Google")
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(2)
+
+        viewModel.onEvent(BrowserUiEvent.ClearAllHistory)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.searchHistorySuggestions).isEmpty()
+    }
 }
