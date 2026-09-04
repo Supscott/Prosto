@@ -115,9 +115,6 @@ class MainActivity : ComponentActivity() {
                     WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
                 window.attributes = attrs
             }
-            val activeId = viewModel.uiState.value.activeTabId
-            val webView = activeId?.let { (application as JestkApplication).container.webViewPool.getWebView(it) }
-            (webView?.webChromeClient as? com.jestk.browser.engine.JestkWebChromeClient)?.resumeVideoPlayback()
         }
     }
 }

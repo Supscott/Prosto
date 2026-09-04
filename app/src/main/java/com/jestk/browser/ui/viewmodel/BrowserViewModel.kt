@@ -183,10 +183,14 @@ class BrowserViewModel(
             is BrowserUiEvent.DismissOverlay -> _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
             is BrowserUiEvent.OpenHome -> _uiState.update { it.copy(activeOverlay = OverlayType.HOME, isMenuExpanded = true) }
             is BrowserUiEvent.OpenSearch -> {
-                if (event.openInNewTab) {
+                val current = _uiState.value
+                val isHome = current.activeOverlay == OverlayType.HOME ||
+                        current.currentUrl.isEmpty() ||
+                        current.currentUrl == "about:blank"
+                if (event.openInNewTab && !isHome) {
                     openNewTabForSearch()
                 } else {
-                    val prefill = event.prefilledUrl ?: _uiState.value.currentUrl
+                    val prefill = event.prefilledUrl ?: if (isHome) "" else current.currentUrl
                     _uiState.update { it.copy(activeOverlay = OverlayType.SEARCH, searchQuery = prefill) }
                     updateHistorySuggestions(prefill)
                 }

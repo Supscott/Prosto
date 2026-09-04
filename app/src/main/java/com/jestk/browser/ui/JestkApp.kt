@@ -122,6 +122,12 @@ fun JestkApp(
                     val activeId = viewModel.uiState.value.activeTabId
                     val webView = activeId?.let { webViewPool.getWebView(it) }
                     (webView?.webChromeClient as? JestkWebChromeClient)?.onHideCustomView()
+                    try {
+                        webView?.evaluateJavascript(
+                            "(function(){ if (document.exitFullscreen) document.exitFullscreen(); else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); })()",
+                            null
+                        )
+                    } catch (_: Exception) {}
                 }
                 is NavigationCommand.ExitApp -> Unit
             }
@@ -181,20 +187,9 @@ fun JestkApp(
     }
 
     val isFullscreenVideo = uiState.isFullscreenCustomView
-    val fullscreenOrientation = uiState.fullscreenRequestedOrientation
-    LaunchedEffect(isFullscreenVideo, fullscreenOrientation) {
+    LaunchedEffect(isFullscreenVideo) {
         val activity = context.findActivity() ?: return@LaunchedEffect
-        if (isFullscreenVideo) {
-            val target = when (fullscreenOrientation) {
-                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
-                ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT,
-                ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            }
-            activity.requestedOrientation = target
-        } else {
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        }
+        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
     DisposableEffect(Unit) {
@@ -298,32 +293,45 @@ fun JestkApp(
                         .fillMaxSize()
                         .background(Color.Black)
                 ) {
-                    AndroidView<android.view.View>(
-                        factory = {
-                            (customView.parent as? ViewGroup)?.removeView(customView)
-                            customView.apply {
-                                layoutParams = ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.MATCH_PARENT
+                    AndroidView<com.jestk.browser.ui.views.FullscreenSwipeLayout>(
+                        factory = { ctx ->
+                            com.jestk.browser.ui.views.FullscreenSwipeLayout(ctx) {
+                                viewModel.onEvent(BrowserUiEvent.ExitFullscreen)
+                            }.apply {
+                                (customView.parent as? ViewGroup)?.removeView(customView)
+                                addView(
+                                    customView,
+                                    ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
                                 )
-                                keepScreenOn = true
-                                isFocusable = true
-                                isFocusableInTouchMode = true
-                                requestFocus()
+                                customView.apply {
+                                    keepScreenOn = true
+                                    isFocusable = true
+                                    isFocusableInTouchMode = true
+                                    requestFocus()
+                                }
                             }
                         },
-                        update = { view ->
-                            view.layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
-                            view.keepScreenOn = true
-                            view.isFocusable = true
-                            view.isFocusableInTouchMode = true
-                            view.requestFocus()
+                        update = { layout ->
+                            if (customView.parent !== layout) {
+                                (customView.parent as? ViewGroup)?.removeView(customView)
+                                layout.addView(
+                                    customView,
+                                    ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
+                                )
+                            }
+                            customView.keepScreenOn = true
+                            customView.isFocusable = true
+                            customView.isFocusableInTouchMode = true
+                            customView.requestFocus()
                         },
-                        onReset = { view ->
-                            (view.parent as? ViewGroup)?.removeView(view)
+                        onReset = { layout ->
+                            layout.removeAllViews()
                         },
                         modifier = Modifier.fillMaxSize()
                     )

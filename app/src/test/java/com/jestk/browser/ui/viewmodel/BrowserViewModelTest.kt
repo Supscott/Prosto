@@ -419,15 +419,38 @@ class BrowserViewModelTest {
     }
 
     @Test
-    fun openSearch_withOpenInNewTab_createsNewTabAndOpensSearchOverlay() = runTest(testDispatcher) {
+    fun openSearch_whenOnHome_doesNotCreateNewTab() = runTest(testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        // Initially 1 tab
+        // Initially 1 tab on Home
         assertThat(viewModel.uiState.value.tabs).hasSize(1)
         val initialTabId = viewModel.uiState.value.activeTabId
 
-        // Clicking search in bottom bar opens a new tab for search
+        // When already on home, clicking search opens search overlay on current tab without creating new tab
+        viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.tabs).hasSize(1)
+        assertThat(state.activeTabId).isEqualTo(initialTabId)
+        assertThat(state.activeOverlay).isEqualTo(OverlayType.SEARCH)
+        assertThat(state.searchQuery).isEmpty()
+        assertThat(state.currentUrl).isEmpty()
+    }
+
+    @Test
+    fun openSearch_whenOnWebPage_createsNewTabAndOpensSearchOverlay() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.LoadUrl("https://example.com"))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.tabs).hasSize(1)
+        val initialTabId = viewModel.uiState.value.activeTabId
+
+        // Clicking search while on a web page opens a new tab for search
         viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
         advanceUntilIdle()
 
@@ -507,14 +530,17 @@ class BrowserViewModelTest {
     }
 
     @Test
-    fun openSearch_withEmptyStringPrefilledUrl_createsNewTab() = runTest(testDispatcher) {
+    fun openSearch_withEmptyStringPrefilledUrl_whenOnWebPage_createsNewTab() = runTest(testDispatcher) {
         val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.LoadUrl("https://example.com"))
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.tabs).hasSize(1)
         val initialTabId = viewModel.uiState.value.activeTabId
 
-        // OpenSearch with empty string should default openInNewTab to true
+        // OpenSearch with empty string when on a web page should default openInNewTab to true
         viewModel.onEvent(BrowserUiEvent.OpenSearch(""))
         advanceUntilIdle()
 

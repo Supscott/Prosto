@@ -40,7 +40,7 @@ class JestkWebChromeClient(
     }
 
     override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
-        onShowCustomView(view, ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE, callback)
+        onShowCustomView(view, ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED, callback)
     }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
@@ -60,11 +60,16 @@ class JestkWebChromeClient(
             ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
             ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT,
             ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-            else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
+            ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         }
 
         val activity = webView?.context?.findActivity()
-        activity?.requestedOrientation = orientation
+        // Keep requested orientation unspecified so the device follows the natural sensor
+        // and does not flip the video or recreate the media cache
+        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         activity?.window?.let { window ->
             val insetsController = WindowCompat.getInsetsController(window, window.decorView)
             insetsController.systemBarsBehavior =
@@ -81,7 +86,6 @@ class JestkWebChromeClient(
 
         onFullscreenCustomViewChanged(view, true, orientation)
         onVideoPlayingStateChanged(true)
-        resumeVideoPlayback()
     }
 
     override fun onHideCustomView() {
@@ -115,55 +119,7 @@ class JestkWebChromeClient(
     fun isCustomViewShowing(): Boolean = customView != null
 
     fun resumeVideoPlayback() {
-        val targetWebView = webView ?: return
-        val js = """
-            (function() {
-                try {
-                    var videos = document.querySelectorAll('video');
-                    for (var i = 0; i < videos.length; i++) {
-                        var v = videos[i];
-                        if (v && v.paused) {
-                            var p = v.play();
-                            if (p && typeof p.catch === 'function') {
-                                p.catch(function(e) {});
-                            }
-                        }
-                    }
-                    var el = document.fullscreenElement || document.webkitFullscreenElement;
-                    var main = el ? (el.tagName === 'VIDEO' ? el : el.querySelector('video')) : null;
-                    if (!main) {
-                        main = document.querySelector('video.html5-main-video') ||
-                            document.querySelector('video[src]') ||
-                            document.querySelector('video');
-                    }
-                    if (main && main.videoWidth > 0 && main.videoHeight > 0) {
-                        return (main.videoHeight > main.videoWidth) ? 'portrait' : 'landscape';
-                    }
-                } catch(e) {}
-                return 'landscape';
-            })();
-        """.trimIndent()
-
-        val executeAndDetect = {
-            try {
-                targetWebView.evaluateJavascript(js) { result ->
-                    val clean = result?.trim('"', ' ', '\'')
-                    if (clean == "portrait" && customView != null) {
-                        val activity = targetWebView.context.findActivity()
-                        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                        onFullscreenCustomViewChanged(
-                            customView,
-                            true,
-                            ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-                        )
-                    }
-                }
-            } catch (_: Exception) {}
-        }
-
-        targetWebView.post { executeAndDetect() }
-        targetWebView.postDelayed({ executeAndDetect() }, 200)
-        targetWebView.postDelayed({ executeAndDetect() }, 500)
-        targetWebView.postDelayed({ executeAndDetect() }, 1000)
+        // Chromium manages HTML5 video playback in custom view natively;
+        // avoid injecting video.play() which can disrupt MSE buffering.
     }
 }

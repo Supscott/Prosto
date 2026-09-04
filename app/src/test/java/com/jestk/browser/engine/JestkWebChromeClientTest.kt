@@ -14,12 +14,12 @@ import org.robolectric.RobolectricTestRunner
 class JestkWebChromeClientTest {
 
     @Test
-    fun onShowCustomView_twoArgs_defaultsToSensorLandscape() {
+    fun onShowCustomView_twoArgs_defaultsToUnspecifiedOrientation() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val testView = View(context)
         var receivedView: View? = null
         var isFullscreenState = false
-        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         var videoPlayingState = false
 
         val client = JestkWebChromeClient(
@@ -45,7 +45,7 @@ class JestkWebChromeClientTest {
         assertThat(client.isCustomViewShowing()).isTrue()
         assertThat(isFullscreenState).isTrue()
         assertThat(receivedView).isSameInstanceAs(testView)
-        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
         assertThat(testView.keepScreenOn).isTrue()
         assertThat(videoPlayingState).isTrue()
 

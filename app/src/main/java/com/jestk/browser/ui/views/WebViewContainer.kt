@@ -210,7 +210,13 @@ fun WebViewContainer(
                             currentOnEvent(BrowserUiEvent.Reload)
                         }
                         setOnChildScrollUpCallback { _, _ ->
-                            webView.canScrollVertically(-1) || webView.scrollY > 0
+                            val url = webView.url.orEmpty()
+                            val isVideoPage = url.contains("youtube.com/watch") || url.contains("youtu.be/")
+                            if (isVideoPage || currentUiState.isVideoPlaying) {
+                                true
+                            } else {
+                                webView.canScrollVertically(-1) || webView.scrollY > 0
+                            }
                         }
                         addView(
                             webView,
