@@ -134,46 +134,73 @@ fun JestkApp(
         }
     }
 
-    val currentTab = uiState.tabs.find { it.id == uiState.activeTabId }
-    val siteColor = uiState.activeThemeColor ?: currentTab?.themeColor
-    val showHomeScreen = uiState.activeOverlay == OverlayType.HOME ||
-            uiState.currentUrl.isEmpty() ||
-            uiState.currentUrl == "about:blank"
+    JestkBrowserTheme(themeMode = uiState.settings.themeMode) {
+        val currentTab = uiState.tabs.find { it.id == uiState.activeTabId }
+        val siteColor = uiState.activeThemeColor ?: currentTab?.themeColor
+        val showHomeScreen = uiState.activeOverlay == OverlayType.HOME ||
+                uiState.currentUrl.isEmpty() ||
+                uiState.currentUrl == "about:blank"
 
-    val defaultBg = MaterialTheme.colorScheme.background
-    val targetAppBg = if (showHomeScreen || siteColor == null) defaultBg else Color(siteColor)
-    val animatedAppBg by animateColorAsState(
-        targetValue = targetAppBg,
-        animationSpec = tween(durationMillis = 350),
-        label = "JestkAppRootBgColor"
-    )
+        val defaultBg = MaterialTheme.colorScheme.background
+        val targetAppBg = if (showHomeScreen || siteColor == null) defaultBg else Color(siteColor)
+        val animatedAppBg by animateColorAsState(
+            targetValue = targetAppBg,
+            animationSpec = tween(durationMillis = 350),
+            label = "JestkAppRootBgColor"
+        )
 
-    val view = LocalView.current
-    val isLightSite = animatedAppBg.luminance() > 0.5f
-    if (!view.isInEditMode) {
-        val isFullscreen = uiState.isFullscreenCustomView
-        SideEffect {
-            val activity = view.context.findActivity()
-            val window = activity?.window
-            if (window != null) {
-                val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-                insetsController.isAppearanceLightStatusBars = isLightSite
-                insetsController.isAppearanceLightNavigationBars = isLightSite
-                if (isFullscreen) {
-                    insetsController.hide(WindowInsetsCompat.Type.systemBars())
-                    insetsController.systemBarsBehavior =
-                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        val attrs = window.attributes
-                        attrs.layoutInDisplayCutoutMode =
-                            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                        window.attributes = attrs
+        val view = LocalView.current
+        val isLightSite = animatedAppBg.luminance() > 0.5f
+        if (!view.isInEditMode) {
+            val isFullscreen = uiState.isFullscreenCustomView
+            SideEffect {
+                val activity = view.context.findActivity()
+                val window = activity?.window
+                if (window != null) {
+                    val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+                    insetsController.isAppearanceLightStatusBars = isLightSite
+                    insetsController.isAppearanceLightNavigationBars = isLightSite
+                    if (isFullscreen) {
+                        insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                        insetsController.systemBarsBehavior =
+                            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            val attrs = window.attributes
+                            attrs.layoutInDisplayCutoutMode =
+                                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                            window.attributes = attrs
+                        }
+                    } else {
+                        insetsController.show(WindowInsetsCompat.Type.systemBars())
+                        insetsController.systemBarsBehavior =
+                            WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                            val attrs = window.attributes
+                            attrs.layoutInDisplayCutoutMode =
+                                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                            window.attributes = attrs
+                        }
                     }
-                } else {
+                }
+            }
+        }
+
+        val isFullscreenVideo = uiState.isFullscreenCustomView
+        LaunchedEffect(isFullscreenVideo) {
+            val activity = context.findActivity() ?: return@LaunchedEffect
+            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        }
+
+        DisposableEffect(Unit) {
+            onDispose {
+                val activity = context.findActivity()
+                activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                activity?.window?.let { window ->
+                    val insetsController = WindowCompat.getInsetsController(window, window.decorView)
                     insetsController.show(WindowInsetsCompat.Type.systemBars())
-                    insetsController.systemBarsBehavior =
-                        WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+                    insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
                     window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                         val attrs = window.attributes
@@ -184,34 +211,7 @@ fun JestkApp(
                 }
             }
         }
-    }
 
-    val isFullscreenVideo = uiState.isFullscreenCustomView
-    LaunchedEffect(isFullscreenVideo) {
-        val activity = context.findActivity() ?: return@LaunchedEffect
-        activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-    }
-
-    DisposableEffect(Unit) {
-        onDispose {
-            val activity = context.findActivity()
-            activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-            activity?.window?.let { window ->
-                val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-                insetsController.show(WindowInsetsCompat.Type.systemBars())
-                insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
-                window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    val attrs = window.attributes
-                    attrs.layoutInDisplayCutoutMode =
-                        WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
-                    window.attributes = attrs
-                }
-            }
-        }
-    }
-
-    JestkBrowserTheme(themeMode = uiState.settings.themeMode) {
         Box(
             modifier = modifier
                 .fillMaxSize()

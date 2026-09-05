@@ -42,8 +42,6 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -52,6 +50,14 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -102,7 +108,7 @@ fun SettingsSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val context = LocalContext.current
     val scrollState = rememberScrollState()
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
 
     val sheetBg = if (isDark) Color(0xFF161314) else LiquidSurface
 
@@ -441,16 +447,20 @@ fun SettingsSheet(
                     modifier = Modifier.padding(start = 64.dp)
                 )
 
-                // Search Engine Row
-                Column(
+                // Search Engine Row with Dropdown Menu
+                var searchMenuExpanded by remember { mutableStateOf(false) }
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                        .clickable { searchMenuExpanded = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        modifier = Modifier.weight(1f)
                     ) {
                         Box(
                             modifier = Modifier
@@ -467,31 +477,80 @@ fun SettingsSheet(
                             )
                         }
 
-                        Text(
-                            text = "Search Engine",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        Column {
+                            Text(
+                                text = "Search Engine",
+                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                text = "Default search provider",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
                     }
 
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SearchEngine.entries.forEach { engine ->
-                            val selected = uiState.settings.searchEngine == engine
-                            FilterChip(
-                                selected = selected,
-                                onClick = { onEvent(BrowserUiEvent.SetSearchEngine(engine)) },
-                                label = { Text(engine.displayName) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    containerColor = if (isDark) Color(0xFF2C2829) else LiquidSurfaceContainerHigh.copy(alpha = 0.5f),
-                                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    selectedContainerColor = if (isDark) LiquidPrimary.copy(alpha = 0.45f) else LiquidPrimaryFixed,
-                                    selectedLabelColor = if (isDark) Color(0xFF9ECAFC) else MaterialTheme.colorScheme.primary
-                                ),
-                                modifier = Modifier.weight(1f)
-                            )
+                    Box {
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isDark) Color(0xFF2C2829) else LiquidSurfaceContainerHigh.copy(alpha = 0.55f),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(12.dp))
+                                .clickable { searchMenuExpanded = true }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Text(
+                                    text = uiState.settings.searchEngine.displayName,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    ),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDropDown,
+                                    contentDescription = "Select Search Engine",
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+
+                        DropdownMenu(
+                            expanded = searchMenuExpanded,
+                            onDismissRequest = { searchMenuExpanded = false }
+                        ) {
+                            SearchEngine.entries.forEach { engine ->
+                                val selected = uiState.settings.searchEngine == engine
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = engine.displayName,
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    },
+                                    trailingIcon = if (selected) {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Selected",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    } else null,
+                                    onClick = {
+                                        searchMenuExpanded = false
+                                        onEvent(BrowserUiEvent.SetSearchEngine(engine))
+                                    }
+                                )
+                            }
                         }
                     }
                 }
@@ -588,7 +647,7 @@ private fun InsetGroupedCard(
     content: @Composable () -> Unit
 ) {
     val bg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.85f)
-    val border = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
+    val border: BorderStroke? = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -610,7 +669,7 @@ private fun SegmentedThemeControl(
     onSelectMode: (ThemeMode) -> Unit
 ) {
     val containerBg = if (isDark) Color(0xFF242021).copy(alpha = 0.70f) else LiquidSurfaceContainerHigh.copy(alpha = 0.60f)
-    val border = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.40f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.60f))
+    val border: BorderStroke? = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.60f))
 
     Surface(
         shape = RoundedCornerShape(18.dp),
@@ -632,7 +691,7 @@ private fun SegmentedThemeControl(
                 } else Color.Transparent
 
                 val segmentBorder = if (isSelected) {
-                    if (isDark) BorderStroke(1.dp, Color(0xFF4D4546)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f))
+                    if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f))
                 } else null
 
                 val tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
@@ -691,7 +750,7 @@ private fun LiquidSunsetSwitch(
     onCheckedChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val thumbOffset by animateDpAsState(
         targetValue = if (checked) 20.dp else 2.dp,
         animationSpec = tween(durationMillis = 220),

@@ -5,8 +5,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import com.jestk.browser.domain.model.ThemeMode
-
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
@@ -69,21 +70,31 @@ private val LightColorScheme = lightColorScheme(
     inversePrimary = LiquidPrimaryFixedDim
 )
 
+val LocalIsDarkTheme = compositionLocalOf { false }
+
+@Composable
+fun isAppDarkTheme(themeMode: ThemeMode = ThemeMode.SYSTEM): Boolean {
+    return when (themeMode) {
+        ThemeMode.SYSTEM -> isSystemInDarkTheme()
+        ThemeMode.DARK -> true
+        ThemeMode.LIGHT -> false
+    }
+}
+
 @Composable
 fun JestkBrowserTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     content: @Composable () -> Unit
 ) {
-    val darkTheme = when (themeMode) {
-        ThemeMode.SYSTEM -> isSystemInDarkTheme()
-        ThemeMode.DARK -> true
-        ThemeMode.LIGHT -> false
-    }
+    val darkTheme = isAppDarkTheme(themeMode)
 
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
-    MaterialTheme(
-        colorScheme = colorScheme,
-        content = content
-    )
+    CompositionLocalProvider(LocalIsDarkTheme provides darkTheme) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            content = content
+        )
+    }
 }
+

@@ -13,6 +13,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
+import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -104,7 +105,7 @@ fun TabOverviewGrid(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
 
     var isSearchVisible by remember { mutableStateOf(false) }
     var tabSearchQuery by remember { mutableStateOf("") }

@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -170,7 +171,7 @@ fun HomeScreen(
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
 
     Column(
         modifier = modifier
@@ -463,7 +464,7 @@ private fun FavoriteSquircleCard(
     var showMenu by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
     val defaultBg = if (isDark) Color(0xFF282425).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
-    val border = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.70f))
+    val border: BorderStroke? = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.70f))
 
     Box(modifier = modifier) {
         Column(
@@ -560,8 +561,7 @@ private fun AddFavoriteButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bg = if (isDark) Color(0xFF282425).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
-    val border = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.70f))
+    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
 
     Column(
         modifier = modifier.clickable(onClick = onClick),
@@ -570,9 +570,9 @@ private fun AddFavoriteButton(
     ) {
         Surface(
             shape = RoundedCornerShape(18.dp),
-            color = bg,
+            color = Color.Transparent,
             border = border,
-            shadowElevation = 2.dp,
+            shadowElevation = 0.dp,
             modifier = Modifier.size(56.dp)
         ) {
             Box(
@@ -667,7 +667,7 @@ private fun RecentTabSunsetCard(
     onClick: () -> Unit
 ) {
     val cardBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.78f)
-    val cardBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.70f))
+    val cardBorder: BorderStroke? = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.70f))
 
     // Determine preview header gradient based on url hash for visual variety
     val previewGradient = when (kotlin.math.abs(item.url.hashCode()) % 3) {
@@ -826,7 +826,7 @@ private fun MoreHistoryCard(
     onClick: () -> Unit
 ) {
     val bg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.55f)
-    val border = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.40f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
+    val border: BorderStroke? = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
 
     Surface(
         shape = RoundedCornerShape(18.dp),

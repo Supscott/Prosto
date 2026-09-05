@@ -66,6 +66,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -81,8 +82,10 @@ import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
 import com.jestk.browser.ui.theme.LiquidPrimary
 import com.jestk.browser.ui.theme.LiquidPrimaryFixed
+import com.jestk.browser.ui.theme.LiquidSurface
 import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
 import com.jestk.browser.ui.theme.LiquidTertiary
+import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.PastelRose
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
@@ -103,7 +106,7 @@ fun UnifiedBottomBar(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
+    val isDark = LocalIsDarkTheme.current
     val isHome = uiState.activeOverlay == OverlayType.HOME ||
             uiState.currentUrl.isEmpty() ||
             uiState.currentUrl == "about:blank"
@@ -111,13 +114,14 @@ fun UnifiedBottomBar(
     val activeTab = uiState.activeTab
 
     // Display title & domain
-    val displayTitle = when {
+    val isHomeTab = isHome || activeTab?.url.isNullOrEmpty() || activeTab?.url == "about:blank" || activeTab?.title == "Home"
+    val displayTitle = if (isHomeTab) "Home" else when {
         activeTab?.title?.isNotEmpty() == true && activeTab.title != "Home" && activeTab.title != "New Tab" -> activeTab.title
         uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
         else -> "Jestk Browser"
     }
 
-    val displayDomain = when {
+    val displayDomain = if (isHomeTab) "" else when {
         !activeTab?.url.isNullOrEmpty() && activeTab?.url != "about:blank" -> {
             try {
                 URI(activeTab!!.url).host?.removePrefix("www.") ?: activeTab.url.removePrefix("https://").removePrefix("http://")
@@ -129,17 +133,28 @@ fun UnifiedBottomBar(
     }
 
     // Colors & Glassmorphism
-    val dockBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.78f)
-    val dockBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.60f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
+    val bottomBg = if (isDark) Color(0xFF161314) else LiquidSurface
+    val dockBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else LiquidSurface.copy(alpha = 0.88f)
+    val dockBorder = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
     val centerPillBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.92f)
-    val centerPillBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.85f))
+    val centerPillBorder = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.85f))
     val circleBtnBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.70f) else LiquidSurfaceContainerHigh.copy(alpha = 0.65f)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        bottomBg.copy(alpha = 0.80f),
+                        bottomBg.copy(alpha = 0.98f),
+                        bottomBg
+                    )
+                )
+            )
             .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, bottom = 10.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Column(
@@ -154,7 +169,7 @@ fun UnifiedBottomBar(
             ) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.92f) else Color.White.copy(alpha = 0.88f),
+                    color = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.94f) else Color.White.copy(alpha = 0.92f),
                     border = dockBorder,
                     shadowElevation = 12.dp,
                     modifier = Modifier
@@ -280,14 +295,15 @@ fun UnifiedBottomBar(
                                 key = { _, tab -> tab.id }
                             ) { index, tab ->
                                 val isActive = index == activeIndex
+                                val tabIsHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home" || (isHome && isActive)
 
                                 if (isActive) {
-                                    val currentTitle = when {
+                                    val currentTitle = if (tabIsHome) "Home" else when {
                                         tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
                                         uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
                                         else -> "Jestk Browser"
                                     }
-                                    val currentDomain = when {
+                                    val currentDomain = if (tabIsHome) "" else when {
                                         tab.url.isNotEmpty() && tab.url != "about:blank" -> {
                                             try {
                                                 URI(tab.url).host?.removePrefix("www.") ?: tab.url.removePrefix("https://").removePrefix("http://")
@@ -302,11 +318,16 @@ fun UnifiedBottomBar(
                                         title = currentTitle,
                                         domain = currentDomain,
                                         url = tab.url.ifEmpty { uiState.currentUrl },
+                                        faviconUrl = tab.faviconUrl,
+                                        isHome = tabIsHome,
                                         backgroundColor = centerPillBg,
                                         border = centerPillBorder,
                                         isDark = isDark,
                                         onOpenSearch = {
                                             onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = tab.url.ifEmpty { null }, openInNewTab = false))
+                                        },
+                                        onClose = {
+                                            onEvent(BrowserUiEvent.CloseTab(tab.id))
                                         },
                                         onAddFavorite = { favTitle, favUrl ->
                                             onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
@@ -360,15 +381,55 @@ fun UnifiedBottomBar(
                                 )
                             }
                         }
+
+                        // Left edge fade (visible when scrolled right)
+                        if (lazyListState.canScrollBackward) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterStart)
+                                    .fillMaxHeight()
+                                    .width(26.dp)
+                                    .clip(RoundedCornerShape(topStart = 29.dp, bottomStart = 29.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            colors = listOf(
+                                                dockBg,
+                                                dockBg.copy(alpha = 0.75f),
+                                                Color.Transparent
+                                            )
+                                        )
+                                    )
+                            )
+                        }
+
+                        // Right edge fade (visible when more items to the right)
+                        if (lazyListState.canScrollForward) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.CenterEnd)
+                                    .fillMaxHeight()
+                                    .width(26.dp)
+                                    .clip(RoundedCornerShape(topEnd = 29.dp, bottomEnd = 29.dp))
+                                    .background(
+                                        Brush.horizontalGradient(
+                                            colors = listOf(
+                                                Color.Transparent,
+                                                dockBg.copy(alpha = 0.75f),
+                                                dockBg
+                                            )
+                                        )
+                                    )
+                            )
+                        }
                     }
                 }
 
                 // Dedicated Floating Menu Button (58x58dp)
                 Surface(
                     shape = CircleShape,
-                    color = dockBg,
-                    border = dockBorder,
-                    shadowElevation = 8.dp,
+                    color = circleBtnBg,
+                    border = null,
+                    shadowElevation = 0.dp,
                     modifier = Modifier.size(58.dp)
                 ) {
                     Box(
@@ -399,10 +460,13 @@ private fun ActiveTabCenterCapsule(
     title: String,
     domain: String,
     url: String,
+    faviconUrl: String?,
+    isHome: Boolean,
     backgroundColor: Color,
-    border: BorderStroke,
+    border: BorderStroke?,
     isDark: Boolean,
     onOpenSearch: () -> Unit,
+    onClose: () -> Unit,
     onAddFavorite: (String, String) -> Unit,
     onShare: (String) -> Unit,
     modifier: Modifier = Modifier
@@ -428,17 +492,55 @@ private fun ActiveTabCenterCapsule(
                 .fillMaxSize()
                 .padding(horizontal = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Lock glyph
-            Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = "Secure Connection",
-                tint = if (isDark) PastelRose else LiquidTertiary,
-                modifier = Modifier.size(13.dp)
-            )
+            // Favicon / Icon glyph
+            if (isHome) {
+                Icon(
+                    imageVector = Icons.Default.Home,
+                    contentDescription = "Home",
+                    tint = if (isDark) PastelRose else LiquidTertiary,
+                    modifier = Modifier.size(16.dp)
+                )
+            } else if (!faviconUrl.isNullOrEmpty()) {
+                AsyncImage(
+                    model = faviconUrl,
+                    contentDescription = title,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape),
+                    contentScale = ContentScale.Fit
+                )
+            } else {
+                val initial = title.trim().firstOrNull()?.uppercaseChar()
+                if (initial != null && initial.isLetterOrDigit() && title != "Jestk Browser" && title != "New Tab") {
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) Color(0xFF3B3436) else LiquidSurfaceContainerHigh),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = initial.toString(),
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 10.sp
+                            ),
+                            color = if (isDark) Color(0xFFF6EFF0) else MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Secure Connection",
+                        tint = if (isDark) PastelRose else LiquidTertiary,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
 
-            // Truncated Title & Domain
+            // Truncated Title & Domain (if not Home)
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -448,23 +550,25 @@ private fun ActiveTabCenterCapsule(
                 Text(
                     text = title,
                     style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 11.sp,
+                        fontSize = if (domain.isEmpty()) 12.5.sp else 11.sp,
                         fontWeight = FontWeight.SemiBold
                     ),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = domain,
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 9.5.sp,
-                        fontWeight = FontWeight.Normal
-                    ),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (domain.isNotEmpty()) {
+                    Text(
+                        text = domain,
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 9.5.sp,
+                            fontWeight = FontWeight.Normal
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
             // Share Action Glyph
@@ -481,46 +585,109 @@ private fun ActiveTabCenterCapsule(
             }
         }
 
-        DropdownMenu(
+        TabContextMenu(
             expanded = showMenu,
             onDismissRequest = { showMenu = false },
-            properties = PopupProperties(focusable = false, dismissOnClickOutside = true, dismissOnBackPress = true)
+            isDark = isDark,
+            onCloseTab = onClose,
+            onCopyUrl = {
+                if (url.isNotBlank() && !url.startsWith("about:")) {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
+                    Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onAddFavorite = {
+                if (url.isNotBlank() && !url.startsWith("about:")) {
+                    onAddFavorite(title, url)
+                    Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
+                }
+            },
+            onShareLink = { onShare(url) }
+        )
+    }
+}
+
+@Composable
+private fun TabContextMenu(
+    expanded: Boolean,
+    onDismissRequest: () -> Unit,
+    isDark: Boolean,
+    onCloseTab: () -> Unit,
+    onCopyUrl: () -> Unit,
+    onAddFavorite: () -> Unit,
+    onShareLink: (() -> Unit)? = null
+) {
+    val menuBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.94f) else Color.White.copy(alpha = 0.92f)
+    val menuBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.85f))
+
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest,
+        shape = RoundedCornerShape(20.dp),
+        containerColor = menuBg,
+        shadowElevation = 12.dp,
+        border = menuBorder,
+        modifier = Modifier.width(160.dp),
+        properties = PopupProperties(focusable = false, dismissOnClickOutside = true, dismissOnBackPress = true)
+    ) {
+        Column(
+            modifier = Modifier.padding(4.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            DropdownMenuItem(
-                text = { Text("Copy URL") },
-                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
+            // Close Tab
+            PopupMenuItem(
+                icon = Icons.Default.Close,
+                label = "Close tab",
+                isActive = false,
+                isDark = isDark,
                 onClick = {
-                    showMenu = false
-                    if (url.isNotBlank() && !url.startsWith("about:")) {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
-                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
+                    onDismissRequest()
+                    onCloseTab()
+                }
+            )
+
+            // Copy URL
+            PopupMenuItem(
+                icon = Icons.Default.ContentCopy,
+                label = "Copy URL",
+                isActive = false,
+                isDark = isDark,
+                onClick = {
+                    onDismissRequest()
+                    onCopyUrl()
+                }
+            )
+
+            // Add to Favorites
+            PopupMenuItem(
+                icon = Icons.Default.Bookmark,
+                label = "Add to Favorites",
+                isActive = false,
+                isDark = isDark,
+                onClick = {
+                    onDismissRequest()
+                    onAddFavorite()
+                }
+            )
+
+            // Share Link
+            if (onShareLink != null) {
+                PopupMenuItem(
+                    icon = Icons.Default.Share,
+                    label = "Share Link",
+                    isActive = false,
+                    isDark = isDark,
+                    onClick = {
+                        onDismissRequest()
+                        onShareLink()
                     }
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Add to Favorites") },
-                leadingIcon = { Icon(Icons.Default.Bookmark, null) },
-                onClick = {
-                    showMenu = false
-                    if (url.isNotBlank() && !url.startsWith("about:")) {
-                        onAddFavorite(title, url)
-                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Share Link") },
-                leadingIcon = { Icon(Icons.Default.Share, null) },
-                onClick = {
-                    showMenu = false
-                    onShare(url)
-                }
-            )
+                )
+            }
         }
     }
 }
@@ -577,7 +744,7 @@ private fun InactiveTabButton(
     tab: Tab,
     isDark: Boolean,
     backgroundColor: Color,
-    border: BorderStroke,
+    border: BorderStroke?,
     onClick: () -> Unit,
     onClose: () -> Unit,
     onAddFavorite: (String, String) -> Unit,
@@ -641,47 +808,44 @@ private fun InactiveTabButton(
                 }
             }
 
-            DropdownMenu(
+            TabContextMenu(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false },
-                properties = PopupProperties(focusable = false, dismissOnClickOutside = true, dismissOnBackPress = true)
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Close Tab") },
-                    leadingIcon = { Icon(Icons.Default.Close, null) },
-                    onClick = {
-                        showMenu = false
-                        onClose()
+                isDark = isDark,
+                onCloseTab = onClose,
+                onCopyUrl = {
+                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
+                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
                     }
-                )
-                DropdownMenuItem(
-                    text = { Text("Copy URL") },
-                    leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
-                    onClick = {
-                        showMenu = false
-                        if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                            clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
-                            Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
+                },
+                onAddFavorite = {
+                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
+                        onAddFavorite(tab.title, tab.url)
+                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                    } else {
+                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onShareLink = {
+                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
+                        try {
+                            val sendIntent = Intent().apply {
+                                action = Intent.ACTION_SEND
+                                putExtra(Intent.EXTRA_TEXT, tab.url)
+                                type = "text/plain"
+                            }
+                            val shareIntent = Intent.createChooser(sendIntent, "Share Webpage")
+                            context.startActivity(shareIntent)
+                        } catch (_: Exception) {
+                            Toast.makeText(context, "Could not share link", Toast.LENGTH_SHORT).show()
                         }
                     }
-                )
-                DropdownMenuItem(
-                    text = { Text("Add to Favorites") },
-                    leadingIcon = { Icon(Icons.Default.Bookmark, null) },
-                    onClick = {
-                        showMenu = false
-                        if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                            onAddFavorite(tab.title, tab.url)
-                            Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
-                        } else {
-                            Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                )
-            }
+                }
+            )
         }
     }
 }
@@ -690,7 +854,7 @@ private fun InactiveTabButton(
 private fun AddTabDockButton(
     isDark: Boolean,
     backgroundColor: Color,
-    border: BorderStroke,
+    border: BorderStroke?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
