@@ -73,7 +73,7 @@ class PullToRefreshGestureTest {
     }
 
     @Test
-    fun jestkSwipeRefreshLayout_verticalPullDown_canInterceptWhenAppropriate() {
+    fun jestkSwipeRefreshLayout_verticalPullDown_doesNotInterceptTouch() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val swipeRefresh = JestkSwipeRefreshLayout(context)
         val child = NestedWebView(context)
@@ -85,8 +85,9 @@ class PullToRefreshGestureTest {
 
         // Move purely vertically down by 80px
         val move = obtainMotionEvent(MotionEvent.ACTION_MOVE, 100f, 180f, downTime, downTime + 50)
-        // Should not be rejected by our horizontal guard
-        swipeRefresh.onInterceptTouchEvent(move)
+        // Child-driven model: parent never steals touches directly from child
+        val intercepted = swipeRefresh.onInterceptTouchEvent(move)
+        assertThat(intercepted).isFalse()
     }
 
     @Test
@@ -103,6 +104,54 @@ class PullToRefreshGestureTest {
         assertThat(webView.isPullToRefreshEligible()).isTrue()
 
         webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_UP, 100f, 150f, downTime, downTime + 100))
+        assertThat(webView.isPullToRefreshEligible()).isTrue()
+    }
+
+    @Test
+    fun nestedWebView_continuousScrollFromNonZeroToZero_doesNotTriggerPullToRefresh() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webView = NestedWebView(context)
+        // Simulate web page scrolled down
+        webView.scrollTo(0, 300)
+
+        val downTime = SystemClock.uptimeMillis()
+        // Touch starts while scrolled down
+        webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_DOWN, 100f, 100f, downTime, downTime))
+        assertThat(webView.isPullToRefreshEligible()).isFalse()
+
+        // Page scrolls up and hits top (scrollY = 0) during this gesture
+        webView.scrollTo(0, 0)
+        webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_MOVE, 100f, 250f, downTime, downTime + 50))
+
+        // Must still NOT be eligible because the gesture did not originate at scrollY == 0
+        assertThat(webView.isPullToRefreshEligible()).isFalse()
+
+        // After finger is lifted at scrollY == 0, next gesture from top will be eligible
+        webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_UP, 100f, 250f, downTime, downTime + 100))
+        assertThat(webView.isPullToRefreshEligible()).isTrue()
+    }
+
+    @Test
+    fun nestedWebView_multiTouchPinch_locksPullToRefresh() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webView = NestedWebView(context)
+
+        val downTime = SystemClock.uptimeMillis()
+        webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_DOWN, 100f, 100f, downTime, downTime))
+        assertThat(webView.isPullToRefreshEligible()).isTrue()
+
+        // Second finger touches down (pinch-to-zoom / multi-touch)
+        val pointerDown = MotionEvent.obtain(
+            downTime, downTime + 20, MotionEvent.ACTION_POINTER_DOWN,
+            2, arrayOf(MotionEvent.PointerProperties().apply { id = 0 }, MotionEvent.PointerProperties().apply { id = 1 }),
+            arrayOf(MotionEvent.PointerCoords().apply { x = 100f; y = 100f }, MotionEvent.PointerCoords().apply { x = 200f; y = 200f }),
+            0, 0, 1f, 1f, 0, 0, 0, 0
+        )
+        webView.onTouchEvent(pointerDown)
+
+        assertThat(webView.isPullToRefreshEligible()).isFalse()
+
+        webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_UP, 100f, 100f, downTime, downTime + 100))
         assertThat(webView.isPullToRefreshEligible()).isTrue()
     }
 }

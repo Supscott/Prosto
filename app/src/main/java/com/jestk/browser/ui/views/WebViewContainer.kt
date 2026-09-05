@@ -4,7 +4,9 @@ import android.content.MutableContextWrapper
 import android.view.ViewGroup
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -20,7 +22,6 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,6 +46,7 @@ import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.findActivity
+import com.jestk.browser.ui.theme.ActiveTabBorderBrush
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import kotlinx.coroutines.launch
@@ -200,19 +202,34 @@ fun WebViewContainer(
                         }
                     }
 
+                    val brandColors = intArrayOf(
+                        primaryColor,
+                        android.graphics.Color.parseColor("#7BA7D7"),
+                        android.graphics.Color.parseColor("#F6B99D"),
+                        android.graphics.Color.parseColor("#D391A5")
+                    )
+
                     JestkSwipeRefreshLayout(context).apply {
-                        setColorSchemeColors(primaryColor)
+                        setColorSchemeColors(*brandColors)
                         setProgressBackgroundColorSchemeColor(surfaceColor)
                         descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
                         setOnRefreshListener {
                             currentOnEvent(BrowserUiEvent.Reload)
                         }
                         setOnChildScrollUpCallback { _, _ ->
-                            val nested = webView as? NestedWebView
-                            if (nested != null && !nested.isPullToRefreshEligible()) {
+                            val currentChild = (getChildAt(0) as? android.webkit.WebView) ?: webView
+                            val nested = currentChild as? NestedWebView
+                            val isBlocked = currentUiState.isLoading ||
+                                    currentUiState.isVideoPlaying ||
+                                    currentUiState.isFullscreenCustomView ||
+                                    currentUiState.fullscreenCustomView != null
+
+                            if (isBlocked) {
+                                true
+                            } else if (nested != null && !nested.isPullToRefreshEligible()) {
                                 true
                             } else {
-                                webView.canScrollVertically(-1) || webView.scrollY > 0
+                                currentChild.canScrollVertically(-1) || currentChild.scrollY > 0
                             }
                         }
                         addView(
@@ -225,8 +242,20 @@ fun WebViewContainer(
                     }
                 },
                 update = { swipeRefresh ->
+                    val isBlocked = uiState.isVideoPlaying ||
+                            uiState.isFullscreenCustomView ||
+                            uiState.fullscreenCustomView != null
+
                     swipeRefresh.isRefreshing = uiState.isLoading
-                    swipeRefresh.setColorSchemeColors(primaryColor)
+                    swipeRefresh.isEnabled = !isBlocked
+
+                    val brandColors = intArrayOf(
+                        primaryColor,
+                        android.graphics.Color.parseColor("#7BA7D7"),
+                        android.graphics.Color.parseColor("#F6B99D"),
+                        android.graphics.Color.parseColor("#D391A5")
+                    )
+                    swipeRefresh.setColorSchemeColors(*brandColors)
                     swipeRefresh.setProgressBackgroundColorSchemeColor(surfaceColor)
 
                     val activity = swipeRefresh.context.findActivity() ?: swipeRefresh.context
@@ -263,21 +292,32 @@ fun WebViewContainer(
             )
         }
 
-        // Web Loading Progress Bar at top
+        // Web Loading Progress Bar with brand gradient and 0.3s smooth fade-out
+        val animatedProgress by animateFloatAsState(
+            targetValue = uiState.loadingProgress.coerceIn(0f, 1f),
+            animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
+            label = "WebLoadingProgress"
+        )
+
         AnimatedVisibility(
             visible = uiState.isLoading,
-            enter = fadeIn(),
-            exit = fadeOut(),
+            enter = fadeIn(animationSpec = tween(150)),
+            exit = fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)),
             modifier = Modifier.align(Alignment.TopCenter)
         ) {
-            LinearProgressIndicator(
-                progress = { uiState.loadingProgress },
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(2.5.dp),
-                color = MaterialTheme.colorScheme.primary,
-                trackColor = Color.Transparent
-            )
+                    .height(3.dp)
+                    .background(Color.Transparent)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(fraction = animatedProgress)
+                        .height(3.dp)
+                        .background(ActiveTabBorderBrush)
+                )
+            }
         }
     }
 }

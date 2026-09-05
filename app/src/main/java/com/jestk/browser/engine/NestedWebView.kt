@@ -3,6 +3,7 @@ package com.jestk.browser.engine
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.AttributeSet
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.webkit.WebView
@@ -25,6 +26,7 @@ class NestedWebView @JvmOverloads constructor(
 
     companion object {
         const val PULL_TO_REFRESH_SLOP_DP = 40f
+        const val PULL_RESISTANCE_FACTOR = 0.5f
     }
 
     var loadedUrl: String? = null
@@ -49,6 +51,9 @@ class NestedWebView @JvmOverloads constructor(
     private var isLockedHorizontal: Boolean = false
     private var isPullToRefreshActive: Boolean = false
     private var accumulatedPullDistance: Float = 0f
+    private var isGestureActive: Boolean = false
+    private var isInitialAtTop: Boolean = true
+    private var hasTriggeredHaptic: Boolean = false
 
     private val touchSlop: Int by lazy {
         ViewConfiguration.get(context).scaledTouchSlop
@@ -59,7 +64,12 @@ class NestedWebView @JvmOverloads constructor(
     }
 
     fun isPullToRefreshEligible(): Boolean {
-        return !isLockedHorizontal && !canScrollVertically(-1) && scrollY <= 0
+        val atTop = !canScrollVertically(-1) && scrollY <= 0
+        return if (isGestureActive) {
+            isInitialAtTop && !isLockedHorizontal && atTop
+        } else {
+            !isLockedHorizontal && atTop
+        }
     }
 
     private val scrollConsumed = IntArray(2)
@@ -84,9 +94,12 @@ class NestedWebView @JvmOverloads constructor(
                 initialDownX = event.x
                 initialDownY = event.y
                 lastMotionY = y
+                isGestureActive = true
+                isInitialAtTop = (!canScrollVertically(-1) && scrollY <= 0)
                 isLockedHorizontal = false
                 isPullToRefreshActive = false
                 accumulatedPullDistance = 0f
+                hasTriggeredHaptic = false
                 startNestedScroll(ViewCompat.SCROLL_AXIS_VERTICAL, ViewCompat.TYPE_TOUCH)
                 return super.onTouchEvent(event)
             }
@@ -105,13 +118,11 @@ class NestedWebView @JvmOverloads constructor(
                     accumulatedPullDistance = 0f
                 }
 
-                val totalDx = event.x - initialDownX
-                val totalDy = event.y - initialDownY
-                val absDx = abs(totalDx)
-                val absDy = abs(totalDy)
+                val totalDx = abs(event.x - initialDownX)
+                val totalDy = abs(event.y - initialDownY)
 
                 if (!isLockedHorizontal && !isPullToRefreshActive) {
-                    if (absDx > touchSlop && absDx > absDy) {
+                    if (totalDx > touchSlop && totalDx > totalDy) {
                         isLockedHorizontal = true
                     }
                 }
@@ -134,6 +145,7 @@ class NestedWebView @JvmOverloads constructor(
                     accumulatedPullDistance = max(0f, accumulatedPullDistance - scrollConsumed[1])
                     if (accumulatedPullDistance < pullThresholdPx) {
                         isPullToRefreshActive = false
+                        hasTriggeredHaptic = false
                     }
                 }
 
@@ -149,22 +161,30 @@ class NestedWebView @JvmOverloads constructor(
                 if (canScrollUp || scrollY > 0) {
                     accumulatedPullDistance = 0f
                     isPullToRefreshActive = false
+                    hasTriggeredHaptic = false
                 }
 
-                // Step 2: Dispatch downward unconsumed scroll ONLY when at the very top of webpage (!canScrollVertically(-1))
-                // and ONLY after a longer swipe down threshold has been reached, and gesture is not horizontal.
+                // Step 2: Dispatch downward unconsumed scroll ONLY when:
+                // 1) The gesture originally started at the top (isInitialAtTop == true)
+                // 2) Page cannot scroll up (!canScrollUp)
+                // 3) Downward motion (dyUnconsumed < 0)
+                // 4) Motion is not horizontally locked (!isLockedHorizontal)
                 var unconsumedToDispatch = 0
-                if (!canScrollUp && dyUnconsumed < 0) {
+                if (isInitialAtTop && !canScrollUp && dyUnconsumed < 0) {
                     if (!isLockedHorizontal) {
-                        val pullDelta = -dyUnconsumed.toFloat()
+                        val pullDelta = -dyUnconsumed.toFloat() * PULL_RESISTANCE_FACTOR
                         accumulatedPullDistance += pullDelta
                         if (accumulatedPullDistance >= pullThresholdPx) {
+                            if (!hasTriggeredHaptic) {
+                                performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                hasTriggeredHaptic = true
+                            }
                             if (!isPullToRefreshActive) {
                                 isPullToRefreshActive = true
                                 val excess = accumulatedPullDistance - pullThresholdPx
                                 unconsumedToDispatch = -(excess.toInt().coerceAtLeast(1))
                             } else {
-                                unconsumedToDispatch = dyUnconsumed
+                                unconsumedToDispatch = (dyUnconsumed * PULL_RESISTANCE_FACTOR).toInt().coerceAtMost(-1)
                             }
                         }
                     }
@@ -174,6 +194,7 @@ class NestedWebView @JvmOverloads constructor(
                     accumulatedPullDistance = max(0f, accumulatedPullDistance - dyUnconsumed)
                     if (accumulatedPullDistance < pullThresholdPx) {
                         isPullToRefreshActive = false
+                        hasTriggeredHaptic = false
                     }
                 }
 
@@ -189,9 +210,12 @@ class NestedWebView @JvmOverloads constructor(
             }
             MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                 val handled = super.onTouchEvent(event)
+                isGestureActive = false
+                isInitialAtTop = true
                 isLockedHorizontal = false
                 isPullToRefreshActive = false
                 accumulatedPullDistance = 0f
+                hasTriggeredHaptic = false
                 stopNestedScroll(ViewCompat.TYPE_TOUCH)
                 return handled
             }
