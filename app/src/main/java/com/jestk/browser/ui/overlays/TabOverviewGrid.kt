@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -45,17 +46,25 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -106,9 +115,24 @@ fun TabOverviewGrid(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalIsDarkTheme.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     var isSearchVisible by remember { mutableStateOf(false) }
     var tabSearchQuery by remember { mutableStateOf("") }
+    val searchFocusRequester = remember { FocusRequester() }
+
+    BackHandler(enabled = isSearchVisible) {
+        isSearchVisible = false
+        tabSearchQuery = ""
+        keyboardController?.hide()
+    }
+
+    LaunchedEffect(isSearchVisible) {
+        if (isSearchVisible) {
+            searchFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
+    }
 
     val displayedTabs = remember(uiState.tabs, tabSearchQuery) {
         if (tabSearchQuery.isBlank()) uiState.tabs
@@ -196,7 +220,10 @@ fun TabOverviewGrid(
                     IconButton(
                         onClick = {
                             isSearchVisible = !isSearchVisible
-                            if (!isSearchVisible) tabSearchQuery = ""
+                            if (!isSearchVisible) {
+                                tabSearchQuery = ""
+                                keyboardController?.hide()
+                            }
                         },
                         modifier = Modifier.size(38.dp)
                     ) {
@@ -255,27 +282,49 @@ fun TabOverviewGrid(
                             tint = LiquidPrimaryContainer,
                             modifier = Modifier.size(18.dp)
                         )
-                        OutlinedTextField(
+                        BasicTextField(
                             value = tabSearchQuery,
                             onValueChange = { tabSearchQuery = it },
-                            placeholder = {
-                                Text(
-                                    text = "Filter tabs by title or URL...",
-                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp),
-                                    color = MaterialTheme.colorScheme.outline
-                                )
-                            },
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .focusRequester(searchFocusRequester),
                             singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color.Transparent,
-                                unfocusedBorderColor = Color.Transparent,
-                                cursorColor = LiquidPrimaryContainer
+                            textStyle = MaterialTheme.typography.bodyMedium.copy(
+                                color = MaterialTheme.colorScheme.onSurface,
+                                fontSize = 14.sp
                             ),
-                            modifier = Modifier.weight(1f)
+                            cursorBrush = SolidColor(LiquidPrimaryContainer),
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Search
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onSearch = { keyboardController?.hide() }
+                            ),
+                            decorationBox = { innerTextField ->
+                                Box(
+                                    modifier = Modifier.fillMaxSize(),
+                                    contentAlignment = Alignment.CenterStart
+                                ) {
+                                    if (tabSearchQuery.isEmpty()) {
+                                        Text(
+                                            text = "Filter tabs by title or URL...",
+                                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
+                                            color = MaterialTheme.colorScheme.outline,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
                         )
                         if (tabSearchQuery.isNotEmpty()) {
                             IconButton(
-                                onClick = { tabSearchQuery = "" },
+                                onClick = {
+                                    tabSearchQuery = ""
+                                    searchFocusRequester.requestFocus()
+                                },
                                 modifier = Modifier.size(24.dp)
                             ) {
                                 Icon(

@@ -5,6 +5,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TileMode
 import kotlin.math.max
 
 // ==========================================
@@ -131,35 +132,39 @@ fun Modifier.liquidSunsetBackground(isDark: Boolean = false): Modifier = this.dr
     val canvasWidth = size.width
     val canvasHeight = size.height
     val maxDim = max(canvasWidth, canvasHeight)
+    if (maxDim <= 0f) return@drawBehind
 
     if (!isDark) {
         // Base canvas
         drawRect(color = LiquidSurface)
 
         // Warm Apricot glow at top-left (10%, 15%)
-        drawCircle(
+        drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(PastelWarmOrange.copy(alpha = 0.45f), Color.Transparent),
                 center = Offset(canvasWidth * 0.10f, canvasHeight * 0.15f),
-                radius = maxDim * 0.55f
+                radius = maxDim * 0.70f,
+                tileMode = TileMode.Clamp
             )
         )
 
         // Soft Rose glow at top-right (90%, 25%)
-        drawCircle(
+        drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(PastelRose.copy(alpha = 0.35f), Color.Transparent),
                 center = Offset(canvasWidth * 0.90f, canvasHeight * 0.25f),
-                radius = maxDim * 0.50f
+                radius = maxDim * 0.65f,
+                tileMode = TileMode.Clamp
             )
         )
 
         // Pastel Blue glow at bottom-center (50%, 85%)
-        drawCircle(
+        drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(PastelBlue.copy(alpha = 0.35f), Color.Transparent),
                 center = Offset(canvasWidth * 0.50f, canvasHeight * 0.85f),
-                radius = maxDim * 0.60f
+                radius = maxDim * 0.75f,
+                tileMode = TileMode.Clamp
             )
         )
     } else {
@@ -168,29 +173,32 @@ fun Modifier.liquidSunsetBackground(isDark: Boolean = false): Modifier = this.dr
 
         // Clean, subtle pastel twilight glows without muddy dark brown/maroon circles
         // Soft peach glow at top-left (10%, 15%) with wide smooth falloff
-        drawCircle(
+        drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(PastelPeach.copy(alpha = 0.09f), Color.Transparent),
                 center = Offset(canvasWidth * 0.10f, canvasHeight * 0.15f),
-                radius = maxDim * 0.70f
+                radius = maxDim * 0.70f,
+                tileMode = TileMode.Clamp
             )
         )
 
         // Delicate rose glow at top-right (90%, 25%)
-        drawCircle(
+        drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(PastelRose.copy(alpha = 0.08f), Color.Transparent),
                 center = Offset(canvasWidth * 0.90f, canvasHeight * 0.25f),
-                radius = maxDim * 0.65f
+                radius = maxDim * 0.65f,
+                tileMode = TileMode.Clamp
             )
         )
 
         // Soft powder blue glow at bottom-center (50%, 85%)
-        drawCircle(
+        drawRect(
             brush = Brush.radialGradient(
                 colors = listOf(PastelBlue.copy(alpha = 0.09f), Color.Transparent),
                 center = Offset(canvasWidth * 0.50f, canvasHeight * 0.85f),
-                radius = maxDim * 0.75f
+                radius = maxDim * 0.75f,
+                tileMode = TileMode.Clamp
             )
         )
     }
