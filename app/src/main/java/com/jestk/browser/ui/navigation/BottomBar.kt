@@ -73,12 +73,15 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
 import com.jestk.browser.ui.theme.LiquidPrimary
 import com.jestk.browser.ui.theme.LiquidPrimaryFixed
@@ -141,20 +144,7 @@ fun UnifiedBottomBar(
     val circleBtnBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.70f) else LiquidSurfaceContainerHigh.copy(alpha = 0.65f)
 
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        bottomBg.copy(alpha = 0.80f),
-                        bottomBg.copy(alpha = 0.98f),
-                        bottomBg
-                    )
-                )
-            )
-            .navigationBarsPadding()
-            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 12.dp),
+        modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.BottomCenter
     ) {
         Column(
@@ -173,7 +163,7 @@ fun UnifiedBottomBar(
                     border = dockBorder,
                     shadowElevation = 12.dp,
                     modifier = Modifier
-                        .padding(bottom = 8.dp, end = 2.dp)
+                        .padding(bottom = 8.dp, end = 16.dp)
                         .width(148.dp)
                 ) {
                     Column(
@@ -231,12 +221,33 @@ fun UnifiedBottomBar(
                 }
             }
 
-            // 2. Floating Dock Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // 2. Floating Dock Row Container: background & gradient start from top of floating dock
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                bottomBg.copy(alpha = 0.80f),
+                                bottomBg.copy(alpha = 0.98f),
+                                bottomBg
+                            )
+                        )
+                    )
+                    .navigationBarsPadding()
+                    .padding(bottom = 12.dp),
+                contentAlignment = Alignment.Center
             ) {
+                // Floating Dock Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(58.dp)
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                 // Floating Capsule Dock
                 Surface(
                     shape = RoundedCornerShape(29.dp),
@@ -452,6 +463,7 @@ fun UnifiedBottomBar(
             }
         }
     }
+}
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -897,3 +909,56 @@ fun DualTierBottomBar(
         modifier = modifier
     )
 }
+
+@Preview(name = "BottomBar Light", showBackground = true, backgroundColor = 0xFFC5CED9)
+@Composable
+fun UnifiedBottomBarLightPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFFE8EDF5)),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            UnifiedBottomBar(
+                uiState = BrowserUiState(
+                    currentUrl = "https://example.com",
+                    pageTitle = "Example Domain",
+                    tabs = listOf(
+                        Tab(id = "1", url = "https://example.com", title = "Example Domain", isActive = true),
+                        Tab(id = "2", url = "https://duckduckgo.com", title = "DuckDuckGo", isActive = false)
+                    ),
+                    activeTabId = "1"
+                ),
+                onEvent = {}
+            )
+        }
+    }
+}
+
+@Preview(name = "BottomBar Dark", showBackground = true, backgroundColor = 0xFF100E0F)
+@Composable
+fun UnifiedBottomBarDarkPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF100E0F)),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            UnifiedBottomBar(
+                uiState = BrowserUiState(
+                    currentUrl = "https://example.com",
+                    pageTitle = "Example Domain",
+                    tabs = listOf(
+                        Tab(id = "1", url = "https://example.com", title = "Example Domain", isActive = true),
+                        Tab(id = "2", url = "https://duckduckgo.com", title = "DuckDuckGo", isActive = false)
+                    ),
+                    activeTabId = "1"
+                ),
+                onEvent = {}
+            )
+        }
+    }
+}
+
