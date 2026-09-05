@@ -1,7 +1,11 @@
 package com.jestk.browser.ui.views
 
 import android.content.MutableContextWrapper
+import android.os.Handler
+import android.os.Looper
+import android.os.Message
 import android.view.ViewGroup
+import android.webkit.WebView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -95,6 +99,72 @@ fun WebViewContainer(
         label = "WebViewBottomPadding"
     )
 
+    val setupWebViewLongClick: (WebView) -> Unit = remember {
+        { wv ->
+            wv.isLongClickable = true
+            wv.setOnLongClickListener { v ->
+                val targetWebView = v as? WebView ?: return@setOnLongClickListener false
+                val hitTest = targetWebView.hitTestResult ?: return@setOnLongClickListener false
+                when (hitTest.type) {
+                    WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
+                        val url = hitTest.extra
+                        if (!url.isNullOrBlank()) {
+                            currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url))
+                            true
+                        } else {
+                            val handler = object : Handler(Looper.getMainLooper()) {
+                                override fun handleMessage(msg: Message) {
+                                    val nodeUrl = msg.data?.getString("url")
+                                    if (!nodeUrl.isNullOrBlank()) {
+                                        currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(nodeUrl))
+                                    }
+                                }
+                            }
+                            targetWebView.requestFocusNodeHref(handler.obtainMessage())
+                            true
+                        }
+                    }
+                    WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
+                        val fallbackUrl = hitTest.extra
+                        val handler = object : Handler(Looper.getMainLooper()) {
+                            override fun handleMessage(msg: Message) {
+                                val nodeUrl = msg.data?.getString("url")
+                                val target = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
+                                if (!target.isNullOrBlank()) {
+                                    currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(target))
+                                }
+                            }
+                        }
+                        targetWebView.requestFocusNodeHref(handler.obtainMessage())
+                        true
+                    }
+                    1 -> { // Deprecated HitTestResult.ANCHOR_TYPE
+                        val url = hitTest.extra
+                        if (!url.isNullOrBlank()) {
+                            currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url))
+                            true
+                        } else false
+                    }
+                    6 -> { // Deprecated HitTestResult.IMAGE_ANCHOR_TYPE
+                        val fallbackUrl = hitTest.extra
+                        val handler = object : Handler(Looper.getMainLooper()) {
+                            override fun handleMessage(msg: Message) {
+                                val nodeUrl = msg.data?.getString("url")
+                                val target = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
+                                if (!target.isNullOrBlank()) {
+                                    currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(target))
+                                }
+                            }
+                        }
+                        targetWebView.requestFocusNodeHref(handler.obtainMessage())
+                        true
+                    }
+                    else -> false
+                }
+            }
+        }
+    }
+
     val contentModifier = if (uiState.isFullscreenCustomView) {
         modifier.fillMaxSize()
     } else {
@@ -120,6 +190,7 @@ fun WebViewContainer(
                     (webView.context as? MutableContextWrapper)?.baseContext = activity
                     webView.isFocusable = true
                     webView.isFocusableInTouchMode = true
+                    setupWebViewLongClick(webView)
 
                     webView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
                         val dy = scrollY - oldScrollY
@@ -264,6 +335,7 @@ fun WebViewContainer(
                     (currentWebView.context as? MutableContextWrapper)?.baseContext = activity
                     currentWebView.isFocusable = true
                     currentWebView.isFocusableInTouchMode = true
+                    setupWebViewLongClick(currentWebView)
 
                     if (currentWebView.parent !== swipeRefresh) {
                         (currentWebView.parent as? ViewGroup)?.removeView(currentWebView)

@@ -28,4 +28,9 @@
     <string name="ad_blocker_summary">Block known advertising and tracking domains</string>
     <string name="github_link">GitHub Repository</string>
     <string name="jestk_link">Jestk.com</string>
+    <string name="open_in_new_tab">Open in New Tab</string>
+    <string name="open_in_background">Open in Background</string>
+    <string name="copy_link_url">Copy URL</string>
+    <string name="tab_opened_in_background">Tab opened in background</string>
+    <string name="url_copied">URL copied</string>
 </resources>

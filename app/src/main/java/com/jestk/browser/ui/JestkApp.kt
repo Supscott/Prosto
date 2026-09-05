@@ -32,6 +32,7 @@ import androidx.compose.runtime.remember
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
+import com.jestk.browser.ui.overlays.LinkContextMenuBottomSheet
 import com.jestk.browser.ui.overlays.SearchOverlay
 import com.jestk.browser.ui.overlays.SettingsSheet
 import com.jestk.browser.ui.overlays.TabOverviewGrid
@@ -283,6 +284,14 @@ fun JestkApp(
                     )
                 }
                 else -> Unit
+            }
+
+            // Link Context Menu Bottom Sheet
+            uiState.linkContextMenuUrl?.let { linkUrl ->
+                LinkContextMenuBottomSheet(
+                    url = linkUrl,
+                    onEvent = viewModel::onEvent
+                )
             }
 
             // Fullscreen Custom View (HTML5 Video Fullscreen)

@@ -78,4 +78,9 @@ sealed interface BrowserUiEvent {
 
     // System Back Handling
     data object HandleBackPress : BrowserUiEvent
+
+    // Link Context Menu
+    data class ShowLinkContextMenu(val url: String) : BrowserUiEvent
+    data object DismissLinkContextMenu : BrowserUiEvent
+    data class OpenTabInBackground(val url: String) : BrowserUiEvent
 }

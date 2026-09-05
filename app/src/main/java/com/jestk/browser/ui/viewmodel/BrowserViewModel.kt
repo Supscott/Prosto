@@ -300,6 +300,10 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.HandleBackPress -> handleBackNavigation()
+
+            is BrowserUiEvent.ShowLinkContextMenu -> _uiState.update { it.copy(linkContextMenuUrl = event.url) }
+            is BrowserUiEvent.DismissLinkContextMenu -> _uiState.update { it.copy(linkContextMenuUrl = null) }
+            is BrowserUiEvent.OpenTabInBackground -> openTabInBackground(event.url)
         }
     }
 
@@ -348,11 +352,28 @@ class BrowserViewModel(
                         isLoading = url.isNotEmpty(),
                         activeThemeColor = null,
                         isMenuExpanded = targetMenuExpanded,
-                        activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE
+                        activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
+                        linkContextMenuUrl = null
                     )
                 }
                 if (url.isNotEmpty() && url != "about:blank") {
                     _navigationCommands.tryEmit(NavigationCommand.LoadUrl(url))
+                }
+            }
+        }
+    }
+
+    private fun openTabInBackground(url: String) {
+        viewModelScope.launch(ioDispatcher) {
+            tabOperationMutex.withLock {
+                val title = if (url.isEmpty() || url == "about:blank") "Home" else "Loading..."
+                val created = tabRepository.createTab(url = url, title = title)
+                val updatedTabs = _uiState.value.tabs + created.copy(isActive = false)
+                _uiState.update {
+                    it.copy(
+                        tabs = updatedTabs,
+                        linkContextMenuUrl = null
+                    )
                 }
             }
         }
@@ -717,6 +738,10 @@ class BrowserViewModel(
 
     private fun handleBackNavigation() {
         val current = _uiState.value
+        if (current.linkContextMenuUrl != null) {
+            _uiState.update { it.copy(linkContextMenuUrl = null) }
+            return
+        }
         if (current.isFullscreenCustomView) {
             onEvent(BrowserUiEvent.ExitFullscreen)
             return

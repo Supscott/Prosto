@@ -44,7 +44,8 @@ data class BrowserUiState(
     val isVideoPlaying: Boolean = false,
     val isFullscreenCustomView: Boolean = false,
     val fullscreenCustomView: Any? = null,
-    val fullscreenRequestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    val fullscreenRequestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
+    val linkContextMenuUrl: String? = null
 ) {
     val activeTab: Tab?
         get() = tabs.find { it.id == activeTabId }

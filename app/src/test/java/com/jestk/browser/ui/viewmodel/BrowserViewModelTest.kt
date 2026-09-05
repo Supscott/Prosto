@@ -716,4 +716,95 @@ class BrowserViewModelTest {
 
         assertThat(viewModel.uiState.value.searchHistorySuggestions).isEmpty()
     }
+
+    @Test
+    fun linkContextMenu_showAndDismiss_updatesUiState() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.linkContextMenuUrl).isNull()
+
+        val testUrl = "https://example.com/target"
+        viewModel.onEvent(BrowserUiEvent.ShowLinkContextMenu(testUrl))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.linkContextMenuUrl).isEqualTo(testUrl)
+
+        viewModel.onEvent(BrowserUiEvent.DismissLinkContextMenu)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.linkContextMenuUrl).isNull()
+    }
+
+    @Test
+    fun linkContextMenu_openInNewTab_createsAndSelectsTabAndClearsMenu() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val originalActiveTabId = viewModel.uiState.value.activeTabId
+        val targetUrl = "https://example.com/new-active"
+
+        viewModel.onEvent(BrowserUiEvent.ShowLinkContextMenu(targetUrl))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.linkContextMenuUrl).isEqualTo(targetUrl)
+
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab(targetUrl))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.linkContextMenuUrl).isNull()
+        assertThat(state.tabs).hasSize(2)
+        assertThat(state.activeTabId).isNotEqualTo(originalActiveTabId)
+        assertThat(state.currentUrl).isEqualTo(targetUrl)
+        assertThat(state.activeTab?.url).isEqualTo(targetUrl)
+        assertThat(state.activeTab?.isActive).isTrue()
+    }
+
+    @Test
+    fun linkContextMenu_openTabInBackground_createsTabWithoutSwitchingAndClearsMenu() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val originalActiveTabId = viewModel.uiState.value.activeTabId
+        val originalUrl = viewModel.uiState.value.currentUrl
+        val bgUrl = "https://example.com/background"
+
+        viewModel.onEvent(BrowserUiEvent.ShowLinkContextMenu(bgUrl))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.linkContextMenuUrl).isEqualTo(bgUrl)
+
+        viewModel.onEvent(BrowserUiEvent.OpenTabInBackground(bgUrl))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.linkContextMenuUrl).isNull()
+        assertThat(state.tabs).hasSize(2)
+        // Screen remains on the original tab and URL
+        assertThat(state.activeTabId).isEqualTo(originalActiveTabId)
+        assertThat(state.currentUrl).isEqualTo(originalUrl)
+
+        // Background tab was created
+        val bgTab = state.tabs.firstOrNull { it.url == bgUrl }
+        assertThat(bgTab).isNotNull()
+        assertThat(bgTab?.isActive).isFalse()
+    }
+
+    @Test
+    fun linkContextMenu_backPress_dismissesMenuFirst() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val targetUrl = "https://example.com/back-test"
+        viewModel.onEvent(BrowserUiEvent.ShowLinkContextMenu(targetUrl))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.linkContextMenuUrl).isEqualTo(targetUrl)
+
+        // Press back while context menu is open
+        viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+        advanceUntilIdle()
+
+        // Context menu is dismissed, but tab count is unchanged
+        assertThat(viewModel.uiState.value.linkContextMenuUrl).isNull()
+        assertThat(viewModel.uiState.value.tabs).hasSize(1)
+    }
 }
