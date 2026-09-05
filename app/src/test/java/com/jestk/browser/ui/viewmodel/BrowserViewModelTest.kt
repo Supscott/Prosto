@@ -138,6 +138,48 @@ class BrowserViewModelTest {
     }
 
     @Test
+    fun closeTab_whenOnTabsScreen_doesNotDismissTabsScreen() = runTest(testDispatcher) {
+        val tab1 = tabRepo.createTab(url = "https://jestk.com", title = "Jestk")
+        val tab2 = tabRepo.createTab(url = "https://github.com", title = "GitHub")
+        tabRepo.setActiveTab(tab1.id)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.OpenTabGrid)
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.activeOverlay).isEqualTo(OverlayType.TAB_GRID)
+
+        viewModel.onEvent(BrowserUiEvent.CloseTab(tab1.id))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.tabs).hasSize(1)
+        assertThat(state.activeTabId).isEqualTo(tab2.id)
+        assertThat(state.activeOverlay).isEqualTo(OverlayType.TAB_GRID)
+    }
+
+    @Test
+    fun closeTab_whenLastTabClosedOnTabsScreen_doesNotDismissTabsScreen() = runTest(testDispatcher) {
+        val tab1 = tabRepo.createTab(url = "https://jestk.com", title = "Jestk")
+        tabRepo.setActiveTab(tab1.id)
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.OpenTabGrid)
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.activeOverlay).isEqualTo(OverlayType.TAB_GRID)
+
+        viewModel.onEvent(BrowserUiEvent.CloseTab(tab1.id))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.tabs).hasSize(1)
+        assertThat(state.activeOverlay).isEqualTo(OverlayType.TAB_GRID)
+    }
+
+    @Test
     fun loadUrl_withDomain_prependsHttps() = runTest(testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()

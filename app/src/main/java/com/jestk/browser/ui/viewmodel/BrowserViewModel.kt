@@ -345,7 +345,7 @@ class BrowserViewModel(
                             currentUrl = "",
                             pageTitle = "Home",
                             activeThemeColor = null,
-                            activeOverlay = OverlayType.HOME
+                            activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME
                         )
                     }
                 } else {
@@ -366,7 +366,13 @@ class BrowserViewModel(
                             canGoBack = nextActive.canGoBack,
                             canGoForward = nextActive.canGoForward,
                             activeThemeColor = if (isNextHome) null else nextColor,
-                            activeOverlay = if (isNextHome) OverlayType.HOME else OverlayType.NONE
+                            activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) {
+                                OverlayType.TAB_GRID
+                            } else if (isNextHome) {
+                                OverlayType.HOME
+                            } else {
+                                OverlayType.NONE
+                            }
                         )
                     }
                 }
@@ -388,7 +394,7 @@ class BrowserViewModel(
                         currentUrl = "",
                         pageTitle = "Home",
                         activeThemeColor = null,
-                        activeOverlay = OverlayType.HOME
+                        activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME
                     )
                 }
             }
