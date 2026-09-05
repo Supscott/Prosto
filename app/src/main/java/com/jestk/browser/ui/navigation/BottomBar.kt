@@ -94,7 +94,7 @@ import java.net.URI
 /**
  * Floating Capsule Dock & Menu - Liquid Pastel Sunset design system.
  * Features:
- * - Floating capsule dock (<, active tab card with lock/title/domain/share, >)
+ * - Floating capsule dock (<, active tab card with lock/title/domain/close, >)
  * - Dedicated floating circular Menu button (58x58dp)
  * - Animated popup actions card (Home, Search, Tabs, Settings)
  */
@@ -571,14 +571,14 @@ private fun ActiveTabCenterCapsule(
                 }
             }
 
-            // Share Action Glyph
+            // Close Tab Action Glyph
             IconButton(
-                onClick = { onShare(url) },
+                onClick = onClose,
                 modifier = Modifier.size(26.dp)
             ) {
                 Icon(
-                    imageVector = Icons.Default.Share,
-                    contentDescription = "Share",
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close tab",
                     tint = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.size(14.dp)
                 )
