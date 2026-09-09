@@ -51,6 +51,7 @@ import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.findActivity
 import com.jestk.browser.ui.theme.ActiveTabBorderBrush
+import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import kotlinx.coroutines.launch
@@ -64,6 +65,7 @@ fun WebViewContainer(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isDark = LocalIsDarkTheme.current
     val currentUiState by rememberUpdatedState(uiState)
     val currentOnEvent by rememberUpdatedState(onEvent)
     val currentTab = remember(tabId, uiState.tabs) {
@@ -91,7 +93,7 @@ fun WebViewContainer(
     val targetBottomPadding = when {
         uiState.isFullscreenCustomView -> 0.dp
         isImeVisible -> 0.dp
-        else -> 84.dp
+        else -> 58.dp
     }
     val bottomPadding by animateDpAsState(
         targetValue = targetBottomPadding,
@@ -216,7 +218,8 @@ fun WebViewContainer(
                         onSnapshotReady = { id, path -> currentOnEvent(BrowserUiEvent.OnSnapshotCaptured(id, path)) },
                         onThemeColorDetected = { id, color ->
                             currentOnEvent(BrowserUiEvent.OnThemeColorReceived(id, color))
-                        }
+                        },
+                        isDarkTheme = { isDark }
                     )
 
                     webView.webChromeClient = JestkWebChromeClient(

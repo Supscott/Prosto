@@ -221,25 +221,31 @@ fun UnifiedBottomBar(
                 }
             }
 
-            // 2. Floating Dock Row Container: background & gradient start from top of floating dock
+            // 2. Floating Dock Row Container: compact low background under the dock with pt-0
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colorStops = arrayOf(
-                                0.0f to Color.Transparent,
-                                0.45f to Color.Transparent,
-                                0.70f to bottomBg.copy(alpha = 0.65f),
-                                0.90f to bottomBg.copy(alpha = 0.95f),
-                                1.0f to bottomBg
+                    .navigationBarsPadding()
+                    .padding(top = 0.dp, bottom = 4.dp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                // Background gradient strictly at the lower portion under the dock
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    bottomBg.copy(alpha = 0.50f),
+                                    bottomBg.copy(alpha = 0.85f)
+                                )
                             )
                         )
-                    )
-                    .navigationBarsPadding()
-                    .padding(top = 0.dp, bottom = 12.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
+                )
+
                 // Floating Dock Row
                 Row(
                     modifier = Modifier

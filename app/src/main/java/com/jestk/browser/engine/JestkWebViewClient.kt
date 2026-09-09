@@ -13,7 +13,8 @@ class JestkWebViewClient(
     private val onPageFinished: (tabId: String, url: String, title: String) -> Unit,
     private val onNavigationStateChanged: (tabId: String, canGoBack: Boolean, canGoForward: Boolean) -> Unit,
     private val onSnapshotReady: (tabId: String, path: String) -> Unit,
-    private val onThemeColorDetected: (tabId: String, color: Int?) -> Unit = { _, _ -> }
+    private val onThemeColorDetected: (tabId: String, color: Int?) -> Unit = { _, _ -> },
+    private val isDarkTheme: (() -> Boolean)? = null
 ) : WebViewClient() {
 
     override fun shouldInterceptRequest(
@@ -35,8 +36,9 @@ class JestkWebViewClient(
         val validUrl = url.orEmpty()
         (view as? NestedWebView)?.loadedUrl = validUrl
         onPageStarted(tabId, validUrl)
-        view?.let {
-            onNavigationStateChanged(tabId, it.canGoBack(), it.canGoForward())
+        view?.let { wv ->
+            onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
+            isDarkTheme?.invoke()?.let { isDark -> injectColorScheme(wv, isDark) }
         }
     }
 
@@ -48,6 +50,7 @@ class JestkWebViewClient(
         onPageFinished(tabId, validUrl, title)
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
+            isDarkTheme?.invoke()?.let { isDark -> injectColorScheme(wv, isDark) }
             extractThemeColor(wv)
             SnapshotEngine.captureSnapshot(wv, tabId, wv.context) { path ->
                 if (path != null) {
@@ -55,6 +58,80 @@ class JestkWebViewClient(
                 }
             }
         }
+    }
+
+    private fun injectColorScheme(webView: WebView, isDark: Boolean) {
+        val js = """
+            (function() {
+                try {
+                    var dark = $isDark;
+                    window.__jestkIsDark = dark;
+                    if (!window.__jestkThemeListeners) {
+                        window.__jestkThemeListeners = [];
+                    }
+
+                    if (!window.__jestkOrigMatchMedia) {
+                        window.__jestkOrigMatchMedia = window.matchMedia;
+                    }
+                    var origMatchMedia = window.__jestkOrigMatchMedia;
+
+                    window.matchMedia = function(q) {
+                        if (q && q.indexOf('prefers-color-scheme') !== -1) {
+                            var isDarkQuery = q.indexOf('dark') !== -1;
+                            var currentDark = window.__jestkIsDark;
+                            var matches = isDarkQuery ? currentDark : !currentDark;
+                            return {
+                                matches: matches,
+                                media: q,
+                                onchange: null,
+                                addListener: function(fn) {
+                                    if (typeof fn === 'function' && window.__jestkThemeListeners.indexOf(fn) === -1) {
+                                        window.__jestkThemeListeners.push(fn);
+                                    }
+                                },
+                                removeListener: function(fn) {
+                                    var idx = window.__jestkThemeListeners.indexOf(fn);
+                                    if (idx !== -1) window.__jestkThemeListeners.splice(idx, 1);
+                                },
+                                addEventListener: function(type, fn) {
+                                    if (type === 'change' && typeof fn === 'function' && window.__jestkThemeListeners.indexOf(fn) === -1) {
+                                        window.__jestkThemeListeners.push(fn);
+                                    }
+                                },
+                                removeEventListener: function(type, fn) {
+                                    if (type === 'change') {
+                                        var idx = window.__jestkThemeListeners.indexOf(fn);
+                                        if (idx !== -1) window.__jestkThemeListeners.splice(idx, 1);
+                                    }
+                                },
+                                dispatchEvent: function() { return false; }
+                            };
+                        }
+                        return origMatchMedia ? origMatchMedia.call(window, q) : null;
+                    };
+
+                    var evt = { matches: dark, media: '(prefers-color-scheme: dark)' };
+                    window.__jestkThemeListeners.forEach(function(fn) {
+                        try { fn(evt); } catch(e) {}
+                    });
+
+                    if (location.hostname.indexOf('youtube.com') !== -1) {
+                        if (dark) {
+                            if (document.documentElement) document.documentElement.setAttribute('dark', 'true');
+                            var app = document.querySelector('ytd-app, ytm-app');
+                            if (app) app.setAttribute('dark', 'true');
+                        } else {
+                            if (document.documentElement) document.documentElement.removeAttribute('dark');
+                            var app = document.querySelector('ytd-app, ytm-app');
+                            if (app) app.removeAttribute('dark');
+                        }
+                    }
+                } catch(e) {}
+            })();
+        """.trimIndent()
+        try {
+            webView.evaluateJavascript(js, null)
+        } catch (_: Throwable) {}
     }
 
     private fun extractThemeColor(webView: WebView) {

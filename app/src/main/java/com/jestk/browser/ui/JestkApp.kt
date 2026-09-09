@@ -138,8 +138,9 @@ fun JestkApp(
 
     JestkBrowserTheme(themeMode = uiState.settings.themeMode) {
         val isDark = LocalIsDarkTheme.current
+        val currentContext = LocalContext.current
         LaunchedEffect(isDark) {
-            webViewPool.updateThemeMode(isDark)
+            webViewPool.updateThemeMode(isDark, currentContext)
         }
 
         val currentTab = uiState.tabs.find { it.id == uiState.activeTabId }

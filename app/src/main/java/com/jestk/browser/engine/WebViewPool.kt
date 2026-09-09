@@ -26,9 +26,29 @@ class WebViewPool(private val applicationContext: Context) {
     private val pool = ConcurrentHashMap<String, WebView>()
     private var currentIsDark: Boolean? = null
 
+    private fun syncConfigurationUiMode(context: Context, isDark: Boolean) {
+        try {
+            val res = context.resources
+            val config = res.configuration
+            val targetNight = if (isDark) {
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+            } else {
+                android.content.res.Configuration.UI_MODE_NIGHT_NO
+            }
+            if ((config.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) != targetNight) {
+                val updatedConfig = android.content.res.Configuration(config).apply {
+                    uiMode = (uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or targetNight
+                }
+                @Suppress("DEPRECATION")
+                res.updateConfiguration(updatedConfig, res.displayMetrics)
+            }
+        } catch (_: Throwable) {}
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     fun getOrCreateWebView(tabId: String, context: Context? = null): WebView {
         val targetContext = context?.findActivity() ?: context ?: applicationContext
+        currentIsDark?.let { syncConfigurationUiMode(targetContext, it) }
         val existing = pool[tabId]
         if (existing != null) {
             (existing.context as? MutableContextWrapper)?.baseContext = targetContext
@@ -85,12 +105,95 @@ class WebViewPool(private val applicationContext: Context) {
                     if (isDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
                 )
             }
+
+            injectColorSchemeScript(webView, isDark)
         } catch (_: Throwable) {}
     }
 
-    fun updateThemeMode(isDark: Boolean) {
+    fun injectColorSchemeScript(webView: WebView, isDark: Boolean) {
+        val js = """
+            (function() {
+                try {
+                    var dark = $isDark;
+                    window.__jestkIsDark = dark;
+                    if (!window.__jestkThemeListeners) {
+                        window.__jestkThemeListeners = [];
+                    }
+
+                    if (!window.__jestkOrigMatchMedia) {
+                        window.__jestkOrigMatchMedia = window.matchMedia;
+                    }
+                    var origMatchMedia = window.__jestkOrigMatchMedia;
+
+                    window.matchMedia = function(q) {
+                        if (q && q.indexOf('prefers-color-scheme') !== -1) {
+                            var isDarkQuery = q.indexOf('dark') !== -1;
+                            var currentDark = window.__jestkIsDark;
+                            var matches = isDarkQuery ? currentDark : !currentDark;
+                            return {
+                                matches: matches,
+                                media: q,
+                                onchange: null,
+                                addListener: function(fn) {
+                                    if (typeof fn === 'function' && window.__jestkThemeListeners.indexOf(fn) === -1) {
+                                        window.__jestkThemeListeners.push(fn);
+                                    }
+                                },
+                                removeListener: function(fn) {
+                                    var idx = window.__jestkThemeListeners.indexOf(fn);
+                                    if (idx !== -1) window.__jestkThemeListeners.splice(idx, 1);
+                                },
+                                addEventListener: function(type, fn) {
+                                    if (type === 'change' && typeof fn === 'function' && window.__jestkThemeListeners.indexOf(fn) === -1) {
+                                        window.__jestkThemeListeners.push(fn);
+                                    }
+                                },
+                                removeEventListener: function(type, fn) {
+                                    if (type === 'change') {
+                                        var idx = window.__jestkThemeListeners.indexOf(fn);
+                                        if (idx !== -1) window.__jestkThemeListeners.splice(idx, 1);
+                                    }
+                                },
+                                dispatchEvent: function() { return false; }
+                            };
+                        }
+                        return origMatchMedia ? origMatchMedia.call(window, q) : null;
+                    };
+
+                    var evt = { matches: dark, media: '(prefers-color-scheme: dark)' };
+                    window.__jestkThemeListeners.forEach(function(fn) {
+                        try { fn(evt); } catch(e) {}
+                    });
+
+                    if (location.hostname.indexOf('youtube.com') !== -1) {
+                        if (dark) {
+                            if (document.documentElement) document.documentElement.setAttribute('dark', 'true');
+                            var app = document.querySelector('ytd-app, ytm-app');
+                            if (app) app.setAttribute('dark', 'true');
+                        } else {
+                            if (document.documentElement) document.documentElement.removeAttribute('dark');
+                            var app = document.querySelector('ytd-app, ytm-app');
+                            if (app) app.removeAttribute('dark');
+                        }
+                    }
+                } catch(e) {}
+            })();
+        """.trimIndent()
+        try {
+            webView.evaluateJavascript(js, null)
+        } catch (_: Throwable) {}
+    }
+
+    fun updateThemeMode(isDark: Boolean, context: Context? = null) {
         currentIsDark = isDark
+        context?.let { syncConfigurationUiMode(it, isDark) }
+        syncConfigurationUiMode(applicationContext, isDark)
         pool.values.forEach { webView ->
+            val wrapper = webView.context as? MutableContextWrapper
+            wrapper?.baseContext?.let { syncConfigurationUiMode(it, isDark) }
+            try {
+                webView.dispatchConfigurationChanged(webView.context.resources.configuration)
+            } catch (_: Throwable) {}
             applyThemeMode(webView, isDark)
         }
     }
