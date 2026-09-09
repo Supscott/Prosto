@@ -268,30 +268,7 @@ fun WebViewContainer(
                         if (isUnloaded && (webView.url.isNullOrEmpty() || webView.url == "about:blank")) {
                             webView.loadUrl(targetUrl)
                         } else if (currentTab?.themeColor == null) {
-                            val js = """
-                                (function() {
-                                    try {
-                                        var meta = document.querySelector('meta[name="theme-color"]');
-                                        if (meta && meta.content) return meta.content.trim();
-                                        function getBg(el) {
-                                            if (!el) return null;
-                                            var style = window.getComputedStyle(el);
-                                            var bg = style ? style.backgroundColor : null;
-                                            if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'rgba(0,0,0,0)') return bg.trim();
-                                            return null;
-                                        }
-                                        return getBg(document.body) || getBg(document.documentElement) || '';
-                                    } catch(e) {
-                                        return '';
-                                    }
-                                })()
-                            """.trimIndent()
-                            webView.evaluateJavascript(js) { raw ->
-                                val color = JestkWebViewClient.parseCssColor(raw)
-                                if (color != null) {
-                                    currentOnEvent(BrowserUiEvent.OnThemeColorReceived(tabId, color))
-                                }
-                            }
+                            (webView.webViewClient as? JestkWebViewClient)?.extractThemeColor(webView)
                         }
                     }
 

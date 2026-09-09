@@ -38,8 +38,15 @@ class JestkWebViewClient(
         onPageStarted(tabId, validUrl)
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
-            isDarkTheme?.invoke()?.let { isDark -> injectColorScheme(wv, isDark) }
-            extractThemeColor(wv)
+            val isDark = isDarkTheme?.invoke() ?: false
+            injectColorScheme(wv, isDark)
+            if (validUrl.contains("apple.com", ignoreCase = true)) {
+                onThemeColorDetected(tabId, android.graphics.Color.parseColor("#161617"))
+            } else if (validUrl.contains("youtube.com", ignoreCase = true) && isDark) {
+                onThemeColorDetected(tabId, android.graphics.Color.parseColor("#0f0f0f"))
+            } else {
+                extractThemeColor(wv, isPageStarted = true)
+            }
         }
     }
 
@@ -52,8 +59,17 @@ class JestkWebViewClient(
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
             isDarkTheme?.invoke()?.let { isDark -> injectColorScheme(wv, isDark) }
-            extractThemeColor(wv)
-            SnapshotEngine.captureSnapshot(wv, tabId, wv.context) { path ->
+            extractThemeColor(wv, isPageStarted = false)
+            SnapshotEngine.captureSnapshot(
+                webView = wv,
+                tabId = tabId,
+                context = wv.context,
+                onVisualColorsSampled = { topColor, _ ->
+                    if (!validUrl.contains("apple.com", ignoreCase = true)) {
+                        onThemeColorDetected(tabId, topColor)
+                    }
+                }
+            ) { path ->
                 if (path != null) {
                     onSnapshotReady(tabId, path)
                 }
@@ -135,21 +151,27 @@ class JestkWebViewClient(
         } catch (_: Throwable) {}
     }
 
-    private fun extractThemeColor(webView: WebView) {
+    fun extractThemeColor(webView: WebView, isPageStarted: Boolean = false) {
         val js = """
             (function() {
                 try {
-                    if (location.hostname.indexOf('youtube.com') !== -1) {
+                    var host = location.hostname || '';
+                    if (host.indexOf('apple.com') !== -1) {
+                        return '#161617';
+                    }
+                    if (host.indexOf('youtube.com') !== -1) {
                         var isDark = document.documentElement.hasAttribute('dark') || 
                                      document.documentElement.getAttribute('dark') === 'true' ||
                                      document.querySelector('ytd-app[dark], ytm-app[dark]');
-                        if (isDark) return '#0f0f0f';
+                        return isDark ? '#0f0f0f' : '#ffffff';
                     }
+
                     var meta = document.querySelector('meta[name="theme-color"]');
                     if (meta && meta.content) {
                         var c = meta.content.trim();
                         if (c) return c;
                     }
+
                     function getBg(el) {
                         if (!el) return null;
                         var style = window.getComputedStyle(el);
@@ -159,12 +181,49 @@ class JestkWebViewClient(
                         }
                         return null;
                     }
-                    return getBg(document.querySelector('ytm-app')) ||
-                           getBg(document.querySelector('ytd-app')) ||
-                           getBg(document.querySelector('#app')) ||
-                           getBg(document.querySelector('main')) ||
-                           getBg(document.body) ||
-                           getBg(document.documentElement) || '';
+
+                    var headerSelectors = [
+                        '#globalnav',
+                        '#ac-globalnav',
+                        'header',
+                        'nav',
+                        '[role="banner"]',
+                        '.navbar',
+                        '#navbar',
+                        '.header',
+                        '#header',
+                        '.top-bar',
+                        '#top-bar',
+                        '[data-header]'
+                    ];
+                    for (var i = 0; i < headerSelectors.length; i++) {
+                        var headerEl = document.querySelector(headerSelectors[i]);
+                        var headerBg = getBg(headerEl);
+                        if (headerBg) return headerBg;
+                    }
+
+                    try {
+                        var topEl = document.elementFromPoint(window.innerWidth / 2, 10);
+                        var curr = topEl;
+                        while (curr && curr !== document.documentElement && curr !== document.body) {
+                            var topBg = getBg(curr);
+                            if (topBg) return topBg;
+                            curr = curr.parentElement;
+                        }
+                    } catch(e) {}
+
+                    var appBg = getBg(document.querySelector('ytm-app')) ||
+                                getBg(document.querySelector('ytd-app')) ||
+                                getBg(document.querySelector('#app')) ||
+                                getBg(document.querySelector('#root')) ||
+                                getBg(document.querySelector('main'));
+                    if (appBg) return appBg;
+
+                    if (!$isPageStarted) {
+                        var bodyBg = getBg(document.body) || getBg(document.documentElement);
+                        if (bodyBg) return bodyBg;
+                    }
+                    return '';
                 } catch(e) {
                     return '';
                 }
@@ -208,7 +267,7 @@ class JestkWebViewClient(
                             val g = hex[1].toString().repeat(2).toInt(16)
                             val b = hex[2].toString().repeat(2).toInt(16)
                             val a = hex[3].toString().repeat(2).toInt(16)
-                            android.graphics.Color.argb(a, r, g, b)
+                            if (a < 25) null else android.graphics.Color.rgb(r, g, b)
                         }
                         6 -> android.graphics.Color.parseColor(clean)
                         8 -> {
@@ -217,7 +276,7 @@ class JestkWebViewClient(
                             val gg = clean.substring(3, 5).toInt(16)
                             val bb = clean.substring(5, 7).toInt(16)
                             val aa = clean.substring(7, 9).toInt(16)
-                            android.graphics.Color.argb(aa, rr, gg, bb)
+                            if (aa < 25) null else android.graphics.Color.rgb(rr, gg, bb)
                         }
                         else -> null
                     }
@@ -241,7 +300,7 @@ class JestkWebViewClient(
                                 alphaFloat.toInt().coerceIn(0, 255)
                             }
                         } else 255
-                        if (a == 0) null else android.graphics.Color.argb(a, r, g, b)
+                        if (a < 25) null else android.graphics.Color.rgb(r, g, b)
                     } else null
                 } catch (_: Throwable) {
                     null

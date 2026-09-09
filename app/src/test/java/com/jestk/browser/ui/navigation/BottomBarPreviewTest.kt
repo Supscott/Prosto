@@ -155,4 +155,83 @@ class BottomBarPreviewTest {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
     }
+
+    @Test
+    fun renderAppleDarkPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val appleState = BrowserUiState(
+            currentUrl = "https://apple.com",
+            pageTitle = "Apple",
+            activeThemeColor = android.graphics.Color.parseColor("#161617"),
+            tabs = listOf(
+                Tab(
+                    id = "apple_tab",
+                    url = "https://apple.com",
+                    title = "Apple",
+                    themeColor = android.graphics.Color.parseColor("#161617"),
+                    isActive = true
+                )
+            ),
+            activeTabId = "apple_tab"
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF161617))
+                    ) {
+                        // Simulated dark Apple webpage content at bottom
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color(0xFF161617))
+                                .padding(horizontal = 24.dp, vertical = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("iPhone Duo", color = Color.White, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                            Text("The largest iPhone display ever.", color = Color(0xFFA1A1A6), fontSize = 14.sp)
+                        }
+
+                        UnifiedBottomBar(
+                            uiState = appleState,
+                            onEvent = {},
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        )
+
+                        // Gesture navigation indicator
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 6.dp)
+                                .size(width = 120.dp, height = 4.dp)
+                                .background(Color(0xFF8E8E93), RoundedCornerShape(2.dp))
+                        )
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 1080
+        val height = 480
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/apple_bottom_bar_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+    }
 }

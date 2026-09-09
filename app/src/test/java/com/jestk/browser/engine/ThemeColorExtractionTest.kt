@@ -56,5 +56,20 @@ class ThemeColorExtractionTest {
         val rgba = JestkWebViewClient.parseCssColor("rgba(255, 100, 50, 1)")
         assertNotNull(rgba)
         assertEquals(android.graphics.Color.argb(255, 255, 100, 50), rgba)
+
+        // Apple dark theme color test
+        val appleColor = JestkWebViewClient.parseCssColor("#161617")
+        assertNotNull(appleColor)
+        assertEquals(android.graphics.Color.rgb(22, 22, 23), appleColor)
+
+        // Semi-transparent rgba should resolve to opaque rgb
+        val translucentApple = JestkWebViewClient.parseCssColor("rgba(22, 22, 23, 0.8)")
+        assertNotNull(translucentApple)
+        assertEquals(android.graphics.Color.rgb(22, 22, 23), translucentApple)
+
+        // 8-digit hex
+        val hex8 = JestkWebViewClient.parseCssColor("#161617cc")
+        assertNotNull(hex8)
+        assertEquals(android.graphics.Color.rgb(22, 22, 23), hex8)
     }
 }
