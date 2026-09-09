@@ -8,6 +8,8 @@ import android.content.MutableContextWrapper
 import android.view.ViewGroup
 import android.webkit.WebSettings
 import android.webkit.WebView
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import java.util.concurrent.ConcurrentHashMap
 
 fun Context.findActivity(): Activity? {
@@ -22,6 +24,7 @@ fun Context.findActivity(): Activity? {
 class WebViewPool(private val applicationContext: Context) {
 
     private val pool = ConcurrentHashMap<String, WebView>()
+    private var currentIsDark: Boolean? = null
 
     @SuppressLint("SetJavaScriptEnabled")
     fun getOrCreateWebView(tabId: String, context: Context? = null): WebView {
@@ -29,6 +32,7 @@ class WebViewPool(private val applicationContext: Context) {
         val existing = pool[tabId]
         if (existing != null) {
             (existing.context as? MutableContextWrapper)?.baseContext = targetContext
+            currentIsDark?.let { applyThemeMode(existing, it) }
             return existing
         }
 
@@ -55,8 +59,40 @@ class WebViewPool(private val applicationContext: Context) {
             // keeping audio and video playback alive across tab switches.
         }
 
+        currentIsDark?.let { applyThemeMode(webView, it) }
+
         pool[tabId] = webView
         return webView
+    }
+
+    fun applyThemeMode(webView: WebView, isDark: Boolean) {
+        val settings = webView.settings
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isDark)
+            }
+
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK_STRATEGY)) {
+                WebSettingsCompat.setForceDarkStrategy(
+                    settings,
+                    WebSettingsCompat.DARK_STRATEGY_PREFER_WEB_THEME_OVER_USER_AGENT_DARKENING
+                )
+            }
+
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
+                WebSettingsCompat.setForceDark(
+                    settings,
+                    if (isDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
+                )
+            }
+        } catch (_: Throwable) {}
+    }
+
+    fun updateThemeMode(isDark: Boolean) {
+        currentIsDark = isDark
+        pool.values.forEach { webView ->
+            applyThemeMode(webView, isDark)
+        }
     }
 
     fun detachFromParent(tabId: String) {

@@ -227,17 +227,18 @@ fun UnifiedBottomBar(
                     .fillMaxWidth()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                bottomBg.copy(alpha = 0.80f),
-                                bottomBg.copy(alpha = 0.98f),
-                                bottomBg
+                            colorStops = arrayOf(
+                                0.0f to Color.Transparent,
+                                0.45f to Color.Transparent,
+                                0.70f to bottomBg.copy(alpha = 0.65f),
+                                0.90f to bottomBg.copy(alpha = 0.95f),
+                                1.0f to bottomBg
                             )
                         )
                     )
                     .navigationBarsPadding()
-                    .padding(bottom = 12.dp),
-                contentAlignment = Alignment.Center
+                    .padding(top = 0.dp, bottom = 12.dp),
+                contentAlignment = Alignment.TopCenter
             ) {
                 // Floating Dock Row
                 Row(
@@ -335,7 +336,8 @@ fun UnifiedBottomBar(
                                         border = centerPillBorder,
                                         isDark = isDark,
                                         onOpenSearch = {
-                                            onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = tab.url.ifEmpty { null }, openInNewTab = false))
+                                            val targetPrefill = if (tab.url.isNotBlank() && tab.url != "about:blank") tab.url else null
+                                            onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = targetPrefill, openInNewTab = false))
                                         },
                                         onClose = {
                                             onEvent(BrowserUiEvent.CloseTab(tab.id))
@@ -399,13 +401,14 @@ fun UnifiedBottomBar(
                                 modifier = Modifier
                                     .align(Alignment.CenterStart)
                                     .fillMaxHeight()
-                                    .width(26.dp)
+                                    .width(44.dp)
                                     .clip(RoundedCornerShape(topStart = 29.dp, bottomStart = 29.dp))
                                     .background(
                                         Brush.horizontalGradient(
                                             colors = listOf(
                                                 dockBg,
-                                                dockBg.copy(alpha = 0.75f),
+                                                dockBg.copy(alpha = 0.95f),
+                                                dockBg.copy(alpha = 0.50f),
                                                 Color.Transparent
                                             )
                                         )
@@ -419,13 +422,14 @@ fun UnifiedBottomBar(
                                 modifier = Modifier
                                     .align(Alignment.CenterEnd)
                                     .fillMaxHeight()
-                                    .width(26.dp)
+                                    .width(44.dp)
                                     .clip(RoundedCornerShape(topEnd = 29.dp, bottomEnd = 29.dp))
                                     .background(
                                         Brush.horizontalGradient(
                                             colors = listOf(
                                                 Color.Transparent,
-                                                dockBg.copy(alpha = 0.75f),
+                                                dockBg.copy(alpha = 0.50f),
+                                                dockBg.copy(alpha = 0.95f),
                                                 dockBg
                                             )
                                         )

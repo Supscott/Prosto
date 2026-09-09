@@ -38,6 +38,7 @@ import com.jestk.browser.ui.overlays.SettingsSheet
 import com.jestk.browser.ui.overlays.TabOverviewGrid
 import com.jestk.browser.ui.pip.FloatingVideoMiniPlayer
 import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.viewmodel.NavigationCommand
@@ -136,6 +137,11 @@ fun JestkApp(
     }
 
     JestkBrowserTheme(themeMode = uiState.settings.themeMode) {
+        val isDark = LocalIsDarkTheme.current
+        LaunchedEffect(isDark) {
+            webViewPool.updateThemeMode(isDark)
+        }
+
         val currentTab = uiState.tabs.find { it.id == uiState.activeTabId }
         val siteColor = uiState.activeThemeColor ?: currentTab?.themeColor
         val showHomeScreen = uiState.activeOverlay == OverlayType.HOME ||

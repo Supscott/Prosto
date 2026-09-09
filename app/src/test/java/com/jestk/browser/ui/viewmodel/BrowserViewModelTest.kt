@@ -551,22 +551,22 @@ class BrowserViewModelTest {
     }
 
     @Test
-    fun menu_homeScreen_isAlwaysExpandedOnBootAndNavigation() = runTest(testDispatcher) {
+    fun menu_homeScreen_isNotAutoExpandedOnBootAndNavigation() = runTest(testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()
 
-        // Home screen on boot should have menu expanded
-        assertThat(viewModel.uiState.value.isMenuExpanded).isTrue()
+        // Home screen on boot should NOT have menu expanded
+        assertThat(viewModel.uiState.value.isMenuExpanded).isFalse()
 
         // Navigate to a web page -> menu should follow web preference (default false)
         viewModel.onEvent(BrowserUiEvent.LoadUrl("https://example.com"))
         advanceUntilIdle()
         assertThat(viewModel.uiState.value.isMenuExpanded).isFalse()
 
-        // Navigate back to Home -> menu should be expanded
+        // Navigate back to Home -> menu should remain collapsed
         viewModel.onEvent(BrowserUiEvent.OpenHome)
         advanceUntilIdle()
-        assertThat(viewModel.uiState.value.isMenuExpanded).isTrue()
+        assertThat(viewModel.uiState.value.isMenuExpanded).isFalse()
     }
 
     @Test

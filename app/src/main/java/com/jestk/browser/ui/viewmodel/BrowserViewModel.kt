@@ -76,7 +76,7 @@ class BrowserViewModel(
         val hasWebUrl = activeTab.url.isNotEmpty() && activeTab.url != "about:blank"
         val initialThemeColor = if (hasWebUrl) (tabThemeColors[activeTab.id] ?: activeTab.themeColor) else null
         val isHome = !hasWebUrl
-        val menuExpandedInitial = if (isHome) true else initialSettings.isMenuExpandedOnWeb
+        val menuExpandedInitial = initialSettings.isMenuExpandedOnWeb
 
         _uiState.update { state ->
             state.copy(
@@ -181,7 +181,7 @@ class BrowserViewModel(
 
             is BrowserUiEvent.OpenOverlay -> _uiState.update { it.copy(activeOverlay = event.overlay) }
             is BrowserUiEvent.DismissOverlay -> _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
-            is BrowserUiEvent.OpenHome -> _uiState.update { it.copy(activeOverlay = OverlayType.HOME, isMenuExpanded = true) }
+            is BrowserUiEvent.OpenHome -> _uiState.update { it.copy(activeOverlay = OverlayType.HOME) }
             is BrowserUiEvent.OpenSearch -> {
                 val current = _uiState.value
                 val isHome = current.activeOverlay == OverlayType.HOME ||
@@ -342,7 +342,7 @@ class BrowserViewModel(
                 val currentTabs = _uiState.value.tabs.map { it.copy(isActive = false) }
                 val updatedTabs = currentTabs + created.copy(isActive = true)
                 val isHome = url.isEmpty() || url == "about:blank"
-                val targetMenuExpanded = if (isHome) true else _uiState.value.settings.isMenuExpandedOnWeb
+                val targetMenuExpanded = _uiState.value.settings.isMenuExpandedOnWeb
                 _uiState.update {
                     it.copy(
                         tabs = updatedTabs,
@@ -401,7 +401,7 @@ class BrowserViewModel(
         if (selected != null) {
             val isHome = selected.url.isEmpty() || selected.url == "about:blank"
             val cachedColor = tabThemeColors[tabId] ?: selected.themeColor
-            val targetMenuExpanded = if (isHome) true else _uiState.value.settings.isMenuExpandedOnWeb
+            val targetMenuExpanded = _uiState.value.settings.isMenuExpandedOnWeb
             _uiState.update { state ->
                 val updatedTabs = state.tabs.map { t ->
                     val c = tabThemeColors[t.id] ?: t.themeColor
@@ -532,7 +532,7 @@ class BrowserViewModel(
                     currentUrl = "",
                     pageTitle = "Home",
                     isLoading = false,
-                    isMenuExpanded = true,
+                    isMenuExpanded = it.settings.isMenuExpandedOnWeb,
                     activeOverlay = OverlayType.HOME
                 )
             }
@@ -746,8 +746,7 @@ class BrowserViewModel(
             onEvent(BrowserUiEvent.ExitFullscreen)
             return
         }
-        val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
-        if (!isHome && current.isMenuExpanded) {
+        if (current.isMenuExpanded) {
             _uiState.update { it.copy(isMenuExpanded = false) }
             return
         }
