@@ -7,11 +7,13 @@ import android.os.Message
 import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import com.jestk.browser.domain.model.OverlayType
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
@@ -167,10 +169,22 @@ fun WebViewContainer(
         }
     }
 
+    val resolvedThemeColor = uiState.activeThemeColor ?: currentTab?.themeColor
+    val isHome = uiState.activeOverlay == OverlayType.HOME ||
+            uiState.currentUrl.isEmpty() ||
+            uiState.currentUrl == "about:blank"
+    val defaultBg = MaterialTheme.colorScheme.background
+    val targetSiteBg = if (isHome) defaultBg else (resolvedThemeColor?.let { Color(it) } ?: defaultBg)
+    val animatedSiteBg by animateColorAsState(
+        targetValue = targetSiteBg,
+        animationSpec = tween(durationMillis = 350),
+        label = "WebViewContainerSiteBg"
+    )
+
     val contentModifier = if (uiState.isFullscreenCustomView) {
-        modifier.fillMaxSize()
+        Modifier.fillMaxSize()
     } else {
-        modifier
+        Modifier
             .fillMaxSize()
             .statusBarsPadding()
             .padding(bottom = bottomPadding)
@@ -180,9 +194,14 @@ fun WebViewContainer(
     }
 
     Box(
-        modifier = contentModifier
+        modifier = modifier
+            .fillMaxSize()
+            .background(animatedSiteBg)
     ) {
-        key(tabId) {
+        Box(
+            modifier = contentModifier
+        ) {
+            key(tabId) {
             AndroidView<SwipeRefreshLayout>(
                 factory = { context ->
                     val activity = context.findActivity() ?: context
@@ -393,6 +412,7 @@ fun WebViewContainer(
                         .background(ActiveTabBorderBrush)
                 )
             }
+        }
         }
     }
 }

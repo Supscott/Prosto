@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -136,7 +137,15 @@ fun UnifiedBottomBar(
     }
 
     // Colors & Glassmorphism
-    val bottomBg = if (isDark) Color(0xFF161314) else LiquidSurface
+    val defaultBg = MaterialTheme.colorScheme.background
+    val resolvedThemeColor = uiState.activeThemeColor ?: uiState.activeTab?.themeColor
+    val targetBgColor = if (isHome) defaultBg else (resolvedThemeColor?.let { Color(it) } ?: defaultBg)
+    val animatedBgColor by animateColorAsState(
+        targetValue = targetBgColor,
+        animationSpec = tween(durationMillis = 350),
+        label = "BottomBarDynamicColor"
+    )
+    val bottomBg = animatedBgColor
     val dockBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else LiquidSurface.copy(alpha = 0.88f)
     val dockBorder = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
     val centerPillBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.92f)

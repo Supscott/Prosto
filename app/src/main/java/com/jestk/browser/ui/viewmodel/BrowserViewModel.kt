@@ -551,7 +551,7 @@ class BrowserViewModel(
                 currentUrl = finalUrl,
                 isLoading = true,
                 loadingProgress = 0.1f,
-                activeThemeColor = null,
+                activeThemeColor = tabThemeColors[activeId] ?: it.tabs.find { tab -> tab.id == activeId }?.themeColor,
                 isVideoPlaying = false,
                 isMenuExpanded = it.settings.isMenuExpandedOnWeb,
                 activeOverlay = OverlayType.NONE

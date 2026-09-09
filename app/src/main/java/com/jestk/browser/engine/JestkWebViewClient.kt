@@ -39,6 +39,7 @@ class JestkWebViewClient(
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
             isDarkTheme?.invoke()?.let { isDark -> injectColorScheme(wv, isDark) }
+            extractThemeColor(wv)
         }
     }
 
@@ -138,6 +139,12 @@ class JestkWebViewClient(
         val js = """
             (function() {
                 try {
+                    if (location.hostname.indexOf('youtube.com') !== -1) {
+                        var isDark = document.documentElement.hasAttribute('dark') || 
+                                     document.documentElement.getAttribute('dark') === 'true' ||
+                                     document.querySelector('ytd-app[dark], ytm-app[dark]');
+                        if (isDark) return '#0f0f0f';
+                    }
                     var meta = document.querySelector('meta[name="theme-color"]');
                     if (meta && meta.content) {
                         var c = meta.content.trim();
@@ -152,7 +159,12 @@ class JestkWebViewClient(
                         }
                         return null;
                     }
-                    return getBg(document.body) || getBg(document.documentElement) || '';
+                    return getBg(document.querySelector('ytm-app')) ||
+                           getBg(document.querySelector('ytd-app')) ||
+                           getBg(document.querySelector('#app')) ||
+                           getBg(document.querySelector('main')) ||
+                           getBg(document.body) ||
+                           getBg(document.documentElement) || '';
                 } catch(e) {
                     return '';
                 }
@@ -160,7 +172,9 @@ class JestkWebViewClient(
         """.trimIndent()
         webView.evaluateJavascript(js) { rawResult ->
             val parsedColor = parseCssColor(rawResult)
-            onThemeColorDetected(tabId, parsedColor)
+            if (parsedColor != null) {
+                onThemeColorDetected(tabId, parsedColor)
+            }
         }
     }
 

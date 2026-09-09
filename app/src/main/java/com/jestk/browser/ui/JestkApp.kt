@@ -21,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.viewinterop.AndroidView
@@ -168,6 +169,15 @@ fun JestkApp(
                     val insetsController = WindowCompat.getInsetsController(window, window.decorView)
                     insetsController.isAppearanceLightStatusBars = isLightSite
                     insetsController.isAppearanceLightNavigationBars = isLightSite
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        window.isNavigationBarContrastEnforced = false
+                        window.isStatusBarContrastEnforced = false
+                    }
+                    @Suppress("DEPRECATION")
+                    window.statusBarColor = animatedAppBg.toArgb()
+                    @Suppress("DEPRECATION")
+                    window.navigationBarColor = animatedAppBg.toArgb()
                     if (isFullscreen) {
                         insetsController.hide(WindowInsetsCompat.Type.systemBars())
                         insetsController.systemBarsBehavior =
