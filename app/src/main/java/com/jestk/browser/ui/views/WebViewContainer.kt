@@ -52,6 +52,7 @@ import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.findActivity
+import com.jestk.browser.ui.MainActivity
 import com.jestk.browser.ui.theme.ActiveTabBorderBrush
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
@@ -259,6 +260,11 @@ fun WebViewContainer(
                                     currentOnEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
                                 }
                             }
+                        },
+                        onShowFileChooser = { callback, params ->
+                            val activity = context.findActivity() as? MainActivity
+                                ?: webView.context.findActivity() as? MainActivity
+                            activity?.openFileChooser(callback, params) ?: false
                         }
                     )
 

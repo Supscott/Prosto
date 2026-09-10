@@ -2,14 +2,26 @@ package com.jestk.browser.engine
 
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.DownloadManager
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.MutableContextWrapper
+import android.net.Uri
+import android.os.Environment
 import android.view.ViewGroup
+import android.webkit.CookieManager
+import android.webkit.URLUtil
 import android.webkit.WebSettings
 import android.webkit.WebView
+import android.widget.Toast
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
+import com.jestk.browser.domain.repository.DownloadRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 
 fun Context.findActivity(): Activity? {
@@ -21,9 +33,13 @@ fun Context.findActivity(): Activity? {
     return null
 }
 
-class WebViewPool(private val applicationContext: Context) {
+class WebViewPool(
+    private val applicationContext: Context,
+    var downloadRepository: DownloadRepository? = null
+) {
 
     private val pool = ConcurrentHashMap<String, WebView>()
+    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var currentIsDark: Boolean? = null
 
     private fun syncConfigurationUiMode(context: Context, isDark: Boolean) {
@@ -92,6 +108,7 @@ class WebViewPool(private val applicationContext: Context) {
                 }
                 // Do NOT call pauseTimers() or onPause() when tabs are backgrounded,
                 // keeping audio and video playback alive across tab switches.
+                setupDownloadListener(this)
             }
 
             currentIsDark?.let { applyThemeMode(webView, it) }
@@ -116,10 +133,78 @@ class WebViewPool(private val applicationContext: Context) {
                     mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                     setSupportZoom(true)
                 }
+                setupDownloadListener(this)
             }
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
             pool[tabId] = fallbackWebView
             return fallbackWebView
+        }
+    }
+
+    private fun setupDownloadListener(webView: WebView) {
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
+            handleDownload(url, userAgent, contentDisposition, mimeType, contentLength, webView.context)
+        }
+    }
+
+    private fun handleDownload(
+        url: String,
+        userAgent: String?,
+        contentDisposition: String?,
+        mimeType: String?,
+        contentLength: Long,
+        context: Context
+    ) {
+        try {
+            val targetContext = context.findActivity() ?: applicationContext
+            val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val file = File(downloadDir, fileName)
+            val filePath = file.absolutePath
+
+            var downloadId = -1L
+            val dm = targetContext.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
+            if (dm != null) {
+                val request = DownloadManager.Request(Uri.parse(url)).apply {
+                    if (!mimeType.isNullOrEmpty()) {
+                        setMimeType(mimeType)
+                    }
+                    if (!userAgent.isNullOrEmpty()) {
+                        addRequestHeader("User-Agent", userAgent)
+                    }
+                    try {
+                        val cookies = CookieManager.getInstance().getCookie(url)
+                        if (!cookies.isNullOrEmpty()) {
+                            addRequestHeader("Cookie", cookies)
+                        }
+                    } catch (_: Throwable) {}
+                    setDescription("Downloading file...")
+                    setTitle(fileName)
+                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
+                }
+                downloadId = dm.enqueue(request)
+            }
+
+            Toast.makeText(targetContext, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
+
+            coroutineScope.launch {
+                try {
+                    downloadRepository?.recordDownload(
+                        url = url,
+                        fileName = fileName,
+                        filePath = filePath,
+                        mimeType = mimeType,
+                        contentLength = contentLength,
+                        downloadId = downloadId
+                    )
+                } catch (_: Throwable) {}
+            }
+        } catch (e: Throwable) {
+            val targetContext = context.findActivity() ?: applicationContext
+            try {
+                Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            } catch (_: Throwable) {}
         }
     }
 

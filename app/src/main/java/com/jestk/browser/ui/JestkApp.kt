@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
+import com.jestk.browser.ui.overlays.DownloadsSheet
 import com.jestk.browser.ui.overlays.LinkContextMenuBottomSheet
 import com.jestk.browser.ui.overlays.SearchOverlay
 import com.jestk.browser.ui.overlays.SettingsSheet
@@ -317,6 +318,12 @@ fun JestkApp(
                 }
                 OverlayType.SETTINGS -> {
                     SettingsSheet(
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent
+                    )
+                }
+                OverlayType.DOWNLOADS -> {
+                    DownloadsSheet(
                         uiState = uiState,
                         onEvent = viewModel::onEvent
                     )

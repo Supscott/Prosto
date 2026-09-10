@@ -1,8 +1,11 @@
 package com.jestk.browser.engine
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.net.Uri
 import android.view.View
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -221,5 +224,72 @@ class JestkWebChromeClientTest {
 
         client.resumeVideoPlayback()
         assertThat(resumeCallbackCalled).isTrue()
+    }
+
+    @Test
+    fun onShowFileChooser_defaultNullCallback_returnsFalse() {
+        val client = JestkWebChromeClient(
+            tabId = "tab-1",
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onVideoPlayingStateChanged = { }
+        )
+
+        val result = client.onShowFileChooser(null, null, null)
+        assertThat(result).isFalse()
+    }
+
+    @Test
+    fun onShowFileChooser_delegatesToCallbackAndReturnsTrue() {
+        var callbackReceived: ValueCallback<Array<Uri>>? = null
+        var paramsReceived: WebChromeClient.FileChooserParams? = null
+        var callbackInvoked = false
+
+        val testCallback = ValueCallback<Array<Uri>> { }
+        val testParams = object : WebChromeClient.FileChooserParams() {
+            override fun getMode(): Int = MODE_OPEN
+            override fun getAcceptTypes(): Array<String> = arrayOf("image/*")
+            override fun isCaptureEnabled(): Boolean = false
+            override fun getTitle(): CharSequence = "Choose"
+            override fun getFilenameHint(): String? = null
+            override fun createIntent(): Intent = Intent(Intent.ACTION_GET_CONTENT)
+        }
+
+        val client = JestkWebChromeClient(
+            tabId = "tab-1",
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onVideoPlayingStateChanged = { },
+            onShowFileChooser = { callback, params ->
+                callbackInvoked = true
+                callbackReceived = callback
+                paramsReceived = params
+                true
+            }
+        )
+
+        val result = client.onShowFileChooser(null, testCallback, testParams)
+
+        assertThat(callbackInvoked).isTrue()
+        assertThat(result).isTrue()
+        assertThat(callbackReceived).isSameInstanceAs(testCallback)
+        assertThat(paramsReceived).isSameInstanceAs(testParams)
+    }
+
+    @Test
+    fun onShowFileChooser_whenCallbackReturnsFalse_returnsFalse() {
+        val client = JestkWebChromeClient(
+            tabId = "tab-1",
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onVideoPlayingStateChanged = { },
+            onShowFileChooser = { _, _ -> false }
+        )
+
+        val result = client.onShowFileChooser(null, null, null)
+        assertThat(result).isFalse()
     }
 }

@@ -5,10 +5,12 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.jestk.browser.data.local.dao.DownloadDao
 import com.jestk.browser.data.local.dao.FavoriteDao
 import com.jestk.browser.data.local.dao.HistoryDao
 import com.jestk.browser.data.local.dao.SettingDao
 import com.jestk.browser.data.local.dao.TabDao
+import com.jestk.browser.data.local.entity.DownloadEntity
 import com.jestk.browser.data.local.entity.FavoriteEntity
 import com.jestk.browser.data.local.entity.HistoryEntity
 import com.jestk.browser.data.local.entity.SettingEntity
@@ -22,9 +24,10 @@ import com.jestk.browser.data.local.entity.TabEntity
         HistoryEntity::class,
         FavoriteEntity::class,
         SettingEntity::class,
-        RecentTabEntity::class
+        RecentTabEntity::class,
+        DownloadEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -35,6 +38,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun favoriteDao(): FavoriteDao
     abstract fun settingDao(): SettingDao
     abstract fun recentTabDao(): RecentTabDao
+    abstract fun downloadDao(): DownloadDao
 
     companion object {
         private const val DATABASE_NAME = "jestk_browser.db"

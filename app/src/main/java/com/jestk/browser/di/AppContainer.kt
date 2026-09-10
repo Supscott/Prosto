@@ -5,11 +5,13 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.jestk.browser.data.local.AppDatabase
+import com.jestk.browser.data.repository.DownloadRepositoryImpl
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
 import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
+import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
@@ -25,6 +27,7 @@ interface AppContainer {
     val favoriteRepository: FavoriteRepository
     val settingsRepository: SettingsRepository
     val recentTabRepository: RecentTabRepository
+    val downloadRepository: DownloadRepository
     val webViewPool: WebViewPool
     val viewModelFactory: ViewModelProvider.Factory
 }
@@ -35,8 +38,12 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         AppDatabase.getInstance(context)
     }
 
+    override val downloadRepository: DownloadRepository by lazy {
+        DownloadRepositoryImpl(database.downloadDao())
+    }
+
     override val webViewPool: WebViewPool by lazy {
-        WebViewPool(context.applicationContext)
+        WebViewPool(context.applicationContext, downloadRepository)
     }
 
     override val tabRepository: TabRepository by lazy {
@@ -66,7 +73,8 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
                 historyRepository = historyRepository,
                 favoriteRepository = favoriteRepository,
                 settingsRepository = settingsRepository,
-                recentTabRepository = recentTabRepository
+                recentTabRepository = recentTabRepository,
+                downloadRepository = downloadRepository
             )
         }
     }

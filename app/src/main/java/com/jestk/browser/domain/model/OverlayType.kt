@@ -5,5 +5,6 @@ enum class OverlayType {
     HOME,
     SEARCH,
     TAB_GRID,
-    SETTINGS
+    SETTINGS,
+    DOWNLOADS
 }

@@ -2,7 +2,9 @@ package com.jestk.browser.engine
 
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
+import android.net.Uri
 import android.view.View
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 
@@ -14,11 +16,20 @@ class JestkWebChromeClient(
     private val onFullscreenCustomViewChanged: (view: View?, isFullscreen: Boolean, requestedOrientation: Int) -> Unit,
     private val onVideoPlayingStateChanged: (isPlaying: Boolean) -> Unit,
     private val onFaviconReceived: ((tabId: String, icon: Bitmap) -> Unit)? = null,
-    private val onVideoResume: (() -> Unit)? = null
+    private val onVideoResume: (() -> Unit)? = null,
+    private val onShowFileChooser: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null
 ) : WebChromeClient() {
 
     private var customView: View? = null
     private var customViewCallback: CustomViewCallback? = null
+
+    override fun onShowFileChooser(
+        webView: WebView?,
+        filePathCallback: ValueCallback<Array<Uri>>?,
+        fileChooserParams: FileChooserParams?
+    ): Boolean {
+        return onShowFileChooser?.invoke(filePathCallback, fileChooserParams) ?: false
+    }
 
     override fun onProgressChanged(view: WebView?, newProgress: Int) {
         super.onProgressChanged(view, newProgress)

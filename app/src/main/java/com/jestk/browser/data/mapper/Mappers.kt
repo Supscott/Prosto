@@ -114,3 +114,26 @@ fun com.jestk.browser.domain.model.RecentTabItem.toEntity(): com.jestk.browser.d
     faviconUrl = faviconUrl,
     lastVisitedTimestamp = lastVisitedTimestamp
 )
+
+fun com.jestk.browser.data.local.entity.DownloadEntity.toDomain(): com.jestk.browser.domain.model.DownloadItem = com.jestk.browser.domain.model.DownloadItem(
+    id = id,
+    url = url,
+    fileName = fileName,
+    filePath = filePath,
+    mimeType = mimeType,
+    contentLength = contentLength,
+    timestamp = timestamp,
+    downloadId = downloadId
+)
+
+fun com.jestk.browser.domain.model.DownloadItem.toEntity(): com.jestk.browser.data.local.entity.DownloadEntity = com.jestk.browser.data.local.entity.DownloadEntity(
+    id = id,
+    url = url,
+    fileName = fileName,
+    filePath = filePath,
+    mimeType = mimeType,
+    contentLength = contentLength,
+    timestamp = timestamp,
+    downloadId = downloadId
+)
+

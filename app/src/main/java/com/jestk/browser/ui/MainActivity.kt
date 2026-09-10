@@ -3,13 +3,18 @@ package com.jestk.browser.ui
 import android.app.PictureInPictureParams
 import android.content.Intent
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.util.Rational
+import android.webkit.ValueCallback
+import android.webkit.WebChromeClient
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.lifecycle.ViewModelProvider
 import com.jestk.browser.JestkApplication
 import com.jestk.browser.engine.AdBlockerEngine
@@ -19,6 +24,66 @@ import com.jestk.browser.ui.viewmodel.BrowserViewModel
 class MainActivity : ComponentActivity() {
 
     private lateinit var viewModel: BrowserViewModel
+    private var filePathCallback: ValueCallback<Array<Uri>>? = null
+
+    private val fileChooserLauncher: ActivityResultLauncher<Intent> = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uris: Array<Uri>? = if (result.resultCode == RESULT_OK && result.data != null) {
+            val data = result.data!!
+            val clipData = data.clipData
+            when {
+                clipData != null && clipData.itemCount > 0 -> {
+                    val list = ArrayList<Uri>()
+                    for (i in 0 until clipData.itemCount) {
+                        clipData.getItemAt(i)?.uri?.let { list.add(it) }
+                    }
+                    if (list.isNotEmpty()) list.toTypedArray() else WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
+                }
+                data.data != null -> {
+                    arrayOf(data.data!!)
+                }
+                else -> {
+                    WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
+                }
+            }
+        } else {
+            null
+        }
+        filePathCallback?.onReceiveValue(uris)
+        filePathCallback = null
+    }
+
+    fun openFileChooser(
+        callback: ValueCallback<Array<Uri>>?,
+        params: WebChromeClient.FileChooserParams?
+    ): Boolean {
+        filePathCallback?.onReceiveValue(null)
+        filePathCallback = callback
+
+        if (callback == null) return false
+
+        val intent = try {
+            params?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "*/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+            }
+        } catch (_: Exception) {
+            Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "*/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+            }
+        }
+
+        return try {
+            fileChooserLauncher.launch(intent)
+            true
+        } catch (_: Exception) {
+            filePathCallback?.onReceiveValue(null)
+            filePathCallback = null
+            false
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
@@ -96,5 +161,11 @@ class MainActivity : ComponentActivity() {
         } else {
             viewModel.onEvent(BrowserUiEvent.SetBottomBarVisibility(true))
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        filePathCallback?.onReceiveValue(null)
+        filePathCallback = null
     }
 }

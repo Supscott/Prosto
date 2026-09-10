@@ -29,6 +29,8 @@ sealed interface BrowserUiEvent {
     ) : BrowserUiEvent
     data object OpenTabGrid : BrowserUiEvent
     data object OpenSettings : BrowserUiEvent
+    data object OpenDownloads : BrowserUiEvent
+    data class DeleteDownload(val id: Long) : BrowserUiEvent
 
     // Web Navigation & Actions
     data class LoadUrl(val url: String) : BrowserUiEvent

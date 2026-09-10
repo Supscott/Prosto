@@ -1,6 +1,7 @@
 package com.jestk.browser.ui.viewmodel
 
 import com.jestk.browser.domain.model.BrowserSettings
+import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.OverlayType
@@ -32,6 +33,9 @@ data class BrowserUiState(
     // Favorites & Recents
     val favorites: List<FavoriteItem> = emptyList(),
     val isFavoritesExpanded: Boolean = false,
+
+    // Downloads
+    val downloads: List<DownloadItem> = emptyList(),
 
     // Settings
     val settings: BrowserSettings = BrowserSettings(),

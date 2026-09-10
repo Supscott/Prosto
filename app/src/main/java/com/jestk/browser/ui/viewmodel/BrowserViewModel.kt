@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
@@ -30,6 +31,7 @@ class BrowserViewModel(
     private val favoriteRepository: FavoriteRepository,
     private val settingsRepository: SettingsRepository,
     private val recentTabRepository: RecentTabRepository? = null,
+    private val downloadRepository: DownloadRepository? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
@@ -187,6 +189,14 @@ class BrowserViewModel(
                 _uiState.update { it.copy(settings = settings) }
             }
         }
+
+        if (downloadRepository != null) {
+            viewModelScope.launch(ioDispatcher) {
+                downloadRepository.getAllDownloads().collectLatest { downloads ->
+                    _uiState.update { it.copy(downloads = downloads) }
+                }
+            }
+        }
     }
 
     fun onEvent(event: BrowserUiEvent) {
@@ -227,6 +237,10 @@ class BrowserViewModel(
             }
             is BrowserUiEvent.OpenTabGrid -> _uiState.update { it.copy(activeOverlay = OverlayType.TAB_GRID) }
             is BrowserUiEvent.OpenSettings -> _uiState.update { it.copy(activeOverlay = OverlayType.SETTINGS) }
+            is BrowserUiEvent.OpenDownloads -> _uiState.update { it.copy(activeOverlay = OverlayType.DOWNLOADS) }
+            is BrowserUiEvent.DeleteDownload -> viewModelScope.launch(ioDispatcher) {
+                downloadRepository?.deleteDownload(event.id)
+            }
 
             is BrowserUiEvent.LoadUrl -> loadUrl(event.url)
             is BrowserUiEvent.SubmitSearch -> submitSearch(event.query)
