@@ -8,11 +8,13 @@ import android.webkit.WebView
 
 class JestkWebChromeClient(
     private val tabId: String,
+    private val webView: WebView? = null,
     private val onProgressChanged: (tabId: String, progress: Int) -> Unit,
     private val onTitleReceived: (tabId: String, title: String) -> Unit,
     private val onFullscreenCustomViewChanged: (view: View?, isFullscreen: Boolean, requestedOrientation: Int) -> Unit,
     private val onVideoPlayingStateChanged: (isPlaying: Boolean) -> Unit,
-    private val onFaviconReceived: ((tabId: String, icon: Bitmap) -> Unit)? = null
+    private val onFaviconReceived: ((tabId: String, icon: Bitmap) -> Unit)? = null,
+    private val onVideoResume: (() -> Unit)? = null
 ) : WebChromeClient() {
 
     private var customView: View? = null
@@ -42,6 +44,7 @@ class JestkWebChromeClient(
         if (customView != null) {
             if (customView === view) {
                 customViewCallback = callback ?: customViewCallback
+                resumeVideoPlayback()
                 return
             }
             onHideCustomView()
@@ -62,6 +65,7 @@ class JestkWebChromeClient(
 
         onFullscreenCustomViewChanged(view, true, orientation)
         onVideoPlayingStateChanged(true)
+        resumeVideoPlayback()
     }
 
     override fun onHideCustomView() {
@@ -78,4 +82,38 @@ class JestkWebChromeClient(
     }
 
     fun isCustomViewShowing(): Boolean = customView != null
+
+    fun resumeVideoPlayback() {
+        onVideoResume?.invoke()
+        val targetWebView = webView ?: return
+        val js = """
+            (function() {
+                try {
+                    var videos = document.querySelectorAll('video');
+                    for (var i = 0; i < videos.length; i++) {
+                        var v = videos[i];
+                        if (v && v.paused) {
+                            var p = v.play();
+                            if (p && typeof p.catch === 'function') {
+                                p.catch(function(e) {});
+                            }
+                        }
+                    }
+                } catch(e) {}
+            })();
+        """.trimIndent()
+
+        try {
+            targetWebView.post {
+                try {
+                    targetWebView.evaluateJavascript(js, null)
+                } catch (_: Exception) {}
+            }
+            targetWebView.postDelayed({
+                try {
+                    targetWebView.evaluateJavascript(js, null)
+                } catch (_: Exception) {}
+            }, 300)
+        } catch (_: Exception) {}
+    }
 }

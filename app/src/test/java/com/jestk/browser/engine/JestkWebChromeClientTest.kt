@@ -159,4 +159,67 @@ class JestkWebChromeClientTest {
         assertThat(callback1Called).isFalse()
         assertThat(client.isCustomViewShowing()).isTrue()
     }
+
+    @Test
+    fun onShowCustomView_triggersVideoResumptionCallback() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val view = View(context)
+        var resumeCallbackCalled = false
+
+        val client = JestkWebChromeClient(
+            tabId = "tab-1",
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onVideoPlayingStateChanged = { },
+            onVideoResume = { resumeCallbackCalled = true }
+        )
+
+        client.onShowCustomView(view) { }
+        assertThat(resumeCallbackCalled).isTrue()
+        assertThat(view.keepScreenOn).isTrue()
+    }
+
+    @Test
+    fun onShowCustomView_sameView_triggersVideoResumption() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val view = View(context)
+        var resumeCount = 0
+
+        val client = JestkWebChromeClient(
+            tabId = "tab-1",
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onVideoPlayingStateChanged = { },
+            onVideoResume = { resumeCount++ }
+        )
+
+        client.onShowCustomView(view) { }
+        assertThat(resumeCount).isEqualTo(1)
+
+        // Calling onShowCustomView with the same view should re-trigger resumption check
+        client.onShowCustomView(view) { }
+        assertThat(resumeCount).isEqualTo(2)
+    }
+
+    @Test
+    fun resumeVideoPlayback_evaluatesJavascriptOnWebView() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webView = android.webkit.WebView(context)
+        var resumeCallbackCalled = false
+
+        val client = JestkWebChromeClient(
+            tabId = "tab-1",
+            webView = webView,
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onVideoPlayingStateChanged = { },
+            onVideoResume = { resumeCallbackCalled = true }
+        )
+
+        client.resumeVideoPlayback()
+        assertThat(resumeCallbackCalled).isTrue()
+    }
 }

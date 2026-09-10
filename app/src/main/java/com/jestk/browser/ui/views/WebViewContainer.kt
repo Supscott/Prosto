@@ -243,6 +243,7 @@ fun WebViewContainer(
 
                     webView.webChromeClient = JestkWebChromeClient(
                         tabId = tabId,
+                        webView = webView,
                         onProgressChanged = { id, progress -> currentOnEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
                         onTitleReceived = { _, _ -> },
                         onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->

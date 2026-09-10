@@ -53,6 +53,14 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.jestk.browser.engine.JestkWebChromeClient
 import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 
 private fun android.content.Context.findActivity(): Activity? {
     var ctx = this
@@ -178,37 +186,50 @@ fun JestkApp(
                     window.statusBarColor = animatedAppBg.toArgb()
                     @Suppress("DEPRECATION")
                     window.navigationBarColor = animatedAppBg.toArgb()
-                    if (isFullscreen) {
-                        insetsController.hide(WindowInsetsCompat.Type.systemBars())
-                        insetsController.systemBarsBehavior =
-                            WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-                        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            val attrs = window.attributes
-                            attrs.layoutInDisplayCutoutMode =
-                                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                            window.attributes = attrs
-                        }
-                    } else {
-                        insetsController.show(WindowInsetsCompat.Type.systemBars())
-                        insetsController.systemBarsBehavior =
-                            WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
-                        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                            val attrs = window.attributes
-                            attrs.layoutInDisplayCutoutMode =
-                                WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
-                            window.attributes = attrs
-                        }
+                }
+            }
+
+            LaunchedEffect(isFullscreen) {
+                val activity = view.context.findActivity() ?: return@LaunchedEffect
+                val window = activity.window ?: return@LaunchedEffect
+                val insetsController = WindowCompat.getInsetsController(window, window.decorView)
+                if (isFullscreen) {
+                    insetsController.hide(WindowInsetsCompat.Type.systemBars())
+                    insetsController.systemBarsBehavior =
+                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+                    window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        val attrs = window.attributes
+                        attrs.layoutInDisplayCutoutMode =
+                            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                        window.attributes = attrs
+                    }
+                } else {
+                    insetsController.show(WindowInsetsCompat.Type.systemBars())
+                    insetsController.systemBarsBehavior =
+                        WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        val attrs = window.attributes
+                        attrs.layoutInDisplayCutoutMode =
+                            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                        window.attributes = attrs
                     }
                 }
             }
         }
 
         val isFullscreenVideo = uiState.isFullscreenCustomView
-        LaunchedEffect(isFullscreenVideo) {
+        val requestedOrientation = uiState.fullscreenRequestedOrientation
+        LaunchedEffect(isFullscreenVideo, requestedOrientation) {
             val activity = context.findActivity() ?: return@LaunchedEffect
-            activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            if (isFullscreenVideo) {
+                if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+                    activity.requestedOrientation = requestedOrientation
+                }
+            } else {
+                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
         }
 
         DisposableEffect(Unit) {
@@ -314,10 +335,64 @@ fun JestkApp(
             // Fullscreen Custom View (HTML5 Video Fullscreen)
             val customView = uiState.fullscreenCustomView as? android.view.View
             if (uiState.isFullscreenCustomView && customView != null) {
+                val density = LocalDensity.current
+                val swipeThresholdPx = remember(density) { with(density) { 70.dp.toPx() } }
+                val velocityThresholdPx = remember(density) { with(density) { 1000.dp.toPx() } }
+                val minDragDistancePx = remember(density) { with(density) { 20.dp.toPx() } }
+
+                LaunchedEffect(customView) {
+                    val activeId = uiState.activeTabId
+                    val webView = activeId?.let { webViewPool.getWebView(it) }
+                    (webView?.webChromeClient as? JestkWebChromeClient)?.resumeVideoPlayback()
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color.Black)
+                        .pointerInput(Unit) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                                val startY = down.position.y
+                                val startX = down.position.x
+                                var totalDeltaY = 0f
+                                var totalDeltaX = 0f
+                                var hasTriggered = false
+                                val velocityTracker = VelocityTracker()
+                                velocityTracker.addPosition(down.uptimeMillis, down.position)
+
+                                while (true) {
+                                    val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                                    val change = event.changes.firstOrNull { it.id == down.id }
+                                        ?: event.changes.firstOrNull()
+                                        ?: break
+
+                                    velocityTracker.addPosition(change.uptimeMillis, change.position)
+
+                                    if (change.changedToUp() || !change.pressed) {
+                                        if (!hasTriggered && totalDeltaY > minDragDistancePx && totalDeltaY > kotlin.math.abs(totalDeltaX) * 1.2f) {
+                                            val velocityY = velocityTracker.calculateVelocity().y
+                                            if (totalDeltaY > swipeThresholdPx || velocityY > velocityThresholdPx) {
+                                                hasTriggered = true
+                                                viewModel.onEvent(BrowserUiEvent.ExitFullscreen)
+                                            }
+                                        }
+                                        break
+                                    }
+
+                                    val currentPos = change.position
+                                    totalDeltaY = currentPos.y - startY
+                                    totalDeltaX = currentPos.x - startX
+
+                                    if (!hasTriggered && totalDeltaY > swipeThresholdPx && totalDeltaY > kotlin.math.abs(totalDeltaX) * 1.2f) {
+                                        hasTriggered = true
+                                        change.consume()
+                                        viewModel.onEvent(BrowserUiEvent.ExitFullscreen)
+                                        break
+                                    }
+                                }
+                            }
+                        }
                 ) {
                     AndroidView<android.view.View>(
                         factory = {
@@ -328,9 +403,12 @@ fun JestkApp(
                                     ViewGroup.LayoutParams.MATCH_PARENT
                                 )
                                 keepScreenOn = true
-                                isFocusable = true
-                                isFocusableInTouchMode = true
-                                requestFocus()
+                                if (this is ViewGroup) {
+                                    descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+                                }
+                                if (!hasFocus()) {
+                                    requestFocus()
+                                }
                             }
                         },
                         update = { view ->
@@ -339,9 +417,6 @@ fun JestkApp(
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
                             view.keepScreenOn = true
-                            view.isFocusable = true
-                            view.isFocusableInTouchMode = true
-                            view.requestFocus()
                         },
                         onReset = { view ->
                             (view.parent as? ViewGroup)?.removeView(view)
