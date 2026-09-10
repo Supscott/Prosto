@@ -234,4 +234,70 @@ class BottomBarPreviewTest {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
     }
+
+    @Test
+    fun renderManyTabsPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val manyTabsState = BrowserUiState(
+            currentUrl = "https://github.com",
+            pageTitle = "GitHub",
+            tabs = listOf(
+                Tab(id = "1", url = "https://wikipedia.org", title = "Wikipedia", isActive = false),
+                Tab(id = "2", url = "https://youtube.com", title = "YouTube", isActive = false),
+                Tab(id = "3", url = "https://github.com", title = "GitHub", isActive = true),
+                Tab(id = "4", url = "https://reddit.com", title = "Reddit", isActive = false),
+                Tab(id = "5", url = "https://twitter.com", title = "Twitter", isActive = false),
+                Tab(id = "6", url = "https://news.ycombinator.com", title = "Hacker News", isActive = false)
+            ),
+            activeTabId = "3"
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFF1E1B1C))
+                    ) {
+                        MockWebPageContent()
+
+                        UnifiedBottomBar(
+                            uiState = manyTabsState,
+                            onEvent = {},
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 6.dp)
+                                .size(width = 120.dp, height = 4.dp)
+                                .background(Color(0xFF8E8E93), RoundedCornerShape(2.dp))
+                        )
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 1080
+        val height = 480
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/many_tabs_bottom_bar_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+    }
 }

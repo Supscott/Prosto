@@ -17,6 +17,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +44,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
@@ -63,6 +65,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -70,8 +73,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -110,6 +116,8 @@ fun UnifiedBottomBar(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val currentOnEvent by rememberUpdatedState(onEvent)
     val isDark = LocalIsDarkTheme.current
     val isHome = uiState.activeOverlay == OverlayType.HOME ||
             uiState.currentUrl.isEmpty() ||
@@ -215,6 +223,18 @@ fun UnifiedBottomBar(
                             }
                         )
 
+                        // Downloads
+                        PopupMenuItem(
+                            icon = Icons.Default.Download,
+                            label = "Downloads",
+                            isActive = uiState.activeOverlay == OverlayType.DOWNLOADS,
+                            isDark = isDark,
+                            onClick = {
+                                onEvent(BrowserUiEvent.OpenDownloads)
+                                onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                            }
+                        )
+
                         // Settings
                         PopupMenuItem(
                             icon = Icons.Default.Settings,
@@ -273,6 +293,41 @@ fun UnifiedBottomBar(
                     modifier = Modifier
                         .weight(1f)
                         .height(58.dp)
+                        .pointerInput(density) {
+                            val swipeThresholdPx = with(density) { 30.dp.toPx() }
+                            var totalDragY = 0f
+                            var triggered = false
+                            var velocityTracker = VelocityTracker()
+
+                            detectVerticalDragGestures(
+                                onDragStart = {
+                                    totalDragY = 0f
+                                    triggered = false
+                                    velocityTracker = VelocityTracker()
+                                },
+                                onDragEnd = {
+                                    if (!triggered) {
+                                        val velocityY = velocityTracker.calculateVelocity().y
+                                        if (totalDragY < -swipeThresholdPx || (totalDragY < 0f && velocityY < -500f)) {
+                                            triggered = true
+                                            currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                                        }
+                                    }
+                                },
+                                onDragCancel = {
+                                    totalDragY = 0f
+                                    triggered = false
+                                },
+                                onVerticalDrag = { change, dragAmount ->
+                                    velocityTracker.addPosition(change.uptimeMillis, change.position)
+                                    totalDragY += dragAmount
+                                    if (!triggered && totalDragY < -swipeThresholdPx) {
+                                        triggered = true
+                                        currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                                    }
+                                }
+                            )
+                        }
                 ) {
                     BoxWithConstraints(
                         modifier = Modifier
@@ -313,7 +368,7 @@ fun UnifiedBottomBar(
                         LazyRow(
                             state = lazyListState,
                             modifier = Modifier.fillMaxWidth(),
-                            contentPadding = PaddingValues(horizontal = 7.dp, vertical = 7.dp),
+                            contentPadding = PaddingValues(start = 8.dp, end = 52.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
@@ -397,17 +452,6 @@ fun UnifiedBottomBar(
                                     )
                                 }
                             }
-
-                            item(key = "dock_add_tab_button") {
-                                AddTabDockButton(
-                                    isDark = isDark,
-                                    backgroundColor = circleBtnBg,
-                                    border = centerPillBorder,
-                                    onClick = {
-                                        onEvent(BrowserUiEvent.OpenNewTab(""))
-                                    }
-                                )
-                            }
                         }
 
                         // Left edge fade (visible when scrolled right)
@@ -431,41 +475,51 @@ fun UnifiedBottomBar(
                             )
                         }
 
-                        // Right edge fade (visible when more items to the right)
-                        if (lazyListState.canScrollForward) {
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.CenterEnd)
-                                    .fillMaxHeight()
-                                    .width(44.dp)
-                                    .clip(RoundedCornerShape(topEnd = 29.dp, bottomEnd = 29.dp))
-                                    .background(
-                                        Brush.horizontalGradient(
-                                            colors = listOf(
-                                                Color.Transparent,
-                                                dockBg.copy(alpha = 0.50f),
-                                                dockBg.copy(alpha = 0.95f),
-                                                dockBg
-                                            )
+                        // Right edge horizontal gradient scrim beneath the pinned button
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight()
+                                .width(44.dp)
+                                .clip(RoundedCornerShape(topEnd = 29.dp, bottomEnd = 29.dp))
+                                .background(
+                                    Brush.horizontalGradient(
+                                        listOf(
+                                            Color.Transparent,
+                                            dockBg.copy(alpha = 0.8f),
+                                            dockBg
                                         )
                                     )
-                            )
-                        }
+                                )
+                        )
+
+                        // Pinned New Tab Button (absolute right-0 over tab strip)
+                        AddTabDockButton(
+                            isDark = isDark,
+                            backgroundColor = circleBtnBg,
+                            border = centerPillBorder,
+                            onClick = {
+                                onEvent(BrowserUiEvent.OpenNewTab(""))
+                            },
+                            modifier = Modifier
+                                .align(Alignment.CenterEnd)
+                                .padding(end = 6.dp)
+                        )
                     }
                 }
 
-                // Dedicated Floating Menu Button (58x58dp)
+                // Dedicated Floating Menu Button (rounded rectangle 38x58dp)
                 Surface(
-                    shape = CircleShape,
+                    shape = RoundedCornerShape(18.dp),
                     color = circleBtnBg,
                     border = null,
                     shadowElevation = 0.dp,
-                    modifier = Modifier.size(58.dp)
+                    modifier = Modifier.size(width = 38.dp, height = 58.dp)
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(58.dp)
-                            .clip(CircleShape)
+                            .size(width = 38.dp, height = 58.dp)
+                            .clip(RoundedCornerShape(18.dp))
                             .clickable {
                                 onEvent(BrowserUiEvent.ToggleMenu())
                             },
@@ -475,7 +529,7 @@ fun UnifiedBottomBar(
                             imageVector = Icons.Default.Menu,
                             contentDescription = "Menu",
                             tint = if (uiState.isMenuExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.size(22.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
