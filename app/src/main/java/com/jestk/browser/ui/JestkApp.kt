@@ -54,6 +54,29 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.jestk.browser.engine.JestkWebChromeClient
 import kotlinx.coroutines.flow.collectLatest
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import com.jestk.browser.R
+import com.jestk.browser.ui.theme.LiquidPrimary
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -302,33 +325,106 @@ fun JestkApp(
                 )
             }
 
-            // Overlays
-            when (uiState.activeOverlay) {
-                OverlayType.SEARCH -> {
-                    SearchOverlay(
-                        uiState = uiState,
-                        onEvent = viewModel::onEvent
-                    )
+            // Overlays with smooth animated transitions
+            AnimatedVisibility(
+                visible = uiState.activeOverlay == OverlayType.SEARCH,
+                enter = fadeIn(tween(220)) + slideInVertically(tween(250)) { it / 3 },
+                exit = fadeOut(tween(180)) + slideOutVertically(tween(220)) { it / 3 }
+            ) {
+                SearchOverlay(
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent
+                )
+            }
+
+            AnimatedVisibility(
+                visible = uiState.activeOverlay == OverlayType.TAB_GRID,
+                enter = fadeIn(tween(220)) + slideInVertically(tween(250)) { it / 4 },
+                exit = fadeOut(tween(180)) + slideOutVertically(tween(220)) { it / 4 }
+            ) {
+                TabOverviewGrid(
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent
+                )
+            }
+
+            if (uiState.activeOverlay == OverlayType.SETTINGS) {
+                SettingsSheet(
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent
+                )
+            }
+
+            if (uiState.activeOverlay == OverlayType.DOWNLOADS) {
+                DownloadsSheet(
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent
+                )
+            }
+
+            // Undo Closed Tab Floating Notification Pill
+            AnimatedVisibility(
+                visible = uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null,
+                enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { it },
+                exit = fadeOut(tween(180)) + slideOutVertically(tween(220)) { it },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 76.dp, start = 16.dp, end = 16.dp)
+            ) {
+                val tab = uiState.recentlyClosedTab
+                val tabTitle = tab?.title?.takeIf { it.isNotBlank() && it != "Home" && it != "New Tab" } ?: "Tab"
+                val undoText = stringResource(R.string.undo)
+                val closedText = stringResource(R.string.tab_closed)
+
+                LaunchedEffect(uiState.showUndoTabCloseSnackbar, tab?.id) {
+                    if (uiState.showUndoTabCloseSnackbar) {
+                        kotlinx.coroutines.delay(4500)
+                        viewModel.onEvent(BrowserUiEvent.DismissUndoTabCloseSnackbar)
+                    }
                 }
-                OverlayType.TAB_GRID -> {
-                    TabOverviewGrid(
-                        uiState = uiState,
-                        onEvent = viewModel::onEvent
-                    )
+
+                Surface(
+                    shape = RoundedCornerShape(22.dp),
+                    color = if (isDark) Color(0xFF242021).copy(alpha = 0.95f) else Color.White.copy(alpha = 0.96f),
+                    border = BorderStroke(1.dp, if (isDark) Color(0xFF4D4546).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.85f)),
+                    shadowElevation = 10.dp,
+                    modifier = Modifier.wrapContentSize()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "$closedText: $tabTitle",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) Color.White else Color(0xFF1E1B1C),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Text(
+                            text = undoText,
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = LiquidPrimary),
+                            modifier = Modifier
+                                .clickable {
+                                    viewModel.onEvent(BrowserUiEvent.UndoCloseTab)
+                                }
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Dismiss",
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clickable {
+                                    viewModel.onEvent(BrowserUiEvent.DismissUndoTabCloseSnackbar)
+                                }
+                        )
+                    }
                 }
-                OverlayType.SETTINGS -> {
-                    SettingsSheet(
-                        uiState = uiState,
-                        onEvent = viewModel::onEvent
-                    )
-                }
-                OverlayType.DOWNLOADS -> {
-                    DownloadsSheet(
-                        uiState = uiState,
-                        onEvent = viewModel::onEvent
-                    )
-                }
-                else -> Unit
             }
 
             // Link Context Menu Bottom Sheet

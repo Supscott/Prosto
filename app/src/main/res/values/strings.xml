@@ -33,4 +33,6 @@
     <string name="copy_link_url">Copy URL</string>
     <string name="tab_opened_in_background">Tab opened in background</string>
     <string name="url_copied">URL copied</string>
+    <string name="tab_closed">Tab closed</string>
+    <string name="undo">Undo</string>
 </resources>

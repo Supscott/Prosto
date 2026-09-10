@@ -33,4 +33,6 @@
     <string name="copy_link_url">Скопировать URL</string>
     <string name="tab_opened_in_background">Вкладка открыта в фоне</string>
     <string name="url_copied">URL скопирован в буфер обмена</string>
+    <string name="tab_closed">Вкладка закрыта</string>
+    <string name="undo">Отмена</string>
 </resources>
