@@ -152,4 +152,39 @@ class SessionRestoreWebViewTest {
         assertThat(retrieved).isSameInstanceAs(webView)
         assertThat(retrieved.parent).isSameInstanceAs(parent)
     }
+
+    @Test
+    fun webViewPool_getOrCreateWebView_handlesDestroyedActivityGracefully() {
+        val appContext = ApplicationProvider.getApplicationContext<Context>()
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        activityController.pause().stop().destroy()
+
+        val pool = WebViewPool(appContext)
+        val webView = pool.getOrCreateWebView("tab-destroyed-act", activity)
+        assertThat(webView).isNotNull()
+        val wrapper = webView.context as MutableContextWrapper
+        // Destroyed activity should not be used as baseContext
+        assertThat(wrapper.baseContext).isNotEqualTo(activity)
+    }
+
+    @Test
+    fun webViewPool_clearAll_cleansUpAllWebViews() {
+        val appContext = ApplicationProvider.getApplicationContext<Context>()
+        val pool = WebViewPool(appContext)
+
+        val webView1 = pool.getOrCreateWebView("tab-1") as NestedWebView
+        val webView2 = pool.getOrCreateWebView("tab-2") as NestedWebView
+        webView1.loadUrl("https://example1.com")
+        webView2.loadUrl("https://example2.com")
+
+        assertThat(pool.size()).isEqualTo(2)
+        pool.clearAll()
+
+        assertThat(pool.size()).isEqualTo(0)
+        assertThat(pool.getWebView("tab-1")).isNull()
+        assertThat(pool.getWebView("tab-2")).isNull()
+        assertThat(webView1.loadedUrl).isNull()
+        assertThat(webView2.loadedUrl).isNull()
+    }
 }

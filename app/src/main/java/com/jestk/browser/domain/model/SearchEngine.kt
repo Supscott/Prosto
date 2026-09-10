@@ -15,4 +15,29 @@ enum class SearchEngine(val displayName: String, val searchUrlTemplate: String) 
         }
         return String.format(searchUrlTemplate, encoded)
     }
+
+    fun matchesUrl(url: String): Boolean {
+        return when (this) {
+            DUCKDUCKGO -> url.contains("duckduckgo.com")
+            GOOGLE -> url.contains("google.com")
+            BING -> url.contains("bing.com")
+        }
+    }
+
+    fun extractQuery(url: String): String? {
+        val pattern = when (this) {
+            DUCKDUCKGO -> "duckduckgo.com/?q="
+            GOOGLE -> "google.com/search?q="
+            BING -> "bing.com/search?q="
+        }
+        if (!url.contains(pattern)) return null
+        val queryStart = url.indexOf(pattern) + pattern.length
+        val queryEnd = url.indexOf('&', queryStart).let { if (it == -1) url.length else it }
+        val rawQuery = url.substring(queryStart, queryEnd)
+        return try {
+            java.net.URLDecoder.decode(rawQuery, "UTF-8")
+        } catch (_: Exception) {
+            rawQuery
+        }
+    }
 }

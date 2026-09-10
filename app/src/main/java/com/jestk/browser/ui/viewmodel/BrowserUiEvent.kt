@@ -16,6 +16,8 @@ sealed interface BrowserUiEvent {
     data class ReorderTabs(val orderedTabs: List<Tab>) : BrowserUiEvent
     data object SwipeNextTab : BrowserUiEvent
     data object SwipePrevTab : BrowserUiEvent
+    data object UndoCloseTab : BrowserUiEvent
+    data object DismissUndoTabCloseSnackbar : BrowserUiEvent
 
     // Overlays
     data class OpenOverlay(val overlay: OverlayType) : BrowserUiEvent

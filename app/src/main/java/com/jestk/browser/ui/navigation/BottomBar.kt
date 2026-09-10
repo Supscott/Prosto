@@ -122,7 +122,7 @@ fun UnifiedBottomBar(
     val displayTitle = if (isHomeTab) "Home" else when {
         activeTab?.title?.isNotEmpty() == true && activeTab.title != "Home" && activeTab.title != "New Tab" -> activeTab.title
         uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
-        else -> "Jestk Browser"
+        else -> "Hori Browser"
     }
 
     val displayDomain = if (isHomeTab) "" else when {
@@ -301,7 +301,7 @@ fun UnifiedBottomBar(
 
                         val activeIndex = remember(displayTabs, uiState.activeTabId, uiState.activeTabIndex) {
                             val idx = displayTabs.indexOfFirst { it.id == uiState.activeTabId }
-                            if (idx >= 0) idx else uiState.activeTabIndex.coerceIn(0, displayTabs.lastIndex)
+                            if (idx >= 0) idx else if (displayTabs.isNotEmpty()) uiState.activeTabIndex.coerceIn(0, displayTabs.lastIndex) else 0
                         }
 
                         LaunchedEffect(uiState.activeTabId, activeIndex) {
@@ -328,7 +328,7 @@ fun UnifiedBottomBar(
                                     val currentTitle = if (tabIsHome) "Home" else when {
                                         tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
                                         uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
-                                        else -> "Jestk Browser"
+                                        else -> "Hori Browser"
                                     }
                                     val currentDomain = if (tabIsHome) "" else when {
                                         tab.url.isNotEmpty() && tab.url != "about:blank" -> {
@@ -544,7 +544,7 @@ private fun ActiveTabCenterCapsule(
                 )
             } else {
                 val initial = title.trim().firstOrNull()?.uppercaseChar()
-                if (initial != null && initial.isLetterOrDigit() && title != "Jestk Browser" && title != "New Tab") {
+                if (initial != null && initial.isLetterOrDigit() && title != "Hori Browser" && title != "Jestk Browser" && title != "New Tab") {
                     Box(
                         modifier = Modifier
                             .size(18.dp)

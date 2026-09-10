@@ -114,4 +114,8 @@ class TabRepositoryImpl(
     override suspend fun reorderTabs(orderedTabs: List<Tab>) = withContext(ioDispatcher) {
         tabDao.reorderTabs(orderedTabs.map { it.toEntity() })
     }
+
+    override suspend fun clearRecentTabs() = withContext(ioDispatcher) {
+        // No-op for TabRepository since recent tabs are derived from tabs table or managed by RecentTabRepository
+    }
 }

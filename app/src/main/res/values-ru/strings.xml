@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Jestk</string>
+    <string name="app_name">Hori</string>
     <string name="search_placeholder">Поиск или адрес сайта</string>
     <string name="new_tab">Новая вкладка</string>
     <string name="home">Главная</string>

@@ -50,49 +50,70 @@ class BrowserViewModel(
     }
 
     private suspend fun restoreSession() {
-        val initialTabs = tabRepository.getInitialTabs()
-        val initialSettings = settingsRepository.getCurrentSettings()
+        tabOperationMutex.withLock {
+            val initialTabs = tabRepository.getInitialTabs()
+            val initialSettings = settingsRepository.getCurrentSettings()
 
-        val activeTab: Tab = if (initialTabs.isEmpty()) {
-            val newTab = tabRepository.createTab(url = "", title = "Home")
-            tabRepository.setActiveTab(newTab.id)
-            newTab.copy(isActive = true)
-        } else {
-            val found = initialTabs.find { it.isActive }
-                ?: initialTabs.maxByOrNull { it.lastActiveTimestamp }
-                ?: initialTabs.first()
-            tabRepository.setActiveTab(found.id)
-            found.copy(isActive = true)
-        }
+            // Prepopulate tabThemeColors cache from DB-persisted colors
+            initialTabs.forEach { tab ->
+                tab.themeColor?.let { color -> tabThemeColors[tab.id] = color }
+            }
 
-        val currentTabs = tabRepository.getInitialTabs()
-        val tabsWithActive = if (currentTabs.isEmpty()) listOf(activeTab) else currentTabs
+            // If tabs were already populated in _uiState (e.g. openNewTab ran first during quick user interaction)
+            val currentUiTabs = _uiState.value.tabs
+            if (currentUiTabs.isNotEmpty()) {
+                val currentActiveTab = _uiState.value.activeTab ?: currentUiTabs.first()
+                val hasWebUrl = currentActiveTab.url.isNotEmpty() && currentActiveTab.url != "about:blank"
+                val initialThemeColor = if (hasWebUrl) (tabThemeColors[currentActiveTab.id] ?: currentActiveTab.themeColor) else null
+                _uiState.update { state ->
+                    state.copy(
+                        settings = initialSettings,
+                        activeThemeColor = initialThemeColor ?: state.activeThemeColor,
+                        activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME
+                    )
+                }
+                return@withLock
+            }
 
-        // Prepopulate tabThemeColors cache from DB-persisted colors
-        tabsWithActive.forEach { tab ->
-            tab.themeColor?.let { color -> tabThemeColors[tab.id] = color }
-        }
+            val activeTab: Tab = if (initialTabs.isEmpty()) {
+                val newTab = tabRepository.createTab(url = "", title = "Home")
+                tabRepository.setActiveTab(newTab.id)
+                newTab.copy(isActive = true)
+            } else {
+                val found = initialTabs.find { it.isActive }
+                    ?: initialTabs.maxByOrNull { it.lastActiveTimestamp }
+                    ?: initialTabs.first()
+                tabRepository.setActiveTab(found.id)
+                found.copy(isActive = true)
+            }
 
-        val hasWebUrl = activeTab.url.isNotEmpty() && activeTab.url != "about:blank"
-        val initialThemeColor = if (hasWebUrl) (tabThemeColors[activeTab.id] ?: activeTab.themeColor) else null
-        val isHome = !hasWebUrl
-        val menuExpandedInitial = initialSettings.isMenuExpandedOnWeb
+            val currentTabs = tabRepository.getInitialTabs()
+            val tabsWithActive = if (currentTabs.isEmpty()) listOf(activeTab) else currentTabs
 
-        _uiState.update { state ->
-            state.copy(
-                tabs = tabsWithActive,
-                activeTabId = activeTab.id,
-                currentUrl = activeTab.url,
-                pageTitle = activeTab.title,
-                canGoBack = false,
-                canGoForward = false,
-                activeThemeColor = initialThemeColor,
-                isLoading = hasWebUrl,
-                loadingProgress = if (hasWebUrl) 0.15f else 0f,
-                settings = initialSettings,
-                isMenuExpanded = menuExpandedInitial,
-                activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME
-            )
+            tabsWithActive.forEach { tab ->
+                tab.themeColor?.let { color -> tabThemeColors[tab.id] = color }
+            }
+
+            val hasWebUrl = activeTab.url.isNotEmpty() && activeTab.url != "about:blank"
+            val initialThemeColor = if (hasWebUrl) (tabThemeColors[activeTab.id] ?: activeTab.themeColor) else null
+            val menuExpandedInitial = initialSettings.isMenuExpandedOnWeb
+
+            _uiState.update { state ->
+                state.copy(
+                    tabs = tabsWithActive,
+                    activeTabId = activeTab.id,
+                    currentUrl = activeTab.url,
+                    pageTitle = activeTab.title,
+                    canGoBack = false,
+                    canGoForward = false,
+                    activeThemeColor = initialThemeColor,
+                    isLoading = hasWebUrl,
+                    loadingProgress = if (hasWebUrl) 0.15f else 0f,
+                    settings = initialSettings,
+                    isMenuExpanded = menuExpandedInitial,
+                    activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME
+                )
+            }
         }
     }
 
@@ -178,6 +199,15 @@ class BrowserViewModel(
             is BrowserUiEvent.ReorderTabs -> reorderTabs(event.orderedTabs)
             is BrowserUiEvent.SwipeNextTab -> switchAdjacentTab(1)
             is BrowserUiEvent.SwipePrevTab -> switchAdjacentTab(-1)
+            is BrowserUiEvent.UndoCloseTab -> undoCloseTab()
+            is BrowserUiEvent.DismissUndoTabCloseSnackbar -> {
+                _uiState.update {
+                    it.copy(
+                        showUndoTabCloseSnackbar = false,
+                        recentlyClosedTab = null
+                    )
+                }
+            }
 
             is BrowserUiEvent.OpenOverlay -> _uiState.update { it.copy(activeOverlay = event.overlay) }
             is BrowserUiEvent.DismissOverlay -> _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
@@ -232,8 +262,16 @@ class BrowserViewModel(
             is BrowserUiEvent.DeleteHistoryItem -> viewModelScope.launch(ioDispatcher) {
                 historyRepository.deleteHistory(event.id)
             }
-            is BrowserUiEvent.ClearAllHistory -> viewModelScope.launch(ioDispatcher) {
-                historyRepository.clearHistory()
+            is BrowserUiEvent.ClearAllHistory -> {
+                _uiState.update { it.copy(recentTabs = emptyList()) }
+                viewModelScope.launch(ioDispatcher) {
+                    historyRepository.clearHistory()
+                    if (recentTabRepository != null) {
+                        recentTabRepository.clearRecentTabs()
+                    } else {
+                        tabRepository.clearRecentTabs()
+                    }
+                }
             }
             is BrowserUiEvent.SelectHistorySuggestion -> loadUrl(event.item.url)
 
@@ -312,7 +350,12 @@ class BrowserViewModel(
             tabOperationMutex.withLock {
                 val created = tabRepository.createTab(url = "", title = "Search")
                 tabRepository.setActiveTab(created.id)
-                val currentTabs = _uiState.value.tabs.map { it.copy(isActive = false) }
+                val baseTabs = if (_uiState.value.tabs.isEmpty()) {
+                    tabRepository.getInitialTabs().filter { it.id != created.id }
+                } else {
+                    _uiState.value.tabs
+                }
+                val currentTabs = baseTabs.map { it.copy(isActive = false) }
                 val updatedTabs = currentTabs + created.copy(isActive = true)
                 _uiState.update {
                     it.copy(
@@ -339,7 +382,12 @@ class BrowserViewModel(
                 val title = if (url.isEmpty() || url == "about:blank") "Home" else "Loading..."
                 val created = tabRepository.createTab(url = url, title = title)
                 tabRepository.setActiveTab(created.id)
-                val currentTabs = _uiState.value.tabs.map { it.copy(isActive = false) }
+                val baseTabs = if (_uiState.value.tabs.isEmpty()) {
+                    tabRepository.getInitialTabs().filter { it.id != created.id }
+                } else {
+                    _uiState.value.tabs
+                }
+                val currentTabs = baseTabs.map { it.copy(isActive = false) }
                 val updatedTabs = currentTabs + created.copy(isActive = true)
                 val isHome = url.isEmpty() || url == "about:blank"
                 val targetMenuExpanded = _uiState.value.settings.isMenuExpandedOnWeb
@@ -368,7 +416,12 @@ class BrowserViewModel(
             tabOperationMutex.withLock {
                 val title = if (url.isEmpty() || url == "about:blank") "Home" else "Loading..."
                 val created = tabRepository.createTab(url = url, title = title)
-                val updatedTabs = _uiState.value.tabs + created.copy(isActive = false)
+                val baseTabs = if (_uiState.value.tabs.isEmpty()) {
+                    tabRepository.getInitialTabs().filter { it.id != created.id }
+                } else {
+                    _uiState.value.tabs
+                }
+                val updatedTabs = baseTabs + created.copy(isActive = false)
                 _uiState.update {
                     it.copy(
                         tabs = updatedTabs,
@@ -429,8 +482,10 @@ class BrowserViewModel(
 
     private fun closeTab(tabId: String) {
         tabThemeColors.remove(tabId)
+        val closingTab = _uiState.value.tabs.find { it.id == tabId }
         viewModelScope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
+                val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
                 tabRepository.closeTab(tabId)
                 val remainingTabs = _uiState.value.tabs.filter { it.id != tabId }
                 if (remainingTabs.isEmpty()) {
@@ -443,7 +498,9 @@ class BrowserViewModel(
                             currentUrl = "",
                             pageTitle = "Home",
                             activeThemeColor = null,
-                            activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME
+                            activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
+                            recentlyClosedTab = tabToSave,
+                            showUndoTabCloseSnackbar = tabToSave != null
                         )
                     }
                 } else {
@@ -470,9 +527,70 @@ class BrowserViewModel(
                                 OverlayType.HOME
                             } else {
                                 OverlayType.NONE
-                            }
+                            },
+                            recentlyClosedTab = tabToSave,
+                            showUndoTabCloseSnackbar = tabToSave != null
                         )
                     }
+                }
+            }
+        }
+    }
+
+    private fun undoCloseTab() {
+        val tabToRestore = _uiState.value.recentlyClosedTab ?: return
+        viewModelScope.launch(ioDispatcher) {
+            tabOperationMutex.withLock {
+                val created = tabRepository.createTab(
+                    url = tabToRestore.url,
+                    title = tabToRestore.title,
+                    isIncognito = tabToRestore.isIncognito
+                )
+                tabToRestore.snapshotPath?.let { tabRepository.updateSnapshot(created.id, it) }
+                tabToRestore.faviconUrl?.let { tabRepository.updateFavicon(created.id, it) }
+                tabToRestore.themeColor?.let {
+                    tabThemeColors[created.id] = it
+                    tabRepository.updateThemeColor(created.id, it)
+                }
+                tabRepository.setActiveTab(created.id)
+
+                val restoredTab = created.copy(
+                    isActive = true,
+                    snapshotPath = tabToRestore.snapshotPath,
+                    faviconUrl = tabToRestore.faviconUrl,
+                    themeColor = tabToRestore.themeColor,
+                    canGoBack = tabToRestore.canGoBack,
+                    canGoForward = tabToRestore.canGoForward
+                )
+
+                val updatedTabs = _uiState.value.tabs.map { it.copy(isActive = false) } + restoredTab
+
+                val isHome = restoredTab.url.isEmpty() || restoredTab.url == "about:blank"
+                val themeColor = if (isHome) null else (tabThemeColors[created.id] ?: restoredTab.themeColor)
+
+                _uiState.update { state ->
+                    state.copy(
+                        tabs = updatedTabs,
+                        activeTabId = created.id,
+                        currentUrl = restoredTab.url,
+                        pageTitle = restoredTab.title,
+                        canGoBack = restoredTab.canGoBack,
+                        canGoForward = restoredTab.canGoForward,
+                        activeThemeColor = themeColor,
+                        recentlyClosedTab = null,
+                        showUndoTabCloseSnackbar = false,
+                        activeOverlay = if (state.activeOverlay == OverlayType.TAB_GRID) {
+                            OverlayType.TAB_GRID
+                        } else if (isHome) {
+                            OverlayType.HOME
+                        } else {
+                            OverlayType.NONE
+                        }
+                    )
+                }
+
+                if (restoredTab.url.isNotEmpty() && restoredTab.url != "about:blank") {
+                    _navigationCommands.tryEmit(NavigationCommand.LoadUrl(restoredTab.url))
                 }
             }
         }
@@ -501,10 +619,12 @@ class BrowserViewModel(
 
     private fun switchAdjacentTab(delta: Int) {
         val currentTabs = _uiState.value.tabs
-        if (currentTabs.size <= 1) return
+        if (currentTabs.isEmpty() || currentTabs.size <= 1 || currentTabs.lastIndex <= 0) return
         val currentIndex = _uiState.value.activeTabIndex
-        val targetIndex = (currentIndex + delta).coerceIn(0, currentTabs.lastIndex)
-        if (targetIndex != currentIndex) {
+        val maxIndex = currentTabs.lastIndex
+        if (maxIndex < 0) return
+        val targetIndex = (currentIndex + delta).coerceIn(0, maxIndex)
+        if (targetIndex in currentTabs.indices && targetIndex != currentIndex) {
             selectTab(currentTabs[targetIndex].id)
         }
     }

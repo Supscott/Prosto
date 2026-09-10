@@ -807,4 +807,122 @@ class BrowserViewModelTest {
         assertThat(viewModel.uiState.value.linkContextMenuUrl).isNull()
         assertThat(viewModel.uiState.value.tabs).hasSize(1)
     }
+
+    @Test
+    fun switchAdjacentTab_whenSingleOrEmptyTabs_doesNotThrow() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.tabs).hasSize(1)
+        // Should not throw IllegalArgumentException when lastIndex <= 0
+        viewModel.onEvent(BrowserUiEvent.SwipeNextTab)
+        advanceUntilIdle()
+        viewModel.onEvent(BrowserUiEvent.SwipePrevTab)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.tabs).hasSize(1)
+    }
+
+    @Test
+    fun openNewTab_immediatelyOnRestore_mergesCleanlyWithoutCorruption() = runTest(testDispatcher) {
+        tabRepo.createTab(url = "https://example.com/1", title = "Tab 1")
+        tabRepo.createTab(url = "https://example.com/2", title = "Tab 2")
+
+        val viewModel = createViewModel()
+        // Immediately invoke OpenNewTab before advanceUntilIdle to simulate user tapping new tab upon restore
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://example.com/immediate"))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.tabs.size).isAtLeast(3)
+        assertThat(state.currentUrl).isEqualTo("https://example.com/immediate")
+        assertThat(state.activeTab?.url).isEqualTo("https://example.com/immediate")
+        assertThat(state.activeTab?.isActive).isTrue()
+    }
+
+    @Test
+    fun clearAllHistory_clearsRecentTabsInMemoryAndRepository() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        recentTabRepo.recordRecentTab("https://example.com/recent", "Recent")
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.recentTabs).isNotEmpty()
+
+        viewModel.onEvent(BrowserUiEvent.ClearAllHistory)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.recentTabs).isEmpty()
+    }
+
+    @Test
+    fun closeTab_savesRecentlyClosedTabAndShowsSnackbar() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://example.com/tab2"))
+        advanceUntilIdle()
+
+        val stateBeforeClose = viewModel.uiState.value
+        assertThat(stateBeforeClose.tabs).hasSize(2)
+        val tabToClose = stateBeforeClose.activeTab!!
+
+        viewModel.onEvent(BrowserUiEvent.CloseTab(tabToClose.id))
+        advanceUntilIdle()
+
+        val stateAfterClose = viewModel.uiState.value
+        assertThat(stateAfterClose.tabs).hasSize(1)
+        assertThat(stateAfterClose.recentlyClosedTab?.url).isEqualTo("https://example.com/tab2")
+        assertThat(stateAfterClose.showUndoTabCloseSnackbar).isTrue()
+    }
+
+    @Test
+    fun undoCloseTab_restoresTabAndDismissesSnackbar() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://example.com/tab-to-restore"))
+        advanceUntilIdle()
+
+        val tabToClose = viewModel.uiState.value.activeTab!!
+        viewModel.onEvent(BrowserUiEvent.CloseTab(tabToClose.id))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.showUndoTabCloseSnackbar).isTrue()
+        assertThat(viewModel.uiState.value.recentlyClosedTab?.url).isEqualTo("https://example.com/tab-to-restore")
+
+        viewModel.onEvent(BrowserUiEvent.UndoCloseTab)
+        advanceUntilIdle()
+
+        val restoredState = viewModel.uiState.value
+        assertThat(restoredState.showUndoTabCloseSnackbar).isFalse()
+        assertThat(restoredState.recentlyClosedTab).isNull()
+        assertThat(restoredState.tabs).hasSize(2)
+        assertThat(restoredState.currentUrl).isEqualTo("https://example.com/tab-to-restore")
+        assertThat(restoredState.activeTab?.url).isEqualTo("https://example.com/tab-to-restore")
+        assertThat(restoredState.activeTab?.isActive).isTrue()
+    }
+
+    @Test
+    fun dismissUndoTabCloseSnackbar_clearsRecentlyClosedTabAndHidesSnackbar() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://example.com/dismiss-test"))
+        advanceUntilIdle()
+
+        val tabToClose = viewModel.uiState.value.activeTab!!
+        viewModel.onEvent(BrowserUiEvent.CloseTab(tabToClose.id))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.showUndoTabCloseSnackbar).isTrue()
+        assertThat(viewModel.uiState.value.recentlyClosedTab).isNotNull()
+
+        viewModel.onEvent(BrowserUiEvent.DismissUndoTabCloseSnackbar)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.showUndoTabCloseSnackbar).isFalse()
+        assertThat(viewModel.uiState.value.recentlyClosedTab).isNull()
+    }
 }

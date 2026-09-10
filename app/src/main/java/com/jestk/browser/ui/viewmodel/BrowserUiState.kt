@@ -11,6 +11,8 @@ data class BrowserUiState(
     val tabs: List<Tab> = emptyList(),
     val recentTabs: List<com.jestk.browser.domain.model.RecentTabItem> = emptyList(),
     val activeTabId: String? = null,
+    val recentlyClosedTab: Tab? = null,
+    val showUndoTabCloseSnackbar: Boolean = false,
 
     // Active Viewport / Overlay
     val activeOverlay: OverlayType = OverlayType.NONE,
@@ -51,7 +53,7 @@ data class BrowserUiState(
         get() = tabs.find { it.id == activeTabId }
 
     val activeTabIndex: Int
-        get() = tabs.indexOfFirst { it.id == activeTabId }.coerceAtLeast(0)
+        get() = if (tabs.isEmpty()) 0 else tabs.indexOfFirst { it.id == activeTabId }.coerceIn(0, tabs.lastIndex)
 
     val bottomBarVisible: Boolean
         get() = isBottomBarVisible

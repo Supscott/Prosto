@@ -47,42 +47,80 @@ class WebViewPool(private val applicationContext: Context) {
 
     @SuppressLint("SetJavaScriptEnabled")
     fun getOrCreateWebView(tabId: String, context: Context? = null): WebView {
-        val targetContext = context?.findActivity() ?: context ?: applicationContext
+        val activity = context?.findActivity()
+        val isActivityDestroyed = activity != null && (activity.isDestroyed || activity.isFinishing)
+        val targetContext = if (isActivityDestroyed) {
+            applicationContext
+        } else {
+            activity ?: context ?: applicationContext
+        }
         currentIsDark?.let { syncConfigurationUiMode(targetContext, it) }
+
         val existing = pool[tabId]
         if (existing != null) {
-            (existing.context as? MutableContextWrapper)?.baseContext = targetContext
-            currentIsDark?.let { applyThemeMode(existing, it) }
-            return existing
+            try {
+                val wrapper = existing.context as? MutableContextWrapper
+                if (wrapper != null && wrapper.baseContext != targetContext) {
+                    wrapper.baseContext = targetContext
+                }
+                currentIsDark?.let { applyThemeMode(existing, it) }
+                return existing
+            } catch (_: Throwable) {
+                removeWebView(tabId)
+            }
         }
 
         // Initialize with MutableContextWrapper using Activity context so Chromium can attach to Window
         // and display the soft keyboard when input fields are focused.
         val contextWrapper = MutableContextWrapper(targetContext)
-        val webView = NestedWebView(contextWrapper).apply {
-            isFocusable = true
-            isFocusableInTouchMode = true
-            settings.apply {
-                javaScriptEnabled = true
-                domStorageEnabled = true
-                mediaPlaybackRequiresUserGesture = false
-                builtInZoomControls = true
-                displayZoomControls = false
-                loadWithOverviewMode = true
-                useWideViewPort = true
-                databaseEnabled = true
-                cacheMode = WebSettings.LOAD_DEFAULT
-                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                setSupportZoom(true)
+        try {
+            val webView = NestedWebView(contextWrapper).apply {
+                isFocusable = true
+                isFocusableInTouchMode = true
+                settings.apply {
+                    javaScriptEnabled = true
+                    domStorageEnabled = true
+                    mediaPlaybackRequiresUserGesture = false
+                    builtInZoomControls = true
+                    displayZoomControls = false
+                    loadWithOverviewMode = true
+                    useWideViewPort = true
+                    databaseEnabled = true
+                    cacheMode = WebSettings.LOAD_DEFAULT
+                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                    setSupportZoom(true)
+                }
+                // Do NOT call pauseTimers() or onPause() when tabs are backgrounded,
+                // keeping audio and video playback alive across tab switches.
             }
-            // Do NOT call pauseTimers() or onPause() when tabs are backgrounded,
-            // keeping audio and video playback alive across tab switches.
+
+            currentIsDark?.let { applyThemeMode(webView, it) }
+
+            pool[tabId] = webView
+            return webView
+        } catch (_: Throwable) {
+            contextWrapper.baseContext = applicationContext
+            val fallbackWebView = NestedWebView(contextWrapper).apply {
+                isFocusable = true
+                isFocusableInTouchMode = true
+                settings.apply {
+                    javaScriptEnabled = true
+                    domStorageEnabled = true
+                    mediaPlaybackRequiresUserGesture = false
+                    builtInZoomControls = true
+                    displayZoomControls = false
+                    loadWithOverviewMode = true
+                    useWideViewPort = true
+                    databaseEnabled = true
+                    cacheMode = WebSettings.LOAD_DEFAULT
+                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                    setSupportZoom(true)
+                }
+            }
+            currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
+            pool[tabId] = fallbackWebView
+            return fallbackWebView
         }
-
-        currentIsDark?.let { applyThemeMode(webView, it) }
-
-        pool[tabId] = webView
-        return webView
     }
 
     fun applyThemeMode(webView: WebView, isDark: Boolean) {
@@ -203,7 +241,9 @@ class WebViewPool(private val applicationContext: Context) {
     }
 
     fun detachFromParent(webView: WebView) {
-        (webView.parent as? ViewGroup)?.removeView(webView)
+        try {
+            (webView.parent as? ViewGroup)?.removeView(webView)
+        } catch (_: Throwable) {}
     }
 
     fun getWebView(tabId: String): WebView? = pool[tabId]
@@ -211,14 +251,21 @@ class WebViewPool(private val applicationContext: Context) {
     fun removeWebView(tabId: String) {
         val webView = pool.remove(tabId) ?: return
         detachFromParent(webView)
-        (webView.context as? MutableContextWrapper)?.baseContext = applicationContext
         try {
             webView.stopLoading()
             webView.loadUrl("about:blank")
             (webView as? NestedWebView)?.loadedUrl = null
             webView.clearHistory()
+            (webView as? ViewGroup)?.removeAllViews()
+            webView.webChromeClient = null
+            webView.webViewClient = android.webkit.WebViewClient()
+            (webView.context as? MutableContextWrapper)?.baseContext = applicationContext
             webView.destroy()
-        } catch (_: Exception) {}
+        } catch (_: Throwable) {
+            try {
+                (webView.context as? MutableContextWrapper)?.baseContext = applicationContext
+            } catch (_: Throwable) {}
+        }
     }
 
     fun retainTabs(activeTabIds: Set<String>) {
@@ -227,7 +274,9 @@ class WebViewPool(private val applicationContext: Context) {
     }
 
     fun clearAll() {
-        pool.keys().toList().forEach { removeWebView(it) }
+        val keys = pool.keys().toList()
+        keys.forEach { removeWebView(it) }
+        pool.clear()
     }
 
     fun size(): Int = pool.size

@@ -8,10 +8,13 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -67,8 +70,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
@@ -77,10 +86,15 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.HistoryItem
+import com.jestk.browser.domain.model.SearchEngine
+import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.DuckDuckGoBadgeBrush
+import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.ui.theme.LiquidPrimaryFixed
 import com.jestk.browser.ui.theme.LiquidOnSurface
 import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
 import com.jestk.browser.ui.theme.LiquidOutline
@@ -178,6 +192,9 @@ fun SearchOverlay(
                                 item.url.contains("google.com/search?q=") -> {
                                     try { Uri.parse(item.url).getQueryParameter("q") ?: item.title.ifEmpty { item.url } } catch (_: Exception) { item.title.ifEmpty { item.url } }
                                 }
+                                item.url.contains("bing.com/search?q=") -> {
+                                    try { Uri.parse(item.url).getQueryParameter("q") ?: item.title.ifEmpty { item.url } } catch (_: Exception) { item.title.ifEmpty { item.url } }
+                                }
                                 item.title.isNotEmpty() && !item.title.startsWith("http://") && !item.title.startsWith("https://") -> item.title
                                 else -> item.url
                             }
@@ -196,7 +213,7 @@ fun SearchOverlay(
             // Middle: Hero Centerpiece Search Input Field
             HeroSearchInputField(
                 query = uiState.searchQuery,
-                searchEngineName = uiState.settings.searchEngine.displayName,
+                searchEngine = uiState.settings.searchEngine,
                 isDark = isDark,
                 focusRequester = focusRequester,
                 onQueryChange = { onEvent(BrowserUiEvent.UpdateSearchQuery(it)) },
@@ -214,7 +231,19 @@ fun SearchOverlay(
                     )
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Search Engine Switcher Chips (Task 8)
+            SearchEngineSwitcherRow(
+                selectedEngine = uiState.settings.searchEngine,
+                onSelectEngine = { engine ->
+                    onEvent(BrowserUiEvent.SetSearchEngine(engine))
+                },
+                isDark = isDark,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Bottom: Quick Favorites / Shortcuts Cloud
             QuickShortcutsCloud(
@@ -235,7 +264,7 @@ fun SearchOverlay(
 @Composable
 private fun HeroSearchInputField(
     query: String,
-    searchEngineName: String,
+    searchEngine: SearchEngine,
     isDark: Boolean,
     focusRequester: FocusRequester,
     onQueryChange: (String) -> Unit,
@@ -290,21 +319,12 @@ private fun HeroSearchInputField(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Engine Badge (Warm Sunset Circle)
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(DuckDuckGoBadgeBrush),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Public,
-                    contentDescription = searchEngineName,
-                    tint = LiquidSecondary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+            // Engine Badge (Brand Engine Badge - Task 15)
+            SearchEngineBadge(
+                engine = searchEngine,
+                size = 32.dp,
+                isDark = isDark
+            )
 
             // Input Text Field
             OutlinedTextField(
@@ -315,7 +335,7 @@ private fun HeroSearchInputField(
                 },
                 placeholder = {
                     Text(
-                        text = "Search in $searchEngineName or enter URL",
+                        text = "Search in ${searchEngine.displayName} or enter URL",
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -636,3 +656,356 @@ private fun QuickShortcutsCloud(
         }
     }
 }
+
+// ==========================================
+// Search Engine Badges & Switcher Chips (Task 8 & 15)
+// ==========================================
+
+val DuckDuckGoBrandBrush = Brush.linearGradient(
+    colors = listOf(
+        Color(0xFFFF8543),
+        Color(0xFFE54318)
+    )
+)
+
+val BingBrandBrush = Brush.linearGradient(
+    colors = listOf(
+        Color(0xFF00C8D7),
+        Color(0xFF0078D4)
+    )
+)
+
+@Composable
+fun SearchEngineBadge(
+    engine: SearchEngine,
+    modifier: Modifier = Modifier,
+    size: androidx.compose.ui.unit.Dp = 32.dp,
+    isDark: Boolean = false
+) {
+    when (engine) {
+        SearchEngine.DUCKDUCKGO -> DuckDuckGoBadge(size = size, modifier = modifier)
+        SearchEngine.GOOGLE -> GoogleBadge(size = size, isDark = isDark, modifier = modifier)
+        SearchEngine.BING -> BingBadge(size = size, modifier = modifier)
+    }
+}
+
+@Composable
+private fun DuckDuckGoBadge(
+    size: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(DuckDuckGoBrandBrush),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size(size * 0.72f)) {
+            val w = this.size.width
+            val h = this.size.height
+
+            // 1. Duck Head
+            val headRadius = w * 0.30f
+            val headCenter = Offset(w * 0.44f, h * 0.44f)
+            drawCircle(
+                color = Color.White,
+                radius = headRadius,
+                center = headCenter
+            )
+
+            // 2. Duck Beak (Warm Golden Orange)
+            val beakPath = Path().apply {
+                moveTo(w * 0.52f, h * 0.38f)
+                quadraticTo(w * 0.80f, h * 0.42f, w * 0.86f, h * 0.49f)
+                quadraticTo(w * 0.76f, h * 0.58f, w * 0.48f, h * 0.57f)
+                close()
+            }
+            drawPath(beakPath, color = Color(0xFFFFB300))
+
+            // 3. Eye (Dark pupil with specular reflection)
+            drawCircle(
+                color = Color(0xFF1E1B1C),
+                radius = w * 0.055f,
+                center = Offset(w * 0.40f, h * 0.36f)
+            )
+            drawCircle(
+                color = Color.White,
+                radius = w * 0.02f,
+                center = Offset(w * 0.39f, h * 0.35f)
+            )
+
+            // 4. Green Bowtie (Dax signature)
+            val bowLeft = Path().apply {
+                moveTo(w * 0.28f, h * 0.70f)
+                lineTo(w * 0.44f, h * 0.75f)
+                lineTo(w * 0.28f, h * 0.80f)
+                close()
+            }
+            val bowRight = Path().apply {
+                moveTo(w * 0.60f, h * 0.70f)
+                lineTo(w * 0.44f, h * 0.75f)
+                lineTo(w * 0.60f, h * 0.80f)
+                close()
+            }
+            drawPath(bowLeft, color = Color(0xFF43A047))
+            drawPath(bowRight, color = Color(0xFF43A047))
+            drawCircle(
+                color = Color(0xFF2E7D32),
+                radius = w * 0.045f,
+                center = Offset(w * 0.44f, h * 0.75f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun GoogleBadge(
+    size: androidx.compose.ui.unit.Dp,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val bg = if (isDark) Color(0xFF2E2A2B) else Color.White
+    val border = if (isDark) {
+        BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.6f))
+    } else {
+        BorderStroke(1.dp, Color(0xFFE2DCDD))
+    }
+
+    Surface(
+        shape = CircleShape,
+        color = bg,
+        border = border,
+        modifier = modifier.size(size)
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Canvas(modifier = Modifier.size(size * 0.58f)) {
+                val w = this.size.width
+                val h = this.size.height
+                val center = Offset(w / 2f, h / 2f)
+
+                val strokeWidth = w * 0.22f
+                val radius = (w - strokeWidth) / 2f
+                val arcTopLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
+                val arcSize = Size(radius * 2f, radius * 2f)
+
+                // 1. Red (Top: 215° to 320°)
+                drawArc(
+                    color = Color(0xFFEA4335),
+                    startAngle = 215f,
+                    sweepAngle = 105f,
+                    useCenter = false,
+                    topLeft = arcTopLeft,
+                    size = arcSize,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                )
+
+                // 2. Yellow (Left: 135° to 220°)
+                drawArc(
+                    color = Color(0xFFFBBC05),
+                    startAngle = 135f,
+                    sweepAngle = 85f,
+                    useCenter = false,
+                    topLeft = arcTopLeft,
+                    size = arcSize,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                )
+
+                // 3. Green (Bottom: 40° to 140°)
+                drawArc(
+                    color = Color(0xFF34A853),
+                    startAngle = 40f,
+                    sweepAngle = 100f,
+                    useCenter = false,
+                    topLeft = arcTopLeft,
+                    size = arcSize,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                )
+
+                // 4. Blue (Bottom-right: 330° to 45°)
+                drawArc(
+                    color = Color(0xFF4285F4),
+                    startAngle = 330f,
+                    sweepAngle = 75f,
+                    useCenter = false,
+                    topLeft = arcTopLeft,
+                    size = arcSize,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
+                )
+
+                // 5. Blue Horizontal Crossbar
+                val barLeft = center.x - w * 0.05f
+                val barWidth = center.x + radius + strokeWidth / 2f - barLeft
+                drawRect(
+                    color = Color(0xFF4285F4),
+                    topLeft = Offset(barLeft, center.y - strokeWidth / 2f),
+                    size = Size(barWidth, strokeWidth)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BingBadge(
+    size: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(size)
+            .clip(CircleShape)
+            .background(BingBrandBrush),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.size(size * 0.58f)) {
+            val w = this.size.width
+            val h = this.size.height
+            val strokeW = w * 0.20f
+
+            // Clean white Bing 'b' glyph:
+            // Vertical stem on left
+            drawRoundRect(
+                color = Color.White,
+                topLeft = Offset(w * 0.14f, h * 0.06f),
+                size = Size(strokeW, h * 0.88f),
+                cornerRadius = CornerRadius(strokeW / 2f, strokeW / 2f)
+            )
+
+            // Loop on bottom right
+            val loopRadius = w * 0.31f
+            val loopCenter = Offset(w * 0.56f, h * 0.63f)
+            drawCircle(
+                color = Color.White,
+                radius = loopRadius,
+                center = loopCenter,
+                style = Stroke(width = strokeW)
+            )
+        }
+    }
+}
+
+@Composable
+fun SearchEngineSwitcherRow(
+    selectedEngine: SearchEngine,
+    onSelectEngine: (SearchEngine) -> Unit,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val scrollState = rememberScrollState()
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .horizontalScroll(scrollState),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SearchEngine.entries.forEach { engine ->
+            val isSelected = engine == selectedEngine
+            SearchEngineChip(
+                engine = engine,
+                isSelected = isSelected,
+                isDark = isDark,
+                onClick = { onSelectEngine(engine) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun SearchEngineChip(
+    engine: SearchEngine,
+    isSelected: Boolean,
+    isDark: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val containerColor = when {
+        isSelected && isDark -> Color(0xFF33618D).copy(alpha = 0.35f)
+        isSelected && !isDark -> LiquidPrimaryFixed.copy(alpha = 0.70f)
+        !isSelected && isDark -> Color(0xFF242021).copy(alpha = 0.55f)
+        else -> Color.White.copy(alpha = 0.60f)
+    }
+
+    val border = when {
+        isSelected && isDark -> BorderStroke(1.5.dp, PastelBlue)
+        isSelected && !isDark -> BorderStroke(1.5.dp, LiquidPrimary)
+        !isSelected && isDark -> BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.40f))
+        else -> BorderStroke(1.dp, Color.White.copy(alpha = 0.85f))
+    }
+
+    val contentColor = when {
+        isSelected && isDark -> Color.White
+        isSelected && !isDark -> LiquidPrimary
+        !isSelected && isDark -> Color(0xFFDFD8D9)
+        else -> MaterialTheme.colorScheme.onSurface
+    }
+
+    Surface(
+        shape = CircleShape,
+        color = containerColor,
+        border = border,
+        shadowElevation = if (isSelected) 3.dp else 1.dp,
+        modifier = modifier
+            .clip(CircleShape)
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(start = 6.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            SearchEngineBadge(
+                engine = engine,
+                size = 20.dp,
+                isDark = isDark
+            )
+
+            Text(
+                text = engine.displayName,
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontSize = 12.5.sp,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                ),
+                color = contentColor
+            )
+        }
+    }
+}
+
+@Preview(name = "SearchOverlay Light", showBackground = true, backgroundColor = 0xFFFFF8F8)
+@Composable
+fun SearchOverlayLightPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+        SearchOverlay(
+            uiState = BrowserUiState(
+                searchQuery = "",
+                settings = com.jestk.browser.domain.model.BrowserSettings(
+                    searchEngine = SearchEngine.DUCKDUCKGO
+                )
+            ),
+            onEvent = {}
+        )
+    }
+}
+
+@Preview(name = "SearchOverlay Dark", showBackground = true, backgroundColor = 0xFF161314)
+@Composable
+fun SearchOverlayDarkPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+        SearchOverlay(
+            uiState = BrowserUiState(
+                searchQuery = "",
+                settings = com.jestk.browser.domain.model.BrowserSettings(
+                    searchEngine = SearchEngine.GOOGLE
+                )
+            ),
+            onEvent = {}
+        )
+    }
+}
+
