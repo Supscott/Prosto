@@ -1,5 +1,6 @@
 package com.jestk.browser.ui.overlays
 
+import android.app.DownloadManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -41,6 +42,7 @@ import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
@@ -48,6 +50,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -72,6 +79,9 @@ import com.jestk.browser.ui.theme.LiquidTertiaryFixed
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.PastelPeach
 import com.jestk.browser.ui.theme.PastelRose
+import com.jestk.browser.ui.theme.LiquidShapes
+import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.liquidFrostedGlass
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import java.io.File
@@ -98,12 +108,12 @@ fun DownloadsSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = LocalIsDarkTheme.current
-    val sheetBg = if (isDark) Color(0xFF161314) else LiquidSurface
+    val sheetBg = if (isDark) Color(0xFF161314).copy(alpha = 0.92f) else Color(0xFFFFF8F8).copy(alpha = 0.90f)
 
     ModalBottomSheet(
         onDismissRequest = { onEvent(BrowserUiEvent.DismissOverlay) },
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = LiquidShapes.BottomSheet,
         containerColor = sheetBg,
         modifier = modifier
     ) {
@@ -222,10 +232,21 @@ fun DownloadsContent(
                     items = uiState.downloads,
                     key = { it.id }
                 ) { item ->
+                    val isInProgress = item.id in uiState.activeDownloadIds ||
+                            (item.id == uiState.lastDownloadNotification?.id && uiState.showDownloadSnackbar) ||
+                            (!File(item.filePath).exists() && (System.currentTimeMillis() - item.timestamp < 30_000))
+
                     DownloadItemCard(
                         item = item,
+                        isInProgress = isInProgress,
                         isDark = isDark,
-                        onClick = { openDownloadedFile(context, item) },
+                        onClick = {
+                            if (isInProgress && !File(item.filePath).exists()) {
+                                Toast.makeText(context, "Download in progress...", Toast.LENGTH_SHORT).show()
+                            } else {
+                                openDownloadedFile(context, item)
+                            }
+                        },
                         onDelete = { onEvent(BrowserUiEvent.DeleteDownload(item.id)) }
                     )
                 }
@@ -290,23 +311,68 @@ private fun DownloadsEmptyState(
 @Composable
 private fun DownloadItemCard(
     item: DownloadItem,
+    isInProgress: Boolean = false,
     isDark: Boolean,
     onClick: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
     val category = resolveFileCategory(item.fileName, item.mimeType)
     val cardBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.92f) else Color.White.copy(alpha = 0.90f)
     val cardBorder = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.85f))
 
+    var downloadProgress by remember(item.downloadId, item.id) {
+        mutableStateOf<Float?>(null)
+    }
+    var activeInProgress by remember(isInProgress, item.id) {
+        mutableStateOf(isInProgress)
+    }
+
+    LaunchedEffect(item.downloadId, isInProgress) {
+        if (item.downloadId != -1L) {
+            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
+            if (dm != null) {
+                try {
+                    val cursor = dm.query(DownloadManager.Query().setFilterById(item.downloadId))
+                    if (cursor != null && cursor.moveToFirst()) {
+                        val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
+                        val status = if (statusIndex != -1) cursor.getInt(statusIndex) else -1
+                        val bytesSoFarIdx = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
+                        val totalBytesIdx = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
+                        val soFar = if (bytesSoFarIdx != -1) cursor.getLong(bytesSoFarIdx) else 0L
+                        val total = if (totalBytesIdx != -1) cursor.getLong(totalBytesIdx) else 0L
+                        cursor.close()
+
+                        if (status == DownloadManager.STATUS_RUNNING || status == DownloadManager.STATUS_PENDING) {
+                            activeInProgress = true
+                            if (total > 0L) {
+                                downloadProgress = (soFar.toFloat() / total.toFloat()).coerceIn(0f, 1f)
+                            }
+                        } else if (status == DownloadManager.STATUS_SUCCESSFUL) {
+                            activeInProgress = false
+                        }
+                    }
+                } catch (_: Throwable) {}
+            }
+        }
+    }
+
     Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = cardBg,
-        border = cardBorder,
+        shape = LiquidShapes.Card,
+        color = Color.Transparent,
+        border = null,
         shadowElevation = 3.dp,
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .liquidFrostedGlass(
+                shape = LiquidShapes.Card,
+                isDark = isDark,
+                blurRadius = 16.dp,
+                tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
+                alpha = if (isDark) 0.88f else 0.85f,
+                borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.75f)
+            )
             .clickable(onClick = onClick)
     ) {
         Row(
@@ -341,6 +407,25 @@ private fun DownloadItemCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    if (activeInProgress) {
+                        Text(
+                            text = "Downloading...",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = LiquidPrimary
+                        )
+                        Text(
+                            text = "·",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            ),
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+
                     val sizeStr = formatFileSize(item.contentLength)
                     if (sizeStr.isNotEmpty()) {
                         Text(
@@ -370,6 +455,31 @@ private fun DownloadItemCard(
                                 fontSize = 12.sp
                             ),
                             color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                }
+
+                if (activeInProgress) {
+                    Spacer(modifier = Modifier.height(6.dp))
+                    val p = downloadProgress
+                    if (p != null) {
+                        LinearProgressIndicator(
+                            progress = { p },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)),
+                            color = LiquidPrimary,
+                            trackColor = if (isDark) Color(0xFF352F31) else LiquidPrimaryFixed.copy(alpha = 0.35f)
+                        )
+                    } else {
+                        LinearProgressIndicator(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(RoundedCornerShape(2.dp)),
+                            color = LiquidPrimary,
+                            trackColor = if (isDark) Color(0xFF352F31) else LiquidPrimaryFixed.copy(alpha = 0.35f)
                         )
                     }
                 }

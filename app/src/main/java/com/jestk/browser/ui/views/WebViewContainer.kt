@@ -96,7 +96,7 @@ fun WebViewContainer(
     val targetBottomPadding = when {
         uiState.isFullscreenCustomView -> 0.dp
         isImeVisible -> 0.dp
-        else -> 58.dp
+        else -> 62.dp
     }
     val bottomPadding by animateDpAsState(
         targetValue = targetBottomPadding,

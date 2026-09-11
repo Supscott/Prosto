@@ -2,6 +2,7 @@ package com.jestk.browser.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.Tab
@@ -24,6 +25,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+
+data object DismissDownloadSnackbar : BrowserUiEvent
+data class DownloadStarted(val item: DownloadItem) : BrowserUiEvent
 
 class BrowserViewModel(
     private val tabRepository: TabRepository,
@@ -192,10 +196,51 @@ class BrowserViewModel(
 
         if (downloadRepository != null) {
             viewModelScope.launch(ioDispatcher) {
+                var isFirstCollection = true
+                var previousDownloads = emptyList<DownloadItem>()
                 downloadRepository.getAllDownloads().collectLatest { downloads ->
-                    _uiState.update { it.copy(downloads = downloads) }
+                    if (isFirstCollection) {
+                        isFirstCollection = false
+                        previousDownloads = downloads
+                        _uiState.update { it.copy(downloads = downloads) }
+                        return@collectLatest
+                    }
+
+                    val previousIds = previousDownloads.map { it.id }.toSet()
+                    val newDownloads = downloads.filter { it.id !in previousIds }
+                    previousDownloads = downloads
+
+                    val latestNewDownload = newDownloads.maxByOrNull { it.timestamp }
+                    if (latestNewDownload != null) {
+                        _uiState.update { current ->
+                            current.copy(
+                                downloads = downloads,
+                                lastDownloadNotification = latestNewDownload,
+                                showDownloadSnackbar = true,
+                                activeDownloadIds = current.activeDownloadIds + latestNewDownload.id
+                            )
+                        }
+                    } else {
+                        _uiState.update { it.copy(downloads = downloads) }
+                    }
                 }
             }
+        }
+    }
+
+    fun onDownloadStarted(item: DownloadItem) {
+        _uiState.update {
+            it.copy(
+                lastDownloadNotification = item,
+                showDownloadSnackbar = true,
+                activeDownloadIds = it.activeDownloadIds + item.id
+            )
+        }
+    }
+
+    fun dismissDownloadSnackbar() {
+        _uiState.update {
+            it.copy(showDownloadSnackbar = false)
         }
     }
 
@@ -218,6 +263,8 @@ class BrowserViewModel(
                     )
                 }
             }
+            is DismissDownloadSnackbar -> dismissDownloadSnackbar()
+            is DownloadStarted -> onDownloadStarted(event.item)
 
             is BrowserUiEvent.OpenOverlay -> _uiState.update { it.copy(activeOverlay = event.overlay) }
             is BrowserUiEvent.DismissOverlay -> _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
@@ -240,6 +287,14 @@ class BrowserViewModel(
             is BrowserUiEvent.OpenDownloads -> _uiState.update { it.copy(activeOverlay = OverlayType.DOWNLOADS) }
             is BrowserUiEvent.DeleteDownload -> viewModelScope.launch(ioDispatcher) {
                 downloadRepository?.deleteDownload(event.id)
+                _uiState.update { current ->
+                    val shouldDismissSnackbar = current.lastDownloadNotification?.id == event.id
+                    current.copy(
+                        activeDownloadIds = current.activeDownloadIds - event.id,
+                        showDownloadSnackbar = if (shouldDismissSnackbar) false else current.showDownloadSnackbar,
+                        lastDownloadNotification = if (shouldDismissSnackbar) null else current.lastDownloadNotification
+                    )
+                }
             }
 
             is BrowserUiEvent.LoadUrl -> loadUrl(event.url)
@@ -367,10 +422,10 @@ class BrowserViewModel(
                 val baseTabs = if (_uiState.value.tabs.isEmpty()) {
                     tabRepository.getInitialTabs().filter { it.id != created.id }
                 } else {
-                    _uiState.value.tabs
+                    _uiState.value.tabs.filter { it.id != created.id }
                 }
                 val currentTabs = baseTabs.map { it.copy(isActive = false) }
-                val updatedTabs = currentTabs + created.copy(isActive = true)
+                val updatedTabs = (currentTabs + created.copy(isActive = true)).distinctBy { it.id }
                 _uiState.update {
                     it.copy(
                         tabs = updatedTabs,
@@ -399,10 +454,10 @@ class BrowserViewModel(
                 val baseTabs = if (_uiState.value.tabs.isEmpty()) {
                     tabRepository.getInitialTabs().filter { it.id != created.id }
                 } else {
-                    _uiState.value.tabs
+                    _uiState.value.tabs.filter { it.id != created.id }
                 }
                 val currentTabs = baseTabs.map { it.copy(isActive = false) }
-                val updatedTabs = currentTabs + created.copy(isActive = true)
+                val updatedTabs = (currentTabs + created.copy(isActive = true)).distinctBy { it.id }
                 val isHome = url.isEmpty() || url == "about:blank"
                 val targetMenuExpanded = _uiState.value.settings.isMenuExpandedOnWeb
                 _uiState.update {
@@ -433,9 +488,9 @@ class BrowserViewModel(
                 val baseTabs = if (_uiState.value.tabs.isEmpty()) {
                     tabRepository.getInitialTabs().filter { it.id != created.id }
                 } else {
-                    _uiState.value.tabs
+                    _uiState.value.tabs.filter { it.id != created.id }
                 }
-                val updatedTabs = baseTabs + created.copy(isActive = false)
+                val updatedTabs = (baseTabs + created.copy(isActive = false)).distinctBy { it.id }
                 _uiState.update {
                     it.copy(
                         tabs = updatedTabs,

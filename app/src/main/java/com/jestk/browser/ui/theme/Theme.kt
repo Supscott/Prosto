@@ -1,14 +1,27 @@
 package com.jestk.browser.ui.theme
 
+import android.os.Build
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
-import com.jestk.browser.domain.model.ThemeMode
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.jestk.browser.domain.model.ThemeMode
 
 private val DarkColorScheme = darkColorScheme(
     primary = LiquidPrimaryFixedDim,
@@ -97,4 +110,112 @@ fun JestkBrowserTheme(
         )
     }
 }
+
+// ==========================================
+// Liquid Design System Dimensions & Shapes
+// ==========================================
+object LiquidShapes {
+    /** 18dp for cards, squircles, and popup menus */
+    val Card = RoundedCornerShape(18.dp)
+    /** 22dp for smaller capsules, active tabs, and dialog buttons */
+    val ButtonPill = RoundedCornerShape(22.dp)
+    /** 24dp for dialogs / search inputs */
+    val Capsule = RoundedCornerShape(24.dp)
+    /** 28dp for bottom sheet tops */
+    val BottomSheet = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+    /** 29dp for full floating capsule dock */
+    val Dock = RoundedCornerShape(29.dp)
+}
+
+object LiquidBorders {
+    fun frostedBorder(isDark: Boolean, alpha: Float? = null, width: Dp = 1.dp): BorderStroke {
+        val resolvedAlpha = alpha ?: if (isDark) 0.14f else 0.75f
+        val color = Color.White.copy(alpha = resolvedAlpha)
+        return BorderStroke(width, color)
+    }
+}
+
+/**
+ * Reusable frosted glass / backdrop blur extension modifier for the Liquid Pastel Sunset design system.
+ * Supports Android 12+ (API 31+) hardware-accelerated blur effects with graceful fallback on older APIs
+ * via a semi-transparent tinted surface + white/light stroke border.
+ */
+fun Modifier.liquidFrostedGlass(
+    shape: Shape = LiquidShapes.Card,
+    isDark: Boolean = false,
+    blurRadius: Dp = 16.dp,
+    tintColor: Color? = null,
+    alpha: Float? = null,
+    borderColor: Color? = null,
+    borderWidth: Dp = 1.dp
+): Modifier {
+    val defaultAlpha = if (isDark) 0.86f else 0.82f
+    val resolvedAlpha = alpha ?: defaultAlpha
+    val baseTint = tintColor ?: if (isDark) Color(0xFF1E1B1C) else Color(0xFFFFF8F8)
+    val tintedBg = baseTint.copy(alpha = resolvedAlpha)
+
+    val defaultBorderColor = if (isDark) {
+        Color.White.copy(alpha = 0.14f)
+    } else {
+        Color.White.copy(alpha = 0.75f)
+    }
+    val resolvedBorder = BorderStroke(borderWidth, borderColor ?: defaultBorderColor)
+
+    return this
+        .clip(shape)
+        .background(color = tintedBg, shape = shape)
+        .border(border = resolvedBorder, shape = shape)
+}
+
+/**
+ * Frosted glass container box composable supporting true backdrop blur on API 31+
+ * with fallback to semi-transparent surface + border on older APIs.
+ */
+@Composable
+fun LiquidFrostedGlassBox(
+    modifier: Modifier = Modifier,
+    shape: Shape = LiquidShapes.Card,
+    isDark: Boolean = LocalIsDarkTheme.current,
+    blurRadius: Dp = 16.dp,
+    tintColor: Color? = null,
+    alpha: Float? = null,
+    borderColor: Color? = null,
+    borderWidth: Dp = 1.dp,
+    content: @Composable BoxScope.() -> Unit
+) {
+    val defaultAlpha = if (isDark) 0.86f else 0.82f
+    val resolvedAlpha = alpha ?: defaultAlpha
+    val baseTint = tintColor ?: if (isDark) Color(0xFF1E1B1C) else Color(0xFFFFF8F8)
+    val tintedBg = baseTint.copy(alpha = resolvedAlpha)
+
+    val defaultBorderColor = if (isDark) {
+        Color.White.copy(alpha = 0.14f)
+    } else {
+        Color.White.copy(alpha = 0.75f)
+    }
+    val resolvedBorder = BorderStroke(borderWidth, borderColor ?: defaultBorderColor)
+
+    Box(
+        modifier = modifier
+            .clip(shape)
+            .border(border = resolvedBorder, shape = shape)
+    ) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurRadius > 0.dp) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .blur(radius = blurRadius)
+                    .background(tintedBg)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(tintedBg)
+            )
+        }
+        content()
+    }
+}
+
 

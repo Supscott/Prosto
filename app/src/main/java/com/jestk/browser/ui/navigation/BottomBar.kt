@@ -7,9 +7,16 @@ import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -31,6 +38,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,6 +55,7 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Menu
@@ -97,6 +106,9 @@ import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
 import com.jestk.browser.ui.theme.LiquidTertiary
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.PastelRose
+import com.jestk.browser.ui.theme.LiquidShapes
+import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.liquidFrostedGlass
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import java.net.URI
@@ -154,10 +166,10 @@ fun UnifiedBottomBar(
         label = "BottomBarDynamicColor"
     )
     val bottomBg = animatedBgColor
-    val dockBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else LiquidSurface.copy(alpha = 0.88f)
-    val dockBorder = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
+    val dockBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else LiquidSurface.copy(alpha = 0.85f)
+    val dockBorder = LiquidBorders.frostedBorder(isDark)
     val centerPillBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.92f)
-    val centerPillBorder = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.85f))
+    val centerPillBorder = LiquidBorders.frostedBorder(isDark, alpha = if (isDark) 0.14f else 0.85f)
     val circleBtnBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.70f) else LiquidSurfaceContainerHigh.copy(alpha = 0.65f)
 
     Box(
@@ -171,17 +183,29 @@ fun UnifiedBottomBar(
             // 1. Animated Popup Menu Card anchored above the Menu Button
             AnimatedVisibility(
                 visible = uiState.isMenuExpanded,
-                enter = fadeIn(animationSpec = tween(180)) + slideInVertically(animationSpec = tween(220)) { it / 3 },
-                exit = fadeOut(animationSpec = tween(150)) + slideOutVertically(animationSpec = tween(180)) { it / 3 }
+                enter = fadeIn(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
+                        scaleIn(initialScale = 0.90f, animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                        slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) { it / 3 },
+                exit = fadeOut(animationSpec = tween(150, easing = FastOutSlowInEasing)) +
+                       scaleOut(targetScale = 0.90f, animationSpec = tween(160, easing = FastOutSlowInEasing)) +
+                       slideOutVertically(animationSpec = tween(180, easing = FastOutSlowInEasing)) { it / 3 }
             ) {
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.94f) else Color.White.copy(alpha = 0.92f),
-                    border = dockBorder,
+                    shape = LiquidShapes.Card,
+                    color = Color.Transparent,
+                    border = null,
                     shadowElevation = 12.dp,
                     modifier = Modifier
                         .padding(bottom = 8.dp, end = 16.dp)
                         .width(148.dp)
+                        .liquidFrostedGlass(
+                            shape = LiquidShapes.Card,
+                            isDark = isDark,
+                            blurRadius = 18.dp,
+                            tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
+                            alpha = if (isDark) 0.90f else 0.88f,
+                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.80f)
+                        )
                 ) {
                     Column(
                         modifier = Modifier.padding(6.dp),
@@ -250,7 +274,24 @@ fun UnifiedBottomBar(
                 }
             }
 
-            // 2. Floating Dock Row Container: compact low background under the dock with pt-0
+            // 2. "Swipe up to search" Hint (visible when active tab is Home)
+            AnimatedVisibility(
+                visible = isHome && !uiState.isMenuExpanded,
+                enter = fadeIn(animationSpec = tween(200)) + slideInVertically(animationSpec = tween(200)) { it / 2 },
+                exit = fadeOut(animationSpec = tween(150)) + slideOutVertically(animationSpec = tween(150)) { it / 2 },
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(bottom = 6.dp)
+            ) {
+                SwipeUpHint(
+                    isDark = isDark,
+                    onClick = {
+                        onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                    }
+                )
+            }
+
+            // 3. Floating Dock Row Container: compact low background under the dock with pt-0
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -262,7 +303,7 @@ fun UnifiedBottomBar(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(36.dp)
+                        .height(62.dp)
                         .align(Alignment.BottomCenter)
                         .background(
                             Brush.verticalGradient(
@@ -279,20 +320,28 @@ fun UnifiedBottomBar(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(58.dp)
+                        .height(62.dp)
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                 // Floating Capsule Dock
                 Surface(
-                    shape = RoundedCornerShape(29.dp),
-                    color = dockBg,
-                    border = dockBorder,
+                    shape = LiquidShapes.Dock,
+                    color = Color.Transparent,
+                    border = null,
                     shadowElevation = 8.dp,
                     modifier = Modifier
                         .weight(1f)
                         .height(58.dp)
+                        .liquidFrostedGlass(
+                            shape = LiquidShapes.Dock,
+                            isDark = isDark,
+                            blurRadius = 18.dp,
+                            tintColor = if (isDark) Color(0xFF1E1B1C) else LiquidSurface,
+                            alpha = if (isDark) 0.85f else 0.85f,
+                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.75f)
+                        )
                         .pointerInput(density) {
                             val swipeThresholdPx = with(density) { 30.dp.toPx() }
                             var totalDragY = 0f
@@ -340,7 +389,7 @@ fun UnifiedBottomBar(
                         val lazyListState = rememberLazyListState()
 
                         val displayTabs = remember(uiState.tabs, activeTab) {
-                            if (uiState.tabs.isNotEmpty()) {
+                            val tabs = if (uiState.tabs.isNotEmpty()) {
                                 uiState.tabs
                             } else {
                                 listOf(
@@ -352,6 +401,7 @@ fun UnifiedBottomBar(
                                     )
                                 )
                             }
+                            tabs.distinctBy { it.id }
                         }
 
                         val activeIndex = remember(displayTabs, uiState.activeTabId, uiState.activeTabIndex) {
@@ -510,16 +560,25 @@ fun UnifiedBottomBar(
 
                 // Dedicated Floating Menu Button (rounded rectangle 38x58dp)
                 Surface(
-                    shape = RoundedCornerShape(18.dp),
-                    color = circleBtnBg,
+                    shape = LiquidShapes.Card,
+                    color = Color.Transparent,
                     border = null,
                     shadowElevation = 0.dp,
-                    modifier = Modifier.size(width = 38.dp, height = 58.dp)
+                    modifier = Modifier
+                        .size(width = 38.dp, height = 58.dp)
+                        .liquidFrostedGlass(
+                            shape = LiquidShapes.Card,
+                            isDark = isDark,
+                            blurRadius = 16.dp,
+                            tintColor = circleBtnBg,
+                            alpha = if (isDark) 0.80f else 0.75f,
+                            borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.60f)
+                        )
                 ) {
                     Box(
                         modifier = Modifier
                             .size(width = 38.dp, height = 58.dp)
-                            .clip(RoundedCornerShape(18.dp))
+                            .clip(LiquidShapes.Card)
                             .clickable {
                                 onEvent(BrowserUiEvent.ToggleMenu())
                             },
@@ -537,6 +596,73 @@ fun UnifiedBottomBar(
         }
     }
 }
+}
+
+/**
+ * Subtle, stylish prompt above the floating dock when Home is active,
+ * guiding users to the swipe-up gesture to search.
+ */
+@Composable
+private fun SwipeUpHint(
+    isDark: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isRunningInTest = remember {
+        android.os.Build.FINGERPRINT == "robolectric" ||
+            try {
+                Class.forName("org.robolectric.Robolectric") != null
+            } catch (_: Throwable) {
+                false
+            }
+    }
+    val bounceOffset = if (isRunningInTest || androidx.compose.ui.platform.LocalInspectionMode.current) {
+        0f
+    } else {
+        val infiniteTransition = rememberInfiniteTransition(label = "SwipeHintBounce")
+        val bounce by infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = -3f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "SwipeHintBounceY"
+        )
+        bounce
+    }
+
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = if (isDark) Color(0xFF2C2829).copy(alpha = 0.88f) else Color.White.copy(alpha = 0.90f),
+        border = LiquidBorders.frostedBorder(isDark, alpha = if (isDark) 0.14f else 0.85f),
+        shadowElevation = 2.dp,
+        modifier = modifier
+            .offset(y = bounceOffset.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowUp,
+                contentDescription = "Swipe up to search",
+                tint = if (isDark) PastelRose else LiquidPrimary,
+                modifier = Modifier.size(16.dp)
+            )
+            Text(
+                text = "Swipe up to search",
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontSize = 11.5.sp,
+                    fontWeight = FontWeight.Medium
+                ),
+                color = if (isDark) Color(0xFFD0C5C6) else LiquidOnSurfaceVariant
+            )
+        }
+    }
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -707,13 +833,13 @@ private fun TabContextMenu(
     onAddFavorite: () -> Unit,
     onShareLink: (() -> Unit)? = null
 ) {
-    val menuBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.94f) else Color.White.copy(alpha = 0.92f)
-    val menuBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.85f))
+    val menuBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.88f)
+    val menuBorder = LiquidBorders.frostedBorder(isDark, alpha = if (isDark) 0.14f else 0.85f)
 
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        shape = RoundedCornerShape(20.dp),
+        shape = LiquidShapes.Card,
         containerColor = menuBg,
         shadowElevation = 12.dp,
         border = menuBorder,
@@ -842,7 +968,7 @@ private fun InactiveTabButton(
         shape = CircleShape,
         color = backgroundColor,
         border = border,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         modifier = modifier
             .size(44.dp)
             .clip(CircleShape)
@@ -947,7 +1073,7 @@ private fun AddTabDockButton(
         shape = CircleShape,
         color = backgroundColor,
         border = border,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         modifier = modifier
             .size(44.dp)
             .clip(CircleShape)

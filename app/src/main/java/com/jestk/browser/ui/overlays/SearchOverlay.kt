@@ -8,14 +8,11 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.rememberScrollState
-import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,39 +23,35 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ManageSearch
-import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Clear
-import androidx.compose.ui.draw.rotate
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SmartDisplay
-import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.TextButton
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -68,61 +61,58 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import coil.request.ImageRequest
+import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
-import com.jestk.browser.ui.theme.DuckDuckGoBadgeBrush
+import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.JestkBrowserTheme
-import com.jestk.browser.ui.theme.LiquidPrimaryFixed
 import com.jestk.browser.ui.theme.LiquidOnSurface
 import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
 import com.jestk.browser.ui.theme.LiquidOutline
 import com.jestk.browser.ui.theme.LiquidPrimary
 import com.jestk.browser.ui.theme.LiquidPrimaryContainer
+import com.jestk.browser.ui.theme.LiquidPrimaryFixed
 import com.jestk.browser.ui.theme.LiquidSecondary
 import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
 import com.jestk.browser.ui.theme.LiquidTertiary
+import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.PastelBlue
 import com.jestk.browser.ui.theme.PastelPeach
 import com.jestk.browser.ui.theme.PastelRose
+import com.jestk.browser.ui.theme.LiquidShapes
+import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.liquidFrostedGlass
 import com.jestk.browser.ui.theme.liquidSunsetBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
-import kotlinx.coroutines.delay
 
-private data class QuickShortcut(
-    val title: String,
-    val url: String,
-    val icon: ImageVector,
-    val containerColor: Color
-)
-
-private val DefaultQuickShortcuts = listOf(
-    QuickShortcut("Apple", "https://apple.com", Icons.Default.Public, Color(0xFF7BA7D7)),
-    QuickShortcut("GitHub", "https://github.com", Icons.Default.Terminal, Color(0xFFE8A4B8)),
-    QuickShortcut("Wikipedia", "https://wikipedia.org", Icons.AutoMirrored.Filled.MenuBook, Color(0xFFF6B99D)),
-    QuickShortcut("YouTube", "https://youtube.com", Icons.Default.SmartDisplay, Color(0xFFD391A5))
+private val DefaultFavorites = listOf(
+    FavoriteItem(title = "Apple", url = "https://apple.com"),
+    FavoriteItem(title = "GitHub", url = "https://github.com"),
+    FavoriteItem(title = "Wikipedia", url = "https://wikipedia.org"),
+    FavoriteItem(title = "YouTube", url = "https://youtube.com")
 )
 
 /**
@@ -144,7 +134,6 @@ fun SearchOverlay(
     val isDark = LocalIsDarkTheme.current
 
     LaunchedEffect(Unit) {
-        delay(150)
         focusRequester.requestFocus()
         keyboardController?.show()
     }
@@ -159,22 +148,25 @@ fun SearchOverlay(
                 onClick = { onEvent(BrowserUiEvent.DismissOverlay) }
             )
             .statusBarsPadding()
+            .navigationBarsPadding()
             .imePadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 20.dp, vertical = 12.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Upper Area: Inset Grouped History Stack (scrollable)
-            Box(
+            // Top Area: Scrollable column containing history suggestions & favorites
+            Column(
                 modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
-                    .weight(0.55f)
-                    .padding(bottom = 12.dp),
-                contentAlignment = Alignment.BottomCenter
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Search History Suggestions
                 val suggestions = uiState.searchHistorySuggestions
                 if (suggestions.isNotEmpty()) {
                     InsetGroupedHistoryCard(
@@ -205,12 +197,37 @@ fun SearchOverlay(
                         }
                     )
                 } else {
-                    // Empty State for History
                     HistoryEmptyCard(isDark = isDark)
                 }
+
+                // Favorites squircle cards (Task 7)
+                SearchFavoritesSection(
+                    favorites = uiState.favorites,
+                    isDark = isDark,
+                    onSelect = { url ->
+                        onEvent(BrowserUiEvent.LoadUrl(url))
+                        onEvent(BrowserUiEvent.DismissOverlay)
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
             }
 
-            // Middle: Hero Centerpiece Search Input Field
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Search Engine Switcher chips placed directly above the input field
+            SearchEngineSwitcherRow(
+                selectedEngine = uiState.settings.searchEngine,
+                onSelectEngine = { engine ->
+                    onEvent(BrowserUiEvent.SetSearchEngine(engine))
+                },
+                isDark = isDark,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 6.dp)
+            )
+
+            // Search Input Field: Docked at the bottom, styled like a messenger input bar
             HeroSearchInputField(
                 query = uiState.searchQuery,
                 searchEngine = uiState.settings.searchEngine,
@@ -230,33 +247,6 @@ fun SearchOverlay(
                         onClick = {} // Intercept dismiss clicks
                     )
             )
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Search Engine Switcher Chips (Task 8)
-            SearchEngineSwitcherRow(
-                selectedEngine = uiState.settings.searchEngine,
-                onSelectEngine = { engine ->
-                    onEvent(BrowserUiEvent.SetSearchEngine(engine))
-                },
-                isDark = isDark,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Bottom: Quick Favorites / Shortcuts Cloud
-            QuickShortcutsCloud(
-                shortcuts = DefaultQuickShortcuts,
-                isDark = isDark,
-                onSelect = { url ->
-                    onEvent(BrowserUiEvent.LoadUrl(url))
-                    onEvent(BrowserUiEvent.DismissOverlay)
-                },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.weight(0.35f))
         }
     }
 }
@@ -302,15 +292,23 @@ private fun HeroSearchInputField(
         }
     }
 
-    val bg = if (isDark) Color(0xFF242021).copy(alpha = 0.92f) else Color.White.copy(alpha = 0.92f)
-    val border = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.60f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.90f))
+    val bg = if (isDark) Color(0xFF242021) else Color.White
 
     Surface(
         shape = RoundedCornerShape(27.dp),
-        color = bg,
-        border = border,
+        color = Color.Transparent,
+        border = null,
         shadowElevation = 8.dp,
-        modifier = modifier.height(54.dp)
+        modifier = modifier
+            .height(54.dp)
+            .liquidFrostedGlass(
+                shape = RoundedCornerShape(27.dp),
+                isDark = isDark,
+                blurRadius = 18.dp,
+                tintColor = bg,
+                alpha = if (isDark) 0.88f else 0.85f,
+                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f)
+            )
     ) {
         Row(
             modifier = Modifier
@@ -466,23 +464,30 @@ private fun InsetGroupedHistoryCard(
         }
 
         Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = cardBg,
-            border = cardBorder,
+            shape = LiquidShapes.Card,
+            color = Color.Transparent,
+            border = null,
             shadowElevation = 4.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .liquidFrostedGlass(
+                    shape = LiquidShapes.Card,
+                    isDark = isDark,
+                    blurRadius = 16.dp,
+                    tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
+                    alpha = if (isDark) 0.88f else 0.85f,
+                    borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.80f)
+                )
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
                     onClick = {}
                 )
         ) {
-            LazyColumn(
+            Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(items, key = { it.id }) { item ->
+                items.forEachIndexed { index, item ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -520,15 +525,19 @@ private fun InsetGroupedHistoryCard(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Insert in search",
                                 tint = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.size(16.dp).rotate(45f)
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .rotate(45f)
                             )
                         }
                     }
 
-                    HorizontalDivider(
-                        color = if (isDark) Color(0xFF4D4546).copy(alpha = 0.40f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f),
-                        modifier = Modifier.padding(start = 44.dp)
-                    )
+                    if (index < items.lastIndex) {
+                        HorizontalDivider(
+                            color = if (isDark) Color(0xFF4D4546).copy(alpha = 0.40f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f),
+                            modifier = Modifier.padding(start = 44.dp)
+                        )
+                    }
                 }
             }
         }
@@ -537,16 +546,21 @@ private fun InsetGroupedHistoryCard(
 
 @Composable
 private fun HistoryEmptyCard(isDark: Boolean) {
-    val bg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.70f) else Color.White.copy(alpha = 0.75f)
-    val border = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.40f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.60f))
-
     Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = bg,
-        border = border,
+        shape = LiquidShapes.Card,
+        color = Color.Transparent,
+        border = null,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 12.dp)
+            .liquidFrostedGlass(
+                shape = LiquidShapes.Card,
+                isDark = isDark,
+                blurRadius = 16.dp,
+                tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
+                alpha = if (isDark) 0.75f else 0.78f,
+                borderColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.60f)
+            )
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -585,71 +599,80 @@ private fun HistoryEmptyCard(isDark: Boolean) {
 }
 
 @Composable
-private fun QuickShortcutsCloud(
-    shortcuts: List<QuickShortcut>,
+private fun SearchFavoritesSection(
+    favorites: List<FavoriteItem>,
     isDark: Boolean,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val cardBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.80f) else Color.White.copy(alpha = 0.80f)
-    val cardBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f))
+    val itemsToDisplay = if (favorites.isNotEmpty()) favorites else DefaultFavorites
 
-    Column(modifier = modifier) {
-        Text(
-            text = "Quick Favorites",
-            style = MaterialTheme.typography.labelMedium.copy(
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp)
-        )
-
+    Column(modifier = modifier.fillMaxWidth()) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            shortcuts.forEach { shortcut ->
-                Surface(
-                    shape = RoundedCornerShape(16.dp),
-                    color = cardBg,
-                    border = cardBorder,
-                    shadowElevation = 2.dp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .clickable { onSelect(shortcut.url) }
-                ) {
-                    Column(
-                        modifier = Modifier.padding(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+            Icon(
+                imageVector = Icons.Default.Star,
+                contentDescription = null,
+                tint = if (isDark) PastelRose else LiquidTertiary,
+                modifier = Modifier.size(17.dp)
+            )
+            Text(
+                text = "Favorites",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp
+                ),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+
+        Surface(
+            shape = LiquidShapes.Card,
+            color = Color.Transparent,
+            border = null,
+            shadowElevation = 3.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .liquidFrostedGlass(
+                    shape = LiquidShapes.Card,
+                    isDark = isDark,
+                    blurRadius = 16.dp,
+                    tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
+                    alpha = if (isDark) 0.88f else 0.85f,
+                    borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.80f)
+                )
+        ) {
+            val rows = itemsToDisplay.take(8).chunked(4)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                rows.forEach { rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(shortcut.containerColor),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = shortcut.icon,
-                                contentDescription = shortcut.title,
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
+                        rowItems.forEach { item ->
+                            SearchFavoriteSquircleCard(
+                                item = item,
+                                isDark = isDark,
+                                onClick = { onSelect(item.url) },
+                                modifier = Modifier.weight(1f)
                             )
                         }
-
-                        Text(
-                            text = shortcut.title,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                        val emptySlots = 4 - rowItems.size
+                        if (emptySlots > 0) {
+                            repeat(emptySlots) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
                     }
                 }
             }
@@ -657,234 +680,105 @@ private fun QuickShortcutsCloud(
     }
 }
 
-// ==========================================
-// Search Engine Badges & Switcher Chips (Task 8 & 15)
-// ==========================================
+@Composable
+private fun SearchFavoriteSquircleCard(
+    item: FavoriteItem,
+    isDark: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val defaultBg = if (isDark) Color(0xFF282425).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
+    val border = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.70f))
+    val faviconUrl = item.iconUrl ?: FaviconManager.extractFallbackFaviconUrl(item.url)
 
-val DuckDuckGoBrandBrush = Brush.linearGradient(
-    colors = listOf(
-        Color(0xFFFF8543),
-        Color(0xFFE54318)
-    )
-)
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Surface(
+            shape = RoundedCornerShape(18.dp),
+            color = defaultBg,
+            border = border,
+            shadowElevation = 2.dp,
+            modifier = Modifier.size(52.dp)
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                var isImageSuccess by remember(faviconUrl) { mutableStateOf(false) }
 
-val BingBrandBrush = Brush.linearGradient(
-    colors = listOf(
-        Color(0xFF00C8D7),
-        Color(0xFF0078D4)
-    )
-)
+                if (!isImageSuccess) {
+                    Icon(
+                        imageVector = Icons.Default.Public,
+                        contentDescription = item.title,
+                        tint = if (isDark) PastelBlue else LiquidPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                if (!faviconUrl.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = faviconUrl,
+                        contentDescription = item.title,
+                        contentScale = ContentScale.Fit,
+                        onSuccess = { isImageSuccess = true },
+                        onError = { isImageSuccess = false },
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+
+        Text(
+            text = item.title.ifEmpty { item.url },
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            ),
+            color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+// ==========================================
+// Search Engine Badges & Switcher Chips
+// ==========================================
 
 @Composable
 fun SearchEngineBadge(
     engine: SearchEngine,
     modifier: Modifier = Modifier,
-    size: androidx.compose.ui.unit.Dp = 32.dp,
+    size: Dp = 32.dp,
     isDark: Boolean = false
 ) {
-    when (engine) {
-        SearchEngine.DUCKDUCKGO -> DuckDuckGoBadge(size = size, modifier = modifier)
-        SearchEngine.GOOGLE -> GoogleBadge(size = size, isDark = isDark, modifier = modifier)
-        SearchEngine.BING -> BingBadge(size = size, modifier = modifier)
+    val context = LocalContext.current
+    val imageRequest = remember(engine, context) {
+        ImageRequest.Builder(context)
+            .data(engine.iconAssetUrl)
+            .decoderFactory(SvgDecoder.Factory())
+            .build()
     }
-}
 
-@Composable
-private fun DuckDuckGoBadge(
-    size: androidx.compose.ui.unit.Dp,
-    modifier: Modifier = Modifier
-) {
     Box(
         modifier = modifier
             .size(size)
-            .clip(CircleShape)
-            .background(DuckDuckGoBrandBrush),
+            .clip(CircleShape),
         contentAlignment = Alignment.Center
     ) {
-        Canvas(modifier = Modifier.size(size * 0.72f)) {
-            val w = this.size.width
-            val h = this.size.height
-
-            // 1. Duck Head
-            val headRadius = w * 0.30f
-            val headCenter = Offset(w * 0.44f, h * 0.44f)
-            drawCircle(
-                color = Color.White,
-                radius = headRadius,
-                center = headCenter
-            )
-
-            // 2. Duck Beak (Warm Golden Orange)
-            val beakPath = Path().apply {
-                moveTo(w * 0.52f, h * 0.38f)
-                quadraticTo(w * 0.80f, h * 0.42f, w * 0.86f, h * 0.49f)
-                quadraticTo(w * 0.76f, h * 0.58f, w * 0.48f, h * 0.57f)
-                close()
-            }
-            drawPath(beakPath, color = Color(0xFFFFB300))
-
-            // 3. Eye (Dark pupil with specular reflection)
-            drawCircle(
-                color = Color(0xFF1E1B1C),
-                radius = w * 0.055f,
-                center = Offset(w * 0.40f, h * 0.36f)
-            )
-            drawCircle(
-                color = Color.White,
-                radius = w * 0.02f,
-                center = Offset(w * 0.39f, h * 0.35f)
-            )
-
-            // 4. Green Bowtie (Dax signature)
-            val bowLeft = Path().apply {
-                moveTo(w * 0.28f, h * 0.70f)
-                lineTo(w * 0.44f, h * 0.75f)
-                lineTo(w * 0.28f, h * 0.80f)
-                close()
-            }
-            val bowRight = Path().apply {
-                moveTo(w * 0.60f, h * 0.70f)
-                lineTo(w * 0.44f, h * 0.75f)
-                lineTo(w * 0.60f, h * 0.80f)
-                close()
-            }
-            drawPath(bowLeft, color = Color(0xFF43A047))
-            drawPath(bowRight, color = Color(0xFF43A047))
-            drawCircle(
-                color = Color(0xFF2E7D32),
-                radius = w * 0.045f,
-                center = Offset(w * 0.44f, h * 0.75f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun GoogleBadge(
-    size: androidx.compose.ui.unit.Dp,
-    isDark: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val bg = if (isDark) Color(0xFF2E2A2B) else Color.White
-    val border = if (isDark) {
-        BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.6f))
-    } else {
-        BorderStroke(1.dp, Color(0xFFE2DCDD))
-    }
-
-    Surface(
-        shape = CircleShape,
-        color = bg,
-        border = border,
-        modifier = modifier.size(size)
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Canvas(modifier = Modifier.size(size * 0.58f)) {
-                val w = this.size.width
-                val h = this.size.height
-                val center = Offset(w / 2f, h / 2f)
-
-                val strokeWidth = w * 0.22f
-                val radius = (w - strokeWidth) / 2f
-                val arcTopLeft = Offset(strokeWidth / 2f, strokeWidth / 2f)
-                val arcSize = Size(radius * 2f, radius * 2f)
-
-                // 1. Red (Top: 215° to 320°)
-                drawArc(
-                    color = Color(0xFFEA4335),
-                    startAngle = 215f,
-                    sweepAngle = 105f,
-                    useCenter = false,
-                    topLeft = arcTopLeft,
-                    size = arcSize,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
-                )
-
-                // 2. Yellow (Left: 135° to 220°)
-                drawArc(
-                    color = Color(0xFFFBBC05),
-                    startAngle = 135f,
-                    sweepAngle = 85f,
-                    useCenter = false,
-                    topLeft = arcTopLeft,
-                    size = arcSize,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
-                )
-
-                // 3. Green (Bottom: 40° to 140°)
-                drawArc(
-                    color = Color(0xFF34A853),
-                    startAngle = 40f,
-                    sweepAngle = 100f,
-                    useCenter = false,
-                    topLeft = arcTopLeft,
-                    size = arcSize,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
-                )
-
-                // 4. Blue (Bottom-right: 330° to 45°)
-                drawArc(
-                    color = Color(0xFF4285F4),
-                    startAngle = 330f,
-                    sweepAngle = 75f,
-                    useCenter = false,
-                    topLeft = arcTopLeft,
-                    size = arcSize,
-                    style = Stroke(width = strokeWidth, cap = StrokeCap.Butt)
-                )
-
-                // 5. Blue Horizontal Crossbar
-                val barLeft = center.x - w * 0.05f
-                val barWidth = center.x + radius + strokeWidth / 2f - barLeft
-                drawRect(
-                    color = Color(0xFF4285F4),
-                    topLeft = Offset(barLeft, center.y - strokeWidth / 2f),
-                    size = Size(barWidth, strokeWidth)
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun BingBadge(
-    size: androidx.compose.ui.unit.Dp,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(BingBrandBrush),
-        contentAlignment = Alignment.Center
-    ) {
-        Canvas(modifier = Modifier.size(size * 0.58f)) {
-            val w = this.size.width
-            val h = this.size.height
-            val strokeW = w * 0.20f
-
-            // Clean white Bing 'b' glyph:
-            // Vertical stem on left
-            drawRoundRect(
-                color = Color.White,
-                topLeft = Offset(w * 0.14f, h * 0.06f),
-                size = Size(strokeW, h * 0.88f),
-                cornerRadius = CornerRadius(strokeW / 2f, strokeW / 2f)
-            )
-
-            // Loop on bottom right
-            val loopRadius = w * 0.31f
-            val loopCenter = Offset(w * 0.56f, h * 0.63f)
-            drawCircle(
-                color = Color.White,
-                radius = loopRadius,
-                center = loopCenter,
-                style = Stroke(width = strokeW)
-            )
-        }
+        AsyncImage(
+            model = imageRequest,
+            contentDescription = engine.displayName,
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(size)
+        )
     }
 }
 

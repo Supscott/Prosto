@@ -69,14 +69,20 @@ import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Icon
+import com.jestk.browser.ui.viewmodel.DismissDownloadSnackbar
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.animation.core.FastOutSlowInEasing
 import com.jestk.browser.R
 import com.jestk.browser.ui.theme.LiquidPrimary
+import com.jestk.browser.ui.theme.LiquidShapes
+import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.liquidFrostedGlass
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -117,6 +123,13 @@ fun JestkApp(
     LaunchedEffect(currentTabIds) {
         if (currentTabIds.isNotEmpty()) {
             webViewPool.retainTabs(currentTabIds)
+        }
+    }
+
+    // Connect WebViewPool download listener to ViewModel
+    LaunchedEffect(webViewPool, viewModel) {
+        webViewPool.onDownloadStarted = { item ->
+            viewModel.onDownloadStarted(item)
         }
     }
 
@@ -328,8 +341,8 @@ fun JestkApp(
             // Overlays with smooth animated transitions
             AnimatedVisibility(
                 visible = uiState.activeOverlay == OverlayType.SEARCH,
-                enter = fadeIn(tween(220)) + slideInVertically(tween(250)) { it / 3 },
-                exit = fadeOut(tween(180)) + slideOutVertically(tween(220)) { it / 3 }
+                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 3 },
+                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 3 }
             ) {
                 SearchOverlay(
                     uiState = uiState,
@@ -339,8 +352,8 @@ fun JestkApp(
 
             AnimatedVisibility(
                 visible = uiState.activeOverlay == OverlayType.TAB_GRID,
-                enter = fadeIn(tween(220)) + slideInVertically(tween(250)) { it / 4 },
-                exit = fadeOut(tween(180)) + slideOutVertically(tween(220)) { it / 4 }
+                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 4 },
+                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 4 }
             ) {
                 TabOverviewGrid(
                     uiState = uiState,
@@ -365,8 +378,8 @@ fun JestkApp(
             // Undo Closed Tab Floating Notification Pill
             AnimatedVisibility(
                 visible = uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null,
-                enter = fadeIn(tween(220)) + slideInVertically(tween(260)) { it },
-                exit = fadeOut(tween(180)) + slideOutVertically(tween(220)) { it },
+                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
+                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .navigationBarsPadding()
@@ -385,11 +398,20 @@ fun JestkApp(
                 }
 
                 Surface(
-                    shape = RoundedCornerShape(22.dp),
-                    color = if (isDark) Color(0xFF242021).copy(alpha = 0.95f) else Color.White.copy(alpha = 0.96f),
-                    border = BorderStroke(1.dp, if (isDark) Color(0xFF4D4546).copy(alpha = 0.6f) else Color.White.copy(alpha = 0.85f)),
+                    shape = LiquidShapes.ButtonPill,
+                    color = Color.Transparent,
+                    border = null,
                     shadowElevation = 10.dp,
-                    modifier = Modifier.wrapContentSize()
+                    modifier = Modifier
+                        .wrapContentSize()
+                        .liquidFrostedGlass(
+                            shape = LiquidShapes.ButtonPill,
+                            isDark = isDark,
+                            blurRadius = 18.dp,
+                            tintColor = if (isDark) Color(0xFF242021) else Color.White,
+                            alpha = if (isDark) 0.90f else 0.90f,
+                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f)
+                        )
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -421,6 +443,89 @@ fun JestkApp(
                                 .size(16.dp)
                                 .clickable {
                                     viewModel.onEvent(BrowserUiEvent.DismissUndoTabCloseSnackbar)
+                                }
+                        )
+                    }
+                }
+            }
+
+            // Download Floating Notification Pill
+            AnimatedVisibility(
+                visible = uiState.showDownloadSnackbar && uiState.lastDownloadNotification != null,
+                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
+                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(
+                        bottom = if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) 132.dp else 76.dp,
+                        start = 16.dp,
+                        end = 16.dp
+                    )
+            ) {
+                val download = uiState.lastDownloadNotification
+                val fileName = download?.fileName?.ifEmpty { "file" } ?: "file"
+
+                LaunchedEffect(uiState.showDownloadSnackbar, download?.id, download?.timestamp) {
+                    if (uiState.showDownloadSnackbar) {
+                        kotlinx.coroutines.delay(5000)
+                        viewModel.onEvent(DismissDownloadSnackbar)
+                    }
+                }
+
+                Surface(
+                    shape = LiquidShapes.ButtonPill,
+                    color = Color.Transparent,
+                    border = null,
+                    shadowElevation = 10.dp,
+                    modifier = Modifier
+                        .wrapContentSize()
+                        .liquidFrostedGlass(
+                            shape = LiquidShapes.ButtonPill,
+                            isDark = isDark,
+                            blurRadius = 18.dp,
+                            tintColor = if (isDark) Color(0xFF242021) else Color.White,
+                            alpha = if (isDark) 0.90f else 0.90f,
+                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f)
+                        )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Download,
+                            contentDescription = "Download",
+                            tint = LiquidPrimary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = "Downloading $fileName",
+                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) Color.White else Color(0xFF1E1B1C),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Text(
+                            text = "Подробнее",
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = LiquidPrimary),
+                            modifier = Modifier
+                                .clickable {
+                                    viewModel.onEvent(BrowserUiEvent.OpenDownloads)
+                                    viewModel.onEvent(DismissDownloadSnackbar)
+                                }
+                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Dismiss",
+                            tint = MaterialTheme.colorScheme.outline,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clickable {
+                                    viewModel.onEvent(DismissDownloadSnackbar)
                                 }
                         )
                     }

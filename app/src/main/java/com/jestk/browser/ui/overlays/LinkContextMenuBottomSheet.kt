@@ -53,6 +53,9 @@ import com.jestk.browser.ui.theme.LiquidSurface
 import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
 import com.jestk.browser.ui.theme.LiquidTertiary
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
+import com.jestk.browser.ui.theme.LiquidShapes
+import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.liquidFrostedGlass
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 
 /**
@@ -75,7 +78,7 @@ fun LinkContextMenuBottomSheet(
     val context = LocalContext.current
     val isDark = LocalIsDarkTheme.current
 
-    val sheetBg = if (isDark) Color(0xFF1E1B1C) else LiquidSurface
+    val sheetBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.92f) else Color(0xFFFFF8F8).copy(alpha = 0.90f)
     val urlCardBg = if (isDark) Color(0xFF2B2627) else LiquidSurfaceContainerHigh
     val textColor = if (isDark) Color(0xFFF6EFF0) else LiquidOnSurface
     val secondaryTextColor = if (isDark) Color(0xFFC2C7D0) else LiquidOnSurfaceVariant
@@ -83,7 +86,7 @@ fun LinkContextMenuBottomSheet(
     ModalBottomSheet(
         onDismissRequest = { onEvent(BrowserUiEvent.DismissLinkContextMenu) },
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = LiquidShapes.BottomSheet,
         containerColor = sheetBg,
         modifier = modifier
     ) {
@@ -98,8 +101,14 @@ fun LinkContextMenuBottomSheet(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(urlCardBg)
+                    .liquidFrostedGlass(
+                        shape = LiquidShapes.Card,
+                        isDark = isDark,
+                        blurRadius = 16.dp,
+                        tintColor = urlCardBg,
+                        alpha = if (isDark) 0.85f else 0.75f,
+                        borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.75f)
+                    )
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -214,7 +223,7 @@ private fun LinkActionRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(LiquidShapes.Card)
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically

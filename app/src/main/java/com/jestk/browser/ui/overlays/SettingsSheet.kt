@@ -87,6 +87,9 @@ import com.jestk.browser.ui.theme.LiquidTertiaryFixed
 import com.jestk.browser.ui.theme.PastelPeach
 import com.jestk.browser.ui.theme.PastelRose
 import com.jestk.browser.ui.theme.SunsetSwitchBrush
+import com.jestk.browser.ui.theme.LiquidShapes
+import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.liquidFrostedGlass
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
@@ -110,12 +113,12 @@ fun SettingsSheet(
     val scrollState = rememberScrollState()
     val isDark = LocalIsDarkTheme.current
 
-    val sheetBg = if (isDark) Color(0xFF161314) else LiquidSurface
+    val sheetBg = if (isDark) Color(0xFF161314).copy(alpha = 0.92f) else Color(0xFFFFF8F8).copy(alpha = 0.90f)
 
     ModalBottomSheet(
         onDismissRequest = { onEvent(BrowserUiEvent.DismissOverlay) },
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = LiquidShapes.BottomSheet,
         containerColor = sheetBg,
         modifier = modifier
     ) {
@@ -646,15 +649,21 @@ private fun InsetGroupedCard(
     isDark: Boolean,
     content: @Composable () -> Unit
 ) {
-    val bg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.85f)
-    val border: BorderStroke? = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
-
     Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = bg,
-        border = border,
+        shape = LiquidShapes.Card,
+        color = Color.Transparent,
+        border = null,
         shadowElevation = 4.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .liquidFrostedGlass(
+                shape = LiquidShapes.Card,
+                isDark = isDark,
+                blurRadius = 16.dp,
+                tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
+                alpha = if (isDark) 0.88f else 0.85f,
+                borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.75f)
+            )
     ) {
         Column {
             content()
@@ -668,15 +677,21 @@ private fun SegmentedThemeControl(
     isDark: Boolean,
     onSelectMode: (ThemeMode) -> Unit
 ) {
-    val containerBg = if (isDark) Color(0xFF242021).copy(alpha = 0.70f) else LiquidSurfaceContainerHigh.copy(alpha = 0.60f)
-    val border: BorderStroke? = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.60f))
-
     Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = containerBg,
-        border = border,
+        shape = LiquidShapes.Card,
+        color = Color.Transparent,
+        border = null,
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .liquidFrostedGlass(
+                shape = LiquidShapes.Card,
+                isDark = isDark,
+                blurRadius = 16.dp,
+                tintColor = if (isDark) Color(0xFF242021) else LiquidSurfaceContainerHigh,
+                alpha = if (isDark) 0.70f else 0.60f,
+                borderColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.60f)
+            )
     ) {
         Row(
             modifier = Modifier
@@ -691,7 +706,7 @@ private fun SegmentedThemeControl(
                 } else Color.Transparent
 
                 val segmentBorder = if (isSelected) {
-                    if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f))
+                    if (isDark) BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f))
                 } else null
 
                 val tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant

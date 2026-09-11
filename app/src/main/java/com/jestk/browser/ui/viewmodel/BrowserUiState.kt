@@ -36,6 +36,9 @@ data class BrowserUiState(
 
     // Downloads
     val downloads: List<DownloadItem> = emptyList(),
+    val lastDownloadNotification: DownloadItem? = null,
+    val showDownloadSnackbar: Boolean = false,
+    val activeDownloadIds: Set<Long> = emptySet(),
 
     // Settings
     val settings: BrowserSettings = BrowserSettings(),

@@ -46,12 +46,19 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SmartDisplay
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,6 +77,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -77,6 +86,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.RecentTabItem
+import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.CardPreviewBlueBrush
 import com.jestk.browser.ui.theme.CardPreviewPeachBrush
 import com.jestk.browser.ui.theme.CardPreviewRoseBrush
@@ -91,6 +101,9 @@ import com.jestk.browser.ui.theme.PastelBlue
 import com.jestk.browser.ui.theme.PastelPeach
 import com.jestk.browser.ui.theme.PastelRose
 import com.jestk.browser.ui.theme.PastelWarmOrange
+import com.jestk.browser.ui.theme.LiquidShapes
+import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.liquidFrostedGlass
 import com.jestk.browser.ui.theme.liquidSunsetBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
@@ -104,7 +117,8 @@ private data class PresetFavorite(
     val url: String,
     val icon: ImageVector,
     val iconTint: Color,
-    val bgBrush: Brush? = null
+    val bgBrush: Brush? = null,
+    val iconUrl: String? = null
 )
 
 private val DefaultPresets = listOf(
@@ -172,6 +186,26 @@ fun HomeScreen(
 ) {
     val scrollState = rememberScrollState()
     val isDark = LocalIsDarkTheme.current
+    var showAddFavoriteDialog by remember { mutableStateOf(false) }
+
+    if (showAddFavoriteDialog) {
+        AddFavoriteDialog(
+            isDark = isDark,
+            onDismiss = { showAddFavoriteDialog = false },
+            onAdd = { name, url ->
+                val trimmedUrl = url.trim()
+                if (trimmedUrl.isNotEmpty()) {
+                    val finalUrl = if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+                        "https://$trimmedUrl"
+                    } else {
+                        trimmedUrl
+                    }
+                    onEvent(BrowserUiEvent.AddFavorite(title = name.ifEmpty { finalUrl }, url = finalUrl))
+                }
+                showAddFavoriteDialog = false
+            }
+        )
+    }
 
     Column(
         modifier = modifier
@@ -220,7 +254,7 @@ fun HomeScreen(
             onBookmarkCurrent = { onEvent(BrowserUiEvent.AddCurrentTabToFavorites) },
             onToggleExpand = { onEvent(BrowserUiEvent.ToggleFavoritesExpanded) },
             onAddClick = {
-                onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                showAddFavoriteDialog = true
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -373,7 +407,8 @@ private fun FavoritesSection(
                     title = fav.title.ifEmpty { fav.url },
                     url = fav.url,
                     icon = Icons.Default.Public,
-                    iconTint = MaterialTheme.colorScheme.primary
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    iconUrl = fav.iconUrl ?: FaviconManager.extractFallbackFaviconUrl(fav.url)
                 )
             }
             if (isExpanded) list else list.take(7)
@@ -493,12 +528,34 @@ private fun FavoriteSquircleCard(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = item.icon,
-                        contentDescription = item.title,
-                        tint = if (item.iconTint == LiquidOnSurface || (isDark && item.bgBrush == null)) MaterialTheme.colorScheme.onSurface else item.iconTint,
-                        modifier = Modifier.size(26.dp)
-                    )
+                    if (!item.iconUrl.isNullOrEmpty()) {
+                        var isImageSuccess by remember(item.iconUrl) { mutableStateOf(false) }
+
+                        if (!isImageSuccess) {
+                            Icon(
+                                imageVector = Icons.Default.Public,
+                                contentDescription = item.title,
+                                tint = if (item.iconTint == LiquidOnSurface || (isDark && item.bgBrush == null)) MaterialTheme.colorScheme.onSurface else item.iconTint,
+                                modifier = Modifier.size(26.dp)
+                            )
+                        }
+
+                        AsyncImage(
+                            model = item.iconUrl,
+                            contentDescription = item.title,
+                            contentScale = ContentScale.Fit,
+                            onSuccess = { isImageSuccess = true },
+                            onError = { isImageSuccess = false },
+                            modifier = Modifier.size(26.dp)
+                        )
+                    } else {
+                        Icon(
+                            imageVector = item.icon,
+                            contentDescription = item.title,
+                            tint = if (item.iconTint == LiquidOnSurface || (isDark && item.bgBrush == null)) MaterialTheme.colorScheme.onSurface else item.iconTint,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
                 }
             }
 
@@ -599,6 +656,143 @@ private fun AddFavoriteButton(
             modifier = Modifier.fillMaxWidth()
         )
     }
+}
+
+@Composable
+fun AddFavoriteDialog(
+    isDark: Boolean,
+    onDismiss: () -> Unit,
+    onAdd: (title: String, url: String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var title by remember { mutableStateOf("") }
+    var url by remember { mutableStateOf("") }
+    var isUrlError by remember { mutableStateOf(false) }
+
+    val dialogBg = if (isDark) Color(0xFF242021) else Color.White
+    val contentColor = if (isDark) Color(0xFFF6EFF0) else LiquidOnSurface
+
+    val handleAdd = {
+        val trimmedUrl = url.trim()
+        if (trimmedUrl.isEmpty()) {
+            isUrlError = true
+        } else {
+            val formattedUrl = if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
+                "https://$trimmedUrl"
+            } else {
+                trimmedUrl
+            }
+            val formattedTitle = title.trim().ifEmpty { formattedUrl }
+            onAdd(formattedTitle, formattedUrl)
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = modifier.liquidFrostedGlass(
+            shape = LiquidShapes.Capsule,
+            isDark = isDark,
+            blurRadius = 20.dp,
+            tintColor = dialogBg,
+            alpha = if (isDark) 0.90f else 0.88f,
+            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.80f)
+        ),
+        shape = LiquidShapes.Capsule,
+        containerColor = Color.Transparent,
+        titleContentColor = contentColor,
+        textContentColor = contentColor,
+        title = {
+            Text(
+                text = "Add Favorite",
+                style = MaterialTheme.typography.titleLarge.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp
+                )
+            )
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("Website Title / Name") },
+                    placeholder = { Text("e.g. YouTube, GitHub") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(14.dp),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Text,
+                        imeAction = ImeAction.Next
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = LiquidOutline.copy(alpha = 0.35f),
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = url,
+                    onValueChange = {
+                        url = it
+                        if (isUrlError && it.isNotBlank()) {
+                            isUrlError = false
+                        }
+                    },
+                    label = { Text("Website URL") },
+                    placeholder = { Text("e.g. https://github.com") },
+                    singleLine = true,
+                    isError = isUrlError,
+                    supportingText = if (isUrlError) {
+                        { Text("URL cannot be empty", color = MaterialTheme.colorScheme.error) }
+                    } else null,
+                    shape = RoundedCornerShape(14.dp),
+                    keyboardOptions = KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Done
+                    ),
+                    keyboardActions = KeyboardActions(
+                        onDone = { handleAdd() }
+                    ),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = MaterialTheme.colorScheme.primary,
+                        unfocusedBorderColor = LiquidOutline.copy(alpha = 0.35f),
+                        focusedLabelColor = MaterialTheme.colorScheme.primary,
+                        cursorColor = MaterialTheme.colorScheme.primary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = handleAdd,
+                shape = LiquidShapes.ButtonPill,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = Color.White
+                )
+            ) {
+                Text("Add", fontWeight = FontWeight.SemiBold)
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                shape = LiquidShapes.ButtonPill
+            ) {
+                Text(
+                    "Cancel",
+                    color = if (isDark) PastelRose else LiquidTertiary,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    )
 }
 
 @Composable

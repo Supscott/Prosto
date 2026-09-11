@@ -8,6 +8,9 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -130,5 +133,34 @@ class LiquidBackgroundTest {
 
         // No match returns empty
         org.junit.Assert.assertTrue(filterTabs("nonexistent").isEmpty())
+    }
+
+    @Test
+    fun liquidShapes_standardCornerRadii_areCorrect() {
+        val testSize = Size(200f, 200f)
+        val testDensity = Density(1f)
+        assertEquals(18f, LiquidShapes.Card.topStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(22f, LiquidShapes.ButtonPill.topStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(24f, LiquidShapes.Capsule.topStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(28f, LiquidShapes.BottomSheet.topStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(28f, LiquidShapes.BottomSheet.topEnd.toPx(testSize, testDensity), 0.01f)
+        assertEquals(0f, LiquidShapes.BottomSheet.bottomStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(29f, LiquidShapes.Dock.topStart.toPx(testSize, testDensity), 0.01f)
+    }
+
+    @Test
+    fun liquidBorders_lightAndDark_produceCorrectStrokes() {
+        val lightBorder = LiquidBorders.frostedBorder(isDark = false)
+        val darkBorder = LiquidBorders.frostedBorder(isDark = true)
+        assertEquals(1.dp, lightBorder.width)
+        assertEquals(1.dp, darkBorder.width)
+    }
+
+    @Test
+    fun liquidFrostedGlass_createsNonNullModifiers() {
+        val lightGlass = Modifier.liquidFrostedGlass(shape = LiquidShapes.Card, isDark = false)
+        val darkGlass = Modifier.liquidFrostedGlass(shape = LiquidShapes.Dock, isDark = true)
+        assertNotNull(lightGlass)
+        assertNotNull(darkGlass)
     }
 }
