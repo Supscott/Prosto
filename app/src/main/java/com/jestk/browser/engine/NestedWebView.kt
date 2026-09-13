@@ -27,6 +27,7 @@ class NestedWebView @JvmOverloads constructor(
     companion object {
         const val PULL_TO_REFRESH_SLOP_DP = 40f
         const val PULL_RESISTANCE_FACTOR = 0.5f
+        const val MAX_PTR_INITIAL_DOWN_Y_DP = 120f
     }
 
     var loadedUrl: String? = null
@@ -95,7 +96,8 @@ class NestedWebView @JvmOverloads constructor(
                 initialDownY = event.y
                 lastMotionY = y
                 isGestureActive = true
-                isInitialAtTop = (!canScrollVertically(-1) && scrollY <= 0)
+                val maxInitialDownY = MAX_PTR_INITIAL_DOWN_Y_DP * resources.displayMetrics.density
+                isInitialAtTop = (!canScrollVertically(-1) && scrollY <= 0 && initialDownY <= maxInitialDownY)
                 isLockedHorizontal = false
                 isPullToRefreshActive = false
                 accumulatedPullDistance = 0f
@@ -162,15 +164,16 @@ class NestedWebView @JvmOverloads constructor(
                     accumulatedPullDistance = 0f
                     isPullToRefreshActive = false
                     hasTriggeredHaptic = false
+                    isInitialAtTop = false
                 }
 
                 // Step 2: Dispatch downward unconsumed scroll ONLY when:
                 // 1) The gesture originally started at the top (isInitialAtTop == true)
-                // 2) Page cannot scroll up (!canScrollUp)
+                // 2) Page cannot scroll up (!canScrollUp && scrollY <= 0)
                 // 3) Downward motion (dyUnconsumed < 0)
                 // 4) Motion is not horizontally locked (!isLockedHorizontal)
                 var unconsumedToDispatch = 0
-                if (isInitialAtTop && !canScrollUp && dyUnconsumed < 0) {
+                if (isInitialAtTop && !canScrollUp && scrollY <= 0 && dyUnconsumed < 0) {
                     if (!isLockedHorizontal) {
                         val pullDelta = -dyUnconsumed.toFloat() * PULL_RESISTANCE_FACTOR
                         accumulatedPullDistance += pullDelta

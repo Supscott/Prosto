@@ -8,20 +8,25 @@ import android.content.ContextWrapper
 import android.content.MutableContextWrapper
 import android.net.Uri
 import android.os.Environment
+import android.util.Base64
 import android.view.ViewGroup
 import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
+import android.webkit.MimeTypeMap
 import android.webkit.URLUtil
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewFeature
+import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.repository.DownloadRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.File
+import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
 
 fun Context.findActivity(): Activity? {
@@ -37,6 +42,17 @@ class WebViewPool(
     private val applicationContext: Context,
     var downloadRepository: DownloadRepository? = null
 ) {
+
+    var onDownloadStarted: ((DownloadItem) -> Unit)? = null
+
+    class BlobDownloadBridge(
+        private val onBlobReceived: (dataUrl: String, contentDisposition: String?, mimeType: String?) -> Unit
+    ) {
+        @JavascriptInterface
+        fun onBlobDownloaded(dataUrl: String, contentDisposition: String?, mimeType: String?) {
+            onBlobReceived(dataUrl, contentDisposition, mimeType)
+        }
+    }
 
     private val pool = ConcurrentHashMap<String, WebView>()
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -108,6 +124,14 @@ class WebViewPool(
                 }
                 // Do NOT call pauseTimers() or onPause() when tabs are backgrounded,
                 // keeping audio and video playback alive across tab switches.
+                try {
+                    val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->
+                        coroutineScope.launch(Dispatchers.Main) {
+                            handleDataUrlDownload(dataUrl, contentDisposition, mimeType, this@apply.context)
+                        }
+                    }
+                    addJavascriptInterface(blobBridge, "JestkBlobBridge")
+                } catch (_: Throwable) {}
                 setupDownloadListener(this)
             }
 
@@ -133,6 +157,14 @@ class WebViewPool(
                     mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                     setSupportZoom(true)
                 }
+                try {
+                    val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->
+                        coroutineScope.launch(Dispatchers.Main) {
+                            handleDataUrlDownload(dataUrl, contentDisposition, mimeType, this@apply.context)
+                        }
+                    }
+                    addJavascriptInterface(blobBridge, "JestkBlobBridge")
+                } catch (_: Throwable) {}
                 setupDownloadListener(this)
             }
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
@@ -143,22 +175,39 @@ class WebViewPool(
 
     private fun setupDownloadListener(webView: WebView) {
         webView.setDownloadListener { url, userAgent, contentDisposition, mimeType, contentLength ->
-            handleDownload(url, userAgent, contentDisposition, mimeType, contentLength, webView.context)
+            handleDownload(url, userAgent, contentDisposition, mimeType, contentLength, webView.context, webView)
         }
     }
 
-    private fun handleDownload(
+    fun handleDownload(
         url: String,
         userAgent: String?,
         contentDisposition: String?,
         mimeType: String?,
         contentLength: Long,
-        context: Context
+        context: Context,
+        webView: WebView? = null
     ) {
+        val targetContext = context.findActivity() ?: applicationContext
+
+        // Check for data: URI scheme
+        if (url.startsWith("data:", ignoreCase = true)) {
+            handleDataUrlDownload(url, contentDisposition, mimeType, targetContext)
+            return
+        }
+
+        // Check for blob: URI scheme
+        if (url.startsWith("blob:", ignoreCase = true)) {
+            handleBlobDownload(url, contentDisposition, mimeType, targetContext, webView)
+            return
+        }
+
         try {
-            val targetContext = context.findActivity() ?: applicationContext
             val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
             val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadDir.exists()) {
+                downloadDir.mkdirs()
+            }
             val file = File(downloadDir, fileName)
             val filePath = file.absolutePath
 
@@ -188,6 +237,17 @@ class WebViewPool(
 
             Toast.makeText(targetContext, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
 
+            val downloadItem = DownloadItem(
+                url = url,
+                fileName = fileName,
+                filePath = filePath,
+                mimeType = mimeType,
+                contentLength = contentLength,
+                timestamp = System.currentTimeMillis(),
+                downloadId = downloadId
+            )
+            onDownloadStarted?.invoke(downloadItem)
+
             coroutineScope.launch {
                 try {
                     downloadRepository?.recordDownload(
@@ -205,6 +265,163 @@ class WebViewPool(
             try {
                 Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
             } catch (_: Throwable) {}
+        }
+    }
+
+    private fun handleDataUrlDownload(
+        url: String,
+        contentDisposition: String?,
+        mimeType: String?,
+        context: Context
+    ) {
+        val targetContext = context.findActivity() ?: applicationContext
+        try {
+            val commaIndex = url.indexOf(',')
+            if (commaIndex == -1) {
+                Toast.makeText(targetContext, "Download failed: Invalid data URL", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            val meta = url.substring(5, commaIndex) // strip "data:"
+            val dataPart = url.substring(commaIndex + 1)
+            val isBase64 = meta.contains(";base64", ignoreCase = true)
+            val metaMime = meta.split(';').firstOrNull { it.isNotBlank() && !it.equals("base64", ignoreCase = true) }?.trim()
+            val resolvedMime = metaMime?.ifEmpty { null } ?: mimeType?.ifEmpty { null } ?: "application/octet-stream"
+
+            val bytes = if (isBase64) {
+                Base64.decode(dataPart.trim(), Base64.DEFAULT)
+            } else {
+                URLDecoder.decode(dataPart, "UTF-8").toByteArray(Charsets.UTF_8)
+            }
+
+            val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(resolvedMime)
+                ?: when {
+                    resolvedMime.contains("png") -> "png"
+                    resolvedMime.contains("jpeg") || resolvedMime.contains("jpg") -> "jpg"
+                    resolvedMime.contains("webp") -> "webp"
+                    resolvedMime.contains("gif") -> "gif"
+                    resolvedMime.contains("svg") -> "svg"
+                    resolvedMime.contains("pdf") -> "pdf"
+                    else -> "png"
+                }
+
+            val guessed = URLUtil.guessFileName(url, contentDisposition, resolvedMime)
+            val uniqueName = if (!guessed.isNullOrBlank() && guessed != "downloadfile" && !guessed.startsWith("downloadfile.") && guessed != "data" && !guessed.endsWith(".bin")) {
+                guessed
+            } else {
+                val prefix = if (resolvedMime.startsWith("image/")) "image" else "download"
+                "${prefix}_${System.currentTimeMillis()}.$ext"
+            }
+
+            val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            if (!downloadDir.exists()) {
+                downloadDir.mkdirs()
+            }
+            var destFile = File(downloadDir, uniqueName)
+            if (destFile.exists()) {
+                val base = uniqueName.substringBeforeLast('.')
+                val extension = uniqueName.substringAfterLast('.', "")
+                val extStr = if (extension.isNotEmpty()) ".$extension" else ""
+                destFile = File(downloadDir, "${base}_${System.currentTimeMillis()}$extStr")
+            }
+            destFile.writeBytes(bytes)
+            val finalFileName = destFile.name
+            val filePath = destFile.absolutePath
+
+            Toast.makeText(targetContext, "Downloading $finalFileName...", Toast.LENGTH_SHORT).show()
+
+            val downloadItem = DownloadItem(
+                url = if (url.length > 2048) url.take(2048) + "..." else url,
+                fileName = finalFileName,
+                filePath = filePath,
+                mimeType = resolvedMime,
+                contentLength = bytes.size.toLong(),
+                timestamp = System.currentTimeMillis(),
+                downloadId = -1L
+            )
+            onDownloadStarted?.invoke(downloadItem)
+
+            coroutineScope.launch {
+                try {
+                    downloadRepository?.recordDownload(
+                        url = downloadItem.url,
+                        fileName = downloadItem.fileName,
+                        filePath = downloadItem.filePath,
+                        mimeType = downloadItem.mimeType,
+                        contentLength = downloadItem.contentLength,
+                        downloadId = downloadItem.downloadId
+                    )
+                } catch (_: Throwable) {}
+            }
+        } catch (e: Throwable) {
+            try {
+                Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            } catch (_: Throwable) {}
+        }
+    }
+
+    private fun handleBlobDownload(
+        blobUrl: String,
+        contentDisposition: String?,
+        mimeType: String?,
+        context: Context,
+        webView: WebView?
+    ) {
+        val targetContext = context.findActivity() ?: applicationContext
+        val targetWebView = webView ?: pool.values.firstOrNull()
+        if (targetWebView == null) {
+            Toast.makeText(targetContext, "Download failed: Cannot resolve blob data", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        Toast.makeText(targetContext, "Preparing download...", Toast.LENGTH_SHORT).show()
+
+        val safeDisposition = contentDisposition?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
+        val safeMime = mimeType?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
+        val safeUrl = blobUrl.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
+
+        val js = """
+            (function() {
+                try {
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', '$safeUrl', true);
+                    xhr.responseType = 'blob';
+                    xhr.onload = function() {
+                        if (this.status === 200 || this.status === 0) {
+                            var reader = new FileReader();
+                            reader.onloadend = function() {
+                                if (window.JestkBlobBridge) {
+                                    window.JestkBlobBridge.onBlobDownloaded(reader.result, '$safeDisposition', '$safeMime');
+                                }
+                            };
+                            reader.readAsDataURL(this.response);
+                        }
+                    };
+                    xhr.onerror = function() {
+                        fetch('$safeUrl')
+                            .then(function(r) { return r.blob(); })
+                            .then(function(b) {
+                                var reader = new FileReader();
+                                reader.onloadend = function() {
+                                    if (window.JestkBlobBridge) {
+                                        window.JestkBlobBridge.onBlobDownloaded(reader.result, '$safeDisposition', '$safeMime');
+                                    }
+                                };
+                                reader.readAsDataURL(b);
+                            })
+                            .catch(function(err) {});
+                    };
+                    xhr.send();
+                } catch(e) {}
+            })();
+        """.trimIndent()
+
+        try {
+            targetWebView.post {
+                targetWebView.evaluateJavascript(js, null)
+            }
+        } catch (t: Throwable) {
+            Toast.makeText(targetContext, "Download failed: ${t.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
