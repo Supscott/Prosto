@@ -93,7 +93,10 @@ import com.jestk.browser.ui.theme.LiquidSecondary
 import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
 import com.jestk.browser.ui.theme.LiquidTertiary
 import com.jestk.browser.ui.theme.PastelPeach
+import com.jestk.browser.ui.theme.liquidFrostedGlass
 import com.jestk.browser.ui.theme.liquidSunsetBackground
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import java.io.File
@@ -116,6 +119,7 @@ fun TabOverviewGrid(
 ) {
     val isDark = LocalIsDarkTheme.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val gridHazeState = remember { HazeState() }
 
     var isSearchVisible by remember { mutableStateOf(false) }
     var tabSearchQuery by remember { mutableStateOf("") }
@@ -261,13 +265,22 @@ fun TabOverviewGrid(
             AnimatedVisibility(visible = isSearchVisible) {
                 Surface(
                     shape = RoundedCornerShape(20.dp),
-                    color = if (isDark) Color(0xFF242021).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.90f),
-                    border = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f)),
+                    color = Color.Transparent,
+                    border = null,
                     shadowElevation = 2.dp,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                         .height(44.dp)
+                        .liquidFrostedGlass(
+                            shape = RoundedCornerShape(20.dp),
+                            isDark = isDark,
+                            blurRadius = 16.dp,
+                            tintColor = if (isDark) Color(0xFF242021) else Color.White,
+                            alpha = 0.90f,
+                            borderColor = if (isDark) Color(0xFF4D4546).copy(alpha = 0.50f) else Color.White.copy(alpha = 0.80f),
+                            hazeState = gridHazeState
+                        )
                 ) {
                     Row(
                         modifier = Modifier
@@ -345,7 +358,9 @@ fun TabOverviewGrid(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .haze(gridHazeState)
             ) {
                 items(
                     items = displayedTabs,
@@ -388,17 +403,25 @@ fun TabOverviewGrid(
             }
 
             // Floating Centered "Done" Pill Button
-            val doneBtnBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.88f)
-            val doneBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.60f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f))
+            val doneBtnBg = if (isDark) Color(0xFF2C2829) else Color.White
+            val doneBorder = if (isDark) Color(0xFF4D4546).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.80f)
 
             Surface(
                 shape = RoundedCornerShape(24.dp),
-                color = doneBtnBg,
-                border = doneBorder,
+                color = Color.Transparent,
+                border = null,
                 shadowElevation = 6.dp,
                 modifier = Modifier
                     .height(46.dp)
-                    .clip(RoundedCornerShape(24.dp))
+                    .liquidFrostedGlass(
+                        shape = RoundedCornerShape(24.dp),
+                        isDark = isDark,
+                        blurRadius = 18.dp,
+                        tintColor = doneBtnBg,
+                        alpha = if (isDark) 0.90f else 0.88f,
+                        borderColor = doneBorder,
+                        hazeState = gridHazeState
+                    )
                     .clickable { onEvent(BrowserUiEvent.DismissOverlay) }
             ) {
                 Box(
@@ -589,5 +612,43 @@ private fun TwoColumnGridTabCard(
                 }
             }
         }
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(name = "TabOverviewGrid Light", showBackground = true, widthDp = 412, heightDp = 800)
+@Composable
+fun TabOverviewGridLightPreview() {
+    com.jestk.browser.ui.theme.JestkBrowserTheme(themeMode = com.jestk.browser.domain.model.ThemeMode.LIGHT) {
+        TabOverviewGrid(
+            uiState = com.jestk.browser.ui.viewmodel.BrowserUiState(
+                tabs = listOf(
+                    com.jestk.browser.domain.model.Tab(id = "1", url = "https://kotlinlang.org", title = "Kotlin Programming", isActive = true),
+                    com.jestk.browser.domain.model.Tab(id = "2", url = "https://developer.android.com", title = "Android Developers", isActive = false),
+                    com.jestk.browser.domain.model.Tab(id = "3", url = "https://github.com", title = "GitHub", isActive = false),
+                    com.jestk.browser.domain.model.Tab(id = "4", url = "https://duckduckgo.com", title = "DuckDuckGo", isActive = false)
+                ),
+                activeTabId = "1"
+            ),
+            onEvent = {}
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview(name = "TabOverviewGrid Dark", showBackground = true, widthDp = 412, heightDp = 800)
+@Composable
+fun TabOverviewGridDarkPreview() {
+    com.jestk.browser.ui.theme.JestkBrowserTheme(themeMode = com.jestk.browser.domain.model.ThemeMode.DARK) {
+        TabOverviewGrid(
+            uiState = com.jestk.browser.ui.viewmodel.BrowserUiState(
+                tabs = listOf(
+                    com.jestk.browser.domain.model.Tab(id = "1", url = "https://kotlinlang.org", title = "Kotlin Programming", isActive = true),
+                    com.jestk.browser.domain.model.Tab(id = "2", url = "https://developer.android.com", title = "Android Developers", isActive = false),
+                    com.jestk.browser.domain.model.Tab(id = "3", url = "https://github.com", title = "GitHub", isActive = false),
+                    com.jestk.browser.domain.model.Tab(id = "4", url = "https://duckduckgo.com", title = "DuckDuckGo", isActive = false)
+                ),
+                activeTabId = "1"
+            ),
+            onEvent = {}
+        )
     }
 }

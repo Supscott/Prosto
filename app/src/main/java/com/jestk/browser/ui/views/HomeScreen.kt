@@ -7,6 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.tooling.preview.Preview
+import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.ui.theme.JestkBrowserTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -46,19 +50,12 @@ import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SmartDisplay
 import androidx.compose.material.icons.filled.Terminal
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -77,8 +74,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -86,7 +81,6 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.RecentTabItem
-import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.CardPreviewBlueBrush
 import com.jestk.browser.ui.theme.CardPreviewPeachBrush
 import com.jestk.browser.ui.theme.CardPreviewRoseBrush
@@ -96,15 +90,25 @@ import com.jestk.browser.ui.theme.LiquidOutline
 import com.jestk.browser.ui.theme.LiquidPrimary
 import com.jestk.browser.ui.theme.LiquidPrimaryContainer
 import com.jestk.browser.ui.theme.LiquidSecondary
+import com.jestk.browser.ui.theme.LiquidSurface
 import com.jestk.browser.ui.theme.LiquidTertiary
 import com.jestk.browser.ui.theme.PastelBlue
 import com.jestk.browser.ui.theme.PastelPeach
 import com.jestk.browser.ui.theme.PastelRose
 import com.jestk.browser.ui.theme.PastelWarmOrange
-import com.jestk.browser.ui.theme.LiquidShapes
-import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.LocalHazeState
 import com.jestk.browser.ui.theme.liquidFrostedGlass
 import com.jestk.browser.ui.theme.liquidSunsetBackground
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
+import android.app.Activity
+import android.content.Intent
+import android.speech.RecognizerIntent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.ui.platform.LocalContext
+import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import java.io.File
@@ -184,96 +188,114 @@ fun HomeScreen(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val scrollState = rememberScrollState()
-    val isDark = LocalIsDarkTheme.current
-    var showAddFavoriteDialog by remember { mutableStateOf(false) }
-
-    if (showAddFavoriteDialog) {
-        AddFavoriteDialog(
-            isDark = isDark,
-            onDismiss = { showAddFavoriteDialog = false },
-            onAdd = { name, url ->
-                val trimmedUrl = url.trim()
-                if (trimmedUrl.isNotEmpty()) {
-                    val finalUrl = if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
-                        "https://$trimmedUrl"
-                    } else {
-                        trimmedUrl
-                    }
-                    onEvent(BrowserUiEvent.AddFavorite(title = name.ifEmpty { finalUrl }, url = finalUrl))
-                }
-                showAddFavoriteDialog = false
+    val context = LocalContext.current
+    val speechLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+            if (!spokenText.isNullOrBlank()) {
+                onEvent(BrowserUiEvent.SubmitSearch(spokenText))
             }
-        )
+        }
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .liquidSunsetBackground(isDark = isDark)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .verticalScroll(scrollState)
-            .padding(top = 16.dp, bottom = 120.dp)
-    ) {
-        // App Title / Top Space
-        Text(
-            text = "Jestk Browser",
-            style = MaterialTheme.typography.headlineMedium.copy(
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.5).sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-        )
+    val scrollState = rememberScrollState()
+    val isDark = LocalIsDarkTheme.current
+    val homeHazeState = remember { HazeState() }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // 1. Hero Search Capsule
-        HeroSearchCapsule(
-            searchEngineName = uiState.settings.searchEngine.displayName,
-            isDark = isDark,
-            onClick = {
-                onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = false))
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-        )
-
-        Spacer(modifier = Modifier.height(28.dp))
-
-        // 2. Favorites Section ("Favorites")
-        FavoritesSection(
-            favorites = uiState.favorites,
-            isExpanded = uiState.isFavoritesExpanded,
-            canBookmarkCurrent = uiState.currentUrl.isNotEmpty() && !uiState.currentUrl.startsWith("about:"),
-            isDark = isDark,
-            onSelectUrl = { url -> onEvent(BrowserUiEvent.LoadUrl(url)) },
-            onDeleteFavorite = { id -> onEvent(BrowserUiEvent.RemoveFavorite(id)) },
-            onBookmarkCurrent = { onEvent(BrowserUiEvent.AddCurrentTabToFavorites) },
-            onToggleExpand = { onEvent(BrowserUiEvent.ToggleFavoritesExpanded) },
-            onAddClick = {
-                showAddFavoriteDialog = true
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp)
-        )
-
-        Spacer(modifier = Modifier.height(32.dp))
-
-        // 3. Recent Tabs Section ("Recent Tabs")
-        val recentTabs = uiState.recentTabs.take(8)
-        if (recentTabs.isNotEmpty()) {
-            RecentTabsSection(
-                recentTabs = recentTabs,
-                isDark = isDark,
-                onOpenRecent = { item -> onEvent(BrowserUiEvent.OpenRecentTab(item)) },
-                onMoreClick = {
-                    onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
-                }
+    CompositionLocalProvider(LocalHazeState provides homeHazeState) {
+        Box(modifier = modifier.fillMaxSize()) {
+            // Layer 1: Ambient multi-point pastel sunset background registered with Haze
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .liquidSunsetBackground(isDark = isDark)
+                    .haze(homeHazeState)
             )
+
+            // Layer 2: Scrolling foreground content
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .verticalScroll(scrollState)
+                    .padding(top = 16.dp, bottom = 120.dp)
+            ) {
+                // App Title / Top Space
+                Text(
+                    text = "Jestk Browser",
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = (-0.5).sp
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 1. Hero Search Capsule
+                HeroSearchCapsule(
+                    searchEngineName = uiState.settings.searchEngine.displayName,
+                    isDark = isDark,
+                    onClick = {
+                        onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = false))
+                    },
+                    onVoiceClick = {
+                        try {
+                            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH)
+                            }
+                            speechLauncher.launch(intent)
+                        } catch (_: Exception) {
+                            Toast.makeText(context, "Voice input not available", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onQrScanClick = {
+                        Toast.makeText(context, "QR Scanner coming soon", Toast.LENGTH_SHORT).show()
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                )
+
+                Spacer(modifier = Modifier.height(28.dp))
+
+                // 2. Favorites Section ("Favorites")
+                FavoritesSection(
+                    favorites = uiState.favorites,
+                    isExpanded = uiState.isFavoritesExpanded,
+                    canBookmarkCurrent = uiState.currentUrl.isNotEmpty() && !uiState.currentUrl.startsWith("about:"),
+                    isDark = isDark,
+                    onSelectUrl = { url -> onEvent(BrowserUiEvent.LoadUrl(url)) },
+                    onDeleteFavorite = { id -> onEvent(BrowserUiEvent.RemoveFavorite(id)) },
+                    onBookmarkCurrent = { onEvent(BrowserUiEvent.AddCurrentTabToFavorites) },
+                    onToggleExpand = { onEvent(BrowserUiEvent.ToggleFavoritesExpanded) },
+                    onAddClick = {
+                        onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                )
+
+                Spacer(modifier = Modifier.height(32.dp))
+
+                // 3. Recent Tabs Section ("Recent Tabs")
+                val recentTabs = uiState.recentTabs.take(8)
+                if (recentTabs.isNotEmpty()) {
+                    RecentTabsSection(
+                        recentTabs = recentTabs,
+                        isDark = isDark,
+                        onOpenRecent = { item -> onEvent(BrowserUiEvent.OpenRecentTab(item)) },
+                        onMoreClick = {
+                            onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -283,19 +305,29 @@ private fun HeroSearchCapsule(
     searchEngineName: String,
     isDark: Boolean,
     onClick: () -> Unit,
+    onVoiceClick: () -> Unit,
+    onQrScanClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bg = if (isDark) Color(0xFF242021).copy(alpha = 0.88f) else Color.White.copy(alpha = 0.85f)
-    val border = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.60f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
+    val bg = if (isDark) Color(0xFF242021) else Color.White
+    val border = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f)
 
     Surface(
         shape = RoundedCornerShape(26.dp),
-        color = bg,
-        border = border,
-        shadowElevation = 4.dp,
+        color = Color.Transparent,
+        border = null,
+        shadowElevation = 0.dp,
         modifier = modifier
             .height(52.dp)
-            .clip(RoundedCornerShape(26.dp))
+            .liquidFrostedGlass(
+                shape = RoundedCornerShape(26.dp),
+                isDark = isDark,
+                blurRadius = 18.dp,
+                tintColor = bg,
+                alpha = if (isDark) 0.88f else 0.85f,
+                borderColor = border,
+                hazeState = LocalHazeState.current
+            )
             .clickable(onClick = onClick)
     ) {
         Row(
@@ -332,19 +364,19 @@ private fun HeroSearchCapsule(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 IconButton(
-                    onClick = onClick,
+                    onClick = onVoiceClick,
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Mic,
                         contentDescription = "Voice Search",
-                        tint = MaterialTheme.colorScheme.outline,
+                        tint = MaterialTheme.colorScheme.primary,
                         modifier = Modifier.size(19.dp)
                     )
                 }
 
                 IconButton(
-                    onClick = onClick,
+                    onClick = onQrScanClick,
                     modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
@@ -402,13 +434,14 @@ private fun FavoritesSection(
         // 4-Column Squircle Grid
         val itemsToDisplay: List<PresetFavorite> = if (favorites.isNotEmpty()) {
             val list = favorites.map { fav ->
+                val fallbackFavicon = fav.iconUrl ?: FaviconManager.extractFallbackFaviconUrl(fav.url)
                 PresetFavorite(
                     id = fav.id,
                     title = fav.title.ifEmpty { fav.url },
                     url = fav.url,
                     icon = Icons.Default.Public,
                     iconTint = MaterialTheme.colorScheme.primary,
-                    iconUrl = fav.iconUrl ?: FaviconManager.extractFallbackFaviconUrl(fav.url)
+                    iconUrl = fallbackFavicon
                 )
             }
             if (isExpanded) list else list.take(7)
@@ -516,7 +549,7 @@ private fun FavoriteSquircleCard(
                 shape = RoundedCornerShape(18.dp),
                 color = defaultBg,
                 border = border,
-                shadowElevation = 2.dp,
+                shadowElevation = 0.dp,
                 modifier = Modifier.size(56.dp)
             ) {
                 Box(
@@ -528,31 +561,24 @@ private fun FavoriteSquircleCard(
                         ),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (!item.iconUrl.isNullOrEmpty()) {
-                        var isImageSuccess by remember(item.iconUrl) { mutableStateOf(false) }
+                    var isFaviconSuccess by remember(item.iconUrl) { mutableStateOf(false) }
 
-                        if (!isImageSuccess) {
-                            Icon(
-                                imageVector = Icons.Default.Public,
-                                contentDescription = item.title,
-                                tint = if (item.iconTint == LiquidOnSurface || (isDark && item.bgBrush == null)) MaterialTheme.colorScheme.onSurface else item.iconTint,
-                                modifier = Modifier.size(26.dp)
-                            )
-                        }
-
-                        AsyncImage(
-                            model = item.iconUrl,
-                            contentDescription = item.title,
-                            contentScale = ContentScale.Fit,
-                            onSuccess = { isImageSuccess = true },
-                            onError = { isImageSuccess = false },
-                            modifier = Modifier.size(26.dp)
-                        )
-                    } else {
+                    if (!isFaviconSuccess) {
                         Icon(
                             imageVector = item.icon,
                             contentDescription = item.title,
                             tint = if (item.iconTint == LiquidOnSurface || (isDark && item.bgBrush == null)) MaterialTheme.colorScheme.onSurface else item.iconTint,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
+
+                    if (!item.iconUrl.isNullOrEmpty()) {
+                        AsyncImage(
+                            model = item.iconUrl,
+                            contentDescription = item.title,
+                            contentScale = ContentScale.Fit,
+                            onSuccess = { isFaviconSuccess = true },
+                            onError = { isFaviconSuccess = false },
                             modifier = Modifier.size(26.dp)
                         )
                     }
@@ -659,143 +685,6 @@ private fun AddFavoriteButton(
 }
 
 @Composable
-fun AddFavoriteDialog(
-    isDark: Boolean,
-    onDismiss: () -> Unit,
-    onAdd: (title: String, url: String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var title by remember { mutableStateOf("") }
-    var url by remember { mutableStateOf("") }
-    var isUrlError by remember { mutableStateOf(false) }
-
-    val dialogBg = if (isDark) Color(0xFF242021) else Color.White
-    val contentColor = if (isDark) Color(0xFFF6EFF0) else LiquidOnSurface
-
-    val handleAdd = {
-        val trimmedUrl = url.trim()
-        if (trimmedUrl.isEmpty()) {
-            isUrlError = true
-        } else {
-            val formattedUrl = if (!trimmedUrl.startsWith("http://") && !trimmedUrl.startsWith("https://")) {
-                "https://$trimmedUrl"
-            } else {
-                trimmedUrl
-            }
-            val formattedTitle = title.trim().ifEmpty { formattedUrl }
-            onAdd(formattedTitle, formattedUrl)
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        modifier = modifier.liquidFrostedGlass(
-            shape = LiquidShapes.Capsule,
-            isDark = isDark,
-            blurRadius = 20.dp,
-            tintColor = dialogBg,
-            alpha = if (isDark) 0.90f else 0.88f,
-            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.80f)
-        ),
-        shape = LiquidShapes.Capsule,
-        containerColor = Color.Transparent,
-        titleContentColor = contentColor,
-        textContentColor = contentColor,
-        title = {
-            Text(
-                text = "Add Favorite",
-                style = MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp
-                )
-            )
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                OutlinedTextField(
-                    value = title,
-                    onValueChange = { title = it },
-                    label = { Text("Website Title / Name") },
-                    placeholder = { Text("e.g. YouTube, GitHub") },
-                    singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Next
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = LiquidOutline.copy(alpha = 0.35f),
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        cursorColor = MaterialTheme.colorScheme.primary
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                OutlinedTextField(
-                    value = url,
-                    onValueChange = {
-                        url = it
-                        if (isUrlError && it.isNotBlank()) {
-                            isUrlError = false
-                        }
-                    },
-                    label = { Text("Website URL") },
-                    placeholder = { Text("e.g. https://github.com") },
-                    singleLine = true,
-                    isError = isUrlError,
-                    supportingText = if (isUrlError) {
-                        { Text("URL cannot be empty", color = MaterialTheme.colorScheme.error) }
-                    } else null,
-                    shape = RoundedCornerShape(14.dp),
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Uri,
-                        imeAction = ImeAction.Done
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = { handleAdd() }
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = LiquidOutline.copy(alpha = 0.35f),
-                        focusedLabelColor = MaterialTheme.colorScheme.primary,
-                        cursorColor = MaterialTheme.colorScheme.primary
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = handleAdd,
-                shape = LiquidShapes.ButtonPill,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = Color.White
-                )
-            ) {
-                Text("Add", fontWeight = FontWeight.SemiBold)
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                shape = LiquidShapes.ButtonPill
-            ) {
-                Text(
-                    "Cancel",
-                    color = if (isDark) PastelRose else LiquidTertiary,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-    )
-}
-
-@Composable
 private fun RecentTabsSection(
     recentTabs: List<RecentTabItem>,
     isDark: Boolean,
@@ -860,8 +749,9 @@ private fun RecentTabSunsetCard(
     isDark: Boolean,
     onClick: () -> Unit
 ) {
-    val cardBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.78f)
-    val cardBorder: BorderStroke? = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.70f))
+    val homeHazeState = LocalHazeState.current
+    val tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White
+    val borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.70f)
 
     // Determine preview header gradient based on url hash for visual variety
     val previewGradient = when (kotlin.math.abs(item.url.hashCode()) % 3) {
@@ -891,13 +781,21 @@ private fun RecentTabSunsetCard(
 
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = cardBg,
-        border = cardBorder,
-        shadowElevation = 4.dp,
+        color = Color.Transparent,
+        border = null,
+        shadowElevation = 0.dp,
         modifier = Modifier
             .width(136.dp)
             .height(184.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .liquidFrostedGlass(
+                shape = RoundedCornerShape(18.dp),
+                isDark = isDark,
+                blurRadius = 16.dp,
+                tintColor = tintColor,
+                alpha = if (isDark) 0.85f else 0.78f,
+                borderColor = borderColor,
+                hazeState = homeHazeState
+            )
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -986,8 +884,11 @@ private fun RecentTabSunsetCard(
                     .padding(top = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(1.dp)
             ) {
+                val displayTitle = item.title.ifEmpty { hostDomain }
+                val displaySubtitle = if (item.title.isNotEmpty() && !item.title.equals(hostDomain, ignoreCase = true)) hostDomain else null
+
                 Text(
-                    text = item.title.ifEmpty { hostDomain },
+                    text = displayTitle,
                     style = MaterialTheme.typography.labelSmall.copy(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
@@ -996,19 +897,24 @@ private fun RecentTabSunsetCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = hostDomain,
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = formatRelativeTime(item.lastVisitedTimestamp),
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp),
-                    color = MaterialTheme.colorScheme.outline,
-                    maxLines = 1
-                )
+                if (displaySubtitle != null) {
+                    Text(
+                        text = displaySubtitle,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                val relativeTime = formatRelativeTime(item.lastVisitedTimestamp)
+                if (relativeTime.isNotEmpty()) {
+                    Text(
+                        text = relativeTime,
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp),
+                        color = MaterialTheme.colorScheme.outline,
+                        maxLines = 1
+                    )
+                }
             }
         }
     }
@@ -1019,18 +925,27 @@ private fun MoreHistoryCard(
     isDark: Boolean,
     onClick: () -> Unit
 ) {
-    val bg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.55f)
-    val border: BorderStroke? = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.75f))
+    val homeHazeState = LocalHazeState.current
+    val tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White
+    val borderColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.75f)
 
     Surface(
         shape = RoundedCornerShape(18.dp),
-        color = bg,
-        border = border,
-        shadowElevation = 2.dp,
+        color = Color.Transparent,
+        border = null,
+        shadowElevation = 0.dp,
         modifier = Modifier
             .width(110.dp)
             .height(184.dp)
-            .clip(RoundedCornerShape(18.dp))
+            .liquidFrostedGlass(
+                shape = RoundedCornerShape(18.dp),
+                isDark = isDark,
+                blurRadius = 14.dp,
+                tintColor = tintColor,
+                alpha = if (isDark) 0.60f else 0.55f,
+                borderColor = borderColor,
+                hazeState = homeHazeState
+            )
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -1078,8 +993,10 @@ private fun MoreHistoryCard(
 }
 
 private fun formatRelativeTime(timestamp: Long): String {
+    if (timestamp <= 0L) return ""
     val now = System.currentTimeMillis()
     val diff = now - timestamp
+    if (diff < 0) return "Just now"
     val minutes = diff / (1000 * 60)
     val hours = diff / (1000 * 60 * 60)
     val days = diff / (1000 * 60 * 60 * 24)
@@ -1092,3 +1009,123 @@ private fun formatRelativeTime(timestamp: Long): String {
         else -> "${days}d ago"
     }
 }
+
+@Preview(name = "RecentTabsSection Light", showBackground = true, widthDp = 412, heightDp = 260)
+@Composable
+fun RecentTabsSectionLightPreview() {
+    val hazeState = remember { dev.chrisbanes.haze.HazeState() }
+    JestkBrowserTheme(themeMode = ThemeMode.LIGHT, hazeState = hazeState) {
+        Box(modifier = Modifier.fillMaxWidth().height(260.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFFFFB4A2),
+                                Color(0xFFE5989B),
+                                Color(0xFFB5E2FA),
+                                Color(0xFFEDDCD2)
+                            )
+                        )
+                    )
+                    .haze(hazeState)
+            )
+            Box(modifier = Modifier.fillMaxSize().padding(vertical = 16.dp)) {
+                RecentTabsSection(
+                    recentTabs = listOf(
+                        RecentTabItem(title = "Kotlin Programming", url = "https://kotlinlang.org"),
+                        RecentTabItem(title = "Android Jetpack Compose", url = "https://developer.android.com/compose"),
+                        RecentTabItem(title = "GitHub", url = "https://github.com")
+                    ),
+                    isDark = false,
+                    onOpenRecent = {},
+                    onMoreClick = {}
+                )
+            }
+        }
+    }
+}
+
+@Preview(name = "RecentTabsSection Dark", showBackground = true, widthDp = 412, heightDp = 260)
+@Composable
+fun RecentTabsSectionDarkPreview() {
+    val hazeState = remember { dev.chrisbanes.haze.HazeState() }
+    JestkBrowserTheme(themeMode = ThemeMode.DARK, hazeState = hazeState) {
+        Box(modifier = Modifier.fillMaxWidth().height(260.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                Color(0xFF2B193D),
+                                Color(0xFF1B263B),
+                                Color(0xFF4A0E2E)
+                            )
+                        )
+                    )
+                    .haze(hazeState)
+            )
+            Box(modifier = Modifier.fillMaxSize().padding(vertical = 16.dp)) {
+                RecentTabsSection(
+                    recentTabs = listOf(
+                        RecentTabItem(title = "Kotlin Programming", url = "https://kotlinlang.org"),
+                        RecentTabItem(title = "Android Jetpack Compose", url = "https://developer.android.com/compose"),
+                        RecentTabItem(title = "GitHub", url = "https://github.com")
+                    ),
+                    isDark = true,
+                    onOpenRecent = {},
+                    onMoreClick = {}
+                )
+            }
+        }
+    }
+}
+
+@Preview(name = "HomeScreen Light", showBackground = true, widthDp = 412, heightDp = 915)
+@Composable
+fun HomeScreenLightPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+        HomeScreen(
+            uiState = BrowserUiState(
+                favorites = listOf(
+                    FavoriteItem(1, "Google", "https://google.com"),
+                    FavoriteItem(2, "GitHub", "https://github.com"),
+                    FavoriteItem(3, "Reddit", "https://reddit.com"),
+                    FavoriteItem(4, "Wikipedia", "https://wikipedia.org")
+                ),
+                recentTabs = listOf(
+                    RecentTabItem(title = "Kotlin Language", url = "https://kotlinlang.org"),
+                    RecentTabItem(title = "Jetpack Compose", url = "https://developer.android.com/compose"),
+                    RecentTabItem(title = "Android Documentation", url = "https://developer.android.com")
+                )
+            ),
+            onEvent = {}
+        )
+    }
+}
+
+@Preview(name = "HomeScreen Dark", showBackground = true, widthDp = 412, heightDp = 915)
+@Composable
+fun HomeScreenDarkPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+        HomeScreen(
+            uiState = BrowserUiState(
+                favorites = listOf(
+                    FavoriteItem(1, "Google", "https://google.com"),
+                    FavoriteItem(2, "GitHub", "https://github.com"),
+                    FavoriteItem(3, "Reddit", "https://reddit.com"),
+                    FavoriteItem(4, "Wikipedia", "https://wikipedia.org")
+                ),
+                recentTabs = listOf(
+                    RecentTabItem(title = "Kotlin Language", url = "https://kotlinlang.org"),
+                    RecentTabItem(title = "Jetpack Compose", url = "https://developer.android.com/compose"),
+                    RecentTabItem(title = "Android Documentation", url = "https://developer.android.com")
+                )
+            ),
+            onEvent = {}
+        )
+    }
+}
+

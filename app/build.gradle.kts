@@ -3,6 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
+    id("ee.schimke.composeai.preview") version "2.12.0"
+}
+
+composePreview {
+    variant.set("debug")
+    sdkVersion.set(35)
+    enabled.set(true)
 }
 
 android {
@@ -84,7 +91,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.9.0")
 
     // Jetpack Compose BOM & UI
-    val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
+    val composeBom = platform("androidx.compose:compose-bom:2025.12.00")
     implementation(composeBom)
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
@@ -92,6 +99,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.material:material") // PullRefreshIndicator & pullRefresh
+    implementation("dev.chrisbanes.haze:haze:1.1.1")
 
     // Android WebKit & System WebView
     implementation("androidx.webkit:webkit:1.12.1")
@@ -105,6 +113,7 @@ dependencies {
 
     // Image Loading (Favicons, Snapshot Thumbnails)
     implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("io.coil-kt:coil-svg:2.7.0")
 
     // Debug Tooling
     debugImplementation("androidx.compose.ui:ui-tooling")

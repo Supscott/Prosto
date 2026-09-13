@@ -53,11 +53,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -132,31 +135,41 @@ fun SearchOverlay(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     val isDark = LocalIsDarkTheme.current
+    val overlayHazeState = remember { dev.chrisbanes.haze.HazeState() }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .liquidSunsetBackground(isDark = isDark)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = { onEvent(BrowserUiEvent.DismissOverlay) }
-            )
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .imePadding()
-    ) {
-        Column(
-            modifier = Modifier
+    CompositionLocalProvider(com.jestk.browser.ui.theme.LocalHazeState provides overlayHazeState) {
+        Box(
+            modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = { onEvent(BrowserUiEvent.DismissOverlay) }
+                )
         ) {
+            // Layer 1: Ambient background registered with Haze to be blurred by children
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .liquidSunsetBackground(isDark = isDark)
+                    .haze(overlayHazeState)
+            )
+
+            // Layer 2: Foreground content containing frosted glass cards & input (hazeChild)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
             // Top Area: Scrollable column containing history suggestions & favorites
             Column(
                 modifier = Modifier
@@ -250,6 +263,7 @@ fun SearchOverlay(
         }
     }
 }
+}
 
 @Composable
 private fun HeroSearchInputField(
@@ -298,7 +312,7 @@ private fun HeroSearchInputField(
         shape = RoundedCornerShape(27.dp),
         color = Color.Transparent,
         border = null,
-        shadowElevation = 8.dp,
+        shadowElevation = 0.dp,
         modifier = modifier
             .height(54.dp)
             .liquidFrostedGlass(
@@ -307,7 +321,8 @@ private fun HeroSearchInputField(
                 blurRadius = 18.dp,
                 tintColor = bg,
                 alpha = if (isDark) 0.88f else 0.85f,
-                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f)
+                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f),
+                hazeState = com.jestk.browser.ui.theme.LocalHazeState.current
             )
     ) {
         Row(
@@ -467,7 +482,7 @@ private fun InsetGroupedHistoryCard(
             shape = LiquidShapes.Card,
             color = Color.Transparent,
             border = null,
-            shadowElevation = 4.dp,
+            shadowElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .liquidFrostedGlass(
@@ -476,7 +491,8 @@ private fun InsetGroupedHistoryCard(
                     blurRadius = 16.dp,
                     tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
                     alpha = if (isDark) 0.88f else 0.85f,
-                    borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.80f)
+                    borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.80f),
+                    hazeState = com.jestk.browser.ui.theme.LocalHazeState.current
                 )
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -550,6 +566,7 @@ private fun HistoryEmptyCard(isDark: Boolean) {
         shape = LiquidShapes.Card,
         color = Color.Transparent,
         border = null,
+        shadowElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 12.dp)
@@ -559,7 +576,8 @@ private fun HistoryEmptyCard(isDark: Boolean) {
                 blurRadius = 16.dp,
                 tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
                 alpha = if (isDark) 0.75f else 0.78f,
-                borderColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.60f)
+                borderColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.80f),
+                hazeState = com.jestk.browser.ui.theme.LocalHazeState.current
             )
     ) {
         Column(
@@ -635,7 +653,7 @@ private fun SearchFavoritesSection(
             shape = LiquidShapes.Card,
             color = Color.Transparent,
             border = null,
-            shadowElevation = 3.dp,
+            shadowElevation = 0.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .liquidFrostedGlass(
@@ -644,7 +662,8 @@ private fun SearchFavoritesSection(
                     blurRadius = 16.dp,
                     tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
                     alpha = if (isDark) 0.88f else 0.85f,
-                    borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.80f)
+                    borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.80f),
+                    hazeState = com.jestk.browser.ui.theme.LocalHazeState.current
                 )
         ) {
             val rows = itemsToDisplay.take(8).chunked(4)
@@ -702,7 +721,7 @@ private fun SearchFavoriteSquircleCard(
             shape = RoundedCornerShape(18.dp),
             color = defaultBg,
             border = border,
-            shadowElevation = 2.dp,
+            shadowElevation = 0.dp,
             modifier = Modifier.size(52.dp)
         ) {
             Box(
@@ -843,7 +862,7 @@ private fun SearchEngineChip(
         shape = CircleShape,
         color = containerColor,
         border = border,
-        shadowElevation = if (isSelected) 3.dp else 1.dp,
+        shadowElevation = 0.dp,
         modifier = modifier
             .clip(CircleShape)
             .clickable(onClick = onClick)
@@ -871,13 +890,24 @@ private fun SearchEngineChip(
     }
 }
 
-@Preview(name = "SearchOverlay Light", showBackground = true, backgroundColor = 0xFFFFF8F8)
+@Preview(name = "SearchOverlay Light", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFFFFF8F8)
 @Composable
 fun SearchOverlayLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
         SearchOverlay(
             uiState = BrowserUiState(
                 searchQuery = "",
+                searchHistorySuggestions = listOf(
+                    com.jestk.browser.domain.model.HistoryItem(id = 1, title = "Kotlin Backdrop Blur Jetpack Compose", url = "https://duckduckgo.com/?q=kotlin+backdrop+blur", timestamp = System.currentTimeMillis()),
+                    com.jestk.browser.domain.model.HistoryItem(id = 2, title = "Material 3 Liquid Glass Design System", url = "https://duckduckgo.com/?q=material+3+liquid+glass", timestamp = System.currentTimeMillis() - 60000),
+                    com.jestk.browser.domain.model.HistoryItem(id = 3, title = "Android Developer Documentation", url = "https://developer.android.com", timestamp = System.currentTimeMillis() - 120000)
+                ),
+                favorites = listOf(
+                    com.jestk.browser.domain.model.FavoriteItem(id = 1, title = "Google", url = "https://google.com"),
+                    com.jestk.browser.domain.model.FavoriteItem(id = 2, title = "GitHub", url = "https://github.com"),
+                    com.jestk.browser.domain.model.FavoriteItem(id = 3, title = "Reddit", url = "https://reddit.com"),
+                    com.jestk.browser.domain.model.FavoriteItem(id = 4, title = "Wikipedia", url = "https://wikipedia.org")
+                ),
                 settings = com.jestk.browser.domain.model.BrowserSettings(
                     searchEngine = SearchEngine.DUCKDUCKGO
                 )
@@ -887,13 +917,21 @@ fun SearchOverlayLightPreview() {
     }
 }
 
-@Preview(name = "SearchOverlay Dark", showBackground = true, backgroundColor = 0xFF161314)
+@Preview(name = "SearchOverlay Dark", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFF161314)
 @Composable
 fun SearchOverlayDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         SearchOverlay(
             uiState = BrowserUiState(
                 searchQuery = "",
+                searchHistorySuggestions = listOf(
+                    com.jestk.browser.domain.model.HistoryItem(id = 1, title = "Kotlin Backdrop Blur Jetpack Compose", url = "https://duckduckgo.com/?q=kotlin+backdrop+blur", timestamp = System.currentTimeMillis()),
+                    com.jestk.browser.domain.model.HistoryItem(id = 2, title = "Material 3 Liquid Glass Design System", url = "https://duckduckgo.com/?q=material+3+liquid+glass", timestamp = System.currentTimeMillis() - 60000)
+                ),
+                favorites = listOf(
+                    com.jestk.browser.domain.model.FavoriteItem(id = 1, title = "Google", url = "https://google.com"),
+                    com.jestk.browser.domain.model.FavoriteItem(id = 2, title = "GitHub", url = "https://github.com")
+                ),
                 settings = com.jestk.browser.domain.model.BrowserSettings(
                     searchEngine = SearchEngine.GOOGLE
                 )

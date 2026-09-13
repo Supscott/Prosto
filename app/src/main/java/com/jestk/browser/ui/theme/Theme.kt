@@ -22,6 +22,12 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.ThemeMode
+import dev.chrisbanes.haze.HazeDefaults
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.HazeStyle
+import dev.chrisbanes.haze.HazeTint
+import dev.chrisbanes.haze.haze
+import dev.chrisbanes.haze.hazeChild
 
 private val DarkColorScheme = darkColorScheme(
     primary = LiquidPrimaryFixedDim,
@@ -84,6 +90,7 @@ private val LightColorScheme = lightColorScheme(
 )
 
 val LocalIsDarkTheme = compositionLocalOf { false }
+val LocalHazeState = compositionLocalOf<HazeState?> { null }
 
 @Composable
 fun isAppDarkTheme(themeMode: ThemeMode = ThemeMode.SYSTEM): Boolean {
@@ -97,13 +104,16 @@ fun isAppDarkTheme(themeMode: ThemeMode = ThemeMode.SYSTEM): Boolean {
 @Composable
 fun JestkBrowserTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
+    hazeState: HazeState? = null,
     content: @Composable () -> Unit
 ) {
     val darkTheme = isAppDarkTheme(themeMode)
-
     val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
 
-    CompositionLocalProvider(LocalIsDarkTheme provides darkTheme) {
+    CompositionLocalProvider(
+        LocalIsDarkTheme provides darkTheme,
+        LocalHazeState provides hazeState
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             content = content
@@ -137,8 +147,8 @@ object LiquidBorders {
 
 /**
  * Reusable frosted glass / backdrop blur extension modifier for the Liquid Pastel Sunset design system.
- * Supports Android 12+ (API 31+) hardware-accelerated blur effects with graceful fallback on older APIs
- * via a semi-transparent tinted surface + white/light stroke border.
+ * When [hazeState] is provided, applies real-time hardware-accelerated backdrop blur to content behind the element.
+ * Supports graceful fallback to semi-transparent tinted surface + white/light stroke border when blur is unavailable.
  */
 fun Modifier.liquidFrostedGlass(
     shape: Shape = LiquidShapes.Card,
@@ -147,7 +157,8 @@ fun Modifier.liquidFrostedGlass(
     tintColor: Color? = null,
     alpha: Float? = null,
     borderColor: Color? = null,
-    borderWidth: Dp = 1.dp
+    borderWidth: Dp = 1.dp,
+    hazeState: HazeState? = null
 ): Modifier {
     val defaultAlpha = if (isDark) 0.86f else 0.82f
     val resolvedAlpha = alpha ?: defaultAlpha
@@ -161,14 +172,26 @@ fun Modifier.liquidFrostedGlass(
     }
     val resolvedBorder = BorderStroke(borderWidth, borderColor ?: defaultBorderColor)
 
-    return this
-        .clip(shape)
-        .background(color = tintedBg, shape = shape)
-        .border(border = resolvedBorder, shape = shape)
+    val baseModifier = this.clip(shape)
+
+    val glassModifier = if (hazeState != null) {
+        baseModifier.hazeChild(
+            state = hazeState,
+            style = HazeStyle(
+                backgroundColor = baseTint,
+                tint = HazeTint(tintedBg),
+                blurRadius = blurRadius
+            )
+        )
+    } else {
+        baseModifier.background(color = tintedBg, shape = shape)
+    }
+
+    return glassModifier.border(border = resolvedBorder, shape = shape)
 }
 
 /**
- * Frosted glass container box composable supporting true backdrop blur on API 31+
+ * Frosted glass container box composable supporting true backdrop blur via Haze
  * with fallback to semi-transparent surface + border on older APIs.
  */
 @Composable
@@ -181,39 +204,21 @@ fun LiquidFrostedGlassBox(
     alpha: Float? = null,
     borderColor: Color? = null,
     borderWidth: Dp = 1.dp,
+    hazeState: HazeState? = LocalHazeState.current,
     content: @Composable BoxScope.() -> Unit
 ) {
-    val defaultAlpha = if (isDark) 0.86f else 0.82f
-    val resolvedAlpha = alpha ?: defaultAlpha
-    val baseTint = tintColor ?: if (isDark) Color(0xFF1E1B1C) else Color(0xFFFFF8F8)
-    val tintedBg = baseTint.copy(alpha = resolvedAlpha)
-
-    val defaultBorderColor = if (isDark) {
-        Color.White.copy(alpha = 0.14f)
-    } else {
-        Color.White.copy(alpha = 0.75f)
-    }
-    val resolvedBorder = BorderStroke(borderWidth, borderColor ?: defaultBorderColor)
-
     Box(
-        modifier = modifier
-            .clip(shape)
-            .border(border = resolvedBorder, shape = shape)
+        modifier = modifier.liquidFrostedGlass(
+            shape = shape,
+            isDark = isDark,
+            blurRadius = blurRadius,
+            tintColor = tintColor,
+            alpha = alpha,
+            borderColor = borderColor,
+            borderWidth = borderWidth,
+            hazeState = hazeState
+        )
     ) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && blurRadius > 0.dp) {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .blur(radius = blurRadius)
-                    .background(tintedBg)
-            )
-        } else {
-            Box(
-                modifier = Modifier
-                    .matchParentSize()
-                    .background(tintedBg)
-            )
-        }
         content()
     }
 }

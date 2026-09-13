@@ -90,6 +90,8 @@ import com.jestk.browser.ui.theme.SunsetSwitchBrush
 import com.jestk.browser.ui.theme.LiquidShapes
 import com.jestk.browser.ui.theme.LiquidBorders
 import com.jestk.browser.ui.theme.liquidFrostedGlass
+import com.jestk.browser.ui.theme.JestkBrowserTheme
+import androidx.compose.ui.tooling.preview.Preview
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
@@ -109,11 +111,8 @@ fun SettingsSheet(
     modifier: Modifier = Modifier
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val context = LocalContext.current
-    val scrollState = rememberScrollState()
     val isDark = LocalIsDarkTheme.current
-
-    val sheetBg = if (isDark) Color(0xFF161314).copy(alpha = 0.92f) else Color(0xFFFFF8F8).copy(alpha = 0.90f)
+    val sheetBg = if (isDark) Color(0xFF161314).copy(alpha = 0.94f) else Color(0xFFFFF8F8).copy(alpha = 0.94f)
 
     ModalBottomSheet(
         onDismissRequest = { onEvent(BrowserUiEvent.DismissOverlay) },
@@ -122,141 +121,142 @@ fun SettingsSheet(
         containerColor = sheetBg,
         modifier = modifier
     ) {
-        Column(
+        SettingsSheetContent(
+            uiState = uiState,
+            onEvent = onEvent
+        )
+    }
+}
+
+@Composable
+fun SettingsSheetContent(
+    uiState: BrowserUiState,
+    onEvent: (BrowserUiEvent) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val scrollState = rememberScrollState()
+    val isDark = LocalIsDarkTheme.current
+    var isTrackingProtectionEnabled by remember { mutableStateOf(true) }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = 20.dp)
+            .verticalScroll(scrollState)
+            .padding(bottom = 36.dp)
+    ) {
+        // Unified Header Bar with Title and Close Action
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
-                .verticalScroll(scrollState)
-                .padding(bottom = 36.dp)
+                .padding(top = 4.dp, bottom = 16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Header Bar
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { onEvent(BrowserUiEvent.DismissOverlay) },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                        contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Text(
-                    text = "Browser Settings",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 17.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                IconButton(
-                    onClick = { onEvent(BrowserUiEvent.DismissOverlay) },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Large Title
             Text(
                 text = "Settings",
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp,
+                    fontSize = 26.sp,
                     letterSpacing = (-0.5).sp
                 ),
                 color = MaterialTheme.colorScheme.onSurface
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            IconButton(
+                onClick = { onEvent(BrowserUiEvent.DismissOverlay) },
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0xFF2C2829) else LiquidSurfaceContainerHigh.copy(alpha = 0.60f))
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Close",
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
 
-            // SECTION 1: THEME PICKER (Segmented Control Glass Container)
-            SettingsSectionHeader(title = "APPEARANCE")
-            SegmentedThemeControl(
-                selectedMode = uiState.settings.themeMode,
-                isDark = isDark,
-                onSelectMode = { onEvent(BrowserUiEvent.SetThemeMode(it)) }
-            )
+        // SECTION 1: THEME PICKER (Segmented Control Glass Container)
+        SettingsSectionHeader(title = "APPEARANCE")
+        SegmentedThemeControl(
+            selectedMode = uiState.settings.themeMode,
+            isDark = isDark,
+            onSelectMode = { onEvent(BrowserUiEvent.SetThemeMode(it)) }
+        )
 
-            Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
-            // SECTION 2: ACCOUNT
-            SettingsSectionHeader(title = "ACCOUNT")
-            InsetGroupedCard(isDark = isDark) {
-                // Profile Hero Row
-                Row(
+        // SECTION 2: ACCOUNT
+        SettingsSectionHeader(title = "ACCOUNT")
+        InsetGroupedCard(isDark = isDark) {
+            // Profile Hero Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        Toast.makeText(context, "Account: sync@jestk.com", Toast.LENGTH_SHORT).show()
+                    }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {}
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) Color(0xFF663C27) else LiquidSecondaryFixed.copy(alpha = 0.50f)),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .background(if (isDark) Color(0xFF663C27) else LiquidSecondaryFixed.copy(alpha = 0.50f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = if (isDark) PastelPeach else LiquidSecondary,
-                            modifier = Modifier.size(26.dp)
-                        )
-                    }
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "User Account",
-                            style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "sync@jestk.com",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
-
                     Icon(
-                        imageVector = Icons.Default.ChevronRight,
+                        imageVector = Icons.Default.Person,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(20.dp)
+                        tint = if (isDark) PastelPeach else LiquidSecondary,
+                        modifier = Modifier.size(26.dp)
                     )
                 }
 
-                HorizontalDivider(
-                    color = if (isDark) Color(0xFF4D4546).copy(alpha = 0.40f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f),
-                    modifier = Modifier.padding(start = 74.dp)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "User Account",
+                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "sync@jestk.com",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
 
-                // Sync Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {}
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            HorizontalDivider(
+                color = if (isDark) Color(0xFF4D4546).copy(alpha = 0.40f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f),
+                modifier = Modifier.padding(start = 74.dp)
+            )
+
+            // Sync Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        Toast.makeText(context, "Sync is active across devices", Toast.LENGTH_SHORT).show()
+                    }
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
                     Box(
                         modifier = Modifier
                             .size(34.dp)
@@ -440,8 +440,8 @@ fun SettingsSheet(
                     }
 
                     LiquidSunsetSwitch(
-                        checked = true,
-                        onCheckedChange = {}
+                        checked = isTrackingProtectionEnabled,
+                        onCheckedChange = { isTrackingProtectionEnabled = it }
                     )
                 }
 
@@ -625,7 +625,6 @@ fun SettingsSheet(
             }
         }
     }
-}
 
 @Composable
 private fun SettingsSectionHeader(
@@ -653,7 +652,7 @@ private fun InsetGroupedCard(
         shape = LiquidShapes.Card,
         color = Color.Transparent,
         border = null,
-        shadowElevation = 4.dp,
+        shadowElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
             .liquidFrostedGlass(
@@ -681,7 +680,7 @@ private fun SegmentedThemeControl(
         shape = LiquidShapes.Card,
         color = Color.Transparent,
         border = null,
-        shadowElevation = 2.dp,
+        shadowElevation = 0.dp,
         modifier = Modifier
             .fillMaxWidth()
             .liquidFrostedGlass(
@@ -715,7 +714,7 @@ private fun SegmentedThemeControl(
                     shape = RoundedCornerShape(14.dp),
                     color = segmentBg,
                     border = segmentBorder,
-                    shadowElevation = if (isSelected) 2.dp else 0.dp,
+                    shadowElevation = 0.dp,
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
@@ -767,7 +766,7 @@ private fun LiquidSunsetSwitch(
 ) {
     val isDark = LocalIsDarkTheme.current
     val thumbOffset by animateDpAsState(
-        targetValue = if (checked) 20.dp else 2.dp,
+        targetValue = if (checked) 22.dp else 2.dp,
         animationSpec = tween(durationMillis = 220),
         label = "SwitchThumbTranslation"
     )
@@ -787,7 +786,8 @@ private fun LiquidSunsetSwitch(
         Surface(
             shape = CircleShape,
             color = Color.White,
-            shadowElevation = 3.dp,
+            border = BorderStroke(0.5.dp, Color.Black.copy(alpha = 0.08f)),
+            shadowElevation = 0.dp,
             modifier = Modifier
                 .offset(x = thumbOffset)
                 .size(27.dp)
@@ -828,5 +828,39 @@ private fun HyperlinkRow(
             tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(18.dp)
         )
+    }
+}
+
+@Preview(name = "SettingsSheet Light", showBackground = true, widthDp = 412, heightDp = 800)
+@Composable
+fun SettingsSheetLightPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFFFF8F8))
+        ) {
+            SettingsSheetContent(
+                uiState = BrowserUiState(),
+                onEvent = {}
+            )
+        }
+    }
+}
+
+@Preview(name = "SettingsSheet Dark", showBackground = true, widthDp = 412, heightDp = 800)
+@Composable
+fun SettingsSheetDarkPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFF161314))
+        ) {
+            SettingsSheetContent(
+                uiState = BrowserUiState(),
+                onEvent = {}
+            )
+        }
     }
 }

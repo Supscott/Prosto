@@ -108,7 +108,10 @@ import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.PastelRose
 import com.jestk.browser.ui.theme.LiquidShapes
 import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.LocalHazeState
 import com.jestk.browser.ui.theme.liquidFrostedGlass
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import java.net.URI
@@ -125,7 +128,8 @@ import java.net.URI
 fun UnifiedBottomBar(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    hazeState: HazeState? = LocalHazeState.current
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -204,7 +208,8 @@ fun UnifiedBottomBar(
                             blurRadius = 18.dp,
                             tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
                             alpha = if (isDark) 0.90f else 0.88f,
-                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.80f)
+                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.80f),
+                            hazeState = hazeState
                         )
                 ) {
                     Column(
@@ -340,7 +345,8 @@ fun UnifiedBottomBar(
                             blurRadius = 18.dp,
                             tintColor = if (isDark) Color(0xFF1E1B1C) else LiquidSurface,
                             alpha = if (isDark) 0.85f else 0.85f,
-                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.75f)
+                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.75f),
+                            hazeState = hazeState
                         )
                         .pointerInput(density) {
                             val swipeThresholdPx = with(density) { 30.dp.toPx() }
@@ -572,7 +578,8 @@ fun UnifiedBottomBar(
                             blurRadius = 16.dp,
                             tintColor = circleBtnBg,
                             alpha = if (isDark) 0.80f else 0.75f,
-                            borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.60f)
+                            borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.60f),
+                            hazeState = hazeState
                         )
                 ) {
                     Box(
@@ -1112,13 +1119,42 @@ fun DualTierBottomBar(
 @Preview(name = "BottomBar Light", showBackground = true, backgroundColor = 0xFFC5CED9)
 @Composable
 fun UnifiedBottomBarLightPreview() {
-    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+    val hazeState = remember { dev.chrisbanes.haze.HazeState() }
+    JestkBrowserTheme(themeMode = ThemeMode.LIGHT, hazeState = hazeState) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFFE8EDF5)),
+                .height(180.dp)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFFFB4A2), // Coral peach
+                            Color(0xFFE5989B), // Rose
+                            Color(0xFFB5E2FA), // Sky blue
+                            Color(0xFFEDDCD2)  // Sand
+                        )
+                    )
+                )
+                .haze(hazeState),
             contentAlignment = Alignment.BottomCenter
         ) {
+            // Background colorful circles to demonstrate blur through glass
+            Box(
+                modifier = Modifier
+                    .size(90.dp)
+                    .align(Alignment.CenterStart)
+                    .padding(start = 24.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE63946))
+            )
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .align(Alignment.Center)
+                    .clip(CircleShape)
+                    .background(Color(0xFF457B9D))
+            )
+
             UnifiedBottomBar(
                 uiState = BrowserUiState(
                     currentUrl = "https://example.com",
@@ -1129,6 +1165,7 @@ fun UnifiedBottomBarLightPreview() {
                     ),
                     activeTabId = "1"
                 ),
+                hazeState = hazeState,
                 onEvent = {}
             )
         }
@@ -1138,13 +1175,41 @@ fun UnifiedBottomBarLightPreview() {
 @Preview(name = "BottomBar Dark", showBackground = true, backgroundColor = 0xFF100E0F)
 @Composable
 fun UnifiedBottomBarDarkPreview() {
-    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+    val hazeState = remember { dev.chrisbanes.haze.HazeState() }
+    JestkBrowserTheme(themeMode = ThemeMode.DARK, hazeState = hazeState) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF100E0F)),
+                .height(180.dp)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF2B193D),
+                            Color(0xFF1B263B),
+                            Color(0xFF4A0E2E)
+                        )
+                    )
+                )
+                .haze(hazeState),
             contentAlignment = Alignment.BottomCenter
         ) {
+            // Bright background geometric shapes to showcase blur through dark glass dock
+            Box(
+                modifier = Modifier
+                    .size(90.dp)
+                    .align(Alignment.CenterStart)
+                    .padding(start = 24.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFF758F))
+            )
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .align(Alignment.Center)
+                    .clip(CircleShape)
+                    .background(Color(0xFF48CAE4))
+            )
+
             UnifiedBottomBar(
                 uiState = BrowserUiState(
                     currentUrl = "https://example.com",
@@ -1155,6 +1220,7 @@ fun UnifiedBottomBarDarkPreview() {
                     ),
                     activeTabId = "1"
                 ),
+                hazeState = hazeState,
                 onEvent = {}
             )
         }

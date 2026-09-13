@@ -83,6 +83,8 @@ import com.jestk.browser.ui.theme.LiquidPrimary
 import com.jestk.browser.ui.theme.LiquidShapes
 import com.jestk.browser.ui.theme.LiquidBorders
 import com.jestk.browser.ui.theme.liquidFrostedGlass
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -182,7 +184,12 @@ fun JestkApp(
         }
     }
 
-    JestkBrowserTheme(themeMode = uiState.settings.themeMode) {
+    val rootHazeState = remember { HazeState() }
+
+    JestkBrowserTheme(
+        themeMode = uiState.settings.themeMode,
+        hazeState = rootHazeState
+    ) {
         val isDark = LocalIsDarkTheme.current
         val currentContext = LocalContext.current
         LaunchedEffect(isDark) {
@@ -295,22 +302,29 @@ fun JestkApp(
         ) {
             // Main Viewport: WebView Container or Home Screen
 
-            if (showHomeScreen) {
-                HomeScreen(
-                    uiState = uiState,
-                    onEvent = viewModel::onEvent,
-                    modifier = Modifier.fillMaxSize()
-                )
-            } else {
-                uiState.activeTabId?.let { activeId ->
-                    key(activeId) {
-                        WebViewContainer(
-                            tabId = activeId,
-                            webViewPool = webViewPool,
-                            uiState = uiState,
-                            onEvent = viewModel::onEvent,
-                            modifier = Modifier.fillMaxSize()
-                        )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+            ) {
+                if (showHomeScreen) {
+                    HomeScreen(
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    uiState.activeTabId?.let { activeId ->
+                        key(activeId) {
+                            WebViewContainer(
+                                tabId = activeId,
+                                webViewPool = webViewPool,
+                                uiState = uiState,
+                                onEvent = viewModel::onEvent,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .haze(rootHazeState)
+                            )
+                        }
                     }
                 }
             }
@@ -334,7 +348,8 @@ fun JestkApp(
                 UnifiedBottomBar(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                    hazeState = rootHazeState
                 )
             }
 
@@ -410,7 +425,8 @@ fun JestkApp(
                             blurRadius = 18.dp,
                             tintColor = if (isDark) Color(0xFF242021) else Color.White,
                             alpha = if (isDark) 0.90f else 0.90f,
-                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f)
+                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f),
+                            hazeState = rootHazeState
                         )
                 ) {
                     Row(
@@ -486,7 +502,8 @@ fun JestkApp(
                             blurRadius = 18.dp,
                             tintColor = if (isDark) Color(0xFF242021) else Color.White,
                             alpha = if (isDark) 0.90f else 0.90f,
-                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f)
+                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f),
+                            hazeState = rootHazeState
                         )
                 ) {
                     Row(
