@@ -1,0 +1,223 @@
+package com.jestk.browser.engine
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+class AdBlockerEngineTest {
+
+    private lateinit var context: Context
+
+    @Before
+    fun setUp() {
+        context = ApplicationProvider.getApplicationContext()
+        AdBlockerEngine.resetForTests()
+    }
+
+    @After
+    fun tearDown() {
+        AdBlockerEngine.resetForTests()
+    }
+
+    // --- 1. ABP Rule Extraction Tests ---
+
+    @Test
+    fun extractDomainFromAbpRule_extractsCleanDomain() {
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||doubleclick.net^"))
+            .isEqualTo("doubleclick.net")
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||googleadservices.com^"))
+            .isEqualTo("googleadservices.com")
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||analytics-consent-manager.azureedge.net^"))
+            .isEqualTo("analytics-consent-manager.azureedge.net")
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||ccpa.sp-prod.net^"))
+            .isEqualTo("ccpa.sp-prod.net")
+    }
+
+    @Test
+    fun extractDomainFromAbpRule_extractsDomainWithOptions() {
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||demand.supply^\$script"))
+            .isEqualTo("demand.supply")
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||0i0i0i0.com^\$document"))
+            .isEqualTo("0i0i0i0.com")
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||acconsento.click^\$third-party"))
+            .isEqualTo("acconsento.click")
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||app.livemarketshoppers.com^\$script,third-party"))
+            .isEqualTo("app.livemarketshoppers.com")
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||axept.io^\$third-party,domain=~axeptio.eu"))
+            .isEqualTo("axept.io")
+    }
+
+    @Test
+    fun extractDomainFromAbpRule_caseInsensitive() {
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||DOUBLECLICK.NET^"))
+            .isEqualTo("doubleclick.net")
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||AdServer.Example.COM^\$script"))
+            .isEqualTo("adserver.example.com")
+    }
+
+    @Test
+    fun extractDomainFromAbpRule_ignoresCommentsAndHeaders() {
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("! Title: EasyList")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("! *** easylist_general_block.txt ***")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("[Adblock Plus 2.0]")).isNull()
+    }
+
+    @Test
+    fun extractDomainFromAbpRule_ignoresWhitelistAndElementHidingRules() {
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("@@||doubleclick.net^")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("@@||example.com^\$document")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("example.com##.ad-banner")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("example.com#?#.ad-banner")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("##.cookie-banner")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("#?#.cookie-modal")).isNull()
+    }
+
+    @Test
+    fun extractDomainFromAbpRule_ignoresPathRulesAndWildcards() {
+        // Path after caret or slash before caret
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||dev.to/bb/sidebar_left^")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||cacheserve.*/promodisplay/")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||media.max.com/*/dash.mpd^\$domain=cnn.com")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||domain.com^something/path")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||util-*.simply-hentai.com^")).isNull()
+    }
+
+    @Test
+    fun extractDomainFromAbpRule_ignoresInvalidOrMalformedLines() {
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("   ")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||^")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||nodot^")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||.starts-with-dot.com^")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||ends-with-dot.com.^")).isNull()
+    }
+
+    @Test
+    fun extractDomainFromHostsLine_parsesStandardHostsFormats() {
+        assertThat(AdBlockerEngine.extractDomainFromHostsLine("127.0.0.1 doubleclick.net"))
+            .isEqualTo("doubleclick.net")
+        assertThat(AdBlockerEngine.extractDomainFromHostsLine("0.0.0.0 tracker.com"))
+            .isEqualTo("tracker.com")
+        assertThat(AdBlockerEngine.extractDomainFromHostsLine("adservice.google.com"))
+            .isEqualTo("adservice.google.com")
+        assertThat(AdBlockerEngine.extractDomainFromHostsLine("# Comment line")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromHostsLine("")).isNull()
+    }
+
+    // --- 2. Cold Start Instant Readiness Tests ---
+
+    @Test
+    fun coldStart_defaultHostsImmediatelyBlockedWithoutWaitingForAssets() {
+        // Engine is freshly reset, assets are NOT initialized yet
+        assertThat(AdBlockerEngine.isReady()).isFalse()
+
+        // Default hosts must be blocked immediately
+        assertThat(AdBlockerEngine.shouldBlock("https://doubleclick.net")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://googleadservices.com/pagead")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://googlesyndication.com")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://google-analytics.com/analytics.js")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://criteo.com")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://taboola.com")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://outbrain.com")).isTrue()
+    }
+
+    // --- 3. Full Asset Initialization & Rule Blocking Tests ---
+
+    @Test
+    fun initialize_asynchronouslyLoadsEasyListAndEasyListCookie() = runBlocking {
+        assertThat(AdBlockerEngine.isReady()).isFalse()
+
+        val job = AdBlockerEngine.initialize(context)
+        job.join()
+
+        assertThat(AdBlockerEngine.isReady()).isTrue()
+        assertThat(AdBlockerEngine.getRulesCount()).isGreaterThan(40000)
+
+        // Verify known EasyList ad domains
+        assertThat(AdBlockerEngine.shouldBlock("https://000491b06a.com/ad.js")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://0019x.com")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://a-ads.com")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://demand.supply/script.js")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://0i0i0i0.com")).isTrue()
+
+        // Verify known EasyListCookie domains
+        assertThat(AdBlockerEngine.shouldBlock("https://acconsento.click")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://ccpa.sp-prod.net")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://appconsent.io")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://axept.io")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://bigidcmp.cloud")).isTrue()
+    }
+
+    // --- 4. Subdomain Blocking Tests ---
+
+    @Test
+    fun shouldBlock_subdomainBlockingWalksHierarchy() = runBlocking {
+        AdBlockerEngine.initialize(context).join()
+
+        // Direct host match
+        assertThat(AdBlockerEngine.shouldBlock("https://doubleclick.net")).isTrue()
+        // Single level subdomain
+        assertThat(AdBlockerEngine.shouldBlock("https://ad.doubleclick.net")).isTrue()
+        // Multi level subdomain
+        assertThat(AdBlockerEngine.shouldBlock("https://deeply.nested.sub.doubleclick.net/test.js")).isTrue()
+        // Scheme-relative URL
+        assertThat(AdBlockerEngine.shouldBlock("//stats.doubleclick.net/pixel")).isTrue()
+        // Raw host string without scheme
+        assertThat(AdBlockerEngine.shouldBlock("ad.doubleclick.net")).isTrue()
+        // Cookie subdomain
+        assertThat(AdBlockerEngine.shouldBlock("https://sdk.appconsent.io/embed.js")).isTrue()
+    }
+
+    @Test
+    fun shouldBlock_subdomainOfLegitimateDomainIsNotBlocked() = runBlocking {
+        AdBlockerEngine.initialize(context).join()
+
+        // Legitimate domain containing blocked keyword as subdomain or vice versa
+        // doubleclick.net is blocked, but doubleclick.net.example.com has parent example.com
+        assertThat(AdBlockerEngine.shouldBlock("https://doubleclick.net.example.com")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://notdoubleclick.net")).isFalse()
+    }
+
+    // --- 5. Benign URLs Allowed Tests ---
+
+    @Test
+    fun shouldBlock_allowsLegitimateSites() = runBlocking {
+        AdBlockerEngine.initialize(context).join()
+
+        assertThat(AdBlockerEngine.shouldBlock("https://google.com")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://developer.android.com/reference")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://github.com/kotlin/kotlinx.coroutines")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://en.wikipedia.org/wiki/Main_Page")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://jestk.com")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://example.com/article?id=42")).isFalse()
+    }
+
+    @Test
+    fun shouldBlock_handlesEdgeCasesAndSpecialSchemes() {
+        assertThat(AdBlockerEngine.shouldBlock(null)).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("   ")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("about:blank")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("data:image/png;base64,iVBORw0KGgo=")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("javascript:void(0)")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("file:///android_asset/test.html")).isFalse()
+    }
+
+    // --- 6. Blocked WebResourceResponse Test ---
+
+    @Test
+    fun createBlockedResponse_returnsEmptyTextResponse() {
+        val response = AdBlockerEngine.createBlockedResponse()
+        assertThat(response.mimeType).isEqualTo("text/plain")
+        assertThat(response.encoding).isEqualTo("UTF-8")
+        assertThat(response.data.read()).isEqualTo(-1) // Empty stream
+    }
+}

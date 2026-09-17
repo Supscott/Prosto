@@ -129,14 +129,26 @@ fun WebViewContainer(
                             true
                         }
                     }
+                    WebView.HitTestResult.IMAGE_TYPE -> {
+                        val imageUrl = hitTest.extra
+                        if (!imageUrl.isNullOrBlank()) {
+                            currentOnEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+                            true
+                        } else false
+                    }
                     WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
                         val fallbackUrl = hitTest.extra
                         val handler = object : Handler(Looper.getMainLooper()) {
                             override fun handleMessage(msg: Message) {
-                                val nodeUrl = msg.data?.getString("url")
-                                val target = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
-                                if (!target.isNullOrBlank()) {
-                                    currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(target))
+                                val imageUrl = msg.data?.getString("src")
+                                if (!imageUrl.isNullOrBlank()) {
+                                    currentOnEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+                                } else {
+                                    val nodeUrl = msg.data?.getString("url")
+                                    val target = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
+                                    if (!target.isNullOrBlank()) {
+                                        currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(target))
+                                    }
                                 }
                             }
                         }
@@ -154,10 +166,15 @@ fun WebViewContainer(
                         val fallbackUrl = hitTest.extra
                         val handler = object : Handler(Looper.getMainLooper()) {
                             override fun handleMessage(msg: Message) {
-                                val nodeUrl = msg.data?.getString("url")
-                                val target = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
-                                if (!target.isNullOrBlank()) {
-                                    currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(target))
+                                val imageUrl = msg.data?.getString("src")
+                                if (!imageUrl.isNullOrBlank()) {
+                                    currentOnEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+                                } else {
+                                    val nodeUrl = msg.data?.getString("url")
+                                    val target = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
+                                    if (!target.isNullOrBlank()) {
+                                        currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(target))
+                                    }
                                 }
                             }
                         }

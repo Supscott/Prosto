@@ -87,4 +87,14 @@ sealed interface BrowserUiEvent {
     data class ShowLinkContextMenu(val url: String) : BrowserUiEvent
     data object DismissLinkContextMenu : BrowserUiEvent
     data class OpenTabInBackground(val url: String) : BrowserUiEvent
+
+    // Default Browser
+    data class UpdateDefaultBrowserStatus(val isDefault: Boolean) : BrowserUiEvent
+
+    // Image Context Menu
+    data class ShowImageContextMenu(val imageUrl: String) : BrowserUiEvent
+    data object DismissImageContextMenu : BrowserUiEvent
+    data class CopyImageUrl(val imageUrl: String) : BrowserUiEvent
+    data class DownloadImage(val imageUrl: String) : BrowserUiEvent
+    data class PreviewImageInNewTab(val imageUrl: String) : BrowserUiEvent
 }

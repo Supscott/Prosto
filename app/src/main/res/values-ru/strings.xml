@@ -35,4 +35,15 @@
     <string name="url_copied">URL скопирован в буфер обмена</string>
     <string name="tab_closed">Вкладка закрыта</string>
     <string name="undo">Отмена</string>
+    <string name="default_browser_prompt_title">Сделать Hori браузером по умолчанию</string>
+    <string name="default_browser_prompt_desc">Быстрый и удобный сёрфинг с Hori</string>
+    <string name="default_browser_prompt_button">Сделать по умолчанию</string>
+    <string name="default_browser_tile_title">Браузер по умолчанию</string>
+    <string name="default_browser_tile_desc">Назначить Hori браузером по умолчанию</string>
+    <string name="default_browser_tile_action">Настроить</string>
+    <string name="dismiss">Закрыть</string>
+    <string name="copy_image_url">Скопировать ссылку на изображение</string>
+    <string name="download_image">Скачать изображение</string>
+    <string name="preview_image">Превью (открыть в новой вкладке)</string>
+    <string name="image_url_copied">Ссылка на изображение скопирована</string>
 </resources>

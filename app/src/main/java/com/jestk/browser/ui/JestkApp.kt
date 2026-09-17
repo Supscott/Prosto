@@ -34,6 +34,7 @@ import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.DownloadsSheet
+import com.jestk.browser.ui.overlays.ImageContextMenuBottomSheet
 import com.jestk.browser.ui.overlays.LinkContextMenuBottomSheet
 import com.jestk.browser.ui.overlays.SearchOverlay
 import com.jestk.browser.ui.overlays.SettingsSheet
@@ -554,6 +555,24 @@ fun JestkApp(
                 LinkContextMenuBottomSheet(
                     url = linkUrl,
                     onEvent = viewModel::onEvent
+                )
+            }
+
+            // Image Context Menu Bottom Sheet
+            uiState.selectedImageUrl?.let { imageUrl ->
+                ImageContextMenuBottomSheet(
+                    imageUrl = imageUrl,
+                    onEvent = viewModel::onEvent,
+                    onDownloadImage = { url ->
+                        webViewPool.handleDownload(
+                            url = url,
+                            userAgent = null,
+                            contentDisposition = null,
+                            mimeType = "image/*",
+                            contentLength = 0L,
+                            context = context
+                        )
+                    }
                 )
             }
 

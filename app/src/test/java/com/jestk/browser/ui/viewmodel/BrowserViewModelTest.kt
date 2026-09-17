@@ -260,7 +260,8 @@ class BrowserViewModelTest {
 
         val activeTab = viewModel.uiState.value.activeTab
         assertThat(activeTab).isNotNull()
-        assertThat(activeTab?.faviconUrl).contains("en.wikipedia.org")
+        // PRIV-01: Visited domains are not phone-homed to third-party Google CDN
+        assertThat(activeTab?.faviconUrl).isNull()
     }
 
     @Test
@@ -925,4 +926,276 @@ class BrowserViewModelTest {
         assertThat(viewModel.uiState.value.showUndoTabCloseSnackbar).isFalse()
         assertThat(viewModel.uiState.value.recentlyClosedTab).isNull()
     }
+
+    @Test
+    fun webViewPool_wiredToViewModelLifecycle() = runTest(testDispatcher) {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webViewPool = com.jestk.browser.engine.WebViewPool(context, null)
+        val viewModel = BrowserViewModel(
+            tabRepository = tabRepo,
+            historyRepository = historyRepo,
+            favoriteRepository = favoriteRepo,
+            settingsRepository = settingsRepo,
+            recentTabRepository = recentTabRepo,
+            webViewPool = webViewPool,
+            ioDispatcher = testDispatcher
+        )
+        advanceUntilIdle()
+
+        // 1. Verify download listener is wired
+        assertThat(webViewPool.onDownloadStarted).isNotNull()
+        val downloadItem = com.jestk.browser.domain.model.DownloadItem(
+            url = "https://example.com/file.zip",
+            fileName = "file.zip",
+            filePath = "/path/file.zip",
+            mimeType = "application/zip",
+            contentLength = 1024L,
+            timestamp = System.currentTimeMillis()
+        )
+        webViewPool.onDownloadStarted?.invoke(downloadItem)
+        assertThat(viewModel.uiState.value.lastDownloadNotification?.fileName).isEqualTo("file.zip")
+        assertThat(viewModel.uiState.value.showDownloadSnackbar).isTrue()
+
+        // 2. Create WebView in pool for active tab
+        val state = viewModel.uiState.value
+        val tabId = state.activeTabId!!
+        val webView = webViewPool.getOrCreateWebView(tabId, context)
+        assertThat(webViewPool.getWebView(tabId)).isEqualTo(webView)
+
+        // 3. Close tab removes from WebViewPool
+        viewModel.onEvent(BrowserUiEvent.CloseTab(tabId))
+        advanceUntilIdle()
+        assertThat(webViewPool.getWebView(tabId)).isNull()
+
+        // 4. Close all tabs clears WebViewPool
+        val newActiveTabId = viewModel.uiState.value.activeTabId!!
+        webViewPool.getOrCreateWebView(newActiveTabId, context)
+        assertThat(webViewPool.getWebView(newActiveTabId)).isNotNull()
+
+        viewModel.onEvent(BrowserUiEvent.CloseAllTabs)
+        advanceUntilIdle()
+        assertThat(webViewPool.getWebView(newActiveTabId)).isNull()
+    }
+
+    @Test
+    fun pageStartedAndFinished_ignoresAboutBlank() = runTest {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val activeTabId = viewModel.uiState.value.activeTabId!!
+        viewModel.onEvent(BrowserUiEvent.LoadUrl("https://example.com"))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.currentUrl).isEqualTo("https://example.com")
+        assertThat(viewModel.uiState.value.isHome).isFalse()
+
+        // When about:blank is received from engine, it should be ignored
+        viewModel.onEvent(BrowserUiEvent.OnPageStarted(activeTabId, "about:blank"))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.currentUrl).isEqualTo("https://example.com")
+        assertThat(viewModel.uiState.value.isHome).isFalse()
+
+        viewModel.onEvent(BrowserUiEvent.OnPageFinished(activeTabId, "about:blank", ""))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.currentUrl).isEqualTo("https://example.com")
+        assertThat(viewModel.uiState.value.isHome).isFalse()
+    }
+
+    @Test
+    fun browserUiState_isHome_evaluatesCorrectly() {
+        // Overlay is HOME
+        val state1 = BrowserUiState(activeOverlay = OverlayType.HOME)
+        assertThat(state1.isHome).isTrue()
+
+        // Active tab has valid URL, currentUrl is loaded
+        val tab = Tab(id = "1", url = "https://example.com", title = "Example")
+        val state2 = BrowserUiState(
+            activeOverlay = OverlayType.NONE,
+            activeTabId = "1",
+            tabs = listOf(tab),
+            currentUrl = "https://example.com"
+        )
+        assertThat(state2.isHome).isFalse()
+
+        // Active tab has valid URL, but currentUrl is temporarily empty during navigation transition
+        val state3 = BrowserUiState(
+            activeOverlay = OverlayType.NONE,
+            activeTabId = "1",
+            tabs = listOf(tab),
+            currentUrl = ""
+        )
+        assertThat(state3.isHome).isFalse()
+
+        // Search overlay is open
+        val state4 = BrowserUiState(activeOverlay = OverlayType.SEARCH)
+        assertThat(state4.isHome).isFalse()
+
+        // Blank tab on home
+        val blankTab = Tab(id = "2", url = "", title = "Home")
+        val state5 = BrowserUiState(
+            activeOverlay = OverlayType.NONE,
+            activeTabId = "2",
+            tabs = listOf(blankTab),
+            currentUrl = ""
+        )
+        assertThat(state5.isHome).isTrue()
+    }
+
+    @Test
+    fun imageContextMenu_showAndDismiss_updatesUiState() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.selectedImageUrl).isNull()
+
+        val imageUrl = "https://example.com/photo.jpg"
+        viewModel.onEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.selectedImageUrl).isEqualTo(imageUrl)
+
+        viewModel.onEvent(BrowserUiEvent.DismissImageContextMenu)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.selectedImageUrl).isNull()
+    }
+
+    @Test
+    fun imageContextMenu_previewInNewTab_createsAndSelectsTabAndClearsModal() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val originalActiveTabId = viewModel.uiState.value.activeTabId
+        val imageUrl = "https://example.com/gallery/fullsize.png"
+
+        viewModel.onEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.selectedImageUrl).isEqualTo(imageUrl)
+
+        viewModel.onEvent(BrowserUiEvent.PreviewImageInNewTab(imageUrl))
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertThat(state.selectedImageUrl).isNull()
+        assertThat(state.tabs).hasSize(2)
+        assertThat(state.activeTabId).isNotEqualTo(originalActiveTabId)
+        assertThat(state.currentUrl).isEqualTo(imageUrl)
+        assertThat(state.activeTab?.url).isEqualTo(imageUrl)
+        assertThat(state.activeTab?.isActive).isTrue()
+        assertThat(state.activeOverlay).isEqualTo(OverlayType.NONE)
+    }
+
+    @Test
+    fun imageContextMenu_copyImageUrl_clearsModal() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val imageUrl = "https://example.com/art.jpg"
+        viewModel.onEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.selectedImageUrl).isEqualTo(imageUrl)
+
+        viewModel.onEvent(BrowserUiEvent.CopyImageUrl(imageUrl))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.selectedImageUrl).isNull()
+    }
+
+    @Test
+    fun imageContextMenu_downloadImage_clearsModal() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val imageUrl = "https://example.com/wallpaper.webp"
+        viewModel.onEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.selectedImageUrl).isEqualTo(imageUrl)
+
+        viewModel.onEvent(BrowserUiEvent.DownloadImage(imageUrl))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.selectedImageUrl).isNull()
+    }
+
+    @Test
+    fun imageContextMenu_backPress_dismissesMenuFirst() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        val imageUrl = "https://example.com/backpress-test.png"
+        viewModel.onEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.selectedImageUrl).isEqualTo(imageUrl)
+
+        // Press back while image context menu is open
+        viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+        advanceUntilIdle()
+
+        // Context menu is dismissed, but tabs remain intact
+        assertThat(viewModel.uiState.value.selectedImageUrl).isNull()
+        assertThat(viewModel.uiState.value.tabs).hasSize(1)
+    }
+
+    @Test
+    fun closeTab_whenActiveTabClosed_selectsLeftAdjacentTab() = runTest(testDispatcher) {
+        val tab1 = tabRepo.createTab(url = "https://example.com/1", title = "Tab 1")
+        val tab2 = tabRepo.createTab(url = "https://example.com/2", title = "Tab 2")
+        val tab3 = tabRepo.createTab(url = "https://example.com/3", title = "Tab 3")
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Select tab 2 (middle tab)
+        viewModel.onEvent(BrowserUiEvent.SelectTab(tab2.id))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tab2.id)
+
+        // Close active middle tab -> should select tab1 (to the left)
+        viewModel.onEvent(BrowserUiEvent.CloseTab(tab2.id))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tab1.id)
+    }
+
+    @Test
+    fun closeTab_whenFirstTabClosed_selectsRightAdjacentTab() = runTest(testDispatcher) {
+        val tab1 = tabRepo.createTab(url = "https://example.com/1", title = "Tab 1")
+        val tab2 = tabRepo.createTab(url = "https://example.com/2", title = "Tab 2")
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.onEvent(BrowserUiEvent.SelectTab(tab1.id))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tab1.id)
+
+        // Close active leftmost tab -> should select tab2 (to the right)
+        viewModel.onEvent(BrowserUiEvent.CloseTab(tab1.id))
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tab2.id)
+    }
+
+    @Test
+    fun closeTab_whenInactiveTabClosed_keepsActiveTabUnchanged() = runTest(testDispatcher) {
+        val tab1 = tabRepo.createTab(url = "https://example.com/1", title = "Tab 1")
+        val tab2 = tabRepo.createTab(url = "https://example.com/2", title = "Tab 2")
+        val tab3 = tabRepo.createTab(url = "https://example.com/3", title = "Tab 3")
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        // Select tab 3
+        viewModel.onEvent(BrowserUiEvent.SelectTab(tab3.id))
+        advanceUntilIdle()
+        assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tab3.id)
+
+        // Close inactive tab 1
+        viewModel.onEvent(BrowserUiEvent.CloseTab(tab1.id))
+        advanceUntilIdle()
+
+        // Active tab should still be tab 3!
+        assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tab3.id)
+        assertThat(viewModel.uiState.value.tabs.map { it.id }).containsExactly(tab2.id, tab3.id)
+    }
 }
+

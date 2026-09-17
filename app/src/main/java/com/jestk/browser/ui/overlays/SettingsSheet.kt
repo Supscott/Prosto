@@ -2,6 +2,10 @@ package com.jestk.browser.ui.overlays
 
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
+import androidx.compose.ui.res.stringResource
+import com.jestk.browser.R
+import com.jestk.browser.util.DefaultBrowserHelper
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -37,6 +41,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sync
@@ -305,6 +310,27 @@ fun SettingsSheetContent(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            // SECTION: DEFAULT BROWSER (Only visible if not default)
+            if (!uiState.isDefaultBrowser) {
+                SettingsSectionHeader(title = "GENERAL")
+                InsetGroupedCard(isDark = isDark) {
+                    DefaultBrowserSettingTile(
+                        isDark = isDark,
+                        onClick = {
+                            try {
+                                val intent = DefaultBrowserHelper.createSetDefaultBrowserIntent(context)
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                try {
+                                    context.startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+                                } catch (_: Exception) {}
+                            }
+                        }
+                    )
+                }
+                Spacer(modifier = Modifier.height(24.dp))
+            }
 
             // SECTION 3: PRIVACY & SECURITY
             Row(
@@ -828,6 +854,82 @@ private fun HyperlinkRow(
             tint = MaterialTheme.colorScheme.outline,
             modifier = Modifier.size(18.dp)
         )
+    }
+}
+
+@Composable
+private fun DefaultBrowserSettingTile(
+    isDark: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            modifier = Modifier.weight(1f)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(if (isDark) Color(0xFF1B4975) else LiquidPrimaryFixed.copy(alpha = 0.70f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Public,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Column {
+                Text(
+                    text = stringResource(R.string.default_browser_tile_title),
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = stringResource(R.string.default_browser_tile_desc),
+                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
+                    color = MaterialTheme.colorScheme.outline
+                )
+            }
+        }
+
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.30f) else LiquidPrimaryFixed.copy(alpha = 0.40f)
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.default_browser_tile_action),
+                    style = MaterialTheme.typography.labelSmall.copy(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold
+                    ),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp)
+                )
+            }
+        }
     }
 }
 

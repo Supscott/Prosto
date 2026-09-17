@@ -35,4 +35,15 @@
     <string name="url_copied">URL copied</string>
     <string name="tab_closed">Tab closed</string>
     <string name="undo">Undo</string>
+    <string name="default_browser_prompt_title">Set Hori as default browser</string>
+    <string name="default_browser_prompt_desc">Enjoy fast and secure web browsing with Hori</string>
+    <string name="default_browser_prompt_button">Set as Default</string>
+    <string name="default_browser_tile_title">Default Browser</string>
+    <string name="default_browser_tile_desc">Set Hori as your default browser</string>
+    <string name="default_browser_tile_action">Set</string>
+    <string name="dismiss">Dismiss</string>
+    <string name="copy_image_url">Copy image address</string>
+    <string name="download_image">Download image</string>
+    <string name="preview_image">Preview (open in new tab)</string>
+    <string name="image_url_copied">Image address copied</string>
 </resources>

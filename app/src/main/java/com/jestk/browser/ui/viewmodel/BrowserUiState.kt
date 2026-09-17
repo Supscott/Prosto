@@ -5,6 +5,7 @@ import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.OverlayType
+import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.Tab
 
 data class BrowserUiState(
@@ -17,6 +18,7 @@ data class BrowserUiState(
 
     // Active Viewport / Overlay
     val activeOverlay: OverlayType = OverlayType.NONE,
+    val activeScreen: ScreenType = ScreenType.NONE,
 
     // Web Navigation & Progress (for active tab)
     val currentUrl: String = "",
@@ -54,7 +56,9 @@ data class BrowserUiState(
     val isFullscreenCustomView: Boolean = false,
     val fullscreenCustomView: Any? = null,
     val fullscreenRequestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
-    val linkContextMenuUrl: String? = null
+    val linkContextMenuUrl: String? = null,
+    val selectedImageUrl: String? = null,
+    val isDefaultBrowser: Boolean = true
 ) {
     val activeTab: Tab?
         get() = tabs.find { it.id == activeTabId }
@@ -67,4 +71,10 @@ data class BrowserUiState(
 
     val loadProgress: Int
         get() = (loadingProgress * 100).toInt()
+
+    val isHome: Boolean
+        get() = activeOverlay == OverlayType.HOME ||
+                (activeOverlay == OverlayType.NONE &&
+                 currentUrl.isEmpty() &&
+                 (activeTab?.url.isNullOrEmpty() || activeTab?.url == "about:blank"))
 }

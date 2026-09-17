@@ -1,10 +1,12 @@
 package com.jestk.browser.ui.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.RecentTabItem
+import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
@@ -12,6 +14,9 @@ import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
+import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.util.DefaultBrowserHelper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -25,9 +30,13 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.io.File
 
 data object DismissDownloadSnackbar : BrowserUiEvent
-data class DownloadStarted(val item: DownloadItem) : BrowserUiEvent
+
+data class DownloadStarted(
+    val item: DownloadItem,
+) : BrowserUiEvent
 
 class BrowserViewModel(
     private val tabRepository: TabRepository,
@@ -36,9 +45,10 @@ class BrowserViewModel(
     private val settingsRepository: SettingsRepository,
     private val recentTabRepository: RecentTabRepository? = null,
     private val downloadRepository: DownloadRepository? = null,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val context: Context? = null,
+    private val webViewPool: WebViewPool? = null,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
-
     private val tabOperationMutex = Mutex()
     private val tabThemeColors = java.util.concurrent.ConcurrentHashMap<String, Int>()
 
@@ -49,10 +59,16 @@ class BrowserViewModel(
     val navigationCommands: SharedFlow<NavigationCommand> = _navigationCommands.asSharedFlow()
 
     init {
+        webViewPool?.onDownloadStarted = { item -> onDownloadStarted(item) }
         viewModelScope.launch(ioDispatcher) {
             restoreSession()
             observeDatabaseFlows()
         }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        webViewPool?.onDownloadStarted = null
     }
 
     private suspend fun restoreSession() {
@@ -69,29 +85,32 @@ class BrowserViewModel(
             val currentUiTabs = _uiState.value.tabs
             if (currentUiTabs.isNotEmpty()) {
                 val currentActiveTab = _uiState.value.activeTab ?: currentUiTabs.first()
+                webViewPool?.onTabActivated(currentActiveTab.id, false)
                 val hasWebUrl = currentActiveTab.url.isNotEmpty() && currentActiveTab.url != "about:blank"
                 val initialThemeColor = if (hasWebUrl) (tabThemeColors[currentActiveTab.id] ?: currentActiveTab.themeColor) else null
                 _uiState.update { state ->
                     state.copy(
                         settings = initialSettings,
                         activeThemeColor = initialThemeColor ?: state.activeThemeColor,
-                        activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME
+                        activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME,
                     )
                 }
                 return@withLock
             }
 
-            val activeTab: Tab = if (initialTabs.isEmpty()) {
-                val newTab = tabRepository.createTab(url = "", title = "Home")
-                tabRepository.setActiveTab(newTab.id)
-                newTab.copy(isActive = true)
-            } else {
-                val found = initialTabs.find { it.isActive }
-                    ?: initialTabs.maxByOrNull { it.lastActiveTimestamp }
-                    ?: initialTabs.first()
-                tabRepository.setActiveTab(found.id)
-                found.copy(isActive = true)
-            }
+            val activeTab: Tab =
+                if (initialTabs.isEmpty()) {
+                    val newTab = tabRepository.createTab(url = "", title = "Home")
+                    tabRepository.setActiveTab(newTab.id)
+                    newTab.copy(isActive = true)
+                } else {
+                    val found =
+                        initialTabs.find { it.isActive }
+                            ?: initialTabs.maxByOrNull { it.lastActiveTimestamp }
+                            ?: initialTabs.first()
+                    tabRepository.setActiveTab(found.id)
+                    found.copy(isActive = true)
+                }
 
             val currentTabs = tabRepository.getInitialTabs()
             val tabsWithActive = if (currentTabs.isEmpty()) listOf(activeTab) else currentTabs
@@ -100,6 +119,7 @@ class BrowserViewModel(
                 tab.themeColor?.let { color -> tabThemeColors[tab.id] = color }
             }
 
+            webViewPool?.onTabActivated(activeTab.id, false)
             val hasWebUrl = activeTab.url.isNotEmpty() && activeTab.url != "about:blank"
             val initialThemeColor = if (hasWebUrl) (tabThemeColors[activeTab.id] ?: activeTab.themeColor) else null
             val menuExpandedInitial = initialSettings.isMenuExpandedOnWeb
@@ -117,7 +137,7 @@ class BrowserViewModel(
                     loadingProgress = if (hasWebUrl) 0.15f else 0f,
                     settings = initialSettings,
                     isMenuExpanded = menuExpandedInitial,
-                    activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME
+                    activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME,
                 )
             }
         }
@@ -127,19 +147,23 @@ class BrowserViewModel(
         viewModelScope.launch(ioDispatcher) {
             tabRepository.getAllTabs().collectLatest { tabs ->
                 _uiState.update { state ->
-                    val activeId = tabs.firstOrNull { it.isActive }?.id
-                        ?: if (tabs.any { it.id == state.activeTabId }) {
-                            state.activeTabId
-                        } else {
-                            tabs.firstOrNull()?.id
+                    val activeId =
+                        tabs.firstOrNull { it.isActive }?.id
+                            ?: if (tabs.any { it.id == state.activeTabId }) {
+                                state.activeTabId
+                            } else {
+                                tabs.firstOrNull()?.id
+                            }
+                    val enrichedTabs =
+                        tabs.map { tab ->
+                            val cached = tabThemeColors[tab.id] ?: state.tabs.find { it.id == tab.id }?.themeColor
+                            if (cached != null) {
+                                tabThemeColors[tab.id] = cached
+                                tab.copy(themeColor = cached)
+                            } else {
+                                tab
+                            }
                         }
-                    val enrichedTabs = tabs.map { tab ->
-                        val cached = tabThemeColors[tab.id] ?: state.tabs.find { it.id == tab.id }?.themeColor
-                        if (cached != null) {
-                            tabThemeColors[tab.id] = cached
-                            tab.copy(themeColor = cached)
-                        } else tab
-                    }
                     val currentTab = enrichedTabs.find { it.id == activeId }
                     val isHome = currentTab?.url.isNullOrEmpty() || currentTab?.url == "about:blank"
                     val activeColor = if (activeId != null) tabThemeColors[activeId] else null
@@ -150,7 +174,7 @@ class BrowserViewModel(
                         pageTitle = currentTab?.title ?: state.pageTitle,
                         canGoBack = currentTab?.canGoBack ?: state.canGoBack,
                         canGoForward = currentTab?.canGoForward ?: state.canGoForward,
-                        activeThemeColor = if (isHome) null else (activeColor ?: state.activeThemeColor)
+                        activeThemeColor = if (isHome) null else (activeColor ?: state.activeThemeColor),
                     )
                 }
             }
@@ -167,15 +191,16 @@ class BrowserViewModel(
                 tabRepository.getRecentTabs(6).collectLatest { recents ->
                     _uiState.update { state ->
                         state.copy(
-                            recentTabs = recents.map { tab ->
-                                RecentTabItem(
-                                    url = tab.url,
-                                    title = tab.title,
-                                    snapshotPath = tab.snapshotPath,
-                                    faviconUrl = tab.faviconUrl,
-                                    lastVisitedTimestamp = tab.lastActiveTimestamp
-                                )
-                            }
+                            recentTabs =
+                                recents.map { tab ->
+                                    RecentTabItem(
+                                        url = tab.url,
+                                        title = tab.title,
+                                        snapshotPath = tab.snapshotPath,
+                                        faviconUrl = tab.faviconUrl,
+                                        lastVisitedTimestamp = tab.lastActiveTimestamp,
+                                    )
+                                },
                         )
                     }
                 }
@@ -217,7 +242,7 @@ class BrowserViewModel(
                                 downloads = downloads,
                                 lastDownloadNotification = latestNewDownload,
                                 showDownloadSnackbar = true,
-                                activeDownloadIds = current.activeDownloadIds + latestNewDownload.id
+                                activeDownloadIds = current.activeDownloadIds + latestNewDownload.id,
                             )
                         }
                     } else {
@@ -233,7 +258,7 @@ class BrowserViewModel(
             it.copy(
                 lastDownloadNotification = item,
                 showDownloadSnackbar = true,
-                activeDownloadIds = it.activeDownloadIds + item.id
+                activeDownloadIds = it.activeDownloadIds + item.id,
             )
         }
     }
@@ -244,34 +269,94 @@ class BrowserViewModel(
         }
     }
 
+    fun updateDefaultBrowserStatus(isDefault: Boolean) {
+        _uiState.update {
+            it.copy(isDefaultBrowser = isDefault)
+        }
+    }
+
+    fun checkDefaultBrowser(context: Context) {
+        val isDefault = DefaultBrowserHelper.isDefaultBrowser(context)
+        updateDefaultBrowserStatus(isDefault)
+    }
+
     fun onEvent(event: BrowserUiEvent) {
         when (event) {
-            is BrowserUiEvent.OpenNewTab -> openNewTab(event.url)
-            is BrowserUiEvent.OpenRecentTab -> openRecentTab(event.item)
-            is BrowserUiEvent.SelectTab -> selectTab(event.tabId)
-            is BrowserUiEvent.CloseTab -> closeTab(event.tabId)
-            is BrowserUiEvent.CloseAllTabs -> closeAllTabs()
-            is BrowserUiEvent.ReorderTabs -> reorderTabs(event.orderedTabs)
-            is BrowserUiEvent.SwipeNextTab -> switchAdjacentTab(1)
-            is BrowserUiEvent.SwipePrevTab -> switchAdjacentTab(-1)
-            is BrowserUiEvent.UndoCloseTab -> undoCloseTab()
+            is BrowserUiEvent.OpenNewTab -> {
+                openNewTab(event.url)
+            }
+
+            is BrowserUiEvent.OpenRecentTab -> {
+                openRecentTab(event.item)
+            }
+
+            is BrowserUiEvent.SelectTab -> {
+                selectTab(event.tabId)
+            }
+
+            is BrowserUiEvent.CloseTab -> {
+                closeTab(event.tabId)
+            }
+
+            is BrowserUiEvent.CloseAllTabs -> {
+                closeAllTabs()
+            }
+
+            is BrowserUiEvent.ReorderTabs -> {
+                reorderTabs(event.orderedTabs)
+            }
+
+            is BrowserUiEvent.SwipeNextTab -> {
+                switchAdjacentTab(1)
+            }
+
+            is BrowserUiEvent.SwipePrevTab -> {
+                switchAdjacentTab(-1)
+            }
+
+            is BrowserUiEvent.UndoCloseTab -> {
+                undoCloseTab()
+            }
+
             is BrowserUiEvent.DismissUndoTabCloseSnackbar -> {
                 _uiState.update {
                     it.copy(
                         showUndoTabCloseSnackbar = false,
-                        recentlyClosedTab = null
+                        recentlyClosedTab = null,
                     )
                 }
             }
-            is DismissDownloadSnackbar -> dismissDownloadSnackbar()
-            is DownloadStarted -> onDownloadStarted(event.item)
 
-            is BrowserUiEvent.OpenOverlay -> _uiState.update { it.copy(activeOverlay = event.overlay) }
-            is BrowserUiEvent.DismissOverlay -> _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
-            is BrowserUiEvent.OpenHome -> _uiState.update { it.copy(activeOverlay = OverlayType.HOME) }
+            is DismissDownloadSnackbar -> {
+                dismissDownloadSnackbar()
+            }
+
+            is DownloadStarted -> {
+                onDownloadStarted(event.item)
+            }
+
+            is BrowserUiEvent.OpenOverlay -> {
+                _uiState.update { it.copy(activeOverlay = event.overlay) }
+            }
+
+            is BrowserUiEvent.DismissOverlay -> {
+                _uiState.update {
+                    if (it.activeScreen != ScreenType.NONE) {
+                        it.copy(activeScreen = ScreenType.NONE)
+                    } else {
+                        it.copy(activeOverlay = OverlayType.NONE)
+                    }
+                }
+            }
+
+            is BrowserUiEvent.OpenHome -> {
+                _uiState.update { it.copy(activeOverlay = OverlayType.HOME) }
+            }
+
             is BrowserUiEvent.OpenSearch -> {
                 val current = _uiState.value
-                val isHome = current.activeOverlay == OverlayType.HOME ||
+                val isHome =
+                    current.activeOverlay == OverlayType.HOME ||
                         current.currentUrl.isEmpty() ||
                         current.currentUrl == "about:blank"
                 if (event.openInNewTab && !isHome) {
@@ -282,55 +367,126 @@ class BrowserViewModel(
                     updateHistorySuggestions(prefill)
                 }
             }
-            is BrowserUiEvent.OpenTabGrid -> _uiState.update { it.copy(activeOverlay = OverlayType.TAB_GRID) }
-            is BrowserUiEvent.OpenSettings -> _uiState.update { it.copy(activeOverlay = OverlayType.SETTINGS) }
-            is BrowserUiEvent.OpenDownloads -> _uiState.update { it.copy(activeOverlay = OverlayType.DOWNLOADS) }
-            is BrowserUiEvent.DeleteDownload -> viewModelScope.launch(ioDispatcher) {
-                downloadRepository?.deleteDownload(event.id)
-                _uiState.update { current ->
-                    val shouldDismissSnackbar = current.lastDownloadNotification?.id == event.id
-                    current.copy(
-                        activeDownloadIds = current.activeDownloadIds - event.id,
-                        showDownloadSnackbar = if (shouldDismissSnackbar) false else current.showDownloadSnackbar,
-                        lastDownloadNotification = if (shouldDismissSnackbar) null else current.lastDownloadNotification
-                    )
+
+            is BrowserUiEvent.OpenTabGrid -> {
+                _uiState.update { it.copy(activeOverlay = OverlayType.TAB_GRID) }
+            }
+
+            is BrowserUiEvent.OpenSettings -> {
+                _uiState.update {
+                    it.copy(activeScreen = ScreenType.SETTINGS, activeOverlay = OverlayType.NONE)
                 }
             }
 
-            is BrowserUiEvent.LoadUrl -> loadUrl(event.url)
-            is BrowserUiEvent.SubmitSearch -> submitSearch(event.query)
+            is BrowserUiEvent.OpenDownloads -> {
+                _uiState.update {
+                    it.copy(activeScreen = ScreenType.DOWNLOADS, activeOverlay = OverlayType.NONE)
+                }
+            }
+
+            is BrowserUiEvent.DeleteDownload -> {
+                viewModelScope.launch(ioDispatcher) {
+                    downloadRepository?.deleteDownload(event.id)
+                    _uiState.update { current ->
+                        val shouldDismissSnackbar = current.lastDownloadNotification?.id == event.id
+                        current.copy(
+                            activeDownloadIds = current.activeDownloadIds - event.id,
+                            showDownloadSnackbar = if (shouldDismissSnackbar) false else current.showDownloadSnackbar,
+                            lastDownloadNotification = if (shouldDismissSnackbar) null else current.lastDownloadNotification,
+                        )
+                    }
+                }
+            }
+
+            is BrowserUiEvent.LoadUrl -> {
+                loadUrl(event.url)
+            }
+
+            is BrowserUiEvent.SubmitSearch -> {
+                submitSearch(event.query)
+            }
+
             is BrowserUiEvent.UpdateSearchQuery -> {
                 _uiState.update { it.copy(searchQuery = event.query) }
                 updateHistorySuggestions(event.query)
             }
-            is BrowserUiEvent.GoBack -> handleGoBack()
-            is BrowserUiEvent.GoForward -> _navigationCommands.tryEmit(NavigationCommand.GoForward)
-            is BrowserUiEvent.Reload -> _navigationCommands.tryEmit(NavigationCommand.Reload)
+
+            is BrowserUiEvent.GoBack -> {
+                handleGoBack()
+            }
+
+            is BrowserUiEvent.GoForward -> {
+                _navigationCommands.tryEmit(NavigationCommand.GoForward)
+            }
+
+            is BrowserUiEvent.Reload -> {
+                _navigationCommands.tryEmit(NavigationCommand.Reload)
+            }
+
             is BrowserUiEvent.StopLoading -> {
                 _navigationCommands.tryEmit(NavigationCommand.StopLoading)
                 _uiState.update { it.copy(isLoading = false) }
             }
 
-            is BrowserUiEvent.OnPageStarted -> handlePageStarted(event.tabId, event.url)
-            is BrowserUiEvent.OnPageFinished -> handlePageFinished(event.tabId, event.url, event.title)
-            is BrowserUiEvent.OnProgressChanged -> handleProgressChanged(event.tabId, event.progress)
-            is BrowserUiEvent.OnNavigationStateChanged -> handleNavState(event.tabId, event.canGoBack, event.canGoForward)
-            is BrowserUiEvent.OnSnapshotCaptured -> handleSnapshot(event.tabId, event.snapshotPath)
-            is BrowserUiEvent.OnFaviconReceived -> Unit
-            is BrowserUiEvent.UpdateFaviconUrl -> handleUpdateFavicon(event.tabId, event.faviconUrl)
-            is BrowserUiEvent.OnThemeColorReceived -> handleThemeColor(event.tabId, event.color)
+            is BrowserUiEvent.OnPageStarted -> {
+                handlePageStarted(event.tabId, event.url)
+            }
 
-            is BrowserUiEvent.AddCurrentTabToFavorites -> addCurrentToFavorites()
-            is BrowserUiEvent.AddFavorite -> viewModelScope.launch(ioDispatcher) {
-                favoriteRepository.addFavorite(event.title, event.url)
+            is BrowserUiEvent.OnPageFinished -> {
+                handlePageFinished(event.tabId, event.url, event.title)
             }
-            is BrowserUiEvent.RemoveFavorite -> viewModelScope.launch(ioDispatcher) {
-                favoriteRepository.deleteFavorite(event.id)
+
+            is BrowserUiEvent.OnProgressChanged -> {
+                handleProgressChanged(event.tabId, event.progress)
             }
-            is BrowserUiEvent.ToggleFavoritesExpanded -> _uiState.update { it.copy(isFavoritesExpanded = !it.isFavoritesExpanded) }
-            is BrowserUiEvent.DeleteHistoryItem -> viewModelScope.launch(ioDispatcher) {
-                historyRepository.deleteHistory(event.id)
+
+            is BrowserUiEvent.OnNavigationStateChanged -> {
+                handleNavState(event.tabId, event.canGoBack, event.canGoForward)
             }
+
+            is BrowserUiEvent.OnSnapshotCaptured -> {
+                handleSnapshot(event.tabId, event.snapshotPath)
+            }
+
+            is BrowserUiEvent.OnFaviconReceived -> {
+                Unit
+            }
+
+            is BrowserUiEvent.UpdateFaviconUrl -> {
+                handleUpdateFavicon(event.tabId, event.faviconUrl)
+            }
+
+            is BrowserUiEvent.OnThemeColorReceived -> {
+                handleThemeColor(event.tabId, event.color)
+            }
+
+            is BrowserUiEvent.AddCurrentTabToFavorites -> {
+                addCurrentToFavorites()
+            }
+
+            is BrowserUiEvent.AddFavorite -> {
+                viewModelScope.launch(ioDispatcher) {
+                    val icon = FaviconManager.extractFallbackFaviconUrl(event.url)
+                    favoriteRepository.addFavorite(event.title, event.url, icon)
+                }
+            }
+
+            is BrowserUiEvent.RemoveFavorite -> {
+                viewModelScope.launch(ioDispatcher) {
+                    favoriteRepository.deleteFavorite(event.id)
+                }
+            }
+
+            is BrowserUiEvent.ToggleFavoritesExpanded -> {
+                _uiState.update { it.copy(isFavoritesExpanded = !it.isFavoritesExpanded) }
+            }
+
+            is BrowserUiEvent.DeleteHistoryItem -> {
+                viewModelScope.launch(ioDispatcher) {
+                    historyRepository.deleteHistory(event.id)
+                }
+            }
+
             is BrowserUiEvent.ClearAllHistory -> {
                 _uiState.update { it.copy(recentTabs = emptyList()) }
                 viewModelScope.launch(ioDispatcher) {
@@ -342,7 +498,10 @@ class BrowserViewModel(
                     }
                 }
             }
-            is BrowserUiEvent.SelectHistorySuggestion -> loadUrl(event.item.url)
+
+            is BrowserUiEvent.SelectHistorySuggestion -> {
+                loadUrl(event.item.url)
+            }
 
             is BrowserUiEvent.SetThemeMode -> {
                 _uiState.update { it.copy(settings = it.settings.copy(themeMode = event.mode)) }
@@ -350,12 +509,14 @@ class BrowserViewModel(
                     settingsRepository.setThemeMode(event.mode)
                 }
             }
+
             is BrowserUiEvent.SetSearchEngine -> {
                 _uiState.update { it.copy(settings = it.settings.copy(searchEngine = event.engine)) }
                 viewModelScope.launch(ioDispatcher) {
                     settingsRepository.setSearchEngine(event.engine)
                 }
             }
+
             is BrowserUiEvent.SetAdBlockerEnabled -> {
                 _uiState.update { it.copy(settings = it.settings.copy(isAdBlockerEnabled = event.enabled)) }
                 viewModelScope.launch(ioDispatcher) {
@@ -363,11 +524,18 @@ class BrowserViewModel(
                 }
             }
 
-            is BrowserUiEvent.OnWebScroll -> handleWebScroll(event.deltaY)
-            is BrowserUiEvent.SetBottomBarVisibility -> _uiState.update { it.copy(isBottomBarVisible = event.visible) }
+            is BrowserUiEvent.OnWebScroll -> {
+                handleWebScroll(event.deltaY)
+            }
+
+            is BrowserUiEvent.SetBottomBarVisibility -> {
+                _uiState.update { it.copy(isBottomBarVisible = event.visible) }
+            }
+
             is BrowserUiEvent.ToggleMenu -> {
                 val current = _uiState.value
-                val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
+                val isHome =
+                    current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
                 val target = event.expanded ?: !current.isMenuExpanded
                 _uiState.update { it.copy(isMenuExpanded = target) }
                 if (!isHome) {
@@ -376,9 +544,11 @@ class BrowserViewModel(
                     }
                 }
             }
+
             is BrowserUiEvent.SetMenuExpanded -> {
                 val current = _uiState.value
-                val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
+                val isHome =
+                    current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
                 _uiState.update { it.copy(isMenuExpanded = event.expanded) }
                 if (!isHome) {
                     viewModelScope.launch(ioDispatcher) {
@@ -387,30 +557,74 @@ class BrowserViewModel(
                 }
             }
 
-            is BrowserUiEvent.SetVideoPlaying -> _uiState.update { it.copy(isVideoPlaying = event.isPlaying) }
-            is BrowserUiEvent.SetFullscreenCustomView -> _uiState.update {
-                it.copy(
-                    fullscreenCustomView = event.view,
-                    isFullscreenCustomView = event.isFullscreen,
-                    fullscreenRequestedOrientation = event.requestedOrientation
-                )
+            is BrowserUiEvent.SetVideoPlaying -> {
+                _uiState.update { it.copy(isVideoPlaying = event.isPlaying) }
+                _uiState.value.activeTabId?.let { activeId ->
+                    webViewPool?.onTabActivated(activeId, event.isPlaying)
+                }
             }
+
+            is BrowserUiEvent.SetFullscreenCustomView -> {
+                _uiState.update {
+                    it.copy(
+                        fullscreenCustomView = event.view,
+                        isFullscreenCustomView = event.isFullscreen,
+                        fullscreenRequestedOrientation = event.requestedOrientation,
+                    )
+                }
+            }
+
             is BrowserUiEvent.ExitFullscreen -> {
                 _navigationCommands.tryEmit(NavigationCommand.ExitFullscreen)
                 _uiState.update {
                     it.copy(
                         isFullscreenCustomView = false,
                         fullscreenCustomView = null,
-                        fullscreenRequestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                        fullscreenRequestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
                     )
                 }
             }
 
-            is BrowserUiEvent.HandleBackPress -> handleBackNavigation()
+            is BrowserUiEvent.HandleBackPress -> {
+                handleBackNavigation()
+            }
 
-            is BrowserUiEvent.ShowLinkContextMenu -> _uiState.update { it.copy(linkContextMenuUrl = event.url) }
-            is BrowserUiEvent.DismissLinkContextMenu -> _uiState.update { it.copy(linkContextMenuUrl = null) }
-            is BrowserUiEvent.OpenTabInBackground -> openTabInBackground(event.url)
+            is BrowserUiEvent.ShowLinkContextMenu -> {
+                _uiState.update { it.copy(linkContextMenuUrl = event.url) }
+            }
+
+            is BrowserUiEvent.DismissLinkContextMenu -> {
+                _uiState.update { it.copy(linkContextMenuUrl = null) }
+            }
+
+            is BrowserUiEvent.OpenTabInBackground -> {
+                openTabInBackground(event.url)
+            }
+
+            is BrowserUiEvent.UpdateDefaultBrowserStatus -> {
+                updateDefaultBrowserStatus(event.isDefault)
+            }
+
+            is BrowserUiEvent.ShowImageContextMenu -> {
+                _uiState.update { it.copy(selectedImageUrl = event.imageUrl) }
+            }
+
+            is BrowserUiEvent.DismissImageContextMenu -> {
+                _uiState.update { it.copy(selectedImageUrl = null) }
+            }
+
+            is BrowserUiEvent.CopyImageUrl -> {
+                _uiState.update { it.copy(selectedImageUrl = null) }
+            }
+
+            is BrowserUiEvent.DownloadImage -> {
+                _uiState.update { it.copy(selectedImageUrl = null) }
+            }
+
+            is BrowserUiEvent.PreviewImageInNewTab -> {
+                _uiState.update { it.copy(selectedImageUrl = null) }
+                openNewTab(event.imageUrl)
+            }
         }
     }
 
@@ -419,11 +633,13 @@ class BrowserViewModel(
             tabOperationMutex.withLock {
                 val created = tabRepository.createTab(url = "", title = "Search")
                 tabRepository.setActiveTab(created.id)
-                val baseTabs = if (_uiState.value.tabs.isEmpty()) {
-                    tabRepository.getInitialTabs().filter { it.id != created.id }
-                } else {
-                    _uiState.value.tabs.filter { it.id != created.id }
-                }
+                webViewPool?.onTabActivated(created.id, false)
+                val baseTabs =
+                    if (_uiState.value.tabs.isEmpty()) {
+                        tabRepository.getInitialTabs().filter { it.id != created.id }
+                    } else {
+                        _uiState.value.tabs.filter { it.id != created.id }
+                    }
                 val currentTabs = baseTabs.map { it.copy(isActive = false) }
                 val updatedTabs = (currentTabs + created.copy(isActive = true)).distinctBy { it.id }
                 _uiState.update {
@@ -437,7 +653,7 @@ class BrowserViewModel(
                         activeOverlay = OverlayType.SEARCH,
                         searchQuery = "",
                         canGoBack = false,
-                        canGoForward = false
+                        canGoForward = false,
                     )
                 }
                 updateHistorySuggestions("")
@@ -451,11 +667,13 @@ class BrowserViewModel(
                 val title = if (url.isEmpty() || url == "about:blank") "Home" else "Loading..."
                 val created = tabRepository.createTab(url = url, title = title)
                 tabRepository.setActiveTab(created.id)
-                val baseTabs = if (_uiState.value.tabs.isEmpty()) {
-                    tabRepository.getInitialTabs().filter { it.id != created.id }
-                } else {
-                    _uiState.value.tabs.filter { it.id != created.id }
-                }
+                webViewPool?.onTabActivated(created.id, false)
+                val baseTabs =
+                    if (_uiState.value.tabs.isEmpty()) {
+                        tabRepository.getInitialTabs().filter { it.id != created.id }
+                    } else {
+                        _uiState.value.tabs.filter { it.id != created.id }
+                    }
                 val currentTabs = baseTabs.map { it.copy(isActive = false) }
                 val updatedTabs = (currentTabs + created.copy(isActive = true)).distinctBy { it.id }
                 val isHome = url.isEmpty() || url == "about:blank"
@@ -470,7 +688,8 @@ class BrowserViewModel(
                         activeThemeColor = null,
                         isMenuExpanded = targetMenuExpanded,
                         activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
-                        linkContextMenuUrl = null
+                        linkContextMenuUrl = null,
+                        selectedImageUrl = null,
                     )
                 }
                 if (url.isNotEmpty() && url != "about:blank") {
@@ -485,16 +704,18 @@ class BrowserViewModel(
             tabOperationMutex.withLock {
                 val title = if (url.isEmpty() || url == "about:blank") "Home" else "Loading..."
                 val created = tabRepository.createTab(url = url, title = title)
-                val baseTabs = if (_uiState.value.tabs.isEmpty()) {
-                    tabRepository.getInitialTabs().filter { it.id != created.id }
-                } else {
-                    _uiState.value.tabs.filter { it.id != created.id }
-                }
+                val baseTabs =
+                    if (_uiState.value.tabs.isEmpty()) {
+                        tabRepository.getInitialTabs().filter { it.id != created.id }
+                    } else {
+                        _uiState.value.tabs.filter { it.id != created.id }
+                    }
                 val updatedTabs = (baseTabs + created.copy(isActive = false)).distinctBy { it.id }
                 _uiState.update {
                     it.copy(
                         tabs = updatedTabs,
-                        linkContextMenuUrl = null
+                        linkContextMenuUrl = null,
+                        selectedImageUrl = null,
                     )
                 }
             }
@@ -519,16 +740,18 @@ class BrowserViewModel(
     }
 
     private fun selectTab(tabId: String) {
+        webViewPool?.onTabActivated(tabId, _uiState.value.isVideoPlaying)
         val selected = _uiState.value.tabs.find { it.id == tabId }
         if (selected != null) {
             val isHome = selected.url.isEmpty() || selected.url == "about:blank"
             val cachedColor = tabThemeColors[tabId] ?: selected.themeColor
             val targetMenuExpanded = _uiState.value.settings.isMenuExpandedOnWeb
             _uiState.update { state ->
-                val updatedTabs = state.tabs.map { t ->
-                    val c = tabThemeColors[t.id] ?: t.themeColor
-                    t.copy(isActive = t.id == tabId, themeColor = c)
-                }
+                val updatedTabs =
+                    state.tabs.map { t ->
+                        val c = tabThemeColors[t.id] ?: t.themeColor
+                        t.copy(isActive = t.id == tabId, themeColor = c)
+                    }
                 state.copy(
                     tabs = updatedTabs,
                     activeTabId = tabId,
@@ -538,7 +761,7 @@ class BrowserViewModel(
                     canGoForward = selected.canGoForward,
                     activeThemeColor = if (isHome) null else cachedColor,
                     isMenuExpanded = targetMenuExpanded,
-                    activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE
+                    activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
                 )
             }
         }
@@ -551,15 +774,27 @@ class BrowserViewModel(
 
     private fun closeTab(tabId: String) {
         tabThemeColors.remove(tabId)
+        webViewPool?.removeWebView(tabId)
         val closingTab = _uiState.value.tabs.find { it.id == tabId }
         viewModelScope.launch(ioDispatcher) {
+            context?.let { ctx ->
+                try {
+                    File(ctx.filesDir, "snapshots/tab_$tabId.jpg").delete()
+                    File(ctx.filesDir, "favicons/favicon_$tabId.png").delete()
+                } catch (_: Throwable) {
+                }
+            }
             tabOperationMutex.withLock {
+                val currentTabs = _uiState.value.tabs
                 val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                val closedIdx = currentTabs.indexOfFirst { it.id == tabId }
+                val wasActive = _uiState.value.activeTabId == tabId
                 tabRepository.closeTab(tabId)
-                val remainingTabs = _uiState.value.tabs.filter { it.id != tabId }
+                val remainingTabs = currentTabs.filter { it.id != tabId }
                 if (remainingTabs.isEmpty()) {
                     val newTab = tabRepository.createTab(url = "", title = "Home")
                     tabRepository.setActiveTab(newTab.id)
+                    webViewPool?.onTabActivated(newTab.id, false)
                     _uiState.update {
                         it.copy(
                             tabs = listOf(newTab.copy(isActive = true)),
@@ -569,18 +804,22 @@ class BrowserViewModel(
                             activeThemeColor = null,
                             activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
                             recentlyClosedTab = tabToSave,
-                            showUndoTabCloseSnackbar = tabToSave != null
+                            showUndoTabCloseSnackbar = tabToSave != null,
                         )
                     }
                 } else {
-                    val nextActive = if (remainingTabs.any { it.id == _uiState.value.activeTabId }) {
-                        remainingTabs.first { it.id == _uiState.value.activeTabId }
-                    } else {
-                        remainingTabs.first()
-                    }
+                    val nextActive =
+                        if (!wasActive && remainingTabs.any { it.id == _uiState.value.activeTabId }) {
+                            remainingTabs.first { it.id == _uiState.value.activeTabId }
+                        } else if (closedIdx > 0) {
+                            currentTabs[closedIdx - 1]
+                        } else {
+                            remainingTabs.first()
+                        }
                     val isNextHome = nextActive.url.isEmpty() || nextActive.url == "about:blank"
                     val nextColor = tabThemeColors[nextActive.id] ?: nextActive.themeColor
                     tabRepository.setActiveTab(nextActive.id)
+                    webViewPool?.onTabActivated(nextActive.id, false)
                     _uiState.update {
                         it.copy(
                             tabs = remainingTabs.map { t -> t.copy(isActive = t.id == nextActive.id) },
@@ -590,15 +829,16 @@ class BrowserViewModel(
                             canGoBack = nextActive.canGoBack,
                             canGoForward = nextActive.canGoForward,
                             activeThemeColor = if (isNextHome) null else nextColor,
-                            activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) {
-                                OverlayType.TAB_GRID
-                            } else if (isNextHome) {
-                                OverlayType.HOME
-                            } else {
-                                OverlayType.NONE
-                            },
+                            activeOverlay =
+                                if (it.activeOverlay == OverlayType.TAB_GRID) {
+                                    OverlayType.TAB_GRID
+                                } else if (isNextHome) {
+                                    OverlayType.HOME
+                                } else {
+                                    OverlayType.NONE
+                                },
                             recentlyClosedTab = tabToSave,
-                            showUndoTabCloseSnackbar = tabToSave != null
+                            showUndoTabCloseSnackbar = tabToSave != null,
                         )
                     }
                 }
@@ -610,11 +850,12 @@ class BrowserViewModel(
         val tabToRestore = _uiState.value.recentlyClosedTab ?: return
         viewModelScope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
-                val created = tabRepository.createTab(
-                    url = tabToRestore.url,
-                    title = tabToRestore.title,
-                    isIncognito = tabToRestore.isIncognito
-                )
+                val created =
+                    tabRepository.createTab(
+                        url = tabToRestore.url,
+                        title = tabToRestore.title,
+                        isIncognito = tabToRestore.isIncognito,
+                    )
                 tabToRestore.snapshotPath?.let { tabRepository.updateSnapshot(created.id, it) }
                 tabToRestore.faviconUrl?.let { tabRepository.updateFavicon(created.id, it) }
                 tabToRestore.themeColor?.let {
@@ -623,16 +864,19 @@ class BrowserViewModel(
                 }
                 tabRepository.setActiveTab(created.id)
 
-                val restoredTab = created.copy(
-                    isActive = true,
-                    snapshotPath = tabToRestore.snapshotPath,
-                    faviconUrl = tabToRestore.faviconUrl,
-                    themeColor = tabToRestore.themeColor,
-                    canGoBack = tabToRestore.canGoBack,
-                    canGoForward = tabToRestore.canGoForward
-                )
+                val restoredTab =
+                    created.copy(
+                        isActive = true,
+                        snapshotPath = tabToRestore.snapshotPath,
+                        faviconUrl = tabToRestore.faviconUrl,
+                        themeColor = tabToRestore.themeColor,
+                        canGoBack = tabToRestore.canGoBack,
+                        canGoForward = tabToRestore.canGoForward,
+                    )
 
-                val updatedTabs = _uiState.value.tabs.map { it.copy(isActive = false) } + restoredTab
+                val updatedTabs =
+                    (_uiState.value.tabs.map { it.copy(isActive = false) } + restoredTab)
+                        .distinctBy { it.id }
 
                 val isHome = restoredTab.url.isEmpty() || restoredTab.url == "about:blank"
                 val themeColor = if (isHome) null else (tabThemeColors[created.id] ?: restoredTab.themeColor)
@@ -648,13 +892,14 @@ class BrowserViewModel(
                         activeThemeColor = themeColor,
                         recentlyClosedTab = null,
                         showUndoTabCloseSnackbar = false,
-                        activeOverlay = if (state.activeOverlay == OverlayType.TAB_GRID) {
-                            OverlayType.TAB_GRID
-                        } else if (isHome) {
-                            OverlayType.HOME
-                        } else {
-                            OverlayType.NONE
-                        }
+                        activeOverlay =
+                            if (state.activeOverlay == OverlayType.TAB_GRID) {
+                                OverlayType.TAB_GRID
+                            } else if (isHome) {
+                                OverlayType.HOME
+                            } else {
+                                OverlayType.NONE
+                            },
                     )
                 }
 
@@ -667,11 +912,20 @@ class BrowserViewModel(
 
     private fun closeAllTabs() {
         tabThemeColors.clear()
+        webViewPool?.clearAll()
         viewModelScope.launch(ioDispatcher) {
+            context?.let { ctx ->
+                try {
+                    File(ctx.filesDir, "snapshots").listFiles()?.forEach { it.delete() }
+                    File(ctx.filesDir, "favicons").listFiles()?.forEach { it.delete() }
+                } catch (_: Throwable) {
+                }
+            }
             tabOperationMutex.withLock {
                 tabRepository.closeAllTabs()
                 val newTab = tabRepository.createTab(url = "", title = "Home")
                 tabRepository.setActiveTab(newTab.id)
+                webViewPool?.onTabActivated(newTab.id, false)
                 _uiState.update {
                     it.copy(
                         tabs = listOf(newTab.copy(isActive = true)),
@@ -679,7 +933,7 @@ class BrowserViewModel(
                         currentUrl = "",
                         pageTitle = "Home",
                         activeThemeColor = null,
-                        activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME
+                        activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
                     )
                 }
             }
@@ -706,15 +960,33 @@ class BrowserViewModel(
 
     private fun loadUrl(rawUrl: String) {
         val trimmed = rawUrl.trim()
-        val finalUrl = when {
-            trimmed.isEmpty() -> ""
-            trimmed == "about:blank" -> ""
-            trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
-            trimmed.startsWith("localhost") || (trimmed.contains(".") && !trimmed.contains(" ")) || (trimmed.contains(":") && !trimmed.contains(" ")) -> "https://$trimmed"
-            else -> _uiState.value.settings.searchEngine.buildSearchUrl(trimmed)
-        }
+        val finalUrl =
+            when {
+                trimmed.isEmpty() -> {
+                    ""
+                }
+
+                trimmed == "about:blank" -> {
+                    ""
+                }
+
+                trimmed.startsWith("http://") || trimmed.startsWith("https://") -> {
+                    trimmed
+                }
+
+                trimmed.startsWith("localhost") || (trimmed.contains(".") && !trimmed.contains(" ")) ||
+                    (trimmed.contains(":") && !trimmed.contains(" ")) -> {
+                    "https://$trimmed"
+                }
+
+                else -> {
+                    _uiState.value.settings.searchEngine
+                        .buildSearchUrl(trimmed)
+                }
+            }
 
         val activeId = _uiState.value.activeTabId ?: return
+        webViewPool?.onTabActivated(activeId, false)
         if (finalUrl.isEmpty()) {
             _uiState.update {
                 it.copy(
@@ -722,7 +994,7 @@ class BrowserViewModel(
                     pageTitle = "Home",
                     isLoading = false,
                     isMenuExpanded = it.settings.isMenuExpandedOnWeb,
-                    activeOverlay = OverlayType.HOME
+                    activeOverlay = OverlayType.HOME,
                 )
             }
             viewModelScope.launch(ioDispatcher) {
@@ -732,9 +1004,10 @@ class BrowserViewModel(
         }
 
         _uiState.update {
-            val updatedTabs = it.tabs.map { tab ->
-                if (tab.id == activeId) tab.copy(url = finalUrl, title = finalUrl) else tab
-            }
+            val updatedTabs =
+                it.tabs.map { tab ->
+                    if (tab.id == activeId) tab.copy(url = finalUrl, title = finalUrl) else tab
+                }
             it.copy(
                 tabs = updatedTabs,
                 currentUrl = finalUrl,
@@ -743,15 +1016,8 @@ class BrowserViewModel(
                 activeThemeColor = tabThemeColors[activeId] ?: it.tabs.find { tab -> tab.id == activeId }?.themeColor,
                 isVideoPlaying = false,
                 isMenuExpanded = it.settings.isMenuExpandedOnWeb,
-                activeOverlay = OverlayType.NONE
+                activeOverlay = OverlayType.NONE,
             )
-        }
-        val currentTab = _uiState.value.tabs.firstOrNull { it.id == activeId }
-        if (currentTab?.faviconUrl.isNullOrEmpty()) {
-            val fallbackFavicon = com.jestk.browser.engine.FaviconManager.extractFallbackFaviconUrl(finalUrl)
-            if (fallbackFavicon != null) {
-                handleUpdateFavicon(activeId, fallbackFavicon)
-            }
         }
         viewModelScope.launch(ioDispatcher) {
             tabRepository.updateTabDetails(activeId, finalUrl, finalUrl, canGoBack = false, canGoForward = false)
@@ -765,31 +1031,34 @@ class BrowserViewModel(
 
     private fun updateHistorySuggestions(query: String) {
         viewModelScope.launch(ioDispatcher) {
-            val historyFlow = if (query.isBlank()) {
-                historyRepository.getRecentHistory(10)
-            } else {
-                historyRepository.searchHistory(query)
-            }
+            val historyFlow =
+                if (query.isBlank()) {
+                    historyRepository.getRecentHistory(10)
+                } else {
+                    historyRepository.searchHistory(query)
+                }
             historyFlow.collectLatest { results ->
                 _uiState.update { it.copy(searchHistorySuggestions = results) }
             }
         }
     }
 
-    private fun handlePageStarted(tabId: String, url: String) {
+    private fun handlePageStarted(
+        tabId: String,
+        url: String,
+    ) {
+        if (url.isEmpty() || url == "about:blank") return
         if (_uiState.value.activeTabId == tabId) {
             _uiState.update { it.copy(currentUrl = url, isLoading = true, loadingProgress = 0.15f) }
         }
-        val currentTab = _uiState.value.tabs.firstOrNull { it.id == tabId }
-        if (currentTab?.faviconUrl.isNullOrEmpty()) {
-            val fallbackFavicon = com.jestk.browser.engine.FaviconManager.extractFallbackFaviconUrl(url)
-            if (fallbackFavicon != null) {
-                handleUpdateFavicon(tabId, fallbackFavicon)
-            }
-        }
     }
 
-    private fun handlePageFinished(tabId: String, url: String, title: String) {
+    private fun handlePageFinished(
+        tabId: String,
+        url: String,
+        title: String,
+    ) {
+        if (url.isEmpty() || url == "about:blank") return
         val displayTitle = title.ifEmpty { url }
         if (_uiState.value.activeTabId == tabId) {
             _uiState.update {
@@ -797,7 +1066,7 @@ class BrowserViewModel(
                     currentUrl = url,
                     pageTitle = displayTitle,
                     isLoading = false,
-                    loadingProgress = 1.0f
+                    loadingProgress = 1.0f,
                 )
             }
         }
@@ -808,7 +1077,7 @@ class BrowserViewModel(
                 url = url,
                 title = displayTitle,
                 canGoBack = tab?.canGoBack ?: _uiState.value.canGoBack,
-                canGoForward = tab?.canGoForward ?: false
+                canGoForward = tab?.canGoForward ?: false,
             )
             if (url.isNotEmpty() && !url.startsWith("about:")) {
                 historyRepository.recordVisit(url, displayTitle)
@@ -816,24 +1085,31 @@ class BrowserViewModel(
                     url = url,
                     title = displayTitle,
                     snapshotPath = tab?.snapshotPath,
-                    faviconUrl = tab?.faviconUrl
+                    faviconUrl = tab?.faviconUrl,
                 )
             }
         }
     }
 
-    private fun handleProgressChanged(tabId: String, progress: Int) {
+    private fun handleProgressChanged(
+        tabId: String,
+        progress: Int,
+    ) {
         if (_uiState.value.activeTabId == tabId) {
             _uiState.update {
                 it.copy(
                     loadingProgress = (progress / 100f).coerceIn(0f, 1f),
-                    isLoading = progress < 100
+                    isLoading = progress < 100,
                 )
             }
         }
     }
 
-    private fun handleNavState(tabId: String, canGoBack: Boolean, canGoForward: Boolean) {
+    private fun handleNavState(
+        tabId: String,
+        canGoBack: Boolean,
+        canGoForward: Boolean,
+    ) {
         if (_uiState.value.activeTabId == tabId) {
             _uiState.update { it.copy(canGoBack = canGoBack, canGoForward = canGoForward) }
         }
@@ -845,13 +1121,16 @@ class BrowserViewModel(
                     url = tab.url,
                     title = tab.title,
                     canGoBack = canGoBack,
-                    canGoForward = canGoForward
+                    canGoForward = canGoForward,
                 )
             }
         }
     }
 
-    private fun handleSnapshot(tabId: String, path: String) {
+    private fun handleSnapshot(
+        tabId: String,
+        path: String,
+    ) {
         viewModelScope.launch(ioDispatcher) {
             tabRepository.updateSnapshot(tabId, path)
             val tab = tabRepository.getTabById(tabId)
@@ -861,12 +1140,16 @@ class BrowserViewModel(
         }
     }
 
-    private fun handleUpdateFavicon(tabId: String, faviconUrl: String) {
+    private fun handleUpdateFavicon(
+        tabId: String,
+        faviconUrl: String,
+    ) {
         _uiState.update { state ->
             state.copy(
-                tabs = state.tabs.map { tab ->
-                    if (tab.id == tabId) tab.copy(faviconUrl = faviconUrl) else tab
-                }
+                tabs =
+                    state.tabs.map { tab ->
+                        if (tab.id == tabId) tab.copy(faviconUrl = faviconUrl) else tab
+                    },
             )
         }
         viewModelScope.launch(ioDispatcher) {
@@ -878,7 +1161,10 @@ class BrowserViewModel(
         }
     }
 
-    private fun handleThemeColor(tabId: String, color: Int?) {
+    private fun handleThemeColor(
+        tabId: String,
+        color: Int?,
+    ) {
         if (color != null) {
             tabThemeColors[tabId] = color
         } else {
@@ -888,9 +1174,10 @@ class BrowserViewModel(
             tabRepository.updateThemeColor(tabId, color)
         }
         _uiState.update { state ->
-            val updatedTabs = state.tabs.map { tab ->
-                if (tab.id == tabId) tab.copy(themeColor = color) else tab
-            }
+            val updatedTabs =
+                state.tabs.map { tab ->
+                    if (tab.id == tabId) tab.copy(themeColor = color) else tab
+                }
             if (state.activeTabId == tabId) {
                 state.copy(tabs = updatedTabs, activeThemeColor = color)
             } else {
@@ -902,10 +1189,18 @@ class BrowserViewModel(
     private fun addCurrentToFavorites() {
         val current = _uiState.value
         if (current.currentUrl.isNotEmpty() && !current.currentUrl.startsWith("about:")) {
+            val activeTab = current.tabs.find { it.id == current.activeTabId }
+            val tabFavicon = activeTab?.faviconUrl
+            val iconUrl = if (!tabFavicon.isNullOrEmpty() && tabFavicon.startsWith("http")) {
+                tabFavicon
+            } else {
+                FaviconManager.extractFallbackFaviconUrl(current.currentUrl)
+            }
             viewModelScope.launch(ioDispatcher) {
                 favoriteRepository.addFavorite(
                     title = current.pageTitle.ifEmpty { current.currentUrl },
-                    url = current.currentUrl
+                    url = current.currentUrl,
+                    iconUrl = iconUrl
                 )
             }
         }
@@ -927,6 +1222,14 @@ class BrowserViewModel(
 
     private fun handleBackNavigation() {
         val current = _uiState.value
+        if (current.selectedImageUrl != null) {
+            _uiState.update { it.copy(selectedImageUrl = null) }
+            return
+        }
+        if (current.activeScreen != ScreenType.NONE) {
+            _uiState.update { it.copy(activeScreen = ScreenType.NONE) }
+            return
+        }
         if (current.linkContextMenuUrl != null) {
             _uiState.update { it.copy(linkContextMenuUrl = null) }
             return
@@ -954,7 +1257,8 @@ class BrowserViewModel(
         if (current.tabs.size > 1) {
             current.activeTabId?.let { closeTab(it) }
         } else {
-            val isCurrentTabBlankOrHome = current.currentUrl.isEmpty() ||
+            val isCurrentTabBlankOrHome =
+                current.currentUrl.isEmpty() ||
                     current.currentUrl == "about:blank" ||
                     current.activeOverlay == OverlayType.HOME
 
@@ -967,7 +1271,7 @@ class BrowserViewModel(
                             pageTitle = "Home",
                             canGoBack = false,
                             canGoForward = false,
-                            activeOverlay = OverlayType.HOME
+                            activeOverlay = OverlayType.HOME,
                         )
                     }
                     viewModelScope.launch(ioDispatcher) {

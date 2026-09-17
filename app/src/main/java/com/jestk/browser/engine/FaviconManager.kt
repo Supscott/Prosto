@@ -9,16 +9,24 @@ import java.io.FileOutputStream
 object FaviconManager {
 
     fun extractFallbackFaviconUrl(url: String?): String? {
-        if (url.isNullOrEmpty() || url.startsWith("about:")) return null
+        if (url.isNullOrBlank()) return null
         return try {
             val uri = Uri.parse(url)
-            val host = uri.host ?: return null
-            if (host.isNotBlank()) {
-                "https://www.google.com/s2/favicons?sz=64&domain=${host.removePrefix("www.")}"
-            } else {
-                null
+            val scheme = uri.scheme?.lowercase() ?: return null
+            if (scheme != "http" && scheme != "https") return null
+            val host = uri.host?.lowercase() ?: return null
+            if (host.isBlank()) return null
+            if (host == "localhost" ||
+                host.startsWith("127.") ||
+                host.startsWith("10.") ||
+                host.startsWith("192.168.") ||
+                host.startsWith("172.16.") ||
+                host.endsWith(".local")
+            ) {
+                return null
             }
-        } catch (_: Exception) {
+            "https://www.google.com/s2/favicons?sz=128&domain=${host.removePrefix("www.")}"
+        } catch (_: Throwable) {
             null
         }
     }

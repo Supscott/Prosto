@@ -6,7 +6,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.res.stringResource
+import com.jestk.browser.R
+import com.jestk.browser.ui.theme.LiquidPrimaryFixed
+import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
+import com.jestk.browser.util.DefaultBrowserHelper
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.tooling.preview.Preview
 import com.jestk.browser.domain.model.ThemeMode
@@ -203,6 +212,7 @@ fun HomeScreen(
     val scrollState = rememberScrollState()
     val isDark = LocalIsDarkTheme.current
     val homeHazeState = remember { HazeState() }
+    var isDefaultBrowserDismissed by rememberSaveable { mutableStateOf(false) }
 
     CompositionLocalProvider(LocalHazeState provides homeHazeState) {
         Box(modifier = modifier.fillMaxSize()) {
@@ -260,6 +270,28 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
                 )
+
+                // Default Browser Recommendation Card
+                if (!uiState.isDefaultBrowser && !isDefaultBrowserDismissed) {
+                    Spacer(modifier = Modifier.height(20.dp))
+                    DefaultBrowserPromptCard(
+                        isDark = isDark,
+                        onSetDefaultClick = {
+                            try {
+                                val intent = DefaultBrowserHelper.createSetDefaultBrowserIntent(context)
+                                context.startActivity(intent)
+                            } catch (_: Exception) {
+                                try {
+                                    context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+                                } catch (_: Exception) {}
+                            }
+                        },
+                        onDismissClick = { isDefaultBrowserDismissed = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp)
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(28.dp))
 
@@ -1077,6 +1109,129 @@ fun RecentTabsSectionDarkPreview() {
                     isDark = true,
                     onOpenRecent = {},
                     onMoreClick = {}
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DefaultBrowserPromptCard(
+    isDark: Boolean,
+    onSetDefaultClick: () -> Unit,
+    onDismissClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val bg = if (isDark) Color(0xFF242021) else Color.White
+    val border = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f)
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = Color.Transparent,
+        border = null,
+        shadowElevation = 0.dp,
+        modifier = modifier
+            .liquidFrostedGlass(
+                shape = RoundedCornerShape(20.dp),
+                isDark = isDark,
+                blurRadius = 18.dp,
+                tintColor = bg,
+                alpha = if (isDark) 0.88f else 0.85f,
+                borderColor = border,
+                hazeState = LocalHazeState.current
+            )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (isDark) Color(0xFF1B4975) else LiquidPrimaryFixed.copy(alpha = 0.70f)
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Public,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.default_browser_prompt_title),
+                            style = MaterialTheme.typography.titleSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                letterSpacing = (-0.2).sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = stringResource(R.string.default_browser_prompt_desc),
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                lineHeight = 16.sp
+                            ),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = onDismissClick,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(CircleShape)
+                        .background(
+                            if (isDark) Color(0xFF2C2829) else LiquidSurfaceContainerHigh.copy(alpha = 0.60f)
+                        )
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.dismiss),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Button(
+                onClick = onSetDefaultClick,
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(40.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.default_browser_prompt_button),
+                    style = MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
                 )
             }
         }
