@@ -11,4 +11,5 @@ interface SettingsRepository {
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setSearchEngine(engine: SearchEngine)
     suspend fun setAdBlockerEnabled(enabled: Boolean)
+    suspend fun setMenuExpandedOnWeb(expanded: Boolean)
 }

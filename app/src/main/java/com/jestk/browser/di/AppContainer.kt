@@ -5,12 +5,16 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.jestk.browser.data.local.AppDatabase
+import com.jestk.browser.data.repository.DownloadRepositoryImpl
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
+import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
+import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
+import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.WebViewPool
@@ -22,6 +26,8 @@ interface AppContainer {
     val historyRepository: HistoryRepository
     val favoriteRepository: FavoriteRepository
     val settingsRepository: SettingsRepository
+    val recentTabRepository: RecentTabRepository
+    val downloadRepository: DownloadRepository
     val webViewPool: WebViewPool
     val viewModelFactory: ViewModelProvider.Factory
 }
@@ -32,8 +38,12 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         AppDatabase.getInstance(context)
     }
 
+    override val downloadRepository: DownloadRepository by lazy {
+        DownloadRepositoryImpl(database.downloadDao())
+    }
+
     override val webViewPool: WebViewPool by lazy {
-        WebViewPool(context.applicationContext)
+        WebViewPool(context.applicationContext, downloadRepository)
     }
 
     override val tabRepository: TabRepository by lazy {
@@ -52,13 +62,21 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         SettingsRepositoryImpl(database.settingDao())
     }
 
+    override val recentTabRepository: RecentTabRepository by lazy {
+        RecentTabRepositoryImpl(database.recentTabDao())
+    }
+
     override val viewModelFactory: ViewModelProvider.Factory = viewModelFactory {
         initializer {
             BrowserViewModel(
                 tabRepository = tabRepository,
                 historyRepository = historyRepository,
                 favoriteRepository = favoriteRepository,
-                settingsRepository = settingsRepository
+                settingsRepository = settingsRepository,
+                recentTabRepository = recentTabRepository,
+                downloadRepository = downloadRepository,
+                context = context.applicationContext,
+                webViewPool = webViewPool
             )
         }
     }

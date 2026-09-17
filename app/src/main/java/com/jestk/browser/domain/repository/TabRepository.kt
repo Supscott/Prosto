@@ -14,10 +14,12 @@ interface TabRepository {
     suspend fun updateTabDetails(id: String, url: String, title: String, canGoBack: Boolean, canGoForward: Boolean)
     suspend fun updateSnapshot(id: String, snapshotPath: String)
     suspend fun updateFavicon(id: String, faviconUrl: String)
+    suspend fun updateThemeColor(id: String, themeColor: Int?)
     suspend fun setActiveTab(id: String)
     suspend fun deleteTab(id: String)
     suspend fun closeTab(id: String)
     suspend fun deleteAllTabs()
     suspend fun closeAllTabs()
     suspend fun reorderTabs(orderedTabs: List<Tab>)
+    suspend fun clearRecentTabs() {}
 }

@@ -1,559 +1,352 @@
 package com.jestk.browser.ui.navigation
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.GridView
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Language
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.compose.SubcomposeAsyncImage
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.LiquidShapes
+import com.jestk.browser.ui.theme.LiquidSurface
+import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
+import com.jestk.browser.ui.theme.LocalHazeState
+import com.jestk.browser.ui.theme.LocalIsDarkTheme
+import com.jestk.browser.ui.theme.liquidFrostedGlass
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.haze
 
+/**
+ * Top-level orchestrator composable for bottom navigation bar.
+ * Assembles:
+ * - [TabStripRow] (horizontal scrollable tab strip with [ActiveTabPill], circular tabs, and pinned add tab button)
+ * - [ActionPopupMenu] (animated popup actions card)
+ * - [SwipeUpHint] (contextual gesture guidance above dock)
+ * - [ActionDockMenuButton] (floating menu button)
+ * - Scroll-driven auto-hide offset translation via [BrowserUiState.bottomBarOffsetY]
+ */
+@Composable
+fun UnifiedBottomBar(
+    uiState: BrowserUiState,
+    onEvent: (BrowserUiEvent) -> Unit,
+    modifier: Modifier = Modifier,
+    hazeState: HazeState? = LocalHazeState.current
+) {
+    val density = LocalDensity.current
+    val currentOnEvent by rememberUpdatedState(onEvent)
+    val isDark = LocalIsDarkTheme.current
+    val isHome = uiState.isHome
+
+    // Colors & Glassmorphism
+    val defaultBg = MaterialTheme.colorScheme.background
+    val resolvedThemeColor = uiState.activeThemeColor ?: uiState.activeTab?.themeColor
+    val targetBgColor = if (isHome) defaultBg else (resolvedThemeColor?.let { Color(it) } ?: defaultBg)
+    val animatedBgColor by animateColorAsState(
+        targetValue = targetBgColor,
+        animationSpec = tween(durationMillis = 350),
+        label = "BottomBarDynamicColor"
+    )
+    val bottomBg = animatedBgColor
+    val dockBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else LiquidSurface.copy(alpha = 0.85f)
+    val centerPillBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.92f)
+    val centerPillBorder = LiquidBorders.frostedBorder(isDark, alpha = if (isDark) 0.14f else 0.85f)
+    val circleBtnBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.70f) else LiquidSurfaceContainerHigh.copy(alpha = 0.65f)
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                translationY = uiState.bottomBarOffsetY
+            },
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.End
+        ) {
+            // 1. Animated Popup Menu Card anchored above the Menu Button
+            ActionPopupMenu(
+                expanded = uiState.isMenuExpanded,
+                uiState = uiState,
+                isDark = isDark,
+                hazeState = hazeState,
+                onEvent = onEvent
+            )
+
+            // 2. "Swipe up to search" Hint (visible when active tab is Home)
+            AnimatedVisibility(
+                visible = isHome && !uiState.isMenuExpanded,
+                enter = fadeIn(animationSpec = tween(200)) + slideInVertically(animationSpec = tween(200)) { it / 2 },
+                exit = fadeOut(animationSpec = tween(150)) + slideOutVertically(animationSpec = tween(150)) { it / 2 },
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(bottom = 6.dp)
+            ) {
+                SwipeUpHint(
+                    isDark = isDark,
+                    onClick = {
+                        onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                    }
+                )
+            }
+
+            // 3. Floating Dock Row Container: compact low background under the dock
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(top = 0.dp, bottom = 4.dp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                // Background gradient strictly at the lower portion under the dock
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(62.dp)
+                        .align(Alignment.BottomCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color.Transparent,
+                                    bottomBg.copy(alpha = 0.50f),
+                                    bottomBg.copy(alpha = 0.85f)
+                                )
+                            )
+                        )
+                )
+
+                // Floating Dock Row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(62.dp)
+                        .padding(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Floating Capsule Dock
+                    Surface(
+                        shape = LiquidShapes.Dock,
+                        color = Color.Transparent,
+                        border = null,
+                        shadowElevation = 8.dp,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(58.dp)
+                            .liquidFrostedGlass(
+                                shape = LiquidShapes.Dock,
+                                isDark = isDark,
+                                blurRadius = 18.dp,
+                                tintColor = if (isDark) Color(0xFF1E1B1C) else LiquidSurface,
+                                alpha = 0.85f,
+                                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.75f),
+                                hazeState = hazeState
+                            )
+                            .swipeUpToSearch(density) {
+                                currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                            }
+                    ) {
+                        TabStripRow(
+                            uiState = uiState,
+                            onEvent = onEvent,
+                            isDark = isDark,
+                            dockBg = dockBg,
+                            centerPillBg = centerPillBg,
+                            centerPillBorder = centerPillBorder,
+                            circleBtnBg = circleBtnBg
+                        )
+                    }
+
+                    // Dedicated Floating Menu Button (rounded rectangle 38x58dp)
+                    ActionDockMenuButton(
+                        isExpanded = uiState.isMenuExpanded,
+                        isDark = isDark,
+                        backgroundColor = circleBtnBg,
+                        hazeState = hazeState,
+                        onClick = {
+                            onEvent(BrowserUiEvent.ToggleMenu())
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Top-level orchestrator composable for bottom bar navigation.
+ */
+@Composable
+fun BottomBar(
+    uiState: BrowserUiState,
+    onEvent: (BrowserUiEvent) -> Unit,
+    modifier: Modifier = Modifier,
+    hazeState: HazeState? = LocalHazeState.current
+) {
+    UnifiedBottomBar(
+        uiState = uiState,
+        onEvent = onEvent,
+        modifier = modifier,
+        hazeState = hazeState
+    )
+}
+
+/**
+ * Backward compatibility alias for DualTierBottomBar.
+ */
 @Composable
 fun DualTierBottomBar(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    UnifiedBottomBar(
+        uiState = uiState,
+        onEvent = onEvent,
         modifier = modifier
-            .fillMaxWidth()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color.Transparent,
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.65f),
-                        MaterialTheme.colorScheme.background.copy(alpha = 0.95f)
-                    )
-                )
-            )
-    ) {
-        Column(
+    )
+}
+
+@Preview(name = "BottomBar Light", showBackground = true, backgroundColor = 0xFFC5CED9)
+@Composable
+fun UnifiedBottomBarLightPreview() {
+    val hazeState = remember { dev.chrisbanes.haze.HazeState() }
+    JestkBrowserTheme(themeMode = ThemeMode.LIGHT, hazeState = hazeState) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(bottom = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Tier 1: Horizontal Tab Strip
-            Tier1TabStrip(
-                tabs = uiState.tabs,
-                activeTabId = uiState.activeTabId,
-                onEvent = onEvent
-            )
-
-            // Tier 2: Persistent Action Dock (hides when scrolling down on websites)
-            AnimatedVisibility(
-                visible = uiState.isBottomBarVisible,
-                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Tier2ActionDock(
-                        activeOverlay = uiState.activeOverlay,
-                        onEvent = onEvent
+                .height(180.dp)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFFFFB4A2), // Coral peach
+                            Color(0xFFE5989B), // Rose
+                            Color(0xFFB5E2FA), // Sky blue
+                            Color(0xFFEDDCD2)  // Sand
+                        )
                     )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun Tier1TabStrip(
-    tabs: List<Tab>,
-    activeTabId: String?,
-    onEvent: (BrowserUiEvent) -> Unit
-) {
-    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
-    val activePillWidth = screenWidth * 0.50f
-    val listState = rememberLazyListState()
-
-    val activeIndex = tabs.indexOfFirst { it.id == activeTabId }.coerceAtLeast(0)
-
-    LaunchedEffect(activeIndex) {
-        if (tabs.isNotEmpty() && activeIndex in tabs.indices) {
-            listState.animateScrollToItem(activeIndex)
-        }
-    }
-
-    LazyRow(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(52.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        itemsIndexed(
-            items = tabs,
-            key = { _, tab -> tab.id }
-        ) { _, tab ->
-            val isActive = tab.id == activeTabId
-            if (isActive) {
-                ActiveTabPill(
-                    tab = tab,
-                    width = activePillWidth,
-                    onTap = {
-                        onEvent(BrowserUiEvent.OpenSearch(tab.url))
-                    },
-                    onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
-                    onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) }
                 )
-            } else {
-                InactiveTabCircle(
-                    tab = tab,
-                    onSelect = { onEvent(BrowserUiEvent.SelectTab(tab.id)) },
-                    onClose = { onEvent(BrowserUiEvent.CloseTab(tab.id)) },
-                    onAddFavorite = { onEvent(BrowserUiEvent.AddFavorite(tab.title, tab.url)) }
-                )
-            }
-        }
-
-        item {
-            // Trailing + Action Button
-            IconButton(
-                onClick = { onEvent(BrowserUiEvent.OpenNewTab("")) },
+                .haze(hazeState),
+            contentAlignment = Alignment.BottomCenter
+        ) {
+            // Background colorful circles to demonstrate blur through glass
+            Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(90.dp)
+                    .align(Alignment.CenterStart)
+                    .padding(start = 24.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
-                    .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)), CircleShape)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Add,
-                    contentDescription = "New Tab",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                    .background(Color(0xFFE63946))
+            )
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .align(Alignment.Center)
+                    .clip(CircleShape)
+                    .background(Color(0xFF457B9D))
+            )
+
+            UnifiedBottomBar(
+                uiState = BrowserUiState(
+                    currentUrl = "https://example.com",
+                    pageTitle = "Example Domain",
+                    tabs = listOf(
+                        Tab(id = "1", url = "https://example.com", title = "Example Domain", isActive = true),
+                        Tab(id = "2", url = "https://duckduckgo.com", title = "DuckDuckGo", isActive = false)
+                    ),
+                    activeTabId = "1"
+                ),
+                hazeState = hazeState,
+                onEvent = {}
+            )
         }
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class)
+@Preview(name = "BottomBar Dark", showBackground = true, backgroundColor = 0xFF100E0F)
 @Composable
-private fun ActiveTabPill(
-    tab: Tab,
-    width: androidx.compose.ui.unit.Dp,
-    onTap: () -> Unit,
-    onClose: () -> Unit,
-    onAddFavorite: () -> Unit
-) {
-    var isMenuExpanded by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-
-    Surface(
-        shape = RoundedCornerShape(26.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-        shadowElevation = 3.dp,
-        modifier = Modifier
-            .width(width)
-            .height(48.dp)
-            .clip(RoundedCornerShape(26.dp))
-            .combinedClickable(
-                onClick = onTap,
-                onLongClick = { isMenuExpanded = true }
-            )
-    ) {
-        Row(
+fun UnifiedBottomBarDarkPreview() {
+    val hazeState = remember { dev.chrisbanes.haze.HazeState() }
+    JestkBrowserTheme(themeMode = ThemeMode.DARK, hazeState = hazeState) {
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Start
-        ) {
-            // Favicon with fallback to globe
-            if (!tab.faviconUrl.isNullOrEmpty()) {
-                SubcomposeAsyncImage(
-                    model = tab.faviconUrl,
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Crop,
-                    loading = {
-                        Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
+                .height(180.dp)
+                .background(
+                    Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF2B193D),
+                            Color(0xFF1B263B),
+                            Color(0xFF4A0E2E)
                         )
-                    },
-                    error = {
-                        Icon(
-                            imageVector = Icons.Default.Language,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
+                    )
                 )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Language,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            // Title / Hostname (truncated)
-            val displayTitle = when {
-                tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
-                tab.url.isNotEmpty() -> tab.url.removePrefix("https://").removePrefix("http://").removePrefix("www.")
-                else -> "Search or enter URL"
-            }
-
-            Text(
-                text = displayTitle,
-                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 13.sp),
-                color = MaterialTheme.colorScheme.onSurface,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
-        }
-
-        DropdownMenu(
-            expanded = isMenuExpanded,
-            onDismissRequest = { isMenuExpanded = false }
+                .haze(hazeState),
+            contentAlignment = Alignment.BottomCenter
         ) {
-            DropdownMenuItem(
-                text = { Text("Close Tab") },
-                leadingIcon = { Icon(Icons.Default.Close, null) },
-                onClick = {
-                    isMenuExpanded = false
-                    onClose()
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Copy URL") },
-                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
-                onClick = {
-                    isMenuExpanded = false
-                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
-                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Add to Favorites") },
-                leadingIcon = { Icon(Icons.Default.Bookmark, null) },
-                onClick = {
-                    isMenuExpanded = false
-                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                        onAddFavorite()
-                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun InactiveTabCircle(
-    tab: Tab,
-    onSelect: () -> Unit,
-    onClose: () -> Unit,
-    onAddFavorite: () -> Unit
-) {
-    val context = LocalContext.current
-    var isMenuExpanded by remember { mutableStateOf(false) }
-
-    Box(
-        modifier = Modifier
-            .size(44.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.85f))
-            .border(BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)), CircleShape)
-            .combinedClickable(
-                onClick = onSelect,
-                onLongClick = { isMenuExpanded = true }
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        if (!tab.faviconUrl.isNullOrEmpty()) {
-            SubcomposeAsyncImage(
-                model = tab.faviconUrl,
-                contentDescription = tab.title,
+            // Bright background geometric shapes to showcase blur through dark glass dock
+            Box(
                 modifier = Modifier
-                    .size(22.dp)
-                    .clip(CircleShape),
-                contentScale = ContentScale.Crop,
-                loading = {
-                    Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = tab.title,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
-                    )
-                },
-                error = {
-                    Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = tab.title,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            )
-        } else {
-            Icon(
-                imageVector = Icons.Default.Language,
-                contentDescription = tab.title,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(22.dp)
-            )
-        }
-
-        DropdownMenu(
-            expanded = isMenuExpanded,
-            onDismissRequest = { isMenuExpanded = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("Close Tab") },
-                leadingIcon = { Icon(Icons.Default.Close, null) },
-                onClick = {
-                    isMenuExpanded = false
-                    onClose()
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Copy URL") },
-                leadingIcon = { Icon(Icons.Default.ContentCopy, null) },
-                onClick = {
-                    isMenuExpanded = false
-                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("URL", tab.url))
-                        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-            DropdownMenuItem(
-                text = { Text("Add to Favorites") },
-                leadingIcon = { Icon(Icons.Default.Bookmark, null) },
-                onClick = {
-                    isMenuExpanded = false
-                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                        onAddFavorite()
-                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            )
-        }
-    }
-}
-
-@Composable
-private fun Tier2ActionDock(
-    activeOverlay: OverlayType,
-    onEvent: (BrowserUiEvent) -> Unit
-) {
-    Surface(
-        shape = RoundedCornerShape(32.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-        shadowElevation = 4.dp,
-        modifier = Modifier
-            .padding(horizontal = 24.dp)
-            .height(56.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Home Button
-            IconButton(
-                onClick = {
-                    if (activeOverlay == OverlayType.HOME) {
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        onEvent(BrowserUiEvent.OpenHome)
-                    }
-                },
-                modifier = Modifier
-                    .size(42.dp)
+                    .size(90.dp)
+                    .align(Alignment.CenterStart)
+                    .padding(start = 24.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (activeOverlay == OverlayType.HOME)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else Color.Transparent
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Home",
-                    tint = if (activeOverlay == OverlayType.HOME)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // Search Button
-            IconButton(
-                onClick = {
-                    if (activeOverlay == OverlayType.SEARCH) {
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        onEvent(BrowserUiEvent.OpenSearch(null))
-                    }
-                },
+                    .background(Color(0xFFFF758F))
+            )
+            Box(
                 modifier = Modifier
-                    .size(42.dp)
+                    .size(80.dp)
+                    .align(Alignment.Center)
                     .clip(CircleShape)
-                    .background(
-                        if (activeOverlay == OverlayType.SEARCH)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else Color.Transparent
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = if (activeOverlay == OverlayType.SEARCH)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+                    .background(Color(0xFF48CAE4))
+            )
 
-            // All Tabs (Grid) Button
-            IconButton(
-                onClick = {
-                    if (activeOverlay == OverlayType.TAB_GRID) {
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        onEvent(BrowserUiEvent.OpenTabGrid)
-                    }
-                },
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (activeOverlay == OverlayType.TAB_GRID)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else Color.Transparent
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.GridView,
-                    contentDescription = "All Tabs",
-                    tint = if (activeOverlay == OverlayType.TAB_GRID)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            // Settings Button
-            IconButton(
-                onClick = {
-                    if (activeOverlay == OverlayType.SETTINGS) {
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        onEvent(BrowserUiEvent.OpenSettings)
-                    }
-                },
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .background(
-                        if (activeOverlay == OverlayType.SETTINGS)
-                            MaterialTheme.colorScheme.primaryContainer
-                        else Color.Transparent
-                    )
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = if (activeOverlay == OverlayType.SETTINGS)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            UnifiedBottomBar(
+                uiState = BrowserUiState(
+                    currentUrl = "https://example.com",
+                    pageTitle = "Example Domain",
+                    tabs = listOf(
+                        Tab(id = "1", url = "https://example.com", title = "Example Domain", isActive = true),
+                        Tab(id = "2", url = "https://duckduckgo.com", title = "DuckDuckGo", isActive = false)
+                    ),
+                    activeTabId = "1"
+                ),
+                hazeState = hazeState,
+                onEvent = {}
+            )
         }
     }
 }

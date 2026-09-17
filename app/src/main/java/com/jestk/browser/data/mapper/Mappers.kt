@@ -20,6 +20,7 @@ fun TabEntity.toDomain(): Tab = Tab(
     snapshotPath = snapshotPath,
     position = position,
     faviconUrl = faviconUrl,
+    themeColor = themeColor,
     isIncognito = isIncognito,
     isActive = isActive,
     canGoBack = canGoBack,
@@ -34,6 +35,7 @@ fun Tab.toEntity(): TabEntity = TabEntity(
     snapshotPath = snapshotPath,
     position = position,
     faviconUrl = faviconUrl,
+    themeColor = themeColor,
     isIncognito = isIncognito,
     isActive = isActive,
     canGoBack = canGoBack,
@@ -87,10 +89,51 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
     } ?: SearchEngine.DUCKDUCKGO
 
     val isAdBlockerEnabled = map[SettingKeys.AD_BLOCKER_ENABLED]?.toBooleanStrictOrNull() ?: true
+    val isMenuExpandedOnWeb = map[SettingKeys.MENU_EXPANDED_ON_WEB]?.toBooleanStrictOrNull() ?: false
 
     return BrowserSettings(
         themeMode = themeMode,
         searchEngine = searchEngine,
-        isAdBlockerEnabled = isAdBlockerEnabled
+        isAdBlockerEnabled = isAdBlockerEnabled,
+        isMenuExpandedOnWeb = isMenuExpandedOnWeb
     )
 }
+
+fun com.jestk.browser.data.local.entity.RecentTabEntity.toDomain(): com.jestk.browser.domain.model.RecentTabItem = com.jestk.browser.domain.model.RecentTabItem(
+    url = url,
+    title = title,
+    snapshotPath = snapshotPath,
+    faviconUrl = faviconUrl,
+    lastVisitedTimestamp = lastVisitedTimestamp
+)
+
+fun com.jestk.browser.domain.model.RecentTabItem.toEntity(): com.jestk.browser.data.local.entity.RecentTabEntity = com.jestk.browser.data.local.entity.RecentTabEntity(
+    url = url,
+    title = title,
+    snapshotPath = snapshotPath,
+    faviconUrl = faviconUrl,
+    lastVisitedTimestamp = lastVisitedTimestamp
+)
+
+fun com.jestk.browser.data.local.entity.DownloadEntity.toDomain(): com.jestk.browser.domain.model.DownloadItem = com.jestk.browser.domain.model.DownloadItem(
+    id = id,
+    url = url,
+    fileName = fileName,
+    filePath = filePath,
+    mimeType = mimeType,
+    contentLength = contentLength,
+    timestamp = timestamp,
+    downloadId = downloadId
+)
+
+fun com.jestk.browser.domain.model.DownloadItem.toEntity(): com.jestk.browser.data.local.entity.DownloadEntity = com.jestk.browser.data.local.entity.DownloadEntity(
+    id = id,
+    url = url,
+    fileName = fileName,
+    filePath = filePath,
+    mimeType = mimeType,
+    contentLength = contentLength,
+    timestamp = timestamp,
+    downloadId = downloadId
+)
+

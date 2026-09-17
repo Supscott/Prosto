@@ -1,10 +1,14 @@
 package com.jestk.browser.engine
 
+import android.app.Activity
 import android.content.Context
+import android.content.MutableContextWrapper
+import android.view.MotionEvent
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
@@ -71,5 +75,116 @@ class SessionRestoreWebViewTest {
         }
 
         assertThat(swipeRefresh.canChildScrollUp()).isFalse()
+    }
+
+    @Test
+    fun webViewPool_createsWebViewWithMutableContextWrapper_andActivityContext() {
+        val appContext = ApplicationProvider.getApplicationContext<Context>()
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+
+        val pool = WebViewPool(appContext)
+        val webView = pool.getOrCreateWebView("tab-input-1", activity)
+
+        assertThat(webView.context).isInstanceOf(MutableContextWrapper::class.java)
+        val wrapper = webView.context as MutableContextWrapper
+        assertThat(wrapper.baseContext).isEqualTo(activity)
+        assertThat(webView.isFocusable).isTrue()
+        assertThat(webView.isFocusableInTouchMode).isTrue()
+    }
+
+    @Test
+    fun webViewPool_updatesBaseContext_whenAttachedToNewActivity() {
+        val appContext = ApplicationProvider.getApplicationContext<Context>()
+        val activity1 = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val activity2 = Robolectric.buildActivity(Activity::class.java).setup().get()
+
+        val pool = WebViewPool(appContext)
+        val webView = pool.getOrCreateWebView("tab-reuse", activity1)
+
+        val wrapper = webView.context as MutableContextWrapper
+        assertThat(wrapper.baseContext).isEqualTo(activity1)
+
+        val reusedWebView = pool.getOrCreateWebView("tab-reuse", activity2)
+        assertThat(reusedWebView).isSameInstanceAs(webView)
+        assertThat(wrapper.baseContext).isEqualTo(activity2)
+    }
+
+    @Test
+    fun webViewPool_resetsBaseContextToApplicationContext_onRemove() {
+        val appContext = ApplicationProvider.getApplicationContext<Context>()
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+
+        val pool = WebViewPool(appContext)
+        val webView = pool.getOrCreateWebView("tab-remove", activity)
+        val wrapper = webView.context as MutableContextWrapper
+        assertThat(wrapper.baseContext).isEqualTo(activity)
+
+        pool.removeWebView("tab-remove")
+        assertThat(wrapper.baseContext).isEqualTo(appContext)
+    }
+
+    @Test
+    fun nestedWebView_isFocusableAndHandlesTouch() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val webView = NestedWebView(activity)
+
+        assertThat(webView.isFocusable).isTrue()
+        assertThat(webView.isFocusableInTouchMode).isTrue()
+
+        val downEvent = MotionEvent.obtain(0L, 0L, MotionEvent.ACTION_DOWN, 100f, 100f, 0)
+        webView.onTouchEvent(downEvent)
+        downEvent.recycle()
+    }
+
+    @Test
+    fun webViewPool_getOrCreateWebView_doesNotDetachFromExistingParent() {
+        val appContext = ApplicationProvider.getApplicationContext<Context>()
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val pool = WebViewPool(appContext)
+
+        val webView = pool.getOrCreateWebView("tab-1", activity)
+        val parent = android.widget.FrameLayout(activity)
+        parent.addView(webView)
+        assertThat(webView.parent).isSameInstanceAs(parent)
+
+        // Calling getOrCreateWebView or getting from pool must NOT detach webView from parent
+        val retrieved = pool.getOrCreateWebView("tab-1", activity)
+        assertThat(retrieved).isSameInstanceAs(webView)
+        assertThat(retrieved.parent).isSameInstanceAs(parent)
+    }
+
+    @Test
+    fun webViewPool_getOrCreateWebView_handlesDestroyedActivityGracefully() {
+        val appContext = ApplicationProvider.getApplicationContext<Context>()
+        val activityController = Robolectric.buildActivity(Activity::class.java).setup()
+        val activity = activityController.get()
+        activityController.pause().stop().destroy()
+
+        val pool = WebViewPool(appContext)
+        val webView = pool.getOrCreateWebView("tab-destroyed-act", activity)
+        assertThat(webView).isNotNull()
+        val wrapper = webView.context as MutableContextWrapper
+        // Destroyed activity should not be used as baseContext
+        assertThat(wrapper.baseContext).isNotEqualTo(activity)
+    }
+
+    @Test
+    fun webViewPool_clearAll_cleansUpAllWebViews() {
+        val appContext = ApplicationProvider.getApplicationContext<Context>()
+        val pool = WebViewPool(appContext)
+
+        val webView1 = pool.getOrCreateWebView("tab-1") as NestedWebView
+        val webView2 = pool.getOrCreateWebView("tab-2") as NestedWebView
+        webView1.loadUrl("https://example1.com")
+        webView2.loadUrl("https://example2.com")
+
+        assertThat(pool.size()).isEqualTo(2)
+        pool.clearAll()
+
+        assertThat(pool.size()).isEqualTo(0)
+        assertThat(pool.getWebView("tab-1")).isNull()
+        assertThat(pool.getWebView("tab-2")).isNull()
+        assertThat(webView1.loadedUrl).isNull()
+        assertThat(webView2.loadedUrl).isNull()
     }
 }

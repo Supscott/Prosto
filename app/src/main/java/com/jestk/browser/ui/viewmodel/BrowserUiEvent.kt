@@ -9,20 +9,28 @@ import com.jestk.browser.domain.model.ThemeMode
 sealed interface BrowserUiEvent {
     // Tab Management
     data class OpenNewTab(val url: String = "") : BrowserUiEvent
+    data class OpenRecentTab(val item: com.jestk.browser.domain.model.RecentTabItem) : BrowserUiEvent
     data class SelectTab(val tabId: String) : BrowserUiEvent
     data class CloseTab(val tabId: String) : BrowserUiEvent
     data object CloseAllTabs : BrowserUiEvent
     data class ReorderTabs(val orderedTabs: List<Tab>) : BrowserUiEvent
     data object SwipeNextTab : BrowserUiEvent
     data object SwipePrevTab : BrowserUiEvent
+    data object UndoCloseTab : BrowserUiEvent
+    data object DismissUndoTabCloseSnackbar : BrowserUiEvent
 
     // Overlays
     data class OpenOverlay(val overlay: OverlayType) : BrowserUiEvent
     data object DismissOverlay : BrowserUiEvent
     data object OpenHome : BrowserUiEvent
-    data class OpenSearch(val prefilledUrl: String? = null) : BrowserUiEvent
+    data class OpenSearch(
+        val prefilledUrl: String? = null,
+        val openInNewTab: Boolean = prefilledUrl.isNullOrEmpty()
+    ) : BrowserUiEvent
     data object OpenTabGrid : BrowserUiEvent
     data object OpenSettings : BrowserUiEvent
+    data object OpenDownloads : BrowserUiEvent
+    data class DeleteDownload(val id: Long) : BrowserUiEvent
 
     // Web Navigation & Actions
     data class LoadUrl(val url: String) : BrowserUiEvent
@@ -41,6 +49,7 @@ sealed interface BrowserUiEvent {
     data class OnSnapshotCaptured(val tabId: String, val snapshotPath: String) : BrowserUiEvent
     data class OnFaviconReceived(val tabId: String, val icon: android.graphics.Bitmap) : BrowserUiEvent
     data class UpdateFaviconUrl(val tabId: String, val faviconUrl: String) : BrowserUiEvent
+    data class OnThemeColorReceived(val tabId: String, val color: Int?) : BrowserUiEvent
 
     // Favorites & History
     data object AddCurrentTabToFavorites : BrowserUiEvent
@@ -59,11 +68,33 @@ sealed interface BrowserUiEvent {
     // Dynamic UI Translation
     data class OnWebScroll(val deltaY: Float) : BrowserUiEvent
     data class SetBottomBarVisibility(val visible: Boolean) : BrowserUiEvent
+    data class ToggleMenu(val expanded: Boolean? = null) : BrowserUiEvent
+    data class SetMenuExpanded(val expanded: Boolean) : BrowserUiEvent
 
     // Media & Fullscreen
     data class SetVideoPlaying(val isPlaying: Boolean) : BrowserUiEvent
-    data class SetFullscreenCustomView(val view: Any?, val isFullscreen: Boolean) : BrowserUiEvent
+    data class SetFullscreenCustomView(
+        val view: Any?,
+        val isFullscreen: Boolean,
+        val requestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    ) : BrowserUiEvent
+    data object ExitFullscreen : BrowserUiEvent
 
     // System Back Handling
     data object HandleBackPress : BrowserUiEvent
+
+    // Link Context Menu
+    data class ShowLinkContextMenu(val url: String) : BrowserUiEvent
+    data object DismissLinkContextMenu : BrowserUiEvent
+    data class OpenTabInBackground(val url: String) : BrowserUiEvent
+
+    // Default Browser
+    data class UpdateDefaultBrowserStatus(val isDefault: Boolean) : BrowserUiEvent
+
+    // Image Context Menu
+    data class ShowImageContextMenu(val imageUrl: String) : BrowserUiEvent
+    data object DismissImageContextMenu : BrowserUiEvent
+    data class CopyImageUrl(val imageUrl: String) : BrowserUiEvent
+    data class DownloadImage(val imageUrl: String) : BrowserUiEvent
+    data class PreviewImageInNewTab(val imageUrl: String) : BrowserUiEvent
 }

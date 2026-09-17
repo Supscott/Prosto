@@ -18,6 +18,7 @@ data class TabEntity(
     val title: String = "New Tab",
     val snapshotPath: String? = null,
     val faviconUrl: String? = null,
+    val themeColor: Int? = null,
     val lastActiveTimestamp: Long = System.currentTimeMillis(),
     val position: Int = 0,
     val isIncognito: Boolean = false,
