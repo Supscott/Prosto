@@ -12,6 +12,7 @@ import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.model.OverlayType
+import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
@@ -87,7 +88,7 @@ class BrowserViewModelDownloadsTest {
         advanceUntilIdle()
 
         vm.onEvent(BrowserUiEvent.OpenDownloads)
-        assertThat(vm.uiState.value.activeOverlay).isEqualTo(OverlayType.DOWNLOADS)
+        assertThat(vm.uiState.value.activeScreen).isEqualTo(ScreenType.DOWNLOADS)
     }
 
     @Test
@@ -96,10 +97,10 @@ class BrowserViewModelDownloadsTest {
         advanceUntilIdle()
 
         vm.onEvent(BrowserUiEvent.OpenDownloads)
-        assertThat(vm.uiState.value.activeOverlay).isEqualTo(OverlayType.DOWNLOADS)
+        assertThat(vm.uiState.value.activeScreen).isEqualTo(ScreenType.DOWNLOADS)
 
         vm.onEvent(BrowserUiEvent.HandleBackPress)
-        assertThat(vm.uiState.value.activeOverlay).isEqualTo(OverlayType.NONE)
+        assertThat(vm.uiState.value.activeScreen).isEqualTo(ScreenType.NONE)
     }
 
     @Test

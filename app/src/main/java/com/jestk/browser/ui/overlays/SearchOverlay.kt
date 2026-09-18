@@ -111,13 +111,6 @@ import com.jestk.browser.ui.theme.liquidSunsetBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
-private val DefaultFavorites = listOf(
-    FavoriteItem(title = "Apple", url = "https://apple.com"),
-    FavoriteItem(title = "GitHub", url = "https://github.com"),
-    FavoriteItem(title = "Wikipedia", url = "https://wikipedia.org"),
-    FavoriteItem(title = "YouTube", url = "https://youtube.com")
-)
-
 /**
  * Search & History Overlay - Liquid Pastel Sunset design system.
  * Features:
@@ -623,7 +616,7 @@ private fun SearchFavoritesSection(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val itemsToDisplay = if (favorites.isNotEmpty()) favorites else DefaultFavorites
+    if (favorites.isEmpty()) return
 
     Column(modifier = modifier.fillMaxWidth()) {
         Row(
@@ -666,7 +659,7 @@ private fun SearchFavoritesSection(
                     hazeState = com.jestk.browser.ui.theme.LocalHazeState.current
                 )
         ) {
-            val rows = itemsToDisplay.take(8).chunked(4)
+            val rows = favorites.take(8).chunked(4)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()

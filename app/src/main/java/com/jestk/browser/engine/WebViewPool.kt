@@ -9,6 +9,7 @@ import android.content.MutableContextWrapper
 import android.net.Uri
 import android.os.Environment
 import android.util.Base64
+import android.util.Log
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
@@ -28,6 +29,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedDeque
 
 fun Context.findActivity(): Activity? {
     var ctx = this
@@ -43,6 +45,10 @@ class WebViewPool(
     var downloadRepository: DownloadRepository? = null
 ) {
 
+    companion object {
+        const val MAX_CONCURRENT_WEBVIEWS = 5
+    }
+
     var onDownloadStarted: ((DownloadItem) -> Unit)? = null
 
     class BlobDownloadBridge(
@@ -55,30 +61,96 @@ class WebViewPool(
     }
 
     private val pool = ConcurrentHashMap<String, WebView>()
+    private val lruOrder = ConcurrentLinkedDeque<String>()
+    private val mediaPlayingTabs = ConcurrentHashMap.newKeySet<String>()
+    private var activeTabId: String? = null
     private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var currentIsDark: Boolean? = null
 
-    private fun syncConfigurationUiMode(context: Context, isDark: Boolean) {
-        try {
-            val res = context.resources
-            val config = res.configuration
-            val targetNight = if (isDark) {
-                android.content.res.Configuration.UI_MODE_NIGHT_YES
-            } else {
-                android.content.res.Configuration.UI_MODE_NIGHT_NO
-            }
-            if ((config.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) != targetNight) {
-                val updatedConfig = android.content.res.Configuration(config).apply {
-                    uiMode = (uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or targetNight
-                }
-                @Suppress("DEPRECATION")
-                res.updateConfiguration(updatedConfig, res.displayMetrics)
-            }
-        } catch (_: Throwable) {}
+    private fun touchLru(tabId: String) {
+        lruOrder.remove(tabId)
+        lruOrder.addFirst(tabId)
     }
+
+    private fun trimPool(keepTabId: String) {
+        while (pool.size > MAX_CONCURRENT_WEBVIEWS) {
+            val iterator = lruOrder.descendingIterator()
+            var evictedId: String? = null
+            while (iterator.hasNext()) {
+                val candidate = iterator.next()
+                if (candidate != keepTabId && !mediaPlayingTabs.contains(candidate)) {
+                    evictedId = candidate
+                    break
+                }
+            }
+            if (evictedId == null) {
+                val fallbackIterator = lruOrder.descendingIterator()
+                while (fallbackIterator.hasNext()) {
+                    val candidate = fallbackIterator.next()
+                    if (candidate != keepTabId) {
+                        evictedId = candidate
+                        break
+                    }
+                }
+            }
+            if (evictedId != null) {
+                removeWebView(evictedId)
+            } else {
+                break
+            }
+        }
+    }
+
+    fun setMediaPlaying(tabId: String, isPlaying: Boolean) {
+        if (isPlaying) {
+            mediaPlayingTabs.add(tabId)
+            pool[tabId]?.let { wv ->
+                try { wv.onResume() } catch (t: Throwable) {
+                    Log.w("HoriEngine", "Failed to resume WebView for tab $tabId", t)
+                }
+            }
+        } else {
+            mediaPlayingTabs.remove(tabId)
+            if (tabId != activeTabId) {
+                pool[tabId]?.let { wv ->
+                    try { wv.onPause() } catch (t: Throwable) {
+                        Log.w("HoriEngine", "Failed to pause WebView for tab $tabId", t)
+                    }
+                }
+            }
+        }
+    }
+
+    fun onTabActivated(tabId: String, isMediaPlaying: Boolean = false) {
+        activeTabId = tabId
+        touchLru(tabId)
+        if (isMediaPlaying) {
+            mediaPlayingTabs.add(tabId)
+        }
+        pool.forEach { (id, webView) ->
+            if (id == tabId) {
+                try {
+                    webView.onResume()
+                } catch (t: Throwable) {
+                    Log.w("HoriEngine", "Failed to resume WebView for active tab $tabId", t)
+                }
+            } else {
+                val isPlaying = mediaPlayingTabs.contains(id)
+                if (!isPlaying) {
+                    try {
+                        webView.onPause()
+                    } catch (t: Throwable) {
+                        Log.w("HoriEngine", "Failed to pause WebView for background tab $id", t)
+                    }
+                }
+            }
+        }
+    }
+
 
     @SuppressLint("SetJavaScriptEnabled")
     fun getOrCreateWebView(tabId: String, context: Context? = null): WebView {
+        touchLru(tabId)
         val activity = context?.findActivity()
         val isActivityDestroyed = activity != null && (activity.isDestroyed || activity.isFinishing)
         val targetContext = if (isActivityDestroyed) {
@@ -86,7 +158,6 @@ class WebViewPool(
         } else {
             activity ?: context ?: applicationContext
         }
-        currentIsDark?.let { syncConfigurationUiMode(targetContext, it) }
 
         val existing = pool[tabId]
         if (existing != null) {
@@ -95,9 +166,9 @@ class WebViewPool(
                 if (wrapper != null && wrapper.baseContext != targetContext) {
                     wrapper.baseContext = targetContext
                 }
-                currentIsDark?.let { applyThemeMode(existing, it) }
                 return existing
-            } catch (_: Throwable) {
+            } catch (t: Throwable) {
+                Log.w("HoriEngine", "Failed to reuse existing WebView for tab $tabId, recreating", t)
                 removeWebView(tabId)
             }
         }
@@ -119,11 +190,9 @@ class WebViewPool(
                     useWideViewPort = true
                     databaseEnabled = true
                     cacheMode = WebSettings.LOAD_DEFAULT
-                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                    mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                     setSupportZoom(true)
                 }
-                // Do NOT call pauseTimers() or onPause() when tabs are backgrounded,
-                // keeping audio and video playback alive across tab switches.
                 try {
                     val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->
                         coroutineScope.launch(Dispatchers.Main) {
@@ -131,15 +200,19 @@ class WebViewPool(
                         }
                     }
                     addJavascriptInterface(blobBridge, "JestkBlobBridge")
-                } catch (_: Throwable) {}
+                } catch (t: Throwable) {
+                    Log.w("HoriEngine", "Failed to add BlobDownloadBridge interface", t)
+                }
                 setupDownloadListener(this)
             }
 
             currentIsDark?.let { applyThemeMode(webView, it) }
 
             pool[tabId] = webView
+            trimPool(tabId)
             return webView
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            Log.w("HoriEngine", "Failed to initialize WebView with Activity context, falling back to Application context", t)
             contextWrapper.baseContext = applicationContext
             val fallbackWebView = NestedWebView(contextWrapper).apply {
                 isFocusable = true
@@ -154,7 +227,7 @@ class WebViewPool(
                     useWideViewPort = true
                     databaseEnabled = true
                     cacheMode = WebSettings.LOAD_DEFAULT
-                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                    mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                     setSupportZoom(true)
                 }
                 try {
@@ -164,11 +237,14 @@ class WebViewPool(
                         }
                     }
                     addJavascriptInterface(blobBridge, "JestkBlobBridge")
-                } catch (_: Throwable) {}
+                } catch (t2: Throwable) {
+                    Log.w("HoriEngine", "Failed to add BlobDownloadBridge to fallback WebView", t2)
+                }
                 setupDownloadListener(this)
             }
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
             pool[tabId] = fallbackWebView
+            trimPool(tabId)
             return fallbackWebView
         }
     }
@@ -203,12 +279,16 @@ class WebViewPool(
         }
 
         try {
-            val fileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            val rawFileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
+            val fileName = File(rawFileName).name.replace(Regex("[^a-zA-Z0-9._-]"), "_").ifBlank { "download_${System.currentTimeMillis()}" }
             val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             if (!downloadDir.exists()) {
                 downloadDir.mkdirs()
             }
             val file = File(downloadDir, fileName)
+            if (!file.canonicalPath.startsWith(downloadDir.canonicalPath)) {
+                throw SecurityException("Path traversal attempt detected")
+            }
             val filePath = file.absolutePath
 
             var downloadId = -1L
@@ -226,7 +306,9 @@ class WebViewPool(
                         if (!cookies.isNullOrEmpty()) {
                             addRequestHeader("Cookie", cookies)
                         }
-                    } catch (_: Throwable) {}
+                    } catch (t: Throwable) {
+                        Log.w("HoriEngine", "Failed to retrieve cookies for download request", t)
+                    }
                     setDescription("Downloading file...")
                     setTitle(fileName)
                     setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
@@ -258,13 +340,18 @@ class WebViewPool(
                         contentLength = contentLength,
                         downloadId = downloadId
                     )
-                } catch (_: Throwable) {}
+                } catch (t: Throwable) {
+                    Log.w("HoriEngine", "Failed to record download in repository", t)
+                }
             }
         } catch (e: Throwable) {
+            Log.e("HoriEngine", "Download failed for $url", e)
             val targetContext = context.findActivity() ?: applicationContext
             try {
                 Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
-            } catch (_: Throwable) {}
+            } catch (t: Throwable) {
+                Log.w("HoriEngine", "Failed to show download error toast", t)
+            }
         }
     }
 
@@ -281,48 +368,49 @@ class WebViewPool(
                 Toast.makeText(targetContext, "Download failed: Invalid data URL", Toast.LENGTH_SHORT).show()
                 return
             }
+            val metadata = url.substring(5, commaIndex)
+            val base64Data = url.substring(commaIndex + 1)
+            val bytes = Base64.decode(base64Data, Base64.DEFAULT)
 
-            val meta = url.substring(5, commaIndex) // strip "data:"
-            val dataPart = url.substring(commaIndex + 1)
-            val isBase64 = meta.contains(";base64", ignoreCase = true)
-            val metaMime = meta.split(';').firstOrNull { it.isNotBlank() && !it.equals("base64", ignoreCase = true) }?.trim()
-            val resolvedMime = metaMime?.ifEmpty { null } ?: mimeType?.ifEmpty { null } ?: "application/octet-stream"
-
-            val bytes = if (isBase64) {
-                Base64.decode(dataPart.trim(), Base64.DEFAULT)
-            } else {
-                URLDecoder.decode(dataPart, "UTF-8").toByteArray(Charsets.UTF_8)
-            }
+            val metaMime = metadata.substringBefore(';').trim().ifEmpty { null }
+            val resolvedMime = metaMime ?: mimeType ?: "application/octet-stream"
 
             val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(resolvedMime)
                 ?: when {
-                    resolvedMime.contains("png") -> "png"
-                    resolvedMime.contains("jpeg") || resolvedMime.contains("jpg") -> "jpg"
-                    resolvedMime.contains("webp") -> "webp"
-                    resolvedMime.contains("gif") -> "gif"
-                    resolvedMime.contains("svg") -> "svg"
+                    resolvedMime.startsWith("image/png") -> "png"
+                    resolvedMime.startsWith("image/jpeg") || resolvedMime.startsWith("image/jpg") -> "jpg"
+                    resolvedMime.startsWith("image/webp") -> "webp"
+                    resolvedMime.startsWith("image/gif") -> "gif"
+                    resolvedMime.startsWith("image/svg") -> "svg"
                     resolvedMime.contains("pdf") -> "pdf"
                     else -> "png"
                 }
 
             val guessed = URLUtil.guessFileName(url, contentDisposition, resolvedMime)
-            val uniqueName = if (!guessed.isNullOrBlank() && guessed != "downloadfile" && !guessed.startsWith("downloadfile.") && guessed != "data" && !guessed.endsWith(".bin")) {
+            val rawName = if (!guessed.isNullOrBlank() && guessed != "downloadfile" && !guessed.startsWith("downloadfile.") && guessed != "data" && !guessed.endsWith(".bin")) {
                 guessed
             } else {
                 val prefix = if (resolvedMime.startsWith("image/")) "image" else "download"
                 "${prefix}_${System.currentTimeMillis()}.$ext"
             }
+            val sanitizedName = File(rawName).name.replace(Regex("[^a-zA-Z0-9._-]"), "_").ifBlank { "download_${System.currentTimeMillis()}.$ext" }
 
             val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
             if (!downloadDir.exists()) {
                 downloadDir.mkdirs()
             }
-            var destFile = File(downloadDir, uniqueName)
+            var destFile = File(downloadDir, sanitizedName)
+            if (!destFile.canonicalPath.startsWith(downloadDir.canonicalPath)) {
+                throw SecurityException("Path traversal attempt detected")
+            }
             if (destFile.exists()) {
-                val base = uniqueName.substringBeforeLast('.')
-                val extension = uniqueName.substringAfterLast('.', "")
+                val base = sanitizedName.substringBeforeLast('.')
+                val extension = sanitizedName.substringAfterLast('.', "")
                 val extStr = if (extension.isNotEmpty()) ".$extension" else ""
                 destFile = File(downloadDir, "${base}_${System.currentTimeMillis()}$extStr")
+                if (!destFile.canonicalPath.startsWith(downloadDir.canonicalPath)) {
+                    throw SecurityException("Path traversal attempt detected")
+                }
             }
             destFile.writeBytes(bytes)
             val finalFileName = destFile.name
@@ -351,12 +439,17 @@ class WebViewPool(
                         contentLength = downloadItem.contentLength,
                         downloadId = downloadItem.downloadId
                     )
-                } catch (_: Throwable) {}
+                } catch (t: Throwable) {
+                    Log.w("HoriEngine", "Failed to record data URL download in repository", t)
+                }
             }
         } catch (e: Throwable) {
+            Log.e("HoriEngine", "Data URL download failed", e)
             try {
                 Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
-            } catch (_: Throwable) {}
+            } catch (t: Throwable) {
+                Log.w("HoriEngine", "Failed to show data URL error toast", t)
+            }
         }
     }
 
@@ -421,6 +514,7 @@ class WebViewPool(
                 targetWebView.evaluateJavascript(js, null)
             }
         } catch (t: Throwable) {
+            Log.e("HoriEngine", "Failed to evaluate blob download script", t)
             Toast.makeText(targetContext, "Download failed: ${t.message}", Toast.LENGTH_SHORT).show()
         }
     }
@@ -447,93 +541,23 @@ class WebViewPool(
             }
 
             injectColorSchemeScript(webView, isDark)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            Log.w("HoriEngine", "Failed to apply theme mode", t)
+        }
     }
 
     fun injectColorSchemeScript(webView: WebView, isDark: Boolean) {
-        val js = """
-            (function() {
-                try {
-                    var dark = $isDark;
-                    window.__jestkIsDark = dark;
-                    if (!window.__jestkThemeListeners) {
-                        window.__jestkThemeListeners = [];
-                    }
-
-                    if (!window.__jestkOrigMatchMedia) {
-                        window.__jestkOrigMatchMedia = window.matchMedia;
-                    }
-                    var origMatchMedia = window.__jestkOrigMatchMedia;
-
-                    window.matchMedia = function(q) {
-                        if (q && q.indexOf('prefers-color-scheme') !== -1) {
-                            var isDarkQuery = q.indexOf('dark') !== -1;
-                            var currentDark = window.__jestkIsDark;
-                            var matches = isDarkQuery ? currentDark : !currentDark;
-                            return {
-                                matches: matches,
-                                media: q,
-                                onchange: null,
-                                addListener: function(fn) {
-                                    if (typeof fn === 'function' && window.__jestkThemeListeners.indexOf(fn) === -1) {
-                                        window.__jestkThemeListeners.push(fn);
-                                    }
-                                },
-                                removeListener: function(fn) {
-                                    var idx = window.__jestkThemeListeners.indexOf(fn);
-                                    if (idx !== -1) window.__jestkThemeListeners.splice(idx, 1);
-                                },
-                                addEventListener: function(type, fn) {
-                                    if (type === 'change' && typeof fn === 'function' && window.__jestkThemeListeners.indexOf(fn) === -1) {
-                                        window.__jestkThemeListeners.push(fn);
-                                    }
-                                },
-                                removeEventListener: function(type, fn) {
-                                    if (type === 'change') {
-                                        var idx = window.__jestkThemeListeners.indexOf(fn);
-                                        if (idx !== -1) window.__jestkThemeListeners.splice(idx, 1);
-                                    }
-                                },
-                                dispatchEvent: function() { return false; }
-                            };
-                        }
-                        return origMatchMedia ? origMatchMedia.call(window, q) : null;
-                    };
-
-                    var evt = { matches: dark, media: '(prefers-color-scheme: dark)' };
-                    window.__jestkThemeListeners.forEach(function(fn) {
-                        try { fn(evt); } catch(e) {}
-                    });
-
-                    if (location.hostname.indexOf('youtube.com') !== -1) {
-                        if (dark) {
-                            if (document.documentElement) document.documentElement.setAttribute('dark', 'true');
-                            var app = document.querySelector('ytd-app, ytm-app');
-                            if (app) app.setAttribute('dark', 'true');
-                        } else {
-                            if (document.documentElement) document.documentElement.removeAttribute('dark');
-                            var app = document.querySelector('ytd-app, ytm-app');
-                            if (app) app.removeAttribute('dark');
-                        }
-                    }
-                } catch(e) {}
-            })();
-        """.trimIndent()
+        val js = buildColorSchemeScript(isDark)
         try {
             webView.evaluateJavascript(js, null)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            Log.w("HoriEngine", "Failed to evaluate color scheme script", t)
+        }
     }
 
     fun updateThemeMode(isDark: Boolean, context: Context? = null) {
         currentIsDark = isDark
-        context?.let { syncConfigurationUiMode(it, isDark) }
-        syncConfigurationUiMode(applicationContext, isDark)
         pool.values.forEach { webView ->
-            val wrapper = webView.context as? MutableContextWrapper
-            wrapper?.baseContext?.let { syncConfigurationUiMode(it, isDark) }
-            try {
-                webView.dispatchConfigurationChanged(webView.context.resources.configuration)
-            } catch (_: Throwable) {}
             applyThemeMode(webView, isDark)
         }
     }
@@ -545,12 +569,19 @@ class WebViewPool(
     fun detachFromParent(webView: WebView) {
         try {
             (webView.parent as? ViewGroup)?.removeView(webView)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            Log.w("HoriEngine", "Failed to detach WebView from parent", t)
+        }
     }
 
     fun getWebView(tabId: String): WebView? = pool[tabId]
 
     fun removeWebView(tabId: String) {
+        lruOrder.remove(tabId)
+        mediaPlayingTabs.remove(tabId)
+        if (activeTabId == tabId) {
+            activeTabId = null
+        }
         val webView = pool.remove(tabId) ?: return
         detachFromParent(webView)
         try {
@@ -563,10 +594,13 @@ class WebViewPool(
             webView.webViewClient = android.webkit.WebViewClient()
             (webView.context as? MutableContextWrapper)?.baseContext = applicationContext
             webView.destroy()
-        } catch (_: Throwable) {
+        } catch (t: Throwable) {
+            Log.w("HoriEngine", "Failed to destroy WebView for tab $tabId", t)
             try {
                 (webView.context as? MutableContextWrapper)?.baseContext = applicationContext
-            } catch (_: Throwable) {}
+            } catch (t2: Throwable) {
+                Log.w("HoriEngine", "Failed to reset baseContext for tab $tabId", t2)
+            }
         }
     }
 
@@ -576,6 +610,9 @@ class WebViewPool(
     }
 
     fun clearAll() {
+        lruOrder.clear()
+        mediaPlayingTabs.clear()
+        activeTabId = null
         val keys = pool.keys().toList()
         keys.forEach { removeWebView(it) }
         pool.clear()

@@ -74,7 +74,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
                 favoriteRepository = favoriteRepository,
                 settingsRepository = settingsRepository,
                 recentTabRepository = recentTabRepository,
-                downloadRepository = downloadRepository
+                downloadRepository = downloadRepository,
+                context = context.applicationContext,
+                webViewPool = webViewPool
             )
         }
     }

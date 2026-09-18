@@ -28,7 +28,6 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class RepositoryStressTest {
-
     @get:Rule
     val instantTaskExecutorRule = InstantTaskExecutorRule()
 
@@ -58,125 +57,118 @@ class RepositoryStressTest {
     }
 
     @Test
-    fun tabRepository_batchOperationsAndReordering_maintainsPositionIntegrity() = runTest(testDispatcher) {
-        val createdTabs = mutableListOf<Tab>()
-        for (i in 0 until 50) {
-            val tab = tabRepo.createTab("https://site$i.org", "Title $i")
-            createdTabs.add(tab)
+    fun tabRepository_batchOperationsAndReordering_maintainsPositionIntegrity() =
+        runTest(testDispatcher) {
+            val createdTabs = mutableListOf<Tab>()
+            for (i in 0 until 50) {
+                val tab = tabRepo.createTab("https://site$i.org", "Title $i")
+                createdTabs.add(tab)
+            }
+
+            val allTabs = tabRepo.getAllTabs().first()
+            assertThat(allTabs).hasSize(50)
+            for (i in 0 until 50) {
+                assertThat(allTabs[i].position).isEqualTo(i)
+            }
+
+            // Reverse reorder
+            val reversed = allTabs.reversed()
+            tabRepo.reorderTabs(reversed)
+
+            val reorderedTabs = tabRepo.getAllTabs().first()
+            assertThat(reorderedTabs.first().id).isEqualTo(createdTabs.last().id)
+            assertThat(reorderedTabs.last().id).isEqualTo(createdTabs.first().id)
+
+            // Snapshot updating
+            tabRepo.updateSnapshot(createdTabs[0].id, "/snapshots/tab0.png")
+            val tab0 = tabRepo.getTabById(createdTabs[0].id)
+            assertThat(tab0?.snapshotPath).isEqualTo("/snapshots/tab0.png")
         }
-
-        val allTabs = tabRepo.getAllTabs().first()
-        assertThat(allTabs).hasSize(50)
-        for (i in 0 until 50) {
-            assertThat(allTabs[i].position).isEqualTo(i)
-        }
-
-        // Reverse reorder
-        val reversed = allTabs.reversed()
-        tabRepo.reorderTabs(reversed)
-
-        val reorderedTabs = tabRepo.getAllTabs().first()
-        assertThat(reorderedTabs.first().id).isEqualTo(createdTabs.last().id)
-        assertThat(reorderedTabs.last().id).isEqualTo(createdTabs.first().id)
-
-        // Snapshot updating
-        tabRepo.updateSnapshot(createdTabs[0].id, "/snapshots/tab0.png")
-        val tab0 = tabRepo.getTabById(createdTabs[0].id)
-        assertThat(tab0?.snapshotPath).isEqualTo("/snapshots/tab0.png")
-    }
 
     @Test
-    fun historyDao_fiveMinuteAggregationWindow_aggregatesOrSplitsCorrectly() = runTest(testDispatcher) {
-        val url = "https://jestk.com/docs"
-        val title = "Jestk Docs"
+    fun historyDao_sameUrl_keepsOnlyLatestEntryVisible() =
+        runTest(testDispatcher) {
+            val url = "https://jestk.com/docs"
+            val title = "Jestk Docs"
 
-        // Initial visit at current time
-        val t0 = 1000000L
-        db.historyDao().insertHistory(
-            HistoryEntity(
-                url = url,
-                title = title,
-                timestamp = t0,
-                visitCount = 1
-            )
-        )
-
-        val historyAfterFirst = historyRepo.getRecentHistory(10).first()
-        assertThat(historyAfterFirst).hasSize(1)
-        assertThat(historyAfterFirst[0].visitCount).isEqualTo(1)
-        assertThat(historyAfterFirst[0].timestamp).isEqualTo(t0)
-
-        // Second visit within 5 min (2 minutes later = +120,000 ms)
-        val t1 = t0 + 120000L
-        val recent = db.historyDao().getRecentByUrl(url)
-        assertThat(recent).isNotNull()
-        if (recent != null && (t1 - recent.timestamp) < 300_000L) {
-            db.historyDao().updateVisit(recent.id, "Jestk Docs Updated", t1)
-        }
-
-        val historyAfterSecond = historyRepo.getRecentHistory(10).first()
-        assertThat(historyAfterSecond).hasSize(1)
-        assertThat(historyAfterSecond[0].visitCount).isEqualTo(2)
-        assertThat(historyAfterSecond[0].title).isEqualTo("Jestk Docs Updated")
-        assertThat(historyAfterSecond[0].timestamp).isEqualTo(t1)
-
-        // Third visit after 5 min (> 300,000 ms later: +400,000 ms)
-        val t2 = t1 + 400000L
-        val recent2 = db.historyDao().getRecentByUrl(url)
-        assertThat(recent2).isNotNull()
-        if (recent2 != null && (t2 - recent2.timestamp) < 300_000L) {
-            db.historyDao().updateVisit(recent2.id, "Jestk Docs New Visit", t2)
-        } else {
+            // Initial visit at current time
+            val t0 = 1000000L
             db.historyDao().insertHistory(
                 HistoryEntity(
                     url = url,
-                    title = "Jestk Docs New Visit",
-                    timestamp = t2,
-                    visitCount = 1
-                )
+                    title = title,
+                    timestamp = t0,
+                    visitCount = 1,
+                ),
             )
+
+            val historyAfterFirst = historyRepo.getRecentHistory(10).first()
+            assertThat(historyAfterFirst).hasSize(1)
+            assertThat(historyAfterFirst[0].visitCount).isEqualTo(1)
+            assertThat(historyAfterFirst[0].timestamp).isEqualTo(t0)
+
+            // Second visit updates the same URL entry.
+            val t1 = t0 + 120000L
+            val recent = db.historyDao().getRecentByUrl(url)
+            assertThat(recent).isNotNull()
+            if (recent != null) {
+                db.historyDao().updateVisit(recent.id, "Jestk Docs Updated", t1)
+            }
+
+            val historyAfterSecond = historyRepo.getRecentHistory(10).first()
+            assertThat(historyAfterSecond).hasSize(1)
+            assertThat(historyAfterSecond[0].visitCount).isEqualTo(2)
+            assertThat(historyAfterSecond[0].title).isEqualTo("Jestk Docs Updated")
+            assertThat(historyAfterSecond[0].timestamp).isEqualTo(t1)
+
+            // Even a later visit keeps a single entry for the URL.
+            val t2 = t1 + 400000L
+            val recent2 = db.historyDao().getRecentByUrl(url)
+            assertThat(recent2).isNotNull()
+            if (recent2 != null) {
+                db.historyDao().updateVisit(recent2.id, "Jestk Docs New Visit", t2)
+            }
+
+            val historyAfterThird = historyRepo.getRecentHistory(10).first()
+            assertThat(historyAfterThird).hasSize(1)
+            assertThat(historyAfterThird[0].timestamp).isEqualTo(t2)
+            assertThat(historyAfterThird[0].visitCount).isEqualTo(3)
         }
 
-        val historyAfterThird = historyRepo.getRecentHistory(10).first()
-        assertThat(historyAfterThird).hasSize(2)
-        assertThat(historyAfterThird[0].timestamp).isEqualTo(t2)
-        assertThat(historyAfterThird[0].visitCount).isEqualTo(1)
-        assertThat(historyAfterThird[1].timestamp).isEqualTo(t1)
-        assertThat(historyAfterThird[1].visitCount).isEqualTo(2)
-    }
-
     @Test
-    fun favoriteRepository_limitsAndCRUD() = runTest(testDispatcher) {
-        for (i in 1..10) {
-            favoriteRepo.addFavorite("Fav $i", "https://fav$i.com")
+    fun favoriteRepository_limitsAndCRUD() =
+        runTest(testDispatcher) {
+            for (i in 1..10) {
+                favoriteRepo.addFavorite("Fav $i", "https://fav$i.com")
+            }
+
+            val allFavorites = favoriteRepo.getFavorites().first()
+            assertThat(allFavorites).hasSize(10)
+
+            val limitedFavorites = favoriteRepo.getFavoritesLimited(6).first()
+            assertThat(limitedFavorites).hasSize(6)
+
+            // Delete one favorite
+            favoriteRepo.deleteFavorite(allFavorites[0].id)
+            val remaining = favoriteRepo.getFavorites().first()
+            assertThat(remaining).hasSize(9)
         }
 
-        val allFavorites = favoriteRepo.getFavorites().first()
-        assertThat(allFavorites).hasSize(10)
-
-        val limitedFavorites = favoriteRepo.getFavoritesLimited(6).first()
-        assertThat(limitedFavorites).hasSize(6)
-
-        // Delete one favorite
-        favoriteRepo.deleteFavorite(allFavorites[0].id)
-        val remaining = favoriteRepo.getFavorites().first()
-        assertThat(remaining).hasSize(9)
-    }
-
     @Test
-    fun settingsRepository_flowUpdatesReactively() = runTest(testDispatcher) {
-        val initial = settingsRepo.getSettings().first()
-        assertThat(initial.themeMode).isEqualTo(ThemeMode.SYSTEM)
-        assertThat(initial.searchEngine).isEqualTo(SearchEngine.DUCKDUCKGO)
-        assertThat(initial.isAdBlockerEnabled).isTrue()
+    fun settingsRepository_flowUpdatesReactively() =
+        runTest(testDispatcher) {
+            val initial = settingsRepo.getSettings().first()
+            assertThat(initial.themeMode).isEqualTo(ThemeMode.SYSTEM)
+            assertThat(initial.searchEngine).isEqualTo(SearchEngine.DUCKDUCKGO)
+            assertThat(initial.isAdBlockerEnabled).isTrue()
 
-        settingsRepo.setThemeMode(ThemeMode.DARK)
-        settingsRepo.setSearchEngine(SearchEngine.BING)
-        settingsRepo.setAdBlockerEnabled(false)
+            settingsRepo.setThemeMode(ThemeMode.DARK)
+            settingsRepo.setSearchEngine(SearchEngine.BING)
+            settingsRepo.setAdBlockerEnabled(false)
 
-        val updated = settingsRepo.getSettings().first()
-        assertThat(updated.themeMode).isEqualTo(ThemeMode.DARK)
-        assertThat(updated.searchEngine).isEqualTo(SearchEngine.BING)
-        assertThat(updated.isAdBlockerEnabled).isFalse()
-    }
+            val updated = settingsRepo.getSettings().first()
+            assertThat(updated.themeMode).isEqualTo(ThemeMode.DARK)
+            assertThat(updated.searchEngine).isEqualTo(SearchEngine.BING)
+            assertThat(updated.isAdBlockerEnabled).isFalse()
+        }
 }

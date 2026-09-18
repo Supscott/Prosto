@@ -1,6 +1,7 @@
 package com.jestk.browser.engine
 
 import android.graphics.Bitmap
+import android.util.Log
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -34,6 +35,7 @@ class JestkWebViewClient(
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         val validUrl = url.orEmpty()
+        if (validUrl.isEmpty() || validUrl == "about:blank") return
         (view as? NestedWebView)?.loadedUrl = validUrl
         onPageStarted(tabId, validUrl)
         view?.let { wv ->
@@ -53,6 +55,7 @@ class JestkWebViewClient(
     override fun onPageFinished(view: WebView?, url: String?) {
         super.onPageFinished(view, url)
         val validUrl = url.orEmpty()
+        if (validUrl.isEmpty() || validUrl == "about:blank") return
         (view as? NestedWebView)?.loadedUrl = validUrl
         val title = view?.title.orEmpty()
         onPageFinished(tabId, validUrl, title)
@@ -78,77 +81,12 @@ class JestkWebViewClient(
     }
 
     private fun injectColorScheme(webView: WebView, isDark: Boolean) {
-        val js = """
-            (function() {
-                try {
-                    var dark = $isDark;
-                    window.__jestkIsDark = dark;
-                    if (!window.__jestkThemeListeners) {
-                        window.__jestkThemeListeners = [];
-                    }
-
-                    if (!window.__jestkOrigMatchMedia) {
-                        window.__jestkOrigMatchMedia = window.matchMedia;
-                    }
-                    var origMatchMedia = window.__jestkOrigMatchMedia;
-
-                    window.matchMedia = function(q) {
-                        if (q && q.indexOf('prefers-color-scheme') !== -1) {
-                            var isDarkQuery = q.indexOf('dark') !== -1;
-                            var currentDark = window.__jestkIsDark;
-                            var matches = isDarkQuery ? currentDark : !currentDark;
-                            return {
-                                matches: matches,
-                                media: q,
-                                onchange: null,
-                                addListener: function(fn) {
-                                    if (typeof fn === 'function' && window.__jestkThemeListeners.indexOf(fn) === -1) {
-                                        window.__jestkThemeListeners.push(fn);
-                                    }
-                                },
-                                removeListener: function(fn) {
-                                    var idx = window.__jestkThemeListeners.indexOf(fn);
-                                    if (idx !== -1) window.__jestkThemeListeners.splice(idx, 1);
-                                },
-                                addEventListener: function(type, fn) {
-                                    if (type === 'change' && typeof fn === 'function' && window.__jestkThemeListeners.indexOf(fn) === -1) {
-                                        window.__jestkThemeListeners.push(fn);
-                                    }
-                                },
-                                removeEventListener: function(type, fn) {
-                                    if (type === 'change') {
-                                        var idx = window.__jestkThemeListeners.indexOf(fn);
-                                        if (idx !== -1) window.__jestkThemeListeners.splice(idx, 1);
-                                    }
-                                },
-                                dispatchEvent: function() { return false; }
-                            };
-                        }
-                        return origMatchMedia ? origMatchMedia.call(window, q) : null;
-                    };
-
-                    var evt = { matches: dark, media: '(prefers-color-scheme: dark)' };
-                    window.__jestkThemeListeners.forEach(function(fn) {
-                        try { fn(evt); } catch(e) {}
-                    });
-
-                    if (location.hostname.indexOf('youtube.com') !== -1) {
-                        if (dark) {
-                            if (document.documentElement) document.documentElement.setAttribute('dark', 'true');
-                            var app = document.querySelector('ytd-app, ytm-app');
-                            if (app) app.setAttribute('dark', 'true');
-                        } else {
-                            if (document.documentElement) document.documentElement.removeAttribute('dark');
-                            var app = document.querySelector('ytd-app, ytm-app');
-                            if (app) app.removeAttribute('dark');
-                        }
-                    }
-                } catch(e) {}
-            })();
-        """.trimIndent()
+        val js = buildColorSchemeScript(isDark)
         try {
             webView.evaluateJavascript(js, null)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            Log.w("HoriEngine", "Failed to evaluate color scheme script in client", t)
+        }
     }
 
     fun extractThemeColor(webView: WebView, isPageStarted: Boolean = false) {
@@ -280,7 +218,8 @@ class JestkWebViewClient(
                         }
                         else -> null
                     }
-                } catch (_: Throwable) {
+                } catch (t: Throwable) {
+                    Log.w("HoriEngine", "Failed to parse CSS hex color: $clean", t)
                     null
                 }
             }
@@ -302,7 +241,8 @@ class JestkWebViewClient(
                         } else 255
                         if (a < 25) null else android.graphics.Color.rgb(r, g, b)
                     } else null
-                } catch (_: Throwable) {
+                } catch (t: Throwable) {
+                    Log.w("HoriEngine", "Failed to parse CSS rgb color: $clean", t)
                     null
                 }
             }
