@@ -37,7 +37,6 @@ import java.io.IOException
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
 class BrowserViewModelDownloadsTest {
-
     @get:Rule
     val instantTaskExecutorRule = InstantTaskExecutorRule()
 
@@ -70,62 +69,72 @@ class BrowserViewModelDownloadsTest {
         db.close()
     }
 
-    private fun createViewModel(): BrowserViewModel {
-        return BrowserViewModel(
+    private fun createViewModel(): BrowserViewModel =
+        BrowserViewModel(
             tabRepository = tabRepo,
             historyRepository = historyRepo,
             favoriteRepository = favoriteRepo,
             settingsRepository = settingsRepo,
             recentTabRepository = recentTabRepo,
             downloadRepository = downloadRepo,
-            ioDispatcher = testDispatcher
+            ioDispatcher = testDispatcher,
         )
-    }
 
     @Test
-    fun openDownloads_setsActiveOverlayToDownloads() = runTest(testDispatcher) {
-        val vm = createViewModel()
-        advanceUntilIdle()
+    fun openDownloads_setsActiveOverlayToDownloads() =
+        runTest(testDispatcher) {
+            val vm = createViewModel()
+            advanceUntilIdle()
 
-        vm.onEvent(BrowserUiEvent.OpenDownloads)
-        assertThat(vm.uiState.value.activeScreen).isEqualTo(ScreenType.DOWNLOADS)
-    }
-
-    @Test
-    fun handleBackPress_dismissesDownloadsOverlay() = runTest(testDispatcher) {
-        val vm = createViewModel()
-        advanceUntilIdle()
-
-        vm.onEvent(BrowserUiEvent.OpenDownloads)
-        assertThat(vm.uiState.value.activeScreen).isEqualTo(ScreenType.DOWNLOADS)
-
-        vm.onEvent(BrowserUiEvent.HandleBackPress)
-        assertThat(vm.uiState.value.activeScreen).isEqualTo(ScreenType.NONE)
-    }
+            vm.onEvent(BrowserUiEvent.OpenDownloads)
+            assertThat(vm.uiState.value.activeScreen).isEqualTo(ScreenType.DOWNLOADS)
+            assertThat(vm.uiState.value.isDownloadsVisible).isTrue()
+        }
 
     @Test
-    fun downloadRepositoryFlow_updatesUiStateDownloads() = runTest(testDispatcher) {
-        val vm = createViewModel()
-        advanceUntilIdle()
+    fun handleBackPress_dismissesDownloadsOverlay() =
+        runTest(testDispatcher) {
+            val vm = createViewModel()
+            advanceUntilIdle()
 
-        assertThat(vm.uiState.value.downloads).isEmpty()
+            vm.onEvent(BrowserUiEvent.OpenDownloads)
+            assertThat(vm.uiState.value.activeScreen).isEqualTo(ScreenType.DOWNLOADS)
 
-        val id = downloadRepo.recordDownload(
-            url = "https://example.com/file.zip",
-            fileName = "file.zip",
-            filePath = "/Download/file.zip",
-            mimeType = "application/zip",
-            contentLength = 2048L
-        )
-        advanceUntilIdle()
+            vm.onEvent(BrowserUiEvent.HandleBackPress)
+            assertThat(vm.uiState.value.activeScreen).isEqualTo(ScreenType.NONE)
+        }
 
-        assertThat(vm.uiState.value.downloads).hasSize(1)
-        assertThat(vm.uiState.value.downloads[0].id).isEqualTo(id)
-        assertThat(vm.uiState.value.downloads[0].fileName).isEqualTo("file.zip")
+    @Test
+    fun downloadRepositoryFlow_updatesUiStateDownloads() =
+        runTest(testDispatcher) {
+            val vm = createViewModel()
+            advanceUntilIdle()
 
-        vm.onEvent(BrowserUiEvent.DeleteDownload(id))
-        advanceUntilIdle()
+            assertThat(vm.uiState.value.downloads).isEmpty()
 
-        assertThat(vm.uiState.value.downloads).isEmpty()
-    }
+            val id =
+                downloadRepo.recordDownload(
+                    url = "https://example.com/file.zip",
+                    fileName = "file.zip",
+                    filePath = "/Download/file.zip",
+                    mimeType = "application/zip",
+                    contentLength = 2048L,
+                )
+            advanceUntilIdle()
+
+            assertThat(vm.uiState.value.downloads).hasSize(1)
+            assertThat(
+                vm.uiState.value.downloads[0]
+                    .id,
+            ).isEqualTo(id)
+            assertThat(
+                vm.uiState.value.downloads[0]
+                    .fileName,
+            ).isEqualTo("file.zip")
+
+            vm.onEvent(BrowserUiEvent.DeleteDownload(id))
+            advanceUntilIdle()
+
+            assertThat(vm.uiState.value.downloads).isEmpty()
+        }
 }

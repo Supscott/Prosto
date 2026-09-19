@@ -15,11 +15,9 @@ data class BrowserUiState(
     val activeTabId: String? = null,
     val recentlyClosedTab: Tab? = null,
     val showUndoTabCloseSnackbar: Boolean = false,
-
     // Active Viewport / Overlay
     val activeOverlay: OverlayType = OverlayType.NONE,
     val activeScreen: ScreenType = ScreenType.NONE,
-
     // Web Navigation & Progress (for active tab)
     val currentUrl: String = "",
     val pageTitle: String = "",
@@ -27,30 +25,24 @@ data class BrowserUiState(
     val loadingProgress: Float = 0f,
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
-
     // Search Overlay State
     val searchQuery: String = "",
     val searchHistorySuggestions: List<HistoryItem> = emptyList(),
-
     // Favorites & Recents
     val favorites: List<FavoriteItem> = emptyList(),
     val isFavoritesExpanded: Boolean = false,
-
     // Downloads
     val downloads: List<DownloadItem> = emptyList(),
     val lastDownloadNotification: DownloadItem? = null,
     val showDownloadSnackbar: Boolean = false,
     val activeDownloadIds: Set<Long> = emptySet(),
-
     // Settings
     val settings: BrowserSettings = BrowserSettings(),
-
     // UI Dynamics & Gestures
     val isBottomBarVisible: Boolean = true,
     val bottomBarOffsetY: Float = 0f,
     val activeThemeColor: Int? = null,
     val isMenuExpanded: Boolean = false,
-
     // Media & Fullscreen
     val isVideoPlaying: Boolean = false,
     val isFullscreenCustomView: Boolean = false,
@@ -58,7 +50,7 @@ data class BrowserUiState(
     val fullscreenRequestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
     val linkContextMenuUrl: String? = null,
     val selectedImageUrl: String? = null,
-    val isDefaultBrowser: Boolean = true
+    val isDefaultBrowser: Boolean = true,
 ) {
     val activeTab: Tab?
         get() = tabs.find { it.id == activeTabId }
@@ -73,8 +65,22 @@ data class BrowserUiState(
         get() = (loadingProgress * 100).toInt()
 
     val isHome: Boolean
-        get() = activeOverlay == OverlayType.HOME ||
-                (activeOverlay == OverlayType.NONE &&
-                 currentUrl.isEmpty() &&
-                 (activeTab?.url.isNullOrEmpty() || activeTab?.url == "about:blank"))
+        get() =
+            activeOverlay == OverlayType.HOME ||
+                (
+                    activeOverlay == OverlayType.NONE &&
+                        currentUrl.isEmpty() &&
+                        (activeTab?.url.isNullOrEmpty() || activeTab?.url == "about:blank")
+                )
+
+    /**
+     * Settings/Downloads are opened by [com.jestk.browser.ui.navigation.ActionDock] via
+     * `activeScreen`, and the UI renders them from this predicate. Keeping the check here
+     * prevents the screen state and the render condition from drifting apart again.
+     */
+    val isSettingsVisible: Boolean
+        get() = activeScreen == ScreenType.SETTINGS || activeOverlay == OverlayType.SETTINGS
+
+    val isDownloadsVisible: Boolean
+        get() = activeScreen == ScreenType.DOWNLOADS || activeOverlay == OverlayType.DOWNLOADS
 }

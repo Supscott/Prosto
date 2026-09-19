@@ -1,36 +1,76 @@
 package com.jestk.browser.ui
 
 import android.app.Activity
+import android.content.pm.ActivityInfo
+import android.os.Build
 import android.view.ViewGroup
+import android.view.WindowManager
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.runtime.remember
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
+import com.jestk.browser.domain.model.ScreenType
+import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.DownloadsSheet
@@ -41,59 +81,19 @@ import com.jestk.browser.ui.overlays.SettingsSheet
 import com.jestk.browser.ui.overlays.TabOverviewGrid
 import com.jestk.browser.ui.pip.FloatingVideoMiniPlayer
 import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.ui.theme.LiquidBorders
+import com.jestk.browser.ui.theme.LiquidPrimary
+import com.jestk.browser.ui.theme.LiquidShapes
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
+import com.jestk.browser.ui.theme.liquidFrostedGlass
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
+import com.jestk.browser.ui.viewmodel.DismissDownloadSnackbar
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
-import android.content.pm.ActivityInfo
-import android.os.Build
-import android.view.WindowManager
-import androidx.compose.runtime.DisposableEffect
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
-import com.jestk.browser.engine.JestkWebChromeClient
-import kotlinx.coroutines.flow.collectLatest
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material3.Icon
-import com.jestk.browser.ui.viewmodel.DismissDownloadSnackbar
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.animation.core.FastOutSlowInEasing
-import com.jestk.browser.R
-import com.jestk.browser.ui.theme.LiquidPrimary
-import com.jestk.browser.ui.theme.LiquidShapes
-import com.jestk.browser.ui.theme.LiquidBorders
-import com.jestk.browser.ui.theme.liquidFrostedGlass
 import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.collectLatest
 
 private fun android.content.Context.findActivity(): Activity? {
     var ctx = this
@@ -109,7 +109,7 @@ private fun android.content.Context.findActivity(): Activity? {
 fun JestkApp(
     viewModel: BrowserViewModel,
     webViewPool: WebViewPool,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -120,9 +120,10 @@ fun JestkApp(
     }
 
     // Automatically destroy closed WebViews when tabs are closed
-    val currentTabIds = androidx.compose.runtime.remember(uiState.tabs) {
-        uiState.tabs.map { it.id }.toSet()
-    }
+    val currentTabIds =
+        androidx.compose.runtime.remember(uiState.tabs) {
+            uiState.tabs.map { it.id }.toSet()
+        }
     LaunchedEffect(currentTabIds) {
         if (currentTabIds.isNotEmpty()) {
             webViewPool.retainTabs(currentTabIds)
@@ -149,12 +150,15 @@ fun JestkApp(
                     val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context)
                     webView.loadUrl(command.url)
                 }
+
                 is NavigationCommand.GoBack -> {
                     webViewPool.getWebView(activeId)?.goBack()
                 }
+
                 is NavigationCommand.GoForward -> {
                     webViewPool.getWebView(activeId)?.goForward()
                 }
+
                 is NavigationCommand.Reload -> {
                     val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context)
                     if (webView.url.isNullOrEmpty() || webView.url == "about:blank") {
@@ -166,9 +170,11 @@ fun JestkApp(
                         webView.reload()
                     }
                 }
+
                 is NavigationCommand.StopLoading -> {
                     webViewPool.getWebView(activeId)?.stopLoading()
                 }
+
                 is NavigationCommand.ExitFullscreen -> {
                     val activeId = viewModel.uiState.value.activeTabId
                     val webView = activeId?.let { webViewPool.getWebView(it) }
@@ -176,11 +182,15 @@ fun JestkApp(
                     try {
                         webView?.evaluateJavascript(
                             "(function(){ if (document.exitFullscreen) document.exitFullscreen(); else if (document.webkitExitFullscreen) document.webkitExitFullscreen(); })()",
-                            null
+                            null,
                         )
-                    } catch (_: Exception) {}
+                    } catch (_: Exception) {
+                    }
                 }
-                is NavigationCommand.ExitApp -> Unit
+
+                is NavigationCommand.ExitApp -> {
+                    Unit
+                }
             }
         }
     }
@@ -189,7 +199,7 @@ fun JestkApp(
 
     JestkBrowserTheme(
         themeMode = uiState.settings.themeMode,
-        hazeState = rootHazeState
+        hazeState = rootHazeState,
     ) {
         val isDark = LocalIsDarkTheme.current
         val currentContext = LocalContext.current
@@ -199,7 +209,8 @@ fun JestkApp(
 
         val currentTab = uiState.tabs.find { it.id == uiState.activeTabId }
         val siteColor = uiState.activeThemeColor ?: currentTab?.themeColor
-        val showHomeScreen = uiState.activeOverlay == OverlayType.HOME ||
+        val showHomeScreen =
+            uiState.activeOverlay == OverlayType.HOME ||
                 uiState.currentUrl.isEmpty() ||
                 uiState.currentUrl == "about:blank"
 
@@ -208,7 +219,7 @@ fun JestkApp(
         val animatedAppBg by animateColorAsState(
             targetValue = targetAppBg,
             animationSpec = tween(durationMillis = 350),
-            label = "JestkAppRootBgColor"
+            label = "JestkAppRootBgColor",
         )
 
         val view = LocalView.current
@@ -297,33 +308,38 @@ fun JestkApp(
         }
 
         Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(animatedAppBg)
+            modifier =
+                modifier
+                    .fillMaxSize()
+                    .background(animatedAppBg),
         ) {
             // Main Viewport: WebView Container or Home Screen
 
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
+                modifier =
+                    Modifier
+                        .fillMaxSize(),
             ) {
                 if (showHomeScreen) {
                     HomeScreen(
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
                     )
                 } else {
                     uiState.activeTabId?.let { activeId ->
                         key(activeId) {
+                            // Do NOT register the WebView viewport as a Haze source: on Android 12+
+                            // Modifier.haze records the source into a GraphicsLayer that is
+                            // re-recorded every frame, and a WebView painted that way shows
+                            // blank/stale frames (whole page flickers until the tab is switched).
+                            // The bottom bar falls back to its semi-transparent scrim over pages.
                             WebViewContainer(
                                 tabId = activeId,
                                 webViewPool = webViewPool,
                                 uiState = uiState,
                                 onEvent = viewModel::onEvent,
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .haze(rootHazeState)
+                                modifier = Modifier.fillMaxSize(),
                             )
                         }
                     }
@@ -333,14 +349,15 @@ fun JestkApp(
             // Outside scrim to close expanded menu when tapping on webpage
             if (uiState.isMenuExpanded && !showHomeScreen) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            viewModel.onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                        }
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) {
+                                viewModel.onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                            },
                 )
             }
 
@@ -350,56 +367,67 @@ fun JestkApp(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
                     modifier = Modifier.align(Alignment.BottomCenter),
-                    hazeState = rootHazeState
+                    hazeState = rootHazeState,
                 )
             }
 
             // Overlays with smooth animated transitions
             AnimatedVisibility(
                 visible = uiState.activeOverlay == OverlayType.SEARCH,
-                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 3 },
-                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 3 }
+                enter =
+                    fadeIn(tween(220, easing = FastOutSlowInEasing)) +
+                        slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 3 },
+                exit =
+                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
+                        slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 3 },
             ) {
                 SearchOverlay(
                     uiState = uiState,
-                    onEvent = viewModel::onEvent
+                    onEvent = viewModel::onEvent,
                 )
             }
 
             AnimatedVisibility(
                 visible = uiState.activeOverlay == OverlayType.TAB_GRID,
-                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 4 },
-                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 4 }
+                enter =
+                    fadeIn(tween(220, easing = FastOutSlowInEasing)) +
+                        slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 4 },
+                exit =
+                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
+                        slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 4 },
             ) {
                 TabOverviewGrid(
                     uiState = uiState,
-                    onEvent = viewModel::onEvent
+                    onEvent = viewModel::onEvent,
                 )
             }
 
-            if (uiState.activeOverlay == OverlayType.SETTINGS) {
+            if (uiState.isSettingsVisible) {
                 SettingsSheet(
                     uiState = uiState,
-                    onEvent = viewModel::onEvent
+                    onEvent = viewModel::onEvent,
                 )
             }
 
-            if (uiState.activeOverlay == OverlayType.DOWNLOADS) {
+            if (uiState.isDownloadsVisible) {
                 DownloadsSheet(
                     uiState = uiState,
-                    onEvent = viewModel::onEvent
+                    onEvent = viewModel::onEvent,
                 )
             }
 
             // Undo Closed Tab Floating Notification Pill
             AnimatedVisibility(
                 visible = uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null,
-                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
-                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(bottom = 76.dp, start = 16.dp, end = 16.dp)
+                enter =
+                    fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
+                exit =
+                    fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = 76.dp, start = 16.dp, end = 16.dp),
             ) {
                 val tab = uiState.recentlyClosedTab
                 val tabTitle = tab?.title?.takeIf { it.isNotBlank() && it != "Home" && it != "New Tab" } ?: "Tab"
@@ -418,22 +446,23 @@ fun JestkApp(
                     color = Color.Transparent,
                     border = null,
                     shadowElevation = 10.dp,
-                    modifier = Modifier
-                        .wrapContentSize()
-                        .liquidFrostedGlass(
-                            shape = LiquidShapes.ButtonPill,
-                            isDark = isDark,
-                            blurRadius = 18.dp,
-                            tintColor = if (isDark) Color(0xFF242021) else Color.White,
-                            alpha = if (isDark) 0.90f else 0.90f,
-                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f),
-                            hazeState = rootHazeState
-                        )
+                    modifier =
+                        Modifier
+                            .wrapContentSize()
+                            .liquidFrostedGlass(
+                                shape = LiquidShapes.ButtonPill,
+                                isDark = isDark,
+                                blurRadius = 18.dp,
+                                tintColor = if (isDark) Color(0xFF242021) else Color.White,
+                                alpha = if (isDark) 0.90f else 0.90f,
+                                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f),
+                                hazeState = rootHazeState,
+                            ),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Text(
                             text = "$closedText: $tabTitle",
@@ -441,26 +470,27 @@ fun JestkApp(
                             color = if (isDark) Color.White else Color(0xFF1E1B1C),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                         Text(
                             text = undoText,
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = LiquidPrimary),
-                            modifier = Modifier
-                                .clickable {
-                                    viewModel.onEvent(BrowserUiEvent.UndoCloseTab)
-                                }
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                            modifier =
+                                Modifier
+                                    .clickable {
+                                        viewModel.onEvent(BrowserUiEvent.UndoCloseTab)
+                                    }.padding(horizontal = 4.dp, vertical = 2.dp),
                         )
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Dismiss",
                             tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clickable {
-                                    viewModel.onEvent(BrowserUiEvent.DismissUndoTabCloseSnackbar)
-                                }
+                            modifier =
+                                Modifier
+                                    .size(16.dp)
+                                    .clickable {
+                                        viewModel.onEvent(BrowserUiEvent.DismissUndoTabCloseSnackbar)
+                                    },
                         )
                     }
                 }
@@ -469,16 +499,19 @@ fun JestkApp(
             // Download Floating Notification Pill
             AnimatedVisibility(
                 visible = uiState.showDownloadSnackbar && uiState.lastDownloadNotification != null,
-                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
-                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(
-                        bottom = if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) 132.dp else 76.dp,
-                        start = 16.dp,
-                        end = 16.dp
-                    )
+                enter =
+                    fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
+                exit =
+                    fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(
+                            bottom = if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) 132.dp else 76.dp,
+                            start = 16.dp,
+                            end = 16.dp,
+                        ),
             ) {
                 val download = uiState.lastDownloadNotification
                 val fileName = download?.fileName?.ifEmpty { "file" } ?: "file"
@@ -495,28 +528,29 @@ fun JestkApp(
                     color = Color.Transparent,
                     border = null,
                     shadowElevation = 10.dp,
-                    modifier = Modifier
-                        .wrapContentSize()
-                        .liquidFrostedGlass(
-                            shape = LiquidShapes.ButtonPill,
-                            isDark = isDark,
-                            blurRadius = 18.dp,
-                            tintColor = if (isDark) Color(0xFF242021) else Color.White,
-                            alpha = if (isDark) 0.90f else 0.90f,
-                            borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f),
-                            hazeState = rootHazeState
-                        )
+                    modifier =
+                        Modifier
+                            .wrapContentSize()
+                            .liquidFrostedGlass(
+                                shape = LiquidShapes.ButtonPill,
+                                isDark = isDark,
+                                blurRadius = 18.dp,
+                                tintColor = if (isDark) Color(0xFF242021) else Color.White,
+                                alpha = if (isDark) 0.90f else 0.90f,
+                                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f),
+                                hazeState = rootHazeState,
+                            ),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Download,
                             contentDescription = "Download",
                             tint = LiquidPrimary,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
                         )
                         Text(
                             text = "Downloading $fileName",
@@ -524,27 +558,28 @@ fun JestkApp(
                             color = if (isDark) Color.White else Color(0xFF1E1B1C),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f, fill = false)
+                            modifier = Modifier.weight(1f, fill = false),
                         )
                         Text(
                             text = "Подробнее",
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = LiquidPrimary),
-                            modifier = Modifier
-                                .clickable {
-                                    viewModel.onEvent(BrowserUiEvent.OpenDownloads)
-                                    viewModel.onEvent(DismissDownloadSnackbar)
-                                }
-                                .padding(horizontal = 4.dp, vertical = 2.dp)
+                            modifier =
+                                Modifier
+                                    .clickable {
+                                        viewModel.onEvent(BrowserUiEvent.OpenDownloads)
+                                        viewModel.onEvent(DismissDownloadSnackbar)
+                                    }.padding(horizontal = 4.dp, vertical = 2.dp),
                         )
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Dismiss",
                             tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clickable {
-                                    viewModel.onEvent(DismissDownloadSnackbar)
-                                }
+                            modifier =
+                                Modifier
+                                    .size(16.dp)
+                                    .clickable {
+                                        viewModel.onEvent(DismissDownloadSnackbar)
+                                    },
                         )
                     }
                 }
@@ -554,7 +589,7 @@ fun JestkApp(
             uiState.linkContextMenuUrl?.let { linkUrl ->
                 LinkContextMenuBottomSheet(
                     url = linkUrl,
-                    onEvent = viewModel::onEvent
+                    onEvent = viewModel::onEvent,
                 )
             }
 
@@ -570,9 +605,9 @@ fun JestkApp(
                             contentDisposition = null,
                             mimeType = "image/*",
                             contentLength = 0L,
-                            context = context
+                            context = context,
                         )
-                    }
+                    },
                 )
             }
 
@@ -591,61 +626,68 @@ fun JestkApp(
                 }
 
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black)
-                        .pointerInput(Unit) {
-                            awaitEachGesture {
-                                val down = awaitFirstDown(pass = PointerEventPass.Initial)
-                                val startY = down.position.y
-                                val startX = down.position.x
-                                var totalDeltaY = 0f
-                                var totalDeltaX = 0f
-                                var hasTriggered = false
-                                val velocityTracker = VelocityTracker()
-                                velocityTracker.addPosition(down.uptimeMillis, down.position)
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .background(Color.Black)
+                            .pointerInput(Unit) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(pass = PointerEventPass.Initial)
+                                    val startY = down.position.y
+                                    val startX = down.position.x
+                                    var totalDeltaY = 0f
+                                    var totalDeltaX = 0f
+                                    var hasTriggered = false
+                                    val velocityTracker = VelocityTracker()
+                                    velocityTracker.addPosition(down.uptimeMillis, down.position)
 
-                                while (true) {
-                                    val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                                    val change = event.changes.firstOrNull { it.id == down.id }
-                                        ?: event.changes.firstOrNull()
-                                        ?: break
+                                    while (true) {
+                                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                                        val change =
+                                            event.changes.firstOrNull { it.id == down.id }
+                                                ?: event.changes.firstOrNull()
+                                                ?: break
 
-                                    velocityTracker.addPosition(change.uptimeMillis, change.position)
+                                        velocityTracker.addPosition(change.uptimeMillis, change.position)
 
-                                    if (change.changedToUp() || !change.pressed) {
-                                        if (!hasTriggered && totalDeltaY > minDragDistancePx && totalDeltaY > kotlin.math.abs(totalDeltaX) * 1.2f) {
-                                            val velocityY = velocityTracker.calculateVelocity().y
-                                            if (totalDeltaY > swipeThresholdPx || velocityY > velocityThresholdPx) {
-                                                hasTriggered = true
-                                                viewModel.onEvent(BrowserUiEvent.ExitFullscreen)
+                                        if (change.changedToUp() || !change.pressed) {
+                                            if (!hasTriggered && totalDeltaY > minDragDistancePx &&
+                                                totalDeltaY > kotlin.math.abs(totalDeltaX) * 1.2f
+                                            ) {
+                                                val velocityY = velocityTracker.calculateVelocity().y
+                                                if (totalDeltaY > swipeThresholdPx || velocityY > velocityThresholdPx) {
+                                                    hasTriggered = true
+                                                    viewModel.onEvent(BrowserUiEvent.ExitFullscreen)
+                                                }
                                             }
+                                            break
                                         }
-                                        break
-                                    }
 
-                                    val currentPos = change.position
-                                    totalDeltaY = currentPos.y - startY
-                                    totalDeltaX = currentPos.x - startX
+                                        val currentPos = change.position
+                                        totalDeltaY = currentPos.y - startY
+                                        totalDeltaX = currentPos.x - startX
 
-                                    if (!hasTriggered && totalDeltaY > swipeThresholdPx && totalDeltaY > kotlin.math.abs(totalDeltaX) * 1.2f) {
-                                        hasTriggered = true
-                                        change.consume()
-                                        viewModel.onEvent(BrowserUiEvent.ExitFullscreen)
-                                        break
+                                        if (!hasTriggered && totalDeltaY > swipeThresholdPx &&
+                                            totalDeltaY > kotlin.math.abs(totalDeltaX) * 1.2f
+                                        ) {
+                                            hasTriggered = true
+                                            change.consume()
+                                            viewModel.onEvent(BrowserUiEvent.ExitFullscreen)
+                                            break
+                                        }
                                     }
                                 }
-                            }
-                        }
+                            },
                 ) {
                     AndroidView<android.view.View>(
                         factory = {
                             (customView.parent as? ViewGroup)?.removeView(customView)
                             customView.apply {
-                                layoutParams = ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.MATCH_PARENT
-                                )
+                                layoutParams =
+                                    ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                    )
                                 keepScreenOn = true
                                 if (this is ViewGroup) {
                                     descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -656,16 +698,17 @@ fun JestkApp(
                             }
                         },
                         update = { view ->
-                            view.layoutParams = ViewGroup.LayoutParams(
-                                ViewGroup.LayoutParams.MATCH_PARENT,
-                                ViewGroup.LayoutParams.MATCH_PARENT
-                            )
+                            view.layoutParams =
+                                ViewGroup.LayoutParams(
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                    ViewGroup.LayoutParams.MATCH_PARENT,
+                                )
                             view.keepScreenOn = true
                         },
                         onReset = { view ->
                             (view.parent as? ViewGroup)?.removeView(view)
                         },
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
                     )
                 }
             }
@@ -678,7 +721,7 @@ fun JestkApp(
                         viewModel.onEvent(BrowserUiEvent.SetVideoPlaying(false))
                         viewModel.onEvent(BrowserUiEvent.SetFullscreenCustomView(null, false))
                     },
-                    modifier = Modifier.align(Alignment.TopEnd)
+                    modifier = Modifier.align(Alignment.TopEnd),
                 )
             }
         }
