@@ -211,7 +211,7 @@ class AdBlockerEngineTest {
         assertThat(AdBlockerEngine.shouldBlock("file:///android_asset/test.html")).isFalse()
     }
 
-    // --- 6. Blocked WebResourceResponse Test ---
+    // --- 6. Blocked WebResourceResponse Tests ---
 
     @Test
     fun createBlockedResponse_returnsEmptyTextResponse() {
@@ -220,4 +220,69 @@ class AdBlockerEngineTest {
         assertThat(response.encoding).isEqualTo("UTF-8")
         assertThat(response.data.read()).isEqualTo(-1) // Empty stream
     }
+
+    @Test
+    fun transparent1x1Png_isValidPngSignature() {
+        assertThat(AdBlockerEngine.TRANSPARENT_1X1_PNG.isNotEmpty()).isTrue()
+        // PNG magic bytes: 0x89, 'P', 'N', 'G'
+        assertThat(AdBlockerEngine.TRANSPARENT_1X1_PNG[0]).isEqualTo(0x89.toByte())
+        assertThat(AdBlockerEngine.TRANSPARENT_1X1_PNG[1]).isEqualTo('P'.code.toByte())
+        assertThat(AdBlockerEngine.TRANSPARENT_1X1_PNG[2]).isEqualTo('N'.code.toByte())
+        assertThat(AdBlockerEngine.TRANSPARENT_1X1_PNG[3]).isEqualTo('G'.code.toByte())
+    }
+
+    @Test
+    fun createSmartBlockedResponse_returnsTransparentPngForImages() {
+        val responseUrl = AdBlockerEngine.createSmartBlockedResponse("https://example.com/banner.png")
+        assertThat(responseUrl.mimeType).isEqualTo("image/png")
+        assertThat(responseUrl.statusCode).isEqualTo(200)
+        val bytes = responseUrl.data.readBytes()
+        assertThat(bytes).isEqualTo(AdBlockerEngine.TRANSPARENT_1X1_PNG)
+
+        val responseAccept = AdBlockerEngine.createSmartBlockedResponse(
+            "https://example.com/ad-image",
+            requestHeaders = mapOf("Accept" to "image/avif,image/webp,image/*")
+        )
+        assertThat(responseAccept.mimeType).isEqualTo("image/png")
+    }
+
+    @Test
+    fun createSmartBlockedResponse_returnsJavascriptWithSurrogatesForScripts() {
+        // Generic JS
+        val genericJs = AdBlockerEngine.createSmartBlockedResponse("https://example.com/ad.js")
+        assertThat(genericJs.mimeType).isEqualTo("application/javascript")
+        assertThat(genericJs.statusCode).isEqualTo(200)
+        val genericBody = String(genericJs.data.readBytes())
+        assertThat(genericBody).contains("blocked by Hori")
+
+        // AdSense
+        val adsenseJs = AdBlockerEngine.createSmartBlockedResponse("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js")
+        assertThat(adsenseJs.mimeType).isEqualTo("application/javascript")
+        val adsenseBody = String(adsenseJs.data.readBytes())
+        assertThat(adsenseBody).contains("window.adsbygoogle")
+
+        // GPT
+        val gptJs = AdBlockerEngine.createSmartBlockedResponse("https://securepubads.g.doubleclick.net/tag/js/gpt.js")
+        assertThat(gptJs.mimeType).isEqualTo("application/javascript")
+        val gptBody = String(gptJs.data.readBytes())
+        assertThat(gptBody).contains("window.googletag")
+    }
+
+    @Test
+    fun createSmartBlockedResponse_returns204NoContentForBeaconsAndAnalytics() {
+        val response = AdBlockerEngine.createSmartBlockedResponse("https://google-analytics.com/collect?v=1")
+        assertThat(response.statusCode).isEqualTo(204)
+        assertThat(response.reasonPhrase).isEqualTo("No Content")
+        assertThat(response.data.read()).isEqualTo(-1)
+    }
+
+    @Test
+    fun createSmartBlockedResponse_returnsEmptyHtmlForFrames() {
+        val response = AdBlockerEngine.createSmartBlockedResponse("https://example.com/ad_frame.html")
+        assertThat(response.mimeType).isEqualTo("text/html")
+        assertThat(response.statusCode).isEqualTo(200)
+        val body = String(response.data.readBytes())
+        assertThat(body).contains("<!DOCTYPE html>")
+    }
 }
+

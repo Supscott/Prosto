@@ -19,6 +19,7 @@ import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.Toast
 import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.repository.DownloadRepository
@@ -50,6 +51,14 @@ class WebViewPool(
     }
 
     var onDownloadStarted: ((DownloadItem) -> Unit)? = null
+    var isAdBlockerEnabled: (() -> Boolean)? = null
+
+    class AdBlockBridge(
+        private val isEnabled: () -> Boolean
+    ) {
+        @JavascriptInterface
+        fun isEnabled(): Boolean = isEnabled()
+    }
 
     class BlobDownloadBridge(
         private val onBlobReceived: (dataUrl: String, contentDisposition: String?, mimeType: String?) -> Unit
@@ -204,6 +213,7 @@ class WebViewPool(
                     Log.w("HoriEngine", "Failed to add BlobDownloadBridge interface", t)
                 }
                 setupDownloadListener(this)
+                setupAdBlocker(this)
             }
 
             currentIsDark?.let { applyThemeMode(webView, it) }
@@ -241,11 +251,33 @@ class WebViewPool(
                     Log.w("HoriEngine", "Failed to add BlobDownloadBridge to fallback WebView", t2)
                 }
                 setupDownloadListener(this)
+                setupAdBlocker(this)
             }
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
             pool[tabId] = fallbackWebView
             trimPool(tabId)
             return fallbackWebView
+        }
+    }
+
+    private fun setupAdBlocker(webView: WebView) {
+        try {
+            val bridge = AdBlockBridge { isAdBlockerEnabled?.invoke() ?: true }
+            webView.addJavascriptInterface(bridge, "HoriAdBlockBridge")
+        } catch (t: Throwable) {
+            Log.w("HoriEngine", "Failed to add HoriAdBlockBridge interface", t)
+        }
+
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            try {
+                WebViewCompat.addDocumentStartJavaScript(
+                    webView,
+                    AdBlockerScript.buildDocumentStartScript(),
+                    setOf("*")
+                )
+            } catch (t: Throwable) {
+                Log.w("HoriEngine", "Failed to add document start script for ad blocking", t)
+            }
         }
     }
 

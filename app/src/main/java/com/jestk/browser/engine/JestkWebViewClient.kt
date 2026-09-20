@@ -26,7 +26,10 @@ class JestkWebViewClient(
         if (isAdBlockerEnabled()) {
             val url = request.url?.toString()
             if (AdBlockerEngine.shouldBlock(url)) {
-                return AdBlockerEngine.createBlockedResponse()
+                return AdBlockerEngine.createSmartBlockedResponse(
+                    url = url,
+                    requestHeaders = request.requestHeaders
+                )
             }
         }
         return super.shouldInterceptRequest(view, request)
@@ -42,6 +45,9 @@ class JestkWebViewClient(
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
             val isDark = isDarkTheme?.invoke() ?: false
             injectColorScheme(wv, isDark)
+            if (isAdBlockerEnabled()) {
+                AdBlockerScript.injectAdBlocker(wv)
+            }
             if (validUrl.contains("apple.com", ignoreCase = true)) {
                 onThemeColorDetected(tabId, android.graphics.Color.parseColor("#161617"))
             } else if (validUrl.contains("youtube.com", ignoreCase = true) && isDark) {
@@ -62,6 +68,9 @@ class JestkWebViewClient(
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
             isDarkTheme?.invoke()?.let { isDark -> injectColorScheme(wv, isDark) }
+            if (isAdBlockerEnabled()) {
+                AdBlockerScript.injectAdBlocker(wv)
+            }
             extractThemeColor(wv, isPageStarted = false)
             SnapshotEngine.captureSnapshot(
                 webView = wv,

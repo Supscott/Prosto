@@ -222,6 +222,7 @@ fun WebViewContainer(
             key(tabId) {
             AndroidView<SwipeRefreshLayout>(
                 factory = { context ->
+                    webViewPool.isAdBlockerEnabled = { currentUiState.settings.isAdBlockerEnabled }
                     val activity = context.findActivity() ?: context
                     val webView = webViewPool.getOrCreateWebView(tabId, activity)
                     // Enforce proper parent detachment when recycling WebViews in Compose
@@ -336,6 +337,7 @@ fun WebViewContainer(
                     }
                 },
                 update = { swipeRefresh ->
+                    webViewPool.isAdBlockerEnabled = { uiState.settings.isAdBlockerEnabled }
                     val isBlocked = uiState.isVideoPlaying ||
                             uiState.isFullscreenCustomView ||
                             uiState.fullscreenCustomView != null

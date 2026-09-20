@@ -2,6 +2,7 @@ package com.jestk.browser.engine
 
 import android.content.Context
 import android.net.Uri
+import android.util.Base64
 import android.util.Log
 import android.webkit.WebResourceResponse
 import kotlinx.coroutines.CoroutineDispatcher
@@ -247,12 +248,116 @@ object AdBlockerEngine {
         return false
     }
 
+    // Minimal 1x1 32-bit transparent PNG to fulfill blocked image requests cleanly
+    val TRANSPARENT_1X1_PNG: ByteArray by lazy {
+        Base64.decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+            Base64.DEFAULT
+        )
+    }
+
     fun createBlockedResponse(): WebResourceResponse {
         return WebResourceResponse(
             "text/plain",
             "UTF-8",
             ByteArrayInputStream(ByteArray(0))
         )
+    }
+
+    /**
+     * Creates a content-aware blocked response tailored to the resource type:
+     * - Images: Returns a 1x1 transparent PNG to eliminate broken image icons and avoid layout shift.
+     * - Scripts: Returns application/javascript with a comment or harmless stub to stop syntax errors.
+     * - Beacons/Analytics: Returns HTTP 204 No Content.
+     * - HTML: Returns an empty HTML document.
+     * - Fallback: Returns empty text/plain.
+     */
+    fun createSmartBlockedResponse(
+        url: String?,
+        mimeTypeHint: String? = null,
+        requestHeaders: Map<String, String>? = null
+    ): WebResourceResponse {
+        val cleanUrl = url?.lowercase()?.trim().orEmpty()
+        val acceptHeader = requestHeaders?.get("Accept")?.lowercase()
+            ?: requestHeaders?.get("accept")?.lowercase()
+            ?: ""
+
+        val isImage = mimeTypeHint?.startsWith("image/") == true ||
+            acceptHeader.contains("image/") ||
+            cleanUrl.endsWith(".png") || cleanUrl.endsWith(".jpg") ||
+            cleanUrl.endsWith(".jpeg") || cleanUrl.endsWith(".gif") ||
+            cleanUrl.endsWith(".webp") || cleanUrl.endsWith(".svg") ||
+            cleanUrl.endsWith(".ico") || cleanUrl.contains("/pixel")
+
+        if (isImage) {
+            return WebResourceResponse(
+                "image/png",
+                null,
+                200,
+                "OK",
+                mapOf("Access-Control-Allow-Origin" to "*"),
+                ByteArrayInputStream(TRANSPARENT_1X1_PNG)
+            )
+        }
+
+        val isScript = mimeTypeHint?.contains("javascript") == true ||
+            acceptHeader.contains("javascript") ||
+            cleanUrl.endsWith(".js") ||
+            cleanUrl.contains(".js?") ||
+            cleanUrl.contains("/adsbygoogle") ||
+            cleanUrl.contains("/gpt.js")
+
+        if (isScript) {
+            val stubContent = when {
+                cleanUrl.contains("adsbygoogle") -> {
+                    "window.adsbygoogle = window.adsbygoogle || []; window.adsbygoogle.loaded = true; window.adsbygoogle.push = function(o){return 0;};"
+                }
+                cleanUrl.contains("gpt.js") || cleanUrl.contains("pubads") -> {
+                    "window.googletag = window.googletag || {cmd:[]}; window.googletag.cmd.push = function(f){if(typeof f==='function'){try{f();}catch(e){}}};"
+                }
+                else -> "/* blocked by Hori */"
+            }
+            return WebResourceResponse(
+                "application/javascript",
+                "UTF-8",
+                200,
+                "OK",
+                mapOf("Access-Control-Allow-Origin" to "*"),
+                ByteArrayInputStream(stubContent.toByteArray(Charsets.UTF_8))
+            )
+        }
+
+        val isBeaconOrAnalytics = cleanUrl.contains("/collect") ||
+            cleanUrl.contains("/beacon") ||
+            cleanUrl.contains("/analytics") ||
+            cleanUrl.contains("/telemetry")
+
+        if (isBeaconOrAnalytics) {
+            return WebResourceResponse(
+                "text/plain",
+                "UTF-8",
+                204,
+                "No Content",
+                mapOf("Access-Control-Allow-Origin" to "*"),
+                ByteArrayInputStream(ByteArray(0))
+            )
+        }
+
+        val isHtml = mimeTypeHint?.contains("html") == true ||
+            cleanUrl.endsWith(".html") || cleanUrl.endsWith(".htm")
+
+        if (isHtml) {
+            return WebResourceResponse(
+                "text/html",
+                "UTF-8",
+                200,
+                "OK",
+                mapOf("Access-Control-Allow-Origin" to "*"),
+                ByteArrayInputStream("<!DOCTYPE html><html><body></body></html>".toByteArray(Charsets.UTF_8))
+            )
+        }
+
+        return createBlockedResponse()
     }
 
     fun isReady(): Boolean = isInitialized

@@ -137,3 +137,24 @@
   - `:app:testDebugUnitTest` fully green (33 actionable tasks executed/up-to-date, all assertions passing).
 - **Key Architectural Decisions:**
   - No fake/preset bookmarks are seeded into UI or database; favorites block starts completely empty on fresh install and is user-driven.
+
+### Session: Industrial Standard Ad-Blocker Enhancements
+
+- **Completed:**
+  - Implemented cosmetic CSS filtering rules in [`AdBlockerScript.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/AdBlockerScript.kt) to collapse ad containers and slots (`ins.adsbygoogle`, DFP/GPT `div-gpt-ad`, Yandex `.yandex-adaptive`/`.ya-partner`, universal `.ad-banner`/`.ad-container`) down to 0 dimensions (`display: none !important; height: 0 !important; min-height: 0 !important; visibility: hidden !important; pointer-events: none !important;`).
+  - Added scriptlet surrogates (mocks) for Google AdSense (`window.adsbygoogle`), Google Publisher Tag (`window.googletag`), and Yandex Direct (`window.yaContextCb`) to eliminate hanging promises, unhandled TypeErrors, and infinite loading spinners on host sites.
+  - Added dynamic DOM Sanitizer powered by `MutationObserver` that actively detects dynamic ad wrappers and collapses single-child parent containers whose sole child was an ad.
+  - Created content-aware network interception in [`AdBlockerEngine.createSmartBlockedResponse()`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/AdBlockerEngine.kt):
+    - 1×1 transparent PNG (`image/png`, 200 OK) for image requests to eliminate broken image icons and prevent layout reflow.
+    - `application/javascript` (200 OK) with harmless stub or comments for scripts.
+    - HTTP 204 No Content for beacons, telemetry, and tracking endpoints.
+    - `text/html` empty document for subdocument iframes.
+  - Registered `WebViewCompat.addDocumentStartJavaScript` in [`WebViewPool.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/WebViewPool.kt) (when supported) coupled with `HoriAdBlockBridge` for zero-overhead, zero-flicker execution before page scripts run, with lifecycle fallback via `AdBlockerScript.injectAdBlocker` in [`JestkWebViewClient.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/JestkWebViewClient.kt).
+  - Synced `isAdBlockerEnabled` setting dynamically in [`WebViewContainer.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/views/WebViewContainer.kt).
+  - Added unit test suites in [`AdBlockerScriptTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/engine/AdBlockerScriptTest.kt) and expanded [`AdBlockerEngineTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/engine/AdBlockerEngineTest.kt).
+- **Current State:**
+  - `:app:testDebugUnitTest` fully green (all 606 unit tests passed, 33 actionable tasks executed/up-to-date).
+- **Key Architectural Decisions:**
+  - Cosmetic filtering CSS and surrogates are injected via `addDocumentStartJavaScript` and early `onPageStarted` rather than rewriting HTML on the network layer, ensuring compatibility with client-side SPA rendering (React/Vue), keeping HTTP/2 streaming performance, and preserving cookie/session state.
+  - Blocked image requests receive an RFC-compliant 1x1 transparent PNG rather than empty text/plain to prevent browser broken image placeholders.
+

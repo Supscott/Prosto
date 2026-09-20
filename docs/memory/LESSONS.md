@@ -89,3 +89,17 @@ This document tracks bugs encountered during development, their root causes, and
   4. Handled back press in `BrowserViewModel.handleBackNavigation()` to dismiss the dialog first.
   5. Extracted the dialog card layout to `AddFavoriteDialogContent` so it can be previewed in Compose Previews and verified via Robolectric Native Graphics without requiring an active Android `Window`.
 
+### Returning generic empty text/plain for blocked requests causes infinite spinners and residual frames
+
+- **Date:** 2026-09-21
+- **Symptom:** Websites with blocked ad networks displayed empty placeholder blocks, broken image icons, or infinite loading spinners that hung site content and video players.
+- **Root Cause:** 
+  1. Returning HTTP 200 OK `text/plain` with 0 bytes for `<script>` or API requests means external SDKs never emit network errors, yet fail to declare expected globals (`window.adsbygoogle`, `window.googletag`). Host scripts waiting on callbacks or promises hang forever.
+  2. Pure network request interception only prevents remote assets from loading; the host document's DOM still contains fixed-dimension layout containers (`style="min-height: 250px"`).
+  3. Image tags receiving `text/plain` 0-byte responses trigger broken-image fallback indicators.
+- **Resolution & Prevention:**
+  1. Use content-aware responses in `AdBlockerEngine.createSmartBlockedResponse`: return 1x1 transparent PNG for images, valid JavaScript with stubs for scripts, HTTP 204 No Content for beacons/telemetry, and clean HTML for subframes.
+  2. Decode binary image data using `Base64.decode` to avoid manual hex array alignment bugs.
+  3. Inject cosmetic CSS rules (`display: none !important; height: 0 !important;`) and scriptlet surrogates at document start (`WebViewCompat.addDocumentStartJavaScript` with `onPageStarted` fallback) and use a `MutationObserver` DOM sanitizer to collapse orphaned parent containers.
+
+
