@@ -102,4 +102,21 @@ This document tracks bugs encountered during development, their root causes, and
   2. Decode binary image data using `Base64.decode` to avoid manual hex array alignment bugs.
   3. Inject cosmetic CSS rules (`display: none !important; height: 0 !important;`) and scriptlet surrogates at document start (`WebViewCompat.addDocumentStartJavaScript` with `onPageStarted` fallback) and use a `MutationObserver` DOM sanitizer to collapse orphaned parent containers.
 
+### Ads leak through on Russian sites (food.ru) due to portal-path delivery and unblocked ADFOX
+
+- **Date:** 2026-09-21
+- **Symptom:** Opening `https://food.ru/recipes/181400-kak-svarit-ovsianku` still displayed ads, banner containers, and empty placeholder frames.
+- **Root Cause:**
+  1. Russian sites heavily rely on Yandex Ad Network / ADFOX (`yandex.ru/ads/system/context.js`, `yandex.ru/ads/system/header-bidding.js`, `ads.x5media.ru`, `ad.mail.ru`).
+  2. Because `yandex.ru` is a major search portal, its root host cannot be blocked outright. Pure host-based checking in `shouldBlock` completely bypassed scripts served under `yandex.ru/ads/*`.
+  3. Russian ad networks were absent from `DEFAULT_HOSTS` and standard English `EasyList`.
+  4. Next.js / CSS module class names (`slugPage_bannerContainer__0D6xI`, `slugPage_incontentBanner__eObdd`, `RightsideBannersBlockWrapper`) and ADFOX DOM elements (`div[id^="adfox_"]`) were missing from cosmetic CSS selectors.
+  5. The host page hung or rendered ads because ADFOX SDK (`window.Ya.adfoxCode`) was not stubbed.
+- **Resolution & Prevention:**
+  1. Add path-based matching (`isBlockedPath`) in `shouldBlock` to intercept ad endpoints on portal domains (e.g. `yandex.ru/ads/`, `mail.ru/static/ads`) without affecting primary services like search or mail.
+  2. Populate `DEFAULT_HOSTS` and `adblock_hosts.txt` with essential regional ad networks (`adfox.ru`, `ad.mail.ru`, `ads.x5media.ru`, `my.target.com`, etc.).
+  3. Include surrogate mocks for `window.Ya.adfoxCode`, `window.Ya.Context`, and `window.x5media`.
+  4. Expand cosmetic selectors to cover `[id^="adfox"]`, `[class*="bannerContainer"]`, `[class*="incontentBanner"]`, `[class*="RightsideBanners"]`, `[class*="BannersBlock"]`, and `[class*="adFeedback"]`.
+
+
 

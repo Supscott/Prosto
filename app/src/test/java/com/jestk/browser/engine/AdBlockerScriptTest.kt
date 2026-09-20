@@ -16,6 +16,10 @@ class AdBlockerScriptTest {
         assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"div-gpt-ad\"]")
         assertThat(AdBlockerScript.AD_SELECTORS).contains(".yandex-adaptive")
         assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"yandex_rtb_\"]")
+        assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"adfox\"]")
+        assertThat(AdBlockerScript.AD_SELECTORS).contains("[class*=\"bannerContainer\"]")
+        assertThat(AdBlockerScript.AD_SELECTORS).contains("[class*=\"incontentBanner\"]")
+        assertThat(AdBlockerScript.AD_SELECTORS).contains("[class*=\"RightsideBanners\"]")
         assertThat(AdBlockerScript.AD_SELECTORS).contains(".ad-container")
         assertThat(AdBlockerScript.AD_SELECTORS).contains(".ad-banner")
         assertThat(AdBlockerScript.AD_SELECTORS).contains(".advertisement")
@@ -32,6 +36,8 @@ class AdBlockerScriptTest {
         assertThat(css).contains("pointer-events: none !important")
         assertThat(css).contains("ins.adsbygoogle")
         assertThat(css).contains(".yandex-adaptive")
+        assertThat(css).contains("[id^=\"adfox\"]")
+        assertThat(css).contains("[class*=\"bannerContainer\"]")
         assertThat(css).contains(".ad-banner")
     }
 
@@ -49,9 +55,15 @@ class AdBlockerScriptTest {
         assertThat(js).contains("window.googletag.pubads")
         assertThat(js).contains("window.googletag.apiReady = true")
 
-        // Yandex
+        // Yandex & ADFOX
         assertThat(js).contains("window.yaContextCb = window.yaContextCb || []")
         assertThat(js).contains("window.yaContextCb.push")
+        assertThat(js).contains("window.Ya = window.Ya || {}")
+        assertThat(js).contains("window.Ya.adfoxCode")
+        assertThat(js).contains("window.Ya.Context")
+
+        // X5 Media
+        assertThat(js).contains("window.x5media")
     }
 
     @Test
@@ -69,5 +81,7 @@ class AdBlockerScriptTest {
         assertThat(js).contains("MutationObserver")
         assertThat(js).contains("observe(document.documentElement || document.body")
         assertThat(js).contains("parent.children.length === 1")
+        assertThat(js).contains("[id^=\"adfox\"]")
+        assertThat(js).contains("[class*=\"bannerContainer\"]")
     }
 }

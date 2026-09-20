@@ -38,7 +38,37 @@ object AdBlockerEngine {
         "quantserve.com",
         "pubmatic.com",
         "openx.net",
-        "moatads.com"
+        "moatads.com",
+        // Russian ad & tracking networks (Yandex, Mail.ru, MyTarget, ADFOX, X5 Media, Rambler, etc.)
+        "adfox.ru",
+        "adfox.yandex.ru",
+        "ad.mail.ru",
+        "ads.mail.ru",
+        "target.mail.ru",
+        "top-fwz1.mail.ru",
+        "my.target.com",
+        "target.my.com",
+        "ads.x5media.ru",
+        "x5media.ru",
+        "an.yandex.ru",
+        "yabs.yandex.ru",
+        "mc.yandex.ru",
+        "awaps.yandex.ru",
+        "adfstat.yandex.ru",
+        "bs.yandex.ru",
+        "ads.vk.com",
+        "ssp.rambler.ru",
+        "reklama.rambler.ru",
+        "relap.io",
+        "buzzoola.com",
+        "rutarget.ru",
+        "hybrid.ai",
+        "bidvol.com",
+        "adhigh.net",
+        "adriver.ru",
+        "otclick-adv.ru",
+        "videonow.ru",
+        "viqeo.tv"
     )
 
     private val blockedHosts = ConcurrentHashMap.newKeySet<String>().apply {
@@ -219,17 +249,18 @@ object AdBlockerEngine {
             return false
         }
 
-        val host = try {
+        val uri = try {
             val normalizedUrl = when {
                 trimmedUrl.startsWith("//") -> "https:$trimmedUrl"
                 !trimmedUrl.contains("://") -> "https://$trimmedUrl"
                 else -> trimmedUrl
             }
-            Uri.parse(normalizedUrl).host?.lowercase()
+            Uri.parse(normalizedUrl)
         } catch (_: Exception) {
             null
         } ?: return false
 
+        val host = uri.host?.lowercase() ?: return false
         if (host.isEmpty()) return false
 
         if (blockedHosts.contains(host)) return true
@@ -243,6 +274,50 @@ object AdBlockerEngine {
             if (blockedHosts.contains(currentHost)) {
                 return true
             }
+        }
+
+        // Check path rules for multi-purpose search engines/portals serving ads under subpaths
+        val path = uri.path?.lowercase().orEmpty()
+        if (isBlockedPath(host, path)) {
+            return true
+        }
+
+        return false
+    }
+
+    fun isBlockedPath(host: String, path: String): Boolean {
+        if (host.contains("yandex.")) {
+            if (path.startsWith("/ads/") ||
+                path.startsWith("/clck/") ||
+                path.contains("context.js") ||
+                path.contains("header-bidding.js")
+            ) {
+                return true
+            }
+        }
+
+        if (host.contains("mail.ru") || host.contains("vk.com")) {
+            if (path.startsWith("/static/ads") ||
+                path.startsWith("/ads-async.js") ||
+                path.startsWith("/ads/") ||
+                path.startsWith("/ads_")
+            ) {
+                return true
+            }
+        }
+
+        if (host.contains("rambler.ru")) {
+            if (path.startsWith("/ads/") || path.startsWith("/banner")) {
+                return true
+            }
+        }
+
+        if (path.endsWith("/ads.js") ||
+            path.endsWith("/ad.js") ||
+            path.endsWith("/advert.js") ||
+            path.contains("/ads/system/")
+        ) {
+            return true
         }
 
         return false
@@ -305,7 +380,12 @@ object AdBlockerEngine {
             cleanUrl.endsWith(".js") ||
             cleanUrl.contains(".js?") ||
             cleanUrl.contains("/adsbygoogle") ||
-            cleanUrl.contains("/gpt.js")
+            cleanUrl.contains("/gpt.js") ||
+            cleanUrl.contains("context.js") ||
+            cleanUrl.contains("header-bidding") ||
+            cleanUrl.contains("ads-async.js") ||
+            cleanUrl.contains("sdk.standalone.js") ||
+            cleanUrl.contains("adfox")
 
         if (isScript) {
             val stubContent = when {
@@ -314,6 +394,12 @@ object AdBlockerEngine {
                 }
                 cleanUrl.contains("gpt.js") || cleanUrl.contains("pubads") -> {
                     "window.googletag = window.googletag || {cmd:[]}; window.googletag.cmd.push = function(f){if(typeof f==='function'){try{f();}catch(e){}}};"
+                }
+                cleanUrl.contains("context.js") || cleanUrl.contains("header-bidding") || cleanUrl.contains("adfox") -> {
+                    "window.yaContextCb = window.yaContextCb || []; window.Ya = window.Ya || {}; window.Ya.adfoxCode = window.Ya.adfoxCode || {create:function(c){if(c&&c.containerId){var e=document.getElementById(c.containerId);if(e){e.style.setProperty('display','none','important');e.style.setProperty('height','0','important');}}},createScroll:function(c){if(c&&c.containerId){var e=document.getElementById(c.containerId);if(e){e.style.setProperty('display','none','important');e.style.setProperty('height','0','important');}}},destroy:function(){},clearSession:function(){},reload:function(){},hbCallbacks:[]};"
+                }
+                cleanUrl.contains("sdk.standalone.js") || cleanUrl.contains("x5media") -> {
+                    "window.x5media = window.x5media || {init:function(){return Promise.resolve();},render:function(){}};"
                 }
                 else -> "/* blocked by Hori */"
             }

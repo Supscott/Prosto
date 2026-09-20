@@ -30,14 +30,20 @@ object AdBlockerScript {
         "iframe[src*=\"googlesyndication.com\"]",
         "iframe[src*=\"doubleclick.net\"]",
 
-        // Yandex Direct & RTB
+        // Yandex Direct, ADFOX & RTB
+        "[id^=\"adfox\"]",
+        "div[id^=\"adfox\"]",
+        "[class*=\"adfox\"]",
+        "[data-adfox]",
         ".yandex-adaptive",
         "[id^=\"yandex_rtb_\"]",
+        "[id^=\"yandex_\"]",
+        "[id^=\"ya_partner\"]",
         ".ya-partner",
         "[class*=\"ya-distr\"]",
         "div[data-ya-unit]",
 
-        // Universal ad slots, banners, and sponsored containers
+        // Universal ad slots, banners, and sponsored containers (including Next.js CSS module patterns)
         ".ad-container",
         ".ad-wrapper",
         ".ad-box",
@@ -57,7 +63,24 @@ object AdBlockerScript {
         "[class*=\"advert-banner\"]",
         "[class*=\"native-ad\"]",
         "[data-ad-placeholder]",
-        "[data-advertisement]"
+        "[data-advertisement]",
+        "[class*=\"bannerContainer\"]",
+        "[class*=\"banner_container\"]",
+        "[class*=\"banner-container\"]",
+        "[class*=\"incontentBanner\"]",
+        "[class*=\"IncontentBanner\"]",
+        "[class*=\"incontent_banner\"]",
+        "[class*=\"RightsideBanners\"]",
+        "[class*=\"BannersBlock\"]",
+        "[class*=\"adFeedback\"]",
+        "[class*=\"banner-wrapper\"]",
+        "[class*=\"banner_wrapper\"]",
+        "[class*=\"bannerWrap\"]",
+        "[class*=\"banner-block\"]",
+        "[class*=\"banner_block\"]",
+        "[class*=\"bannerBlock\"]",
+        "[class*=\"tovarnayaCourusel\"]",
+        "[class*=\"tovarnayaCarousel\"]"
     )
 
     /**
@@ -127,12 +150,61 @@ object AdBlockerScript {
                         };
                     };
 
-                    // Yandex Direct stub
+                    // Yandex Direct & ADFOX stubs
                     window.yaContextCb = window.yaContextCb || [];
                     window.yaContextCb.push = function(fn) {
                         if (typeof fn === 'function') {
                             try { fn(); } catch(e) {}
                         }
+                    };
+                    window.Ya = window.Ya || {};
+                    window.Ya.adfoxCode = window.Ya.adfoxCode || {
+                        create: function(config) {
+                            if (config && config.containerId) {
+                                var el = document.getElementById(config.containerId);
+                                if (el) {
+                                    el.style.setProperty('display', 'none', 'important');
+                                    el.style.setProperty('height', '0', 'important');
+                                    el.style.setProperty('min-height', '0', 'important');
+                                }
+                            }
+                        },
+                        createScroll: function(config) {
+                            if (config && config.containerId) {
+                                var el = document.getElementById(config.containerId);
+                                if (el) {
+                                    el.style.setProperty('display', 'none', 'important');
+                                    el.style.setProperty('height', '0', 'important');
+                                    el.style.setProperty('min-height', '0', 'important');
+                                }
+                            }
+                        },
+                        destroy: function() {},
+                        clearSession: function() {},
+                        reload: function() {},
+                        hbCallbacks: []
+                    };
+                    window.Ya.adfoxCode.hbCallbacks = window.Ya.adfoxCode.hbCallbacks || [];
+                    window.Ya.Context = window.Ya.Context || {
+                        AdvManager: {
+                            render: function(config) {
+                                if (config && config.renderTo) {
+                                    var el = typeof config.renderTo === 'string' ? document.getElementById(config.renderTo) : config.renderTo;
+                                    if (el) {
+                                        el.style.setProperty('display', 'none', 'important');
+                                        el.style.setProperty('height', '0', 'important');
+                                        el.style.setProperty('min-height', '0', 'important');
+                                    }
+                                }
+                            },
+                            destroy: function() {}
+                        }
+                    };
+
+                    // X5 Media stub
+                    window.x5media = window.x5media || {
+                        init: function() { return Promise.resolve(); },
+                        render: function() {}
                     };
                 } catch(e) {}
             })();
@@ -191,11 +263,61 @@ object AdBlockerScript {
                         };
                     };
 
+                    // Yandex Direct & ADFOX stubs
                     window.yaContextCb = window.yaContextCb || [];
                     window.yaContextCb.push = function(fn) {
                         if (typeof fn === 'function') {
                             try { fn(); } catch(e) {}
                         }
+                    };
+                    window.Ya = window.Ya || {};
+                    window.Ya.adfoxCode = window.Ya.adfoxCode || {
+                        create: function(config) {
+                            if (config && config.containerId) {
+                                var el = document.getElementById(config.containerId);
+                                if (el) {
+                                    el.style.setProperty('display', 'none', 'important');
+                                    el.style.setProperty('height', '0', 'important');
+                                    el.style.setProperty('min-height', '0', 'important');
+                                }
+                            }
+                        },
+                        createScroll: function(config) {
+                            if (config && config.containerId) {
+                                var el = document.getElementById(config.containerId);
+                                if (el) {
+                                    el.style.setProperty('display', 'none', 'important');
+                                    el.style.setProperty('height', '0', 'important');
+                                    el.style.setProperty('min-height', '0', 'important');
+                                }
+                            }
+                        },
+                        destroy: function() {},
+                        clearSession: function() {},
+                        reload: function() {},
+                        hbCallbacks: []
+                    };
+                    window.Ya.adfoxCode.hbCallbacks = window.Ya.adfoxCode.hbCallbacks || [];
+                    window.Ya.Context = window.Ya.Context || {
+                        AdvManager: {
+                            render: function(config) {
+                                if (config && config.renderTo) {
+                                    var el = typeof config.renderTo === 'string' ? document.getElementById(config.renderTo) : config.renderTo;
+                                    if (el) {
+                                        el.style.setProperty('display', 'none', 'important');
+                                        el.style.setProperty('height', '0', 'important');
+                                        el.style.setProperty('min-height', '0', 'important');
+                                    }
+                                }
+                            },
+                            destroy: function() {}
+                        }
+                    };
+
+                    // X5 Media stub
+                    window.x5media = window.x5media || {
+                        init: function() { return Promise.resolve(); },
+                        render: function() {}
                     };
 
                     // 2. Inject Cosmetic CSS Style Tag
@@ -222,7 +344,7 @@ object AdBlockerScript {
                     function sanitizeNodes() {
                         try {
                             var adNodes = document.querySelectorAll(
-                                'ins.adsbygoogle, [id^="google_ads_iframe"], [id^="div-gpt-ad"], [id^="yandex_rtb_"], .yandex-adaptive, .ya-partner, .ad-container, .ad-banner, .advertisement, [data-ad-placeholder]'
+                                'ins.adsbygoogle, [id^="google_ads_iframe"], [id^="div-gpt-ad"], [id^="yandex_rtb_"], [id^="adfox"], [class*="bannerContainer"], [class*="incontentBanner"], [class*="BannersBlock"], [class*="RightsideBanners"], [class*="adFeedback"], [class*="tovarnayaCourusel"], .yandex-adaptive, .ya-partner, .ad-container, .ad-banner, .advertisement, [data-ad-placeholder]'
                             );
                             for (var i = 0; i < adNodes.length; i++) {
                                 var el = adNodes[i];

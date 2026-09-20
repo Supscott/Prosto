@@ -127,6 +127,19 @@ class AdBlockerEngineTest {
         assertThat(AdBlockerEngine.shouldBlock("https://criteo.com")).isTrue()
         assertThat(AdBlockerEngine.shouldBlock("https://taboola.com")).isTrue()
         assertThat(AdBlockerEngine.shouldBlock("https://outbrain.com")).isTrue()
+
+        // Russian ad networks immediately blocked on cold start
+        assertThat(AdBlockerEngine.shouldBlock("https://adfox.ru/banner")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://ad.mail.ru/static/ads-async.js")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://ads.x5media.ru/sdk/sdk.standalone.js")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://yabs.yandex.ru/count")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://mc.yandex.ru/metrika/tag.js")).isTrue()
+
+        // Path-based ad blocking on portal domains
+        assertThat(AdBlockerEngine.shouldBlock("https://yandex.ru/ads/system/context.js")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://yandex.ru/ads/system/header-bidding.js")).isTrue()
+        // Normal Yandex search not blocked
+        assertThat(AdBlockerEngine.shouldBlock("https://yandex.ru/search/?text=recipes")).isFalse()
     }
 
     // --- 3. Full Asset Initialization & Rule Blocking Tests ---
@@ -266,6 +279,18 @@ class AdBlockerEngineTest {
         assertThat(gptJs.mimeType).isEqualTo("application/javascript")
         val gptBody = String(gptJs.data.readBytes())
         assertThat(gptBody).contains("window.googletag")
+
+        // Yandex context.js / ADFOX
+        val yandexJs = AdBlockerEngine.createSmartBlockedResponse("https://yandex.ru/ads/system/context.js")
+        assertThat(yandexJs.mimeType).isEqualTo("application/javascript")
+        val yandexBody = String(yandexJs.data.readBytes())
+        assertThat(yandexBody).contains("window.Ya.adfoxCode")
+
+        // X5 Media
+        val x5Js = AdBlockerEngine.createSmartBlockedResponse("https://ads.x5media.ru/sdk/sdk.standalone.js")
+        assertThat(x5Js.mimeType).isEqualTo("application/javascript")
+        val x5Body = String(x5Js.data.readBytes())
+        assertThat(x5Body).contains("window.x5media")
     }
 
     @Test

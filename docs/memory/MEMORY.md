@@ -152,9 +152,22 @@
   - Registered `WebViewCompat.addDocumentStartJavaScript` in [`WebViewPool.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/WebViewPool.kt) (when supported) coupled with `HoriAdBlockBridge` for zero-overhead, zero-flicker execution before page scripts run, with lifecycle fallback via `AdBlockerScript.injectAdBlocker` in [`JestkWebViewClient.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/JestkWebViewClient.kt).
   - Synced `isAdBlockerEnabled` setting dynamically in [`WebViewContainer.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/views/WebViewContainer.kt).
   - Added unit test suites in [`AdBlockerScriptTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/engine/AdBlockerScriptTest.kt) and expanded [`AdBlockerEngineTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/engine/AdBlockerEngineTest.kt).
+### Session: Russian Ad Networks & food.ru ADFOX Blocking
+
+- **Completed:**
+  - Diagnosed ad leak on `https://food.ru/recipes/181400-kak-svarit-ovsianku`:
+    - `food.ru` is a Next.js app that serves ads through ADFOX (`window.Ya.adfoxCode`) dynamically loading `https://yandex.ru/ads/system/context.js`, `https://yandex.ru/ads/system/header-bidding.js`, `https://ads.x5media.ru/sdk/sdk.standalone.js`, and `https://ad.mail.ru/static/ads-async.js`.
+    - `yandex.ru` is the search engine domain and could not be blocked at host level, and `AdBlockerEngine.shouldBlock` was ignoring URL paths entirely.
+    - Russian ad networks were missing from `DEFAULT_HOSTS`.
+    - CSS selectors missed Next.js CSS module banner classes and `[id^="adfox"]`.
+  - Added URL path filtering in `AdBlockerEngine.isBlockedPath` blocking ad scripts on multi-purpose portal domains (Yandex `/ads/`, `/clck/`, `context.js`, `header-bidding.js`, Mail.ru `/static/ads`, `/ads/`, Rambler, etc.) without affecting regular search or services.
+  - Expanded `DEFAULT_HOSTS` and `adblock_hosts.txt` with essential Russian ad & analytics networks (`adfox.ru`, `ad.mail.ru`, `ads.mail.ru`, `ads.x5media.ru`, `an.yandex.ru`, `yabs.yandex.ru`, `mc.yandex.ru`, `my.target.com`, `ads.vk.com`, `ssp.rambler.ru`, etc.).
+  - Added surrogate mocks for ADFOX (`window.Ya.adfoxCode`, `window.Ya.Context`) and X5 Media (`window.x5media`) in `AdBlockerScript.kt` and `createSmartBlockedResponse`.
+  - Added cosmetic CSS selectors for ADFOX and modern CSS module classes (`[id^="adfox"]`, `[class*="bannerContainer"]`, `[class*="incontentBanner"]`, `[class*="RightsideBanners"]`, `[class*="BannersBlock"]`, `[class*="adFeedback"]`, `[class*="tovarnayaCourusel"]`).
+  - Added unit test coverage for Russian ad blocking, path interception, and Next.js selectors in `AdBlockerEngineTest` and `AdBlockerScriptTest`.
 - **Current State:**
-  - `:app:testDebugUnitTest` fully green (all 606 unit tests passed, 33 actionable tasks executed/up-to-date).
+  - `:app:testDebugUnitTest` fully green (606 tests passing, 33 actionable tasks executed/up-to-date).
 - **Key Architectural Decisions:**
-  - Cosmetic filtering CSS and surrogates are injected via `addDocumentStartJavaScript` and early `onPageStarted` rather than rewriting HTML on the network layer, ensuring compatibility with client-side SPA rendering (React/Vue), keeping HTTP/2 streaming performance, and preserving cookie/session state.
-  - Blocked image requests receive an RFC-compliant 1x1 transparent PNG rather than empty text/plain to prevent browser broken image placeholders.
+  - When ad delivery scripts originate from top-level portal/search domains (e.g. `yandex.ru`), host-level blocking is insufficient and harmful; path-based interception (`isBlockedPath`) must be used to selectively neutralize ad endpoints without breaking primary site functionality.
+
 
