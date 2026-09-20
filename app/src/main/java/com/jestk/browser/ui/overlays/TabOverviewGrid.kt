@@ -275,10 +275,9 @@ fun TabOverviewGrid(
                         .liquidFrostedGlass(
                             shape = RoundedCornerShape(20.dp),
                             isDark = isDark,
-                            blurRadius = 16.dp,
+                            blurRadius = 24.dp,
                             tintColor = if (isDark) Color(0xFF242021) else Color.White,
-                            alpha = 0.90f,
-                            borderColor = if (isDark) Color(0xFF4D4546).copy(alpha = 0.50f) else Color.White.copy(alpha = 0.80f),
+                            alpha = if (isDark) 0.55f else 0.50f,
                             hazeState = gridHazeState
                         )
                 ) {
@@ -416,10 +415,9 @@ fun TabOverviewGrid(
                     .liquidFrostedGlass(
                         shape = RoundedCornerShape(24.dp),
                         isDark = isDark,
-                        blurRadius = 18.dp,
+                        blurRadius = 24.dp,
                         tintColor = doneBtnBg,
-                        alpha = if (isDark) 0.90f else 0.88f,
-                        borderColor = doneBorder,
+                        alpha = if (isDark) 0.60f else 0.55f,
                         hazeState = gridHazeState
                     )
                     .clickable { onEvent(BrowserUiEvent.DismissOverlay) }

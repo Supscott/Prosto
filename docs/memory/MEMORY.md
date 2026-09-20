@@ -55,3 +55,39 @@
 - **Key Architectural Decisions:**
   - Never register a live `WebView` (or any `AndroidView` that repaints asynchronously) as a Haze source. Blur of page content is therefore unavailable by design; the frosted look over pages relies on the scrim fallback.
   - If real page blur is wanted later, it must come from a non-live source (e.g. the cached `SnapshotEngine` bitmap), never from the live WebView.
+
+### Session: Tactile Floating Dock & Targeted Liquid Backdrop Blur
+
+- **Completed:**
+  - Removed `HazeState` and `liquidFrostedGlass` from the Floating Dock (`UnifiedBottomBar`, `ActionDock`, `TabStripRow`). The dock sits on `animatedSiteBg` (with `padding(bottom = 62.dp)`), where blurring a flat solid background was redundant and caused muddy opacity layering.
+  - Redesigned the dock as a crisp, tactile floating capsule: solid surface with `LiquidBorders.specularBorder` (vertical gradient light rim) and `8.dp` elevation shadow.
+  - Removed the redundant `62.dp` gradient strip beneath the dock in `BottomBar.kt`.
+  - Refined `Theme.liquidFrostedGlass` tokens: increased `blurRadius` from `16.dp` to `24.dp`, lowered default opacity from `0.86f/0.82f` to `0.52f/0.46f`, and defaulted to specular gradient borders.
+  - Connected `HomeScreen` to `LocalHazeState.current` from `JestkApp` so `HeroSearchCapsule` and home screen cards blur the pastel sunset background canvas.
+  - Updated overlays (`SearchOverlay`, `TabOverviewGrid`, `SettingsSheet`, `DownloadsScreen`, context menus) to the new `24.dp` liquid glass tokens.
+  - Implemented hardware-accelerated animated backdrop blur (`Modifier.blur(backdropBlurRadius)`) in `JestkApp` applied to the main viewport (`HomeScreen` / `WebViewContainer`) whenever modals, sheets, or popup menus are active (`isModalActive`).
+  - Added subtle dimming scrim (`0.20f`) and outside tap dismiss for `isMenuExpanded`.
+- **Current State:**
+  - `:app:testDebugUnitTest` fully green (including `FrostedGlassFallbackTest` and `BottomBarPreviewTest`).
+  - Verified on physical device (Motorola Edge 60 Fusion, Android 16 / SDK 35):
+    - Popup menu smoothly blurs live WebViews and HomeScreen with 20.dp radius and outside tap dismiss.
+    - Settings sheet blurs underlying content while silhouettes softly shine through translucent sheet background.
+    - Viewport returns to 0.dp blur immediately upon modal dismissal with zero lingering overhead or flicker.
+- **Key Architectural Decisions:**
+  - The Floating Dock does not use Haze or backdrop blur; it is a tactile floating pill.
+  - Rather than registering live WebViews into Haze (which triggers SDK 31+ GraphicsLayer flicker), modal backdrop blur is achieved by applying `Modifier.blur(backdropBlurRadius)` dynamically to the entire main viewport only while `isModalActive` is true. When browsing normally, blur radius is 0.dp.
+
+### Session: Default Browser Recommendations & Intent Launcher Fix
+
+- **Completed:**
+  - Diagnosed bug where tapping "Set Default" in Settings or on the Home Screen did not open the system dialog or settings: `RoleManager.createRequestRoleIntent()` on Android Q+ requires an activity result to supply `getCallingPackage()`, without which Android's `RequestRoleActivity` finishes immediately.
+  - Implemented `DefaultBrowserHelper.openDefaultBrowserSettings` accepting an `ActivityResultLauncher<Intent>?` with a robust 4-tier fallback: `RoleManager.ROLE_BROWSER` -> `Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS` -> `Settings.ACTION_APPLICATION_DETAILS_SETTINGS` -> `Settings.ACTION_SETTINGS`.
+  - Integrated `rememberLauncherForActivityResult` in `HomeScreen` and `SettingsSheet` that triggers `BrowserUiEvent.CheckDefaultBrowser(context)`.
+  - Added `viewModel.checkDefaultBrowser(this)` in `MainActivity.onCreate()` in addition to `onResume()` so `isDefaultBrowser` evaluates immediately on launch.
+  - Confirmed and verified that when Hori is the default browser, all recommendations and mentions are completely hidden from both Home Screen and Settings Sheet.
+  - Expanded unit test coverage in `DefaultBrowserHelperTest` covering `CheckDefaultBrowser` event dispatch, role intent launching with launcher, and settings fallbacks.
+- **Current State:**
+  - `:app:testDebugUnitTest` green.
+- **Key Architectural Decisions:**
+  - Always launch `RoleManager` intents using `ActivityResultLauncher` (or `startActivityForResult`), never bare `startActivity()`.
+  - Multi-tier fallbacks ensure resilience across diverse Android OEM skins (MIUI, ColorOS, OneUI, EMUI) where `ACTION_MANAGE_DEFAULT_APPS_SETTINGS` or `RoleManager` might behave differently.

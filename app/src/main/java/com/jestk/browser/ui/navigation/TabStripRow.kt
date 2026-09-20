@@ -95,10 +95,10 @@ fun TabStripRow(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
     isDark: Boolean = LocalIsDarkTheme.current,
-    dockBg: Color = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else LiquidSurface.copy(alpha = 0.85f),
-    centerPillBg: Color = if (isDark) Color(0xFF2C2829).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.92f),
-    centerPillBorder: BorderStroke? = LiquidBorders.frostedBorder(isDark, alpha = if (isDark) 0.14f else 0.85f),
-    circleBtnBg: Color = if (isDark) Color(0xFF2C2829).copy(alpha = 0.70f) else LiquidSurfaceContainerHigh.copy(alpha = 0.65f)
+    dockBg: Color = if (isDark) Color(0xFF1E1B1C) else LiquidSurface,
+    centerPillBg: Color = if (isDark) Color(0xFF2B2728) else Color.White,
+    centerPillBorder: BorderStroke? = LiquidBorders.specularBorder(isDark),
+    circleBtnBg: Color = if (isDark) Color(0xFF2C2829) else LiquidSurfaceContainerHigh
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current

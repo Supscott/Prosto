@@ -104,6 +104,7 @@ class MainActivity : ComponentActivity() {
         AdBlockerEngine.initialize(applicationContext)
 
         viewModel = ViewModelProvider(this, container.viewModelFactory)[BrowserViewModel::class.java]
+        viewModel.checkDefaultBrowser(this)
 
         handleIntent(intent)
 

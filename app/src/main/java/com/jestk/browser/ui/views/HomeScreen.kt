@@ -195,7 +195,8 @@ private val DefaultPresets = listOf(
 fun HomeScreen(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    hazeState: HazeState? = LocalHazeState.current
 ) {
     val context = LocalContext.current
     val speechLauncher = rememberLauncherForActivityResult(
@@ -209,9 +210,15 @@ fun HomeScreen(
         }
     }
 
+    val defaultBrowserLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        onEvent(BrowserUiEvent.CheckDefaultBrowser(context))
+    }
+
     val scrollState = rememberScrollState()
     val isDark = LocalIsDarkTheme.current
-    val homeHazeState = remember { HazeState() }
+    val homeHazeState = hazeState ?: remember { HazeState() }
     var isDefaultBrowserDismissed by rememberSaveable { mutableStateOf(false) }
 
     CompositionLocalProvider(LocalHazeState provides homeHazeState) {
@@ -277,14 +284,7 @@ fun HomeScreen(
                     DefaultBrowserPromptCard(
                         isDark = isDark,
                         onSetDefaultClick = {
-                            try {
-                                val intent = DefaultBrowserHelper.createSetDefaultBrowserIntent(context)
-                                context.startActivity(intent)
-                            } catch (_: Exception) {
-                                try {
-                                    context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
-                                } catch (_: Exception) {}
-                            }
+                            DefaultBrowserHelper.openDefaultBrowserSettings(context, defaultBrowserLauncher)
                         },
                         onDismissClick = { isDefaultBrowserDismissed = true },
                         modifier = Modifier
@@ -306,7 +306,7 @@ fun HomeScreen(
                     onBookmarkCurrent = { onEvent(BrowserUiEvent.AddCurrentTabToFavorites) },
                     onToggleExpand = { onEvent(BrowserUiEvent.ToggleFavoritesExpanded) },
                     onAddClick = {
-                        onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                        onEvent(BrowserUiEvent.ShowAddFavoriteDialog)
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -354,10 +354,9 @@ private fun HeroSearchCapsule(
             .liquidFrostedGlass(
                 shape = RoundedCornerShape(26.dp),
                 isDark = isDark,
-                blurRadius = 18.dp,
+                blurRadius = 24.dp,
                 tintColor = bg,
-                alpha = if (isDark) 0.88f else 0.85f,
-                borderColor = border,
+                alpha = if (isDark) 0.52f else 0.46f,
                 hazeState = LocalHazeState.current
             )
             .clickable(onClick = onClick)
@@ -822,10 +821,9 @@ private fun RecentTabSunsetCard(
             .liquidFrostedGlass(
                 shape = RoundedCornerShape(18.dp),
                 isDark = isDark,
-                blurRadius = 16.dp,
+                blurRadius = 24.dp,
                 tintColor = tintColor,
-                alpha = if (isDark) 0.85f else 0.78f,
-                borderColor = borderColor,
+                alpha = if (isDark) 0.55f else 0.50f,
                 hazeState = homeHazeState
             )
             .clickable(onClick = onClick)
@@ -972,10 +970,9 @@ private fun MoreHistoryCard(
             .liquidFrostedGlass(
                 shape = RoundedCornerShape(18.dp),
                 isDark = isDark,
-                blurRadius = 14.dp,
+                blurRadius = 24.dp,
                 tintColor = tintColor,
-                alpha = if (isDark) 0.60f else 0.55f,
-                borderColor = borderColor,
+                alpha = if (isDark) 0.55f else 0.50f,
                 hazeState = homeHazeState
             )
             .clickable(onClick = onClick)
@@ -1134,10 +1131,9 @@ private fun DefaultBrowserPromptCard(
             .liquidFrostedGlass(
                 shape = RoundedCornerShape(20.dp),
                 isDark = isDark,
-                blurRadius = 18.dp,
+                blurRadius = 24.dp,
                 tintColor = bg,
-                alpha = if (isDark) 0.88f else 0.85f,
-                borderColor = border,
+                alpha = if (isDark) 0.55f else 0.50f,
                 hazeState = LocalHazeState.current
             )
     ) {

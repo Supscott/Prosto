@@ -17,6 +17,7 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
@@ -152,35 +153,64 @@ object LiquidBorders {
         val color = Color.White.copy(alpha = resolvedAlpha)
         return BorderStroke(width, color)
     }
+
+    /**
+     * Tactile specular border with vertical light gradient:
+     * bright specular reflection at the top rim softly tapering down to a subtle translucent lower edge.
+     */
+    fun specularBorder(
+        isDark: Boolean,
+        width: Dp = 1.dp,
+    ): BorderStroke {
+        val brush =
+            if (isDark) {
+                Brush.verticalGradient(
+                    colors =
+                        listOf(
+                            Color.White.copy(alpha = 0.22f),
+                            Color.White.copy(alpha = 0.06f),
+                        ),
+                )
+            } else {
+                Brush.verticalGradient(
+                    colors =
+                        listOf(
+                            Color.White.copy(alpha = 0.85f),
+                            Color.White.copy(alpha = 0.35f),
+                        ),
+                )
+            }
+        return BorderStroke(width, brush)
+    }
 }
 
 /**
  * Reusable frosted glass / backdrop blur extension modifier for the Liquid Pastel Sunset design system.
  * When [hazeState] is provided, applies real-time hardware-accelerated backdrop blur to content behind the element.
- * Supports graceful fallback to semi-transparent tinted surface + white/light stroke border when blur is unavailable.
+ * Supports graceful fallback to semi-transparent tinted surface + specular border when blur is unavailable.
  */
 fun Modifier.liquidFrostedGlass(
     shape: Shape = LiquidShapes.Card,
     isDark: Boolean = false,
-    blurRadius: Dp = 16.dp,
+    blurRadius: Dp = 24.dp,
     tintColor: Color? = null,
     alpha: Float? = null,
     borderColor: Color? = null,
+    borderBrush: Brush? = null,
     borderWidth: Dp = 1.dp,
     hazeState: HazeState? = null,
 ): Modifier {
-    val defaultAlpha = if (isDark) 0.86f else 0.82f
+    val defaultAlpha = if (isDark) 0.52f else 0.46f
     val resolvedAlpha = alpha ?: defaultAlpha
     val baseTint = tintColor ?: if (isDark) Color(0xFF1E1B1C) else Color(0xFFFFF8F8)
     val tintedBg = baseTint.copy(alpha = resolvedAlpha)
 
-    val defaultBorderColor =
-        if (isDark) {
-            Color.White.copy(alpha = 0.14f)
-        } else {
-            Color.White.copy(alpha = 0.75f)
+    val resolvedBorder =
+        when {
+            borderBrush != null -> BorderStroke(borderWidth, borderBrush)
+            borderColor != null -> BorderStroke(borderWidth, borderColor)
+            else -> LiquidBorders.specularBorder(isDark = isDark, width = borderWidth)
         }
-    val resolvedBorder = BorderStroke(borderWidth, borderColor ?: defaultBorderColor)
 
     val baseModifier = this.clip(shape)
 
@@ -195,8 +225,7 @@ fun Modifier.liquidFrostedGlass(
                         blurRadius = blurRadius,
                     ),
             ) {
-                // No live source behind (e.g. the WebView viewport, which must not be captured
-                // by Haze): keep the semi-transparent tint instead of Haze's opaque scrim boost.
+                // Keep the semi-transparent tint instead of Haze's opaque scrim boost.
                 fallbackTint = HazeTint(tintedBg)
             }
         } else {
@@ -215,10 +244,11 @@ fun LiquidFrostedGlassBox(
     modifier: Modifier = Modifier,
     shape: Shape = LiquidShapes.Card,
     isDark: Boolean = LocalIsDarkTheme.current,
-    blurRadius: Dp = 16.dp,
+    blurRadius: Dp = 24.dp,
     tintColor: Color? = null,
     alpha: Float? = null,
     borderColor: Color? = null,
+    borderBrush: Brush? = null,
     borderWidth: Dp = 1.dp,
     hazeState: HazeState? = LocalHazeState.current,
     content: @Composable BoxScope.() -> Unit,
@@ -232,6 +262,7 @@ fun LiquidFrostedGlassBox(
                 tintColor = tintColor,
                 alpha = alpha,
                 borderColor = borderColor,
+                borderBrush = borderBrush,
                 borderWidth = borderWidth,
                 hazeState = hazeState,
             ),

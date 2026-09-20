@@ -1,5 +1,6 @@
 package com.jestk.browser.util
 
+import android.app.Application
 import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
@@ -8,6 +9,9 @@ import android.content.pm.ResolveInfo
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContract
+import androidx.core.app.ActivityOptionsCompat
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.data.local.AppDatabase
@@ -209,4 +213,71 @@ class DefaultBrowserHelperTest {
         viewModel.checkDefaultBrowser(context)
         assertThat(viewModel.uiState.value.isDefaultBrowser).isTrue()
     }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.Q])
+    fun browserViewModel_onEventCheckDefaultBrowser_updatesState() = runTest(testDispatcher) {
+        advanceUntilIdle()
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val roleManager = context.getSystemService(RoleManager::class.java)
+        val shadowRoleManager = shadowOf(roleManager)
+
+        viewModel.onEvent(BrowserUiEvent.CheckDefaultBrowser(context))
+        assertThat(viewModel.uiState.value.isDefaultBrowser).isFalse()
+
+        shadowRoleManager.addHeldRole(RoleManager.ROLE_BROWSER)
+        viewModel.onEvent(BrowserUiEvent.CheckDefaultBrowser(context))
+        assertThat(viewModel.uiState.value.isDefaultBrowser).isTrue()
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.Q])
+    fun openDefaultBrowserSettings_api29_withLauncher_launchesRoleIntent() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val launcher = FakeActivityResultLauncher()
+
+        DefaultBrowserHelper.openDefaultBrowserSettings(context, launcher)
+
+        assertThat(launcher.launchedIntent).isNotNull()
+        val roleManager = context.getSystemService(RoleManager::class.java)
+        val expected = roleManager.createRequestRoleIntent(RoleManager.ROLE_BROWSER)
+        assertThat(launcher.launchedIntent?.action).isEqualTo(expected.action)
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.P])
+    fun openDefaultBrowserSettings_api28_withLauncher_launchesManageDefaultApps() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val launcher = FakeActivityResultLauncher()
+
+        DefaultBrowserHelper.openDefaultBrowserSettings(context, launcher)
+
+        assertThat(launcher.launchedIntent).isNotNull()
+        assertThat(launcher.launchedIntent?.action).isEqualTo(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+    }
+
+    @Test
+    @Config(sdk = [Build.VERSION_CODES.Q])
+    fun openDefaultBrowserSettings_withoutLauncher_startsManageDefaultAppsActivity() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        DefaultBrowserHelper.openDefaultBrowserSettings(context, launcher = null)
+
+        val nextStartedIntent = shadowOf(ApplicationProvider.getApplicationContext<Application>()).nextStartedActivity
+        assertThat(nextStartedIntent).isNotNull()
+        assertThat(nextStartedIntent.action).isEqualTo(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS)
+    }
+}
+
+private class FakeActivityResultLauncher : ActivityResultLauncher<Intent>() {
+    var launchedIntent: Intent? = null
+
+    override fun launch(input: Intent, options: ActivityOptionsCompat?) {
+        launchedIntent = input
+    }
+
+    override fun unregister() {}
+
+    override val contract: ActivityResultContract<Intent, *>
+        get() = throw NotImplementedError()
 }

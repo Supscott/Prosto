@@ -311,10 +311,9 @@ private fun HeroSearchInputField(
             .liquidFrostedGlass(
                 shape = RoundedCornerShape(27.dp),
                 isDark = isDark,
-                blurRadius = 18.dp,
+                blurRadius = 24.dp,
                 tintColor = bg,
-                alpha = if (isDark) 0.88f else 0.85f,
-                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f),
+                alpha = if (isDark) 0.52f else 0.46f,
                 hazeState = com.jestk.browser.ui.theme.LocalHazeState.current
             )
     ) {

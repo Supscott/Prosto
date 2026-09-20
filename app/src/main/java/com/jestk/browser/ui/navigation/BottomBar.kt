@@ -70,20 +70,11 @@ fun UnifiedBottomBar(
     val isDark = LocalIsDarkTheme.current
     val isHome = uiState.isHome
 
-    // Colors & Glassmorphism
-    val defaultBg = MaterialTheme.colorScheme.background
-    val resolvedThemeColor = uiState.activeThemeColor ?: uiState.activeTab?.themeColor
-    val targetBgColor = if (isHome) defaultBg else (resolvedThemeColor?.let { Color(it) } ?: defaultBg)
-    val animatedBgColor by animateColorAsState(
-        targetValue = targetBgColor,
-        animationSpec = tween(durationMillis = 350),
-        label = "BottomBarDynamicColor"
-    )
-    val bottomBg = animatedBgColor
-    val dockBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else LiquidSurface.copy(alpha = 0.85f)
-    val centerPillBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.92f)
-    val centerPillBorder = LiquidBorders.frostedBorder(isDark, alpha = if (isDark) 0.14f else 0.85f)
-    val circleBtnBg = if (isDark) Color(0xFF2C2829).copy(alpha = 0.70f) else LiquidSurfaceContainerHigh.copy(alpha = 0.65f)
+    // Colors & Styling for Tactile Liquid Floating Dock
+    val dockBg = if (isDark) Color(0xFF1E1B1C) else LiquidSurface
+    val centerPillBg = if (isDark) Color(0xFF2B2728) else Color.White
+    val centerPillBorder = LiquidBorders.specularBorder(isDark)
+    val circleBtnBg = if (isDark) Color(0xFF2C2829) else LiquidSurfaceContainerHigh
 
     Box(
         modifier = modifier
@@ -123,7 +114,7 @@ fun UnifiedBottomBar(
                 )
             }
 
-            // 3. Floating Dock Row Container: compact low background under the dock
+            // 3. Floating Dock Row Container
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -131,23 +122,6 @@ fun UnifiedBottomBar(
                     .padding(top = 0.dp, bottom = 4.dp),
                 contentAlignment = Alignment.BottomCenter
             ) {
-                // Background gradient strictly at the lower portion under the dock
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(62.dp)
-                        .align(Alignment.BottomCenter)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    bottomBg.copy(alpha = 0.50f),
-                                    bottomBg.copy(alpha = 0.85f)
-                                )
-                            )
-                        )
-                )
-
                 // Floating Dock Row
                 Row(
                     modifier = Modifier
@@ -157,24 +131,15 @@ fun UnifiedBottomBar(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Floating Capsule Dock
+                    // Tactile Floating Capsule Dock
                     Surface(
                         shape = LiquidShapes.Dock,
-                        color = Color.Transparent,
-                        border = null,
+                        color = dockBg,
+                        border = LiquidBorders.specularBorder(isDark),
                         shadowElevation = 8.dp,
                         modifier = Modifier
                             .weight(1f)
                             .height(58.dp)
-                            .liquidFrostedGlass(
-                                shape = LiquidShapes.Dock,
-                                isDark = isDark,
-                                blurRadius = 18.dp,
-                                tintColor = if (isDark) Color(0xFF1E1B1C) else LiquidSurface,
-                                alpha = 0.85f,
-                                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.75f),
-                                hazeState = hazeState
-                            )
                             .swipeUpToSearch(density) {
                                 currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
                             }

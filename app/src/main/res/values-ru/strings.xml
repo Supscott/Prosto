@@ -46,4 +46,9 @@
     <string name="download_image">Скачать изображение</string>
     <string name="preview_image">Превью (открыть в новой вкладке)</string>
     <string name="image_url_copied">Ссылка на изображение скопирована</string>
+    <string name="add_favorite_dialog_title">Добавить в избранное</string>
+    <string name="add_favorite_name_hint">Название сайта (необязательно)</string>
+    <string name="add_favorite_url_hint">Адрес сайта (например, example.com)</string>
+    <string name="add_favorite_add_button">Добавить</string>
+    <string name="cancel">Отмена</string>
 </resources>

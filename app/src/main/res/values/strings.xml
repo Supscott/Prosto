@@ -46,4 +46,9 @@
     <string name="download_image">Download image</string>
     <string name="preview_image">Preview (open in new tab)</string>
     <string name="image_url_copied">Image address copied</string>
+    <string name="add_favorite_dialog_title">Add to Favorites</string>
+    <string name="add_favorite_name_hint">Website Name (optional)</string>
+    <string name="add_favorite_url_hint">Website Address (e.g. example.com)</string>
+    <string name="add_favorite_add_button">Add</string>
+    <string name="cancel">Cancel</string>
 </resources>

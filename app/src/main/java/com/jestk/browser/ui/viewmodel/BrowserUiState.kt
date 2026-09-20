@@ -51,6 +51,7 @@ data class BrowserUiState(
     val linkContextMenuUrl: String? = null,
     val selectedImageUrl: String? = null,
     val isDefaultBrowser: Boolean = true,
+    val showAddFavoriteDialog: Boolean = false,
 ) {
     val activeTab: Tab?
         get() = tabs.find { it.id == activeTabId }

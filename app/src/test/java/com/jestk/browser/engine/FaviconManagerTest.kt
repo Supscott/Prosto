@@ -42,4 +42,25 @@ class FaviconManagerTest {
         assertThat(FaviconManager.extractFallbackFaviconUrl("http://172.16.0.1")).isNull()
         assertThat(FaviconManager.extractFallbackFaviconUrl("http://mydev.local")).isNull()
     }
+
+    @Test
+    fun testCoilWithFilePathStringVsFile() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val testFile = java.io.File(context.filesDir, "test.png")
+        testFile.writeBytes(byteArrayOf(1, 2, 3))
+
+        val imageLoader = coil.ImageLoader(context)
+        val requestString = coil.request.ImageRequest.Builder(context).data(testFile.absolutePath).build()
+        val requestFile = coil.request.ImageRequest.Builder(context).data(testFile).build()
+
+        kotlinx.coroutines.runBlocking {
+            val resultString = imageLoader.execute(requestString)
+            println("resultString: ${resultString::class.java.simpleName}")
+            if (resultString is coil.request.ErrorResult) {
+                println("resultString error: ${resultString.throwable}")
+            }
+            val resultFile = imageLoader.execute(requestFile)
+            println("resultFile: ${resultFile::class.java.simpleName}")
+        }
+    }
 }

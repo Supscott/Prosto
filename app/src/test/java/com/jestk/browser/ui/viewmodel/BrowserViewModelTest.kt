@@ -20,6 +20,7 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -1283,4 +1284,50 @@ class BrowserViewModelTest {
                     .map { it.id },
             ).containsExactly(tab2.id, tab3.id)
         }
+
+    @Test
+    fun showAddFavoriteDialog_updatesState() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.showAddFavoriteDialog).isFalse()
+
+            viewModel.onEvent(BrowserUiEvent.ShowAddFavoriteDialog)
+            assertThat(viewModel.uiState.value.showAddFavoriteDialog).isTrue()
+
+            viewModel.onEvent(BrowserUiEvent.DismissAddFavoriteDialog)
+            assertThat(viewModel.uiState.value.showAddFavoriteDialog).isFalse()
+        }
+
+    @Test
+    fun handleBackPress_dismissesAddFavoriteDialogFirst() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.ShowAddFavoriteDialog)
+            assertThat(viewModel.uiState.value.showAddFavoriteDialog).isTrue()
+
+            viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.showAddFavoriteDialog).isFalse()
+        }
+
+    @Test
+    fun addFavorite_normalizesUrlAndDerivesTitleWhenBlank() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.AddFavorite(title = "", url = "github.com/kotlin"))
+            advanceUntilIdle()
+
+            val list = favoriteRepo.getFavorites().first()
+            assertThat(list).hasSize(1)
+            assertThat(list[0].url).isEqualTo("https://github.com/kotlin")
+            assertThat(list[0].title).isEqualTo("github.com")
+        }
 }
+

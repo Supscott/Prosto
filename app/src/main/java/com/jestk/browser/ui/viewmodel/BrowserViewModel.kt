@@ -460,14 +460,30 @@ class BrowserViewModel(
                 handleThemeColor(event.tabId, event.color)
             }
 
+            is BrowserUiEvent.ShowAddFavoriteDialog -> {
+                _uiState.update { it.copy(showAddFavoriteDialog = true) }
+            }
+
+            is BrowserUiEvent.DismissAddFavoriteDialog -> {
+                _uiState.update { it.copy(showAddFavoriteDialog = false) }
+            }
+
             is BrowserUiEvent.AddCurrentTabToFavorites -> {
                 addCurrentToFavorites()
             }
 
             is BrowserUiEvent.AddFavorite -> {
                 viewModelScope.launch(ioDispatcher) {
-                    val icon = FaviconManager.extractFallbackFaviconUrl(event.url)
-                    favoriteRepository.addFavorite(event.title, event.url, icon)
+                    val trimmed = event.url.trim()
+                    val normalizedUrl = when {
+                        trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
+                        else -> "https://$trimmed"
+                    }
+                    val derivedTitle = event.title.trim().ifBlank {
+                        normalizedUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.").substringBefore('/')
+                    }
+                    val icon = FaviconManager.extractFallbackFaviconUrl(normalizedUrl)
+                    favoriteRepository.addFavorite(derivedTitle, normalizedUrl, icon)
                 }
             }
 
@@ -603,6 +619,10 @@ class BrowserViewModel(
 
             is BrowserUiEvent.UpdateDefaultBrowserStatus -> {
                 updateDefaultBrowserStatus(event.isDefault)
+            }
+
+            is BrowserUiEvent.CheckDefaultBrowser -> {
+                checkDefaultBrowser(event.context)
             }
 
             is BrowserUiEvent.ShowImageContextMenu -> {
@@ -1222,6 +1242,10 @@ class BrowserViewModel(
 
     private fun handleBackNavigation() {
         val current = _uiState.value
+        if (current.showAddFavoriteDialog) {
+            _uiState.update { it.copy(showAddFavoriteDialog = false) }
+            return
+        }
         if (current.selectedImageUrl != null) {
             _uiState.update { it.copy(selectedImageUrl = null) }
             return

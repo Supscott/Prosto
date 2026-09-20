@@ -3,6 +3,8 @@ package com.jestk.browser.ui.overlays
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.ui.res.stringResource
 import com.jestk.browser.R
 import com.jestk.browser.util.DefaultBrowserHelper
@@ -117,7 +119,7 @@ fun SettingsSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = LocalIsDarkTheme.current
-    val sheetBg = if (isDark) Color(0xFF161314).copy(alpha = 0.94f) else Color(0xFFFFF8F8).copy(alpha = 0.94f)
+    val sheetBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else Color(0xFFFFF8F8).copy(alpha = 0.85f)
 
     ModalBottomSheet(
         onDismissRequest = { onEvent(BrowserUiEvent.DismissOverlay) },
@@ -140,6 +142,11 @@ fun SettingsSheetContent(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val defaultBrowserLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        onEvent(BrowserUiEvent.CheckDefaultBrowser(context))
+    }
     val scrollState = rememberScrollState()
     val isDark = LocalIsDarkTheme.current
     var isTrackingProtectionEnabled by remember { mutableStateOf(true) }
@@ -318,14 +325,7 @@ fun SettingsSheetContent(
                     DefaultBrowserSettingTile(
                         isDark = isDark,
                         onClick = {
-                            try {
-                                val intent = DefaultBrowserHelper.createSetDefaultBrowserIntent(context)
-                                context.startActivity(intent)
-                            } catch (_: Exception) {
-                                try {
-                                    context.startActivity(Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
-                                } catch (_: Exception) {}
-                            }
+                            DefaultBrowserHelper.openDefaultBrowserSettings(context, defaultBrowserLauncher)
                         }
                     )
                 }
@@ -684,10 +684,9 @@ private fun InsetGroupedCard(
             .liquidFrostedGlass(
                 shape = LiquidShapes.Card,
                 isDark = isDark,
-                blurRadius = 16.dp,
+                blurRadius = 24.dp,
                 tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
-                alpha = if (isDark) 0.88f else 0.85f,
-                borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.75f)
+                alpha = if (isDark) 0.55f else 0.50f,
             )
     ) {
         Column {
@@ -712,10 +711,9 @@ private fun SegmentedThemeControl(
             .liquidFrostedGlass(
                 shape = LiquidShapes.Card,
                 isDark = isDark,
-                blurRadius = 16.dp,
+                blurRadius = 24.dp,
                 tintColor = if (isDark) Color(0xFF242021) else LiquidSurfaceContainerHigh,
-                alpha = if (isDark) 0.70f else 0.60f,
-                borderColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.60f)
+                alpha = if (isDark) 0.55f else 0.50f,
             )
     ) {
         Row(

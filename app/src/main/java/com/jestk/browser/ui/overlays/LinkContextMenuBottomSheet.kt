@@ -78,7 +78,7 @@ fun LinkContextMenuBottomSheet(
     val context = LocalContext.current
     val isDark = LocalIsDarkTheme.current
 
-    val sheetBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.92f) else Color(0xFFFFF8F8).copy(alpha = 0.90f)
+    val sheetBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else Color(0xFFFFF8F8).copy(alpha = 0.85f)
     val urlCardBg = if (isDark) Color(0xFF2B2627) else LiquidSurfaceContainerHigh
     val textColor = if (isDark) Color(0xFFF6EFF0) else LiquidOnSurface
     val secondaryTextColor = if (isDark) Color(0xFFC2C7D0) else LiquidOnSurfaceVariant
@@ -104,10 +104,9 @@ fun LinkContextMenuBottomSheet(
                     .liquidFrostedGlass(
                         shape = LiquidShapes.Card,
                         isDark = isDark,
-                        blurRadius = 16.dp,
+                        blurRadius = 24.dp,
                         tintColor = urlCardBg,
-                        alpha = if (isDark) 0.85f else 0.75f,
-                        borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.75f)
+                        alpha = if (isDark) 0.55f else 0.50f,
                     )
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically

@@ -128,7 +128,7 @@ fun DownloadsSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = LocalIsDarkTheme.current
-    val sheetBg = if (isDark) Color(0xFF161314).copy(alpha = 0.92f) else Color(0xFFFFF8F8).copy(alpha = 0.90f)
+    val sheetBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else Color(0xFFFFF8F8).copy(alpha = 0.85f)
 
     ModalBottomSheet(
         onDismissRequest = { onEvent(BrowserUiEvent.DismissOverlay) },
@@ -388,10 +388,9 @@ private fun DownloadItemCard(
             .liquidFrostedGlass(
                 shape = LiquidShapes.Card,
                 isDark = isDark,
-                blurRadius = 16.dp,
+                blurRadius = 24.dp,
                 tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
-                alpha = if (isDark) 0.88f else 0.85f,
-                borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.75f)
+                alpha = if (isDark) 0.55f else 0.50f,
             )
             .clickable(onClick = onClick)
     ) {

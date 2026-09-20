@@ -93,10 +93,12 @@ fun ActionDock(
     val currentOnEvent by rememberUpdatedState(onEvent)
     val isHome = uiState.isHome
 
+    val dockBg = if (isDark) Color(0xFF1E1B1C) else LiquidSurface
+
     Surface(
         shape = LiquidShapes.Dock,
-        color = Color.Transparent,
-        border = null,
+        color = dockBg,
+        border = LiquidBorders.specularBorder(isDark),
         shadowElevation = 8.dp,
         modifier = modifier
             .fillMaxWidth()
@@ -104,15 +106,6 @@ fun ActionDock(
             .graphicsLayer {
                 translationY = uiState.bottomBarOffsetY
             }
-            .liquidFrostedGlass(
-                shape = LiquidShapes.Dock,
-                isDark = isDark,
-                blurRadius = 18.dp,
-                tintColor = if (isDark) Color(0xFF1E1B1C) else LiquidSurface,
-                alpha = 0.85f,
-                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.75f),
-                hazeState = hazeState
-            )
             .swipeUpToSearch(density) {
                 currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
             }
@@ -243,10 +236,9 @@ fun ActionPopupMenu(
                 .liquidFrostedGlass(
                     shape = LiquidShapes.Card,
                     isDark = isDark,
-                    blurRadius = 18.dp,
+                    blurRadius = 24.dp,
                     tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
-                    alpha = if (isDark) 0.90f else 0.88f,
-                    borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.80f),
+                    alpha = if (isDark) 0.55f else 0.50f,
                     hazeState = hazeState
                 )
         ) {
@@ -326,32 +318,22 @@ fun ActionDockMenuButton(
     isExpanded: Boolean,
     isDark: Boolean,
     backgroundColor: Color,
-    hazeState: HazeState?,
+    hazeState: HazeState? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
         shape = LiquidShapes.Card,
-        color = Color.Transparent,
-        border = null,
-        shadowElevation = 0.dp,
+        color = backgroundColor,
+        border = LiquidBorders.specularBorder(isDark),
+        shadowElevation = 6.dp,
         modifier = modifier
             .size(width = 38.dp, height = 58.dp)
-            .liquidFrostedGlass(
-                shape = LiquidShapes.Card,
-                isDark = isDark,
-                blurRadius = 16.dp,
-                tintColor = backgroundColor,
-                alpha = if (isDark) 0.80f else 0.75f,
-                borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.60f),
-                hazeState = hazeState
-            )
+            .clip(LiquidShapes.Card)
+            .clickable(onClick = onClick)
     ) {
         Box(
-            modifier = Modifier
-                .size(width = 38.dp, height = 58.dp)
-                .clip(LiquidShapes.Card)
-                .clickable(onClick = onClick),
+            modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
             Icon(

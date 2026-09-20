@@ -1,5 +1,6 @@
 package com.jestk.browser.ui.viewmodel
 
+import android.content.Context
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.SearchEngine
@@ -52,6 +53,8 @@ sealed interface BrowserUiEvent {
     data class OnThemeColorReceived(val tabId: String, val color: Int?) : BrowserUiEvent
 
     // Favorites & History
+    data object ShowAddFavoriteDialog : BrowserUiEvent
+    data object DismissAddFavoriteDialog : BrowserUiEvent
     data object AddCurrentTabToFavorites : BrowserUiEvent
     data class AddFavorite(val title: String, val url: String) : BrowserUiEvent
     data class RemoveFavorite(val id: Long) : BrowserUiEvent
@@ -90,6 +93,7 @@ sealed interface BrowserUiEvent {
 
     // Default Browser
     data class UpdateDefaultBrowserStatus(val isDefault: Boolean) : BrowserUiEvent
+    data class CheckDefaultBrowser(val context: Context) : BrowserUiEvent
 
     // Image Context Menu
     data class ShowImageContextMenu(val imageUrl: String) : BrowserUiEvent

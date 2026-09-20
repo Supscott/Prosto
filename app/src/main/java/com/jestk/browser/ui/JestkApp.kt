@@ -12,6 +12,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
@@ -48,6 +49,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -73,6 +75,7 @@ import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
+import com.jestk.browser.ui.overlays.AddFavoriteDialog
 import com.jestk.browser.ui.overlays.DownloadsSheet
 import com.jestk.browser.ui.overlays.ImageContextMenuBottomSheet
 import com.jestk.browser.ui.overlays.LinkContextMenuBottomSheet
@@ -307,33 +310,51 @@ fun JestkApp(
             }
         }
 
+        val isModalActive =
+            uiState.isMenuExpanded ||
+                uiState.isSettingsVisible ||
+                uiState.isDownloadsVisible ||
+                (uiState.activeOverlay != OverlayType.NONE && uiState.activeOverlay != OverlayType.HOME) ||
+                uiState.linkContextMenuUrl != null ||
+                uiState.selectedImageUrl != null ||
+                uiState.showAddFavoriteDialog
+
+        val backdropBlurRadius by animateDpAsState(
+            targetValue = if (isModalActive) 20.dp else 0.dp,
+            animationSpec = tween(durationMillis = 220),
+            label = "ModalBackdropBlurRadius",
+        )
+
         Box(
             modifier =
                 modifier
                     .fillMaxSize()
                     .background(animatedAppBg),
         ) {
-            // Main Viewport: WebView Container or Home Screen
+            // Main Viewport: WebView Container or Home Screen (with real-time backdrop blur when modals are open)
 
             Box(
                 modifier =
                     Modifier
-                        .fillMaxSize(),
+                        .fillMaxSize()
+                        .then(
+                            if (backdropBlurRadius > 0.dp) {
+                                Modifier.blur(backdropBlurRadius)
+                            } else {
+                                Modifier
+                            }
+                        ),
             ) {
                 if (showHomeScreen) {
                     HomeScreen(
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
                         modifier = Modifier.fillMaxSize(),
+                        hazeState = rootHazeState,
                     )
                 } else {
                     uiState.activeTabId?.let { activeId ->
                         key(activeId) {
-                            // Do NOT register the WebView viewport as a Haze source: on Android 12+
-                            // Modifier.haze records the source into a GraphicsLayer that is
-                            // re-recorded every frame, and a WebView painted that way shows
-                            // blank/stale frames (whole page flickers until the tab is switched).
-                            // The bottom bar falls back to its semi-transparent scrim over pages.
                             WebViewContainer(
                                 tabId = activeId,
                                 webViewPool = webViewPool,
@@ -346,12 +367,13 @@ fun JestkApp(
                 }
             }
 
-            // Outside scrim to close expanded menu when tapping on webpage
-            if (uiState.isMenuExpanded && !showHomeScreen) {
+            // Outside dim scrim to close expanded menu when tapping on webpage
+            if (uiState.isMenuExpanded) {
                 Box(
                     modifier =
                         Modifier
                             .fillMaxSize()
+                            .background(Color.Black.copy(alpha = 0.20f))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -607,6 +629,18 @@ fun JestkApp(
                             contentLength = 0L,
                             context = context,
                         )
+                    },
+                )
+            }
+
+            // Add Favorite Modal Dialog
+            if (uiState.showAddFavoriteDialog) {
+                AddFavoriteDialog(
+                    isDark = isDark,
+                    onDismiss = { viewModel.onEvent(BrowserUiEvent.DismissAddFavoriteDialog) },
+                    onConfirm = { title, url ->
+                        viewModel.onEvent(BrowserUiEvent.AddFavorite(title, url))
+                        viewModel.onEvent(BrowserUiEvent.DismissAddFavoriteDialog)
                     },
                 )
             }
