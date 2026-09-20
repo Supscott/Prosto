@@ -76,3 +76,16 @@ This document tracks bugs encountered during development, their root causes, and
   2. Introduce `FaviconManager.toImageModel()`: if the path starts with `/` or `file://`, map it to `java.io.File`; otherwise return the URL string. Use this across all Compose `AsyncImage` callers (`FavoriteSquircleCard`, `SearchFavoriteSquircleCard`, `ActiveTabPill`, `TabStripRow`, `TabOverviewGrid`).
   3. Implement `FaviconManager.persistFaviconForFavorite()` to copy tab favicons to persistent favorite icon files (`fav_*.png`), which survive tab closure.
   4. Add `updateFavicon` to `FavoriteDao` and `FavoriteRepository`, and call it in `BrowserViewModel.handleUpdateFavicon` to keep favorites synchronized with loaded icons.
+
+### Favorites 'Add' button opened Search overlay instead of Add Favorite modal
+
+- **Date:** 2026-09-20
+- **Symptom:** Tapping the "+" Add button in the Favorites section on the Home Screen opened the Search overlay instead of opening a modal window to add a website.
+- **Root Cause:** In `HomeScreen.kt:FavoritesSection`, `onAddClick` had been stubbed with `onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))`. No dedicated `AddFavoriteDialog` or modal state existed in the codebase.
+- **Resolution & Prevention:**
+  1. Created `AddFavoriteDialog` and `AddFavoriteDialogContent` conforming to the Liquid Pastel Sunset design system (`LiquidShapes.Capsule` 24.dp corner radius, specular rim border, name and URL text inputs, clipboard quick-paste, and 22.dp pill action buttons).
+  2. Added `showAddFavoriteDialog: Boolean` to `BrowserUiState`, with `ShowAddFavoriteDialog` and `DismissAddFavoriteDialog` events in `BrowserUiEvent`.
+  3. Included `showAddFavoriteDialog` in `JestkApp.kt`'s `isModalActive` so the underlying viewport automatically receives the 20.dp hardware-accelerated backdrop blur.
+  4. Handled back press in `BrowserViewModel.handleBackNavigation()` to dismiss the dialog first.
+  5. Extracted the dialog card layout to `AddFavoriteDialogContent` so it can be previewed in Compose Previews and verified via Robolectric Native Graphics without requiring an active Android `Window`.
+

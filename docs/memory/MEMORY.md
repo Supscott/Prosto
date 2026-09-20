@@ -108,6 +108,25 @@
   - Raw filesystem paths (`/...`) must be converted to `java.io.File` using `FaviconManager.toImageModel()` before being passed to Coil `AsyncImage`.
   - Tab favicon cache files (`favicon_$tabId.png`) are deleted when a tab is closed; favorite favicons must be copied to persistent files (`fav_*.png`) to ensure longevity.
 
+### Session: Add Favorite Modal Dialog Fix
+
+- **Completed:**
+  - Fixed bug where tapping the "Add" button (`+` squircle card) in Favorites opened the Search overlay instead of a modal window to add a website.
+  - Designed and implemented `AddFavoriteDialog` adhering to the Liquid Pastel Sunset design system (`LiquidShapes.Capsule` 24.dp corner radius, specular light rim border, website name and URL inputs, quick clipboard paste shortcut, and pill action buttons).
+  - Added `showAddFavoriteDialog: Boolean` to `BrowserUiState`, along with `BrowserUiEvent.ShowAddFavoriteDialog` and `BrowserUiEvent.DismissAddFavoriteDialog`.
+  - Added `showAddFavoriteDialog` to `isModalActive` in `JestkApp`, enabling automatic 20.dp hardware viewport backdrop blur while the dialog is visible.
+  - Handled back press in `BrowserViewModel` so system back closes the dialog first if open.
+  - Normalized URLs (automatically prepending `https://` if protocol omitted) and derived fallback titles from hostnames.
+  - Added Russian and English string resources (`add_favorite_dialog_title`, `add_favorite_name_hint`, `add_favorite_url_hint`, `add_favorite_add_button`, `cancel`).
+  - Added unit tests in `BrowserViewModelTest` covering state updates, back press dismissal, and URL normalization.
+  - Created and verified Robolectric visual preview test `AddFavoriteDialogPreviewTest` rendering both Light and Dark modes to PNG.
+- **Current State:**
+  - `:app:testDebugUnitTest` fully green (all 33 tasks passed).
+- **Key Architectural Decisions:**
+  - Dialogs in the Liquid design system use `LiquidShapes.Capsule` (24.dp) and specular gradient borders.
+  - The inner layout is extracted into an `AddFavoriteDialogContent` composable so it can be previewed and rendered in Robolectric tests without needing an attached platform `Window`.
+
+
 ### Session: Remove Preloaded Favorites
 
 - **Completed:**
