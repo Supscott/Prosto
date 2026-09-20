@@ -293,6 +293,50 @@ class BrowserViewModelTest {
         }
 
     @Test
+    fun addCurrentTabToFavorites_savesFavoriteWithFavicon() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val activeId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://kotlinlang.org"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(activeId, "https://kotlinlang.org/icon.png"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.AddCurrentTabToFavorites)
+            advanceUntilIdle()
+
+            val favorites = viewModel.uiState.value.favorites
+            assertThat(favorites).isNotEmpty()
+            val fav = favorites.find { it.url == "https://kotlinlang.org" }
+            assertThat(fav).isNotNull()
+            assertThat(fav?.iconUrl).isEqualTo("https://kotlinlang.org/icon.png")
+        }
+
+    @Test
+    fun updateFavicon_updatesFavoriteIconWhenUrlBookmarked() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.AddFavorite("Kotlin", "https://kotlinlang.org"))
+            advanceUntilIdle()
+
+            val activeId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://kotlinlang.org"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(activeId, "https://kotlinlang.org/new_icon.png"))
+            advanceUntilIdle()
+
+            val favorites = viewModel.uiState.value.favorites
+            val fav = favorites.find { it.url == "https://kotlinlang.org" }
+            assertThat(fav?.iconUrl).isEqualTo("https://kotlinlang.org/new_icon.png")
+        }
+
+    @Test
     fun handleBackPress_whenHistoryExhaustedOnWebsite_resetsToHome() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()

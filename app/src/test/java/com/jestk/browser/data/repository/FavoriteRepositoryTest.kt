@@ -86,4 +86,15 @@ class FavoriteRepositoryTest {
         repository.deleteFavorite(id)
         assertThat(repository.getFavoritesCount()).isEqualTo(0)
     }
+
+    @Test
+    fun updateFavicon_updatesStoredIcon() = runTest(testDispatcher) {
+        val id = repository.addFavorite("Jestk", "https://jestk.com", iconUrl = "https://jestk.com/old.ico")
+        val before = repository.getFavorites().first()
+        assertThat(before[0].iconUrl).isEqualTo("https://jestk.com/old.ico")
+
+        repository.updateFavicon("https://jestk.com", "https://jestk.com/new.png")
+        val after = repository.getFavorites().first()
+        assertThat(after[0].iconUrl).isEqualTo("https://jestk.com/new.png")
+    }
 }

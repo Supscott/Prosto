@@ -60,3 +60,19 @@ This document tracks bugs encountered during development, their root causes, and
 - **Symptom:** Tapping "Set as Default" on the Home Screen or in the Settings Sheet did nothing — no system role picker dialog or default apps settings opened, and no exception was logged in `try / catch`.
 - **Root Cause:** On Android Q+ (API 29+), `RoleManager.createRequestRoleIntent(RoleManager.ROLE_BROWSER)` directs to system `RequestRoleActivity`. `RequestRoleActivity` inspects `getCallingPackage()` to identify and verify the app requesting the role. When started with `context.startActivity(intent)`, `getCallingPackage()` is `null`, causing `RequestRoleActivity` to immediately call `finish()` without displaying anything and without throwing an exception.
 - **Resolution & Prevention:** Never invoke role request intents with `context.startActivity()`. Always launch via `rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult())` (or `Activity.startActivityForResult()`) to ensure `getCallingPackage()` is populated. Additionally, implement multi-tier fallbacks in `DefaultBrowserHelper.openDefaultBrowserSettings`: `RoleManager` -> `Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS` -> `Settings.ACTION_APPLICATION_DETAILS_SETTINGS` -> `Settings.ACTION_SETTINGS`.
+
+### Favicons not displayed in favorites and tab components
+
+- **Date:** 2026-09-20
+- **Symptom:** Favicons were not appearing on the Home Screen favorite cards, search overlay favorites, or tab bars. Cards either showed generic Material icons or blank icons.
+- **Root Cause:**
+  1. `DefaultPresets` in `HomeScreen.kt` omitted `iconUrl`, defaulting to `null`. On fresh launch or empty favorites, `DefaultPresets` was rendered as-is without favicon URLs.
+  2. Coil's `AsyncImage` received raw local filesystem path strings (e.g., `"/data/user/0/.../favicons/favicon_1.png"`). In Coil, `StringMapper` converts string data via `Uri.parse()`, producing a `Uri` with a null scheme. Because Coil's `FileUriFetcher` requires `uri.scheme == "file"`, raw path strings failed fetcher selection and resulted in image load errors.
+  3. `BrowserViewModel.addCurrentToFavorites()` had a guard `tabFavicon.startsWith("http")`, which discarded the real favicon downloaded from the website via WebChromeClient because tab favicons are saved as local absolute filesystem paths.
+  4. Tab favicon cache files (`favicon_$tabId.png`) are deleted upon tab closure, which would invalidate any favorite pointing directly to the tab's temporary icon file.
+  5. Receiving a favicon in `handleUpdateFavicon` updated tabs and recent tabs, but never updated the favorite stored for that URL.
+- **Resolution & Prevention:**
+  1. Add default fallback favicon URLs (`FaviconManager.extractFallbackFaviconUrl(...)`) to all default presets in `DefaultPresets` and dynamically in `HomeScreen.kt:itemsToDisplay`.
+  2. Introduce `FaviconManager.toImageModel()`: if the path starts with `/` or `file://`, map it to `java.io.File`; otherwise return the URL string. Use this across all Compose `AsyncImage` callers (`FavoriteSquircleCard`, `SearchFavoriteSquircleCard`, `ActiveTabPill`, `TabStripRow`, `TabOverviewGrid`).
+  3. Implement `FaviconManager.persistFaviconForFavorite()` to copy tab favicons to persistent favorite icon files (`fav_*.png`), which survive tab closure.
+  4. Add `updateFavicon` to `FavoriteDao` and `FavoriteRepository`, and call it in `BrowserViewModel.handleUpdateFavicon` to keep favorites synchronized with loaded icons.

@@ -59,6 +59,9 @@ interface FavoriteDao {
     @Query("UPDATE favorites SET position = :position WHERE id = :id")
     suspend fun updatePosition(id: Long, position: Int)
 
+    @Query("UPDATE favorites SET iconUrl = :iconUrl WHERE url = :url")
+    suspend fun updateFavicon(url: String, iconUrl: String)
+
     suspend fun reorderFavorites(orderedFavorites: List<FavoriteEntity>) {
         orderedFavorites.forEachIndexed { index, fav ->
             updatePosition(fav.id, index)

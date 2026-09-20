@@ -44,23 +44,38 @@ class FaviconManagerTest {
     }
 
     @Test
-    fun testCoilWithFilePathStringVsFile() {
+    fun toImageModel_handlesNullBlankLocalAndRemotePaths() {
+        assertThat(FaviconManager.toImageModel(null)).isNull()
+        assertThat(FaviconManager.toImageModel("")).isNull()
+        assertThat(FaviconManager.toImageModel("   ")).isNull()
+
+        val httpModel = FaviconManager.toImageModel("https://example.com/icon.png")
+        assertThat(httpModel).isEqualTo("https://example.com/icon.png")
+
+        val fileModel = FaviconManager.toImageModel("/data/user/0/favicons/fav.png")
+        assertThat(fileModel).isInstanceOf(java.io.File::class.java)
+        assertThat((fileModel as java.io.File).absolutePath).isEqualTo("/data/user/0/favicons/fav.png")
+
+        val fileUriModel = FaviconManager.toImageModel("file:///data/user/0/favicons/fav.png")
+        assertThat(fileUriModel).isInstanceOf(java.io.File::class.java)
+        assertThat((fileUriModel as java.io.File).absolutePath).isEqualTo("/data/user/0/favicons/fav.png")
+    }
+
+    @Test
+    fun persistFaviconForFavorite_copiesFileToPersistentLocation() = kotlinx.coroutines.test.runTest {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
-        val testFile = java.io.File(context.filesDir, "test.png")
-        testFile.writeBytes(byteArrayOf(1, 2, 3))
-
-        val imageLoader = coil.ImageLoader(context)
-        val requestString = coil.request.ImageRequest.Builder(context).data(testFile.absolutePath).build()
-        val requestFile = coil.request.ImageRequest.Builder(context).data(testFile).build()
-
-        kotlinx.coroutines.runBlocking {
-            val resultString = imageLoader.execute(requestString)
-            println("resultString: ${resultString::class.java.simpleName}")
-            if (resultString is coil.request.ErrorResult) {
-                println("resultString error: ${resultString.throwable}")
-            }
-            val resultFile = imageLoader.execute(requestFile)
-            println("resultFile: ${resultFile::class.java.simpleName}")
+        val source = java.io.File(context.filesDir, "temp_favicon.png").apply {
+            writeBytes("mock_png_data".toByteArray())
         }
+
+        val persistentPath = FaviconManager.persistFaviconForFavorite(context, source.absolutePath)
+        assertThat(persistentPath).isNotNull()
+
+        val destFile = java.io.File(persistentPath!!)
+        assertThat(destFile.exists()).isTrue()
+        assertThat(destFile.name).startsWith("fav_")
+        assertThat(destFile.name).endsWith(".png")
+        assertThat(destFile.readText()).isEqualTo("mock_png_data")
     }
 }
+

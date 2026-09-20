@@ -62,4 +62,8 @@ class FavoriteRepositoryImpl(
     override suspend fun getFavoritesCount(): Int = withContext(ioDispatcher) {
         favoriteDao.getFavoritesCount()
     }
+
+    override suspend fun updateFavicon(url: String, iconUrl: String) = withContext(ioDispatcher) {
+        favoriteDao.updateFavicon(url, iconUrl)
+    }
 }

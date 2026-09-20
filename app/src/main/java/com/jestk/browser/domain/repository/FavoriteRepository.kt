@@ -12,4 +12,5 @@ interface FavoriteRepository {
     suspend fun isFavorite(url: String): Boolean
     suspend fun reorderFavorites(orderedFavorites: List<FavoriteItem>)
     suspend fun getFavoritesCount(): Int
+    suspend fun updateFavicon(url: String, iconUrl: String)
 }

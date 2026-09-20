@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
 import com.jestk.browser.ui.theme.LiquidTertiary
 import com.jestk.browser.ui.theme.PastelRose
@@ -116,14 +117,19 @@ fun ActiveTabPill(
                     modifier = Modifier.size(16.dp)
                 )
             } else if (!faviconUrl.isNullOrEmpty()) {
-                AsyncImage(
-                    model = faviconUrl,
-                    contentDescription = title,
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Fit
-                )
+                val imageModel = remember(faviconUrl) {
+                    FaviconManager.toImageModel(faviconUrl)
+                }
+                if (imageModel != null) {
+                    AsyncImage(
+                        model = imageModel,
+                        contentDescription = title,
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Fit
+                    )
+                }
             } else {
                 val initial = title.trim().firstOrNull()?.uppercaseChar()
                 if (initial != null && initial.isLetterOrDigit() && title != "Hori Browser" && title != "Hori" && title != "New Tab") {

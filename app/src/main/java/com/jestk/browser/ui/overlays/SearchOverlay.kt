@@ -731,9 +731,13 @@ private fun SearchFavoriteSquircleCard(
                     )
                 }
 
-                if (!faviconUrl.isNullOrEmpty()) {
+                val imageModel = remember(faviconUrl) {
+                    FaviconManager.toImageModel(faviconUrl)
+                }
+
+                if (imageModel != null) {
                     AsyncImage(
-                        model = faviconUrl,
+                        model = imageModel,
                         contentDescription = item.title,
                         contentScale = ContentScale.Fit,
                         onSuccess = { isImageSuccess = true },

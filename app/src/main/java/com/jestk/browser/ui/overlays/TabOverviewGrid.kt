@@ -80,6 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.ActiveTabBorderBrush
 import com.jestk.browser.ui.theme.AddTabGradientBrush
 import com.jestk.browser.ui.theme.LiquidError
@@ -513,13 +514,18 @@ private fun TwoColumnGridTabCard(
                 ) {
                     // Favicon / Icon
                     if (!tab.faviconUrl.isNullOrEmpty()) {
-                        AsyncImage(
-                            model = tab.faviconUrl,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(CircleShape)
-                        )
+                        val imageModel = remember(tab.faviconUrl) {
+                            FaviconManager.toImageModel(tab.faviconUrl)
+                        }
+                        if (imageModel != null) {
+                            AsyncImage(
+                                model = imageModel,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                            )
+                        }
                     } else {
                         Box(
                             modifier = Modifier

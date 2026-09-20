@@ -91,3 +91,30 @@
 - **Key Architectural Decisions:**
   - Always launch `RoleManager` intents using `ActivityResultLauncher` (or `startActivityForResult`), never bare `startActivity()`.
   - Multi-tier fallbacks ensure resilience across diverse Android OEM skins (MIUI, ColorOS, OneUI, EMUI) where `ACTION_MANAGE_DEFAULT_APPS_SETTINGS` or `RoleManager` might behave differently.
+
+### Session: Favorites Favicons Fix
+
+- **Completed:**
+  - Fixed bug where favicons were not displayed in the Favorites section on the Home Screen and Search Overlay.
+  - Added fallback favicon URLs (`FaviconManager.extractFallbackFaviconUrl(...)`) to all default presets in `DefaultPresets` and `HomeScreen.kt:itemsToDisplay`.
+  - Added `FaviconManager.toImageModel()` to safely map both remote URLs (`http://`, `https://`) and local filesystem paths (`/...`, `file://...`) into Coil-compatible models (`File` or `String`), fixing the issue where raw path strings passed to `AsyncImage` failed to load in Coil.
+  - Applied `toImageModel` across all favicon-rendering composables: `HomeScreen` (`FavoriteSquircleCard`), `SearchOverlay` (`SearchFavoriteSquircleCard`), `ActiveTabPill`, `TabStripRow`, and `TabOverviewGrid`.
+  - Implemented `FaviconManager.persistFaviconForFavorite()` to copy temporary tab favicons to persistent favorite storage (`favicons/fav_*.png`), ensuring favorite icons survive tab closure.
+  - Added `FavoriteDao.updateFavicon()`, `FavoriteRepository.updateFavicon()`, and wired `handleUpdateFavicon()` in `BrowserViewModel` so that when a webpage favicon is received, any existing favorite for that URL is automatically updated.
+  - Added unit tests in `FaviconManagerTest`, `FavoriteRepositoryTest`, and `BrowserViewModelTest`.
+- **Current State:**
+  - `:app:testDebugUnitTest` fully green (33 actionable tasks executed/up-to-date, all assertions passing).
+- **Key Architectural Decisions:**
+  - Raw filesystem paths (`/...`) must be converted to `java.io.File` using `FaviconManager.toImageModel()` before being passed to Coil `AsyncImage`.
+  - Tab favicon cache files (`favicon_$tabId.png`) are deleted when a tab is closed; favorite favicons must be copied to persistent files (`fav_*.png`) to ensure longevity.
+
+### Session: Remove Preloaded Favorites
+
+- **Completed:**
+  - Removed hardcoded preloaded favorites (`DefaultPresets`) from [`HomeScreen.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/views/HomeScreen.kt).
+  - Configured the Favorites section to render cleanly when empty, displaying an aligned `AddFavoriteButton` ("Add" with `+` icon) so users can populate their own favorites from scratch.
+  - Retained dynamic 4-column grid layout and expand button when users add their own favorites.
+- **Current State:**
+  - `:app:testDebugUnitTest` fully green (33 actionable tasks executed/up-to-date, all assertions passing).
+- **Key Architectural Decisions:**
+  - No fake/preset bookmarks are seeded into UI or database; favorites block starts completely empty on fresh install and is user-driven.

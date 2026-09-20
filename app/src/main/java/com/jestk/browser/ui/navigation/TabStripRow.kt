@@ -68,6 +68,7 @@ import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.LiquidBorders
 import com.jestk.browser.ui.theme.LiquidShapes
 import com.jestk.browser.ui.theme.LiquidSurface
@@ -394,14 +395,19 @@ fun InactiveTabButton(
                     modifier = Modifier.size(19.dp)
                 )
             } else if (!tab.faviconUrl.isNullOrEmpty()) {
-                AsyncImage(
-                    model = tab.faviconUrl,
-                    contentDescription = tab.title,
-                    modifier = Modifier
-                        .size(20.dp)
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Fit
-                )
+                val imageModel = remember(tab.faviconUrl) {
+                    FaviconManager.toImageModel(tab.faviconUrl)
+                }
+                if (imageModel != null) {
+                    AsyncImage(
+                        model = imageModel,
+                        contentDescription = tab.title,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape),
+                        contentScale = ContentScale.Fit
+                    )
+                }
             } else {
                 val initial = tab.title.trim().firstOrNull()?.uppercaseChar()
                 if (initial != null && initial.isLetterOrDigit() && tab.title != "New Tab") {

@@ -49,16 +49,11 @@ import androidx.compose.material.icons.filled.Architecture
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Forum
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.PhoneIphone
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SmartDisplay
-import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -123,65 +118,17 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
 import java.io.File
 import java.net.URI
 
-// Fallback Quick Favorite Presets for Stitch 4-column layout
+// Favorite item model for 4-column layout
 private data class PresetFavorite(
     val id: Long? = null,
     val title: String,
     val url: String,
-    val icon: ImageVector,
-    val iconTint: Color,
+    val icon: ImageVector = Icons.Default.Public,
+    val iconTint: Color = LiquidPrimary,
     val bgBrush: Brush? = null,
     val iconUrl: String? = null
 )
 
-private val DefaultPresets = listOf(
-    PresetFavorite(
-        title = "Apple",
-        url = "https://apple.com",
-        icon = Icons.Default.PhoneIphone,
-        iconTint = LiquidOnSurface
-    ),
-    PresetFavorite(
-        title = "DuckDuckGo",
-        url = "https://duckduckgo.com",
-        icon = Icons.Default.Public,
-        iconTint = LiquidSecondary,
-        bgBrush = Brush.linearGradient(listOf(Color(0xFFFFDBCC).copy(alpha = 0.70f), Color(0xFFFED7AA).copy(alpha = 0.50f)))
-    ),
-    PresetFavorite(
-        title = "GitHub",
-        url = "https://github.com",
-        icon = Icons.Default.Terminal,
-        iconTint = LiquidOnSurface
-    ),
-    PresetFavorite(
-        title = "Wikipedia",
-        url = "https://wikipedia.org",
-        icon = Icons.AutoMirrored.Filled.MenuBook,
-        iconTint = LiquidOnSurface
-    ),
-    PresetFavorite(
-        title = "YouTube",
-        url = "https://youtube.com",
-        icon = Icons.Default.SmartDisplay,
-        iconTint = LiquidTertiary,
-        bgBrush = Brush.linearGradient(listOf(Color(0xFFFFD9E2).copy(alpha = 0.70f), Color(0xFFF9B3C8).copy(alpha = 0.40f)))
-    ),
-    PresetFavorite(
-        title = "Reddit",
-        url = "https://reddit.com",
-        icon = Icons.Default.Forum,
-        iconTint = LiquidSecondary,
-        bgBrush = Brush.linearGradient(listOf(Color(0xFFFFDBCC).copy(alpha = 0.60f), Color(0xFFFFD9E2).copy(alpha = 0.50f)))
-    ),
-    PresetFavorite(
-        title = "Dribbble",
-        url = "https://dribbble.com",
-        icon = Icons.Default.Palette,
-        iconTint = LiquidTertiary,
-        bgBrush = Brush.linearGradient(listOf(Color(0xFFFFD9E2).copy(alpha = 0.70f), Color(0xFFD391A5).copy(alpha = 0.40f)))
-    )
-)
 
 /**
  * Home Screen - Liquid Pastel Sunset design system.
@@ -463,72 +410,85 @@ private fun FavoritesSection(
         Spacer(modifier = Modifier.height(12.dp))
 
         // 4-Column Squircle Grid
-        val itemsToDisplay: List<PresetFavorite> = if (favorites.isNotEmpty()) {
-            val list = favorites.map { fav ->
-                val fallbackFavicon = fav.iconUrl ?: FaviconManager.extractFallbackFaviconUrl(fav.url)
-                PresetFavorite(
-                    id = fav.id,
-                    title = fav.title.ifEmpty { fav.url },
-                    url = fav.url,
-                    icon = Icons.Default.Public,
-                    iconTint = MaterialTheme.colorScheme.primary,
-                    iconUrl = fallbackFavicon
-                )
-            }
+        val itemsToDisplay: List<PresetFavorite> = favorites.map { fav ->
+            val fallbackFavicon = fav.iconUrl ?: FaviconManager.extractFallbackFaviconUrl(fav.url)
+            PresetFavorite(
+                id = fav.id,
+                title = fav.title.ifEmpty { fav.url },
+                url = fav.url,
+                icon = Icons.Default.Public,
+                iconTint = MaterialTheme.colorScheme.primary,
+                iconUrl = fallbackFavicon
+            )
+        }.let { list ->
             if (isExpanded) list else list.take(7)
-        } else {
-            DefaultPresets
         }
 
-        val rows = itemsToDisplay.chunked(4)
+        if (itemsToDisplay.isEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                AddFavoriteButton(
+                    isDark = isDark,
+                    onClick = onAddClick,
+                    modifier = Modifier.weight(1f)
+                )
+                repeat(3) {
+                    Spacer(modifier = Modifier.weight(1f))
+                }
+            }
+        } else {
+            val rows = itemsToDisplay.chunked(4)
 
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(14.dp)
-        ) {
-            rows.forEachIndexed { rowIndex, rowItems ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    rowItems.forEach { item ->
-                        FavoriteSquircleCard(
-                            item = item,
-                            isDark = isDark,
-                            onClick = { onSelectUrl(item.url) },
-                            onDelete = item.id?.let { id -> { onDeleteFavorite(id) } },
-                            modifier = Modifier.weight(1f)
-                        )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                rows.forEachIndexed { rowIndex, rowItems ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        rowItems.forEach { item ->
+                            FavoriteSquircleCard(
+                                item = item,
+                                isDark = isDark,
+                                onClick = { onSelectUrl(item.url) },
+                                onDelete = item.id?.let { id -> { onDeleteFavorite(id) } },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+
+                        // If this is the last row and there are empty slots, add the "+" button or spacers
+                        val emptySlots = 4 - rowItems.size
+                        if (emptySlots > 0 && rowIndex == rows.lastIndex) {
+                            AddFavoriteButton(
+                                isDark = isDark,
+                                onClick = onAddClick,
+                                modifier = Modifier.weight(1f)
+                            )
+                            repeat(emptySlots - 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
                     }
+                }
 
-                    // If this is the last row and there are empty slots, add the "+" button or spacers
-                    val emptySlots = 4 - rowItems.size
-                    if (emptySlots > 0 && rowIndex == rows.lastIndex) {
+                // If rows filled all 4 slots exactly, show Add button on next row
+                if (itemsToDisplay.size % 4 == 0) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
                         AddFavoriteButton(
                             isDark = isDark,
                             onClick = onAddClick,
                             modifier = Modifier.weight(1f)
                         )
-                        repeat(emptySlots - 1) {
+                        repeat(3) {
                             Spacer(modifier = Modifier.weight(1f))
                         }
-                    }
-                }
-            }
-
-            // If rows filled all 4 slots exactly, show Add button on next row
-            if (itemsToDisplay.size % 4 == 0) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    AddFavoriteButton(
-                        isDark = isDark,
-                        onClick = onAddClick,
-                        modifier = Modifier.weight(1f)
-                    )
-                    repeat(3) {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
@@ -593,6 +553,9 @@ private fun FavoriteSquircleCard(
                     contentAlignment = Alignment.Center
                 ) {
                     var isFaviconSuccess by remember(item.iconUrl) { mutableStateOf(false) }
+                    val imageModel = remember(item.iconUrl) {
+                        FaviconManager.toImageModel(item.iconUrl)
+                    }
 
                     if (!isFaviconSuccess) {
                         Icon(
@@ -603,9 +566,9 @@ private fun FavoriteSquircleCard(
                         )
                     }
 
-                    if (!item.iconUrl.isNullOrEmpty()) {
+                    if (imageModel != null) {
                         AsyncImage(
-                            model = item.iconUrl,
+                            model = imageModel,
                             contentDescription = item.title,
                             contentScale = ContentScale.Fit,
                             onSuccess = { isFaviconSuccess = true },

@@ -46,4 +46,30 @@ object FaviconManager {
                 null
             }
         }
+
+    fun toImageModel(urlOrPath: String?): Any? {
+        if (urlOrPath.isNullOrBlank()) return null
+        return if (urlOrPath.startsWith("/") || urlOrPath.startsWith("file://")) {
+            File(urlOrPath.removePrefix("file://"))
+        } else {
+            urlOrPath
+        }
+    }
+
+    suspend fun persistFaviconForFavorite(context: Context, sourcePath: String): String? =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val cleanPath = sourcePath.removePrefix("file://")
+                val sourceFile = File(cleanPath)
+                if (!sourceFile.exists() || !sourceFile.isFile) return@withContext null
+                val dir = File(context.filesDir, "favicons").apply {
+                    if (!exists()) mkdirs()
+                }
+                val targetFile = File(dir, "fav_${java.util.UUID.randomUUID()}.png")
+                sourceFile.copyTo(targetFile, overwrite = true)
+                targetFile.absolutePath
+            } catch (_: Exception) {
+                null
+            }
+        }
 }

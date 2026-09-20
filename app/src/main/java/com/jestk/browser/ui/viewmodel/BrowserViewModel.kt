@@ -1177,6 +1177,13 @@ class BrowserViewModel(
             val tab = tabRepository.getTabById(tabId)
             if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:")) {
                 recentTabRepository?.updateFavicon(tab.url, faviconUrl)
+                if (favoriteRepository.isFavorite(tab.url)) {
+                    val persistentIconPath = if (context != null && (faviconUrl.startsWith("/") || faviconUrl.startsWith("file:"))) {
+                        FaviconManager.persistFaviconForFavorite(context, faviconUrl)
+                    } else null
+                    val iconToUpdate = persistentIconPath ?: faviconUrl
+                    favoriteRepository.updateFavicon(tab.url, iconToUpdate)
+                }
             }
         }
     }
@@ -1211,12 +1218,15 @@ class BrowserViewModel(
         if (current.currentUrl.isNotEmpty() && !current.currentUrl.startsWith("about:")) {
             val activeTab = current.tabs.find { it.id == current.activeTabId }
             val tabFavicon = activeTab?.faviconUrl
-            val iconUrl = if (!tabFavicon.isNullOrEmpty() && tabFavicon.startsWith("http")) {
-                tabFavicon
-            } else {
-                FaviconManager.extractFallbackFaviconUrl(current.currentUrl)
-            }
             viewModelScope.launch(ioDispatcher) {
+                val persistentIconPath = if (!tabFavicon.isNullOrEmpty() && context != null && (tabFavicon.startsWith("/") || tabFavicon.startsWith("file:"))) {
+                    FaviconManager.persistFaviconForFavorite(context, tabFavicon)
+                } else null
+
+                val iconUrl = persistentIconPath
+                    ?: (if (!tabFavicon.isNullOrEmpty() && tabFavicon.startsWith("http")) tabFavicon else null)
+                    ?: FaviconManager.extractFallbackFaviconUrl(current.currentUrl)
+
                 favoriteRepository.addFavorite(
                     title = current.pageTitle.ifEmpty { current.currentUrl },
                     url = current.currentUrl,
