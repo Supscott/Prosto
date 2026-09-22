@@ -1,9 +1,11 @@
 package com.jestk.browser.ui.views
 
+import android.annotation.SuppressLint
 import android.content.MutableContextWrapper
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
+import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.WebView
 import androidx.compose.animation.AnimatedVisibility
@@ -20,11 +22,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -80,48 +84,63 @@ fun WebViewContainer(
     val primaryColor = MaterialTheme.colorScheme.primary.toArgb()
     val surfaceColor = MaterialTheme.colorScheme.surface.toArgb()
 
-    // NestedScrollConnection to report scroll delta for dynamic auto-hide of bottom bar
-    val nestedScrollConnection = remember {
-        object : NestedScrollConnection {
-            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-                if (available.y != 0f) {
-                    onEvent(BrowserUiEvent.OnWebScroll(-available.y))
-                }
-                return Offset.Zero
-            }
-        }
-    }
-
     val isImeVisible = WindowInsets.isImeVisible
+    val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val targetBottomPadding = when {
         uiState.isFullscreenCustomView -> 0.dp
         isImeVisible -> 0.dp
-        else -> 62.dp
+        !uiState.isBottomBarVisible -> 0.dp
+        else -> 62.dp + navBarBottom
     }
     val bottomPadding by animateDpAsState(
         targetValue = targetBottomPadding,
-        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
         label = "WebViewBottomPadding"
     )
 
     val setupWebViewLongClick: (WebView) -> Unit = remember {
         { wv ->
             wv.isLongClickable = true
+            var fallbackTouchX = 0f
+            var fallbackTouchY = 0f
+            var fallbackRawX = 0f
+            var fallbackRawY = 0f
+
+            @SuppressLint("ClickableViewAccessibility")
+            wv.setOnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE) {
+                    fallbackTouchX = event.x
+                    fallbackTouchY = event.y
+                    fallbackRawX = event.rawX
+                    fallbackRawY = event.rawY
+                }
+                false
+            }
+
             wv.setOnLongClickListener { v ->
                 val targetWebView = v as? WebView ?: return@setOnLongClickListener false
                 val hitTest = targetWebView.hitTestResult ?: return@setOnLongClickListener false
+                val nested = targetWebView as? NestedWebView
+
+                val location = IntArray(2)
+                targetWebView.getLocationOnScreen(location)
+                val relX = nested?.lastTouchX?.takeIf { it > 0f } ?: fallbackTouchX
+                val relY = nested?.lastTouchY?.takeIf { it > 0f } ?: fallbackTouchY
+                val anchorX = if (relX > 0f) location[0] + relX else fallbackRawX.takeIf { it > 0f }
+                val anchorY = if (relY > 0f) location[1] + relY else fallbackRawY.takeIf { it > 0f }
+
                 when (hitTest.type) {
                     WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
                         val url = hitTest.extra
                         if (!url.isNullOrBlank()) {
-                            currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url))
+                            currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url = url, anchorX = anchorX, anchorY = anchorY))
                             true
                         } else {
                             val handler = object : Handler(Looper.getMainLooper()) {
                                 override fun handleMessage(msg: Message) {
                                     val nodeUrl = msg.data?.getString("url")
                                     if (!nodeUrl.isNullOrBlank()) {
-                                        currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(nodeUrl))
+                                        currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url = nodeUrl, anchorX = anchorX, anchorY = anchorY))
                                     }
                                 }
                             }
@@ -132,7 +151,7 @@ fun WebViewContainer(
                     WebView.HitTestResult.IMAGE_TYPE -> {
                         val imageUrl = hitTest.extra
                         if (!imageUrl.isNullOrBlank()) {
-                            currentOnEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+                            currentOnEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl = imageUrl, anchorX = anchorX, anchorY = anchorY))
                             true
                         } else false
                     }
@@ -141,14 +160,19 @@ fun WebViewContainer(
                         val handler = object : Handler(Looper.getMainLooper()) {
                             override fun handleMessage(msg: Message) {
                                 val imageUrl = msg.data?.getString("src")
+                                val nodeUrl = msg.data?.getString("url")
+                                val targetLink = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
                                 if (!imageUrl.isNullOrBlank()) {
-                                    currentOnEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
-                                } else {
-                                    val nodeUrl = msg.data?.getString("url")
-                                    val target = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
-                                    if (!target.isNullOrBlank()) {
-                                        currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(target))
-                                    }
+                                    currentOnEvent(
+                                        BrowserUiEvent.ShowImageContextMenu(
+                                            imageUrl = imageUrl,
+                                            linkUrl = targetLink,
+                                            anchorX = anchorX,
+                                            anchorY = anchorY
+                                        )
+                                    )
+                                } else if (!targetLink.isNullOrBlank()) {
+                                    currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url = targetLink, anchorX = anchorX, anchorY = anchorY))
                                 }
                             }
                         }
@@ -158,7 +182,7 @@ fun WebViewContainer(
                     1 -> { // Deprecated HitTestResult.ANCHOR_TYPE
                         val url = hitTest.extra
                         if (!url.isNullOrBlank()) {
-                            currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url))
+                            currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url = url, anchorX = anchorX, anchorY = anchorY))
                             true
                         } else false
                     }
@@ -167,14 +191,19 @@ fun WebViewContainer(
                         val handler = object : Handler(Looper.getMainLooper()) {
                             override fun handleMessage(msg: Message) {
                                 val imageUrl = msg.data?.getString("src")
+                                val nodeUrl = msg.data?.getString("url")
+                                val targetLink = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
                                 if (!imageUrl.isNullOrBlank()) {
-                                    currentOnEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
-                                } else {
-                                    val nodeUrl = msg.data?.getString("url")
-                                    val target = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
-                                    if (!target.isNullOrBlank()) {
-                                        currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(target))
-                                    }
+                                    currentOnEvent(
+                                        BrowserUiEvent.ShowImageContextMenu(
+                                            imageUrl = imageUrl,
+                                            linkUrl = targetLink,
+                                            anchorX = anchorX,
+                                            anchorY = anchorY
+                                        )
+                                    )
+                                } else if (!targetLink.isNullOrBlank()) {
+                                    currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url = targetLink, anchorX = anchorX, anchorY = anchorY))
                                 }
                             }
                         }
@@ -206,9 +235,7 @@ fun WebViewContainer(
             .fillMaxSize()
             .statusBarsPadding()
             .padding(bottom = bottomPadding)
-            .navigationBarsPadding()
             .imePadding()
-            .nestedScroll(nestedScrollConnection)
     }
 
     Box(
@@ -232,12 +259,19 @@ fun WebViewContainer(
                     webView.isFocusableInTouchMode = true
                     setupWebViewLongClick(webView)
 
-                    webView.setOnScrollChangeListener { _, _, scrollY, _, oldScrollY ->
+                    webView.setOnScrollChangeListener { v, _, scrollY, _, oldScrollY ->
                         val dy = scrollY - oldScrollY
-                        if (dy > 12) {
-                            currentOnEvent(BrowserUiEvent.OnWebScroll(dy.toFloat()))
-                        } else if (dy < -12 || scrollY <= 0) {
-                            currentOnEvent(BrowserUiEvent.OnWebScroll(dy.toFloat()))
+                        val viewportHeight = if (v.height > 0) v.height else v.resources.displayMetrics.heightPixels
+                        val crossedHScreen = (oldScrollY > viewportHeight && scrollY <= viewportHeight) ||
+                            (oldScrollY <= viewportHeight && scrollY > viewportHeight)
+                        if (kotlin.math.abs(dy) > 8 || scrollY <= 0 || crossedHScreen) {
+                            currentOnEvent(
+                                BrowserUiEvent.OnWebScroll(
+                                    deltaY = dy.toFloat(),
+                                    scrollY = scrollY,
+                                    viewportHeight = viewportHeight,
+                                )
+                            )
                         }
                     }
 

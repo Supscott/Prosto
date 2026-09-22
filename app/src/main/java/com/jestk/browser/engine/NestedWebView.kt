@@ -48,6 +48,14 @@ class NestedWebView @JvmOverloads constructor(
 
     private var initialDownX: Float = 0f
     private var initialDownY: Float = 0f
+    var lastTouchX: Float = 0f
+        private set
+    var lastTouchY: Float = 0f
+        private set
+    var lastTouchRawX: Float = 0f
+        private set
+    var lastTouchRawY: Float = 0f
+        private set
     private var lastMotionY: Int = 0
     private var isLockedHorizontal: Boolean = false
     private var isPullToRefreshActive: Boolean = false
@@ -94,6 +102,10 @@ class NestedWebView @JvmOverloads constructor(
                 }
                 initialDownX = event.x
                 initialDownY = event.y
+                lastTouchX = event.x
+                lastTouchY = event.y
+                lastTouchRawX = event.rawX
+                lastTouchRawY = event.rawY
                 lastMotionY = y
                 isGestureActive = true
                 val maxInitialDownY = MAX_PTR_INITIAL_DOWN_Y_DP * resources.displayMetrics.density
@@ -114,6 +126,10 @@ class NestedWebView @JvmOverloads constructor(
                 return super.onTouchEvent(event)
             }
             MotionEvent.ACTION_MOVE -> {
+                lastTouchX = event.x
+                lastTouchY = event.y
+                lastTouchRawX = event.rawX
+                lastTouchRawY = event.rawY
                 if (event.pointerCount > 1) {
                     isLockedHorizontal = true
                     isPullToRefreshActive = false

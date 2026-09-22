@@ -13,6 +13,9 @@
     <string name="add_to_favorites">В избранное</string>
     <string name="remove_favorite">Удалить из избранного</string>
     <string name="clear_history">Очистить историю</string>
+    <string name="search_history_title">История поиска</string>
+    <string name="expand_history">Вся история</string>
+    <string name="collapse_history">Свернуть</string>
     <string name="recent_tabs_title">Недавние вкладки</string>
     <string name="favorites_title">Избранное</string>
     <string name="show_all_favorites">Показать все закладки</string>

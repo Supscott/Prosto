@@ -39,6 +39,7 @@ import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LiquidSurface
 import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -299,5 +300,113 @@ class BottomBarPreviewTest {
         FileOutputStream(outputFile).use { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
+    }
+
+    @Test
+    fun renderFloatingDockHiddenAndVisibleComparison() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val baseState = BrowserUiState(
+            currentUrl = "https://wikipedia.org",
+            pageTitle = "Wikipedia",
+            tabs = listOf(
+                Tab(id = "1", url = "https://wikipedia.org", title = "Wikipedia", isActive = true)
+            ),
+            activeTabId = "1"
+        )
+
+        val width = 1080
+        val height = 800
+
+        // 1. Render Visible State: bottom bar visible, webview padded by 86dp (62dp + 24dp nav)
+        val visibleView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFE8ECEF)) // animatedSiteBg underlay
+                    ) {
+                        // Webview container with bottom padding
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = 86.dp)
+                        ) {
+                            MockWebPageContent()
+                        }
+
+                        // Floating dock visible
+                        UnifiedBottomBar(
+                            uiState = baseState.copy(isBottomBarVisible = true),
+                            onEvent = {},
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        )
+                    }
+                }
+            }
+        }
+        activity.setContentView(visibleView)
+        visibleView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        visibleView.layout(0, 0, width, height)
+        val visibleBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        visibleView.draw(android.graphics.Canvas(visibleBitmap))
+
+        val visibleFile = File("build/dock_visible_preview.png")
+        visibleFile.parentFile?.mkdirs()
+        FileOutputStream(visibleFile).use { out ->
+            visibleBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+
+        // 2. Render Hidden State: bottom bar hidden, webview fills full screen down to bottom (0dp padding)
+        val hiddenView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFE8ECEF))
+                    ) {
+                        // Webview container fills full height without bottom padding
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = 0.dp)
+                        ) {
+                            MockWebPageContent()
+                        }
+                    }
+                }
+            }
+        }
+        activity.setContentView(hiddenView)
+        hiddenView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        hiddenView.layout(0, 0, width, height)
+        val hiddenBitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        hiddenView.draw(android.graphics.Canvas(hiddenBitmap))
+
+        val hiddenFile = File("build/dock_hidden_preview.png")
+        hiddenFile.parentFile?.mkdirs()
+        FileOutputStream(hiddenFile).use { out ->
+            hiddenBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+
+        // Assert that the bottom area differs between visible dock (dock capsule + underlay) and hidden dock (expanded webpage)
+        val checkY = height - 40 // In the bottom 40px area
+        var hasPixelDiff = false
+        for (x in 200..800 step 20) {
+            if (visibleBitmap.getPixel(x, checkY) != hiddenBitmap.getPixel(x, checkY)) {
+                hasPixelDiff = true
+                break
+            }
+        }
+        assertThat(hasPixelDiff).isTrue()
     }
 }

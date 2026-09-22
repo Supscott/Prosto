@@ -39,13 +39,17 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ManageSearch
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.CloseFullscreen
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.ui.res.stringResource
+import com.jestk.browser.R
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -163,21 +167,53 @@ fun SearchOverlay(
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
+            val scrollState = rememberScrollState()
+
+            LaunchedEffect(uiState.searchHistorySuggestions.size, uiState.isSearchHistoryExpanded) {
+                if (scrollState.maxValue > 0) {
+                    scrollState.scrollTo(scrollState.maxValue)
+                }
+            }
+
+            LaunchedEffect(scrollState.maxValue) {
+                if (scrollState.maxValue > 0) {
+                    scrollState.scrollTo(scrollState.maxValue)
+                }
+            }
+
             // Top Area: Scrollable column containing history suggestions & favorites
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
                     .padding(bottom = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
+                verticalArrangement = Arrangement.Bottom
             ) {
-                // Search History Suggestions
+                // Favorites squircle cards placed above search history (hidden when full history is expanded)
+                if (!uiState.isSearchHistoryExpanded && uiState.favorites.isNotEmpty()) {
+                    SearchFavoritesSection(
+                        favorites = uiState.favorites,
+                        isDark = isDark,
+                        onSelect = { url ->
+                            onEvent(BrowserUiEvent.LoadUrl(url))
+                            onEvent(BrowserUiEvent.DismissOverlay)
+                        },
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
+                // Search History Suggestions starting from the bottom
                 val suggestions = uiState.searchHistorySuggestions
                 if (suggestions.isNotEmpty()) {
                     InsetGroupedHistoryCard(
                         items = suggestions,
                         isDark = isDark,
+                        isExpanded = uiState.isSearchHistoryExpanded,
+                        onToggleExpand = {
+                            keyboardController?.hide()
+                            onEvent(BrowserUiEvent.ToggleSearchHistoryExpanded)
+                        },
                         onItemClick = { item ->
                             onEvent(BrowserUiEvent.LoadUrl(item.url))
                             onEvent(BrowserUiEvent.DismissOverlay)
@@ -206,20 +242,8 @@ fun SearchOverlay(
                     HistoryEmptyCard(isDark = isDark)
                 }
 
-                // Favorites squircle cards (Task 7)
-                SearchFavoritesSection(
-                    favorites = uiState.favorites,
-                    isDark = isDark,
-                    onSelect = { url ->
-                        onEvent(BrowserUiEvent.LoadUrl(url))
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    }
-                )
-
                 Spacer(modifier = Modifier.height(4.dp))
             }
-
-            Spacer(modifier = Modifier.height(6.dp))
 
             // Search Engine Switcher chips placed directly above the input field
             SearchEngineSwitcherRow(
@@ -419,12 +443,15 @@ private fun HeroSearchInputField(
 private fun InsetGroupedHistoryCard(
     items: List<HistoryItem>,
     isDark: Boolean,
+    isExpanded: Boolean,
+    onToggleExpand: () -> Unit,
     onItemClick: (HistoryItem) -> Unit,
     onInsertQuery: (HistoryItem) -> Unit,
     onClearHistory: () -> Unit
 ) {
     val cardBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.88f) else Color.White.copy(alpha = 0.85f)
     val cardBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f))
+    val reversedItems = remember(items) { items.reversed() }
 
     Column(modifier = Modifier.fillMaxWidth()) {
         // Section Header (Stitch Screen 2)
@@ -446,7 +473,7 @@ private fun InsetGroupedHistoryCard(
                     modifier = Modifier.size(17.dp)
                 )
                 Text(
-                    text = "Search History",
+                    text = stringResource(R.string.search_history_title),
                     style = MaterialTheme.typography.labelMedium.copy(
                         fontWeight = FontWeight.SemiBold,
                         fontSize = 13.sp
@@ -455,18 +482,44 @@ private fun InsetGroupedHistoryCard(
                 )
             }
 
-            TextButton(
-                onClick = onClearHistory,
-                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    text = "Clear History",
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 11.sp
-                    ),
-                    color = MaterialTheme.colorScheme.primary
-                )
+                TextButton(
+                    onClick = onToggleExpand,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.CloseFullscreen else Icons.Default.OpenInFull,
+                        contentDescription = if (isExpanded) stringResource(R.string.collapse_history) else stringResource(R.string.expand_history),
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = if (isExpanded) stringResource(R.string.collapse_history) else stringResource(R.string.expand_history),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp
+                        ),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+
+                TextButton(
+                    onClick = onClearHistory,
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = stringResource(R.string.clear_history),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp
+                        ),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
         }
 
@@ -495,7 +548,7 @@ private fun InsetGroupedHistoryCard(
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items.forEachIndexed { index, item ->
+                reversedItems.forEachIndexed { index, item ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -540,7 +593,7 @@ private fun InsetGroupedHistoryCard(
                         }
                     }
 
-                    if (index < items.lastIndex) {
+                    if (index < reversedItems.lastIndex) {
                         HorizontalDivider(
                             color = if (isDark) Color(0xFF4D4546).copy(alpha = 0.40f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f),
                             modifier = Modifier.padding(start = 44.dp)
@@ -930,6 +983,31 @@ fun SearchOverlayDarkPreview() {
                 ),
                 settings = com.jestk.browser.domain.model.BrowserSettings(
                     searchEngine = SearchEngine.GOOGLE
+                )
+            ),
+            onEvent = {}
+        )
+    }
+}
+
+@Preview(name = "SearchOverlay Expanded Dark", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFF161314)
+@Composable
+fun SearchOverlayExpandedDarkPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+        SearchOverlay(
+            uiState = BrowserUiState(
+                searchQuery = "",
+                isSearchHistoryExpanded = true,
+                searchHistorySuggestions = listOf(
+                    com.jestk.browser.domain.model.HistoryItem(id = 1, title = "Kotlin Backdrop Blur Jetpack Compose", url = "https://duckduckgo.com/?q=kotlin+backdrop+blur", timestamp = System.currentTimeMillis()),
+                    com.jestk.browser.domain.model.HistoryItem(id = 2, title = "Material 3 Liquid Glass Design System", url = "https://duckduckgo.com/?q=material+3+liquid+glass", timestamp = System.currentTimeMillis() - 60000),
+                    com.jestk.browser.domain.model.HistoryItem(id = 3, title = "Android Developer Documentation", url = "https://developer.android.com", timestamp = System.currentTimeMillis() - 120000)
+                ),
+                favorites = listOf(
+                    com.jestk.browser.domain.model.FavoriteItem(id = 1, title = "Google", url = "https://google.com")
+                ),
+                settings = com.jestk.browser.domain.model.BrowserSettings(
+                    searchEngine = SearchEngine.DUCKDUCKGO
                 )
             ),
             onEvent = {}

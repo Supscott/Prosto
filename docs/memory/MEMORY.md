@@ -170,4 +170,79 @@
 - **Key Architectural Decisions:**
   - When ad delivery scripts originate from top-level portal/search domains (e.g. `yandex.ru`), host-level blocking is insufficient and harmful; path-based interception (`isBlockedPath`) must be used to selectively neutralize ad endpoints without breaking primary site functionality.
 
+### Session: Search Overlay Favorites Layout Refactor
+
+- **Completed:**
+  - Refactored [`SearchOverlay.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt) so the Favorites section (`SearchFavoritesSection`) is anchored immediately above the search engine selector chips (`SearchEngineSwitcherRow`).
+  - Extracted `SearchFavoritesSection` out of the scrollable search history column, placing it in the bottom dock hierarchy: History suggestions (scrollable) -> Favorites -> Search engine switcher -> Search input field.
+  - Updated [`SearchOverlayPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/SearchOverlayPreviewTest.kt) with sample `FavoriteItem` items to verify layout and rendering in both Light and Dark modes.
+  - Re-rendered and visually inspected the preview bitmap (`build/search_overlay_preview.png`).
+- **Current State:**
+  - `:app:testDebugUnitTest` fully green (33 actionable tasks executed/up-to-date, all assertions passing).
+- **Key Architectural Decisions:**
+  - Favorites on the search overlay are docked above the search engine chips rather than scrolled inside the history column. This ensures quick one-tap access to frequent sites right above the bottom controls, while search history suggestions remain scrollable above favorites without pushing them off-screen.
+
+### Session: Scroll-Driven Floating Dock Auto-Hide below h-screen
+
+- **Completed:**
+  - Implemented auto-hiding of the floating dock on downward scroll and reappearance on upward scroll.
+  - Configured dock hiding to ONLY activate below `h-screen` (`scrollY > viewportHeight`): within the first screen height, the dock remains visible regardless of scroll direction.
+  - Connected `WebView`'s `setOnScrollChangeListener` to dispatch `BrowserUiEvent.OnWebScroll(deltaY, scrollY, viewportHeight)` with threshold filtering (`abs(dy) > 8f`) and immediate boundary triggers (`scrollY <= 0` and crossing `h-screen`).
+  - Wrapped `UnifiedBottomBar` in `JestkApp.kt` with `AnimatedVisibility` utilizing vertical slide (`slideOutVertically { it }` / `slideInVertically { it }`) and fade transitions (`fadeOut` / `fadeIn`), synchronized with snackbar bottom offset animations.
+  - Dynamically adjusted bottom padding in `WebViewContainer.kt` between `(62.dp + navBarBottom)` when the dock is visible and `0.dp` when hidden, completely eliminating the bottom underlay (`animatedSiteBg`) and expanding the WebView to occupy the full screen height edge-to-edge.
+  - Automatically restored dock visibility (`isBottomBarVisible = true`) on tab creation, tab switching, and page navigation (`handlePageStarted`).
+  - Added unit test suite in [`BrowserViewModelTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/viewmodel/BrowserViewModelTest.kt) verifying scroll within first screen, hide/show below `h-screen`, Home screen dock persistence, and navigation reset.
+  - Added visual preview comparison test `renderFloatingDockHiddenAndVisibleComparison` in [`BottomBarPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/navigation/BottomBarPreviewTest.kt) generating and asserting bitmaps for both visible and hidden states (`dock_visible_preview.png` and `dock_hidden_preview.png`).
+- **Current State:**
+  - All unit tests and visual preview tests passing (`BUILD SUCCESSFUL in 33s`).
+- **Key Architectural Decisions:**
+  - The WebView viewport padding dynamically collapses to `0.dp` when the dock is hidden, allowing web content to extend to the physical bottom of the display without leaving any residual background bar or underlay.
+  - Scroll deltas and positions are captured directly from Android `WebView.setOnScrollChangeListener`, ensuring precise synchronization with native Chromium scroll and fling mechanics.
+
+### Session: Bottom-Anchored Search History & Full Screen History Expansion
+
+- **Completed:**
+  - Refactored [`SearchOverlay.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt) so search history begins from the bottom directly above the search engine switcher and input dock (`Arrangement.Bottom` on the content column, `reversedItems` layout in `InsetGroupedHistoryCard`).
+  - Beginning of search history (newest search queries, item 0) is positioned at the very bottom of the history card, immediately adjacent to the input field where user interaction occurs.
+  - Placed Favorites section above search history in the content hierarchy.
+  - Added full search history expansion feature:
+    - Added button in the history card header (`TextButton` with `Icons.Default.OpenInFull` / `Icons.Default.CloseFullscreen`, localized label "All History" / "Collapse" / "Вся история" / "Свернуть").
+    - Tapping the expand button immediately hides the software keyboard (`keyboardController?.hide()`), hides the favorites list, and expands the history card to fill the entire screen height above the bottom search input.
+    - Search input field and engine switcher chips remain docked at the bottom for easy typing and query submission.
+    - Expanded history queries full history via `historyRepository.getAllHistory()` rather than recent 10 items.
+    - Hardware/system back press and tap on "Collapse" collapses full history back to normal view first before dismissing the overlay.
+  - Added localized strings to `strings.xml` and `values-ru/strings.xml` (`search_history_title`, `expand_history`, `collapse_history`).
+  - Added state property `isSearchHistoryExpanded: Boolean = false` to [`BrowserUiState`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserUiState.kt) and events `ToggleSearchHistoryExpanded`, `SetSearchHistoryExpanded` in [`BrowserUiEvent`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserUiEvent.kt).
+  - Extended unit tests in [`BrowserViewModelTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/viewmodel/BrowserViewModelTest.kt) (`search_toggleSearchHistoryExpanded_updatesStateAndLoadsAllHistory` and `search_expandedHistory_backPressCollapsesHistoryFirst`).
+  - Added visual preview test `renderSearchOverlayExpandedHistoryPreview` in [`SearchOverlayPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/SearchOverlayPreviewTest.kt) generating and verifying `search_overlay_expanded_preview.png`.
+- **Current State:**
+  - All 33 actionable build and test tasks passing (`:app:testDebugUnitTest` green).
+  - Bitmaps visually verified in both collapsed and expanded states.
+- **Key Architectural Decisions:**
+  - `isSearchHistoryExpanded` is tracked in `BrowserUiState`, allowing `BrowserViewModel.updateHistorySuggestions` to switch between `historyRepository.getRecentHistory(10)` and `historyRepository.getAllHistory()`.
+  - Back navigation hierarchy prioritizes collapsing `isSearchHistoryExpanded` before dismissing `activeOverlay = OverlayType.SEARCH`.
+
+### Session: Context Menu Finger-Anchored Modal Refactor
+
+- **Completed:**
+  - Refactored hyperlink and image long-press context menus from full-screen `ModalBottomSheet` to floating contextual modal cards anchored near/under the user's finger, matching standard browser ergonomics (Chrome, Safari, Samsung Internet).
+  - Added touch position coordinate tracking (`lastTouchX`, `lastTouchY`, `lastTouchRawX`, `lastTouchRawY`) to [`NestedWebView.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/NestedWebView.kt) on `ACTION_DOWN` and `ACTION_MOVE`, with fallback touch listener in [`WebViewContainer.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/views/WebViewContainer.kt).
+  - Calculated exact screen anchor coordinates (`location[0] + relX`, `location[1] + relY`) upon `setOnLongClickListener` firing, passing `anchorX` and `anchorY` via [`BrowserUiEvent.ShowLinkContextMenu`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserUiEvent.kt) and `ShowImageContextMenu`.
+  - Stored `contextMenuAnchor: Offset?` and `imageContextMenuLinkUrl: String?` in [`BrowserUiState`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserUiState.kt).
+  - Created [`FloatingContextMenuContainer.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/FloatingContextMenuContainer.kt) with smart positioning:
+    - Anchors directly below finger (`anchor.y + 14.dp`) when space allows.
+    - Automatically flips above finger (`anchor.y - 14.dp - cardHeight`) when long-press occurs near bottom navigation dock or screen edge.
+    - Clamps horizontally within screen safe margins (16.dp margin).
+    - Springs into view with tactile bloom animation (`scale` 0.92f -> 1f, `alpha` 0f -> 1f) originating from touch anchor (`TransformOrigin`).
+    - Dismisses on tapping anywhere on outside dimming scrim or pressing system back.
+  - Re-implemented [`LinkContextMenuModal`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/LinkContextMenuBottomSheet.kt) and [`ImageContextMenuModal`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/ImageContextMenuBottomSheet.kt) as compact floating cards (310.dp) adhering to Liquid Pastel Sunset tokens (`LiquidShapes.Card`, `specularBorder`, `liquidFrostedGlass`).
+  - Maintained backwards-compatible aliases `LinkContextMenuBottomSheet` and `ImageContextMenuBottomSheet`.
+  - Added unit test suite in [`FloatingContextMenuContainerTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/FloatingContextMenuContainerTest.kt) and expanded [`BrowserViewModelTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/viewmodel/BrowserViewModelTest.kt).
+  - Added visual preview test [`LinkContextMenuPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/LinkContextMenuPreviewTest.kt) and updated [`ImageContextMenuPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/ImageContextMenuPreviewTest.kt), verifying rendered PNGs in `build/link_context_menu_preview.png` and `build/image_context_menu_preview.png`.
+- **Current State:**
+  - All unit tests and visual tests passing (`:app:testDebugUnitTest` green, 33 actionable tasks executed).
+- **Key Architectural Decisions:**
+  - Long-press contextual menus must anchor near the touch position rather than opening as full-width bottom sheets, keeping the user's visual and tactile focus in context.
+  - Touch coordinates are passed via `BrowserUiEvent` and held in `BrowserUiState.contextMenuAnchor`, enabling declarative positioning while allowing pure Compose unit testing and fallback centering when no coordinates are present.
+
 

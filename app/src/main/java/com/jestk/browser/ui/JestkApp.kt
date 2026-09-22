@@ -77,8 +77,8 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
 import com.jestk.browser.ui.overlays.DownloadsSheet
-import com.jestk.browser.ui.overlays.ImageContextMenuBottomSheet
-import com.jestk.browser.ui.overlays.LinkContextMenuBottomSheet
+import com.jestk.browser.ui.overlays.ImageContextMenuModal
+import com.jestk.browser.ui.overlays.LinkContextMenuModal
 import com.jestk.browser.ui.overlays.SearchOverlay
 import com.jestk.browser.ui.overlays.SettingsSheet
 import com.jestk.browser.ui.overlays.TabOverviewGrid
@@ -384,11 +384,23 @@ fun JestkApp(
             }
 
             // Unified Single-Tier Bottom Navigation Bar
-            if (!uiState.isFullscreenCustomView && !WindowInsets.isImeVisible) {
+            val isBottomBarVisible = uiState.isBottomBarVisible &&
+                !uiState.isFullscreenCustomView &&
+                !WindowInsets.isImeVisible
+
+            AnimatedVisibility(
+                visible = isBottomBarVisible,
+                enter =
+                    fadeIn(tween(220, easing = FastOutSlowInEasing)) +
+                        slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
+                exit =
+                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
+                        slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            ) {
                 UnifiedBottomBar(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
-                    modifier = Modifier.align(Alignment.BottomCenter),
                     hazeState = rootHazeState,
                 )
             }
@@ -438,6 +450,12 @@ fun JestkApp(
                 )
             }
 
+            val snackbarBaseBottomOffset by animateDpAsState(
+                targetValue = if (isBottomBarVisible) 76.dp else 16.dp,
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                label = "SnackbarBaseBottomOffset",
+            )
+
             // Undo Closed Tab Floating Notification Pill
             AnimatedVisibility(
                 visible = uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null,
@@ -449,7 +467,7 @@ fun JestkApp(
                     Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
-                        .padding(bottom = 76.dp, start = 16.dp, end = 16.dp),
+                        .padding(bottom = snackbarBaseBottomOffset, start = 16.dp, end = 16.dp),
             ) {
                 val tab = uiState.recentlyClosedTab
                 val tabTitle = tab?.title?.takeIf { it.isNotBlank() && it != "Home" && it != "New Tab" } ?: "Tab"
@@ -530,7 +548,11 @@ fun JestkApp(
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
                         .padding(
-                            bottom = if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) 132.dp else 76.dp,
+                            bottom = if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) {
+                                snackbarBaseBottomOffset + 56.dp
+                            } else {
+                                snackbarBaseBottomOffset
+                            },
                             start = 16.dp,
                             end = 16.dp,
                         ),
@@ -607,18 +629,21 @@ fun JestkApp(
                 }
             }
 
-            // Link Context Menu Bottom Sheet
+            // Link Context Menu Floating Modal
             uiState.linkContextMenuUrl?.let { linkUrl ->
-                LinkContextMenuBottomSheet(
+                LinkContextMenuModal(
                     url = linkUrl,
+                    anchor = uiState.contextMenuAnchor,
                     onEvent = viewModel::onEvent,
                 )
             }
 
-            // Image Context Menu Bottom Sheet
+            // Image Context Menu Floating Modal
             uiState.selectedImageUrl?.let { imageUrl ->
-                ImageContextMenuBottomSheet(
+                ImageContextMenuModal(
                     imageUrl = imageUrl,
+                    linkUrl = uiState.imageContextMenuLinkUrl,
+                    anchor = uiState.contextMenuAnchor,
                     onEvent = viewModel::onEvent,
                     onDownloadImage = { url ->
                         webViewPool.handleDownload(

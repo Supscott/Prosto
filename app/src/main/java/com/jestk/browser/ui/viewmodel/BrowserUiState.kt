@@ -1,5 +1,6 @@
 package com.jestk.browser.ui.viewmodel
 
+import androidx.compose.ui.geometry.Offset
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.FavoriteItem
@@ -28,6 +29,7 @@ data class BrowserUiState(
     // Search Overlay State
     val searchQuery: String = "",
     val searchHistorySuggestions: List<HistoryItem> = emptyList(),
+    val isSearchHistoryExpanded: Boolean = false,
     // Favorites & Recents
     val favorites: List<FavoriteItem> = emptyList(),
     val isFavoritesExpanded: Boolean = false,
@@ -50,6 +52,8 @@ data class BrowserUiState(
     val fullscreenRequestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
     val linkContextMenuUrl: String? = null,
     val selectedImageUrl: String? = null,
+    val imageContextMenuLinkUrl: String? = null,
+    val contextMenuAnchor: Offset? = null,
     val isDefaultBrowser: Boolean = true,
     val showAddFavoriteDialog: Boolean = false,
 ) {

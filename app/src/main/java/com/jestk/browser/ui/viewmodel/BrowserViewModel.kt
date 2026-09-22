@@ -1,6 +1,7 @@
 package com.jestk.browser.ui.viewmodel
 
 import android.content.Context
+import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jestk.browser.domain.model.DownloadItem
@@ -344,7 +345,7 @@ class BrowserViewModel(
                     if (it.activeScreen != ScreenType.NONE) {
                         it.copy(activeScreen = ScreenType.NONE)
                     } else {
-                        it.copy(activeOverlay = OverlayType.NONE)
+                        it.copy(activeOverlay = OverlayType.NONE, isSearchHistoryExpanded = false)
                     }
                 }
             }
@@ -363,7 +364,13 @@ class BrowserViewModel(
                     openNewTabForSearch()
                 } else {
                     val prefill = event.prefilledUrl ?: if (isHome) "" else current.currentUrl
-                    _uiState.update { it.copy(activeOverlay = OverlayType.SEARCH, searchQuery = prefill) }
+                    _uiState.update {
+                        it.copy(
+                            activeOverlay = OverlayType.SEARCH,
+                            searchQuery = prefill,
+                            isSearchHistoryExpanded = false,
+                        )
+                    }
                     updateHistorySuggestions(prefill)
                 }
             }
@@ -519,6 +526,17 @@ class BrowserViewModel(
                 loadUrl(event.item.url)
             }
 
+            is BrowserUiEvent.ToggleSearchHistoryExpanded -> {
+                val target = !_uiState.value.isSearchHistoryExpanded
+                _uiState.update { it.copy(isSearchHistoryExpanded = target) }
+                updateHistorySuggestions(_uiState.value.searchQuery)
+            }
+
+            is BrowserUiEvent.SetSearchHistoryExpanded -> {
+                _uiState.update { it.copy(isSearchHistoryExpanded = event.expanded) }
+                updateHistorySuggestions(_uiState.value.searchQuery)
+            }
+
             is BrowserUiEvent.SetThemeMode -> {
                 _uiState.update { it.copy(settings = it.settings.copy(themeMode = event.mode)) }
                 viewModelScope.launch(ioDispatcher) {
@@ -541,7 +559,7 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.OnWebScroll -> {
-                handleWebScroll(event.deltaY)
+                handleWebScroll(event.deltaY, event.scrollY, event.viewportHeight)
             }
 
             is BrowserUiEvent.SetBottomBarVisibility -> {
@@ -606,11 +624,26 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.ShowLinkContextMenu -> {
-                _uiState.update { it.copy(linkContextMenuUrl = event.url) }
+                val anchor = if (event.anchorX != null && event.anchorY != null) {
+                    Offset(event.anchorX, event.anchorY)
+                } else {
+                    null
+                }
+                _uiState.update {
+                    it.copy(
+                        linkContextMenuUrl = event.url,
+                        contextMenuAnchor = anchor,
+                    )
+                }
             }
 
             is BrowserUiEvent.DismissLinkContextMenu -> {
-                _uiState.update { it.copy(linkContextMenuUrl = null) }
+                _uiState.update {
+                    it.copy(
+                        linkContextMenuUrl = null,
+                        contextMenuAnchor = null,
+                    )
+                }
             }
 
             is BrowserUiEvent.OpenTabInBackground -> {
@@ -626,23 +659,58 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.ShowImageContextMenu -> {
-                _uiState.update { it.copy(selectedImageUrl = event.imageUrl) }
+                val anchor = if (event.anchorX != null && event.anchorY != null) {
+                    Offset(event.anchorX, event.anchorY)
+                } else {
+                    null
+                }
+                _uiState.update {
+                    it.copy(
+                        selectedImageUrl = event.imageUrl,
+                        imageContextMenuLinkUrl = event.linkUrl,
+                        contextMenuAnchor = anchor,
+                    )
+                }
             }
 
             is BrowserUiEvent.DismissImageContextMenu -> {
-                _uiState.update { it.copy(selectedImageUrl = null) }
+                _uiState.update {
+                    it.copy(
+                        selectedImageUrl = null,
+                        imageContextMenuLinkUrl = null,
+                        contextMenuAnchor = null,
+                    )
+                }
             }
 
             is BrowserUiEvent.CopyImageUrl -> {
-                _uiState.update { it.copy(selectedImageUrl = null) }
+                _uiState.update {
+                    it.copy(
+                        selectedImageUrl = null,
+                        imageContextMenuLinkUrl = null,
+                        contextMenuAnchor = null,
+                    )
+                }
             }
 
             is BrowserUiEvent.DownloadImage -> {
-                _uiState.update { it.copy(selectedImageUrl = null) }
+                _uiState.update {
+                    it.copy(
+                        selectedImageUrl = null,
+                        imageContextMenuLinkUrl = null,
+                        contextMenuAnchor = null,
+                    )
+                }
             }
 
             is BrowserUiEvent.PreviewImageInNewTab -> {
-                _uiState.update { it.copy(selectedImageUrl = null) }
+                _uiState.update {
+                    it.copy(
+                        selectedImageUrl = null,
+                        imageContextMenuLinkUrl = null,
+                        contextMenuAnchor = null,
+                    )
+                }
                 openNewTab(event.imageUrl)
             }
         }
@@ -672,6 +740,7 @@ class BrowserViewModel(
                         activeThemeColor = null,
                         activeOverlay = OverlayType.SEARCH,
                         searchQuery = "",
+                        isSearchHistoryExpanded = false,
                         canGoBack = false,
                         canGoForward = false,
                     )
@@ -710,6 +779,7 @@ class BrowserViewModel(
                         activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
                         linkContextMenuUrl = null,
                         selectedImageUrl = null,
+                        isBottomBarVisible = true,
                     )
                 }
                 if (url.isNotEmpty() && url != "about:blank") {
@@ -782,6 +852,7 @@ class BrowserViewModel(
                     activeThemeColor = if (isHome) null else cachedColor,
                     isMenuExpanded = targetMenuExpanded,
                     activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
+                    isBottomBarVisible = true,
                 )
             }
         }
@@ -1051,9 +1122,14 @@ class BrowserViewModel(
 
     private fun updateHistorySuggestions(query: String) {
         viewModelScope.launch(ioDispatcher) {
+            val isExpanded = _uiState.value.isSearchHistoryExpanded
             val historyFlow =
                 if (query.isBlank()) {
-                    historyRepository.getRecentHistory(10)
+                    if (isExpanded) {
+                        historyRepository.getAllHistory()
+                    } else {
+                        historyRepository.getRecentHistory(10)
+                    }
                 } else {
                     historyRepository.searchHistory(query)
                 }
@@ -1069,7 +1145,7 @@ class BrowserViewModel(
     ) {
         if (url.isEmpty() || url == "about:blank") return
         if (_uiState.value.activeTabId == tabId) {
-            _uiState.update { it.copy(currentUrl = url, isLoading = true, loadingProgress = 0.15f) }
+            _uiState.update { it.copy(currentUrl = url, isLoading = true, loadingProgress = 0.15f, isBottomBarVisible = true) }
         }
     }
 
@@ -1236,12 +1312,41 @@ class BrowserViewModel(
         }
     }
 
-    private fun handleWebScroll(deltaY: Float) {
-        if (deltaY > 10f) {
-            val current = _uiState.value
-            val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
-            if (!isHome && current.isMenuExpanded) {
-                _uiState.update { it.copy(isMenuExpanded = false) }
+    private fun handleWebScroll(
+        deltaY: Float,
+        scrollY: Int = 0,
+        viewportHeight: Int = 0,
+    ) {
+        val current = _uiState.value
+        val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
+        if (isHome) {
+            if (!current.isBottomBarVisible) {
+                _uiState.update { it.copy(isBottomBarVisible = true) }
+            }
+            return
+        }
+
+        if (deltaY > 8f && current.isMenuExpanded) {
+            _uiState.update { it.copy(isMenuExpanded = false) }
+        }
+
+        // Hiding the dock starts working below h-screen (scrollY > viewportHeight)
+        val isBelowHScreen = viewportHeight > 0 && scrollY > viewportHeight
+        if (!isBelowHScreen) {
+            // Within the first screen (scrollY <= viewportHeight) or scrolled back to top: dock must always be visible
+            if (!current.isBottomBarVisible) {
+                _uiState.update { it.copy(isBottomBarVisible = true) }
+            }
+        } else {
+            // Below h-screen: hide if scrolling down, show if scrolling up
+            if (deltaY > 8f) {
+                if (current.isBottomBarVisible) {
+                    _uiState.update { it.copy(isBottomBarVisible = false, isMenuExpanded = false) }
+                }
+            } else if (deltaY < -8f) {
+                if (!current.isBottomBarVisible) {
+                    _uiState.update { it.copy(isBottomBarVisible = true) }
+                }
             }
         }
     }
@@ -1257,7 +1362,13 @@ class BrowserViewModel(
             return
         }
         if (current.selectedImageUrl != null) {
-            _uiState.update { it.copy(selectedImageUrl = null) }
+            _uiState.update {
+                it.copy(
+                    selectedImageUrl = null,
+                    imageContextMenuLinkUrl = null,
+                    contextMenuAnchor = null,
+                )
+            }
             return
         }
         if (current.activeScreen != ScreenType.NONE) {
@@ -1265,7 +1376,12 @@ class BrowserViewModel(
             return
         }
         if (current.linkContextMenuUrl != null) {
-            _uiState.update { it.copy(linkContextMenuUrl = null) }
+            _uiState.update {
+                it.copy(
+                    linkContextMenuUrl = null,
+                    contextMenuAnchor = null,
+                )
+            }
             return
         }
         if (current.isFullscreenCustomView) {
@@ -1276,9 +1392,14 @@ class BrowserViewModel(
             _uiState.update { it.copy(isMenuExpanded = false) }
             return
         }
+        if (current.isSearchHistoryExpanded) {
+            _uiState.update { it.copy(isSearchHistoryExpanded = false) }
+            updateHistorySuggestions(current.searchQuery)
+            return
+        }
         val isDismissibleOverlay = current.activeOverlay != OverlayType.NONE && current.activeOverlay != OverlayType.HOME
         if (isDismissibleOverlay) {
-            _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
+            _uiState.update { it.copy(activeOverlay = OverlayType.NONE, isSearchHistoryExpanded = false) }
             return
         }
 

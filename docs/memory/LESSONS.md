@@ -118,5 +118,17 @@ This document tracks bugs encountered during development, their root causes, and
   3. Include surrogate mocks for `window.Ya.adfoxCode`, `window.Ya.Context`, and `window.x5media`.
   4. Expand cosmetic selectors to cover `[id^="adfox"]`, `[class*="bannerContainer"]`, `[class*="incontentBanner"]`, `[class*="RightsideBanners"]`, `[class*="BannersBlock"]`, and `[class*="adFeedback"]`.
 
+### Context menu full-width bottom sheet vs finger-anchored floating modal
+
+- **Date:** 2026-09-22
+- **Symptom:** Long-pressing a link or image at the top or middle of a webpage opened a full-width `ModalBottomSheet` sliding from the bottom of the device, requiring the user to reach far down and losing spatial context with the element being pressed.
+- **Root Cause:** Context menus initially reused `ModalBottomSheet` for convenience without tracking finger touch coordinates from `WebView` gestures.
+- **Resolution & Prevention:**
+  1. Capture touch coordinates in `NestedWebView.onTouchEvent` (`lastTouchX`, `lastTouchY`, `lastTouchRawX`, `lastTouchRawY`) and calculate screen anchor coordinates (`location[0] + lastTouchX`, `location[1] + lastTouchY`) inside `setOnLongClickListener`.
+  2. Implement `FloatingContextMenuContainer` that places the modal directly below the finger (`anchor.y + 14.dp`), or flips it above the finger if close to the bottom dock, clamped horizontally to safe margins.
+  3. Animate card entrance via scale and alpha originating directly from the touch anchor point (`TransformOrigin`).
+  4. Always prefer compact, contextual floating cards near the interaction point over full-screen bottom sheets for tap/long-press actions on web elements.
+
+
 
 

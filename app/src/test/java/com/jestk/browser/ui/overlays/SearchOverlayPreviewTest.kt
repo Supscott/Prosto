@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.BrowserSettings
+import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
@@ -53,6 +54,12 @@ class SearchOverlayPreviewTest {
             searchHistorySuggestions = listOf(
                 HistoryItem(1L, "https://duckduckgo.com/?q=android+compose", "Android Compose", System.currentTimeMillis()),
                 HistoryItem(2L, "https://google.com/search?q=kotlin+coroutines", "Kotlin Coroutines", System.currentTimeMillis() - 10000)
+            ),
+            favorites = listOf(
+                FavoriteItem(1L, "Google", "https://google.com"),
+                FavoriteItem(2L, "GitHub", "https://github.com"),
+                FavoriteItem(3L, "Reddit", "https://reddit.com"),
+                FavoriteItem(4L, "Wikipedia", "https://wikipedia.org")
             )
         )
 
@@ -210,5 +217,66 @@ class SearchOverlayPreviewTest {
         onEvent(BrowserUiEvent.SetSearchEngine(SearchEngine.GOOGLE))
         assertEquals(BrowserUiEvent.SetSearchEngine(SearchEngine.GOOGLE), eventDispatched)
         assertEquals(SearchEngine.GOOGLE, selectedEngine)
+    }
+
+    @Test
+    fun testToggleSearchHistoryExpandedDispatchesEvent() {
+        var eventDispatched: BrowserUiEvent? = null
+        val onEvent: (BrowserUiEvent) -> Unit = { event ->
+            eventDispatched = event
+        }
+
+        onEvent(BrowserUiEvent.ToggleSearchHistoryExpanded)
+        assertEquals(BrowserUiEvent.ToggleSearchHistoryExpanded, eventDispatched)
+    }
+
+    @Test
+    fun renderSearchOverlayExpandedHistoryPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val expandedState = BrowserUiState(
+            searchQuery = "",
+            isSearchHistoryExpanded = true,
+            settings = BrowserSettings(searchEngine = SearchEngine.DUCKDUCKGO),
+            searchHistorySuggestions = listOf(
+                HistoryItem(1L, "https://duckduckgo.com/?q=android+compose", "Android Compose", System.currentTimeMillis()),
+                HistoryItem(2L, "https://google.com/search?q=kotlin+coroutines", "Kotlin Coroutines", System.currentTimeMillis() - 10000),
+                HistoryItem(3L, "https://developer.android.com", "Android Developers", System.currentTimeMillis() - 20000)
+            ),
+            favorites = listOf(
+                FavoriteItem(1L, "Google", "https://google.com")
+            )
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                    SearchOverlay(
+                        uiState = expandedState,
+                        onEvent = {}
+                    )
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 1080
+        val height = 1920
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/search_overlay_expanded_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        assertTrue(outputFile.exists())
     }
 }

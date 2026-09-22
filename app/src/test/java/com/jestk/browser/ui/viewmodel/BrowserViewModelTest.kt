@@ -2,6 +2,7 @@ package com.jestk.browser.ui.viewmodel
 
 import android.content.Context
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import androidx.compose.ui.geometry.Offset
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.data.local.AppDatabase
@@ -243,6 +244,103 @@ class BrowserViewModelTest {
 
             // Scroll up
             viewModel.onEvent(BrowserUiEvent.OnWebScroll(-25f))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
+        }
+
+    @Test
+    fun onWebScroll_withinFirstScreen_maintainsBottomBarVisible() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            // Open a webpage tab
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://example.com"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
+
+            // Scroll down within first screen (scrollY = 400, viewportHeight = 800)
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 25f, scrollY = 400, viewportHeight = 800))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
+
+            // Scroll down further within first screen (scrollY = 800, viewportHeight = 800)
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 25f, scrollY = 800, viewportHeight = 800))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
+        }
+
+    @Test
+    fun onWebScroll_belowHScreen_hidesOnScrollDownAndShowsOnScrollUp() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            // Open a webpage tab
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://example.com"))
+            advanceUntilIdle()
+
+            val viewportHeight = 800
+
+            // 1. Scroll down below h-screen -> bottom bar hides
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 25f, scrollY = 1200, viewportHeight = viewportHeight))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
+
+            // 2. Continuing downward scroll keeps it hidden
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 30f, scrollY = 1500, viewportHeight = viewportHeight))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
+
+            // 3. Scroll up below h-screen -> bottom bar reappears
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = -25f, scrollY = 1450, viewportHeight = viewportHeight))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
+
+            // 4. Scroll down again below h-screen -> bottom bar hides
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 20f, scrollY = 1500, viewportHeight = viewportHeight))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
+
+            // 5. Scroll back up into top screen (scrollY <= viewportHeight) -> bottom bar reappears
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 0f, scrollY = 600, viewportHeight = viewportHeight))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
+        }
+
+    @Test
+    fun onWebScroll_onHomeScreen_alwaysMaintainsBottomBarVisible() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isHome).isTrue()
+
+            // Even if scrolled down below a simulated screen height, dock never hides on Home screen
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 50f, scrollY = 1500, viewportHeight = 800))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
+        }
+
+    @Test
+    fun navigationEvents_resetBottomBarVisible() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            // Open a web page
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://example.com"))
+            advanceUntilIdle()
+
+            val activeTabId = viewModel.uiState.value.activeTabId!!
+
+            // Hide dock by scrolling down below h-screen
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 30f, scrollY = 1500, viewportHeight = 800))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
+
+            // Page navigation resets visibility
+            viewModel.onEvent(BrowserUiEvent.OnPageStarted(activeTabId, "https://example.com/page2"))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
+
+            // Hide dock again
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 30f, scrollY = 1500, viewportHeight = 800))
+            assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
+
+            // Opening a new tab resets visibility
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://another.com"))
+            advanceUntilIdle()
             assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
         }
 
@@ -814,6 +912,58 @@ class BrowserViewModelTest {
         }
 
     @Test
+    fun search_toggleSearchHistoryExpanded_updatesStateAndLoadsAllHistory() =
+        runTest(testDispatcher) {
+            for (i in 1..15) {
+                historyRepo.recordVisit("https://site$i.com", "Site $i")
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchHistoryExpanded).isFalse()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(10)
+
+            viewModel.onEvent(BrowserUiEvent.ToggleSearchHistoryExpanded)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchHistoryExpanded).isTrue()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(15)
+
+            viewModel.onEvent(BrowserUiEvent.ToggleSearchHistoryExpanded)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchHistoryExpanded).isFalse()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(10)
+        }
+
+    @Test
+    fun search_expandedHistory_backPressCollapsesHistoryFirst() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.activeOverlay).isEqualTo(OverlayType.SEARCH)
+
+            viewModel.onEvent(BrowserUiEvent.SetSearchHistoryExpanded(true))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchHistoryExpanded).isTrue()
+
+            // First back press collapses history expansion
+            viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchHistoryExpanded).isFalse()
+            assertThat(viewModel.uiState.value.activeOverlay).isEqualTo(OverlayType.SEARCH)
+
+            // Second back press closes search overlay
+            viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.activeOverlay).isEqualTo(OverlayType.NONE)
+        }
+
+    @Test
     fun linkContextMenu_showAndDismiss_updatesUiState() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()
@@ -822,15 +972,17 @@ class BrowserViewModelTest {
             assertThat(viewModel.uiState.value.linkContextMenuUrl).isNull()
 
             val testUrl = "https://example.com/target"
-            viewModel.onEvent(BrowserUiEvent.ShowLinkContextMenu(testUrl))
+            viewModel.onEvent(BrowserUiEvent.ShowLinkContextMenu(testUrl, anchorX = 250f, anchorY = 400f))
             advanceUntilIdle()
 
             assertThat(viewModel.uiState.value.linkContextMenuUrl).isEqualTo(testUrl)
+            assertThat(viewModel.uiState.value.contextMenuAnchor).isEqualTo(Offset(250f, 400f))
 
             viewModel.onEvent(BrowserUiEvent.DismissLinkContextMenu)
             advanceUntilIdle()
 
             assertThat(viewModel.uiState.value.linkContextMenuUrl).isNull()
+            assertThat(viewModel.uiState.value.contextMenuAnchor).isNull()
         }
 
     @Test
@@ -1169,15 +1321,27 @@ class BrowserViewModelTest {
             assertThat(viewModel.uiState.value.selectedImageUrl).isNull()
 
             val imageUrl = "https://example.com/photo.jpg"
-            viewModel.onEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+            val targetLink = "https://example.com/target-link"
+            viewModel.onEvent(
+                BrowserUiEvent.ShowImageContextMenu(
+                    imageUrl = imageUrl,
+                    linkUrl = targetLink,
+                    anchorX = 350f,
+                    anchorY = 550f,
+                )
+            )
             advanceUntilIdle()
 
             assertThat(viewModel.uiState.value.selectedImageUrl).isEqualTo(imageUrl)
+            assertThat(viewModel.uiState.value.imageContextMenuLinkUrl).isEqualTo(targetLink)
+            assertThat(viewModel.uiState.value.contextMenuAnchor).isEqualTo(Offset(350f, 550f))
 
             viewModel.onEvent(BrowserUiEvent.DismissImageContextMenu)
             advanceUntilIdle()
 
             assertThat(viewModel.uiState.value.selectedImageUrl).isNull()
+            assertThat(viewModel.uiState.value.imageContextMenuLinkUrl).isNull()
+            assertThat(viewModel.uiState.value.contextMenuAnchor).isNull()
         }
 
     @Test
@@ -1247,9 +1411,10 @@ class BrowserViewModelTest {
             advanceUntilIdle()
 
             val imageUrl = "https://example.com/backpress-test.png"
-            viewModel.onEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl))
+            viewModel.onEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl, anchorX = 200f, anchorY = 300f))
             advanceUntilIdle()
             assertThat(viewModel.uiState.value.selectedImageUrl).isEqualTo(imageUrl)
+            assertThat(viewModel.uiState.value.contextMenuAnchor).isEqualTo(Offset(200f, 300f))
 
             // Press back while image context menu is open
             viewModel.onEvent(BrowserUiEvent.HandleBackPress)
@@ -1257,7 +1422,27 @@ class BrowserViewModelTest {
 
             // Context menu is dismissed, but tabs remain intact
             assertThat(viewModel.uiState.value.selectedImageUrl).isNull()
+            assertThat(viewModel.uiState.value.contextMenuAnchor).isNull()
             assertThat(viewModel.uiState.value.tabs).hasSize(1)
+        }
+
+    @Test
+    fun linkContextMenu_withAnchor_backPress_dismissesMenuFirst() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val linkUrl = "https://example.com/link-backpress"
+            viewModel.onEvent(BrowserUiEvent.ShowLinkContextMenu(linkUrl, anchorX = 150f, anchorY = 250f))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.linkContextMenuUrl).isEqualTo(linkUrl)
+            assertThat(viewModel.uiState.value.contextMenuAnchor).isEqualTo(Offset(150f, 250f))
+
+            viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.linkContextMenuUrl).isNull()
+            assertThat(viewModel.uiState.value.contextMenuAnchor).isNull()
         }
 
     @Test

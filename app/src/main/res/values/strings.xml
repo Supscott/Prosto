@@ -13,6 +13,9 @@
     <string name="add_to_favorites">Add to Favorites</string>
     <string name="remove_favorite">Remove Favorite</string>
     <string name="clear_history">Clear History</string>
+    <string name="search_history_title">Search History</string>
+    <string name="expand_history">All History</string>
+    <string name="collapse_history">Collapse</string>
     <string name="recent_tabs_title">Recent Tabs</string>
     <string name="favorites_title">Favorites</string>
     <string name="show_all_favorites">Show All Favorites</string>

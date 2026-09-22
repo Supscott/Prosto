@@ -59,6 +59,8 @@ sealed interface BrowserUiEvent {
     data class AddFavorite(val title: String, val url: String) : BrowserUiEvent
     data class RemoveFavorite(val id: Long) : BrowserUiEvent
     data object ToggleFavoritesExpanded : BrowserUiEvent
+    data object ToggleSearchHistoryExpanded : BrowserUiEvent
+    data class SetSearchHistoryExpanded(val expanded: Boolean) : BrowserUiEvent
     data class DeleteHistoryItem(val id: Long) : BrowserUiEvent
     data object ClearAllHistory : BrowserUiEvent
     data class SelectHistorySuggestion(val item: HistoryItem) : BrowserUiEvent
@@ -69,7 +71,11 @@ sealed interface BrowserUiEvent {
     data class SetAdBlockerEnabled(val enabled: Boolean) : BrowserUiEvent
 
     // Dynamic UI Translation
-    data class OnWebScroll(val deltaY: Float) : BrowserUiEvent
+    data class OnWebScroll(
+        val deltaY: Float,
+        val scrollY: Int = 0,
+        val viewportHeight: Int = 0,
+    ) : BrowserUiEvent
     data class SetBottomBarVisibility(val visible: Boolean) : BrowserUiEvent
     data class ToggleMenu(val expanded: Boolean? = null) : BrowserUiEvent
     data class SetMenuExpanded(val expanded: Boolean) : BrowserUiEvent
@@ -87,7 +93,11 @@ sealed interface BrowserUiEvent {
     data object HandleBackPress : BrowserUiEvent
 
     // Link Context Menu
-    data class ShowLinkContextMenu(val url: String) : BrowserUiEvent
+    data class ShowLinkContextMenu(
+        val url: String,
+        val anchorX: Float? = null,
+        val anchorY: Float? = null,
+    ) : BrowserUiEvent
     data object DismissLinkContextMenu : BrowserUiEvent
     data class OpenTabInBackground(val url: String) : BrowserUiEvent
 
@@ -96,7 +106,12 @@ sealed interface BrowserUiEvent {
     data class CheckDefaultBrowser(val context: Context) : BrowserUiEvent
 
     // Image Context Menu
-    data class ShowImageContextMenu(val imageUrl: String) : BrowserUiEvent
+    data class ShowImageContextMenu(
+        val imageUrl: String,
+        val linkUrl: String? = null,
+        val anchorX: Float? = null,
+        val anchorY: Float? = null,
+    ) : BrowserUiEvent
     data object DismissImageContextMenu : BrowserUiEvent
     data class CopyImageUrl(val imageUrl: String) : BrowserUiEvent
     data class DownloadImage(val imageUrl: String) : BrowserUiEvent
