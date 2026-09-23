@@ -181,7 +181,7 @@ fun SearchOverlay(
                 }
             }
 
-            // Top Area: Scrollable column containing history suggestions & favorites
+            // Top Area: Scrollable column containing history suggestions
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -190,19 +190,6 @@ fun SearchOverlay(
                     .padding(bottom = 8.dp),
                 verticalArrangement = Arrangement.Bottom
             ) {
-                // Favorites squircle cards placed above search history (hidden when full history is expanded)
-                if (!uiState.isSearchHistoryExpanded && uiState.favorites.isNotEmpty()) {
-                    SearchFavoritesSection(
-                        favorites = uiState.favorites,
-                        isDark = isDark,
-                        onSelect = { url ->
-                            onEvent(BrowserUiEvent.LoadUrl(url))
-                            onEvent(BrowserUiEvent.DismissOverlay)
-                        },
-                        modifier = Modifier.padding(bottom = 12.dp)
-                    )
-                }
-
                 // Search History Suggestions starting from the bottom
                 val suggestions = uiState.searchHistorySuggestions
                 if (suggestions.isNotEmpty()) {
@@ -243,6 +230,19 @@ fun SearchOverlay(
                 }
 
                 Spacer(modifier = Modifier.height(4.dp))
+            }
+
+            // Favorites squircle cards placed directly above the search engine switcher
+            if (!uiState.isSearchHistoryExpanded && uiState.favorites.isNotEmpty()) {
+                SearchFavoritesSection(
+                    favorites = uiState.favorites,
+                    isDark = isDark,
+                    onSelect = { url ->
+                        onEvent(BrowserUiEvent.LoadUrl(url))
+                        onEvent(BrowserUiEvent.DismissOverlay)
+                    },
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
             }
 
             // Search Engine Switcher chips placed directly above the input field

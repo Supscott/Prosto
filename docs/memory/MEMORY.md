@@ -245,4 +245,25 @@
   - Long-press contextual menus must anchor near the touch position rather than opening as full-width bottom sheets, keeping the user's visual and tactile focus in context.
   - Touch coordinates are passed via `BrowserUiEvent` and held in `BrowserUiState.contextMenuAnchor`, enabling declarative positioning while allowing pure Compose unit testing and fallback centering when no coordinates are present.
 
+### Session: Restore Search Overlay Favorites Above Search Engine Selector
 
+- **Completed:**
+  - Restored the Favorites section (`SearchFavoritesSection`) in [`SearchOverlay.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt) immediately above the search engine selector chips (`SearchEngineSwitcherRow`), fixing regression where it had been placed above the search history list.
+  - Preserved `isSearchHistoryExpanded` behavior so favorites hide cleanly when the user expands history to full view.
+  - Re-ran [`SearchOverlayPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/SearchOverlayPreviewTest.kt) and visually validated both collapsed and expanded preview PNGs (`search_overlay_preview.png` and `search_overlay_expanded_preview.png`).
+- **Current State:**
+  - `:app:testDebugUnitTest` fully green (all 33 actionable tasks executed/up-to-date, all unit and preview tests passing).
+- **Key Architectural Decisions:**
+  - The Search screen layout structure is fixed: Search History (scrollable, expands upwards) -> Favorites (`SearchFavoritesSection`, docked above engine switcher) -> Search Engine Switcher (`SearchEngineSwitcherRow`) -> Search Input Bar (`HeroSearchInputField`).
+
+### Session: Safearea Bottom for WebView Content
+
+- **Completed:**
+  - Preserved `Modifier.navigationBarsPadding()` on `contentModifier` in [`WebViewContainer.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/views/WebViewContainer.kt) while dynamically animating `bottomPadding` between `62.dp` (when floating dock is visible) and `0.dp` (when floating dock is hidden).
+  - Fixed issue where web page content (footers, buttons, pagination, bottom text) would extend under the Android system navigation bar (gesture pill or 3-button navigation).
+  - The WebView now takes all available space above the system navigation bar when the dock is hidden, leaving the system navigation bar safe area intact.
+  - Updated visual preview test in [`BottomBarPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/navigation/BottomBarPreviewTest.kt) to test and visually verify the hidden state with safe area bottom (`dock_hidden_preview.png`).
+- **Current State:**
+  - All unit tests and visual preview tests passing (`:app:testDebugUnitTest` green, `BUILD SUCCESSFUL in 45s`).
+- **Key Architectural Decisions:**
+  - `navigationBarsPadding()` is kept on `contentModifier` so that the web page viewport bottom boundary always respects the system navigation safe area. The dock auto-hide animation strictly collapses the `62.dp` dock height padding down to `0.dp`.

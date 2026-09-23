@@ -362,7 +362,7 @@ class BottomBarPreviewTest {
             visibleBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
 
-        // 2. Render Hidden State: bottom bar hidden, webview fills full screen down to bottom (0dp padding)
+        // 2. Render Hidden State: bottom bar hidden, webview fills space down to safe area bottom (24dp nav padding)
         val hiddenView = ComposeView(activity).apply {
             setContent {
                 JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
@@ -371,14 +371,23 @@ class BottomBarPreviewTest {
                             .fillMaxSize()
                             .background(Color(0xFFE8ECEF))
                     ) {
-                        // Webview container fills full height without bottom padding
+                        // Webview container fills space with safearea bottom
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(bottom = 0.dp)
+                                .padding(bottom = 24.dp)
                         ) {
                             MockWebPageContent()
                         }
+
+                        // Simulated gesture navigation indicator in safe area
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 6.dp)
+                                .size(width = 120.dp, height = 4.dp)
+                                .background(Color(0xFF8E8E93), RoundedCornerShape(2.dp))
+                        )
                     }
                 }
             }
@@ -398,8 +407,8 @@ class BottomBarPreviewTest {
             hiddenBitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
 
-        // Assert that the bottom area differs between visible dock (dock capsule + underlay) and hidden dock (expanded webpage)
-        val checkY = height - 40 // In the bottom 40px area
+        // Assert that the dock area (height - 50) differs between visible dock (dock capsule + underlay) and hidden dock (expanded webpage)
+        val checkY = height - 50 // In the 62dp space above safearea bottom
         var hasPixelDiff = false
         for (x in 200..800 step 20) {
             if (visibleBitmap.getPixel(x, checkY) != hiddenBitmap.getPixel(x, checkY)) {

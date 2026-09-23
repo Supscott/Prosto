@@ -85,12 +85,11 @@ fun WebViewContainer(
     val surfaceColor = MaterialTheme.colorScheme.surface.toArgb()
 
     val isImeVisible = WindowInsets.isImeVisible
-    val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val targetBottomPadding = when {
         uiState.isFullscreenCustomView -> 0.dp
         isImeVisible -> 0.dp
         !uiState.isBottomBarVisible -> 0.dp
-        else -> 62.dp + navBarBottom
+        else -> 62.dp
     }
     val bottomPadding by animateDpAsState(
         targetValue = targetBottomPadding,
@@ -235,6 +234,7 @@ fun WebViewContainer(
             .fillMaxSize()
             .statusBarsPadding()
             .padding(bottom = bottomPadding)
+            .navigationBarsPadding()
             .imePadding()
     }
 
