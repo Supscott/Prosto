@@ -74,4 +74,34 @@ class HistoryRepositoryTest {
         val history = repository.getAllHistory().first()
         assertThat(history).isEmpty()
     }
+
+    @Test
+    fun getPagedHistory_delegatesToDaoAndMapsToDomain() = runTest(testDispatcher) {
+        for (i in 1..25) {
+            repository.recordVisit("https://site$i.com", "Site $i")
+        }
+
+        val page1 = repository.getPagedHistory(limit = 10, offset = 0)
+        assertThat(page1).hasSize(10)
+        assertThat(page1[0].url).isEqualTo("https://site25.com")
+
+        val page2 = repository.getPagedHistory(limit = 10, offset = 10)
+        assertThat(page2).hasSize(10)
+        assertThat(page2[0].url).isEqualTo("https://site15.com")
+
+        val page3 = repository.getPagedHistory(limit = 10, offset = 20)
+        assertThat(page3).hasSize(5)
+        assertThat(page3[0].url).isEqualTo("https://site5.com")
+    }
+
+    @Test
+    fun searchHistoryPaged_delegatesToDaoAndMapsToDomain() = runTest(testDispatcher) {
+        for (i in 1..15) {
+            repository.recordVisit("https://search-site$i.com", "Search Item $i")
+        }
+
+        val page = repository.searchHistoryPaged(query = "Search", limit = 10, offset = 0)
+        assertThat(page).hasSize(10)
+        assertThat(page[0].title).isEqualTo("Search Item 15")
+    }
 }

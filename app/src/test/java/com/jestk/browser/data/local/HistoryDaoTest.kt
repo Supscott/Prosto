@@ -109,4 +109,56 @@ class HistoryDaoTest {
             val history = historyDao.getAllHistoryFlow().first()
             assertThat(history).isEmpty()
         }
+
+    @Test
+    fun getPagedHistory_returnsCorrectLimitAndOffset() =
+        runTest {
+            for (i in 1..25) {
+                historyDao.insertHistory(
+                    HistoryEntity(
+                        url = "https://site$i.com",
+                        title = "Site $i",
+                        timestamp = 1000L * i,
+                    ),
+                )
+            }
+
+            val page1 = historyDao.getPagedHistory(limit = 10, offset = 0)
+            assertThat(page1).hasSize(10)
+            // Most recent timestamp is site 25
+            assertThat(page1[0].url).isEqualTo("https://site25.com")
+            assertThat(page1[9].url).isEqualTo("https://site16.com")
+
+            val page2 = historyDao.getPagedHistory(limit = 10, offset = 10)
+            assertThat(page2).hasSize(10)
+            assertThat(page2[0].url).isEqualTo("https://site15.com")
+            assertThat(page2[9].url).isEqualTo("https://site6.com")
+
+            val page3 = historyDao.getPagedHistory(limit = 10, offset = 20)
+            assertThat(page3).hasSize(5)
+            assertThat(page3[0].url).isEqualTo("https://site5.com")
+            assertThat(page3[4].url).isEqualTo("https://site1.com")
+        }
+
+    @Test
+    fun searchHistoryPaged_returnsMatchingItemsWithPagination() =
+        runTest {
+            for (i in 1..15) {
+                historyDao.insertHistory(
+                    HistoryEntity(
+                        url = "https://example.com/topic$i",
+                        title = "Article topic $i",
+                        timestamp = 1000L * i,
+                    ),
+                )
+            }
+
+            val pagedMatches = historyDao.searchHistoryPaged(query = "topic", limit = 10, offset = 0)
+            assertThat(pagedMatches).hasSize(10)
+            assertThat(pagedMatches[0].url).isEqualTo("https://example.com/topic15")
+
+            val pagedMatches2 = historyDao.searchHistoryPaged(query = "topic", limit = 10, offset = 10)
+            assertThat(pagedMatches2).hasSize(5)
+            assertThat(pagedMatches2[0].url).isEqualTo("https://example.com/topic5")
+        }
 }

@@ -31,6 +31,16 @@ class HistoryRepositoryImpl(
             .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
+    override suspend fun getPagedHistory(limit: Int, offset: Int): List<HistoryItem> =
+        withContext(ioDispatcher) {
+            historyDao.getPagedHistory(limit, offset).map { it.toDomain() }
+        }
+
+    override suspend fun searchHistoryPaged(query: String, limit: Int, offset: Int): List<HistoryItem> =
+        withContext(ioDispatcher) {
+            historyDao.searchHistoryPaged(query, limit, offset).map { it.toDomain() }
+        }
+
     override suspend fun recordVisit(url: String, title: String) = withContext(ioDispatcher) {
         if (url.isNotBlank() && !url.startsWith("about:")) {
             historyDao.recordVisit(url, title)

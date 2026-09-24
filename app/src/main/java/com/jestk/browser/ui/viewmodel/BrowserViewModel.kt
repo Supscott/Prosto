@@ -20,6 +20,7 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.util.DefaultBrowserHelper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -52,6 +53,11 @@ class BrowserViewModel(
 ) : ViewModel() {
     private val tabOperationMutex = Mutex()
     private val tabThemeColors = java.util.concurrent.ConcurrentHashMap<String, Int>()
+    private var historyJob: Job? = null
+
+    companion object {
+        private const val HISTORY_PAGE_SIZE = 20
+    }
 
     private val _uiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = _uiState.asStateFlow()
@@ -369,6 +375,8 @@ class BrowserViewModel(
                             activeOverlay = OverlayType.SEARCH,
                             searchQuery = prefill,
                             isSearchHistoryExpanded = false,
+                            isLoadingMoreHistory = false,
+                            hasMoreHistory = true,
                         )
                     }
                     updateHistorySuggestions(prefill)
@@ -505,13 +513,25 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.DeleteHistoryItem -> {
+                _uiState.update { state ->
+                    state.copy(
+                        searchHistorySuggestions = state.searchHistorySuggestions.filterNot { it.id == event.id }
+                    )
+                }
                 viewModelScope.launch(ioDispatcher) {
                     historyRepository.deleteHistory(event.id)
                 }
             }
 
             is BrowserUiEvent.ClearAllHistory -> {
-                _uiState.update { it.copy(recentTabs = emptyList()) }
+                _uiState.update {
+                    it.copy(
+                        recentTabs = emptyList(),
+                        searchHistorySuggestions = emptyList(),
+                        isLoadingMoreHistory = false,
+                        hasMoreHistory = false,
+                    )
+                }
                 viewModelScope.launch(ioDispatcher) {
                     historyRepository.clearHistory()
                     if (recentTabRepository != null) {
@@ -528,13 +548,29 @@ class BrowserViewModel(
 
             is BrowserUiEvent.ToggleSearchHistoryExpanded -> {
                 val target = !_uiState.value.isSearchHistoryExpanded
-                _uiState.update { it.copy(isSearchHistoryExpanded = target) }
+                _uiState.update {
+                    it.copy(
+                        isSearchHistoryExpanded = target,
+                        isLoadingMoreHistory = false,
+                        hasMoreHistory = true,
+                    )
+                }
                 updateHistorySuggestions(_uiState.value.searchQuery)
             }
 
             is BrowserUiEvent.SetSearchHistoryExpanded -> {
-                _uiState.update { it.copy(isSearchHistoryExpanded = event.expanded) }
+                _uiState.update {
+                    it.copy(
+                        isSearchHistoryExpanded = event.expanded,
+                        isLoadingMoreHistory = false,
+                        hasMoreHistory = true,
+                    )
+                }
                 updateHistorySuggestions(_uiState.value.searchQuery)
+            }
+
+            is BrowserUiEvent.LoadMoreSearchHistory -> {
+                loadMoreSearchHistory()
             }
 
             is BrowserUiEvent.SetThemeMode -> {
@@ -1121,20 +1157,71 @@ class BrowserViewModel(
     }
 
     private fun updateHistorySuggestions(query: String) {
-        viewModelScope.launch(ioDispatcher) {
+        historyJob?.cancel()
+        historyJob = viewModelScope.launch(ioDispatcher) {
             val isExpanded = _uiState.value.isSearchHistoryExpanded
-            val historyFlow =
-                if (query.isBlank()) {
-                    if (isExpanded) {
-                        historyRepository.getAllHistory()
-                    } else {
-                        historyRepository.getRecentHistory(10)
-                    }
+            if (isExpanded) {
+                _uiState.update { it.copy(isLoadingMoreHistory = false) }
+                val initialPage = if (query.isBlank()) {
+                    historyRepository.getPagedHistory(limit = HISTORY_PAGE_SIZE, offset = 0)
                 } else {
-                    historyRepository.searchHistory(query)
+                    historyRepository.searchHistoryPaged(query = query, limit = HISTORY_PAGE_SIZE, offset = 0)
                 }
-            historyFlow.collectLatest { results ->
-                _uiState.update { it.copy(searchHistorySuggestions = results) }
+                _uiState.update {
+                    it.copy(
+                        searchHistorySuggestions = initialPage,
+                        hasMoreHistory = initialPage.size >= HISTORY_PAGE_SIZE,
+                        isLoadingMoreHistory = false,
+                    )
+                }
+            } else {
+                val historyFlow =
+                    if (query.isBlank()) {
+                        historyRepository.getRecentHistory(10)
+                    } else {
+                        historyRepository.searchHistory(query)
+                    }
+                historyFlow.collectLatest { results ->
+                    _uiState.update {
+                        it.copy(
+                            searchHistorySuggestions = results,
+                            hasMoreHistory = true,
+                            isLoadingMoreHistory = false,
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private fun loadMoreSearchHistory() {
+        val current = _uiState.value
+        if (!current.isSearchHistoryExpanded) return
+        if (current.isLoadingMoreHistory) return
+        if (!current.hasMoreHistory) return
+
+        _uiState.update { it.copy(isLoadingMoreHistory = true) }
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                val currentSuggestions = _uiState.value.searchHistorySuggestions
+                val query = _uiState.value.searchQuery
+                val offset = currentSuggestions.size
+                val nextPage = if (query.isBlank()) {
+                    historyRepository.getPagedHistory(limit = HISTORY_PAGE_SIZE, offset = offset)
+                } else {
+                    historyRepository.searchHistoryPaged(query = query, limit = HISTORY_PAGE_SIZE, offset = offset)
+                }
+
+                _uiState.update { state ->
+                    val combined = (state.searchHistorySuggestions + nextPage).distinctBy { it.id }
+                    state.copy(
+                        searchHistorySuggestions = combined,
+                        isLoadingMoreHistory = false,
+                        hasMoreHistory = nextPage.size >= HISTORY_PAGE_SIZE,
+                    )
+                }
+            } catch (_: Exception) {
+                _uiState.update { it.copy(isLoadingMoreHistory = false) }
             }
         }
     }
@@ -1393,13 +1480,26 @@ class BrowserViewModel(
             return
         }
         if (current.isSearchHistoryExpanded) {
-            _uiState.update { it.copy(isSearchHistoryExpanded = false) }
+            _uiState.update {
+                it.copy(
+                    isSearchHistoryExpanded = false,
+                    isLoadingMoreHistory = false,
+                    hasMoreHistory = true,
+                )
+            }
             updateHistorySuggestions(current.searchQuery)
             return
         }
         val isDismissibleOverlay = current.activeOverlay != OverlayType.NONE && current.activeOverlay != OverlayType.HOME
         if (isDismissibleOverlay) {
-            _uiState.update { it.copy(activeOverlay = OverlayType.NONE, isSearchHistoryExpanded = false) }
+            _uiState.update {
+                it.copy(
+                    activeOverlay = OverlayType.NONE,
+                    isSearchHistoryExpanded = false,
+                    isLoadingMoreHistory = false,
+                    hasMoreHistory = true,
+                )
+            }
             return
         }
 

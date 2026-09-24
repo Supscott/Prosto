@@ -16,6 +16,7 @@
     <string name="search_history_title">Search History</string>
     <string name="expand_history">All History</string>
     <string name="collapse_history">Collapse</string>
+    <string name="loading_more_history">Loading more…</string>
     <string name="recent_tabs_title">Recent Tabs</string>
     <string name="favorites_title">Favorites</string>
     <string name="show_all_favorites">Show All Favorites</string>

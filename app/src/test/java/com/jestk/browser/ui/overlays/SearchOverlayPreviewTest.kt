@@ -279,4 +279,55 @@ class SearchOverlayPreviewTest {
         }
         assertTrue(outputFile.exists())
     }
+
+    @Test
+    fun renderSearchOverlayExpandedHistoryLoadingMorePreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val loadingMoreState = BrowserUiState(
+            searchQuery = "",
+            isSearchHistoryExpanded = true,
+            isLoadingMoreHistory = true,
+            settings = BrowserSettings(searchEngine = SearchEngine.DUCKDUCKGO),
+            searchHistorySuggestions = listOf(
+                HistoryItem(1L, "https://duckduckgo.com/?q=android+compose", "Android Compose", System.currentTimeMillis()),
+                HistoryItem(2L, "https://google.com/search?q=kotlin+coroutines", "Kotlin Coroutines", System.currentTimeMillis() - 10000),
+                HistoryItem(3L, "https://developer.android.com", "Android Developers", System.currentTimeMillis() - 20000)
+            ),
+            favorites = listOf(
+                FavoriteItem(1L, "Google", "https://google.com")
+            )
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    SearchOverlay(
+                        uiState = loadingMoreState,
+                        onEvent = {}
+                    )
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 1080
+        val height = 1920
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/search_overlay_loading_more_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        assertTrue(outputFile.exists())
+    }
 }

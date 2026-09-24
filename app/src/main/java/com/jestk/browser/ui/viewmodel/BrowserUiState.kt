@@ -30,6 +30,8 @@ data class BrowserUiState(
     val searchQuery: String = "",
     val searchHistorySuggestions: List<HistoryItem> = emptyList(),
     val isSearchHistoryExpanded: Boolean = false,
+    val isLoadingMoreHistory: Boolean = false,
+    val hasMoreHistory: Boolean = true,
     // Favorites & Recents
     val favorites: List<FavoriteItem> = emptyList(),
     val isFavoritesExpanded: Boolean = false,

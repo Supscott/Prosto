@@ -58,6 +58,24 @@ interface HistoryDao {
     @Query(
         """
         SELECT * FROM history AS h
+        WHERE h.id = (
+            SELECT latest.id FROM history AS latest
+            WHERE latest.url = h.url
+            ORDER BY latest.timestamp DESC, latest.id DESC
+            LIMIT 1
+        )
+        ORDER BY h.timestamp DESC
+        LIMIT :limit OFFSET :offset
+    """,
+    )
+    suspend fun getPagedHistory(
+        limit: Int = 20,
+        offset: Int = 0,
+    ): List<HistoryEntity>
+
+    @Query(
+        """
+        SELECT * FROM history AS h
         WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
           AND h.id = (
               SELECT latest.id FROM history AS latest
@@ -91,6 +109,26 @@ interface HistoryDao {
     suspend fun searchHistory(
         query: String,
         limit: Int = 15,
+    ): List<HistoryEntity>
+
+    @Query(
+        """
+        SELECT * FROM history AS h
+        WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
+          AND h.id = (
+              SELECT latest.id FROM history AS latest
+              WHERE latest.url = h.url
+              ORDER BY latest.timestamp DESC, latest.id DESC
+              LIMIT 1
+          )
+        ORDER BY h.timestamp DESC
+        LIMIT :limit OFFSET :offset
+    """,
+    )
+    suspend fun searchHistoryPaged(
+        query: String,
+        limit: Int = 20,
+        offset: Int = 0,
     ): List<HistoryEntity>
 
     @Query("SELECT * FROM history WHERE url = :url ORDER BY timestamp DESC LIMIT 1")

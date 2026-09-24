@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -60,6 +61,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -161,15 +163,49 @@ fun SearchOverlay(
             ) {
             val scrollState = rememberScrollState()
 
-            LaunchedEffect(uiState.searchHistorySuggestions.size, uiState.isSearchHistoryExpanded) {
+            var prevSize by remember { mutableIntStateOf(uiState.searchHistorySuggestions.size) }
+            var prevMaxValue by remember { mutableIntStateOf(0) }
+
+            // Scroll to bottom on initial open, expansion toggle, or query change
+            LaunchedEffect(uiState.isSearchHistoryExpanded, uiState.searchQuery) {
                 if (scrollState.maxValue > 0) {
                     scrollState.scrollTo(scrollState.maxValue)
                 }
+                prevSize = uiState.searchHistorySuggestions.size
+                prevMaxValue = scrollState.maxValue
             }
 
+            // Smooth scroll preservation on pagination, or bottom-scroll on initial layout
             LaunchedEffect(scrollState.maxValue) {
-                if (scrollState.maxValue > 0) {
-                    scrollState.scrollTo(scrollState.maxValue)
+                val currentSize = uiState.searchHistorySuggestions.size
+                val currentMax = scrollState.maxValue
+                if (currentSize > prevSize && prevSize > 0) {
+                    val delta = currentMax - prevMaxValue
+                    if (delta > 0) {
+                        scrollState.scrollTo(scrollState.value + delta)
+                    }
+                } else if (prevSize == 0 && currentMax > 0) {
+                    scrollState.scrollTo(currentMax)
+                }
+                prevSize = currentSize
+                prevMaxValue = currentMax
+            }
+
+            // Pagination trigger: When user scrolls to the end of the loaded list (top of reversed list)
+            LaunchedEffect(
+                scrollState.value,
+                uiState.isSearchHistoryExpanded,
+                uiState.hasMoreHistory,
+                uiState.isLoadingMoreHistory,
+                uiState.searchHistorySuggestions.size
+            ) {
+                if (uiState.isSearchHistoryExpanded &&
+                    uiState.hasMoreHistory &&
+                    !uiState.isLoadingMoreHistory &&
+                    uiState.searchHistorySuggestions.isNotEmpty() &&
+                    scrollState.value <= 20
+                ) {
+                    onEvent(BrowserUiEvent.LoadMoreSearchHistory)
                 }
             }
 
@@ -189,6 +225,7 @@ fun SearchOverlay(
                         items = suggestions,
                         isDark = isDark,
                         isExpanded = uiState.isSearchHistoryExpanded,
+                        isLoadingMore = uiState.isLoadingMoreHistory,
                         onToggleExpand = {
                             keyboardController?.hide()
                             onEvent(BrowserUiEvent.ToggleSearchHistoryExpanded)
@@ -427,6 +464,7 @@ private fun InsetGroupedHistoryCard(
     items: List<HistoryItem>,
     isDark: Boolean,
     isExpanded: Boolean,
+    isLoadingMore: Boolean = false,
     onToggleExpand: () -> Unit,
     onItemClick: (HistoryItem) -> Unit,
     onInsertQuery: (HistoryItem) -> Unit,
@@ -511,6 +549,36 @@ private fun InsetGroupedHistoryCard(
             Column(
                 modifier = Modifier.fillMaxWidth()
             ) {
+                // Loading indicator at the top (end of loaded list in reversed layout)
+                if (isLoadingMore) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = SereneBrandPrimary,
+                                strokeWidth = 2.dp
+                            )
+                            Text(
+                                text = stringResource(R.string.loading_more_history),
+                                style = LocalSereneTypography.current.labelMd,
+                                color = if (isDark) DarkOnSurfaceVariant else SereneMutedSlate
+                            )
+                        }
+                    }
+                    HorizontalDivider(
+                        color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                        modifier = Modifier.padding(start = 14.dp, end = 14.dp)
+                    )
+                }
+
                 reversedItems.forEachIndexed { index, item ->
                     Row(
                         modifier = Modifier

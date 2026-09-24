@@ -964,6 +964,86 @@ class BrowserViewModelTest {
         }
 
     @Test
+    fun search_expandedHistory_paginationLoadsNextPageOnLoadMore() =
+        runTest(testDispatcher) {
+            for (i in 1..45) {
+                historyRepo.recordVisit("https://site$i.com", "Site $i")
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchHistoryExpanded).isFalse()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(10)
+
+            // Expanding history loads first page of 20 items
+            viewModel.onEvent(BrowserUiEvent.ToggleSearchHistoryExpanded)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchHistoryExpanded).isTrue()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(20)
+            assertThat(viewModel.uiState.value.hasMoreHistory).isTrue()
+            assertThat(viewModel.uiState.value.isLoadingMoreHistory).isFalse()
+
+            // Trigger LoadMoreSearchHistory loads page 2 (40 items total)
+            viewModel.onEvent(BrowserUiEvent.LoadMoreSearchHistory)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(40)
+            assertThat(viewModel.uiState.value.hasMoreHistory).isTrue()
+            assertThat(viewModel.uiState.value.isLoadingMoreHistory).isFalse()
+
+            // Trigger LoadMoreSearchHistory loads page 3 (remaining 5 items -> 45 total)
+            viewModel.onEvent(BrowserUiEvent.LoadMoreSearchHistory)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(45)
+            assertThat(viewModel.uiState.value.hasMoreHistory).isFalse()
+            assertThat(viewModel.uiState.value.isLoadingMoreHistory).isFalse()
+
+            // Trigger LoadMoreSearchHistory when hasMoreHistory == false does nothing
+            viewModel.onEvent(BrowserUiEvent.LoadMoreSearchHistory)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(45)
+
+            // Collapsing history restores recent 10 items
+            viewModel.onEvent(BrowserUiEvent.ToggleSearchHistoryExpanded)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchHistoryExpanded).isFalse()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(10)
+        }
+
+    @Test
+    fun search_expandedHistory_queryFilteringPagination() =
+        runTest(testDispatcher) {
+            for (i in 1..30) {
+                historyRepo.recordVisit("https://site$i.com/android", "Android Topic $i")
+            }
+            for (i in 1..10) {
+                historyRepo.recordVisit("https://other$i.com/web", "Other Site $i")
+            }
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.UpdateSearchQuery("Android"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.SetSearchHistoryExpanded(true))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchHistoryExpanded).isTrue()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(20)
+            assertThat(viewModel.uiState.value.hasMoreHistory).isTrue()
+
+            viewModel.onEvent(BrowserUiEvent.LoadMoreSearchHistory)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(30)
+            assertThat(viewModel.uiState.value.hasMoreHistory).isFalse()
+        }
+
+    @Test
     fun linkContextMenu_showAndDismiss_updatesUiState() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()

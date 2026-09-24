@@ -61,6 +61,7 @@ sealed interface BrowserUiEvent {
     data object ToggleFavoritesExpanded : BrowserUiEvent
     data object ToggleSearchHistoryExpanded : BrowserUiEvent
     data class SetSearchHistoryExpanded(val expanded: Boolean) : BrowserUiEvent
+    data object LoadMoreSearchHistory : BrowserUiEvent
     data class DeleteHistoryItem(val id: Long) : BrowserUiEvent
     data object ClearAllHistory : BrowserUiEvent
     data class SelectHistorySuggestion(val item: HistoryItem) : BrowserUiEvent
