@@ -1,4 +1,4 @@
-package com.jestk.browser.ui.overlays
+package com.jestk.browser.ui.screens
 
 import android.app.DownloadManager
 import android.content.ActivityNotFoundException
@@ -62,9 +62,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.FileProvider
 import com.jestk.browser.domain.model.DownloadItem
+import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.DarkBackground
+import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
@@ -114,6 +117,7 @@ fun DownloadsScreen(
     }
 }
 
+@Deprecated("Use DownloadsScreen directly")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DownloadsSheet(
@@ -152,7 +156,6 @@ fun DownloadsContent(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .navigationBarsPadding()
             .padding(horizontal = 20.dp)
     ) {
         // Header Bar
@@ -647,4 +650,26 @@ private fun getMimeTypeFromExtension(fileName: String): String? {
     val ext = fileName.substringAfterLast('.', "")
     if (ext.isEmpty()) return null
     return MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.lowercase(Locale.ROOT))
+}
+
+@Preview(name = "DownloadsScreen Light", showBackground = true, widthDp = 412, heightDp = 800)
+@Composable
+fun DownloadsScreenLightPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+        DownloadsScreen(
+            uiState = BrowserUiState(),
+            onEvent = {}
+        )
+    }
+}
+
+@Preview(name = "DownloadsScreen Dark", showBackground = true, widthDp = 412, heightDp = 800)
+@Composable
+fun DownloadsScreenDarkPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+        DownloadsScreen(
+            uiState = BrowserUiState(),
+            onEvent = {}
+        )
+    }
 }

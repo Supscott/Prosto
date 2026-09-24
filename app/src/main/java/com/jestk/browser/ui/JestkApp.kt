@@ -75,12 +75,12 @@ import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
-import com.jestk.browser.ui.overlays.DownloadsSheet
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
 import com.jestk.browser.ui.overlays.LinkContextMenuModal
 import com.jestk.browser.ui.overlays.SearchOverlay
-import com.jestk.browser.ui.overlays.SettingsSheet
 import com.jestk.browser.ui.overlays.TabOverviewGrid
+import com.jestk.browser.ui.screens.DownloadsScreen
+import com.jestk.browser.ui.screens.SettingsScreen
 import com.jestk.browser.ui.pip.FloatingVideoMiniPlayer
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
@@ -217,7 +217,12 @@ fun JestkApp(
                 uiState.currentUrl == "about:blank"
 
         val defaultBg = if (isDark) DarkBackground else SereneCanvasFloor
-        val targetAppBg = if (showHomeScreen || siteColor == null) defaultBg else Color(siteColor)
+        val targetAppBg =
+            if (showHomeScreen || siteColor == null || uiState.isSettingsVisible || uiState.isDownloadsVisible) {
+                defaultBg
+            } else {
+                Color(siteColor)
+            }
         val animatedAppBg by animateColorAsState(
             targetValue = targetAppBg,
             animationSpec = tween(durationMillis = 350),
@@ -359,7 +364,9 @@ fun JestkApp(
             // Unified Single-Tier Bottom Navigation Bar
             val isBottomBarVisible = uiState.isBottomBarVisible &&
                 !uiState.isFullscreenCustomView &&
-                !WindowInsets.isImeVisible
+                !WindowInsets.isImeVisible &&
+                !uiState.isSettingsVisible &&
+                !uiState.isDownloadsVisible
 
             AnimatedVisibility(
                 visible = isBottomBarVisible,
@@ -408,17 +415,36 @@ fun JestkApp(
                 )
             }
 
-            if (uiState.isSettingsVisible) {
-                SettingsSheet(
+            // Dedicated full screens with smooth animated transitions
+            AnimatedVisibility(
+                visible = uiState.isSettingsVisible,
+                enter =
+                    fadeIn(tween(220, easing = FastOutSlowInEasing)) +
+                        slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 4 },
+                exit =
+                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
+                        slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 4 },
+            ) {
+                SettingsScreen(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
 
-            if (uiState.isDownloadsVisible) {
-                DownloadsSheet(
+            AnimatedVisibility(
+                visible = uiState.isDownloadsVisible,
+                enter =
+                    fadeIn(tween(220, easing = FastOutSlowInEasing)) +
+                        slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 4 },
+                exit =
+                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
+                        slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 4 },
+            ) {
+                DownloadsScreen(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
 
