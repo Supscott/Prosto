@@ -158,6 +158,74 @@ class BottomBarPreviewTest {
     }
 
     @Test
+    fun renderLightDockPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val figmaLightState = BrowserUiState(
+            currentUrl = "https://figma.com",
+            pageTitle = "Figma — Palette Presentation",
+            tabs = listOf(
+                Tab(id = "1", url = "https://figma.com", title = "Figma — Palette Presentation", isActive = true),
+                Tab(id = "2", url = "https://github.com", title = "GitHub", isActive = false)
+            ),
+            activeTabId = "1"
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xFFE8ECEF))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(bottom = 86.dp)
+                        ) {
+                            MockWebPageContent()
+                        }
+
+                        UnifiedBottomBar(
+                            uiState = figmaLightState,
+                            onEvent = {},
+                            modifier = Modifier.align(Alignment.BottomCenter)
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .padding(bottom = 6.dp)
+                                .size(width = 120.dp, height = 4.dp)
+                                .background(Color(0xFF8E8E93), RoundedCornerShape(2.dp))
+                        )
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 1080
+        val height = 480
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/dock_light_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+    }
+
+    @Test
     fun renderAppleDarkPreview() {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()

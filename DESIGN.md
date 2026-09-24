@@ -139,10 +139,32 @@ The palette is tuned around balanced cerulean tones and airy sky-washed neutrals
 - **Dark Text (`#0F172A`)**: Rich midnight navy for crisp typography with superior readability.
 - **Muted Slate (`#64748B`)**: Secondary text, tab metadata, inactive icons, and structural line dividers.
 
+### Dark Theme Palette (Figma Reference)
+
+The dark mode palette adopts deep midnight blues and crisp slate contrasts:
+
+- **Canvas Floor (`#080F19`)**: Deep midnight background base for the canvas viewport.
+- **Dock Base (`#0D1824`)**:
+  - Dock Container: `#0D1824` at **80% opacity** (`rgba(13, 24, 36, 0.80)`) with elevation shadow.
+  - Active Tab Capsule: `#0D1824` at **100% opacity** (`#0D1824`) with light elevation shadow.
+- **Card Surface (`#1E293B`)**: Solid elevated surface for cards, menus, and sheets.
+- **Text & Foreground (`#F8FAFC`)**: Crisp off-white for primary headlines and active tab titles.
+- **Secondary Slate (`#94A3B8`)**: Secondary labels, inactive icons, and metadata in dark mode.
+- **Muted Slate (`#64748B`)**: Structural dividers and borders.
+- **Accent Navy (`#1E3A8A`)**: Deep blue container/accent tint.
+- **Primary Sky (`#2271B3`)**: Primary actions and interactive highlights.
+- **Accent Light Blue (`#60A5FA`)**: Focused rings, badges, and glows.
+
 ### Hierarchy & Tint Rules
 
-- Interactive floating dock elements leverage `#FFFFFF` with frosted transparency (`rgba(255, 255, 255, 0.88)` on iOS/Android) alongside blurred backdrops.
-- Primary active states on tab capsules use tinted backgrounds (`rgba(34, 113, 179, 0.08)`) paired with `#2271B3` text/icon elements.
+- Floating Dock Bar:
+  - Light theme: `#FFFFFF` at **80% opacity** (`rgba(255, 255, 255, 0.80)`) with tactile elevation shadow.
+  - Dark theme: `#0D1824` at **80% opacity** (`rgba(13, 24, 36, 0.80)`) with tactile elevation shadow.
+- Active Tab Capsule:
+  - Light theme: `#FFFFFF` at **100% opacity** with light elevation shadow (2.dp), no outline.
+  - Dark theme: `#0D1824` at **100% opacity** with light elevation shadow (2.dp), no outline.
+  - Favicon rendered directly without background squircle container.
+  - Title styled in **bold** typography.
 
 ## Typography
 
@@ -196,10 +218,11 @@ The interface embraces a continuous **pill and ultra-soft shape hierarchy** (`ro
 ### 2. Floating Dock Bar (Mobile Tab Bar)
 
 - Persistent floating capsule positioned 16px above the device bottom indicator.
-- Houses active space indicator, current tabs carousel, quick "+" action, and drawer menu toggle.
+- Dock surface: `#FFFFFF` at 80% opacity (Light) / `#0D1824` at 80% opacity (Dark) with tactile elevation shadow.
+- Houses current tabs carousel, quick "+" action, and drawer menu toggle.
 - Tab chips inside dock:
-  - Active: `#FFFFFF` pill, tinted background `rgba(34, 113, 179, 0.10)`, text `#2271B3`, bold weight.
-  - Inactive: transparent background, `#64748B` icon/text.
+  - Active: `#FFFFFF` 100% (Light) / `#0D1824` 100% (Dark) pill with light elevation shadow (2.dp), no outline. Favicon rendered without squircle background box. Title in bold weight.
+  - Inactive: transparent background, `#64748B` (Light) / `#94A3B8` (Dark) icon/text.
 
 ### 3. Space & Favorite Cards
 

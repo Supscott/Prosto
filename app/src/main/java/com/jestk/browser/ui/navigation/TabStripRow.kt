@@ -69,6 +69,7 @@ import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.LocalSereneTypography
@@ -86,7 +87,7 @@ import kotlin.math.abs
 /**
  * Horizontal scrollable strip of tabs (`LazyRow`).
  * Adheres to Serene Canvas design system:
- * - 50% width active tab capsule ([ActiveTabPill]) with cerulean background and active micro-border.
+ * - 50% width active tab capsule ([ActiveTabPill]) with solid surface and light elevation shadow.
  * - Inactive tabs: transparent background, [SereneMutedSlate] icons and text, label-md typography.
  * - Long-press contextual menus ([TabContextMenu]) with solid card surface and hairline dividers.
  * - Persistent '+' new tab button pinned on the right edge ([AddTabDockButton]).
@@ -99,8 +100,8 @@ fun TabStripRow(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
     isDark: Boolean = LocalIsDarkTheme.current,
-    dockBg: Color = if (isDark) DarkSurface else SereneCardSurface,
-    centerPillBg: Color = if (isDark) Color(0xFF283C58) else Color(0xFFE9F1F7),
+    dockBg: Color = if (isDark) DarkDockSurface.copy(alpha = 0.80f) else Color.White.copy(alpha = 0.80f),
+    centerPillBg: Color = if (isDark) DarkDockSurface else Color.White,
     centerPillBorder: BorderStroke? = null,
     circleBtnBg: Color = Color.Transparent
 ) {
@@ -311,8 +312,7 @@ fun TabStripRow(
                         Brush.horizontalGradient(
                             colors = listOf(
                                 dockBg,
-                                dockBg.copy(alpha = 0.95f),
-                                dockBg.copy(alpha = 0.50f),
+                                dockBg.copy(alpha = dockBg.alpha * 0.75f),
                                 Color.Transparent
                             )
                         )
@@ -331,7 +331,7 @@ fun TabStripRow(
                     Brush.horizontalGradient(
                         listOf(
                             Color.Transparent,
-                            dockBg.copy(alpha = 0.85f),
+                            dockBg.copy(alpha = dockBg.alpha * 0.75f),
                             dockBg
                         )
                     )

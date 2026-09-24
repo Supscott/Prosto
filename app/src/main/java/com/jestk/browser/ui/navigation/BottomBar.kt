@@ -26,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
@@ -41,7 +42,8 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
  * Top-level orchestrator composable for bottom navigation bar.
  * Adheres to Serene Canvas design system:
  * - Level 2 floating capsule ([SereneShapes.Dock] = 32.dp).
- * - Solid surface: pure #FFFFFF in Light mode ([SereneCardSurface]), #1E293B in Dark mode ([DarkSurface]).
+ * - Dock surface: #FFFFFF 80% opacity in Light mode, #0D1824 80% opacity in Dark mode.
+ * - Active tab capsule: solid 100% #FFFFFF in Light mode, #0D1824 in Dark mode with light elevation shadow (2.dp).
  * - Elevation & Depth: Level 2 ambient elevation shadow (10.dp cerulean-tinted shadow) and crisp rim border. NO BLUR.
  * - Scroll-driven auto-hide offset translation via [BrowserUiState.bottomBarOffsetY].
  * - Assembles [TabStripRow], [ActionPopupMenu], [SwipeUpHint], and [ActionDockMenuButton].
@@ -58,9 +60,10 @@ fun UnifiedBottomBar(
     val isDark = LocalIsDarkTheme.current
     val isHome = uiState.isHome
 
-    // Solid surfaces for Serene Canvas floating dock
-    val dockBg = if (isDark) DarkSurface else SereneCardSurface
-    val activePillBg = if (isDark) Color(0xFF283C58) else Color(0xFFE9F1F7)
+    // Dock container: 80% opacity in both light (white) and dark (#0D1824)
+    val dockBg = if (isDark) DarkDockSurface.copy(alpha = 0.80f) else Color.White.copy(alpha = 0.80f)
+    // Active tab capsule: 100% solid for crisp shadow casting and matching reference
+    val activePillBg = if (isDark) DarkDockSurface else Color.White
     val activePillBorder: androidx.compose.foundation.BorderStroke? = null
     val circleBtnBg = Color.Transparent
 

@@ -91,7 +91,12 @@ val DarkError = Color(0xFFFFB4AB)
 val DarkOnError = Color(0xFF690005)
 val DarkErrorContainer = Color(0xFF93000A)
 val DarkOnErrorContainer = Color(0xFFFFDAD6)
-val DarkDockBackground = Color(0xFF1E293B)
+
+// Figma Dark Palette Tokens
+val DarkDockSurface = Color(0xFF0D1824)
+val DarkCanvasBase = Color(0xFF080F19)
+val DarkTextHighContrast = Color(0xFFF8FAFC)
+val DarkDockBackground = DarkDockSurface
 val DarkDockButton = Color(0xFF94A3B8)
 
 // ==========================================

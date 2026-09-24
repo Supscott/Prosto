@@ -396,6 +396,28 @@
   - Input fields in Serene Canvas use subtle micro-borders (`SereneBorders.cardBorder(isDark)`) rather than vibrant colored focus/outline rings.
   - In Android's elevation shadow system, RenderNode outline shadow opacity scales with the surface's background alpha. Active tab pills must have an opaque backing (solid pastel tint) rather than a 10% alpha background to cast a crisp elevation shadow without muddying transparency or disappearing.
 
+### Session: Active Tab & Dock Styling (Figma Dark Palette & Bare Favicon)
 
-
-
+- **Completed:**
+  - Added Figma dark theme palette tokens to [`Color.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/theme/Color.kt): `DarkDockSurface` (`#0D1824`), `DarkCanvasBase` (`#080F19`), and `DarkTextHighContrast` (`#F8FAFC`).
+  - Updated [`DESIGN.md`](file:///Users/ilya/CODING/browser/DESIGN.md) documenting the dark theme Figma palette (`#080F19`, `#0D1824`, `#1E293B`, `#F8FAFC`, `#94A3B8`, `#64748B`, `#1E3A8A`, `#2271B3`, `#60A5FA`) and opacity rules.
+  - Refactored Floating Dock Container in [`BottomBar.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/navigation/BottomBar.kt) and [`TabStripRow.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/navigation/TabStripRow.kt):
+    - Light theme: `#FFFFFF` at 80% opacity (`Color.White.copy(alpha = 0.80f)`).
+    - Dark theme: `#0D1824` at 80% opacity (`DarkDockSurface.copy(alpha = 0.80f)`).
+    - Smooth horizontal gradient edge fades fading from `dockBg` to transparent.
+  - Refactored Active Tab Pill in [`ActiveTabPill.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/navigation/ActiveTabPill.kt):
+    - Light theme: solid 100% white (`Color.White`) with light elevation shadow (2.dp) and no outline.
+    - Dark theme: solid 100% `#0D1824` (`DarkDockSurface`) with light elevation shadow (2.dp) and no outline.
+    - Favicon: completely removed background squircle box, rendering bare icon directly in 20.dp box.
+    - Title: updated typography to bold (`FontWeight.Bold`), with `#0F172A` in light theme and `#F8FAFC` in dark theme.
+    - Subtitle/Domain: maintained under title with `#64748B` in light theme and `#94A3B8` in dark theme.
+    - Retained close ('x') action button on the right edge.
+  - Added `renderLightDockPreview()` in [`BottomBarPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/navigation/BottomBarPreviewTest.kt) rendering `dock_light_preview.png`.
+  - Re-rendered and visually verified Robolectric previews (`dock_light_preview.png`, `bottom_bar_preview.png`, `dock_visible_preview.png`).
+  - Full test suite `:app:testDebugUnitTest` green (621 tests passing).
+- **Current State:**
+  - Branch: `feat-active-tab-and-dock-styling`
+  - Worktree: `.worktrees/feat-active-tab-and-dock-styling`
+- **Key Architectural Decisions:**
+  - Active tab capsule is solid 100% opaque (`#FFFFFF` in light mode, `#0D1824` in dark mode) while the dock container is 80% translucent, allowing the active tab's elevation drop shadow to cast clearly onto the dock surface without muddy blending.
+  - Favicon in the active tab pill is bare without background container to maximize icon clarity and match reference design.

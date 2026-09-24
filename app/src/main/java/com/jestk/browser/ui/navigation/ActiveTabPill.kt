@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -44,18 +45,20 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.ui.theme.DarkTextHighContrast
 import com.jestk.browser.ui.theme.LocalSereneTypography
 import com.jestk.browser.ui.theme.SereneAccent
 import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneDarkText
+import com.jestk.browser.ui.theme.SereneMutedSlate
 
 /**
  * Active tab capsule composable representing the currently focused tab.
  * Adheres to Serene Canvas design system:
- * - Solid crisp surface with cerulean tint (rgba(34, 113, 179, 0.10) in light, rgba(96, 165, 250, 0.15) in dark)
- * - SereneBrandPrimary / SereneAccent bold typography and icons
- * - Micro-border active ring
- * - 14px-16px rounded squircle favicon container
- * - NO BLUR
+ * - Solid crisp surface (#FFFFFF in light, #0D1824 in dark) with light elevation shadow (2.dp) and no outline.
+ * - Bare favicon without background box.
+ * - Bold title typography in high-contrast text color (#0F172A in light, #F8FAFC in dark).
+ * - Secondary domain subtitle (#64748B in light, #94A3B8 in dark).
  * - Tap to edit URL / open search
  * - Long press to trigger contextual actions menu
  * - Close tab button
@@ -83,7 +86,10 @@ fun ActiveTabPill(
     var showMenu by remember { mutableStateOf(false) }
     val typography = LocalSereneTypography.current
 
-    val activeTint = if (isDark) SereneAccent else SereneBrandPrimary
+    val titleColor = if (isDark) DarkTextHighContrast else SereneDarkText
+    val domainColor = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
+    val iconTint = if (isDark) SereneAccent else SereneBrandPrimary
+    val closeTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
     val resolvedBg = backgroundColor
     val resolvedBorder = border
 
@@ -91,8 +97,16 @@ fun ActiveTabPill(
         shape = RoundedCornerShape(22.dp),
         color = resolvedBg,
         border = resolvedBorder,
-        shadowElevation = 2.dp,
-        modifier = modifier.height(44.dp)
+        shadowElevation = 0.dp,
+        modifier = modifier
+            .height(44.dp)
+            .shadow(
+                elevation = 2.dp,
+                shape = RoundedCornerShape(22.dp),
+                clip = false,
+                ambientColor = if (isDark) Color.Black else Color.Black.copy(alpha = 0.60f),
+                spotColor = Color.Black
+            )
     ) {
         Row(
             modifier = Modifier
@@ -102,27 +116,21 @@ fun ActiveTabPill(
                     onClick = onOpenSearch,
                     onLongClick = { showMenu = true }
                 )
-                .padding(start = 8.dp, end = 6.dp),
+                .padding(start = 10.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // 14px-16px rounded squircle favicon container
-            val squircleShape = RoundedCornerShape(6.dp)
-            val squircleBg = if (isDark) Color(0xFF1E293B).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.85f)
-
+            // Bare favicon container (no background box)
             Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(squircleShape)
-                    .background(squircleBg),
+                modifier = Modifier.size(20.dp),
                 contentAlignment = Alignment.Center
             ) {
                 if (isHome) {
                     Icon(
                         imageVector = Icons.Default.Home,
                         contentDescription = "Home",
-                        tint = activeTint,
-                        modifier = Modifier.size(15.dp)
+                        tint = iconTint,
+                        modifier = Modifier.size(18.dp)
                     )
                 } else if (!faviconUrl.isNullOrEmpty()) {
                     val imageModel = remember(faviconUrl) {
@@ -133,7 +141,7 @@ fun ActiveTabPill(
                             model = imageModel,
                             contentDescription = title,
                             modifier = Modifier
-                                .size(16.dp)
+                                .size(18.dp)
                                 .clip(RoundedCornerShape(4.dp)),
                             contentScale = ContentScale.Fit
                         )
@@ -141,8 +149,8 @@ fun ActiveTabPill(
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Secure Connection",
-                            tint = activeTint,
-                            modifier = Modifier.size(13.dp)
+                            tint = iconTint,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 } else {
@@ -152,22 +160,22 @@ fun ActiveTabPill(
                             text = initial.toString(),
                             style = typography.labelMd.copy(
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 11.sp
+                                fontSize = 12.sp
                             ),
-                            color = activeTint
+                            color = iconTint
                         )
                     } else {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Secure Connection",
-                            tint = activeTint,
-                            modifier = Modifier.size(13.dp)
+                            tint = iconTint,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
             }
 
-            // Truncated Title & Domain (if not Home)
+            // Truncated Title (Bold) & Domain (if not Home)
             Column(
                 modifier = Modifier
                     .weight(1f)
@@ -180,7 +188,7 @@ fun ActiveTabPill(
                         fontSize = if (domain.isEmpty()) 12.5.sp else 11.5.sp,
                         fontWeight = FontWeight.Bold
                     ),
-                    color = activeTint,
+                    color = titleColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -191,7 +199,7 @@ fun ActiveTabPill(
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.Normal
                         ),
-                        color = if (isDark) SereneAccent.copy(alpha = 0.70f) else SereneBrandPrimary.copy(alpha = 0.70f),
+                        color = domainColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -206,7 +214,7 @@ fun ActiveTabPill(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close tab",
-                    tint = activeTint.copy(alpha = 0.75f),
+                    tint = closeTint,
                     modifier = Modifier.size(14.dp)
                 )
             }
