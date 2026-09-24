@@ -313,5 +313,38 @@
 - **Key Architectural Decisions:**
   - Zero blur policy strictly executed across the entire app viewport and all overlays. Modals and popups use solid Level 2 surfaces over a semi-transparent scrim (`Color.Black.copy(alpha = 0.25f)`), eliminating blur performance overhead and visual artifacts entirely.
 
+### Session: Expanded Search History Pagination
+
+- **Completed:**
+  - Implemented pagination for expanded search history (`isSearchHistoryExpanded == true`) triggered when the user scrolls to the end of the loaded list (top of the bottom-anchored, upward-expanding stack: `scrollState.value <= 20`).
+  - Added Room DAO pagination queries in [`HistoryDao.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/data/local/dao/HistoryDao.kt):
+    - `getPagedHistory(limit: Int, offset: Int): List<HistoryEntity>`
+    - `searchHistoryPaged(query: String, limit: Int, offset: Int): List<HistoryEntity>`
+  - Extended [`HistoryRepository.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/domain/repository/HistoryRepository.kt) and [`HistoryRepositoryImpl.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/data/repository/HistoryRepositoryImpl.kt) with `getPagedHistory` and `searchHistoryPaged` suspend methods.
+  - Added `isLoadingMoreHistory: Boolean = false` and `hasMoreHistory: Boolean = true` to [`BrowserUiState.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserUiState.kt).
+  - Added `BrowserUiEvent.LoadMoreSearchHistory` to [`BrowserUiEvent.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserUiEvent.kt).
+  - Refactored [`BrowserViewModel.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserViewModel.kt):
+    - Set `HISTORY_PAGE_SIZE = 20`.
+    - `updateHistorySuggestions`: Loads initial page of 20 items on expansion, setting `hasMoreHistory = initialPage.size >= HISTORY_PAGE_SIZE`.
+    - Added `loadMoreSearchHistory()` with guards against concurrent or redundant fetches (`isLoadingMoreHistory`, `hasMoreHistory`), deduplicating new items and appending seamlessly.
+    - Reset pagination states on `OpenSearch`, `ToggleSearchHistoryExpanded`, `ClearAllHistory`, and back navigation.
+  - Refactored [`SearchOverlay.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt):
+    - Replaced blunt `LaunchedEffect(maxValue)` scrolling with smooth scroll preservation across pagination loads (calculating `delta = currentMax - prevMaxValue` when items are prepended at the top, maintaining viewport stability).
+    - Added automatic end-of-loaded-list scroll detection triggering `BrowserUiEvent.LoadMoreSearchHistory`.
+    - Added loading indicator inside `InsetGroupedHistoryCard` showing a 16dp `CircularProgressIndicator` with localized text "Loading more…" / "Загрузка…" when `isLoadingMore` is true.
+  - Added localized strings in `strings.xml` and `values-ru/strings.xml` (`loading_more_history`).
+  - Added unit test suites in:
+    - [`HistoryDaoTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/data/local/HistoryDaoTest.kt) testing `getPagedHistory` and `searchHistoryPaged` offsets and limits.
+    - [`HistoryRepositoryTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/data/repository/HistoryRepositoryTest.kt) testing domain mapping and pagination delegation.
+    - [`BrowserViewModelTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/viewmodel/BrowserViewModelTest.kt) testing multi-page loading, query filtering pagination, boundary handling when `hasMoreHistory == false`, and collapse reset.
+    - [`SearchOverlayPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/SearchOverlayPreviewTest.kt) testing visual rendering of the expanded history loading state (`search_overlay_loading_more_preview.png`).
+- **Current State:**
+  - Working in new git worktree `.worktrees/feat-history-pagination` on branch `feat-history-pagination`.
+  - All 33 unit and visual test tasks pass green (`:app:testDebugUnitTest`).
+- **Key Architectural Decisions:**
+  - Expanded search history is paginated with `HISTORY_PAGE_SIZE = 20`.
+  - In Hori's upward-expanding search history stack, the oldest loaded item sits at the top of the card (`scrollState.value <= 20`). Reaching this boundary triggers the next page fetch.
+  - When new older items are added at the top, scroll offset is adjusted by the newly added layout delta (`scrollState.value + delta`), preserving the user's viewport on the visible item with zero jarring jumps.
+
 
 
