@@ -375,6 +375,27 @@
   - Settings and Downloads are separate first-class screens rather than modal sheets, providing dedicated top navigation bars with Back/Close actions and edge-to-edge layout.
   - The floating navigation dock automatically hides when entering dedicated sub-screens (`!uiState.isSettingsVisible && !uiState.isDownloadsVisible`) and slides back when exiting.
 
+### Session: Input Fields & Bottom Dock Refactor (Shadows & Blue Rim Removal)
+
+- **Completed:**
+  - Removed blue accent borders (`SereneAccent`) from search input fields:
+    - `HomeScreen.kt:HeroSearchCapsule`: Replaced 1.5.dp `SereneAccent` border with subtle `SereneBorders.cardBorder(isDark)`.
+    - `SearchOverlay.kt:HeroSearchInputField`: Replaced 1.5.dp `SereneAccent` border with `SereneBorders.cardBorder(isDark)`.
+    - `AddFavoriteDialog.kt`: Replaced `focusedBorderColor = SereneAccent` on both name and URL `OutlinedTextField`s with neutral `fieldBorderColor`. Removed unused `SereneAccent` import.
+  - Refactored Floating Dock and Active Tab Pill:
+    - `Theme.kt:sereneFloatingSurface`: Enhanced elevation shadow by removing excessively attenuated low-alpha shadow colors (`Color(0x140F172A)`), using standard elevation shadow colors (`spotColor = Color.Black`, `ambientColor = if (isDark) Color.Black else Color.Black.copy(alpha = 0.85f)`) so the dock casts a rich, visible floating drop shadow.
+    - `BottomBar.kt`: Removed blue `activePillBorder` (set to `null`), changed `activePillBg` to solid pastel tint (`Color(0xFFE9F1F7)` in Light / `Color(0xFF283C58)` in Dark), removed unused `SereneAccent` import, and increased dock container bottom padding from 4.dp to 8.dp for shadow breathing room.
+    - `TabStripRow.kt`: Removed blue `centerPillBorder` default (set to `null`), updated `centerPillBg` to match `BottomBar.kt`, and removed unused `SereneAccent` import.
+    - `ActiveTabPill.kt`: Set `border = null` default, added `shadowElevation = 2.dp` for a light, soft shadow under the active tab capsule, and moved `clip` and `combinedClickable` inside the `Surface` onto the inner `Row` to ensure the active tab shadow is never clipped.
+    - `ActionDock.kt`: Aligned `ActionDockMenuButton` elevation to 10.dp.
+  - Re-rendered and visually verified Robolectric Native Graphics previews (`search_overlay_preview.png`, `dock_visible_preview.png`, `bottom_bar_preview.png`, `many_tabs_bottom_bar_preview.png`).
+  - Full test suite `:app:testDebugUnitTest` completely green (620 tests passing).
+- **Current State:**
+  - Changes implemented on branch `refactor-inputs-dock-styling` in git worktree `.worktrees/refactor-inputs-dock-styling`.
+- **Key Architectural Decisions:**
+  - Input fields in Serene Canvas use subtle micro-borders (`SereneBorders.cardBorder(isDark)`) rather than vibrant colored focus/outline rings.
+  - In Android's elevation shadow system, RenderNode outline shadow opacity scales with the surface's background alpha. Active tab pills must have an opaque backing (solid pastel tint) rather than a 10% alpha background to cast a crisp elevation shadow without muddying transparency or disappearing.
+
 
 
 

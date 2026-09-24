@@ -29,7 +29,6 @@ import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.SereneAccent
 import com.jestk.browser.ui.theme.SereneBrandPrimary
 import com.jestk.browser.ui.theme.SereneCardSurface
 import com.jestk.browser.ui.theme.SereneShapes
@@ -61,12 +60,8 @@ fun UnifiedBottomBar(
 
     // Solid surfaces for Serene Canvas floating dock
     val dockBg = if (isDark) DarkSurface else SereneCardSurface
-    val activePillBg = if (isDark) Color(0x2660A5FA) else SereneBrandPrimary.copy(alpha = 0.10f)
-    val activePillBorder = if (isDark) {
-        androidx.compose.foundation.BorderStroke(1.dp, SereneAccent.copy(alpha = 0.40f))
-    } else {
-        androidx.compose.foundation.BorderStroke(1.dp, SereneBrandPrimary.copy(alpha = 0.25f))
-    }
+    val activePillBg = if (isDark) Color(0xFF283C58) else Color(0xFFE9F1F7)
+    val activePillBorder: androidx.compose.foundation.BorderStroke? = null
     val circleBtnBg = Color.Transparent
 
     Box(
@@ -112,7 +107,7 @@ fun UnifiedBottomBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(top = 0.dp, bottom = 4.dp),
+                    .padding(top = 0.dp, bottom = 8.dp),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 // Floating Dock Row

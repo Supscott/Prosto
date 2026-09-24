@@ -346,7 +346,7 @@ fun ActionDockMenuButton(
                 shape = SereneShapes.Card,
                 isDark = isDark,
                 backgroundColor = backgroundColor,
-                elevation = 8.dp
+                elevation = 10.dp
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center

@@ -69,7 +69,7 @@ fun ActiveTabPill(
     faviconUrl: String?,
     isHome: Boolean,
     backgroundColor: Color,
-    border: BorderStroke?,
+    border: BorderStroke? = null,
     isDark: Boolean,
     onOpenSearch: () -> Unit,
     onClose: () -> Unit,
@@ -91,18 +91,17 @@ fun ActiveTabPill(
         shape = RoundedCornerShape(22.dp),
         color = resolvedBg,
         border = resolvedBorder,
-        shadowElevation = 0.dp,
-        modifier = modifier
-            .height(44.dp)
-            .clip(RoundedCornerShape(22.dp))
-            .combinedClickable(
-                onClick = onOpenSearch,
-                onLongClick = { showMenu = true }
-            )
+        shadowElevation = 2.dp,
+        modifier = modifier.height(44.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
+                .clip(RoundedCornerShape(22.dp))
+                .combinedClickable(
+                    onClick = onOpenSearch,
+                    onLongClick = { showMenu = true }
+                )
                 .padding(start = 8.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -244,7 +243,7 @@ fun ActiveTabPill(
     displayDomain: String,
     isHome: Boolean,
     backgroundColor: Color,
-    border: BorderStroke?,
+    border: BorderStroke? = null,
     isDark: Boolean,
     onOpenSearch: () -> Unit,
     onClose: () -> Unit,
@@ -284,7 +283,7 @@ fun ActiveTabCenterCapsule(
     faviconUrl: String?,
     isHome: Boolean,
     backgroundColor: Color,
-    border: BorderStroke?,
+    border: BorderStroke? = null,
     isDark: Boolean,
     onOpenSearch: () -> Unit,
     onClose: () -> Unit,

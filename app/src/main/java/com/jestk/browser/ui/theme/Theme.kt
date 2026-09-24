@@ -275,8 +275,8 @@ fun Modifier.sereneFloatingSurface(
             elevation = elevation,
             shape = shape,
             clip = false,
-            ambientColor = if (isDark) Color.Black.copy(alpha = 0.50f) else Color(0x242271B3),
-            spotColor = if (isDark) Color.Black.copy(alpha = 0.35f) else Color(0x140F172A),
+            ambientColor = if (isDark) Color.Black else Color.Black.copy(alpha = 0.85f),
+            spotColor = Color.Black,
         )
         .background(color = bg, shape = shape)
         .border(border = border, shape = shape)

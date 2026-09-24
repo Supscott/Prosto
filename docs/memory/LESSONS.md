@@ -136,6 +136,19 @@ This document tracks bugs encountered during development, their root causes, and
 - **Root Cause:** In Kotlin multi-file Android projects, removing an external library dependency invalidates package imports in all files referencing types from that library, even if theme functions have backwards-compatible signatures with optional parameters.
 - **Resolution & Prevention:** When removing a library dependency, simultaneously remove all unused `import <lib>.*` statements and obsolete parameters/CompositionLocal bindings across dependent files, while providing backward-compatible method overloads/delegates (e.g. `liquidFrostedGlass` delegating to solid `sereneCardSurface` without blur) so calling code compiles cleanly.
 
+### Elevation shadow disappears due to double alpha pre-multiplication and translucent background
+- **Date:** 2026-09-24
+- **Symptom:** Floating dock and active tab pill appeared completely flat without visible elevation drop shadows, despite `elevation = 10.dp` on the dock and `shadowElevation = 2.dp` on the pill.
+- **Root Cause:**
+  1. In `Modifier.shadow(elevation, ambientColor, spotColor)`, passing low-alpha colors (e.g. `Color(0x140F172A)` which has 7.8% alpha) caused Android's native HWUI shadow pipeline to multiply system spot shadow alpha (~0.19) by 0.078, reducing spot shadow opacity to ~0.015 (virtually invisible).
+  2. In Android's RenderNode outline system, the outline shadow opacity is directly scaled by the background alpha of the View/Surface. An active tab pill with 10% alpha background (`alpha = 0.10f`) scales its shadow down by 90%, causing the shadow to vanish.
+  3. Having `Modifier.clip(shape)` on an outer modifier before `Surface` clips any shadow cast outside the layout bounds.
+- **Resolution & Prevention:**
+  1. Use opaque colors (e.g. `Color.Black` or high-alpha tints) for `spotColor` and `ambientColor` in `Modifier.shadow()`, allowing Android's HWUI engine to apply its calibrated system shadow alpha.
+  2. For elevated floating pills inside parent surfaces, use an opaque solid tint (e.g. `Color(0xFFE9F1F7)` instead of `Color(0x1A2271B3)`) so the RenderNode outline retains `alpha = 1.0f` and casts a full, crisp elevation shadow.
+  3. Keep `combinedClickable` and corner clipping inside `Surface` (on the inner content `Row`/`Box`) so the outer `Surface` shadow is not clipped.
+
+
 
 
 
