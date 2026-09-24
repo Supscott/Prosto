@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -66,14 +67,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
-import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
-import com.jestk.browser.ui.theme.LiquidBorders
-import com.jestk.browser.ui.theme.LiquidShapes
-import com.jestk.browser.ui.theme.LiquidSurface
-import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
+import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
+import com.jestk.browser.ui.theme.LocalSereneTypography
+import com.jestk.browser.ui.theme.SereneAccent
+import com.jestk.browser.ui.theme.SereneBorders
+import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneCardSurface
+import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.SereneShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import java.net.URI
@@ -82,13 +86,13 @@ import kotlin.math.abs
 
 /**
  * Horizontal scrollable strip of tabs (`LazyRow`).
- * Features:
- * - 50% width active tab capsule ([ActiveTabPill])
- * - Circular inactive tab icons with favicons ([InactiveTabButton])
- * - Long-press contextual menus ([TabContextMenu])
- * - Persistent '+' new tab button pinned on the right ([AddTabDockButton])
- * - Interactive tab drag reordering
- * - Left/right edge gradient fade scrims
+ * Adheres to Serene Canvas design system:
+ * - 50% width active tab capsule ([ActiveTabPill]) with cerulean background and active micro-border.
+ * - Inactive tabs: transparent background, [SereneMutedSlate] icons and text, label-md typography.
+ * - Long-press contextual menus ([TabContextMenu]) with solid card surface and hairline dividers.
+ * - Persistent '+' new tab button pinned on the right edge ([AddTabDockButton]).
+ * - Interactive tab drag reordering.
+ * - Left/right edge smooth gradient fade scrims.
  */
 @Composable
 fun TabStripRow(
@@ -96,17 +100,16 @@ fun TabStripRow(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
     isDark: Boolean = LocalIsDarkTheme.current,
-    dockBg: Color = if (isDark) Color(0xFF1E1B1C) else LiquidSurface,
-    centerPillBg: Color = if (isDark) Color(0xFF2B2728) else Color.White,
-    centerPillBorder: BorderStroke? = LiquidBorders.specularBorder(isDark),
-    circleBtnBg: Color = if (isDark) Color(0xFF2C2829) else LiquidSurfaceContainerHigh
+    dockBg: Color = if (isDark) DarkSurface else SereneCardSurface,
+    centerPillBg: Color = if (isDark) Color(0x2660A5FA) else SereneBrandPrimary.copy(alpha = 0.10f),
+    centerPillBorder: BorderStroke? = if (isDark) BorderStroke(1.dp, SereneAccent.copy(alpha = 0.40f)) else BorderStroke(1.dp, SereneBrandPrimary.copy(alpha = 0.25f)),
+    circleBtnBg: Color = Color.Transparent
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
     val haptic = LocalHapticFeedback.current
 
     val isHome = uiState.isHome
-
     val activeTab = uiState.activeTab
 
     val isHomeTab = isHome || activeTab?.url.isNullOrEmpty() || activeTab?.url == "about:blank" || activeTab?.title == "Home"
@@ -212,7 +215,7 @@ fun TabStripRow(
                         tab = tab,
                         isDark = isDark,
                         backgroundColor = circleBtnBg,
-                        border = centerPillBorder,
+                        border = null,
                         onClick = {
                             onEvent(BrowserUiEvent.SelectTab(tab.id))
                         },
@@ -304,7 +307,7 @@ fun TabStripRow(
                     .align(Alignment.CenterStart)
                     .fillMaxHeight()
                     .width(44.dp)
-                    .clip(RoundedCornerShape(topStart = 29.dp, bottomStart = 29.dp))
+                    .clip(RoundedCornerShape(topStart = 32.dp, bottomStart = 32.dp))
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
@@ -323,13 +326,13 @@ fun TabStripRow(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .width(44.dp)
-                .clip(RoundedCornerShape(topEnd = 29.dp, bottomEnd = 29.dp))
+                .width(48.dp)
+                .clip(RoundedCornerShape(topEnd = 32.dp, bottomEnd = 32.dp))
                 .background(
                     Brush.horizontalGradient(
                         listOf(
                             Color.Transparent,
-                            dockBg.copy(alpha = 0.8f),
+                            dockBg.copy(alpha = 0.85f),
                             dockBg
                         )
                     )
@@ -339,8 +342,8 @@ fun TabStripRow(
         // Pinned New Tab Button (absolute right-0 over tab strip)
         AddTabDockButton(
             isDark = isDark,
-            backgroundColor = circleBtnBg,
-            border = centerPillBorder,
+            backgroundColor = Color.Transparent,
+            border = null,
             onClick = {
                 onEvent(BrowserUiEvent.OpenNewTab(""))
             },
@@ -353,14 +356,15 @@ fun TabStripRow(
 
 /**
  * Circular inactive tab button with favicon or site initial glyph.
+ * Transparent background, SereneMutedSlate icons and text, label-md typography.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun InactiveTabButton(
     tab: Tab,
     isDark: Boolean,
-    backgroundColor: Color,
-    border: BorderStroke?,
+    backgroundColor: Color = Color.Transparent,
+    border: BorderStroke? = null,
     onClick: () -> Unit,
     onClose: () -> Unit,
     onAddFavorite: (String, String) -> Unit,
@@ -368,6 +372,8 @@ fun InactiveTabButton(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val typography = LocalSereneTypography.current
+    val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
 
     Surface(
         shape = CircleShape,
@@ -391,7 +397,7 @@ fun InactiveTabButton(
                 Icon(
                     imageVector = Icons.Default.Home,
                     contentDescription = "Home",
-                    tint = if (isDark) Color(0xFFD0C5C6) else MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = normalTint,
                     modifier = Modifier.size(19.dp)
                 )
             } else if (!tab.faviconUrl.isNullOrEmpty()) {
@@ -404,8 +410,15 @@ fun InactiveTabButton(
                         contentDescription = tab.title,
                         modifier = Modifier
                             .size(20.dp)
-                            .clip(CircleShape),
+                            .clip(RoundedCornerShape(5.dp)),
                         contentScale = ContentScale.Fit
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = tab.title,
+                        tint = normalTint,
+                        modifier = Modifier.size(19.dp)
                     )
                 }
             } else {
@@ -413,17 +426,17 @@ fun InactiveTabButton(
                 if (initial != null && initial.isLetterOrDigit() && tab.title != "New Tab") {
                     Text(
                         text = initial.toString(),
-                        style = MaterialTheme.typography.labelMedium.copy(
+                        style = typography.labelMd.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         ),
-                        color = if (isDark) Color(0xFFF6EFF0) else MaterialTheme.colorScheme.onSurface
+                        color = normalTint
                     )
                 } else {
                     Icon(
                         imageVector = Icons.Default.Language,
                         contentDescription = tab.title,
-                        tint = if (isDark) Color(0xFFD0C5C6) else MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = normalTint,
                         modifier = Modifier.size(19.dp)
                     )
                 }
@@ -459,11 +472,13 @@ fun InactiveTabButton(
 @Composable
 fun AddTabDockButton(
     isDark: Boolean,
-    backgroundColor: Color,
-    border: BorderStroke?,
+    backgroundColor: Color = Color.Transparent,
+    border: BorderStroke? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
+
     Surface(
         shape = CircleShape,
         color = backgroundColor,
@@ -481,7 +496,7 @@ fun AddTabDockButton(
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = "New Tab",
-                tint = if (isDark) Color(0xFFD0C5C6) else MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = normalTint,
                 modifier = Modifier.size(20.dp)
             )
         }
@@ -490,6 +505,13 @@ fun AddTabDockButton(
 
 /**
  * Contextual dropdown menu on tabs (active or inactive).
+ * Adheres to Serene Canvas:
+ * - Floating card with 24px radius (SereneShapes.Card), pure solid surface.
+ * - Rim border and Level 2 elevation shadow.
+ * - 48px touch targets for menu rows.
+ * - Hairline dividers 1px solid #F1F5F9 (Dark: 1px solid #334155).
+ * - Clean Plus Jakarta Sans typography.
+ * - NO BLUR.
  */
 @Composable
 fun TabContextMenu(
@@ -501,22 +523,23 @@ fun TabContextMenu(
     onAddFavorite: () -> Unit,
     onShareLink: (() -> Unit)? = null
 ) {
-    val menuBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.90f) else Color.White.copy(alpha = 0.88f)
-    val menuBorder = LiquidBorders.frostedBorder(isDark, alpha = if (isDark) 0.14f else 0.85f)
+    val menuBg = if (isDark) DarkSurface else SereneCardSurface
+    val menuBorder = SereneBorders.floatingBorder(isDark)
+    val dividerColor = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)
 
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        shape = LiquidShapes.Card,
+        shape = SereneShapes.Card,
         containerColor = menuBg,
         shadowElevation = 12.dp,
         border = menuBorder,
-        modifier = Modifier.width(160.dp),
+        modifier = Modifier.width(172.dp),
         properties = PopupProperties(focusable = false, dismissOnClickOutside = true, dismissOnBackPress = true)
     ) {
         Column(
-            modifier = Modifier.padding(4.dp),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+            modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
+            verticalArrangement = Arrangement.Center
         ) {
             // Close Tab
             PopupMenuItem(
@@ -530,6 +553,8 @@ fun TabContextMenu(
                 }
             )
 
+            HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
             // Copy URL
             PopupMenuItem(
                 icon = Icons.Default.ContentCopy,
@@ -541,6 +566,8 @@ fun TabContextMenu(
                     onCopyUrl()
                 }
             )
+
+            HorizontalDivider(color = dividerColor, thickness = 1.dp)
 
             // Add to Favorites
             PopupMenuItem(
@@ -556,6 +583,8 @@ fun TabContextMenu(
 
             // Share Link
             if (onShareLink != null) {
+                HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
                 PopupMenuItem(
                     icon = Icons.Default.Share,
                     label = "Share Link",

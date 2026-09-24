@@ -49,7 +49,6 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
@@ -83,19 +82,22 @@ import com.jestk.browser.ui.overlays.SearchOverlay
 import com.jestk.browser.ui.overlays.SettingsSheet
 import com.jestk.browser.ui.overlays.TabOverviewGrid
 import com.jestk.browser.ui.pip.FloatingVideoMiniPlayer
+import com.jestk.browser.ui.theme.DarkBackground
+import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme
-import com.jestk.browser.ui.theme.LiquidBorders
-import com.jestk.browser.ui.theme.LiquidPrimary
-import com.jestk.browser.ui.theme.LiquidShapes
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.liquidFrostedGlass
+import com.jestk.browser.ui.theme.SereneBorders
+import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneCanvasFloor
+import com.jestk.browser.ui.theme.SereneDarkText
+import com.jestk.browser.ui.theme.SereneShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.viewmodel.DismissDownloadSnackbar
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
-import dev.chrisbanes.haze.HazeState
 import kotlinx.coroutines.flow.collectLatest
 
 private fun android.content.Context.findActivity(): Activity? {
@@ -198,11 +200,8 @@ fun JestkApp(
         }
     }
 
-    val rootHazeState = remember { HazeState() }
-
     JestkBrowserTheme(
         themeMode = uiState.settings.themeMode,
-        hazeState = rootHazeState,
     ) {
         val isDark = LocalIsDarkTheme.current
         val currentContext = LocalContext.current
@@ -217,7 +216,7 @@ fun JestkApp(
                 uiState.currentUrl.isEmpty() ||
                 uiState.currentUrl == "about:blank"
 
-        val defaultBg = MaterialTheme.colorScheme.background
+        val defaultBg = if (isDark) DarkBackground else SereneCanvasFloor
         val targetAppBg = if (showHomeScreen || siteColor == null) defaultBg else Color(siteColor)
         val animatedAppBg by animateColorAsState(
             targetValue = targetAppBg,
@@ -310,47 +309,21 @@ fun JestkApp(
             }
         }
 
-        val isModalActive =
-            uiState.isMenuExpanded ||
-                uiState.isSettingsVisible ||
-                uiState.isDownloadsVisible ||
-                (uiState.activeOverlay != OverlayType.NONE && uiState.activeOverlay != OverlayType.HOME) ||
-                uiState.linkContextMenuUrl != null ||
-                uiState.selectedImageUrl != null ||
-                uiState.showAddFavoriteDialog
-
-        val backdropBlurRadius by animateDpAsState(
-            targetValue = if (isModalActive) 20.dp else 0.dp,
-            animationSpec = tween(durationMillis = 220),
-            label = "ModalBackdropBlurRadius",
-        )
-
         Box(
             modifier =
                 modifier
                     .fillMaxSize()
                     .background(animatedAppBg),
         ) {
-            // Main Viewport: WebView Container or Home Screen (with real-time backdrop blur when modals are open)
-
+            // Main Viewport: WebView Container or Home Screen (NO BLUR)
             Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .then(
-                            if (backdropBlurRadius > 0.dp) {
-                                Modifier.blur(backdropBlurRadius)
-                            } else {
-                                Modifier
-                            }
-                        ),
+                modifier = Modifier.fillMaxSize(),
             ) {
                 if (showHomeScreen) {
                     HomeScreen(
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
                         modifier = Modifier.fillMaxSize(),
-                        hazeState = rootHazeState,
                     )
                 } else {
                     uiState.activeTabId?.let { activeId ->
@@ -373,7 +346,7 @@ fun JestkApp(
                     modifier =
                         Modifier
                             .fillMaxSize()
-                            .background(Color.Black.copy(alpha = 0.20f))
+                            .background(Color.Black.copy(alpha = 0.25f))
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
@@ -401,7 +374,6 @@ fun JestkApp(
                 UnifiedBottomBar(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
-                    hazeState = rootHazeState,
                 )
             }
 
@@ -482,22 +454,11 @@ fun JestkApp(
                 }
 
                 Surface(
-                    shape = LiquidShapes.ButtonPill,
-                    color = Color.Transparent,
-                    border = null,
-                    shadowElevation = 10.dp,
-                    modifier =
-                        Modifier
-                            .wrapContentSize()
-                            .liquidFrostedGlass(
-                                shape = LiquidShapes.ButtonPill,
-                                isDark = isDark,
-                                blurRadius = 18.dp,
-                                tintColor = if (isDark) Color(0xFF242021) else Color.White,
-                                alpha = if (isDark) 0.90f else 0.90f,
-                                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f),
-                                hazeState = rootHazeState,
-                            ),
+                    shape = SereneShapes.Pill,
+                    color = if (isDark) DarkSurface else Color.White,
+                    border = SereneBorders.floatingBorder(isDark),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.wrapContentSize(),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -507,14 +468,14 @@ fun JestkApp(
                         Text(
                             text = "$closedText: $tabTitle",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) Color.White else Color(0xFF1E1B1C),
+                            color = if (isDark) DarkOnSurface else SereneDarkText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
                         )
                         Text(
                             text = undoText,
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = LiquidPrimary),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = SereneBrandPrimary),
                             modifier =
                                 Modifier
                                     .clickable {
@@ -568,22 +529,11 @@ fun JestkApp(
                 }
 
                 Surface(
-                    shape = LiquidShapes.ButtonPill,
-                    color = Color.Transparent,
-                    border = null,
-                    shadowElevation = 10.dp,
-                    modifier =
-                        Modifier
-                            .wrapContentSize()
-                            .liquidFrostedGlass(
-                                shape = LiquidShapes.ButtonPill,
-                                isDark = isDark,
-                                blurRadius = 18.dp,
-                                tintColor = if (isDark) Color(0xFF242021) else Color.White,
-                                alpha = if (isDark) 0.90f else 0.90f,
-                                borderColor = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f),
-                                hazeState = rootHazeState,
-                            ),
+                    shape = SereneShapes.Pill,
+                    color = if (isDark) DarkSurface else Color.White,
+                    border = SereneBorders.floatingBorder(isDark),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.wrapContentSize(),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -593,20 +543,20 @@ fun JestkApp(
                         Icon(
                             imageVector = Icons.Default.Download,
                             contentDescription = "Download",
-                            tint = LiquidPrimary,
+                            tint = SereneBrandPrimary,
                             modifier = Modifier.size(18.dp),
                         )
                         Text(
                             text = "Downloading $fileName",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) Color.White else Color(0xFF1E1B1C),
+                            color = if (isDark) DarkOnSurface else SereneDarkText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
                         )
                         Text(
                             text = "Подробнее",
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = LiquidPrimary),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = SereneBrandPrimary),
                             modifier =
                                 Modifier
                                     .clickable {

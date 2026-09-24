@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
@@ -18,10 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,23 +44,24 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import com.jestk.browser.ui.theme.LiquidBorders
-import com.jestk.browser.ui.theme.LiquidShapes
+import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.liquidFrostedGlass
+import com.jestk.browser.ui.theme.LocalSereneTypography
+import com.jestk.browser.ui.theme.SereneBorders
+import com.jestk.browser.ui.theme.SereneShapes
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
  * Floating contextual modal container that anchors near/under the user's touch location,
- * matching standard modern mobile browser interactions (e.g. Chrome / Safari).
+ * matching standard modern mobile browser interactions with Serene Canvas design.
  *
  * Positioning rules:
  * - Below the finger if vertical space allows, with smooth scale-down from touch anchor.
  * - Above the finger if close to screen bottom or bottom navigation bar.
  * - Horizontally clamped within safe margins, centered near the finger touch.
  * - Dismisses on tapping anywhere on the outside scrim.
+ * - Crisp Level 2 solid surface with NO BLUR.
  */
 @Composable
 fun FloatingContextMenuContainer(
@@ -146,7 +146,7 @@ fun FloatingContextMenuContainer(
                 }
             }
 
-        // Bloom pivot origin from touch point
+        // Pivot origin from touch point
         val pivotX =
             if (anchor != null && actualCardWidthPx > 0f) {
                 ((anchor.x - finalX) / actualCardWidthPx).coerceIn(0.1f, 0.9f)
@@ -156,14 +156,14 @@ fun FloatingContextMenuContainer(
         val pivotY = if (fitsBelow) 0f else if (fitsAbove) 1f else 0.5f
         val transformOrigin = TransformOrigin(pivotX, pivotY)
 
-        val cardBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.94f) else Color(0xFFFFF8F8).copy(alpha = 0.96f)
+        val cardBg = if (isDark) DarkSurface else Color.White
 
         // 1. Outside dimming scrim - tapping dismisses
         Box(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = if (isDark) 0.35f else 0.20f))
+                    .background(Color.Black.copy(alpha = 0.25f))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -171,12 +171,12 @@ fun FloatingContextMenuContainer(
                     ),
         )
 
-        // 2. Floating Context Menu Card
+        // 2. Floating Context Menu Card (Level 2 solid surface)
         Surface(
-            shape = LiquidShapes.Card,
+            shape = SereneShapes.Card,
             color = cardBg,
-            border = LiquidBorders.specularBorder(isDark),
-            shadowElevation = 16.dp,
+            border = SereneBorders.floatingBorder(isDark),
+            shadowElevation = 8.dp,
             modifier =
                 Modifier
                     .offset { IntOffset(finalX.roundToInt(), finalY.roundToInt()) }
@@ -188,13 +188,6 @@ fun FloatingContextMenuContainer(
                         this.transformOrigin = transformOrigin
                     }
                     .widthIn(min = 280.dp, max = 320.dp)
-                    .liquidFrostedGlass(
-                        shape = LiquidShapes.Card,
-                        isDark = isDark,
-                        blurRadius = 24.dp,
-                        tintColor = if (isDark) Color(0xFF1E1B1C) else Color(0xFFFFF8F8),
-                        alpha = if (isDark) 0.65f else 0.60f,
-                    )
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
@@ -207,7 +200,7 @@ fun FloatingContextMenuContainer(
 }
 
 /**
- * Reusable compact action row for context menus.
+ * Reusable compact action row for context menus with Serene Canvas styling.
  */
 @Composable
 fun ContextMenuActionRow(
@@ -223,16 +216,17 @@ fun ContextMenuActionRow(
         modifier =
             modifier
                 .fillMaxWidth()
+                .defaultMinSize(minHeight = 48.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .clickable(onClick = onClick)
-                .padding(horizontal = 8.dp, vertical = 9.dp),
+                .padding(horizontal = 10.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier =
                 Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
                     .background(iconBg),
             contentAlignment = Alignment.Center,
         ) {
@@ -240,7 +234,7 @@ fun ContextMenuActionRow(
                 imageVector = icon,
                 contentDescription = title,
                 tint = iconTint,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(19.dp),
             )
         }
 
@@ -248,11 +242,9 @@ fun ContextMenuActionRow(
 
         Text(
             text = title,
-            style =
-                MaterialTheme.typography.bodyMedium.copy(
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 15.sp,
-                ),
+            style = LocalSereneTypography.current.bodyMd.copy(
+                fontWeight = FontWeight.Medium,
+            ),
             color = titleColor,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,

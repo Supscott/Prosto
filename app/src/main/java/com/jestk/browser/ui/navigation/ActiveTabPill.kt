@@ -9,7 +9,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -26,12 +24,10 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -39,10 +35,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,20 +44,21 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
-import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
-import com.jestk.browser.ui.theme.LiquidTertiary
-import com.jestk.browser.ui.theme.PastelRose
+import com.jestk.browser.ui.theme.LocalSereneTypography
+import com.jestk.browser.ui.theme.SereneAccent
+import com.jestk.browser.ui.theme.SereneBrandPrimary
 
 /**
  * Active tab capsule composable representing the currently focused tab.
- * Supports:
- * - 50% width active tab capsule styling
- * - Favicon, initial glyph, lock icon, and Home glyph
- * - Page title and domain with single-line ellipsis
- * - Close tab button
+ * Adheres to Serene Canvas design system:
+ * - Solid crisp surface with cerulean tint (rgba(34, 113, 179, 0.10) in light, rgba(96, 165, 250, 0.15) in dark)
+ * - SereneBrandPrimary / SereneAccent bold typography and icons
+ * - Micro-border active ring
+ * - 14px-16px rounded squircle favicon container
+ * - NO BLUR
  * - Tap to edit URL / open search
  * - Long press to trigger contextual actions menu
- * - Horizontal swipe/drag gesture to switch adjacent tabs
+ * - Close tab button
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -85,14 +80,18 @@ fun ActiveTabPill(
     onSwipePrev: () -> Unit = {}
 ) {
     val context = LocalContext.current
-    val density = LocalDensity.current
     var showMenu by remember { mutableStateOf(false) }
+    val typography = LocalSereneTypography.current
+
+    val activeTint = if (isDark) SereneAccent else SereneBrandPrimary
+    val resolvedBg = backgroundColor
+    val resolvedBorder = border
 
     Surface(
         shape = RoundedCornerShape(22.dp),
-        color = backgroundColor,
-        border = border,
-        shadowElevation = 2.dp,
+        color = resolvedBg,
+        border = resolvedBorder,
+        shadowElevation = 0.dp,
         modifier = modifier
             .height(44.dp)
             .clip(RoundedCornerShape(22.dp))
@@ -104,58 +103,68 @@ fun ActiveTabPill(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 8.dp),
+                .padding(start = 8.dp, end = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // Favicon / Icon glyph
-            if (isHome) {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Home",
-                    tint = if (isDark) PastelRose else LiquidTertiary,
-                    modifier = Modifier.size(16.dp)
-                )
-            } else if (!faviconUrl.isNullOrEmpty()) {
-                val imageModel = remember(faviconUrl) {
-                    FaviconManager.toImageModel(faviconUrl)
-                }
-                if (imageModel != null) {
-                    AsyncImage(
-                        model = imageModel,
-                        contentDescription = title,
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clip(CircleShape),
-                        contentScale = ContentScale.Fit
+            // 14px-16px rounded squircle favicon container
+            val squircleShape = RoundedCornerShape(6.dp)
+            val squircleBg = if (isDark) Color(0xFF1E293B).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.85f)
+
+            Box(
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(squircleShape)
+                    .background(squircleBg),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isHome) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "Home",
+                        tint = activeTint,
+                        modifier = Modifier.size(15.dp)
                     )
-                }
-            } else {
-                val initial = title.trim().firstOrNull()?.uppercaseChar()
-                if (initial != null && initial.isLetterOrDigit() && title != "Hori Browser" && title != "Hori" && title != "New Tab") {
-                    Box(
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clip(CircleShape)
-                            .background(if (isDark) Color(0xFF3B3436) else LiquidSurfaceContainerHigh),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = initial.toString(),
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp
-                            ),
-                            color = if (isDark) Color(0xFFF6EFF0) else MaterialTheme.colorScheme.onSurface
+                } else if (!faviconUrl.isNullOrEmpty()) {
+                    val imageModel = remember(faviconUrl) {
+                        FaviconManager.toImageModel(faviconUrl)
+                    }
+                    if (imageModel != null) {
+                        AsyncImage(
+                            model = imageModel,
+                            contentDescription = title,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(RoundedCornerShape(4.dp)),
+                            contentScale = ContentScale.Fit
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Secure Connection",
+                            tint = activeTint,
+                            modifier = Modifier.size(13.dp)
                         )
                     }
                 } else {
-                    Icon(
-                        imageVector = Icons.Default.Lock,
-                        contentDescription = "Secure Connection",
-                        tint = if (isDark) PastelRose else LiquidTertiary,
-                        modifier = Modifier.size(13.dp)
-                    )
+                    val initial = title.trim().firstOrNull()?.uppercaseChar()
+                    if (initial != null && initial.isLetterOrDigit() && title != "Hori Browser" && title != "Hori" && title != "New Tab") {
+                        Text(
+                            text = initial.toString(),
+                            style = typography.labelMd.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp
+                            ),
+                            color = activeTint
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Secure Connection",
+                            tint = activeTint,
+                            modifier = Modifier.size(13.dp)
+                        )
+                    }
                 }
             }
 
@@ -168,22 +177,22 @@ fun ActiveTabPill(
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = if (domain.isEmpty()) 12.5.sp else 11.sp,
-                        fontWeight = FontWeight.SemiBold
+                    style = typography.labelMd.copy(
+                        fontSize = if (domain.isEmpty()) 12.5.sp else 11.5.sp,
+                        fontWeight = FontWeight.Bold
                     ),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = activeTint,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (domain.isNotEmpty()) {
                     Text(
                         text = domain,
-                        style = MaterialTheme.typography.bodySmall.copy(
+                        style = typography.bodySm.copy(
                             fontSize = 9.5.sp,
                             fontWeight = FontWeight.Normal
                         ),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (isDark) SereneAccent.copy(alpha = 0.70f) else SereneBrandPrimary.copy(alpha = 0.70f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -193,12 +202,12 @@ fun ActiveTabPill(
             // Close Tab Action Glyph
             IconButton(
                 onClick = onClose,
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(24.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close tab",
-                    tint = MaterialTheme.colorScheme.outline,
+                    tint = activeTint.copy(alpha = 0.75f),
                     modifier = Modifier.size(14.dp)
                 )
             }

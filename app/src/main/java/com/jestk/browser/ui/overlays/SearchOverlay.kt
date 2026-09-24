@@ -63,8 +63,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -95,23 +93,21 @@ import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.JestkBrowserTheme
-import com.jestk.browser.ui.theme.LiquidOnSurface
-import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
-import com.jestk.browser.ui.theme.LiquidOutline
-import com.jestk.browser.ui.theme.LiquidPrimary
-import com.jestk.browser.ui.theme.LiquidPrimaryContainer
-import com.jestk.browser.ui.theme.LiquidPrimaryFixed
-import com.jestk.browser.ui.theme.LiquidSecondary
-import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
-import com.jestk.browser.ui.theme.LiquidTertiary
+import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
+import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.PastelBlue
-import com.jestk.browser.ui.theme.PastelPeach
-import com.jestk.browser.ui.theme.PastelRose
-import com.jestk.browser.ui.theme.LiquidShapes
-import com.jestk.browser.ui.theme.LiquidBorders
-import com.jestk.browser.ui.theme.liquidFrostedGlass
-import com.jestk.browser.ui.theme.liquidSunsetBackground
+import com.jestk.browser.ui.theme.LocalSereneTypography
+import com.jestk.browser.ui.theme.SereneAccent
+import com.jestk.browser.ui.theme.SereneBorders
+import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneCanvasFloor
+import com.jestk.browser.ui.theme.SereneDarkText
+import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.SerenePaleBlue
+import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.sereneSkyBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
@@ -132,32 +128,28 @@ fun SearchOverlay(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     val isDark = LocalIsDarkTheme.current
-    val overlayHazeState = remember { dev.chrisbanes.haze.HazeState() }
-
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
     }
 
-    CompositionLocalProvider(com.jestk.browser.ui.theme.LocalHazeState provides overlayHazeState) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = { onEvent(BrowserUiEvent.DismissOverlay) }
-                )
-        ) {
-            // Layer 1: Ambient background registered with Haze to be blurred by children
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .liquidSunsetBackground(isDark = isDark)
-                    .haze(overlayHazeState)
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = { onEvent(BrowserUiEvent.DismissOverlay) }
             )
+    ) {
+        // Layer 1: Ambient background
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .sereneSkyBackground(isDark = isDark)
+        )
 
-            // Layer 2: Foreground content containing frosted glass cards & input (hazeChild)
+        // Layer 2: Foreground content containing solid cards & input
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -280,7 +272,6 @@ fun SearchOverlay(
         }
     }
 }
-}
 
 @Composable
 private fun HeroSearchInputField(
@@ -323,23 +314,15 @@ private fun HeroSearchInputField(
         }
     }
 
-    val bg = if (isDark) Color(0xFF242021) else Color.White
+    val bg = if (isDark) DarkSurface else Color.White
+    val borderColor = if (isDark) SereneAccent.copy(alpha = 0.50f) else SereneAccent
 
     Surface(
-        shape = RoundedCornerShape(27.dp),
-        color = Color.Transparent,
-        border = null,
-        shadowElevation = 0.dp,
-        modifier = modifier
-            .height(54.dp)
-            .liquidFrostedGlass(
-                shape = RoundedCornerShape(27.dp),
-                isDark = isDark,
-                blurRadius = 24.dp,
-                tintColor = bg,
-                alpha = if (isDark) 0.52f else 0.46f,
-                hazeState = com.jestk.browser.ui.theme.LocalHazeState.current
-            )
+        shape = CircleShape,
+        color = bg,
+        border = BorderStroke(1.5.dp, borderColor),
+        shadowElevation = 4.dp,
+        modifier = modifier.height(52.dp)
     ) {
         Row(
             modifier = Modifier
@@ -348,7 +331,7 @@ private fun HeroSearchInputField(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Engine Badge (Brand Engine Badge - Task 15)
+            // Engine Badge
             SearchEngineBadge(
                 engine = searchEngine,
                 size = 32.dp,
@@ -365,8 +348,8 @@ private fun HeroSearchInputField(
                 placeholder = {
                     Text(
                         text = "Search in ${searchEngine.displayName} or enter URL",
-                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                        color = MaterialTheme.colorScheme.outline
+                        style = LocalSereneTypography.current.bodyMd,
+                        color = SereneMutedSlate
                     )
                 },
                 singleLine = true,
@@ -378,24 +361,24 @@ private fun HeroSearchInputField(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Color.Transparent,
                     unfocusedBorderColor = Color.Transparent,
-                    cursorColor = LiquidPrimaryContainer
+                    cursorColor = SereneBrandPrimary
                 ),
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focusRequester)
             )
 
-            // Clear Button
+            // Clear Button / Submit Button / Voice Button
             if (query.isNotEmpty()) {
                 IconButton(
                     onClick = onClear,
-                    modifier = Modifier.size(26.dp)
+                    modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Clear,
                         contentDescription = "Clear",
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(16.dp)
+                        tint = SereneMutedSlate,
+                        modifier = Modifier.size(18.dp)
                     )
                 }
 
@@ -404,7 +387,7 @@ private fun HeroSearchInputField(
                     modifier = Modifier
                         .size(32.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary)
+                        .background(SereneBrandPrimary)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowForward,
@@ -425,12 +408,12 @@ private fun HeroSearchInputField(
                             Toast.makeText(context, "Voice input not available", Toast.LENGTH_SHORT).show()
                         }
                     },
-                    modifier = Modifier.size(28.dp)
+                    modifier = Modifier.size(32.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Mic,
                         contentDescription = "Voice Input",
-                        tint = LiquidPrimaryContainer,
+                        tint = SereneMutedSlate,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -449,12 +432,10 @@ private fun InsetGroupedHistoryCard(
     onInsertQuery: (HistoryItem) -> Unit,
     onClearHistory: () -> Unit
 ) {
-    val cardBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.88f) else Color.White.copy(alpha = 0.85f)
-    val cardBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f))
     val reversedItems = remember(items) { items.reversed() }
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        // Section Header (Stitch Screen 2)
+        // Section Header
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -469,16 +450,13 @@ private fun InsetGroupedHistoryCard(
                 Icon(
                     imageVector = Icons.Default.History,
                     contentDescription = null,
-                    tint = if (isDark) PastelRose else LiquidTertiary,
-                    modifier = Modifier.size(17.dp)
+                    tint = SereneBrandPrimary,
+                    modifier = Modifier.size(18.dp)
                 )
                 Text(
                     text = stringResource(R.string.search_history_title),
-                    style = MaterialTheme.typography.labelMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = LocalSereneTypography.current.headlineSm.copy(fontSize = 13.sp),
+                    color = if (isDark) DarkOnSurface else SereneDarkText
                 )
             }
 
@@ -493,17 +471,14 @@ private fun InsetGroupedHistoryCard(
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.CloseFullscreen else Icons.Default.OpenInFull,
                         contentDescription = if (isExpanded) stringResource(R.string.collapse_history) else stringResource(R.string.expand_history),
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = SereneBrandPrimary,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = if (isExpanded) stringResource(R.string.collapse_history) else stringResource(R.string.expand_history),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 11.sp
-                        ),
-                        color = MaterialTheme.colorScheme.primary
+                        style = LocalSereneTypography.current.labelMd.copy(fontSize = 11.sp),
+                        color = SereneBrandPrimary
                     )
                 }
 
@@ -513,32 +488,20 @@ private fun InsetGroupedHistoryCard(
                 ) {
                     Text(
                         text = stringResource(R.string.clear_history),
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 11.sp
-                        ),
-                        color = MaterialTheme.colorScheme.primary
+                        style = LocalSereneTypography.current.labelMd.copy(fontSize = 11.sp),
+                        color = SereneBrandPrimary
                     )
                 }
             }
         }
 
         Surface(
-            shape = LiquidShapes.Card,
-            color = Color.Transparent,
-            border = null,
-            shadowElevation = 0.dp,
+            shape = SereneShapes.Card,
+            color = if (isDark) DarkSurface else Color.White,
+            border = SereneBorders.cardBorder(isDark),
+            shadowElevation = 2.dp,
             modifier = Modifier
                 .fillMaxWidth()
-                .liquidFrostedGlass(
-                    shape = LiquidShapes.Card,
-                    isDark = isDark,
-                    blurRadius = 16.dp,
-                    tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
-                    alpha = if (isDark) 0.88f else 0.85f,
-                    borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.80f),
-                    hazeState = com.jestk.browser.ui.theme.LocalHazeState.current
-                )
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
@@ -561,17 +524,14 @@ private fun InsetGroupedHistoryCard(
                         Icon(
                             imageVector = Icons.Default.History,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(19.dp)
+                            tint = SereneMutedSlate,
+                            modifier = Modifier.size(18.dp)
                         )
 
                         Text(
                             text = item.title.ifEmpty { item.url },
-                            style = MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Normal
-                            ),
-                            color = MaterialTheme.colorScheme.onSurface,
+                            style = LocalSereneTypography.current.bodyMd,
+                            color = if (isDark) DarkOnSurface else SereneDarkText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
@@ -585,7 +545,7 @@ private fun InsetGroupedHistoryCard(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Insert in search",
-                                tint = MaterialTheme.colorScheme.outline,
+                                tint = SereneMutedSlate,
                                 modifier = Modifier
                                     .size(16.dp)
                                     .rotate(45f)
@@ -595,7 +555,7 @@ private fun InsetGroupedHistoryCard(
 
                     if (index < reversedItems.lastIndex) {
                         HorizontalDivider(
-                            color = if (isDark) Color(0xFF4D4546).copy(alpha = 0.40f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f),
+                            color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
                             modifier = Modifier.padding(start = 44.dp)
                         )
                     }
@@ -608,22 +568,13 @@ private fun InsetGroupedHistoryCard(
 @Composable
 private fun HistoryEmptyCard(isDark: Boolean) {
     Surface(
-        shape = LiquidShapes.Card,
-        color = Color.Transparent,
-        border = null,
-        shadowElevation = 0.dp,
+        shape = SereneShapes.Card,
+        color = if (isDark) DarkSurface else Color.White,
+        border = SereneBorders.cardBorder(isDark),
+        shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 12.dp)
-            .liquidFrostedGlass(
-                shape = LiquidShapes.Card,
-                isDark = isDark,
-                blurRadius = 16.dp,
-                tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
-                alpha = if (isDark) 0.75f else 0.78f,
-                borderColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.80f),
-                hazeState = com.jestk.browser.ui.theme.LocalHazeState.current
-            )
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -634,13 +585,13 @@ private fun HistoryEmptyCard(isDark: Boolean) {
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(LiquidPrimaryContainer.copy(alpha = 0.20f)),
+                    .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ManageSearch,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = SereneBrandPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -649,13 +600,13 @@ private fun HistoryEmptyCard(isDark: Boolean) {
 
             Text(
                 text = "Search History",
-                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
-                color = MaterialTheme.colorScheme.onSurface
+                style = LocalSereneTypography.current.headlineSm.copy(fontSize = 13.sp),
+                color = if (isDark) DarkOnSurface else SereneDarkText
             )
             Text(
                 text = "Recent queries will appear here",
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = LocalSereneTypography.current.bodySm.copy(fontSize = 11.sp),
+                color = SereneMutedSlate
             )
         }
     }
@@ -681,35 +632,22 @@ private fun SearchFavoritesSection(
             Icon(
                 imageVector = Icons.Default.Star,
                 contentDescription = null,
-                tint = if (isDark) PastelRose else LiquidTertiary,
-                modifier = Modifier.size(17.dp)
+                tint = SereneBrandPrimary,
+                modifier = Modifier.size(18.dp)
             )
             Text(
                 text = "Favorites",
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface
+                style = LocalSereneTypography.current.headlineSm.copy(fontSize = 13.sp),
+                color = if (isDark) DarkOnSurface else SereneDarkText
             )
         }
 
         Surface(
-            shape = LiquidShapes.Card,
-            color = Color.Transparent,
-            border = null,
-            shadowElevation = 0.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .liquidFrostedGlass(
-                    shape = LiquidShapes.Card,
-                    isDark = isDark,
-                    blurRadius = 16.dp,
-                    tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
-                    alpha = if (isDark) 0.88f else 0.85f,
-                    borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.80f),
-                    hazeState = com.jestk.browser.ui.theme.LocalHazeState.current
-                )
+            shape = SereneShapes.Card,
+            color = if (isDark) DarkSurface else Color.White,
+            border = SereneBorders.cardBorder(isDark),
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
         ) {
             val rows = favorites.take(8).chunked(4)
             Column(
@@ -751,8 +689,7 @@ private fun SearchFavoriteSquircleCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val defaultBg = if (isDark) Color(0xFF282425).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
-    val border = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.70f))
+    val squircleBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
     val faviconUrl = item.iconUrl ?: FaviconManager.extractFallbackFaviconUrl(item.url)
 
     Column(
@@ -763,11 +700,11 @@ private fun SearchFavoriteSquircleCard(
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = defaultBg,
-            border = border,
+            shape = RoundedCornerShape(14.dp),
+            color = squircleBg,
+            border = null,
             shadowElevation = 0.dp,
-            modifier = Modifier.size(52.dp)
+            modifier = Modifier.size(44.dp)
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -779,8 +716,8 @@ private fun SearchFavoriteSquircleCard(
                     Icon(
                         imageVector = Icons.Default.Public,
                         contentDescription = item.title,
-                        tint = if (isDark) PastelBlue else LiquidPrimary,
-                        modifier = Modifier.size(24.dp)
+                        tint = SereneBrandPrimary,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
@@ -795,7 +732,7 @@ private fun SearchFavoriteSquircleCard(
                         contentScale = ContentScale.Fit,
                         onSuccess = { isImageSuccess = true },
                         onError = { isImageSuccess = false },
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -803,11 +740,11 @@ private fun SearchFavoriteSquircleCard(
 
         Text(
             text = item.title.ifEmpty { item.url },
-            style = MaterialTheme.typography.bodySmall.copy(
+            style = LocalSereneTypography.current.bodySm.copy(
                 fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.SemiBold
             ),
-            color = MaterialTheme.colorScheme.onSurface,
+            color = if (isDark) DarkOnSurface else SereneDarkText,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,
@@ -887,24 +824,23 @@ private fun SearchEngineChip(
     modifier: Modifier = Modifier
 ) {
     val containerColor = when {
-        isSelected && isDark -> Color(0xFF33618D).copy(alpha = 0.35f)
-        isSelected && !isDark -> LiquidPrimaryFixed.copy(alpha = 0.70f)
-        !isSelected && isDark -> Color(0xFF242021).copy(alpha = 0.55f)
-        else -> Color.White.copy(alpha = 0.60f)
+        isSelected && isDark -> DarkSurfaceVariant
+        isSelected && !isDark -> SerenePaleBlue
+        !isSelected && isDark -> DarkSurface
+        else -> Color.White
     }
 
     val border = when {
-        isSelected && isDark -> BorderStroke(1.5.dp, PastelBlue)
-        isSelected && !isDark -> BorderStroke(1.5.dp, LiquidPrimary)
-        !isSelected && isDark -> BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.40f))
-        else -> BorderStroke(1.dp, Color.White.copy(alpha = 0.85f))
+        isSelected -> BorderStroke(1.5.dp, SereneBrandPrimary)
+        isDark -> BorderStroke(1.dp, DarkSurfaceVariant)
+        else -> BorderStroke(1.dp, Color(0x2664748B))
     }
 
     val contentColor = when {
-        isSelected && isDark -> Color.White
-        isSelected && !isDark -> LiquidPrimary
-        !isSelected && isDark -> Color(0xFFDFD8D9)
-        else -> MaterialTheme.colorScheme.onSurface
+        isSelected && isDark -> DarkOnSurface
+        isSelected && !isDark -> SereneBrandPrimary
+        isDark -> DarkOnSurfaceVariant
+        else -> SereneDarkText
     }
 
     Surface(
@@ -913,11 +849,12 @@ private fun SearchEngineChip(
         border = border,
         shadowElevation = 0.dp,
         modifier = modifier
+            .height(32.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick)
     ) {
         Row(
-            modifier = Modifier.padding(start = 6.dp, end = 12.dp, top = 5.dp, bottom = 5.dp),
+            modifier = Modifier.padding(start = 6.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
@@ -929,8 +866,8 @@ private fun SearchEngineChip(
 
             Text(
                 text = engine.displayName,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontSize = 12.5.sp,
+                style = LocalSereneTypography.current.labelMd.copy(
+                    fontSize = 12.sp,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                 ),
                 color = contentColor
@@ -939,7 +876,7 @@ private fun SearchEngineChip(
     }
 }
 
-@Preview(name = "SearchOverlay Light", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFFFFF8F8)
+@Preview(name = "SearchOverlay Light", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFFF1F7FC)
 @Composable
 fun SearchOverlayLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
@@ -966,7 +903,7 @@ fun SearchOverlayLightPreview() {
     }
 }
 
-@Preview(name = "SearchOverlay Dark", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFF161314)
+@Preview(name = "SearchOverlay Dark", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFF0F172A)
 @Composable
 fun SearchOverlayDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
@@ -990,7 +927,7 @@ fun SearchOverlayDarkPreview() {
     }
 }
 
-@Preview(name = "SearchOverlay Expanded Dark", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFF161314)
+@Preview(name = "SearchOverlay Expanded Dark", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFF0F172A)
 @Composable
 fun SearchOverlayExpandedDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {

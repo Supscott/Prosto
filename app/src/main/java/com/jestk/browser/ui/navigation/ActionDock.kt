@@ -13,6 +13,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -35,9 +36,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -57,29 +58,31 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
-import com.jestk.browser.ui.theme.LiquidBorders
-import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
-import com.jestk.browser.ui.theme.LiquidPrimary
-import com.jestk.browser.ui.theme.LiquidPrimaryFixed
-import com.jestk.browser.ui.theme.LiquidShapes
-import com.jestk.browser.ui.theme.LiquidSurface
-import com.jestk.browser.ui.theme.LocalHazeState
+import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.PastelRose
-import com.jestk.browser.ui.theme.liquidFrostedGlass
+import com.jestk.browser.ui.theme.LocalSereneTypography
+import com.jestk.browser.ui.theme.SereneAccent
+import com.jestk.browser.ui.theme.SereneBorders
+import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneCardSurface
+import com.jestk.browser.ui.theme.SereneDarkText
+import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.sereneFloatingSurface
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
-import dev.chrisbanes.haze.HazeState
 
 /**
  * The grounded 4-button dock (Home, Search, Tabs Overview, Settings).
  * Features:
- * - Scroll-driven auto-hide offset translation via [BrowserUiState.bottomBarOffsetY]
- * - Swipe-up gesture to search
- * - Liquid frosted glass container
+ * - Serene Canvas Level 2 floating capsule (SereneShapes.Dock 32.dp)
+ * - Solid surface: pure #FFFFFF in light, #1E293B in dark. NO BLUR.
+ * - Level 2 ambient elevation shadow and crisp rim border.
+ * - 48px touch targets for action buttons with SereneMutedSlate inactive tint.
+ * - Scroll-driven auto-hide offset translation via [BrowserUiState.bottomBarOffsetY].
+ * - Swipe-up gesture to search.
  */
 @Composable
 fun ActionDock(
@@ -87,25 +90,29 @@ fun ActionDock(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
     isDark: Boolean = LocalIsDarkTheme.current,
-    hazeState: HazeState? = LocalHazeState.current
+    hazeState: Any? = null,
 ) {
     val density = LocalDensity.current
     val currentOnEvent by rememberUpdatedState(onEvent)
     val isHome = uiState.isHome
 
-    val dockBg = if (isDark) Color(0xFF1E1B1C) else LiquidSurface
+    val dockBg = if (isDark) DarkSurface else SereneCardSurface
+    val activeTint = if (isDark) SereneAccent else SereneBrandPrimary
+    val inactiveTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
 
-    Surface(
-        shape = LiquidShapes.Dock,
-        color = dockBg,
-        border = LiquidBorders.specularBorder(isDark),
-        shadowElevation = 8.dp,
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .height(58.dp)
             .graphicsLayer {
                 translationY = uiState.bottomBarOffsetY
             }
+            .sereneFloatingSurface(
+                shape = SereneShapes.Dock,
+                isDark = isDark,
+                backgroundColor = dockBg,
+                elevation = 10.dp
+            )
             .swipeUpToSearch(density) {
                 currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
             }
@@ -117,7 +124,7 @@ fun ActionDock(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            // Home Button
+            // Home Button (48px touch target)
             IconButton(
                 onClick = {
                     if (isHome && uiState.activeOverlay == OverlayType.HOME) {
@@ -126,18 +133,17 @@ fun ActionDock(
                         currentOnEvent(BrowserUiEvent.OpenHome)
                     }
                 },
-                modifier = Modifier.size(42.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Home,
                     contentDescription = "Home",
-                    tint = if (isHome && uiState.activeOverlay == OverlayType.HOME)
-                        MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (isHome && uiState.activeOverlay == OverlayType.HOME) activeTint else inactiveTint,
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
-            // Search Button
+            // Search Button (48px touch target)
             IconButton(
                 onClick = {
                     if (uiState.activeOverlay == OverlayType.SEARCH) {
@@ -146,18 +152,17 @@ fun ActionDock(
                         currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
                     }
                 },
-                modifier = Modifier.size(42.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Search,
                     contentDescription = "Search",
-                    tint = if (uiState.activeOverlay == OverlayType.SEARCH)
-                        MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (uiState.activeOverlay == OverlayType.SEARCH) activeTint else inactiveTint,
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
-            // Tabs Overview Button
+            // Tabs Overview Button (48px touch target)
             IconButton(
                 onClick = {
                     if (uiState.activeOverlay == OverlayType.TAB_GRID) {
@@ -166,18 +171,17 @@ fun ActionDock(
                         currentOnEvent(BrowserUiEvent.OpenTabGrid)
                     }
                 },
-                modifier = Modifier.size(42.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.FilterNone,
                     contentDescription = "Tabs Overview",
-                    tint = if (uiState.activeOverlay == OverlayType.TAB_GRID)
-                        MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (uiState.activeOverlay == OverlayType.TAB_GRID) activeTint else inactiveTint,
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
-            // Settings Button
+            // Settings Button (48px touch target)
             IconButton(
                 onClick = {
                     if (uiState.activeScreen == ScreenType.SETTINGS) {
@@ -186,14 +190,13 @@ fun ActionDock(
                         currentOnEvent(BrowserUiEvent.OpenSettings)
                     }
                 },
-                modifier = Modifier.size(42.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = "Settings",
-                    tint = if (uiState.activeScreen == ScreenType.SETTINGS)
-                        MaterialTheme.colorScheme.primary
-                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    tint = if (uiState.activeScreen == ScreenType.SETTINGS) activeTint else inactiveTint,
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
@@ -202,18 +205,26 @@ fun ActionDock(
 
 /**
  * Animated popup actions card anchored above the Menu button.
- * Contains: Home, Search, Tabs, Downloads, Settings.
+ * Adheres to Serene Canvas design system:
+ * - Floating card with 24px radius (SereneShapes.Card), pure solid #FFFFFF (Dark: #1E293B).
+ * - Level 2 elevation shadow and rim border.
+ * - 48px touch targets for menu rows.
+ * - Hairline dividers 1px solid #F1F5F9 (Dark: 1px solid #334155).
+ * - Clean typography (body-md / label-md Plus Jakarta Sans).
+ * - NO BLUR or Haze.
  */
 @Composable
 fun ActionPopupMenu(
     expanded: Boolean,
     uiState: BrowserUiState,
     isDark: Boolean,
-    hazeState: HazeState?,
+    hazeState: Any? = null,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val isHome = uiState.isHome
+    val menuBg = if (isDark) DarkSurface else SereneCardSurface
+    val dividerColor = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)
 
     AnimatedVisibility(
         visible = expanded,
@@ -225,26 +236,20 @@ fun ActionPopupMenu(
                 slideOutVertically(animationSpec = tween(180, easing = FastOutSlowInEasing)) { it / 3 },
         modifier = modifier
     ) {
-        Surface(
-            shape = LiquidShapes.Card,
-            color = Color.Transparent,
-            border = null,
-            shadowElevation = 12.dp,
+        Box(
             modifier = Modifier
                 .padding(bottom = 8.dp, end = 16.dp)
-                .width(148.dp)
-                .liquidFrostedGlass(
-                    shape = LiquidShapes.Card,
+                .width(172.dp)
+                .sereneFloatingSurface(
+                    shape = SereneShapes.Card,
                     isDark = isDark,
-                    blurRadius = 24.dp,
-                    tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
-                    alpha = if (isDark) 0.55f else 0.50f,
-                    hazeState = hazeState
+                    backgroundColor = menuBg,
+                    elevation = 12.dp
                 )
         ) {
             Column(
-                modifier = Modifier.padding(6.dp),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
+                verticalArrangement = Arrangement.Center
             ) {
                 // Home
                 PopupMenuItem(
@@ -258,6 +263,8 @@ fun ActionPopupMenu(
                     }
                 )
 
+                HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
                 // Search
                 PopupMenuItem(
                     icon = Icons.Default.Search,
@@ -269,6 +276,8 @@ fun ActionPopupMenu(
                         onEvent(BrowserUiEvent.SetMenuExpanded(false))
                     }
                 )
+
+                HorizontalDivider(color = dividerColor, thickness = 1.dp)
 
                 // Tabs
                 PopupMenuItem(
@@ -282,6 +291,8 @@ fun ActionPopupMenu(
                     }
                 )
 
+                HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
                 // Downloads
                 PopupMenuItem(
                     icon = Icons.Default.Download,
@@ -293,6 +304,8 @@ fun ActionPopupMenu(
                         onEvent(BrowserUiEvent.SetMenuExpanded(false))
                     }
                 )
+
+                HorizontalDivider(color = dividerColor, thickness = 1.dp)
 
                 // Settings
                 PopupMenuItem(
@@ -311,44 +324,46 @@ fun ActionPopupMenu(
 }
 
 /**
- * Dedicated Floating Menu Button (rounded rectangle 38x58dp) in the dock row.
+ * Dedicated Floating Menu Button in the dock row.
+ * Solid crisp surface, Level 2 rim border, active ripple, NO BLUR.
  */
 @Composable
 fun ActionDockMenuButton(
     isExpanded: Boolean,
     isDark: Boolean,
-    backgroundColor: Color,
-    hazeState: HazeState? = null,
+    backgroundColor: Color = if (isDark) DarkSurface else SereneCardSurface,
+    hazeState: Any? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Surface(
-        shape = LiquidShapes.Card,
-        color = backgroundColor,
-        border = LiquidBorders.specularBorder(isDark),
-        shadowElevation = 6.dp,
+    val activeTint = if (isDark) SereneAccent else SereneBrandPrimary
+    val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
+
+    Box(
         modifier = modifier
-            .size(width = 38.dp, height = 58.dp)
-            .clip(LiquidShapes.Card)
-            .clickable(onClick = onClick)
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Menu,
-                contentDescription = "Menu",
-                tint = if (isExpanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(20.dp)
+            .size(width = 44.dp, height = 58.dp)
+            .sereneFloatingSurface(
+                shape = SereneShapes.Card,
+                isDark = isDark,
+                backgroundColor = backgroundColor,
+                elevation = 8.dp
             )
-        }
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Menu,
+            contentDescription = "Menu",
+            tint = if (isExpanded) activeTint else normalTint,
+            modifier = Modifier.size(20.dp)
+        )
     }
 }
 
 /**
  * Subtle, stylish prompt above the floating dock when Home is active,
  * guiding users to the swipe-up gesture to search.
+ * Solid pill surface with micro-border, NO BLUR.
  */
 @Composable
 fun SwipeUpHint(
@@ -380,34 +395,35 @@ fun SwipeUpHint(
         bounce
     }
 
+    val typography = LocalSereneTypography.current
+
     Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = if (isDark) Color(0xFF2C2829).copy(alpha = 0.88f) else Color.White.copy(alpha = 0.90f),
-        border = LiquidBorders.frostedBorder(isDark, alpha = if (isDark) 0.14f else 0.85f),
+        shape = SereneShapes.Pill,
+        color = if (isDark) DarkSurface else SereneCardSurface,
+        border = SereneBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
         modifier = modifier
             .offset(y = bounceOffset.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .clip(SereneShapes.Pill)
             .clickable(onClick = onClick)
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Icon(
                 imageVector = Icons.Default.KeyboardArrowUp,
                 contentDescription = "Swipe up to search",
-                tint = if (isDark) PastelRose else LiquidPrimary,
+                tint = if (isDark) SereneAccent else SereneBrandPrimary,
                 modifier = Modifier.size(16.dp)
             )
             Text(
                 text = "Swipe up to search",
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontSize = 11.5.sp,
+                style = typography.labelSm.copy(
                     fontWeight = FontWeight.Medium
                 ),
-                color = if (isDark) Color(0xFFD0C5C6) else LiquidOnSurfaceVariant
+                color = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
             )
         }
     }
@@ -415,6 +431,7 @@ fun SwipeUpHint(
 
 /**
  * Reusable menu item row used in popup actions and context menus.
+ * 48px touch targets, active press ripple, Plus Jakarta Sans typography.
  */
 @Composable
 fun PopupMenuItem(
@@ -425,39 +442,39 @@ fun PopupMenuItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val activeBg = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.35f) else LiquidPrimaryFixed.copy(alpha = 0.65f)
-    val activeTint = if (isDark) Color(0xFF9ECAFC) else MaterialTheme.colorScheme.primary
-    val normalTint = if (isDark) Color(0xFFD0C5C6) else MaterialTheme.colorScheme.onSurfaceVariant
+    val activeBg = if (isDark) Color(0x2660A5FA) else SereneBrandPrimary.copy(alpha = 0.10f)
+    val activeTint = if (isDark) SereneAccent else SereneBrandPrimary
+    val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
+    val typography = LocalSereneTypography.current
 
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = if (isActive) activeBg else Color.Transparent,
         modifier = modifier
             .fillMaxWidth()
-            .height(38.dp)
+            .height(48.dp)
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp),
+                .fillMaxSize()
+                .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
                 tint = if (isActive) activeTint else normalTint,
-                modifier = Modifier.size(19.dp)
+                modifier = Modifier.size(20.dp)
             )
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium.copy(
-                    fontSize = 13.sp,
+                style = typography.bodyMd.copy(
                     fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium
                 ),
-                color = if (isActive) activeTint else normalTint
+                color = if (isActive) activeTint else if (isDark) Color(0xFFF1F5F9) else SereneDarkText
             )
         }
     }

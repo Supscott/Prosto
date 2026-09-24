@@ -88,23 +88,23 @@ import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.ui.theme.CardPreviewBlueBrush
 import com.jestk.browser.ui.theme.CardPreviewPeachBrush
 import com.jestk.browser.ui.theme.CardPreviewRoseBrush
-import com.jestk.browser.ui.theme.LiquidOnSurface
-import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
-import com.jestk.browser.ui.theme.LiquidOutline
-import com.jestk.browser.ui.theme.LiquidPrimary
-import com.jestk.browser.ui.theme.LiquidPrimaryContainer
-import com.jestk.browser.ui.theme.LiquidSecondary
-import com.jestk.browser.ui.theme.LiquidSurface
-import com.jestk.browser.ui.theme.LiquidTertiary
-import com.jestk.browser.ui.theme.PastelBlue
-import com.jestk.browser.ui.theme.PastelPeach
-import com.jestk.browser.ui.theme.PastelRose
-import com.jestk.browser.ui.theme.PastelWarmOrange
-import com.jestk.browser.ui.theme.LocalHazeState
-import com.jestk.browser.ui.theme.liquidFrostedGlass
-import com.jestk.browser.ui.theme.liquidSunsetBackground
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
+import com.jestk.browser.ui.theme.DarkBackground
+import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.DarkSurfaceVariant
+import com.jestk.browser.ui.theme.LocalIsDarkTheme
+import com.jestk.browser.ui.theme.LocalSereneTypography
+import com.jestk.browser.ui.theme.SereneAccent
+import com.jestk.browser.ui.theme.SereneBorders
+import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneCanvasFloor
+import com.jestk.browser.ui.theme.SereneCardSurface
+import com.jestk.browser.ui.theme.SereneDarkText
+import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.SerenePaleBlue
+import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.sereneCardSurface
+import com.jestk.browser.ui.theme.sereneSkyBackground
 import android.app.Activity
 import android.content.Intent
 import android.speech.RecognizerIntent
@@ -124,7 +124,7 @@ private data class PresetFavorite(
     val title: String,
     val url: String,
     val icon: ImageVector = Icons.Default.Public,
-    val iconTint: Color = LiquidPrimary,
+    val iconTint: Color = SereneBrandPrimary,
     val bgBrush: Brush? = null,
     val iconUrl: String? = null
 )
@@ -143,7 +143,7 @@ fun HomeScreen(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
-    hazeState: HazeState? = LocalHazeState.current
+    hazeState: Any? = null,
 ) {
     val context = LocalContext.current
     val speechLauncher = rememberLauncherForActivityResult(
@@ -165,20 +165,17 @@ fun HomeScreen(
 
     val scrollState = rememberScrollState()
     val isDark = LocalIsDarkTheme.current
-    val homeHazeState = hazeState ?: remember { HazeState() }
     var isDefaultBrowserDismissed by rememberSaveable { mutableStateOf(false) }
 
-    CompositionLocalProvider(LocalHazeState provides homeHazeState) {
-        Box(modifier = modifier.fillMaxSize()) {
-            // Layer 1: Ambient multi-point pastel sunset background registered with Haze
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .liquidSunsetBackground(isDark = isDark)
-                    .haze(homeHazeState)
-            )
+    Box(modifier = modifier.fillMaxSize()) {
+        // Layer 1: Ambient background
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .sereneSkyBackground(isDark = isDark)
+        )
 
-            // Layer 2: Scrolling foreground content
+        // Layer 2: Scrolling foreground content
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -187,14 +184,11 @@ fun HomeScreen(
                     .verticalScroll(scrollState)
                     .padding(top = 16.dp, bottom = 120.dp)
             ) {
-                // App Title / Top Space
+                // Hero Greeting
                 Text(
-                    text = "Jestk Browser",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-0.5).sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    text = "Where to next?",
+                    style = LocalSereneTypography.current.headlineXl,
+                    color = if (isDark) DarkOnSurface else SereneDarkText,
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
                 )
 
@@ -276,7 +270,6 @@ fun HomeScreen(
                 }
             }
         }
-    }
 }
 
 @Composable
@@ -288,30 +281,22 @@ private fun HeroSearchCapsule(
     onQrScanClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bg = if (isDark) Color(0xFF242021) else Color.White
-    val border = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f)
+    val bg = if (isDark) DarkSurface else Color.White
+    val borderColor = if (isDark) SereneAccent.copy(alpha = 0.50f) else SereneAccent
 
     Surface(
-        shape = RoundedCornerShape(26.dp),
-        color = Color.Transparent,
-        border = null,
-        shadowElevation = 0.dp,
+        shape = CircleShape,
+        color = bg,
+        border = BorderStroke(1.5.dp, borderColor),
+        shadowElevation = 4.dp,
         modifier = modifier
             .height(52.dp)
-            .liquidFrostedGlass(
-                shape = RoundedCornerShape(26.dp),
-                isDark = isDark,
-                blurRadius = 24.dp,
-                tintColor = bg,
-                alpha = if (isDark) 0.52f else 0.46f,
-                hazeState = LocalHazeState.current
-            )
             .clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp),
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -319,18 +304,15 @@ private fun HeroSearchCapsule(
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = null,
-                tint = LiquidPrimaryContainer,
-                modifier = Modifier.size(21.dp)
+                tint = SereneMutedSlate,
+                modifier = Modifier.size(20.dp)
             )
 
             // Placeholder Text
             Text(
                 text = "Search with $searchEngineName or enter URL",
-                style = MaterialTheme.typography.bodyMedium.copy(
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Normal
-                ),
-                color = MaterialTheme.colorScheme.outline,
+                style = LocalSereneTypography.current.bodyMd,
+                color = SereneMutedSlate,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
@@ -339,29 +321,29 @@ private fun HeroSearchCapsule(
             // Trailing Actions (Voice & Scanner)
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(2.dp)
             ) {
                 IconButton(
                     onClick = onVoiceClick,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Mic,
                         contentDescription = "Voice Search",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(19.dp)
+                        tint = SereneMutedSlate,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
 
                 IconButton(
                     onClick = onQrScanClick,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.QrCodeScanner,
                         contentDescription = "Scan QR",
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(19.dp)
+                        tint = SereneMutedSlate,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -385,98 +367,66 @@ private fun FavoritesSection(
     Column(modifier = modifier) {
         // Section Header
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 2.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = "Favorites",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 19.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface
+                style = LocalSereneTypography.current.headlineSm,
+                color = if (isDark) DarkOnSurface else SereneDarkText
             )
 
             if (canBookmarkCurrent) {
                 TextButton(onClick = onBookmarkCurrent) {
-                    Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = SereneBrandPrimary
+                    )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text("Bookmark Tab", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = "Bookmark Tab",
+                        style = LocalSereneTypography.current.bodySm.copy(fontWeight = FontWeight.SemiBold),
+                        color = SereneBrandPrimary
+                    )
                 }
             }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // 4-Column Squircle Grid
-        val itemsToDisplay: List<PresetFavorite> = favorites.map { fav ->
-            val fallbackFavicon = fav.iconUrl ?: FaviconManager.extractFallbackFaviconUrl(fav.url)
-            PresetFavorite(
-                id = fav.id,
-                title = fav.title.ifEmpty { fav.url },
-                url = fav.url,
-                icon = Icons.Default.Public,
-                iconTint = MaterialTheme.colorScheme.primary,
-                iconUrl = fallbackFavicon
-            )
-        }.let { list ->
-            if (isExpanded) list else list.take(7)
-        }
-
-        if (itemsToDisplay.isEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                AddFavoriteButton(
-                    isDark = isDark,
-                    onClick = onAddClick,
-                    modifier = Modifier.weight(1f)
-                )
-                repeat(3) {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-            }
-        } else {
-            val rows = itemsToDisplay.chunked(4)
-
+        // Level 1 Solid Card enclosing the favorites grid
+        Surface(
+            shape = SereneShapes.Card,
+            color = if (isDark) DarkSurface else Color.White,
+            border = SereneBorders.cardBorder(isDark),
+            shadowElevation = 2.dp,
+            modifier = Modifier.fillMaxWidth()
+        ) {
             Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
             ) {
-                rows.forEachIndexed { rowIndex, rowItems ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        rowItems.forEach { item ->
-                            FavoriteSquircleCard(
-                                item = item,
-                                isDark = isDark,
-                                onClick = { onSelectUrl(item.url) },
-                                onDelete = item.id?.let { id -> { onDeleteFavorite(id) } },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-
-                        // If this is the last row and there are empty slots, add the "+" button or spacers
-                        val emptySlots = 4 - rowItems.size
-                        if (emptySlots > 0 && rowIndex == rows.lastIndex) {
-                            AddFavoriteButton(
-                                isDark = isDark,
-                                onClick = onAddClick,
-                                modifier = Modifier.weight(1f)
-                            )
-                            repeat(emptySlots - 1) {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
+                val itemsToDisplay: List<PresetFavorite> = favorites.map { fav ->
+                    val fallbackFavicon = fav.iconUrl ?: FaviconManager.extractFallbackFaviconUrl(fav.url)
+                    PresetFavorite(
+                        id = fav.id,
+                        title = fav.title.ifEmpty { fav.url },
+                        url = fav.url,
+                        icon = Icons.Default.Public,
+                        iconTint = SereneBrandPrimary,
+                        iconUrl = fallbackFavicon
+                    )
+                }.let { list ->
+                    if (isExpanded) list else list.take(7)
                 }
 
-                // If rows filled all 4 slots exactly, show Add button on next row
-                if (itemsToDisplay.size % 4 == 0) {
+                if (itemsToDisplay.isEmpty()) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -490,21 +440,81 @@ private fun FavoritesSection(
                             Spacer(modifier = Modifier.weight(1f))
                         }
                     }
-                }
-            }
-        }
+                } else {
+                    val rows = itemsToDisplay.chunked(4)
 
-        if (favorites.size > 7) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                OutlinedButton(
-                    onClick = onToggleExpand,
-                    shape = RoundedCornerShape(20.dp)
-                ) {
-                    Text(if (isExpanded) "Show Less" else "Show All Favorites (${favorites.size})")
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
+                        rows.forEachIndexed { rowIndex, rowItems ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                rowItems.forEach { item ->
+                                    FavoriteSquircleCard(
+                                        item = item,
+                                        isDark = isDark,
+                                        onClick = { onSelectUrl(item.url) },
+                                        onDelete = item.id?.let { id -> { onDeleteFavorite(id) } },
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+
+                                val emptySlots = 4 - rowItems.size
+                                if (emptySlots > 0 && rowIndex == rows.lastIndex) {
+                                    AddFavoriteButton(
+                                        isDark = isDark,
+                                        onClick = onAddClick,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    repeat(emptySlots - 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+
+                        if (itemsToDisplay.size % 4 == 0) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                AddFavoriteButton(
+                                    isDark = isDark,
+                                    onClick = onAddClick,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                repeat(3) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (favorites.size > 7) {
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        OutlinedButton(
+                            onClick = onToggleExpand,
+                            shape = SereneShapes.Pill,
+                            border = BorderStroke(1.dp, SereneBrandPrimary.copy(alpha = 0.35f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = SereneBrandPrimary
+                            )
+                        ) {
+                            Text(
+                                text = if (isExpanded) "Show Less" else "Show All Favorites (${favorites.size})",
+                                style = LocalSereneTypography.current.labelMd,
+                                color = SereneBrandPrimary
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -522,8 +532,7 @@ private fun FavoriteSquircleCard(
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val clipboardManager = LocalClipboardManager.current
-    val defaultBg = if (isDark) Color(0xFF282425).copy(alpha = 0.85f) else Color.White.copy(alpha = 0.85f)
-    val border: BorderStroke? = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.70f))
+    val squircleBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
 
     Box(modifier = modifier) {
         Column(
@@ -537,11 +546,11 @@ private fun FavoriteSquircleCard(
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             Surface(
-                shape = RoundedCornerShape(18.dp),
-                color = defaultBg,
-                border = border,
+                shape = RoundedCornerShape(14.dp),
+                color = squircleBg,
+                border = null,
                 shadowElevation = 0.dp,
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier.size(44.dp)
             ) {
                 Box(
                     modifier = Modifier
@@ -561,8 +570,8 @@ private fun FavoriteSquircleCard(
                         Icon(
                             imageVector = item.icon,
                             contentDescription = item.title,
-                            tint = if (item.iconTint == LiquidOnSurface || (isDark && item.bgBrush == null)) MaterialTheme.colorScheme.onSurface else item.iconTint,
-                            modifier = Modifier.size(26.dp)
+                            tint = SereneBrandPrimary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
@@ -573,7 +582,7 @@ private fun FavoriteSquircleCard(
                             contentScale = ContentScale.Fit,
                             onSuccess = { isFaviconSuccess = true },
                             onError = { isFaviconSuccess = false },
-                            modifier = Modifier.size(26.dp)
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -581,11 +590,11 @@ private fun FavoriteSquircleCard(
 
             Text(
                 text = item.title,
-                style = MaterialTheme.typography.bodySmall.copy(
+                style = LocalSereneTypography.current.bodySm.copy(
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
+                    fontWeight = FontWeight.SemiBold
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (isDark) DarkOnSurface else SereneDarkText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center,
@@ -638,7 +647,8 @@ private fun AddFavoriteButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f))
+    val squircleBg = if (isDark) DarkSurfaceVariant.copy(alpha = 0.50f) else SereneCanvasFloor
+    val border = BorderStroke(1.dp, SereneBrandPrimary.copy(alpha = 0.35f))
 
     Column(
         modifier = modifier.clickable(onClick = onClick),
@@ -646,11 +656,11 @@ private fun AddFavoriteButton(
         verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         Surface(
-            shape = RoundedCornerShape(18.dp),
-            color = Color.Transparent,
+            shape = RoundedCornerShape(14.dp),
+            color = squircleBg,
             border = border,
             shadowElevation = 0.dp,
-            modifier = Modifier.size(56.dp)
+            modifier = Modifier.size(44.dp)
         ) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -659,19 +669,19 @@ private fun AddFavoriteButton(
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = "Add Favorite",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp)
+                    tint = SereneBrandPrimary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
 
         Text(
             text = "Add",
-            style = MaterialTheme.typography.bodySmall.copy(
+            style = LocalSereneTypography.current.bodySm.copy(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
             ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = SereneMutedSlate,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
@@ -695,18 +705,15 @@ private fun RecentTabsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "Recent Tabs",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 19.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface
+                text = "Recently Closed",
+                style = LocalSereneTypography.current.headlineSm,
+                color = if (isDark) DarkOnSurface else SereneDarkText
             )
 
             Text(
                 text = "Total ${recentTabs.size}",
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                style = LocalSereneTypography.current.labelMd,
+                color = SereneMutedSlate
             )
         }
 
@@ -743,22 +750,13 @@ private fun RecentTabSunsetCard(
     isDark: Boolean,
     onClick: () -> Unit
 ) {
-    val homeHazeState = LocalHazeState.current
-    val tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White
-    val borderColor = if (isDark) Color.White.copy(alpha = 0.12f) else Color.White.copy(alpha = 0.70f)
-
-    // Determine preview header gradient based on url hash for visual variety
     val previewGradient = when (kotlin.math.abs(item.url.hashCode()) % 3) {
         0 -> CardPreviewBlueBrush
         1 -> CardPreviewRoseBrush
         else -> CardPreviewPeachBrush
     }
 
-    val iconTint = when (kotlin.math.abs(item.url.hashCode()) % 3) {
-        0 -> LiquidPrimary
-        1 -> LiquidTertiary
-        else -> LiquidSecondary
-    }
+    val iconTint = SereneBrandPrimary
 
     val previewIcon = when (kotlin.math.abs(item.url.hashCode()) % 4) {
         0 -> Icons.Default.Code
@@ -774,21 +772,13 @@ private fun RecentTabSunsetCard(
     }
 
     Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = Color.Transparent,
-        border = null,
-        shadowElevation = 0.dp,
+        shape = RoundedCornerShape(20.dp),
+        color = if (isDark) DarkSurface else Color.White,
+        border = SereneBorders.cardBorder(isDark),
+        shadowElevation = 2.dp,
         modifier = Modifier
             .width(136.dp)
             .height(184.dp)
-            .liquidFrostedGlass(
-                shape = RoundedCornerShape(18.dp),
-                isDark = isDark,
-                blurRadius = 24.dp,
-                tintColor = tintColor,
-                alpha = if (isDark) 0.55f else 0.50f,
-                hazeState = homeHazeState
-            )
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -802,7 +792,7 @@ private fun RecentTabSunsetCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(92.dp)
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(14.dp))
                     .background(previewGradient)
             ) {
                 val file = item.snapshotPath?.let { File(it) }
@@ -814,7 +804,7 @@ private fun RecentTabSunsetCard(
                         modifier = Modifier.fillMaxSize()
                     )
                 } else {
-                    // Decorative pastel header with category glyph and wireframe preview bars
+                    // Decorative header with category glyph and wireframe preview bars
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -830,7 +820,7 @@ private fun RecentTabSunsetCard(
                                 modifier = Modifier
                                     .size(24.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.90f)),
+                                    .background(Color.White),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -856,14 +846,14 @@ private fun RecentTabSunsetCard(
                                     .width(56.dp)
                                     .height(5.dp)
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(iconTint.copy(alpha = 0.30f))
+                                    .background(SereneAccent.copy(alpha = 0.35f))
                             )
                             Box(
                                 modifier = Modifier
                                     .width(76.dp)
                                     .height(5.dp)
                                     .clip(RoundedCornerShape(3.dp))
-                                    .background(iconTint.copy(alpha = 0.20f))
+                                    .background(SereneAccent.copy(alpha = 0.20f))
                             )
                         }
                     }
@@ -882,19 +872,19 @@ private fun RecentTabSunsetCard(
 
                 Text(
                     text = displayTitle,
-                    style = MaterialTheme.typography.labelSmall.copy(
+                    style = LocalSereneTypography.current.labelMd.copy(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold
                     ),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = if (isDark) DarkOnSurface else SereneDarkText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 if (displaySubtitle != null) {
                     Text(
                         text = displaySubtitle,
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = LocalSereneTypography.current.bodySm.copy(fontSize = 10.sp),
+                        color = SereneMutedSlate,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -903,8 +893,8 @@ private fun RecentTabSunsetCard(
                 if (relativeTime.isNotEmpty()) {
                     Text(
                         text = relativeTime,
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 9.sp),
-                        color = MaterialTheme.colorScheme.outline,
+                        style = LocalSereneTypography.current.bodySm.copy(fontSize = 9.sp),
+                        color = SereneMutedSlate,
                         maxLines = 1
                     )
                 }
@@ -918,26 +908,14 @@ private fun MoreHistoryCard(
     isDark: Boolean,
     onClick: () -> Unit
 ) {
-    val homeHazeState = LocalHazeState.current
-    val tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White
-    val borderColor = if (isDark) Color.White.copy(alpha = 0.10f) else Color.White.copy(alpha = 0.75f)
-
     Surface(
-        shape = RoundedCornerShape(18.dp),
-        color = Color.Transparent,
-        border = null,
-        shadowElevation = 0.dp,
+        shape = RoundedCornerShape(20.dp),
+        color = if (isDark) DarkSurface else Color.White,
+        border = SereneBorders.cardBorder(isDark),
+        shadowElevation = 2.dp,
         modifier = Modifier
             .width(110.dp)
             .height(184.dp)
-            .liquidFrostedGlass(
-                shape = RoundedCornerShape(18.dp),
-                isDark = isDark,
-                blurRadius = 24.dp,
-                tintColor = tintColor,
-                alpha = if (isDark) 0.55f else 0.50f,
-                hazeState = homeHazeState
-            )
             .clickable(onClick = onClick)
     ) {
         Column(
@@ -951,13 +929,13 @@ private fun MoreHistoryCard(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)),
+                    .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = "More",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = SereneBrandPrimary,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -966,18 +944,18 @@ private fun MoreHistoryCard(
 
             Text(
                 text = "More",
-                style = MaterialTheme.typography.labelMedium.copy(
+                style = LocalSereneTypography.current.headlineSm.copy(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold
                 ),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (isDark) DarkOnSurface else SereneDarkText,
                 textAlign = TextAlign.Center
             )
 
             Text(
                 text = "All History",
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
-                color = MaterialTheme.colorScheme.outline,
+                style = LocalSereneTypography.current.bodySm.copy(fontSize = 10.sp),
+                color = SereneMutedSlate,
                 textAlign = TextAlign.Center
             )
         }
@@ -1005,23 +983,12 @@ private fun formatRelativeTime(timestamp: Long): String {
 @Preview(name = "RecentTabsSection Light", showBackground = true, widthDp = 412, heightDp = 260)
 @Composable
 fun RecentTabsSectionLightPreview() {
-    val hazeState = remember { dev.chrisbanes.haze.HazeState() }
-    JestkBrowserTheme(themeMode = ThemeMode.LIGHT, hazeState = hazeState) {
+    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
         Box(modifier = Modifier.fillMaxWidth().height(260.dp)) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFFFFB4A2),
-                                Color(0xFFE5989B),
-                                Color(0xFFB5E2FA),
-                                Color(0xFFEDDCD2)
-                            )
-                        )
-                    )
-                    .haze(hazeState)
+                    .sereneSkyBackground(isDark = false)
             )
             Box(modifier = Modifier.fillMaxSize().padding(vertical = 16.dp)) {
                 RecentTabsSection(
@@ -1042,22 +1009,12 @@ fun RecentTabsSectionLightPreview() {
 @Preview(name = "RecentTabsSection Dark", showBackground = true, widthDp = 412, heightDp = 260)
 @Composable
 fun RecentTabsSectionDarkPreview() {
-    val hazeState = remember { dev.chrisbanes.haze.HazeState() }
-    JestkBrowserTheme(themeMode = ThemeMode.DARK, hazeState = hazeState) {
+    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         Box(modifier = Modifier.fillMaxWidth().height(260.dp)) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colors = listOf(
-                                Color(0xFF2B193D),
-                                Color(0xFF1B263B),
-                                Color(0xFF4A0E2E)
-                            )
-                        )
-                    )
-                    .haze(hazeState)
+                    .sereneSkyBackground(isDark = true)
             )
             Box(modifier = Modifier.fillMaxSize().padding(vertical = 16.dp)) {
                 RecentTabsSection(
@@ -1082,23 +1039,12 @@ private fun DefaultBrowserPromptCard(
     onDismissClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val bg = if (isDark) Color(0xFF242021) else Color.White
-    val border = if (isDark) Color.White.copy(alpha = 0.14f) else Color.White.copy(alpha = 0.85f)
-
     Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color.Transparent,
-        border = null,
-        shadowElevation = 0.dp,
+        shape = SereneShapes.Card,
+        color = if (isDark) DarkSurface else Color.White,
+        border = SereneBorders.cardBorder(isDark),
+        shadowElevation = 2.dp,
         modifier = modifier
-            .liquidFrostedGlass(
-                shape = RoundedCornerShape(20.dp),
-                isDark = isDark,
-                blurRadius = 24.dp,
-                tintColor = bg,
-                alpha = if (isDark) 0.55f else 0.50f,
-                hazeState = LocalHazeState.current
-            )
     ) {
         Column(
             modifier = Modifier
@@ -1120,14 +1066,14 @@ private fun DefaultBrowserPromptCard(
                             .size(40.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(
-                                if (isDark) Color(0xFF1B4975) else LiquidPrimaryFixed.copy(alpha = 0.70f)
+                                if (isDark) DarkSurfaceVariant else SereneCanvasFloor
                             ),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Public,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = SereneBrandPrimary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -1135,21 +1081,20 @@ private fun DefaultBrowserPromptCard(
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             text = stringResource(R.string.default_browser_prompt_title),
-                            style = MaterialTheme.typography.titleSmall.copy(
-                                fontWeight = FontWeight.Bold,
+                            style = LocalSereneTypography.current.headlineSm.copy(
                                 fontSize = 15.sp,
                                 letterSpacing = (-0.2).sp
                             ),
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = if (isDark) DarkOnSurface else SereneDarkText
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = stringResource(R.string.default_browser_prompt_desc),
-                            style = MaterialTheme.typography.bodySmall.copy(
+                            style = LocalSereneTypography.current.bodySm.copy(
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp
                             ),
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = SereneMutedSlate
                         )
                     }
                 }
@@ -1160,13 +1105,13 @@ private fun DefaultBrowserPromptCard(
                         .size(28.dp)
                         .clip(CircleShape)
                         .background(
-                            if (isDark) Color(0xFF2C2829) else LiquidSurfaceContainerHigh.copy(alpha = 0.60f)
+                            if (isDark) DarkSurfaceVariant else SereneCanvasFloor
                         )
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.dismiss),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = SereneMutedSlate,
                         modifier = Modifier.size(14.dp)
                     )
                 }
@@ -1176,10 +1121,10 @@ private fun DefaultBrowserPromptCard(
 
             Button(
                 onClick = onSetDefaultClick,
-                shape = RoundedCornerShape(14.dp),
+                shape = SereneShapes.Pill,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = SereneBrandPrimary,
+                    contentColor = Color.White
                 ),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -1187,9 +1132,9 @@ private fun DefaultBrowserPromptCard(
             ) {
                 Text(
                     text = stringResource(R.string.default_browser_prompt_button),
-                    style = MaterialTheme.typography.labelLarge.copy(
+                    style = LocalSereneTypography.current.labelMd.copy(
                         fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
+                        color = Color.White
                     )
                 )
             }

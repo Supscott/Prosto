@@ -267,3 +267,51 @@
   - All unit tests and visual preview tests passing (`:app:testDebugUnitTest` green, `BUILD SUCCESSFUL in 45s`).
 - **Key Architectural Decisions:**
   - `navigationBarsPadding()` is kept on `contentModifier` so that the web page viewport bottom boundary always respects the system navigation safe area. The dock auto-hide animation strictly collapses the `62.dp` dock height padding down to `0.dp`.
+
+### Session: Serene Canvas Core Theme & Token System Foundation
+
+- **Completed:**
+  - Downloaded and verified Plus Jakarta Sans variable TTF font asset (`app/src/main/res/font/plus_jakarta_sans.ttf`) supporting all weights from Google Fonts.
+  - Completely removed `dev.chrisbanes.haze:haze:1.1.1` dependency from `app/build.gradle.kts`.
+  - Implemented [`Type.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/theme/Type.kt) establishing `PlusJakartaSans` font family with fallbacks, custom `SereneTypographyTokens`, and Material 3 `SereneTypography` matching the exact scale from `DESIGN.md`.
+  - Updated [`Color.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/theme/Color.kt) with Serene Canvas light and dark tokens (`SerenePrimary`, `SereneBrandPrimary`, `SereneAccent`, `SereneCanvasFloor` Level 0, `SereneCardSurface` Level 1, midnight navy and slate dark tokens, `sereneSkyBackground` cool-sky undertones, cool-sky gradient brushes, and backward-compatible Liquid aliases).
+  - Updated [`Theme.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/theme/Theme.kt) removing all Haze and `LocalHazeState` usages, updating `LightColorScheme` and `DarkColorScheme` with Serene Canvas tokens, applying `SereneTypography`, updating `SereneShapes` (8.dp, 16.dp, 24.dp, 28.dp, 32.dp/CircleShape), implementing Level 1 micro-borders and Level 2 rim highlights (`SereneBorders`), and implementing solid `sereneCardSurface` / `sereneFloatingSurface` modifiers (no blur).
+  - Cleaned up obsolete `dev.chrisbanes.haze` imports and `LocalHazeState` references across all dependent UI files (`JestkApp.kt`, `BottomBar.kt`, `ActionDock.kt`, `SearchOverlay.kt`, `TabOverviewGrid.kt`, `HomeScreen.kt`, `FrostedGlassFallbackTest.kt`).
+  - Verified `:app:compileDebugKotlin` and `:app:compileDebugUnitTestKotlin` compile cleanly with 0 errors.
+- **Current State:**
+  - Foundation for Serene Canvas design system is in place; ready for Phase 2 (Navigation & Dock refactor) and Phase 3 (Home Screen & Overlays refactor).
+- **Key Architectural Decisions:**
+  - All blur and Haze dependencies are purged from the project in favor of crisp, tactile solid surfaces with ambient dispersion shadows and precision micro-borders / rim highlights.
+  - Backward-compatibility aliases for Liquid tokens and shapes were preserved so other components compile without friction during their phased refactoring.
+
+### Session: Serene Canvas Navigation & Floating Dock Refactor (NO BLUR)
+
+- **Completed:**
+  - Refactored `BottomBar.kt`, `ActionDock.kt`, `ActiveTabPill.kt`, and `TabStripRow.kt` strictly conforming to Serene Canvas design system (`DESIGN.md`) with zero blur.
+  - Redesigned Floating Dock Bar as a solid Level 2 floating capsule (`SereneShapes.Dock` = 32.dp), pure white `#FFFFFF` (`SereneCardSurface`) in Light mode, `#1E293B` (`DarkSurface`) in Dark mode, with Level 2 ambient elevation shadow (`Color(0x242271B3)`) and crisp rim border (`SereneBorders.floatingBorder(isDark)`).
+  - Refactored `ActiveTabPill` with `SereneBrandPrimary` tinted background (`rgba(34, 113, 179, 0.10)`) in Light mode and `rgba(96, 165, 250, 0.15)` in Dark mode, active micro-border ring, 14px-16px rounded squircle favicon container, bold Plus Jakarta Sans typography, and no blur.
+  - Updated `TabStripRow` with transparent inactive tabs, `SereneMutedSlate` (`#64748B` / Dark: `#94A3B8`) icons and text, clean gradient edge fades, and persistent pinned '+' new tab button.
+  - Upgraded `ActionDock` action buttons to 48px touch targets with `SereneMutedSlate` inactive icons and active press ripples.
+  - Redesigned `ActionPopupMenu` and `TabContextMenu` as solid floating cards (`SereneShapes.Card` = 24.dp) with Level 2 elevation shadow, rim border, 48px touch targets, hairline dividers (`1px solid #F1F5F9` / `#334155`), Plus Jakarta Sans typography, and zero blur.
+  - Updated `BottomBar.kt` Compose Previews to use `sereneSkyBackground` and `SereneCanvasFloor` instead of obsolete blur demonstration circles.
+  - Verified `:app:compileDebugKotlin` and full test suite (`:app:testDebugUnitTest`, 620 tests) pass completely green.
+### Session: Serene Canvas Screens & Overlays Refactor (NO BLUR)
+
+- **Completed:**
+  - `JestkApp.kt`: Completely purged all backdrop blur logic (`backdropBlurRadius`, `animateDpAsState` for blur, and `Modifier.blur()`). Main viewport renders clean and fast. Modal and overlay scrims standardized to `Color.Black.copy(alpha = 0.25f)`. App background set to `SereneCanvasFloor` / `DarkBackground`. Snackbars styled with solid `SereneShapes.Pill`.
+  - `HomeScreen.kt`: Set background canvas to `sereneSkyBackground(isDark)`. Converted hero search capsule to 52px solid `CircleShape` with `SereneAccent` (`#60A5FA`) ring, ambient diffused shadow, `#64748B` glyphs, and zero blur. Favorites section wrapped in Level 1 solid card (`SereneShapes.Card`) with 44×44 squircles (`#F1F7FC` / `#334155`), 20px `SereneBrandPrimary` icon, and clean `AddFavoriteButton`. Recent tabs converted to Level 1 cards with hairline borders (`#F1F5F9` / `#334155`). Default browser prompt card refactored to solid Level 1 card with `SereneBrandPrimary` action button.
+  - `WebViewContainer.kt`: Set viewport background to `SereneCanvasFloor` (Light: `#F1F7FC`, Dark: `#0F172A`). Loading progress bar and SwipeRefreshLayout updated to Serene primary and gradient brush tokens.
+  - `SearchOverlay.kt`: Background set to `sereneSkyBackground(isDark)`. Search input field converted to 52px solid `CircleShape` with `SereneAccent` border and diffused shadow. Search engine chips updated to 32px pills with `SerenePaleBlue` / `DarkSurfaceVariant` selected state. History suggestions card converted to Level 1 solid card with hairline dividers and newest-first bottom anchoring. Favorites row styled with 44×44 squircles. Zero blur.
+  - `TabOverviewGrid.kt`: Background set to `sereneSkyBackground(isDark)`. In-place search bar converted to solid `SereneShapes.Pill`. Tab cards converted to Level 1 solid cards (24dp radius), active tab indicator given 2dp `SereneBrandPrimary` border. Done floating button converted to solid `SereneShapes.Pill` with `SereneBorders.floatingBorder`. Zero blur.
+  - `SettingsSheet.kt`: Configured top radius 28dp (`SereneShapes.BottomSheet`) and scrim `Color.Black.copy(alpha = 0.25f)`. Header, Account, Sync, AdBlock, Search Engine, About, and Helper composables (`InsetGroupedCard`, `SegmentedThemeControl`, `LiquidSunsetSwitch`, `HyperlinkRow`, `DefaultBrowserSettingTile`) refactored to solid Level 1 cards and Serene tokens with zero blur.
+  - `DownloadsScreen.kt`: Configured 28dp top radius (`SereneShapes.BottomSheet`) and scrim `Color.Black.copy(alpha = 0.25f)`. Download items converted to solid Level 1 cards (`SereneShapes.Card` = 24dp), category badges updated to 42dp squircles with Serene pastel colors, progress bars to `SereneBrandPrimary`, and zero blur.
+  - `FloatingContextMenuContainer.kt`, `LinkContextMenuBottomSheet.kt`, `ImageContextMenuBottomSheet.kt`: Converted floating containers to Level 2 solid cards (`SereneShapes.Card` = 24dp) with `SereneBorders.floatingBorder(isDark)` and ambient shadow. Touch targets standardized to 48px min height, hairline dividers (`#F1F5F9` / `#334155`), zero blur.
+  - `AddFavoriteDialog.kt`: Refactored to Level 2 floating dialog card (24dp radius), `SereneBorders.floatingBorder(isDark)`, scrim `Color.Black.copy(alpha = 0.25f)`, `SereneBrandPrimary` button, and Plus Jakarta Sans typography.
+  - Verified `:app:compileDebugKotlin` and full test suite (`:app:testDebugUnitTest`, 620 tests) pass 100% clean and green.
+- **Current State:**
+  - All screens, overlays, and main container across Hori are refactored to Serene Canvas with ZERO BLUR.
+- **Key Architectural Decisions:**
+  - Zero blur policy strictly executed across the entire app viewport and all overlays. Modals and popups use solid Level 2 surfaces over a semi-transparent scrim (`Color.Black.copy(alpha = 0.25f)`), eliminating blur performance overhead and visual artifacts entirely.
+
+
+

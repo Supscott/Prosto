@@ -7,7 +7,6 @@ import android.content.Intent
 import android.net.Uri
 import android.webkit.MimeTypeMap
 import android.widget.Toast
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,7 +22,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -44,11 +42,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -68,21 +64,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.FileProvider
 import com.jestk.browser.domain.model.DownloadItem
-import com.jestk.browser.ui.theme.LiquidOutline
-import com.jestk.browser.ui.theme.LiquidPrimary
-import com.jestk.browser.ui.theme.LiquidPrimaryFixed
-import com.jestk.browser.ui.theme.LiquidSecondary
-import com.jestk.browser.ui.theme.LiquidSecondaryFixed
-import com.jestk.browser.ui.theme.LiquidSurface
-import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
-import com.jestk.browser.ui.theme.LiquidTertiary
-import com.jestk.browser.ui.theme.LiquidTertiaryFixed
+import com.jestk.browser.ui.theme.DarkBackground
+import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
+import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.PastelPeach
-import com.jestk.browser.ui.theme.PastelRose
-import com.jestk.browser.ui.theme.LiquidShapes
-import com.jestk.browser.ui.theme.LiquidBorders
-import com.jestk.browser.ui.theme.liquidFrostedGlass
+import com.jestk.browser.ui.theme.LocalSereneTypography
+import com.jestk.browser.ui.theme.SereneBorders
+import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneCanvasFloor
+import com.jestk.browser.ui.theme.SereneDarkText
+import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.SerenePaleBlue
+import com.jestk.browser.ui.theme.SereneShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import java.io.File
@@ -111,7 +106,7 @@ fun DownloadsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(if (isDark) Color(0xFF161314) else Color(0xFFFFF8F8))
+            .background(if (isDark) DarkBackground else SereneCanvasFloor)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
@@ -128,13 +123,14 @@ fun DownloadsSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = LocalIsDarkTheme.current
-    val sheetBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else Color(0xFFFFF8F8).copy(alpha = 0.85f)
+    val sheetBg = if (isDark) DarkSurface else Color.White
 
     ModalBottomSheet(
         onDismissRequest = { onEvent(BrowserUiEvent.DismissOverlay) },
         sheetState = sheetState,
-        shape = LiquidShapes.BottomSheet,
+        shape = SereneShapes.BottomSheet,
         containerColor = sheetBg,
+        scrimColor = Color.Black.copy(alpha = 0.25f),
         modifier = modifier
     ) {
         DownloadsContent(
@@ -172,18 +168,15 @@ fun DownloadsContent(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                     contentDescription = "Back",
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = SereneBrandPrimary,
                     modifier = Modifier.size(20.dp)
                 )
             }
 
             Text(
                 text = "Downloads",
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 17.sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface
+                style = LocalSereneTypography.current.headlineSm,
+                color = if (isDark) DarkOnSurface else SereneDarkText
             )
 
             IconButton(
@@ -193,7 +186,7 @@ fun DownloadsContent(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close",
-                    tint = MaterialTheme.colorScheme.outline,
+                    tint = SereneMutedSlate,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -209,26 +202,21 @@ fun DownloadsContent(
         ) {
             Text(
                 text = "Downloads",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp,
-                    letterSpacing = (-0.5).sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface
+                style = LocalSereneTypography.current.headlineLg,
+                color = if (isDark) DarkOnSurface else SereneDarkText
             )
 
             if (uiState.downloads.isNotEmpty()) {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.30f) else LiquidPrimaryFixed.copy(alpha = 0.60f)
+                    shape = SereneShapes.Pill,
+                    color = if (isDark) DarkSurfaceVariant else SerenePaleBlue
                 ) {
                     Text(
                         text = "${uiState.downloads.size} ${if (uiState.downloads.size == 1) "file" else "files"}",
-                        style = MaterialTheme.typography.labelSmall.copy(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp
+                        style = LocalSereneTypography.current.labelSm.copy(
+                            fontWeight = FontWeight.SemiBold
                         ),
-                        color = MaterialTheme.colorScheme.primary,
+                        color = SereneBrandPrimary,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
                     )
                 }
@@ -292,15 +280,15 @@ private fun DownloadsEmptyState(
                 .size(76.dp)
                 .clip(CircleShape)
                 .background(
-                    if (isDark) Color(0xFF2B2527)
-                    else LiquidSecondaryFixed.copy(alpha = 0.60f)
+                    if (isDark) DarkSurfaceVariant
+                    else SerenePaleBlue
                 ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.Download,
                 contentDescription = null,
-                tint = if (isDark) PastelPeach else LiquidSecondary,
+                tint = SereneBrandPrimary,
                 modifier = Modifier.size(36.dp)
             )
         }
@@ -309,21 +297,16 @@ private fun DownloadsEmptyState(
 
         Text(
             text = "No downloads yet",
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurface
+            style = LocalSereneTypography.current.headlineSm,
+            color = if (isDark) DarkOnSurface else SereneDarkText
         )
 
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
             text = "Files downloaded from websites will appear here",
-            style = MaterialTheme.typography.bodyMedium.copy(
-                fontSize = 14.sp
-            ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            style = LocalSereneTypography.current.bodyMd,
+            color = SereneMutedSlate
         )
     }
 }
@@ -339,8 +322,6 @@ private fun DownloadItemCard(
 ) {
     val context = LocalContext.current
     val category = resolveFileCategory(item.fileName, item.mimeType)
-    val cardBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.92f) else Color.White.copy(alpha = 0.90f)
-    val cardBorder = if (isDark) null else BorderStroke(1.dp, Color.White.copy(alpha = 0.85f))
 
     var downloadProgress by remember(item.downloadId, item.id) {
         mutableStateOf<Float?>(null)
@@ -379,19 +360,12 @@ private fun DownloadItemCard(
     }
 
     Surface(
-        shape = LiquidShapes.Card,
-        color = Color.Transparent,
-        border = null,
-        shadowElevation = 3.dp,
+        shape = SereneShapes.Card,
+        color = if (isDark) DarkSurface else Color.White,
+        border = SereneBorders.cardBorder(isDark),
+        shadowElevation = 2.dp,
         modifier = modifier
             .fillMaxWidth()
-            .liquidFrostedGlass(
-                shape = LiquidShapes.Card,
-                isDark = isDark,
-                blurRadius = 24.dp,
-                tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
-                alpha = if (isDark) 0.55f else 0.50f,
-            )
             .clickable(onClick = onClick)
     ) {
         Row(
@@ -411,11 +385,10 @@ private fun DownloadItemCard(
             ) {
                 Text(
                     text = item.fileName.ifEmpty { "download" },
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.5.sp
+                    style = LocalSereneTypography.current.bodyMd.copy(
+                        fontWeight = FontWeight.SemiBold
                     ),
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = if (isDark) DarkOnSurface else SereneDarkText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -429,19 +402,17 @@ private fun DownloadItemCard(
                     if (activeInProgress) {
                         Text(
                             text = "Downloading...",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp,
+                            style = LocalSereneTypography.current.bodySm.copy(
                                 fontWeight = FontWeight.SemiBold
                             ),
-                            color = LiquidPrimary
+                            color = SereneBrandPrimary
                         )
                         Text(
                             text = "·",
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp,
+                            style = LocalSereneTypography.current.bodySm.copy(
                                 fontWeight = FontWeight.Bold
                             ),
-                            color = MaterialTheme.colorScheme.outline
+                            color = SereneMutedSlate
                         )
                     }
 
@@ -449,11 +420,10 @@ private fun DownloadItemCard(
                     if (sizeStr.isNotEmpty()) {
                         Text(
                             text = sizeStr,
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp,
+                            style = LocalSereneTypography.current.bodySm.copy(
                                 fontWeight = FontWeight.Medium
                             ),
-                            color = MaterialTheme.colorScheme.outline
+                            color = SereneMutedSlate
                         )
                     }
 
@@ -461,19 +431,16 @@ private fun DownloadItemCard(
                         if (sizeStr.isNotEmpty()) {
                             Text(
                                 text = "·",
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    fontSize = 12.sp,
+                                style = LocalSereneTypography.current.bodySm.copy(
                                     fontWeight = FontWeight.Bold
                                 ),
-                                color = MaterialTheme.colorScheme.outline
+                                color = SereneMutedSlate
                             )
                         }
                         Text(
                             text = formatTimestamp(item.timestamp),
-                            style = MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp
-                            ),
-                            color = MaterialTheme.colorScheme.outline
+                            style = LocalSereneTypography.current.bodySm,
+                            color = SereneMutedSlate
                         )
                     }
                 }
@@ -488,8 +455,8 @@ private fun DownloadItemCard(
                                 .fillMaxWidth()
                                 .height(4.dp)
                                 .clip(RoundedCornerShape(2.dp)),
-                            color = LiquidPrimary,
-                            trackColor = if (isDark) Color(0xFF352F31) else LiquidPrimaryFixed.copy(alpha = 0.35f)
+                            color = SereneBrandPrimary,
+                            trackColor = if (isDark) DarkSurfaceVariant else SerenePaleBlue
                         )
                     } else {
                         LinearProgressIndicator(
@@ -497,8 +464,8 @@ private fun DownloadItemCard(
                                 .fillMaxWidth()
                                 .height(4.dp)
                                 .clip(RoundedCornerShape(2.dp)),
-                            color = LiquidPrimary,
-                            trackColor = if (isDark) Color(0xFF352F31) else LiquidPrimaryFixed.copy(alpha = 0.35f)
+                            color = SereneBrandPrimary,
+                            trackColor = if (isDark) DarkSurfaceVariant else SerenePaleBlue
                         )
                     }
                 }
@@ -512,7 +479,7 @@ private fun DownloadItemCard(
                 Icon(
                     imageVector = Icons.Default.DeleteOutline,
                     contentDescription = "Delete download",
-                    tint = MaterialTheme.colorScheme.outline,
+                    tint = SereneMutedSlate,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -529,52 +496,52 @@ private fun CategoryIconBadge(
     val (icon, bgLight, bgDark, tintLight, tintDark) = when (category) {
         FileCategory.IMAGE -> CategoryStyle(
             Icons.Default.Image,
-            LiquidSecondaryFixed,
-            Color(0xFF532E20),
-            LiquidSecondary,
-            PastelPeach
+            Color(0xFFE0F2FE),
+            Color(0xFF0C4A6E),
+            Color(0xFF0284C7),
+            Color(0xFF38BDF8)
         )
         FileCategory.VIDEO -> CategoryStyle(
             Icons.Default.VideoFile,
-            LiquidPrimaryFixed,
-            Color(0xFF1B4975),
-            LiquidPrimary,
-            Color(0xFF9ECAFC)
+            SerenePaleBlue,
+            Color(0xFF1E3A8A),
+            SereneBrandPrimary,
+            Color(0xFF93C5FD)
         )
         FileCategory.AUDIO -> CategoryStyle(
             Icons.Default.AudioFile,
-            LiquidTertiaryFixed,
-            Color(0xFF5A2A3B),
-            LiquidTertiary,
-            PastelRose
+            Color(0xFFFCE7F3),
+            Color(0xFF831843),
+            Color(0xFFDB2777),
+            Color(0xFFF472B6)
         )
         FileCategory.DOCUMENT -> CategoryStyle(
             Icons.Default.Description,
             Color(0xFFFEF3C7),
-            Color(0xFF4C3E18),
-            Color(0xFFB45309),
+            Color(0xFF78350F),
+            Color(0xFFD97706),
             Color(0xFFFDE68A)
         )
         FileCategory.ARCHIVE -> CategoryStyle(
             Icons.Default.FolderZip,
             Color(0xFFEDE9FE),
-            Color(0xFF3B2E58),
-            Color(0xFF6D28D9),
+            Color(0xFF4C1D95),
+            Color(0xFF7C3AED),
             Color(0xFFDDD6FE)
         )
         FileCategory.APK -> CategoryStyle(
             Icons.Default.Android,
-            Color(0xFFD1FAE5),
-            Color(0xFF164E3A),
-            Color(0xFF059669),
+            Color(0xFFDCFCE7),
+            Color(0xFF14532D),
+            Color(0xFF16A34A),
             Color(0xFFA7F3D0)
         )
         FileCategory.GENERIC -> CategoryStyle(
             Icons.AutoMirrored.Filled.InsertDriveFile,
-            LiquidSurfaceContainerHigh,
-            Color(0xFF2C2829),
-            LiquidOutline,
-            Color(0xFFD0C5C6)
+            Color(0xFFF1F5F9),
+            Color(0xFF334155),
+            SereneMutedSlate,
+            Color(0xFF94A3B8)
         )
     }
 

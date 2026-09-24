@@ -129,6 +129,14 @@ This document tracks bugs encountered during development, their root causes, and
   3. Animate card entrance via scale and alpha originating directly from the touch anchor point (`TransformOrigin`).
   4. Always prefer compact, contextual floating cards near the interaction point over full-screen bottom sheets for tap/long-press actions on web elements.
 
+### Purging third-party library dependencies (Haze) across multi-file callers
+
+- **Date:** 2026-09-23
+- **Symptom:** Removing `dev.chrisbanes.haze:haze` dependency from `build.gradle.kts` and `LocalHazeState` from `Theme.kt` caused Kotlin compilation (`:app:compileDebugKotlin`) to fail across multiple consumer files with unresolved references to `dev.chrisbanes.haze` and `LocalHazeState`.
+- **Root Cause:** In Kotlin multi-file Android projects, removing an external library dependency invalidates package imports in all files referencing types from that library, even if theme functions have backwards-compatible signatures with optional parameters.
+- **Resolution & Prevention:** When removing a library dependency, simultaneously remove all unused `import <lib>.*` statements and obsolete parameters/CompositionLocal bindings across dependent files, while providing backward-compatible method overloads/delegates (e.g. `liquidFrostedGlass` delegating to solid `sereneCardSurface` without blur) so calling code compiles cleanly.
+
+
 
 
 

@@ -14,7 +14,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.ThemeMode
-import dev.chrisbanes.haze.HazeState
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -48,7 +47,7 @@ class FrostedGlassFallbackTest {
                         .size(120.dp)
                         .liquidFrostedGlass(
                             isDark = false,
-                            hazeState = HazeState(), // state provided, but no source registered
+                            alpha = 0.50f,
                         ),
             )
         }

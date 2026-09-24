@@ -79,24 +79,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
-import com.jestk.browser.ui.theme.LiquidOnSurface
-import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
-import com.jestk.browser.ui.theme.LiquidOutline
-import com.jestk.browser.ui.theme.LiquidPrimary
-import com.jestk.browser.ui.theme.LiquidPrimaryContainer
-import com.jestk.browser.ui.theme.LiquidPrimaryFixed
-import com.jestk.browser.ui.theme.LiquidSecondary
-import com.jestk.browser.ui.theme.LiquidSecondaryFixed
-import com.jestk.browser.ui.theme.LiquidSurface
-import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
-import com.jestk.browser.ui.theme.LiquidTertiary
-import com.jestk.browser.ui.theme.LiquidTertiaryFixed
-import com.jestk.browser.ui.theme.PastelPeach
-import com.jestk.browser.ui.theme.PastelRose
-import com.jestk.browser.ui.theme.SunsetSwitchBrush
-import com.jestk.browser.ui.theme.LiquidShapes
-import com.jestk.browser.ui.theme.LiquidBorders
-import com.jestk.browser.ui.theme.liquidFrostedGlass
+import com.jestk.browser.ui.theme.DarkBackground
+import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
+import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.DarkSurfaceVariant
+import com.jestk.browser.ui.theme.LocalSereneTypography
+import com.jestk.browser.ui.theme.SereneAccent
+import com.jestk.browser.ui.theme.SereneBorders
+import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneCanvasFloor
+import com.jestk.browser.ui.theme.SereneDarkText
+import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.SerenePaleBlue
+import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.sereneSkyBackground
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import androidx.compose.ui.tooling.preview.Preview
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
@@ -119,13 +116,14 @@ fun SettingsSheet(
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isDark = LocalIsDarkTheme.current
-    val sheetBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.85f) else Color(0xFFFFF8F8).copy(alpha = 0.85f)
+    val sheetBg = if (isDark) DarkSurface else Color.White
 
     ModalBottomSheet(
         onDismissRequest = { onEvent(BrowserUiEvent.DismissOverlay) },
         sheetState = sheetState,
-        shape = LiquidShapes.BottomSheet,
+        shape = SereneShapes.BottomSheet,
         containerColor = sheetBg,
+        scrimColor = Color.Black.copy(alpha = 0.25f),
         modifier = modifier
     ) {
         SettingsSheetContent(
@@ -169,12 +167,8 @@ fun SettingsSheetContent(
         ) {
             Text(
                 text = "Settings",
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 26.sp,
-                    letterSpacing = (-0.5).sp
-                ),
-                color = MaterialTheme.colorScheme.onSurface
+                style = LocalSereneTypography.current.headlineMd,
+                color = if (isDark) DarkOnSurface else SereneDarkText
             )
 
             IconButton(
@@ -182,18 +176,18 @@ fun SettingsSheetContent(
                 modifier = Modifier
                     .size(34.dp)
                     .clip(CircleShape)
-                    .background(if (isDark) Color(0xFF2C2829) else LiquidSurfaceContainerHigh.copy(alpha = 0.60f))
+                    .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close",
-                    tint = MaterialTheme.colorScheme.onSurface,
+                    tint = SereneMutedSlate,
                     modifier = Modifier.size(18.dp)
                 )
             }
         }
 
-        // SECTION 1: THEME PICKER (Segmented Control Glass Container)
+        // SECTION 1: THEME PICKER (Segmented Control Container)
         SettingsSectionHeader(title = "APPEARANCE")
         SegmentedThemeControl(
             selectedMode = uiState.settings.themeMode,
@@ -221,13 +215,13 @@ fun SettingsSheetContent(
                     modifier = Modifier
                         .size(48.dp)
                         .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF663C27) else LiquidSecondaryFixed.copy(alpha = 0.50f)),
+                        .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Person,
                         contentDescription = null,
-                        tint = if (isDark) PastelPeach else LiquidSecondary,
+                        tint = SereneBrandPrimary,
                         modifier = Modifier.size(26.dp)
                     )
                 }
@@ -235,26 +229,26 @@ fun SettingsSheetContent(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "User Account",
-                        style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface
+                        style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Bold),
+                        color = if (isDark) DarkOnSurface else SereneDarkText
                     )
                     Text(
                         text = "sync@jestk.com",
-                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                        color = MaterialTheme.colorScheme.outline
+                        style = LocalSereneTypography.current.bodySm,
+                        color = SereneMutedSlate
                     )
                 }
 
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.outline,
+                    tint = SereneMutedSlate,
                     modifier = Modifier.size(20.dp)
                 )
             }
 
             HorizontalDivider(
-                color = if (isDark) Color(0xFF4D4546).copy(alpha = 0.40f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f),
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
                 modifier = Modifier.padding(start = 74.dp)
             )
 
@@ -269,388 +263,388 @@ fun SettingsSheetContent(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp)
             ) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Sync,
+                        contentDescription = null,
+                        tint = SereneBrandPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Sync Tabs & Bookmarks",
+                        style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                        color = if (isDark) DarkOnSurface else SereneDarkText
+                    )
+                    Text(
+                        text = "Active across connected devices",
+                        style = LocalSereneTypography.current.bodySm,
+                        color = SereneMutedSlate
+                    )
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "On",
+                        style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.SemiBold),
+                        color = SereneBrandPrimary
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = SereneMutedSlate,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // SECTION: DEFAULT BROWSER (Only visible if not default)
+        if (!uiState.isDefaultBrowser) {
+            SettingsSectionHeader(title = "GENERAL")
+            InsetGroupedCard(isDark = isDark) {
+                DefaultBrowserSettingTile(
+                    isDark = isDark,
+                    onClick = {
+                        DefaultBrowserHelper.openDefaultBrowserSettings(context, defaultBrowserLauncher)
+                    }
+                )
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
+        // SECTION 3: PRIVACY & SECURITY
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            SettingsSectionHeader(title = "PRIVACY & PROTECTION", modifier = Modifier.padding(bottom = 0.dp))
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isDark) DarkSurfaceVariant else SerenePaleBlue
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VerifiedUser,
+                        contentDescription = null,
+                        tint = SereneBrandPrimary,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Text(
+                        text = "Protected",
+                        style = LocalSereneTypography.current.labelMd.copy(
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        color = SereneBrandPrimary
+                    )
+                }
+            }
+        }
+
+        InsetGroupedCard(isDark = isDark) {
+            // Ad Blocker Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
                     Box(
                         modifier = Modifier
                             .size(34.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDark) Color(0xFF1B4975) else LiquidPrimaryFixed.copy(alpha = 0.80f)),
+                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Sync,
+                            imageVector = Icons.Default.Block,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = SereneBrandPrimary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
 
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column {
                         Text(
-                            text = "Sync Tabs & Bookmarks",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = "Ad Blocker",
+                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else SereneDarkText
                         )
                         Text(
-                            text = "Active across connected devices",
-                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                            color = MaterialTheme.colorScheme.outline
-                        )
-                    }
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(
-                            text = "On",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                        Icon(
-                            imageVector = Icons.Default.ChevronRight,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(18.dp)
+                            text = "Eliminates banners and popups",
+                            style = LocalSereneTypography.current.bodySm,
+                            color = SereneMutedSlate
                         )
                     }
                 }
+
+                LiquidSunsetSwitch(
+                    checked = uiState.settings.isAdBlockerEnabled,
+                    onCheckedChange = { onEvent(BrowserUiEvent.SetAdBlockerEnabled(it)) }
+                )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 64.dp)
+            )
 
-            // SECTION: DEFAULT BROWSER (Only visible if not default)
-            if (!uiState.isDefaultBrowser) {
-                SettingsSectionHeader(title = "GENERAL")
-                InsetGroupedCard(isDark = isDark) {
-                    DefaultBrowserSettingTile(
-                        isDark = isDark,
-                        onClick = {
-                            DefaultBrowserHelper.openDefaultBrowserSettings(context, defaultBrowserLauncher)
-                        }
-                    )
-                }
-                Spacer(modifier = Modifier.height(24.dp))
-            }
-
-            // SECTION 3: PRIVACY & SECURITY
+            // Tracking Protection Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                SettingsSectionHeader(title = "PRIVACY & PROTECTION", modifier = Modifier.padding(bottom = 0.dp))
-
-                Surface(
-                    shape = RoundedCornerShape(12.dp),
-                    color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.30f) else LiquidPrimaryFixed.copy(alpha = 0.40f)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.VerifiedUser,
+                            imageVector = Icons.Default.Shield,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(13.dp)
+                            tint = SereneBrandPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = "Tracking Protection",
+                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else SereneDarkText
                         )
                         Text(
-                            text = "Protected",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold
-                            ),
-                            color = MaterialTheme.colorScheme.primary
+                            text = "Prevents cross-site tracking",
+                            style = LocalSereneTypography.current.bodySm,
+                            color = SereneMutedSlate
                         )
                     }
                 }
-            }
 
-            InsetGroupedCard(isDark = isDark) {
-                // Ad Blocker Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) Color(0xFF5A2A3B) else LiquidTertiaryFixed),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Block,
-                                contentDescription = null,
-                                tint = if (isDark) PastelRose else LiquidTertiary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Column {
-                            Text(
-                                text = "Ad Blocker",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Eliminates banners and popups",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                        }
-                    }
-
-                    LiquidSunsetSwitch(
-                        checked = uiState.settings.isAdBlockerEnabled,
-                        onCheckedChange = { onEvent(BrowserUiEvent.SetAdBlockerEnabled(it)) }
-                    )
-                }
-
-                HorizontalDivider(
-                    color = if (isDark) Color(0xFF4D4546).copy(alpha = 0.40f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f),
-                    modifier = Modifier.padding(start = 64.dp)
-                )
-
-                // Tracking Protection Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) Color(0xFF663C27) else LiquidSecondaryFixed),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Shield,
-                                contentDescription = null,
-                                tint = if (isDark) PastelPeach else LiquidSecondary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Column {
-                            Text(
-                                text = "Tracking Protection",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Prevents cross-site tracking",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                        }
-                    }
-
-                    LiquidSunsetSwitch(
-                        checked = isTrackingProtectionEnabled,
-                        onCheckedChange = { isTrackingProtectionEnabled = it }
-                    )
-                }
-
-                HorizontalDivider(
-                    color = if (isDark) Color(0xFF4D4546).copy(alpha = 0.40f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f),
-                    modifier = Modifier.padding(start = 64.dp)
-                )
-
-                // Search Engine Row with Dropdown Menu
-                var searchMenuExpanded by remember { mutableStateOf(false) }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { searchMenuExpanded = true }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(14.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) Color(0xFF1B4975) else LiquidPrimaryFixed.copy(alpha = 0.70f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Search,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Column {
-                            Text(
-                                text = "Search Engine",
-                                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                text = "Default search provider",
-                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                        }
-                    }
-
-                    Box {
-                        Surface(
-                            shape = RoundedCornerShape(12.dp),
-                            color = if (isDark) Color(0xFF2C2829) else LiquidSurfaceContainerHigh.copy(alpha = 0.55f),
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(12.dp))
-                                .clickable { searchMenuExpanded = true }
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp)
-                            ) {
-                                Text(
-                                    text = uiState.settings.searchEngine.displayName,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    ),
-                                    color = MaterialTheme.colorScheme.primary
-                                )
-                                Icon(
-                                    imageVector = Icons.Default.ArrowDropDown,
-                                    contentDescription = "Select Search Engine",
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        }
-
-                        DropdownMenu(
-                            expanded = searchMenuExpanded,
-                            onDismissRequest = { searchMenuExpanded = false }
-                        ) {
-                            SearchEngine.entries.forEach { engine ->
-                                val selected = uiState.settings.searchEngine == engine
-                                DropdownMenuItem(
-                                    text = {
-                                        Text(
-                                            text = engine.displayName,
-                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                        )
-                                    },
-                                    trailingIcon = if (selected) {
-                                        {
-                                            Icon(
-                                                imageVector = Icons.Default.Check,
-                                                contentDescription = "Selected",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.size(18.dp)
-                                            )
-                                        }
-                                    } else null,
-                                    onClick = {
-                                        searchMenuExpanded = false
-                                        onEvent(BrowserUiEvent.SetSearchEngine(engine))
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // SECTION 4: ABOUT
-            SettingsSectionHeader(title = "ABOUT JESTK BROWSER")
-            InsetGroupedCard(isDark = isDark) {
-                HyperlinkRow(
-                    title = "Jestk Browser",
-                    subtitle = "Version 1.0.0 · jestk.com",
-                    onClick = {
-                        onEvent(BrowserUiEvent.OpenNewTab("https://jestk.com"))
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    }
-                )
-
-                HorizontalDivider(
-                    color = if (isDark) Color(0xFF4D4546).copy(alpha = 0.40f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f),
-                    modifier = Modifier.padding(start = 16.dp)
-                )
-
-                HyperlinkRow(
-                    title = "Source Code on GitHub",
-                    subtitle = "github.com/jestk/browser",
-                    onClick = {
-                        try {
-                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com"))
-                            context.startActivity(intent)
-                        } catch (_: Exception) {
-                            Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
-                        }
-                    }
+                LiquidSunsetSwitch(
+                    checked = isTrackingProtectionEnabled,
+                    onCheckedChange = { isTrackingProtectionEnabled = it }
                 )
             }
 
-            Spacer(modifier = Modifier.height(28.dp))
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 64.dp)
+            )
 
-            // Warm Footer Note (Stitch Screen 4)
-            Column(
+            // Search Engine Row with Dropdown Menu
+            var searchMenuExpanded by remember { mutableStateOf(false) }
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                    .clickable { searchMenuExpanded = true }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(30.dp)
-                        .clip(CircleShape)
-                        .background(if (isDark) Color(0xFF5A2A3B) else LiquidTertiaryFixed),
-                    contentAlignment = Alignment.Center
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Favorite,
-                        contentDescription = null,
-                        tint = if (isDark) PastelRose else LiquidTertiary,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                            tint = SereneBrandPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = "Search Engine",
+                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else SereneDarkText
+                        )
+                        Text(
+                            text = "Default search provider",
+                            style = LocalSereneTypography.current.bodySm,
+                            color = SereneMutedSlate
+                        )
+                    }
                 }
 
-                Text(
-                    text = "Crafted with love for a fast and private web",
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                    color = MaterialTheme.colorScheme.outline
-                )
+                Box {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = if (isDark) DarkSurfaceVariant else SereneCanvasFloor,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable { searchMenuExpanded = true }
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(
+                                text = uiState.settings.searchEngine.displayName,
+                                style = LocalSereneTypography.current.labelMd.copy(
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = SereneBrandPrimary
+                            )
+                            Icon(
+                                imageVector = Icons.Default.ArrowDropDown,
+                                contentDescription = "Select Search Engine",
+                                tint = SereneBrandPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = searchMenuExpanded,
+                        onDismissRequest = { searchMenuExpanded = false }
+                    ) {
+                        SearchEngine.entries.forEach { engine ->
+                            val selected = uiState.settings.searchEngine == engine
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = engine.displayName,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (selected) SereneBrandPrimary else (if (isDark) DarkOnSurface else SereneDarkText)
+                                    )
+                                },
+                                trailingIcon = if (selected) {
+                                    {
+                                        Icon(
+                                            imageVector = Icons.Default.Check,
+                                            contentDescription = "Selected",
+                                            tint = SereneBrandPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                } else null,
+                                onClick = {
+                                    searchMenuExpanded = false
+                                    onEvent(BrowserUiEvent.SetSearchEngine(engine))
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // SECTION 4: ABOUT
+        SettingsSectionHeader(title = "ABOUT HORI BROWSER")
+        InsetGroupedCard(isDark = isDark) {
+            HyperlinkRow(
+                title = "Hori Browser",
+                subtitle = "Version 1.0.0 · jestk.com",
+                onClick = {
+                    onEvent(BrowserUiEvent.OpenNewTab("https://jestk.com"))
+                    onEvent(BrowserUiEvent.DismissOverlay)
+                }
+            )
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 16.dp)
+            )
+
+            HyperlinkRow(
+                title = "Source Code on GitHub",
+                subtitle = "github.com/jestk/browser",
+                onClick = {
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com"))
+                        context.startActivity(intent)
+                    } catch (_: Exception) {
+                        Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(28.dp))
+
+        // Footer Note
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Favorite,
+                    contentDescription = null,
+                    tint = SereneBrandPrimary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            Text(
+                text = "Crafted with love for a fast and private web",
+                style = LocalSereneTypography.current.bodySm,
+                color = SereneMutedSlate
+            )
+        }
     }
+}
 
 @Composable
 private fun SettingsSectionHeader(
@@ -659,12 +653,11 @@ private fun SettingsSectionHeader(
 ) {
     Text(
         text = title,
-        style = MaterialTheme.typography.labelSmall.copy(
-            fontSize = 12.sp,
+        style = LocalSereneTypography.current.labelMd.copy(
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 0.5.sp
         ),
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        color = SereneMutedSlate,
         modifier = modifier.padding(bottom = 8.dp, start = 4.dp)
     )
 }
@@ -675,19 +668,11 @@ private fun InsetGroupedCard(
     content: @Composable () -> Unit
 ) {
     Surface(
-        shape = LiquidShapes.Card,
-        color = Color.Transparent,
-        border = null,
-        shadowElevation = 0.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .liquidFrostedGlass(
-                shape = LiquidShapes.Card,
-                isDark = isDark,
-                blurRadius = 24.dp,
-                tintColor = if (isDark) Color(0xFF1E1B1C) else Color.White,
-                alpha = if (isDark) 0.55f else 0.50f,
-            )
+        shape = SereneShapes.Card,
+        color = if (isDark) DarkSurface else Color.White,
+        border = SereneBorders.cardBorder(isDark),
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Column {
             content()
@@ -702,37 +687,29 @@ private fun SegmentedThemeControl(
     onSelectMode: (ThemeMode) -> Unit
 ) {
     Surface(
-        shape = LiquidShapes.Card,
-        color = Color.Transparent,
-        border = null,
-        shadowElevation = 0.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .liquidFrostedGlass(
-                shape = LiquidShapes.Card,
-                isDark = isDark,
-                blurRadius = 24.dp,
-                tintColor = if (isDark) Color(0xFF242021) else LiquidSurfaceContainerHigh,
-                alpha = if (isDark) 0.55f else 0.50f,
-            )
+        shape = SereneShapes.Card,
+        color = if (isDark) DarkSurface else Color.White,
+        border = SereneBorders.cardBorder(isDark),
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             ThemeMode.entries.forEach { mode ->
                 val isSelected = selectedMode == mode
                 val segmentBg = if (isSelected) {
-                    if (isDark) Color(0xFF332F30) else Color.White
+                    if (isDark) DarkSurfaceVariant else SerenePaleBlue
                 } else Color.Transparent
 
                 val segmentBorder = if (isSelected) {
-                    if (isDark) BorderStroke(1.dp, Color.White.copy(alpha = 0.14f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f))
+                    BorderStroke(1.5.dp, SereneBrandPrimary)
                 } else null
 
-                val tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+                val tint = if (isSelected) SereneBrandPrimary else SereneMutedSlate
 
                 Surface(
                     shape = RoundedCornerShape(14.dp),
@@ -769,8 +746,7 @@ private fun SegmentedThemeControl(
                         )
                         Text(
                             text = label,
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontSize = 11.sp,
+                            style = LocalSereneTypography.current.labelSm.copy(
                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                             ),
                             color = tint
@@ -800,8 +776,8 @@ private fun LiquidSunsetSwitch(
             .size(width = 51.dp, height = 31.dp)
             .clip(CircleShape)
             .background(
-                if (checked) SunsetSwitchBrush
-                else SolidColor(if (isDark) Color(0xFF3A3536) else LiquidSurfaceContainerHigh)
+                if (checked) SereneBrandPrimary
+                else (if (isDark) DarkSurfaceVariant else Color(0xFFE2E8F0))
             )
             .clickable { onCheckedChange(!checked) }
             .padding(vertical = 2.dp),
@@ -811,7 +787,7 @@ private fun LiquidSunsetSwitch(
             shape = CircleShape,
             color = Color.White,
             border = BorderStroke(0.5.dp, Color.Black.copy(alpha = 0.08f)),
-            shadowElevation = 0.dp,
+            shadowElevation = 1.dp,
             modifier = Modifier
                 .offset(x = thumbOffset)
                 .size(27.dp)
@@ -825,6 +801,7 @@ private fun HyperlinkRow(
     subtitle: String,
     onClick: () -> Unit
 ) {
+    val isDark = LocalIsDarkTheme.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -836,20 +813,20 @@ private fun HyperlinkRow(
         Column {
             Text(
                 text = title,
-                style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = MaterialTheme.colorScheme.onSurface
+                style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                color = if (isDark) DarkOnSurface else SereneDarkText
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                color = MaterialTheme.colorScheme.outline
+                style = LocalSereneTypography.current.bodySm,
+                color = SereneMutedSlate
             )
         }
 
         Icon(
             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.outline,
+            tint = SereneMutedSlate,
             modifier = Modifier.size(18.dp)
         )
     }
@@ -876,15 +853,15 @@ private fun DefaultBrowserSettingTile(
         ) {
             Box(
                 modifier = Modifier
-                    .size(34.dp)
+                    .size(36.dp)
                     .clip(RoundedCornerShape(10.dp))
-                    .background(if (isDark) Color(0xFF1B4975) else LiquidPrimaryFixed.copy(alpha = 0.70f)),
+                    .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Public,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = SereneBrandPrimary,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -892,38 +869,35 @@ private fun DefaultBrowserSettingTile(
             Column {
                 Text(
                     text = stringResource(R.string.default_browser_tile_title),
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                    color = if (isDark) DarkOnSurface else SereneDarkText
                 )
                 Text(
                     text = stringResource(R.string.default_browser_tile_desc),
-                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                    color = MaterialTheme.colorScheme.outline
+                    style = LocalSereneTypography.current.bodySm,
+                    color = SereneMutedSlate
                 )
             }
         }
 
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = if (isDark) MaterialTheme.colorScheme.primary.copy(alpha = 0.30f) else LiquidPrimaryFixed.copy(alpha = 0.40f)
+            color = if (isDark) DarkSurfaceVariant else SerenePaleBlue
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Text(
                     text = stringResource(R.string.default_browser_tile_action),
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.SemiBold
-                    ),
-                    color = MaterialTheme.colorScheme.primary
+                    style = LocalSereneTypography.current.labelSm.copy(fontWeight = FontWeight.SemiBold),
+                    color = SereneBrandPrimary
                 )
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = SereneBrandPrimary,
                     modifier = Modifier.size(14.dp)
                 )
             }
@@ -938,7 +912,7 @@ fun SettingsSheetLightPreview() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFFFFF8F8))
+                .background(SereneCanvasFloor)
         ) {
             SettingsSheetContent(
                 uiState = BrowserUiState(),
@@ -955,7 +929,7 @@ fun SettingsSheetDarkPreview() {
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(Color(0xFF161314))
+                .background(DarkBackground)
         ) {
             SettingsSheetContent(
                 uiState = BrowserUiState(),

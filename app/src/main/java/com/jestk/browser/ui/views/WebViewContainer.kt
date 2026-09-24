@@ -57,8 +57,13 @@ import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.findActivity
 import com.jestk.browser.ui.MainActivity
-import com.jestk.browser.ui.theme.ActiveTabBorderBrush
+import com.jestk.browser.ui.theme.DarkBackground
+import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
+import com.jestk.browser.ui.theme.SereneAccent
+import com.jestk.browser.ui.theme.SereneActiveTabBorderBrush
+import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneCanvasFloor
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import kotlinx.coroutines.launch
@@ -81,8 +86,8 @@ fun WebViewContainer(
     val targetUrl = currentTab?.url ?: (if (uiState.activeTabId == tabId) uiState.currentUrl else "")
 
     val scope = rememberCoroutineScope()
-    val primaryColor = MaterialTheme.colorScheme.primary.toArgb()
-    val surfaceColor = MaterialTheme.colorScheme.surface.toArgb()
+    val primaryColor = SereneBrandPrimary.toArgb()
+    val surfaceColor = (if (isDark) DarkSurface else Color.White).toArgb()
 
     val isImeVisible = WindowInsets.isImeVisible
     val targetBottomPadding = when {
@@ -219,7 +224,7 @@ fun WebViewContainer(
     val isHome = uiState.activeOverlay == OverlayType.HOME ||
             uiState.currentUrl.isEmpty() ||
             uiState.currentUrl == "about:blank"
-    val defaultBg = MaterialTheme.colorScheme.background
+    val defaultBg = if (isDark) DarkBackground else SereneCanvasFloor
     val targetSiteBg = if (isHome) defaultBg else (resolvedThemeColor?.let { Color(it) } ?: defaultBg)
     val animatedSiteBg by animateColorAsState(
         targetValue = targetSiteBg,
@@ -333,9 +338,9 @@ fun WebViewContainer(
 
                     val brandColors = intArrayOf(
                         primaryColor,
-                        android.graphics.Color.parseColor("#7BA7D7"),
-                        android.graphics.Color.parseColor("#F6B99D"),
-                        android.graphics.Color.parseColor("#D391A5")
+                        SereneAccent.toArgb(),
+                        android.graphics.Color.parseColor("#93C5FD"),
+                        android.graphics.Color.parseColor("#38BDF8")
                     )
 
                     JestkSwipeRefreshLayout(context).apply {
@@ -381,9 +386,9 @@ fun WebViewContainer(
 
                     val brandColors = intArrayOf(
                         primaryColor,
-                        android.graphics.Color.parseColor("#7BA7D7"),
-                        android.graphics.Color.parseColor("#F6B99D"),
-                        android.graphics.Color.parseColor("#D391A5")
+                        SereneAccent.toArgb(),
+                        android.graphics.Color.parseColor("#93C5FD"),
+                        android.graphics.Color.parseColor("#38BDF8")
                     )
                     swipeRefresh.setColorSchemeColors(*brandColors)
                     swipeRefresh.setProgressBackgroundColorSchemeColor(surfaceColor)
@@ -446,7 +451,7 @@ fun WebViewContainer(
                     modifier = Modifier
                         .fillMaxWidth(fraction = animatedProgress)
                         .height(3.dp)
-                        .background(ActiveTabBorderBrush)
+                        .background(SereneActiveTabBorderBrush)
                 )
             }
         }

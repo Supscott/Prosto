@@ -1,12 +1,12 @@
 package com.jestk.browser.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -15,85 +15,82 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.ThemeMode
-import dev.chrisbanes.haze.HazeDefaults
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.HazeStyle
-import dev.chrisbanes.haze.HazeTint
-import dev.chrisbanes.haze.haze
-import dev.chrisbanes.haze.hazeChild
 
-private val DarkColorScheme =
-    darkColorScheme(
-        primary = LiquidPrimaryFixedDim,
-        onPrimary = Color(0xFF003258),
-        primaryContainer = Color(0xFF1B4975),
-        onPrimaryContainer = LiquidPrimaryFixed,
-        secondary = LiquidSecondaryFixedDim,
-        onSecondary = Color(0xFF4A2818),
-        secondaryContainer = Color(0xFF663C27),
-        onSecondaryContainer = LiquidSecondaryFixed,
-        tertiary = LiquidTertiaryFixedDim,
-        onTertiary = Color(0xFF502334),
-        tertiaryContainer = Color(0xFF6A3748),
-        onTertiaryContainer = LiquidTertiaryFixed,
-        surface = Color(0xFF1E1B1C),
-        onSurface = Color(0xFFF6EFF0),
-        surfaceVariant = Color(0xFF2C2829),
-        onSurfaceVariant = Color(0xFFD0C5C6),
-        background = Color(0xFF161314),
-        onBackground = Color(0xFFF6EFF0),
-        outline = Color(0xFF988E90),
-        outlineVariant = Color(0xFF4D4546),
-        error = Color(0xFFFFB4AB),
-        onError = Color(0xFF690005),
-        errorContainer = Color(0xFF93000A),
-        onErrorContainer = Color(0xFFFFDAD6),
-        inverseSurface = Color(0xFFF6EFF0),
-        inverseOnSurface = Color(0xFF1E1B1C),
-        inversePrimary = LiquidPrimary,
+// ==========================================
+// Serene Canvas Color Schemes
+// ==========================================
+
+val LightColorScheme =
+    lightColorScheme(
+        primary = SerenePrimary,
+        onPrimary = SereneOnPrimary,
+        primaryContainer = SerenePrimaryContainer,
+        onPrimaryContainer = SereneOnPrimaryContainer,
+        secondary = SereneSecondary,
+        onSecondary = SereneOnSecondary,
+        secondaryContainer = SereneSecondaryContainer,
+        onSecondaryContainer = SereneOnSecondaryContainer,
+        tertiary = SereneTertiary,
+        onTertiary = SereneOnTertiary,
+        tertiaryContainer = SereneTertiaryContainer,
+        onTertiaryContainer = SereneOnTertiaryContainer,
+        surface = SereneSurface,
+        onSurface = SereneOnSurface,
+        surfaceVariant = SereneSurfaceContainerHighest,
+        onSurfaceVariant = SereneOnSurfaceVariant,
+        background = SereneCanvasFloor,
+        onBackground = SereneOnSurface,
+        outline = SereneOutline,
+        outlineVariant = SereneOutlineVariant,
+        error = SereneError,
+        onError = SereneOnError,
+        errorContainer = SereneErrorContainer,
+        onErrorContainer = SereneOnErrorContainer,
+        inverseSurface = SereneInverseSurface,
+        inverseOnSurface = SereneInverseOnSurface,
+        inversePrimary = SereneInversePrimary,
     )
 
-private val LightColorScheme =
-    lightColorScheme(
-        primary = LiquidPrimary,
-        onPrimary = LiquidOnPrimary,
-        primaryContainer = LiquidPrimaryContainer,
-        onPrimaryContainer = LiquidOnPrimaryContainer,
-        secondary = LiquidSecondary,
-        onSecondary = LiquidOnSecondary,
-        secondaryContainer = LiquidSecondaryContainer,
-        onSecondaryContainer = LiquidOnSecondaryContainer,
-        tertiary = LiquidTertiary,
-        onTertiary = LiquidOnTertiary,
-        tertiaryContainer = LiquidTertiaryContainer,
-        onTertiaryContainer = LiquidOnTertiaryContainer,
-        surface = LiquidSurface,
-        onSurface = LiquidOnSurface,
-        surfaceVariant = LiquidSurfaceVariant,
-        onSurfaceVariant = LiquidOnSurfaceVariant,
-        background = LiquidSurface,
-        onBackground = LiquidOnSurface,
-        outline = LiquidOutline,
-        outlineVariant = LiquidOutlineVariant,
-        error = LiquidError,
-        onError = LiquidOnError,
-        errorContainer = LiquidErrorContainer,
-        onErrorContainer = LiquidOnErrorContainer,
-        inverseSurface = LiquidInverseSurface,
-        inverseOnSurface = LiquidInverseOnSurface,
-        inversePrimary = LiquidPrimaryFixedDim,
+val DarkColorScheme =
+    darkColorScheme(
+        primary = DarkPrimary,
+        onPrimary = Color(0xFF003258),
+        primaryContainer = DarkPrimaryContainer,
+        onPrimaryContainer = Color(0xFFD1E4FF),
+        secondary = Color(0xFFA4C9FF),
+        onSecondary = Color(0xFF00315B),
+        secondaryContainer = Color(0xFF004883),
+        onSecondaryContainer = Color(0xFFD4E3FF),
+        tertiary = Color(0xFFC1C7CC),
+        onTertiary = Color(0xFF2B3135),
+        tertiaryContainer = Color(0xFF41484C),
+        onTertiaryContainer = Color(0xFFDDE3E8),
+        surface = DarkSurface,
+        onSurface = DarkOnSurface,
+        surfaceVariant = DarkSurfaceVariant,
+        onSurfaceVariant = DarkOnSurfaceVariant,
+        background = DarkBackground,
+        onBackground = DarkOnSurface,
+        outline = DarkOutline,
+        outlineVariant = DarkOutlineVariant,
+        error = DarkError,
+        onError = DarkOnError,
+        errorContainer = DarkErrorContainer,
+        onErrorContainer = DarkOnErrorContainer,
+        inverseSurface = DarkInverseSurface,
+        inverseOnSurface = DarkInverseOnSurface,
+        inversePrimary = SerenePrimary,
     )
 
 val LocalIsDarkTheme = compositionLocalOf { false }
-val LocalHazeState = compositionLocalOf<HazeState?> { null }
 
 @Composable
 fun isAppDarkTheme(themeMode: ThemeMode = ThemeMode.SYSTEM): Boolean =
@@ -103,10 +100,13 @@ fun isAppDarkTheme(themeMode: ThemeMode = ThemeMode.SYSTEM): Boolean =
         ThemeMode.LIGHT -> false
     }
 
+/**
+ * Top-level application theme applying Serene Canvas color schemes and Plus Jakarta Sans typography.
+ */
 @Composable
 fun JestkBrowserTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
-    hazeState: HazeState? = null,
+    hazeState: Any? = null,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = isAppDarkTheme(themeMode)
@@ -114,52 +114,82 @@ fun JestkBrowserTheme(
 
     CompositionLocalProvider(
         LocalIsDarkTheme provides darkTheme,
-        LocalHazeState provides hazeState,
+        LocalSereneTypography provides SereneTextStyles,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
+            typography = SereneTypography,
             content = content,
         )
     }
 }
 
 // ==========================================
-// Liquid Design System Dimensions & Shapes
+// Serene Shapes Hierarchy (DESIGN.md)
 // ==========================================
-object LiquidShapes {
-    /** 18dp for cards, squircles, and popup menus */
-    val Card = RoundedCornerShape(18.dp)
 
-    /** 22dp for smaller capsules, active tabs, and dialog buttons */
-    val ButtonPill = RoundedCornerShape(22.dp)
+object SereneShapes {
+    /** 8dp for small chips, badges, and tags */
+    val Sm = RoundedCornerShape(8.dp)
 
-    /** 24dp for dialogs / search inputs */
-    val Capsule = RoundedCornerShape(24.dp)
+    /** 16dp for medium cards and grouped list containers */
+    val Md = RoundedCornerShape(16.dp)
 
-    /** 28dp for bottom sheet tops */
+    /** 24dp for elevated card modules, quick dials, dialogs */
+    val Card = RoundedCornerShape(24.dp)
+
+    /** 28dp for bottom modal sheets */
     val BottomSheet = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
 
-    /** 29dp for full floating capsule dock */
+    /** 32dp for dock floating capsule */
+    val Dock = RoundedCornerShape(32.dp)
+
+    /** Continuous 9999px pill shape for omnibox, tab switchers, action buttons */
+    val Pill = CircleShape
+
+    val ButtonPill = CircleShape
+    val Capsule = CircleShape
+}
+
+/**
+ * Backward compatibility alias for LiquidShapes.
+ */
+object LiquidShapes {
+    val Card = RoundedCornerShape(18.dp)
+    val ButtonPill = RoundedCornerShape(22.dp)
+    val Capsule = RoundedCornerShape(24.dp)
+    val BottomSheet = SereneShapes.BottomSheet
     val Dock = RoundedCornerShape(29.dp)
 }
 
-object LiquidBorders {
-    fun frostedBorder(
-        isDark: Boolean,
-        alpha: Float? = null,
+// ==========================================
+// Serene Borders & Rim Highlights
+// ==========================================
+
+object SereneBorders {
+    /**
+     * Level 1 micro-border: 1px solid rgba(226, 232, 240, 0.8) in light mode,
+     * subtle slate border in dark mode.
+     */
+    fun cardBorder(
+        isDark: Boolean = false,
         width: Dp = 1.dp,
     ): BorderStroke {
-        val resolvedAlpha = alpha ?: if (isDark) 0.14f else 0.75f
-        val color = Color.White.copy(alpha = resolvedAlpha)
+        val color =
+            if (isDark) {
+                Color(0xFF334155).copy(alpha = 0.80f)
+            } else {
+                Color(0xFFE2E8F0).copy(alpha = 0.80f)
+            }
         return BorderStroke(width, color)
     }
 
     /**
-     * Tactile specular border with vertical light gradient:
-     * bright specular reflection at the top rim softly tapering down to a subtle translucent lower edge.
+     * Level 2 floating rim highlight: 1px solid rgba(255, 255, 255, 0.8) vertical gradient in light mode,
+     * subtle slate rim in dark mode.
      */
-    fun specularBorder(
-        isDark: Boolean,
+    fun floatingBorder(
+        isDark: Boolean = false,
         width: Dp = 1.dp,
     ): BorderStroke {
         val brush =
@@ -167,8 +197,8 @@ object LiquidBorders {
                 Brush.verticalGradient(
                     colors =
                         listOf(
-                            Color.White.copy(alpha = 0.22f),
-                            Color.White.copy(alpha = 0.06f),
+                            Color(0xFF475569).copy(alpha = 0.70f),
+                            Color(0xFF334155).copy(alpha = 0.40f),
                         ),
                 )
             } else {
@@ -176,81 +206,134 @@ object LiquidBorders {
                     colors =
                         listOf(
                             Color.White.copy(alpha = 0.85f),
-                            Color.White.copy(alpha = 0.35f),
+                            Color.White.copy(alpha = 0.40f),
                         ),
                 )
             }
         return BorderStroke(width, brush)
     }
+
+    fun frostedBorder(
+        isDark: Boolean,
+        alpha: Float? = null,
+        width: Dp = 1.dp,
+    ): BorderStroke = cardBorder(isDark = isDark, width = width)
+
+    fun specularBorder(
+        isDark: Boolean,
+        width: Dp = 1.dp,
+    ): BorderStroke = floatingBorder(isDark = isDark, width = width)
+}
+
+val LiquidBorders = SereneBorders
+
+// ==========================================
+// Serene Surfaces (Crisp Solid Surfaces, No Blur)
+// ==========================================
+
+/**
+ * Surface Layer (Level 1 - Cards & Lists): Pure white #FFFFFF (or dark slate) with an
+ * ambient diffused dispersion shadow and subtle micro-border. NO BLUR.
+ */
+fun Modifier.sereneCardSurface(
+    shape: Shape = SereneShapes.Card,
+    isDark: Boolean = false,
+    backgroundColor: Color? = null,
+    borderWidth: Dp = 1.dp,
+    elevation: Dp = 2.dp,
+): Modifier {
+    val bg = backgroundColor ?: if (isDark) DarkSurface else SereneCardSurface
+    val border = SereneBorders.cardBorder(isDark = isDark, width = borderWidth)
+    return this
+        .shadow(
+            elevation = elevation,
+            shape = shape,
+            clip = false,
+            ambientColor = if (isDark) Color.Black.copy(alpha = 0.35f) else Color(0x0F0F172A),
+            spotColor = if (isDark) Color.Black.copy(alpha = 0.25f) else Color(0x0A0F172A),
+        )
+        .background(color = bg, shape = shape)
+        .border(border = border, shape = shape)
+        .clip(shape)
 }
 
 /**
- * Reusable frosted glass / backdrop blur extension modifier for the Liquid Pastel Sunset design system.
- * When [hazeState] is provided, applies real-time hardware-accelerated backdrop blur to content behind the element.
- * Supports graceful fallback to semi-transparent tinted surface + specular border when blur is unavailable.
+ * Floating Controls (Level 2 - Omnibox, Modals, Action Dock): Solid crisp surface
+ * with deep cerulean-tinted atmospheric shadow and rim highlight border. NO BLUR.
+ */
+fun Modifier.sereneFloatingSurface(
+    shape: Shape = SereneShapes.Dock,
+    isDark: Boolean = false,
+    backgroundColor: Color? = null,
+    borderWidth: Dp = 1.dp,
+    elevation: Dp = 10.dp,
+): Modifier {
+    val bg = backgroundColor ?: if (isDark) DarkSurface else Color.White
+    val border = SereneBorders.floatingBorder(isDark = isDark, width = borderWidth)
+    return this
+        .shadow(
+            elevation = elevation,
+            shape = shape,
+            clip = false,
+            ambientColor = if (isDark) Color.Black.copy(alpha = 0.50f) else Color(0x242271B3),
+            spotColor = if (isDark) Color.Black.copy(alpha = 0.35f) else Color(0x140F172A),
+        )
+        .background(color = bg, shape = shape)
+        .border(border = border, shape = shape)
+        .clip(shape)
+}
+
+/**
+ * Backward compatibility alias for [liquidFrostedGlass].
+ * Implemented as a solid Level 1 / Level 2 surface with zero blur and no Haze dependencies.
  */
 fun Modifier.liquidFrostedGlass(
-    shape: Shape = LiquidShapes.Card,
+    shape: Shape = SereneShapes.Card,
     isDark: Boolean = false,
-    blurRadius: Dp = 24.dp,
+    blurRadius: Dp = 0.dp,
     tintColor: Color? = null,
     alpha: Float? = null,
     borderColor: Color? = null,
     borderBrush: Brush? = null,
     borderWidth: Dp = 1.dp,
-    hazeState: HazeState? = null,
+    hazeState: Any? = null,
 ): Modifier {
-    val defaultAlpha = if (isDark) 0.52f else 0.46f
-    val resolvedAlpha = alpha ?: defaultAlpha
-    val baseTint = tintColor ?: if (isDark) Color(0xFF1E1B1C) else Color(0xFFFFF8F8)
-    val tintedBg = baseTint.copy(alpha = resolvedAlpha)
-
+    val bg = tintColor ?: if (isDark) DarkSurface else SereneCardSurface
+    val resolvedBg = if (alpha != null) bg.copy(alpha = alpha) else bg
     val resolvedBorder =
         when {
             borderBrush != null -> BorderStroke(borderWidth, borderBrush)
             borderColor != null -> BorderStroke(borderWidth, borderColor)
-            else -> LiquidBorders.specularBorder(isDark = isDark, width = borderWidth)
+            else -> SereneBorders.cardBorder(isDark = isDark, width = borderWidth)
         }
-
-    val baseModifier = this.clip(shape)
-
-    val glassModifier =
-        if (hazeState != null) {
-            baseModifier.hazeChild(
-                state = hazeState,
-                style =
-                    HazeStyle(
-                        backgroundColor = baseTint,
-                        tint = HazeTint(tintedBg),
-                        blurRadius = blurRadius,
-                    ),
-            ) {
-                // Keep the semi-transparent tint instead of Haze's opaque scrim boost.
-                fallbackTint = HazeTint(tintedBg)
-            }
-        } else {
-            baseModifier.background(color = tintedBg, shape = shape)
-        }
-
-    return glassModifier.border(border = resolvedBorder, shape = shape)
+    return this
+        .shadow(
+            elevation = 3.dp,
+            shape = shape,
+            clip = false,
+            ambientColor = if (isDark) Color.Black.copy(alpha = 0.35f) else Color(0x0F0F172A),
+            spotColor = if (isDark) Color.Black.copy(alpha = 0.25f) else Color(0x0A0F172A),
+        )
+        .background(color = resolvedBg, shape = shape)
+        .border(border = resolvedBorder, shape = shape)
+        .clip(shape)
 }
 
 /**
- * Frosted glass container box composable supporting true backdrop blur via Haze
- * with fallback to semi-transparent surface + border on older APIs.
+ * Solid container composable replacing frosted glass box with clean, solid Serene styling.
  */
 @Composable
 fun LiquidFrostedGlassBox(
     modifier: Modifier = Modifier,
-    shape: Shape = LiquidShapes.Card,
+    shape: Shape = SereneShapes.Card,
     isDark: Boolean = LocalIsDarkTheme.current,
-    blurRadius: Dp = 24.dp,
+    blurRadius: Dp = 0.dp,
     tintColor: Color? = null,
     alpha: Float? = null,
     borderColor: Color? = null,
     borderBrush: Brush? = null,
     borderWidth: Dp = 1.dp,
-    hazeState: HazeState? = LocalHazeState.current,
+    hazeState: Any? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(

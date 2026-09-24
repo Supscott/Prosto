@@ -81,23 +81,21 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
-import com.jestk.browser.ui.theme.ActiveTabBorderBrush
-import com.jestk.browser.ui.theme.AddTabGradientBrush
-import com.jestk.browser.ui.theme.LiquidError
-import com.jestk.browser.ui.theme.LiquidOnSurface
-import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
-import com.jestk.browser.ui.theme.LiquidOutline
-import com.jestk.browser.ui.theme.LiquidPrimary
-import com.jestk.browser.ui.theme.LiquidPrimaryContainer
-import com.jestk.browser.ui.theme.LiquidPrimaryFixed
-import com.jestk.browser.ui.theme.LiquidSecondary
-import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
-import com.jestk.browser.ui.theme.LiquidTertiary
-import com.jestk.browser.ui.theme.PastelPeach
-import com.jestk.browser.ui.theme.liquidFrostedGlass
-import com.jestk.browser.ui.theme.liquidSunsetBackground
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.haze
+import com.jestk.browser.ui.theme.DarkBackground
+import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
+import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.DarkSurfaceVariant
+import com.jestk.browser.ui.theme.LocalSereneTypography
+import com.jestk.browser.ui.theme.SereneAccent
+import com.jestk.browser.ui.theme.SereneBorders
+import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneCanvasFloor
+import com.jestk.browser.ui.theme.SereneDarkText
+import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.SerenePaleBlue
+import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.sereneSkyBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import java.io.File
@@ -120,7 +118,6 @@ fun TabOverviewGrid(
 ) {
     val isDark = LocalIsDarkTheme.current
     val keyboardController = LocalSoftwareKeyboardController.current
-    val gridHazeState = remember { HazeState() }
 
     var isSearchVisible by remember { mutableStateOf(false) }
     var tabSearchQuery by remember { mutableStateOf("") }
@@ -150,7 +147,7 @@ fun TabOverviewGrid(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .liquidSunsetBackground(isDark = isDark)
+            .sereneSkyBackground(isDark = isDark)
             .statusBarsPadding()
             .navigationBarsPadding()
     ) {
@@ -170,27 +167,32 @@ fun TabOverviewGrid(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                         contentDescription = "Back",
-                        tint = MaterialTheme.colorScheme.primary,
+                        tint = SereneBrandPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
 
                 Text(
                     text = "Tabs Overview",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 17.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = LocalSereneTypography.current.headlineSm,
+                    color = if (isDark) DarkOnSurface else SereneDarkText
                 )
 
-                // Sunset Gradient Orb Badge
+                // Clean Badge
                 Box(
                     modifier = Modifier
                         .size(28.dp)
                         .clip(CircleShape)
-                        .background(AddTabGradientBrush)
-                )
+                        .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Public,
+                        contentDescription = null,
+                        tint = SereneBrandPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
             }
 
             // 2. Sub-Header: Tab Count & Controls
@@ -210,11 +212,8 @@ fun TabOverviewGrid(
                 }
                 Text(
                     text = tabCountText,
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface
+                    style = LocalSereneTypography.current.headlineMd,
+                    color = if (isDark) DarkOnSurface else SereneDarkText
                 )
 
                 Row(
@@ -235,17 +234,17 @@ fun TabOverviewGrid(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search in tabs",
-                            tint = if (isSearchVisible) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            tint = if (isSearchVisible) SereneBrandPrimary else SereneMutedSlate,
                             modifier = Modifier.size(22.dp)
                         )
                     }
 
-                    // Gradient "+" Add Tab Button
+                    // Solid "+" Add Tab Button
                     Box(
                         modifier = Modifier
                             .size(40.dp)
                             .clip(CircleShape)
-                            .background(AddTabGradientBrush)
+                            .background(SereneBrandPrimary)
                             .clickable {
                                 onEvent(BrowserUiEvent.OpenNewTab(""))
                                 onEvent(BrowserUiEvent.DismissOverlay)
@@ -265,34 +264,26 @@ fun TabOverviewGrid(
             // Expandable in-place tab search filter bar
             AnimatedVisibility(visible = isSearchVisible) {
                 Surface(
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.Transparent,
-                    border = null,
+                    shape = SereneShapes.Pill,
+                    color = if (isDark) DarkSurface else Color.White,
+                    border = SereneBorders.cardBorder(isDark),
                     shadowElevation = 2.dp,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                         .height(44.dp)
-                        .liquidFrostedGlass(
-                            shape = RoundedCornerShape(20.dp),
-                            isDark = isDark,
-                            blurRadius = 24.dp,
-                            tintColor = if (isDark) Color(0xFF242021) else Color.White,
-                            alpha = if (isDark) 0.55f else 0.50f,
-                            hazeState = gridHazeState
-                        )
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 12.dp),
+                            .padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = null,
-                            tint = LiquidPrimaryContainer,
+                            tint = SereneMutedSlate,
                             modifier = Modifier.size(18.dp)
                         )
                         BasicTextField(
@@ -303,11 +294,10 @@ fun TabOverviewGrid(
                                 .fillMaxHeight()
                                 .focusRequester(searchFocusRequester),
                             singleLine = true,
-                            textStyle = MaterialTheme.typography.bodyMedium.copy(
-                                color = MaterialTheme.colorScheme.onSurface,
-                                fontSize = 14.sp
+                            textStyle = LocalSereneTypography.current.bodyMd.copy(
+                                color = if (isDark) DarkOnSurface else SereneDarkText
                             ),
-                            cursorBrush = SolidColor(LiquidPrimaryContainer),
+                            cursorBrush = SolidColor(SereneBrandPrimary),
                             keyboardOptions = KeyboardOptions(
                                 imeAction = ImeAction.Search
                             ),
@@ -322,8 +312,8 @@ fun TabOverviewGrid(
                                     if (tabSearchQuery.isEmpty()) {
                                         Text(
                                             text = "Filter tabs by title or URL...",
-                                            style = MaterialTheme.typography.bodyMedium.copy(fontSize = 14.sp),
-                                            color = MaterialTheme.colorScheme.outline,
+                                            style = LocalSereneTypography.current.bodyMd,
+                                            color = SereneMutedSlate,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis
                                         )
@@ -343,7 +333,7 @@ fun TabOverviewGrid(
                                 Icon(
                                     imageVector = Icons.Default.Close,
                                     contentDescription = "Clear",
-                                    tint = MaterialTheme.colorScheme.outline,
+                                    tint = SereneMutedSlate,
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -358,9 +348,7 @@ fun TabOverviewGrid(
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
-                modifier = Modifier
-                    .weight(1f)
-                    .haze(gridHazeState)
+                modifier = Modifier.weight(1f)
             ) {
                 items(
                     items = displayedTabs,
@@ -398,29 +386,18 @@ fun TabOverviewGrid(
                 Text(
                     text = "Close All",
                     color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                    style = LocalSereneTypography.current.labelMd.copy(fontWeight = FontWeight.SemiBold)
                 )
             }
 
             // Floating Centered "Done" Pill Button
-            val doneBtnBg = if (isDark) Color(0xFF2C2829) else Color.White
-            val doneBorder = if (isDark) Color(0xFF4D4546).copy(alpha = 0.60f) else Color.White.copy(alpha = 0.80f)
-
             Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = Color.Transparent,
-                border = null,
-                shadowElevation = 6.dp,
+                shape = SereneShapes.Pill,
+                color = if (isDark) DarkSurface else Color.White,
+                border = SereneBorders.floatingBorder(isDark),
+                shadowElevation = 4.dp,
                 modifier = Modifier
                     .height(46.dp)
-                    .liquidFrostedGlass(
-                        shape = RoundedCornerShape(24.dp),
-                        isDark = isDark,
-                        blurRadius = 24.dp,
-                        tintColor = doneBtnBg,
-                        alpha = if (isDark) 0.60f else 0.55f,
-                        hazeState = gridHazeState
-                    )
                     .clickable { onEvent(BrowserUiEvent.DismissOverlay) }
             ) {
                 Box(
@@ -429,8 +406,8 @@ fun TabOverviewGrid(
                 ) {
                     Text(
                         text = "Done",
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.labelLarge.copy(
+                        color = SereneBrandPrimary,
+                        style = LocalSereneTypography.current.labelMd.copy(
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -459,24 +436,23 @@ private fun TwoColumnGridTabCard(
     val density = LocalDensity.current
     val dismissThresholdPx = remember(density) { with(density) { 90.dp.toPx() } }
 
-    val baseCardBg = if (isDark) Color(0xFF1E1B1C).copy(alpha = 0.92f) else Color.White.copy(alpha = 0.92f)
-    val inactiveBorder = if (isDark) BorderStroke(1.dp, Color(0xFF4D4546).copy(alpha = 0.50f)) else BorderStroke(1.dp, Color.White.copy(alpha = 0.80f))
+    val baseCardBg = if (isDark) DarkSurface else Color.White
+    val borderStroke = if (isActive) BorderStroke(2.dp, SereneBrandPrimary) else SereneBorders.cardBorder(isDark)
 
     AnimatedVisibility(
         visible = !isDismissed,
         exit = shrinkVertically(animationSpec = tween(200)) + fadeOut()
     ) {
-        // Outer container handles the active multi-color gradient border
         Surface(
-            shape = RoundedCornerShape(24.dp),
+            shape = SereneShapes.Card,
             color = baseCardBg,
-            border = if (isActive) BorderStroke(2.5.dp, ActiveTabBorderBrush) else inactiveBorder,
-            shadowElevation = if (isActive) 8.dp else 3.dp,
+            border = borderStroke,
+            shadowElevation = if (isActive) 6.dp else 2.dp,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(4f / 5f)
                 .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-                .clip(RoundedCornerShape(24.dp))
+                .clip(SereneShapes.Card)
                 .clickable(onClick = onSelect)
                 .pointerInput(tab.id) {
                     detectHorizontalDragGestures(
@@ -498,9 +474,9 @@ private fun TwoColumnGridTabCard(
             Column(modifier = Modifier.fillMaxSize()) {
                 // Header Strip (Favicon + Truncated Title + Close X)
                 val headerBg = if (isActive) {
-                    if (isDark) LiquidPrimary.copy(alpha = 0.35f) else LiquidPrimaryFixed.copy(alpha = 0.50f)
+                    if (isDark) SereneBrandPrimary.copy(alpha = 0.20f) else SerenePaleBlue
                 } else {
-                    if (isDark) Color(0xFF282425).copy(alpha = 0.60f) else LiquidSurfaceContainerHigh.copy(alpha = 0.50f)
+                    if (isDark) DarkSurfaceVariant.copy(alpha = 0.50f) else SereneCanvasFloor
                 }
 
                 Row(
@@ -531,13 +507,13 @@ private fun TwoColumnGridTabCard(
                             modifier = Modifier
                                 .size(18.dp)
                                 .clip(CircleShape)
-                                .background(PastelPeach.copy(alpha = 0.35f)),
+                                .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Language,
                                 contentDescription = null,
-                                tint = if (isActive) MaterialTheme.colorScheme.primary else (if (isDark) PastelPeach else LiquidSecondary),
+                                tint = SereneBrandPrimary,
                                 modifier = Modifier.size(12.dp)
                             )
                         }
@@ -546,11 +522,11 @@ private fun TwoColumnGridTabCard(
                     // Title
                     Text(
                         text = tab.title.ifEmpty { "New Tab" },
-                        style = MaterialTheme.typography.labelSmall.copy(
+                        style = LocalSereneTypography.current.labelMd.copy(
                             fontSize = 12.sp,
-                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium
+                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold
                         ),
-                        color = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        color = if (isActive) SereneBrandPrimary else (if (isDark) DarkOnSurface else SereneDarkText),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -564,7 +540,7 @@ private fun TwoColumnGridTabCard(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close tab",
-                            tint = if (isActive) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                            tint = if (isActive) SereneBrandPrimary else SereneMutedSlate,
                             modifier = Modifier.size(14.dp)
                         )
                     }
@@ -575,7 +551,7 @@ private fun TwoColumnGridTabCard(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f)
-                        .background(if (isDark) Color(0xFF161314) else Color(0xFFF9F2F3))
+                        .background(if (isDark) DarkBackground else SereneCanvasFloor)
                 ) {
                     val file = tab.snapshotPath?.let { File(it) }
                     if (file != null && file.exists()) {
@@ -594,25 +570,11 @@ private fun TwoColumnGridTabCard(
                             Icon(
                                 imageVector = Icons.Default.Public,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.35f),
+                                tint = SereneMutedSlate.copy(alpha = 0.40f),
                                 modifier = Modifier.size(36.dp)
                             )
                         }
                     }
-
-                    // Subtle Bottom Gradient Overlay for visual polish
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        LiquidTertiary.copy(alpha = 0.12f)
-                                    )
-                                )
-                            )
-                    )
                 }
             }
         }

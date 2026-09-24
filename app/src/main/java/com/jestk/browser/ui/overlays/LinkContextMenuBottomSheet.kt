@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -24,7 +23,6 @@ import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,26 +38,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
-import com.jestk.browser.ui.theme.LiquidBorders
-import com.jestk.browser.ui.theme.LiquidShapes
-import com.jestk.browser.ui.theme.LiquidOnSurface
-import com.jestk.browser.ui.theme.LiquidOnSurfaceVariant
-import com.jestk.browser.ui.theme.LiquidOutline
-import com.jestk.browser.ui.theme.LiquidPrimary
-import com.jestk.browser.ui.theme.LiquidSecondary
-import com.jestk.browser.ui.theme.LiquidSurfaceContainerHigh
-import com.jestk.browser.ui.theme.LiquidTertiary
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.liquidFrostedGlass
+import com.jestk.browser.ui.theme.LocalSereneTypography
+import com.jestk.browser.ui.theme.SereneAccent
+import com.jestk.browser.ui.theme.SereneBorders
+import com.jestk.browser.ui.theme.SereneBrandPrimary
+import com.jestk.browser.ui.theme.SereneCanvasFloor
+import com.jestk.browser.ui.theme.SereneDarkText
+import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.SerenePaleBlue
+import com.jestk.browser.ui.theme.SereneShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 
 /**
- * Link Context Menu Floating Modal - Liquid Pastel Sunset design system.
+ * Link Context Menu Floating Modal - Serene Canvas design system.
  * Anchored directly under/near the user's finger touch position on hyperlinks.
+ * Crisp Level 2 solid surface with NO BLUR.
  *
  * Actions:
  * 1. Open in new tab (foreground / active)
@@ -113,9 +113,9 @@ fun LinkContextMenuContent(
     val context = LocalContext.current
     val isDark = LocalIsDarkTheme.current
 
-    val urlCardBg = if (isDark) Color(0xFF2B2627) else LiquidSurfaceContainerHigh
-    val textColor = if (isDark) Color(0xFFF6EFF0) else LiquidOnSurface
-    val secondaryTextColor = if (isDark) Color(0xFFC2C7D0) else LiquidOnSurfaceVariant
+    val textColor = if (isDark) DarkOnSurface else SereneDarkText
+    val headerBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
+    val dividerColor = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9)
 
     val displayHost =
         remember(url) {
@@ -131,72 +131,63 @@ fun LinkContextMenuContent(
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
-        // URL Header Card
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .liquidFrostedGlass(
-                        shape = RoundedCornerShape(14.dp),
-                        isDark = isDark,
-                        blurRadius = 24.dp,
-                        tintColor = urlCardBg,
-                        alpha = if (isDark) 0.55f else 0.50f,
-                    )
-                    .padding(horizontal = 10.dp, vertical = 9.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        // URL Header Card (Solid Level 1 Inset)
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = headerBg,
+            border = SereneBorders.cardBorder(isDark),
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            Box(
-                modifier =
-                    Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(LiquidPrimary.copy(alpha = if (isDark) 0.25f else 0.12f)),
-                contentAlignment = Alignment.Center,
+            Row(
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    imageVector = Icons.Default.Language,
-                    contentDescription = null,
-                    tint = LiquidPrimary,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                if (displayHost != url) {
-                    Text(
-                        text = displayHost,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        style =
-                            MaterialTheme.typography.bodyMedium.copy(
-                                fontSize = 13.5.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            ),
-                        color = textColor,
+                Box(
+                    modifier =
+                        Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isDark) DarkSurface else SerenePaleBlue),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Language,
+                        contentDescription = null,
+                        tint = SereneBrandPrimary,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
-                Text(
-                    text = url,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    style =
-                        MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Normal,
-                        ),
-                    color = secondaryTextColor,
-                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    if (displayHost != url) {
+                        Text(
+                            text = displayHost,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            style = LocalSereneTypography.current.bodyMd.copy(
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                            color = textColor,
+                        )
+                    }
+                    Text(
+                        text = url,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = LocalSereneTypography.current.bodySm,
+                        color = SereneMutedSlate,
+                    )
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(10.dp))
 
         HorizontalDivider(
-            color = LiquidOutline.copy(alpha = if (isDark) 0.15f else 0.12f),
-            thickness = 0.8.dp,
+            color = dividerColor,
+            thickness = 1.dp,
         )
 
         Spacer(modifier = Modifier.height(6.dp))
@@ -204,8 +195,8 @@ fun LinkContextMenuContent(
         // Action 1: Open in new tab (foreground)
         ContextMenuActionRow(
             icon = Icons.AutoMirrored.Filled.OpenInNew,
-            iconTint = LiquidPrimary,
-            iconBg = LiquidPrimary.copy(alpha = if (isDark) 0.25f else 0.12f),
+            iconTint = SereneBrandPrimary,
+            iconBg = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
             title = stringResource(R.string.open_in_new_tab),
             titleColor = textColor,
             onClick = {
@@ -219,8 +210,8 @@ fun LinkContextMenuContent(
         // Action 2: Open in background
         ContextMenuActionRow(
             icon = Icons.Default.Layers,
-            iconTint = LiquidSecondary,
-            iconBg = LiquidSecondary.copy(alpha = if (isDark) 0.25f else 0.12f),
+            iconTint = SereneAccent,
+            iconBg = if (isDark) DarkSurfaceVariant else Color(0xFFEFF6FF),
             title = stringResource(R.string.open_in_background),
             titleColor = textColor,
             onClick = {
@@ -239,8 +230,8 @@ fun LinkContextMenuContent(
         // Action 3: Copy URL
         ContextMenuActionRow(
             icon = Icons.Default.ContentCopy,
-            iconTint = LiquidTertiary,
-            iconBg = LiquidTertiary.copy(alpha = if (isDark) 0.25f else 0.12f),
+            iconTint = SereneMutedSlate,
+            iconBg = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
             title = stringResource(R.string.copy_link_url),
             titleColor = textColor,
             onClick = {
@@ -258,38 +249,38 @@ fun LinkContextMenuContent(
     }
 }
 
-@Preview(name = "Link Context Menu Light", showBackground = true, backgroundColor = 0xFFFFF8F8)
+@Preview(name = "Link Context Menu Light", showBackground = true, backgroundColor = 0xFFF1F7FC)
 @Composable
 fun LinkContextMenuLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
         Surface(
-            shape = LiquidShapes.Card,
-            color = Color(0xFFFFF8F8).copy(alpha = 0.96f),
-            border = LiquidBorders.specularBorder(isDark = false),
-            shadowElevation = 16.dp,
+            shape = SereneShapes.Card,
+            color = Color.White,
+            border = SereneBorders.floatingBorder(isDark = false),
+            shadowElevation = 8.dp,
             modifier = Modifier.width(310.dp),
         ) {
             LinkContextMenuContent(
-                url = "https://example.com/articles/liquid-pastel-sunset",
+                url = "https://example.com/articles/serene-canvas-design",
                 onEvent = {},
             )
         }
     }
 }
 
-@Preview(name = "Link Context Menu Dark", showBackground = true, backgroundColor = 0xFF1E1B1C)
+@Preview(name = "Link Context Menu Dark", showBackground = true, backgroundColor = 0xFF0F172A)
 @Composable
 fun LinkContextMenuDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         Surface(
-            shape = LiquidShapes.Card,
-            color = Color(0xFF1E1B1C).copy(alpha = 0.94f),
-            border = LiquidBorders.specularBorder(isDark = true),
-            shadowElevation = 16.dp,
+            shape = SereneShapes.Card,
+            color = DarkSurface,
+            border = SereneBorders.floatingBorder(isDark = true),
+            shadowElevation = 8.dp,
             modifier = Modifier.width(310.dp),
         ) {
             LinkContextMenuContent(
-                url = "https://example.com/articles/liquid-pastel-sunset",
+                url = "https://example.com/articles/serene-canvas-design",
                 onEvent = {},
             )
         }
