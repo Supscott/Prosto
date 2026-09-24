@@ -217,7 +217,12 @@ fun JestkApp(
                 uiState.currentUrl == "about:blank"
 
         val defaultBg = if (isDark) DarkBackground else SereneCanvasFloor
-        val targetAppBg = if (showHomeScreen || siteColor == null) defaultBg else Color(siteColor)
+        val targetAppBg =
+            if (showHomeScreen || siteColor == null || uiState.isSettingsVisible || uiState.isDownloadsVisible) {
+                defaultBg
+            } else {
+                Color(siteColor)
+            }
         val animatedAppBg by animateColorAsState(
             targetValue = targetAppBg,
             animationSpec = tween(durationMillis = 350),
