@@ -313,5 +313,33 @@
 - **Key Architectural Decisions:**
   - Zero blur policy strictly executed across the entire app viewport and all overlays. Modals and popups use solid Level 2 surfaces over a semi-transparent scrim (`Color.Black.copy(alpha = 0.25f)`), eliminating blur performance overhead and visual artifacts entirely.
 
+### Session: Settings & Downloads Dedicated Screens Refactor
+
+- **Completed:**
+  - Refactored Settings and Downloads from bottom sheets (`ModalBottomSheet`) into dedicated, separate full screens (`SettingsScreen` and `DownloadsScreen`).
+  - Created [`SettingsScreen.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/screens/SettingsScreen.kt) in package `com.jestk.browser.ui.screens`:
+    - Full screen destination with `statusBarsPadding()` and `navigationBarsPadding()`.
+    - Dedicated Serene top bar with Back button (`Icons.AutoMirrored.Filled.ArrowBackIos`), screen title ("Settings"), and Close button (`Icons.Default.Close`).
+    - Scrollable layout with SegmentedThemeControl (System/Light/Dark), Account & Sync cards, Default Browser tile, Privacy & Protection cards (Ad Blocker, Tracking Protection, Search Engine dropdown), and About & Hori links.
+    - Compose previews for Light and Dark modes.
+  - Updated [`DownloadsScreen.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/screens/DownloadsScreen.kt):
+    - Changed package to `com.jestk.browser.ui.screens`.
+    - Removed redundant inner `navigationBarsPadding()` so the full screen edge-to-edge padding is cleanly managed.
+    - Added Light and Dark Compose previews (`DownloadsScreenLightPreview`, `DownloadsScreenDarkPreview`).
+    - Retained backwards-compatible `@Deprecated` wrappers for `DownloadsSheet` in `screens` and `overlays`.
+  - Updated [`JestkApp.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/JestkApp.kt):
+    - Switched rendering from `SettingsSheet` / `DownloadsSheet` modal sheets to full-screen `AnimatedVisibility` with smooth vertical slide + fade transitions for `SettingsScreen` and `DownloadsScreen`.
+    - Updated `isBottomBarVisible` to automatically hide the bottom navigation dock whenever Settings or Downloads screen is active, and smoothly restore it upon dismissal.
+  - Updated tests and added visual previews:
+    - Updated [`DownloadsScreenPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/screens/DownloadsScreenPreviewTest.kt) to test `DownloadsScreen` in `screens` package.
+    - Created [`SettingsScreenPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/screens/SettingsScreenPreviewTest.kt) rendering full `SettingsScreen` in Light and Dark modes.
+    - Verified all 621 tests passing green (`BUILD SUCCESSFUL in 37s`).
+- **Current State:**
+  - Branch: `refactor-settings-downloads-screens` in dedicated git worktree `.worktrees/refactor-settings-downloads-screens`.
+  - All unit and visual preview tests passing green.
+- **Key Architectural Decisions:**
+  - Settings and Downloads are separate first-class screens rather than modal sheets, providing dedicated top navigation bars with Back/Close actions and edge-to-edge layout.
+  - The floating navigation dock automatically hides when entering dedicated sub-screens (`!uiState.isSettingsVisible && !uiState.isDownloadsVisible`) and slides back when exiting.
+
 
 

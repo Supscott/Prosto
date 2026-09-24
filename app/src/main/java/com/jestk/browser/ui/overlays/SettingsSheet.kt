@@ -107,6 +107,13 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
  * - Inset grouped cards for Account, Privacy & Security, and About
  * - Stitch liquid pastel sunset switches and badges
  */
+@Deprecated(
+    message = "SettingsSheet has been refactored into a full screen. Use SettingsScreen in com.jestk.browser.ui.screens",
+    replaceWith = ReplaceWith(
+        expression = "SettingsScreen(uiState, onEvent, modifier)",
+        imports = ["com.jestk.browser.ui.screens.SettingsScreen"]
+    )
+)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsSheet(

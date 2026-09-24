@@ -1,4 +1,4 @@
-package com.jestk.browser.ui.overlays
+package com.jestk.browser.ui.screens
 
 import android.graphics.Bitmap
 import android.view.View
@@ -8,7 +8,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import com.jestk.browser.domain.model.DownloadItem
-import com.jestk.browser.domain.model.OverlayType
+import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.viewmodel.BrowserUiState
@@ -24,27 +24,25 @@ import java.io.FileOutputStream
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-class DownloadsSheetPreviewTest {
+class DownloadsScreenPreviewTest {
 
     @Test
-    fun renderEmptyDownloadsSheetPreview() {
+    fun renderEmptyDownloadsScreenPreview() {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()
 
         val emptyState = BrowserUiState(
-            activeOverlay = OverlayType.DOWNLOADS,
+            activeScreen = ScreenType.DOWNLOADS,
             downloads = emptyList()
         )
 
         val composeView = ComposeView(activity).apply {
             setContent {
                 JestkBrowserTheme(themeMode = ThemeMode.DARK) {
-                    Surface(modifier = Modifier.fillMaxSize()) {
-                        DownloadsContent(
-                            uiState = emptyState,
-                            onEvent = {}
-                        )
-                    }
+                    DownloadsScreen(
+                        uiState = emptyState,
+                        onEvent = {}
+                    )
                 }
             }
         }
@@ -69,7 +67,7 @@ class DownloadsSheetPreviewTest {
     }
 
     @Test
-    fun renderPopulatedDownloadsSheetPreview() {
+    fun renderPopulatedDownloadsScreenPreview() {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()
 
@@ -109,19 +107,17 @@ class DownloadsSheetPreviewTest {
         )
 
         val populatedState = BrowserUiState(
-            activeOverlay = OverlayType.DOWNLOADS,
+            activeScreen = ScreenType.DOWNLOADS,
             downloads = sampleDownloads
         )
 
         val composeView = ComposeView(activity).apply {
             setContent {
                 JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                    Surface(modifier = Modifier.fillMaxSize()) {
-                        DownloadsContent(
-                            uiState = populatedState,
-                            onEvent = {}
-                        )
-                    }
+                    DownloadsScreen(
+                        uiState = populatedState,
+                        onEvent = {}
+                    )
                 }
             }
         }
