@@ -56,7 +56,6 @@ import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneAccent
 import com.jestk.browser.ui.theme.SereneBorders
 import com.jestk.browser.ui.theme.SereneBrandPrimary
 import com.jestk.browser.ui.theme.SereneCanvasFloor
@@ -220,7 +219,7 @@ fun AddFavoriteDialogContent(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = inputBg,
                     unfocusedContainerColor = inputBg,
-                    focusedBorderColor = SereneAccent,
+                    focusedBorderColor = fieldBorderColor,
                     unfocusedBorderColor = fieldBorderColor,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
@@ -280,7 +279,7 @@ fun AddFavoriteDialogContent(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = inputBg,
                     unfocusedContainerColor = inputBg,
-                    focusedBorderColor = SereneAccent,
+                    focusedBorderColor = fieldBorderColor,
                     unfocusedBorderColor = fieldBorderColor,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,

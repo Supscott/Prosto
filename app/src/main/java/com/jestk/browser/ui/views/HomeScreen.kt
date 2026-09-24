@@ -282,12 +282,12 @@ private fun HeroSearchCapsule(
     modifier: Modifier = Modifier
 ) {
     val bg = if (isDark) DarkSurface else Color.White
-    val borderColor = if (isDark) SereneAccent.copy(alpha = 0.50f) else SereneAccent
+    val border = SereneBorders.cardBorder(isDark)
 
     Surface(
         shape = CircleShape,
         color = bg,
-        border = BorderStroke(1.5.dp, borderColor),
+        border = border,
         shadowElevation = 4.dp,
         modifier = modifier
             .height(52.dp)

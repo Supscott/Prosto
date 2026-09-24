@@ -72,7 +72,6 @@ import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneAccent
 import com.jestk.browser.ui.theme.SereneBorders
 import com.jestk.browser.ui.theme.SereneBrandPrimary
 import com.jestk.browser.ui.theme.SereneCardSurface
@@ -101,8 +100,8 @@ fun TabStripRow(
     modifier: Modifier = Modifier,
     isDark: Boolean = LocalIsDarkTheme.current,
     dockBg: Color = if (isDark) DarkSurface else SereneCardSurface,
-    centerPillBg: Color = if (isDark) Color(0x2660A5FA) else SereneBrandPrimary.copy(alpha = 0.10f),
-    centerPillBorder: BorderStroke? = if (isDark) BorderStroke(1.dp, SereneAccent.copy(alpha = 0.40f)) else BorderStroke(1.dp, SereneBrandPrimary.copy(alpha = 0.25f)),
+    centerPillBg: Color = if (isDark) Color(0xFF283C58) else Color(0xFFE9F1F7),
+    centerPillBorder: BorderStroke? = null,
     circleBtnBg: Color = Color.Transparent
 ) {
     val context = LocalContext.current
