@@ -860,7 +860,8 @@ fun SearchEngineSwitcherRow(
     selectedEngine: SearchEngine,
     onSelectEngine: (SearchEngine) -> Unit,
     isDark: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    elevation: Dp = 0.dp
 ) {
     val scrollState = rememberScrollState()
 
@@ -877,6 +878,7 @@ fun SearchEngineSwitcherRow(
                 engine = engine,
                 isSelected = isSelected,
                 isDark = isDark,
+                elevation = elevation,
                 onClick = { onSelectEngine(engine) }
             )
         }
@@ -884,12 +886,13 @@ fun SearchEngineSwitcherRow(
 }
 
 @Composable
-private fun SearchEngineChip(
+fun SearchEngineChip(
     engine: SearchEngine,
     isSelected: Boolean,
     isDark: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    elevation: Dp = 0.dp
 ) {
     val containerColor = when {
         isSelected && isDark -> DarkSurfaceVariant
@@ -915,11 +918,9 @@ private fun SearchEngineChip(
         shape = CircleShape,
         color = containerColor,
         border = border,
-        shadowElevation = 0.dp,
-        modifier = modifier
-            .height(32.dp)
-            .clip(CircleShape)
-            .clickable(onClick = onClick)
+        shadowElevation = elevation,
+        onClick = onClick,
+        modifier = modifier.height(32.dp)
     ) {
         Row(
             modifier = Modifier.padding(start = 6.dp, end = 12.dp, top = 4.dp, bottom = 4.dp),

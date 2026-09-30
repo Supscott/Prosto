@@ -7,6 +7,7 @@ import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
+import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 
 data class BrowserUiState(
@@ -90,4 +91,12 @@ data class BrowserUiState(
 
     val isDownloadsVisible: Boolean
         get() = activeScreen == ScreenType.DOWNLOADS || activeOverlay == OverlayType.DOWNLOADS
+
+    val searchPageMatch: Pair<SearchEngine, String>?
+        get() {
+            if (isHome) return null
+            val activeTabUrl = activeTab?.url.orEmpty()
+            val candidate = currentUrl.ifEmpty { activeTabUrl }
+            return SearchEngine.findMatchingEngineAndQuery(candidate)
+        }
 }

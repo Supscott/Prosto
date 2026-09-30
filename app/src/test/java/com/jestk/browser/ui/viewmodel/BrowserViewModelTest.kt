@@ -1638,5 +1638,168 @@ class BrowserViewModelTest {
             assertThat(list[0].url).isEqualTo("https://github.com/kotlin")
             assertThat(list[0].title).isEqualTo("github.com")
         }
+
+    @Test
+    fun searchPageMatch_onSearchPage_returnsEngineAndQuery() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://www.google.com/search?q=apple"))
+            advanceUntilIdle()
+
+            val match = viewModel.uiState.value.searchPageMatch
+            assertThat(match).isNotNull()
+            assertThat(match?.first).isEqualTo(SearchEngine.GOOGLE)
+            assertThat(match?.second).isEqualTo("apple")
+        }
+
+    @Test
+    fun searchPageMatch_onHomePage_returnsNull() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isHome).isTrue()
+            assertThat(viewModel.uiState.value.searchPageMatch).isNull()
+        }
+
+    @Test
+    fun searchPageMatch_onRegularWebPage_returnsNull() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://example.com"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.searchPageMatch).isNull()
+        }
+
+    @Test
+    fun switchSearchEngine_whenNoExistingTab_opensNewTabWithSearchUrl() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://www.google.com/search?q=apple"))
+            advanceUntilIdle()
+
+            val initialTabId = viewModel.uiState.value.activeTabId
+            assertThat(viewModel.uiState.value.tabs).hasSize(1)
+
+            viewModel.onEvent(
+                BrowserUiEvent.SwitchSearchEngineForQuery(
+                    targetEngine = SearchEngine.DUCKDUCKGO,
+                    query = "apple"
+                )
+            )
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertThat(state.tabs).hasSize(2)
+            assertThat(state.activeTabId).isNotEqualTo(initialTabId)
+            assertThat(state.currentUrl).isEqualTo("https://duckduckgo.com/?q=apple")
+            assertThat(state.searchPageMatch?.first).isEqualTo(SearchEngine.DUCKDUCKGO)
+            assertThat(state.searchPageMatch?.second).isEqualTo("apple")
+        }
+
+    @Test
+    fun switchSearchEngine_whenExistingTabMatches_switchesToExistingTab() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            // 1. Start on Google search "apple" (tab 1)
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://www.google.com/search?q=apple"))
+            advanceUntilIdle()
+            val googleTabId = viewModel.uiState.value.activeTabId
+
+            // 2. Switch to DuckDuckGo search "apple" (creates tab 2)
+            viewModel.onEvent(
+                BrowserUiEvent.SwitchSearchEngineForQuery(
+                    targetEngine = SearchEngine.DUCKDUCKGO,
+                    query = "apple"
+                )
+            )
+            advanceUntilIdle()
+
+            val ddgTabId = viewModel.uiState.value.activeTabId
+            assertThat(viewModel.uiState.value.tabs).hasSize(2)
+            assertThat(ddgTabId).isNotEqualTo(googleTabId)
+
+            // 3. From tab 2, switch back to Google search "apple"
+            viewModel.onEvent(
+                BrowserUiEvent.SwitchSearchEngineForQuery(
+                    targetEngine = SearchEngine.GOOGLE,
+                    query = "apple"
+                )
+            )
+            advanceUntilIdle()
+
+            // Should switch back to tab 1 without creating tab 3!
+            val state = viewModel.uiState.value
+            assertThat(state.tabs).hasSize(2)
+            assertThat(state.activeTabId).isEqualTo(googleTabId)
+            assertThat(state.currentUrl).isEqualTo("https://www.google.com/search?q=apple")
+            assertThat(state.searchPageMatch?.first).isEqualTo(SearchEngine.GOOGLE)
+        }
+
+    @Test
+    fun switchSearchEngine_whenClickingAlreadySelectedEngine_doesNothing() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://www.google.com/search?q=apple"))
+            advanceUntilIdle()
+
+            val tabId = viewModel.uiState.value.activeTabId
+            viewModel.onEvent(
+                BrowserUiEvent.SwitchSearchEngineForQuery(
+                    targetEngine = SearchEngine.GOOGLE,
+                    query = "apple"
+                )
+            )
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertThat(state.tabs).hasSize(1)
+            assertThat(state.activeTabId).isEqualTo(tabId)
+        }
+
+    @Test
+    fun switchSearchEngine_caseInsensitiveQueryMatch() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            // Tab 1: Google with query "Apple"
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://www.google.com/search?q=Apple"))
+            advanceUntilIdle()
+            val googleTabId = viewModel.uiState.value.activeTabId
+
+            // Switch to DuckDuckGo with query "apple" (creates Tab 2)
+            viewModel.onEvent(
+                BrowserUiEvent.SwitchSearchEngineForQuery(
+                    targetEngine = SearchEngine.DUCKDUCKGO,
+                    query = "apple"
+                )
+            )
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.tabs).hasSize(2)
+
+            // Now switch to Google with query "apple" -> should match "Apple" case-insensitively
+            viewModel.onEvent(
+                BrowserUiEvent.SwitchSearchEngineForQuery(
+                    targetEngine = SearchEngine.GOOGLE,
+                    query = "apple"
+                )
+            )
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.tabs).hasSize(2)
+            assertThat(viewModel.uiState.value.activeTabId).isEqualTo(googleTabId)
+        }
 }
 

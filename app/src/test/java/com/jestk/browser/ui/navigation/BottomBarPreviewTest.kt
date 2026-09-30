@@ -486,4 +486,65 @@ class BottomBarPreviewTest {
         }
         assertThat(hasPixelDiff).isTrue()
     }
+
+    @Test
+    fun renderBottomBarWithSearchEngineSwitcher() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val sampleState = BrowserUiState(
+            currentUrl = "https://www.google.com/search?q=apple",
+            pageTitle = "apple - Google Search",
+            tabs = listOf(
+                Tab(id = "1", url = "https://www.google.com/search?q=apple", title = "apple - Google Search", isActive = true),
+                Tab(id = "2", url = "https://duckduckgo.com/?q=apple", title = "apple at DuckDuckGo", isActive = false)
+            ),
+            activeTabId = "1"
+        )
+
+        assertThat(sampleState.searchPageMatch).isNotNull()
+        assertThat(sampleState.searchPageMatch?.first).isEqualTo(com.jestk.browser.domain.model.SearchEngine.GOOGLE)
+        assertThat(sampleState.searchPageMatch?.second).isEqualTo("apple")
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.White),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        MockWebPageContent()
+                        UnifiedBottomBar(
+                            uiState = sampleState,
+                            onEvent = {}
+                        )
+                    }
+                }
+            }
+        }
+        activity.setContentView(composeView)
+
+        val width = 1080
+        val height = 2340
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        composeView.draw(canvas)
+
+        val outputFile = File("build/dock_search_switcher_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+
+        assertThat(outputFile.exists()).isTrue()
+        assertThat(outputFile.length()).isGreaterThan(0L)
+    }
 }

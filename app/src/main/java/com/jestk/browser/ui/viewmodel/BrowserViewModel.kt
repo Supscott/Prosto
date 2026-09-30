@@ -8,6 +8,7 @@ import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.ScreenType
+import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
@@ -441,6 +442,10 @@ class BrowserViewModel(
             is BrowserUiEvent.StopLoading -> {
                 _navigationCommands.tryEmit(NavigationCommand.StopLoading)
                 _uiState.update { it.copy(isLoading = false) }
+            }
+
+            is BrowserUiEvent.SwitchSearchEngineForQuery -> {
+                switchSearchEngineForQuery(event.targetEngine, event.query)
             }
 
             is BrowserUiEvent.OnPageStarted -> {
@@ -1156,6 +1161,32 @@ class BrowserViewModel(
         loadUrl(query)
     }
 
+    private fun switchSearchEngineForQuery(targetEngine: SearchEngine, explicitQuery: String?) {
+        val currentCandidate = _uiState.value.currentUrl.ifEmpty { _uiState.value.activeTab?.url.orEmpty() }
+        val currentMatch = SearchEngine.findMatchingEngineAndQuery(currentCandidate)
+        val query = explicitQuery ?: currentMatch?.second ?: return
+
+        if (currentMatch?.first == targetEngine) return
+
+        val activeId = _uiState.value.activeTabId
+        val matchingTab = _uiState.value.tabs
+            .filter { tab ->
+                if (tab.id == activeId) return@filter false
+                val tabMatch = SearchEngine.findMatchingEngineAndQuery(tab.url)
+                tabMatch != null &&
+                    tabMatch.first == targetEngine &&
+                    tabMatch.second.equals(query, ignoreCase = true)
+            }
+            .maxByOrNull { it.lastActiveTimestamp }
+
+        if (matchingTab != null) {
+            selectTab(matchingTab.id)
+        } else {
+            val targetUrl = targetEngine.buildSearchUrl(query)
+            openNewTab(targetUrl)
+        }
+    }
+
     private fun updateHistorySuggestions(query: String) {
         historyJob?.cancel()
         historyJob = viewModelScope.launch(ioDispatcher) {
@@ -1232,7 +1263,18 @@ class BrowserViewModel(
     ) {
         if (url.isEmpty() || url == "about:blank") return
         if (_uiState.value.activeTabId == tabId) {
-            _uiState.update { it.copy(currentUrl = url, isLoading = true, loadingProgress = 0.15f, isBottomBarVisible = true) }
+            _uiState.update { state ->
+                val updatedTabs = state.tabs.map { tab ->
+                    if (tab.id == tabId) tab.copy(url = url) else tab
+                }
+                state.copy(
+                    tabs = updatedTabs,
+                    currentUrl = url,
+                    isLoading = true,
+                    loadingProgress = 0.15f,
+                    isBottomBarVisible = true
+                )
+            }
         }
     }
 
@@ -1244,8 +1286,12 @@ class BrowserViewModel(
         if (url.isEmpty() || url == "about:blank") return
         val displayTitle = title.ifEmpty { url }
         if (_uiState.value.activeTabId == tabId) {
-            _uiState.update {
-                it.copy(
+            _uiState.update { state ->
+                val updatedTabs = state.tabs.map { tab ->
+                    if (tab.id == tabId) tab.copy(url = url, title = displayTitle) else tab
+                }
+                state.copy(
+                    tabs = updatedTabs,
                     currentUrl = url,
                     pageTitle = displayTitle,
                     isLoading = false,

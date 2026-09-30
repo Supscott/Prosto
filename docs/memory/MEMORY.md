@@ -421,3 +421,28 @@
 - **Key Architectural Decisions:**
   - Active tab capsule is solid 100% opaque (`#FFFFFF` in light mode, `#0D1824` in dark mode) while the dock container is 80% translucent, allowing the active tab's elevation drop shadow to cast clearly onto the dock surface without muddy blending.
   - Favicon in the active tab pill is bare without background container to maximize icon clarity and match reference design.
+
+### Session: Quick Search Engine Switcher Above Floating Dock
+
+- **Completed:**
+  - Enhanced [`SearchEngine.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/domain/model/SearchEngine.kt) with robust URL query matching and extraction (`matchesUrl`, `extractQuery`, and companion helper `findMatchingEngineAndQuery`), decoding `q` parameters and handling multi-parameter/regional query formats across Google, DuckDuckGo, and Bing.
+  - Added computed property `searchPageMatch: Pair<SearchEngine, String>?` to [`BrowserUiState.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserUiState.kt) that accurately identifies when the active tab is on a search results page with a non-empty query.
+  - Added `BrowserUiEvent.SwitchSearchEngineForQuery(targetEngine, query)` to [`BrowserUiEvent.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserUiEvent.kt) and implemented tab-aware switching logic in [`BrowserViewModel.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserViewModel.kt):
+    - When another engine is clicked, if an existing tab with that engine and the same query exists (case-insensitive), switches directly to that tab.
+    - If no existing tab matches, opens a new foreground tab loaded with that search engine's URL for the query.
+    - If the user clicks the currently active engine, does nothing.
+    - Global default search engine setting remains unchanged.
+    - Synced `_uiState.tabs` in `handlePageStarted` and `handlePageFinished` to prevent stale tab URLs.
+  - Updated [`SearchOverlay.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt) to support elevation on `SearchEngineSwitcherRow` and `SearchEngineChip`, utilizing `Surface(onClick = ...)` to prevent outer clip shadow truncation.
+  - Integrated `SearchEngineSwitcherRow` directly into [`BottomBar.kt:UnifiedBottomBar`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/navigation/BottomBar.kt), floating 8.dp above the dock with smooth enter/exit animations, 3.dp elevation shadow, and automatic synchronization with dock scroll auto-hide.
+  - Added unit test suite in [`SearchEngineTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/domain/model/SearchEngineTest.kt) testing URL formatting, matching, query extraction, and edge cases.
+  - Added unit tests in [`BrowserViewModelTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/viewmodel/BrowserViewModelTest.kt) testing `searchPageMatch` detection, new tab creation, existing tab switching, case-insensitivity, and no-op behavior.
+  - Added visual test `renderBottomBarWithSearchEngineSwitcher` in [`BottomBarPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/navigation/BottomBarPreviewTest.kt) and verified rendered bitmap (`app/build/dock_search_switcher_preview.png`).
+  - Full test suite `:app:testDebugUnitTest` completely green (33 actionable tasks executed/up-to-date, all tests passing).
+- **Current State:**
+  - Feature fully implemented and tested on `main`.
+- **Key Architectural Decisions:**
+  - Quick engine switcher only activates on search result pages where a valid query exists in the URL (`searchPageMatch != null`), keeping the dock clean on search homepages and general web browsing.
+  - Tab matching uses `SearchEngine.findMatchingEngineAndQuery(tab.url)` and case-insensitive comparison, prioritizing the most recently active tab if multiple exist.
+  - Switching search engine via the quick switcher does not alter the global user search engine preference in `SettingsRepository`.
+

@@ -41,6 +41,7 @@ sealed interface BrowserUiEvent {
     data object GoForward : BrowserUiEvent
     data object Reload : BrowserUiEvent
     data object StopLoading : BrowserUiEvent
+    data class SwitchSearchEngineForQuery(val targetEngine: SearchEngine, val query: String? = null) : BrowserUiEvent
 
     // Web Callbacks
     data class OnPageStarted(val tabId: String, val url: String) : BrowserUiEvent

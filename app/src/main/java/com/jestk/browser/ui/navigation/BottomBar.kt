@@ -26,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.ui.overlays.SearchEngineSwitcherRow
 import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme
@@ -105,7 +106,30 @@ fun UnifiedBottomBar(
                 )
             }
 
-            // 3. Floating Dock Row Container
+            // 3. Quick Search Engine Switcher (visible on search results page)
+            val searchMatch = uiState.searchPageMatch
+            AnimatedVisibility(
+                visible = searchMatch != null && !isHome && !uiState.isMenuExpanded,
+                enter = fadeIn(animationSpec = tween(200)) + slideInVertically(animationSpec = tween(200)) { it / 2 },
+                exit = fadeOut(animationSpec = tween(150)) + slideOutVertically(animationSpec = tween(150)) { it / 2 },
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(bottom = 8.dp)
+            ) {
+                if (searchMatch != null) {
+                    val (selectedEngine, query) = searchMatch
+                    SearchEngineSwitcherRow(
+                        selectedEngine = selectedEngine,
+                        onSelectEngine = { engine ->
+                            onEvent(BrowserUiEvent.SwitchSearchEngineForQuery(engine, query))
+                        },
+                        isDark = isDark,
+                        elevation = 3.dp
+                    )
+                }
+            }
+
+            // 4. Floating Dock Row Container
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

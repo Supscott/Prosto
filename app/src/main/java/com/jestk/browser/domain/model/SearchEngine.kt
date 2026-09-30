@@ -33,27 +33,47 @@ enum class SearchEngine(
     }
 
     fun matchesUrl(url: String): Boolean {
+        val lower = url.lowercase()
         return when (this) {
-            DUCKDUCKGO -> url.contains("duckduckgo.com")
-            GOOGLE -> url.contains("google.com")
-            BING -> url.contains("bing.com")
+            DUCKDUCKGO -> lower.contains("duckduckgo.com")
+            GOOGLE -> lower.contains("google.com") || lower.contains(".google.") || lower.contains("://google.")
+            BING -> lower.contains("bing.com")
         }
     }
 
     fun extractQuery(url: String): String? {
-        val pattern = when (this) {
-            DUCKDUCKGO -> "duckduckgo.com/?q="
-            GOOGLE -> "google.com/search?q="
-            BING -> "bing.com/search?q="
+        if (!matchesUrl(url)) return null
+        val lower = url.lowercase()
+        val isSearchPage = when (this) {
+            DUCKDUCKGO -> lower.contains("duckduckgo.com") && (lower.contains("?q=") || lower.contains("&q="))
+            GOOGLE -> (lower.contains("google.") || lower.contains("google.com")) &&
+                lower.contains("/search") &&
+                (lower.contains("?q=") || lower.contains("&q="))
+            BING -> lower.contains("bing.com") && lower.contains("/search") && (lower.contains("?q=") || lower.contains("&q="))
         }
-        if (!url.contains(pattern)) return null
-        val queryStart = url.indexOf(pattern) + pattern.length
-        val queryEnd = url.indexOf('&', queryStart).let { if (it == -1) url.length else it }
-        val rawQuery = url.substring(queryStart, queryEnd)
+        if (!isSearchPage) return null
+
+        val regex = Regex("""[?&]q=([^&#]*)""", RegexOption.IGNORE_CASE)
+        val match = regex.find(url) ?: return null
+        val rawQuery = match.groupValues[1]
+        if (rawQuery.isBlank()) return null
         return try {
-            java.net.URLDecoder.decode(rawQuery, "UTF-8")
+            java.net.URLDecoder.decode(rawQuery.replace("+", " "), "UTF-8").trim()
         } catch (_: Exception) {
-            rawQuery
+            rawQuery.replace("+", " ").trim()
+        }.takeIf { it.isNotBlank() }
+    }
+
+    companion object {
+        fun findMatchingEngineAndQuery(url: String?): Pair<SearchEngine, String>? {
+            if (url.isNullOrBlank()) return null
+            for (engine in entries) {
+                val query = engine.extractQuery(url)
+                if (query != null) {
+                    return Pair(engine, query)
+                }
+            }
+            return null
         }
     }
 }
