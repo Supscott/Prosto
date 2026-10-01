@@ -9,9 +9,10 @@ This skill guides AI agents on how to render, view, and visually verify Jetpack 
 
 ## Why Visual Verification is Essential
 
-When modifying UI components (padding, background heights, typography, glassmorphism, contrast, clipping), code logic and unit tests alone cannot catch visual discrepancies (such as background blur extending too far, misaligned icons, or clipped text). 
+When modifying UI components (padding, background heights, typography, glassmorphism, contrast, clipping), code logic and unit tests alone cannot catch visual discrepancies (such as background blur extending too far, misaligned icons, or clipped text).
 
 By rendering composables to PNG images and inspecting them directly with the `view_file` tool, agents can:
+
 1. "See" the UI component as a user would.
 2. Compare "Before" vs "After" side by side.
 3. Catch theme mismatches (Light vs Dark mode).
@@ -141,9 +142,9 @@ class ComponentPreviewTest {
 
         activity.setContentView(composeView)
 
-        // Specify canvas resolution (e.g. mobile width 1080px)
-        val width = 1080
-        val height = 600
+        // Specify canvas resolution (e.g. mobile width 440px)
+        val width = 440
+        val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
@@ -165,7 +166,9 @@ class ComponentPreviewTest {
 ```
 
 ### Run the Command
+
 Execute the test using `rtk`:
+
 ```bash
 rtk ./gradlew testDebugUnitTest --tests "com.jestk.browser.ui.preview.ComponentPreviewTest"
 ```
@@ -191,6 +194,7 @@ The system will display the image directly in the model's context!
 ## Step 4: Visual Checklist for UI Verification
 
 When inspecting the screenshot, examine:
+
 1. **Vertical / Horizontal Alignment**: Are elements centered properly? Does a background container align with the exact height of child items (e.g. 58dp dock = 58dp background)?
 2. **Padding & Insets**: Are there accidental "halos" or oversized gradient fades spilling over surrounding content?
 3. **Contrast & Theme**: Is text easily readable against both light and dark backgrounds?
@@ -202,6 +206,7 @@ When inspecting the screenshot, examine:
 ## Side-by-Side Comparison Trick
 
 When proposing or evaluating design changes, render a single image showing:
+
 - Top: **Current / Before**
 - Middle: **Option A**
 - Bottom: **Option B**

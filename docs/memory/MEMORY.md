@@ -446,3 +446,79 @@
   - Tab matching uses `SearchEngine.findMatchingEngineAndQuery(tab.url)` and case-insensitive comparison, prioritizing the most recently active tab if multiple exist.
   - Switching search engine via the quick switcher does not alter the global user search engine preference in `SettingsRepository`.
 
+### Session: Search Overlay Redesign (Engine Selector Dropdown & Circular Swipe Cycling)
+
+- **Completed:**
+  - Redesigned search screen layout in [`SearchOverlay.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt) based on user specification and reference screenshot:
+    - **Separate Selector Button & Input:** Input field placed on the left (`weight(1f)`) and standalone engine selector button placed on the right (for comfortable right-thumb reach).
+    - **SearchEngineSelectorButton:** 68×52.dp `CircleShape` pill button displaying current engine badge and animated rotation arrow (`KeyboardArrowDown` rotating 180° when open).
+    - **SearchEngineDropdownCard:** Floating menu card (184.dp wide, `RoundedCornerShape(20.dp)`, `10.dp` shadow elevation, `cardBorder`) anchored above the selector button, listing search engines (Google, DuckDuckGo, Bing) with active engine highlight pill and checkmark.
+    - **Gesture Behaviors:**
+      - Swiping horizontally on the selector button *always* cycles engines circularly in both directions (left/right) with tactile haptic feedback.
+      - Swiping horizontally on the search input cycles engines circularly *only when query is empty* (`query.isEmpty()`). When text is present, standard cursor and text selection behaviors take full precedence.
+    - **Input Field:** Single-line input with leading magnifying glass icon, microphone icon, clear button, and localized placeholder `"Search with <name>"` (`R.string.search_with_engine` in both English and Russian).
+    - **Cleaned Layout:** Removed the old horizontal engine chips row from the search overlay column layout.
+  - Added localized string `search_with_engine` to [`strings.xml`](file:///Users/ilya/CODING/browser/app/src/main/res/values/strings.xml) and Russian translation `Поиск в %1$s` to [`values-ru/strings.xml`](file:///Users/ilya/CODING/browser/app/src/main/res/values-ru/strings.xml).
+  - Enhanced preview and unit testing in [`SearchOverlayPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/SearchOverlayPreviewTest.kt):
+    - `renderSearchEngineSelectorAndDropdownPreview` (renders `search_selector_dropdown_preview.png`).
+    - `renderSearchOverlayWithDropdownOpenPreview` (renders `search_overlay_dropdown_open_preview.png`).
+    - `testCircularEngineCyclingMath` (tests circular modulo navigation across engines in both directions).
+  - Visually inspected rendered PNGs across Light and Dark themes via `view_file`.
+  - Full test suite `:app:testDebugUnitTest` completely green.
+- **Current State:**
+  - Branch: `main`
+  - All unit and visual preview tests passing.
+- **Key Architectural Decisions:**
+  - The dropdown menu is layered as Layer 3 directly inside the root full-screen `Box`, positioned above the bottom-right selector button. This prevents parent layout shift and ensures clicks are never clipped by nested layout boundaries.
+  - Circular engine indexing uses Kotlin's `(index + direction).mod(size)` for safe negative modulo wrapping.
+
+### Session: Fix Search Engine Swipe Cycling Stale Closure & Infinite Loop
+
+- **Completed:**
+  - Resolved bug where horizontal swipe gestures on the search engine button and empty search input were restricted to bouncing between only two search engines instead of looping through all available engines (Google, DuckDuckGo, Bing).
+  - Root cause:
+    - `Modifier.pointerInput(density)` had `density` as its sole key, which never changes during the screen lifecycle. As a result, the gesture coroutine never restarted upon recomposition and permanently held references to the initial `onSwipeLeft` / `onSwipeRight` closures, constantly calculating relative to the initial engine.
+    - Outer ViewModel updates across successive rapid swipes could introduce race conditions.
+  - Fix:
+    - Made `searchEngineButtonGestures` and `horizontalSwipeCycler` `@Composable Modifier` extension functions utilizing `rememberUpdatedState` for `onClick`, `onSwipeLeft`, and `onSwipeRight`.
+    - Added immediate synchronous Compose state `var currentEngine by remember(uiState.settings.searchEngine) { mutableStateOf(uiState.settings.searchEngine) }` in `SearchOverlay.kt`, instantaneously advancing the active engine on each swipe and eliminating gesture races.
+    - Updated gesture math to subtract/add incremental threshold steps (`totalDragX += thresholdPx` / `totalDragX -= thresholdPx`), enabling both discrete flick swipes and continuous smooth dragging through all engines.
+    - Added unit test `testSequentialSwipeCyclesAllThreeEnginesContinuously` in [`SearchOverlayPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/SearchOverlayPreviewTest.kt) testing sequential multiple-swipe looping in both directions.
+  - All unit tests and Robolectric preview tests pass (`:app:testDebugUnitTest`).
+- **Current State:**
+  - Branch: `main`
+  - All tests passing; swipe cycling verified to loop smoothly and continuously across Google, DuckDuckGo, and Bing in both directions.
+
+### Session: Search Engine Logo Carousel, Fling Momentum & Increased Scroll Distance
+
+- **Completed:**
+  - **Increased Scroll Distance:** Increased deliberate scroll distance required to switch search engines from 28-36dp to 64.dp (`itemSpacingDp = 64.dp`), preventing hyper-sensitive jumps while providing plenty of space for real-time visual feedback.
+  - **Logo Carousel with Soft Edge-Fade:**
+    - Implemented a continuous circular ribbon carousel in [`SearchOverlay.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt) inside `SearchEngineSelectorButton` (68×52.dp `CircleShape`).
+    - During scrolling, the dropdown indicator arrow smoothly fades out (`arrowAlpha` -> 0f), the active logo transitions to dead center (`restingShiftPx * arrowAlpha`), and adjacent search engine logos slide into view from left and right.
+    - Soft horizontal edge-fade masks (`Brush.horizontalGradient` with `BlendMode.DstIn` on an offscreen graphics layer) fade out entering/exiting badges across 14.dp at the left and right boundaries, keeping the outer capsule surface, shadow, and rim border crisp and intact.
+    - At rest (`isScrolling == false`), edge-fade smoothly turns off and the badge settles with the dropdown arrow.
+  - **Immersive Fling Momentum & Inertia:**
+    - Implemented natural physics-based fling momentum using platform `splineBasedDecay<Float>(density)` predicting travel distance from gesture velocity (`VelocityTracker`).
+    - Clamped maximum fling travel to 6 slots (2 full loops), transitioning to a smooth spring animation (`spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)`) that carries the fling's velocity, smoothly decelerates, and snaps to the nearest engine slot.
+    - Synchronized subtle haptic feedback ticks (`HapticFeedbackType.TextHandleMove`) on every engine slot crossed during both manual dragging and inertial fling coasting.
+  - **Synchronized Trackpad Dragging on Empty Search Input:**
+    - Swiping on the empty search input field (`query.isEmpty()`) acts as a wide touch trackpad that drives the selector button's carousel in real time.
+    - When text is typed in the input field, the gesture yields full priority to native cursor manipulation and text editing.
+    - Clicking the selector button without dragging toggles the dropdown menu.
+  - **Tests & Visual Previews:**
+    - Added visual preview test `renderSearchEngineCarouselScrollingPreview` in [`SearchOverlayPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/SearchOverlayPreviewTest.kt) rendering `search_carousel_scrolling_preview.png`.
+    - Added unit test `testCarouselDragSnapAndHapticFeedback` testing drag start, slot crossing haptics, and zero-velocity spring snap.
+    - Added unit test `testCarouselFlingMomentumInertia` testing moderate and strong velocity fling decay and multiple-revolution coasting.
+    - Fixed pre-existing `width` variable shadowing typo in `BottomBarPreviewTest.kt`.
+    - Verified full test suite (`:app:testDebugUnitTest`) passes 100% green (620+ tests).
+- **Current State:**
+  - Branch: `main`
+  - All unit and visual preview tests passing green.
+- **Key Architectural Decisions:**
+  - `SearchEngineCarouselState` provides a single source of truth for carousel drag offset, fling decay, spring snapping, and engine commitment, allowing both `SearchEngineSelectorButton` and `HeroSearchInputField` to drive the animation simultaneously.
+  - Using `graphicsLayer { translationX = xPos }` instead of layout `offset` ensures all carousel badge translations occur entirely on the RenderNode / GPU draw pass with zero layout remeasurement.
+  - Edge fade is applied via `Modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent { drawContent(); drawRect(..., blendMode = BlendMode.DstIn) }` on the inner badge container, preserving the outer `Surface` pill's shadow and rim border.
+
+
+

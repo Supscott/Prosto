@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Hori</string>
     <string name="search_placeholder">Поиск или адрес сайта</string>
+    <string name="search_with_engine">Поиск в %1$s</string>
     <string name="new_tab">Новая вкладка</string>
     <string name="home">Главная</string>
     <string name="search">Поиск</string>

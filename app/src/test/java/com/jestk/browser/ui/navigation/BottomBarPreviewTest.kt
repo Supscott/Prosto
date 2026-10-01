@@ -139,8 +139,8 @@ class BottomBarPreviewTest {
         }
 
         activity.setContentView(composeView)
-        val width = 1080
-        val height = 480
+        val width = 440
+        val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
@@ -207,8 +207,8 @@ class BottomBarPreviewTest {
         }
 
         activity.setContentView(composeView)
-        val width = 1080
-        val height = 480
+        val width = 440
+        val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
@@ -286,8 +286,8 @@ class BottomBarPreviewTest {
         }
 
         activity.setContentView(composeView)
-        val width = 1080
-        val height = 480
+        val width = 440
+        val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
@@ -352,8 +352,8 @@ class BottomBarPreviewTest {
         }
 
         activity.setContentView(composeView)
-        val width = 1080
-        val height = 480
+        val width = 440
+        val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
@@ -384,8 +384,8 @@ class BottomBarPreviewTest {
             activeTabId = "1"
         )
 
-        val width = 1080
-        val height = 800
+val width = 440
+        val height = 956
 
         // 1. Render Visible State: bottom bar visible, webview padded by 86dp (62dp + 24dp nav)
         val visibleView = ComposeView(activity).apply {
@@ -526,7 +526,7 @@ class BottomBarPreviewTest {
         }
         activity.setContentView(composeView)
 
-        val width = 1080
+val width = 440
         val height = 2340
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),

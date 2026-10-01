@@ -17,8 +17,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.runtime.remember
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.runTest
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
@@ -104,7 +110,7 @@ class SearchOverlayPreviewTest {
         }
 
         activity.setContentView(composeView)
-        val width = 1080
+val width = 440
         val height = 900
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
@@ -177,7 +183,7 @@ class SearchOverlayPreviewTest {
         }
 
         activity.setContentView(composeView)
-        val width = 1080
+val width = 440
         val height = 600
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
@@ -261,8 +267,8 @@ class SearchOverlayPreviewTest {
         }
 
         activity.setContentView(composeView)
-        val width = 1080
-        val height = 1920
+val width = 440
+        val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
@@ -312,8 +318,8 @@ class SearchOverlayPreviewTest {
         }
 
         activity.setContentView(composeView)
-        val width = 1080
-        val height = 1920
+        val width = 440
+        val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
@@ -329,5 +335,482 @@ class SearchOverlayPreviewTest {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
         assertTrue(outputFile.exists())
+    }
+
+    @Test
+    fun renderSearchEngineSelectorAndDropdownPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+        val density = Density(1f)
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFEAF1FF))
+                            .padding(24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        // Light Mode section
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Light Mode Selector (Closed & Open)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                SearchEngineSelectorButton(
+                                    selectedEngine = SearchEngine.GOOGLE,
+                                    isMenuOpen = false,
+                                    isDark = false,
+                                    density = density,
+                                    onClick = {},
+                                    onSwipeLeft = {},
+                                    onSwipeRight = {}
+                                )
+                                SearchEngineSelectorButton(
+                                    selectedEngine = SearchEngine.GOOGLE,
+                                    isMenuOpen = true,
+                                    isDark = false,
+                                    density = density,
+                                    onClick = {},
+                                    onSwipeLeft = {},
+                                    onSwipeRight = {}
+                                )
+                            }
+                            Text("Dropdown (Google Selected)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            SearchEngineDropdownCard(
+                                selectedEngine = SearchEngine.GOOGLE,
+                                onSelectEngine = {},
+                                isDark = false
+                            )
+                        }
+
+                        // Dark Mode section
+                        JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                            Column(
+                                modifier = Modifier
+                                    .background(Color(0xFF0F172A))
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Dark Mode Selector (Closed & Open)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    SearchEngineSelectorButton(
+                                        selectedEngine = SearchEngine.DUCKDUCKGO,
+                                        isMenuOpen = false,
+                                        isDark = true,
+                                        density = density,
+                                        onClick = {},
+                                        onSwipeLeft = {},
+                                        onSwipeRight = {}
+                                    )
+                                    SearchEngineSelectorButton(
+                                        selectedEngine = SearchEngine.DUCKDUCKGO,
+                                        isMenuOpen = true,
+                                        isDark = true,
+                                        density = density,
+                                        onClick = {},
+                                        onSwipeLeft = {},
+                                        onSwipeRight = {}
+                                    )
+                                }
+                                Text("Dropdown (DDG Selected)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color.White)
+                                SearchEngineDropdownCard(
+                                    selectedEngine = SearchEngine.DUCKDUCKGO,
+                                    onSelectEngine = {},
+                                    isDark = true
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+val width = 440
+        val height = 650
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/search_selector_dropdown_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        assertTrue(outputFile.exists())
+    }
+
+    @Test
+    fun renderSearchOverlayWithDropdownOpenPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val sampleState = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE),
+            searchHistorySuggestions = listOf(
+                HistoryItem(1L, "https://google.com/search?q=kotlin+coroutines", "Kotlin Coroutines", System.currentTimeMillis()),
+                HistoryItem(2L, "https://duckduckgo.com/?q=android+compose", "Android Compose", System.currentTimeMillis() - 10000)
+            ),
+            favorites = listOf(
+                FavoriteItem(1L, "Google", "https://google.com"),
+                FavoriteItem(2L, "GitHub", "https://github.com"),
+                FavoriteItem(3L, "Reddit", "https://reddit.com"),
+                FavoriteItem(4L, "Wikipedia", "https://wikipedia.org")
+            )
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF8E8E93))
+                ) {
+                    // Light Theme half with dropdown open
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxSize()
+                    ) {
+                        JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                            SearchOverlay(
+                                uiState = sampleState,
+                                onEvent = {},
+                                initialDropdownOpen = true
+                            )
+                        }
+                    }
+
+                    // Dark Theme half with dropdown open
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxSize()
+                    ) {
+                        JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                            SearchOverlay(
+                                uiState = sampleState.copy(
+                                    settings = BrowserSettings(searchEngine = SearchEngine.DUCKDUCKGO)
+                                ),
+                                onEvent = {},
+                                initialDropdownOpen = true
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 440
+        val height = 956
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/search_overlay_dropdown_open_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        assertTrue(outputFile.exists())
+    }
+
+    @Test
+    fun testCircularEngineCyclingMath() {
+        val engines = SearchEngine.entries
+        // Google is index 1
+        val currentIndex = engines.indexOf(SearchEngine.GOOGLE)
+
+        // Cycle right (+1): Google -> Bing
+        val nextIndex = (currentIndex + 1).mod(engines.size)
+        assertEquals(SearchEngine.BING, engines[nextIndex])
+
+        // Cycle left (-1): Google -> DuckDuckGo
+        val prevIndex = (currentIndex - 1).mod(engines.size)
+        assertEquals(SearchEngine.DUCKDUCKGO, engines[prevIndex])
+
+        // Cycle left from DuckDuckGo (0): wraps to Bing (2)
+        val ddgIndex = engines.indexOf(SearchEngine.DUCKDUCKGO)
+        val wrapLeft = (ddgIndex - 1).mod(engines.size)
+        assertEquals(SearchEngine.BING, engines[wrapLeft])
+
+        // Cycle right from Bing (2): wraps to DuckDuckGo (0)
+        val bingIndex = engines.indexOf(SearchEngine.BING)
+        val wrapRight = (bingIndex + 1).mod(engines.size)
+        assertEquals(SearchEngine.DUCKDUCKGO, engines[wrapRight])
+    }
+
+    @Test
+    fun testSequentialSwipeCyclesAllThreeEnginesContinuously() {
+        var currentEngine = SearchEngine.GOOGLE
+        val history = mutableListOf<SearchEngine>()
+
+        val onEvent: (BrowserUiEvent) -> Unit = { event ->
+            if (event is BrowserUiEvent.SetSearchEngine) {
+                currentEngine = event.engine
+                history.add(event.engine)
+            }
+        }
+
+        val cycleEngine: (Int) -> Unit = { direction ->
+            val entries = SearchEngine.entries
+            val currentIndex = entries.indexOf(currentEngine).let { if (it == -1) 0 else it }
+            val newIndex = (currentIndex + direction).mod(entries.size)
+            val target = entries[newIndex]
+            if (target != currentEngine) {
+                onEvent(BrowserUiEvent.SetSearchEngine(target))
+            }
+        }
+
+        // Sequential swipes to the right (+1): Google -> Bing -> DuckDuckGo -> Google -> Bing
+        cycleEngine(1)
+        assertEquals(SearchEngine.BING, currentEngine)
+
+        cycleEngine(1)
+        assertEquals(SearchEngine.DUCKDUCKGO, currentEngine)
+
+        cycleEngine(1)
+        assertEquals(SearchEngine.GOOGLE, currentEngine)
+
+        cycleEngine(1)
+        assertEquals(SearchEngine.BING, currentEngine)
+
+        // Sequential swipes to the left (-1): Bing -> Google -> DuckDuckGo -> Bing
+        cycleEngine(-1)
+        assertEquals(SearchEngine.GOOGLE, currentEngine)
+
+        cycleEngine(-1)
+        assertEquals(SearchEngine.DUCKDUCKGO, currentEngine)
+
+        cycleEngine(-1)
+        assertEquals(SearchEngine.BING, currentEngine)
+
+        cycleEngine(-1)
+        assertEquals(SearchEngine.GOOGLE, currentEngine)
+    }
+
+    @Test
+    fun renderSearchEngineCarouselScrollingPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+        val density = Density(1f)
+
+        val dummyHaptic = object : HapticFeedback {
+            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {}
+        }
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+                val carouselStateLight = remember(density) {
+                    SearchEngineCarouselState(
+                        initialEngine = SearchEngine.GOOGLE,
+                        density = density,
+                        coroutineScope = coroutineScope,
+                        haptic = dummyHaptic,
+                        onEngineSelected = {}
+                    ).apply {
+                        isDragging = true
+                        coroutineScope.launch {
+                            animOffset.snapTo(-30f)
+                        }
+                    }
+                }
+
+                val carouselStateDark = remember(density) {
+                    SearchEngineCarouselState(
+                        initialEngine = SearchEngine.DUCKDUCKGO,
+                        density = density,
+                        coroutineScope = coroutineScope,
+                        haptic = dummyHaptic,
+                        onEngineSelected = {}
+                    ).apply {
+                        isDragging = true
+                        coroutineScope.launch {
+                            animOffset.snapTo(30f)
+                        }
+                    }
+                }
+
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFEAF1FF))
+                            .padding(24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Carousel Dragging (Light)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            SearchEngineSelectorButton(
+                                carouselState = carouselStateLight,
+                                isMenuOpen = false,
+                                isDark = false,
+                                onClick = {}
+                            )
+                        }
+
+                        JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                            Column(
+                                modifier = Modifier
+                                    .background(Color(0xFF0F172A))
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text("Carousel Dragging (Dark)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                                SearchEngineSelectorButton(
+                                    carouselState = carouselStateDark,
+                                    isMenuOpen = false,
+                                    isDark = true,
+                                    onClick = {}
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 440
+        val height = 300
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/search_carousel_scrolling_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        assertTrue(outputFile.exists())
+    }
+
+    private val testFrameClock = object : androidx.compose.runtime.MonotonicFrameClock {
+        private var time = 0L
+        override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R {
+            time += 16_000_000L
+            return onFrame(time)
+        }
+    }
+
+    @Test
+    fun testCarouselDragSnapAndHapticFeedback() = runTest(testFrameClock) {
+        val density = Density(1f)
+        var hapticTicks = 0
+        val dummyHaptic = object : HapticFeedback {
+            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {
+                hapticTicks++
+            }
+        }
+        var selectedEngine = SearchEngine.GOOGLE
+
+        val state = SearchEngineCarouselState(
+            initialEngine = SearchEngine.GOOGLE,
+            density = density,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            onEngineSelected = { selectedEngine = it }
+        )
+
+        // 1. Drag start
+        state.onDragStart()
+        assertTrue(state.isDragging)
+        assertTrue(state.isScrolling)
+
+        // 2. Drag by -64f (1 full item spacing left => should cross to Bing)
+        state.onDrag(-64f)
+        testScheduler.advanceUntilIdle()
+        assertEquals(-64f, state.animOffset.value, 0.1f)
+        assertTrue(hapticTicks > 0)
+
+        // 3. Drag end with 0 velocity => snap to nearest slot (targetSlot = 1 -> Bing)
+        state.onDragEnd(velocity = 0f)
+        testScheduler.advanceUntilIdle()
+
+        // Settle & commit
+        assertEquals(SearchEngine.BING, selectedEngine)
+        assertEquals(SearchEngine.BING, state.currentEngine)
+        assertEquals(0f, state.animOffset.value, 0.1f)
+        assertTrue(!state.isDragging)
+        assertTrue(!state.isFlinging)
+    }
+
+    @Test
+    fun testCarouselFlingMomentumInertia() = runTest(testFrameClock) {
+        val density = Density(1f)
+        var hapticTicks = 0
+        val dummyHaptic = object : HapticFeedback {
+            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {
+                hapticTicks++
+            }
+        }
+        var selectedEngine = SearchEngine.GOOGLE
+
+        val state = SearchEngineCarouselState(
+            initialEngine = SearchEngine.GOOGLE,
+            density = density,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            onEngineSelected = { selectedEngine = it }
+        )
+
+        // 1. Moderate fling left (velocity = -800 px/sec) => advances to DuckDuckGo (2 slots)
+        state.onDragStart()
+        state.onDrag(-20f)
+        testScheduler.advanceUntilIdle()
+
+        state.onDragEnd(velocity = -800f)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SearchEngine.DUCKDUCKGO, selectedEngine)
+        assertEquals(SearchEngine.DUCKDUCKGO, state.currentEngine)
+        assertEquals(0f, state.animOffset.value, 0.1f)
+        assertTrue(hapticTicks >= 1)
+        assertTrue(!state.isFlinging)
+
+        // 2. Strong fling left (velocity = -2500 px/sec) => carries momentum across 6 slots (2 full loops)
+        val hapticBeforeStrongFling = hapticTicks
+        state.onDragStart()
+        state.onDrag(-20f)
+        testScheduler.advanceUntilIdle()
+
+        state.onDragEnd(velocity = -2500f)
+        testScheduler.advanceUntilIdle()
+
+        // 6 slots traversed => lands at DuckDuckGo with multiple haptic ticks
+        assertEquals(SearchEngine.DUCKDUCKGO, selectedEngine)
+        assertEquals(SearchEngine.DUCKDUCKGO, state.currentEngine)
+        assertEquals(0f, state.animOffset.value, 0.1f)
+        assertTrue(hapticTicks - hapticBeforeStrongFling >= 5)
+        assertTrue(!state.isFlinging)
     }
 }

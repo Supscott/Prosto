@@ -27,7 +27,33 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.calculateTargetValue
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.splineBasedDecay
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -38,12 +64,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ManageSearch
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CloseFullscreen
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.OpenInFull
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
@@ -61,9 +90,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -72,9 +103,18 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -83,6 +123,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -97,6 +138,7 @@ import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
+import com.jestk.browser.ui.theme.DarkPrimary
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
@@ -125,11 +167,37 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
 fun SearchOverlay(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    initialDropdownOpen: Boolean = false
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     val isDark = LocalIsDarkTheme.current
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val coroutineScope = rememberCoroutineScope()
+    var isDropdownOpen by remember { mutableStateOf(initialDropdownOpen) }
+
+    val carouselState = rememberSearchEngineCarouselState(
+        initialEngine = uiState.settings.searchEngine,
+        density = density,
+        coroutineScope = coroutineScope,
+        haptic = haptic,
+        onEngineSelected = { target ->
+            onEvent(BrowserUiEvent.SetSearchEngine(target))
+        }
+    )
+
+    LaunchedEffect(uiState.settings.searchEngine) {
+        if (carouselState.currentEngine != uiState.settings.searchEngine && !carouselState.isScrolling) {
+            carouselState.currentEngine = uiState.settings.searchEngine
+        }
+    }
+
+    BackHandler(enabled = isDropdownOpen) {
+        isDropdownOpen = false
+    }
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
@@ -141,7 +209,13 @@ fun SearchOverlay(
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
-                onClick = { onEvent(BrowserUiEvent.DismissOverlay) }
+                onClick = {
+                    if (isDropdownOpen) {
+                        isDropdownOpen = false
+                    } else {
+                        onEvent(BrowserUiEvent.DismissOverlay)
+                    }
+                }
             )
     ) {
         // Layer 1: Ambient background
@@ -274,37 +348,63 @@ fun SearchOverlay(
                 )
             }
 
-            // Search Engine Switcher chips placed directly above the input field
-            SearchEngineSwitcherRow(
-                selectedEngine = uiState.settings.searchEngine,
-                onSelectEngine = { engine ->
-                    onEvent(BrowserUiEvent.SetSearchEngine(engine))
-                },
-                isDark = isDark,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 6.dp)
-            )
-
-            // Search Input Field: Docked at the bottom, styled like a messenger input bar
-            HeroSearchInputField(
-                query = uiState.searchQuery,
-                searchEngine = uiState.settings.searchEngine,
-                isDark = isDark,
-                focusRequester = focusRequester,
-                onQueryChange = { onEvent(BrowserUiEvent.UpdateSearchQuery(it)) },
-                onSubmit = {
-                    onEvent(BrowserUiEvent.SubmitSearch(uiState.searchQuery))
-                    onEvent(BrowserUiEvent.DismissOverlay)
-                },
-                onClear = { onEvent(BrowserUiEvent.UpdateSearchQuery("")) },
+            // Bottom Input Bar
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
                         indication = null,
                         onClick = {} // Intercept dismiss clicks
-                    )
+                    ),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HeroSearchInputField(
+                    query = uiState.searchQuery,
+                    searchEngine = carouselState.currentEngine,
+                    isDark = isDark,
+                    focusRequester = focusRequester,
+                    onQueryChange = { onEvent(BrowserUiEvent.UpdateSearchQuery(it)) },
+                    onSubmit = {
+                        onEvent(BrowserUiEvent.SubmitSearch(uiState.searchQuery))
+                        onEvent(BrowserUiEvent.DismissOverlay)
+                    },
+                    onClear = { onEvent(BrowserUiEvent.UpdateSearchQuery("")) },
+                    carouselState = carouselState,
+                    density = density,
+                    modifier = Modifier.weight(1f)
+                )
+
+                SearchEngineSelectorButton(
+                    carouselState = carouselState,
+                    isMenuOpen = isDropdownOpen,
+                    isDark = isDark,
+                    onClick = { isDropdownOpen = !isDropdownOpen }
+                )
+            }
+        }
+
+        // Layer 3: Floating Search Engine Dropdown Menu anchored right above the selector button
+        AnimatedVisibility(
+            visible = isDropdownOpen,
+            enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { it / 3 },
+            exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { it / 3 },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .padding(bottom = 60.dp)
+        ) {
+            SearchEngineDropdownCard(
+                selectedEngine = carouselState.currentEngine,
+                onSelectEngine = { engine ->
+                    carouselState.setEngineDirectly(engine)
+                    isDropdownOpen = false
+                },
+                isDark = isDark
             )
         }
     }
@@ -319,6 +419,10 @@ private fun HeroSearchInputField(
     onQueryChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onClear: () -> Unit,
+    carouselState: SearchEngineCarouselState? = null,
+    density: Density = LocalDensity.current,
+    onSwipeLeft: () -> Unit = {},
+    onSwipeRight: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -354,25 +458,43 @@ private fun HeroSearchInputField(
     val bg = if (isDark) DarkSurface else Color.White
     val border = SereneBorders.cardBorder(isDark)
 
+    val gestureModifier = if (carouselState != null) {
+        Modifier.searchEngineInputGestures(
+            carouselState = carouselState,
+            enabled = query.isEmpty()
+        )
+    } else {
+        Modifier.horizontalSwipeCycler(
+            density = density,
+            enabled = query.isEmpty(),
+            thresholdDp = 64.dp,
+            onSwipeLeft = onSwipeLeft,
+            onSwipeRight = onSwipeRight
+        )
+    }
+
     Surface(
         shape = CircleShape,
         color = bg,
         border = border,
         shadowElevation = 4.dp,
-        modifier = modifier.height(52.dp)
+        modifier = modifier
+            .height(52.dp)
+            .then(gestureModifier)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp),
+                .padding(start = 14.dp, end = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            // Engine Badge
-            SearchEngineBadge(
-                engine = searchEngine,
-                size = 32.dp,
-                isDark = isDark
+            // Leading Search Icon
+            Icon(
+                imageVector = Icons.Default.Search,
+                contentDescription = null,
+                tint = SereneMutedSlate,
+                modifier = Modifier.size(20.dp)
             )
 
             // Input Text Field
@@ -384,9 +506,11 @@ private fun HeroSearchInputField(
                 },
                 placeholder = {
                     Text(
-                        text = "Search in ${searchEngine.displayName} or enter URL",
+                        text = stringResource(R.string.search_with_engine, searchEngine.displayName),
                         style = LocalSereneTypography.current.bodyMd,
-                        color = SereneMutedSlate
+                        color = SereneMutedSlate,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 },
                 singleLine = true,
@@ -818,6 +942,607 @@ private fun SearchFavoriteSquircleCard(
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth()
         )
+    }
+}
+
+// ==========================================
+// Search Engine Selector Carousel & Dropdown Menu
+// ==========================================
+
+/**
+ * State and gesture controller for the search engine logo carousel in SearchOverlay.
+ * Provides synchronized dragging, spline-based fling decay with inertia,
+ * spring snapping to the nearest engine slot, and haptic feedback on slot crossing.
+ */
+class SearchEngineCarouselState(
+    initialEngine: SearchEngine,
+    val density: Density,
+    val coroutineScope: CoroutineScope,
+    val haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    val onEngineSelected: (SearchEngine) -> Unit
+) {
+    var currentEngine by mutableStateOf(initialEngine)
+    val animOffset = Animatable(0f)
+    var isDragging by mutableStateOf(false)
+    var isFlinging by mutableStateOf(false)
+    val isScrolling: Boolean get() = isDragging || isFlinging || abs(animOffset.value) > 0.5f
+
+    val itemSpacingDp: Dp = 64.dp
+    val itemSpacingPx: Float = with(density) { itemSpacingDp.toPx() }
+
+    private var lastHapticSlot: Int = 0
+    private var activeJob: Job? = null
+
+    fun onDragStart() {
+        activeJob?.cancel()
+        isDragging = true
+        isFlinging = false
+        lastHapticSlot = (-animOffset.value / itemSpacingPx).roundToInt()
+    }
+
+    fun onDrag(dragAmount: Float) {
+        activeJob?.cancel()
+        coroutineScope.launch {
+            val newOffset = animOffset.value + dragAmount
+            animOffset.snapTo(newOffset)
+            val currentSlot = (-newOffset / itemSpacingPx).roundToInt()
+            if (currentSlot != lastHapticSlot) {
+                lastHapticSlot = currentSlot
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+        }
+    }
+
+    fun onDragEnd(velocity: Float) {
+        isDragging = false
+        val minFlingVelocity = 400f // px/sec
+        activeJob = coroutineScope.launch {
+            val currentOffset = animOffset.value
+            val targetSlot: Int
+
+            if (abs(velocity) >= minFlingVelocity) {
+                isFlinging = true
+                val decay = splineBasedDecay<Float>(density)
+                val predictedDelta = decay.calculateTargetValue(0f, velocity)
+                val maxSlots = 6
+                val maxDistance = maxSlots * itemSpacingPx
+                val clampedDelta = predictedDelta.coerceIn(-maxDistance, maxDistance)
+                val predictedTarget = currentOffset + clampedDelta
+
+                var slot = (-predictedTarget / itemSpacingPx).roundToInt()
+                val currentBaseSlot = (-currentOffset / itemSpacingPx).toInt()
+                if (velocity < -minFlingVelocity && slot <= currentBaseSlot) {
+                    slot = currentBaseSlot + 1
+                } else if (velocity > minFlingVelocity && slot >= currentBaseSlot) {
+                    slot = currentBaseSlot - 1
+                }
+                targetSlot = slot
+            } else {
+                targetSlot = (-currentOffset / itemSpacingPx).roundToInt()
+            }
+
+            val targetX = -targetSlot * itemSpacingPx
+
+            try {
+                if (abs(velocity) >= minFlingVelocity) {
+                    animOffset.animateTo(
+                        targetValue = targetX,
+                        animationSpec = spring(
+                            dampingRatio = 0.85f,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        initialVelocity = velocity
+                    ) {
+                        val currentSlot = (-value / itemSpacingPx).roundToInt()
+                        if (currentSlot != lastHapticSlot) {
+                            lastHapticSlot = currentSlot
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                    }
+                } else {
+                    animOffset.animateTo(
+                        targetValue = targetX,
+                        animationSpec = spring(
+                            dampingRatio = 0.85f,
+                            stiffness = Spring.StiffnessMediumLow
+                        )
+                    ) {
+                        val currentSlot = (-value / itemSpacingPx).roundToInt()
+                        if (currentSlot != lastHapticSlot) {
+                            lastHapticSlot = currentSlot
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }
+                    }
+                }
+
+                // Settle and commit
+                val entries = SearchEngine.entries
+                val currentIndex = entries.indexOf(currentEngine).let { if (it == -1) 0 else it }
+                val finalIndex = (currentIndex + targetSlot).mod(entries.size)
+                val newEngine = entries[finalIndex]
+
+                currentEngine = newEngine
+                animOffset.snapTo(0f)
+                lastHapticSlot = 0
+                isFlinging = false
+                isDragging = false
+                onEngineSelected(newEngine)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) {
+                    isFlinging = false
+                } else {
+                    throw e
+                }
+            }
+        }
+    }
+
+    fun setEngineDirectly(engine: SearchEngine) {
+        activeJob?.cancel()
+        currentEngine = engine
+        coroutineScope.launch {
+            animOffset.snapTo(0f)
+            lastHapticSlot = 0
+            isDragging = false
+            isFlinging = false
+            onEngineSelected(engine)
+        }
+    }
+}
+
+/**
+ * Creates and remembers a [SearchEngineCarouselState].
+ */
+@Composable
+fun rememberSearchEngineCarouselState(
+    initialEngine: SearchEngine,
+    density: Density = LocalDensity.current,
+    coroutineScope: CoroutineScope = rememberCoroutineScope(),
+    haptic: androidx.compose.ui.hapticfeedback.HapticFeedback = LocalHapticFeedback.current,
+    onEngineSelected: (SearchEngine) -> Unit
+): SearchEngineCarouselState {
+    val currentOnEngineSelected by rememberUpdatedState(onEngineSelected)
+    return remember(density) {
+        SearchEngineCarouselState(
+            initialEngine = initialEngine,
+            density = density,
+            coroutineScope = coroutineScope,
+            haptic = haptic,
+            onEngineSelected = { currentOnEngineSelected(it) }
+        )
+    }
+}
+
+@Composable
+fun SearchEngineSelectorButton(
+    carouselState: SearchEngineCarouselState,
+    isMenuOpen: Boolean,
+    isDark: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val bg = if (isDark) DarkSurface else Color.White
+    val border = SereneBorders.cardBorder(isDark)
+    val density = carouselState.density
+
+    val arrowRotation by animateFloatAsState(
+        targetValue = if (isMenuOpen) 180f else 0f,
+        animationSpec = tween(durationMillis = 200),
+        label = "arrowRotation"
+    )
+
+    val arrowAlpha by animateFloatAsState(
+        targetValue = if (carouselState.isScrolling) 0f else 1f,
+        animationSpec = tween(durationMillis = 150),
+        label = "arrowAlpha"
+    )
+
+    val fadeAlpha by animateFloatAsState(
+        targetValue = if (carouselState.isScrolling) 1f else 0f,
+        animationSpec = tween(durationMillis = 150),
+        label = "fadeAlpha"
+    )
+
+    val restingShiftPx = with(density) { (-11).dp.toPx() } * arrowAlpha
+
+    Surface(
+        shape = CircleShape,
+        color = bg,
+        border = border,
+        shadowElevation = 4.dp,
+        modifier = modifier
+            .width(68.dp)
+            .height(52.dp)
+            .semantics {
+                role = Role.Button
+                onClick {
+                    onClick()
+                    true
+                }
+            }
+            .searchEngineButtonGestures(
+                carouselState = carouselState,
+                onClick = onClick
+            )
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            // Badges Carousel with Edge Fade Mask
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        compositingStrategy = CompositingStrategy.Offscreen
+                    }
+                    .drawWithContent {
+                        drawContent()
+                        if (fadeAlpha > 0.01f) {
+                            val fadeWidth = 14.dp.toPx() * fadeAlpha
+                            val w = size.width
+                            if (fadeWidth > 0f && w > 0f) {
+                                drawRect(
+                                    brush = Brush.horizontalGradient(
+                                        0f to Color.Transparent,
+                                        (fadeWidth / w) to Color.Black,
+                                        ((w - fadeWidth) / w) to Color.Black,
+                                        1f to Color.Transparent
+                                    ),
+                                    blendMode = BlendMode.DstIn
+                                )
+                            }
+                        }
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                val entries = SearchEngine.entries
+                val baseIndex = entries.indexOf(carouselState.currentEngine).let { if (it == -1) 0 else it }
+                val centerSlotFloat = -carouselState.animOffset.value / carouselState.itemSpacingPx
+                val centerSlotInt = centerSlotFloat.roundToInt()
+
+                for (k in (centerSlotInt - 2)..(centerSlotInt + 2)) {
+                    key(k) {
+                        val engineIndex = (baseIndex + k).mod(entries.size)
+                        val engine = entries[engineIndex]
+                        val xPos = k * carouselState.itemSpacingPx + carouselState.animOffset.value + restingShiftPx
+
+                        SearchEngineBadge(
+                            engine = engine,
+                            size = 26.dp,
+                            isDark = isDark,
+                            modifier = Modifier.graphicsLayer {
+                                translationX = xPos
+                            }
+                        )
+                    }
+                }
+            }
+
+            // Dropdown Indicator Arrow
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = "Search engine selector",
+                tint = if (isDark) DarkOnSurfaceVariant else SereneMutedSlate,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 10.dp)
+                    .size(18.dp)
+                    .graphicsLayer {
+                        rotationZ = arrowRotation
+                        alpha = arrowAlpha
+                    }
+            )
+        }
+    }
+}
+
+@Composable
+fun SearchEngineSelectorButton(
+    selectedEngine: SearchEngine,
+    isMenuOpen: Boolean,
+    isDark: Boolean,
+    density: Density,
+    onClick: () -> Unit,
+    onSwipeLeft: () -> Unit,
+    onSwipeRight: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val coroutineScope = rememberCoroutineScope()
+    val haptic = LocalHapticFeedback.current
+    val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
+    val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
+
+    val carouselState = remember(selectedEngine, density) {
+        SearchEngineCarouselState(
+            initialEngine = selectedEngine,
+            density = density,
+            coroutineScope = coroutineScope,
+            haptic = haptic,
+            onEngineSelected = { target ->
+                val entries = SearchEngine.entries
+                val oldIdx = entries.indexOf(selectedEngine).let { if (it == -1) 0 else it }
+                val newIdx = entries.indexOf(target).let { if (it == -1) 0 else it }
+                val diff = (newIdx - oldIdx).mod(entries.size)
+                if (diff == 1) {
+                    currentOnSwipeLeft()
+                } else if (diff == entries.size - 1) {
+                    currentOnSwipeRight()
+                }
+            }
+        )
+    }
+
+    SearchEngineSelectorButton(
+        carouselState = carouselState,
+        isMenuOpen = isMenuOpen,
+        isDark = isDark,
+        onClick = onClick,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun SearchEngineDropdownCard(
+    selectedEngine: SearchEngine,
+    onSelectEngine: (SearchEngine) -> Unit,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val bg = if (isDark) DarkSurface else Color.White
+    val border = SereneBorders.cardBorder(isDark)
+
+    Surface(
+        shape = RoundedCornerShape(20.dp),
+        color = bg,
+        border = border,
+        shadowElevation = 10.dp,
+        modifier = modifier.width(184.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp, horizontal = 6.dp)
+        ) {
+            SearchEngine.entries.forEach { engine ->
+                val isSelected = engine == selectedEngine
+                val itemBg = when {
+                    isSelected && isDark -> DarkSurfaceVariant
+                    isSelected && !isDark -> SerenePaleBlue
+                    else -> Color.Transparent
+                }
+                val textColor = when {
+                    isSelected && isDark -> DarkOnSurface
+                    isSelected && !isDark -> SereneBrandPrimary
+                    isDark -> DarkOnSurfaceVariant
+                    else -> SereneDarkText
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = itemBg,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .clickable { onSelectEngine(engine) }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        SearchEngineBadge(
+                            engine = engine,
+                            size = 22.dp,
+                            isDark = isDark
+                        )
+
+                        Text(
+                            text = engine.displayName,
+                            style = LocalSereneTypography.current.bodyMd.copy(
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                            ),
+                            color = textColor,
+                            modifier = Modifier.weight(1f)
+                        )
+
+                        if (isSelected) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Selected",
+                                tint = if (isDark) DarkPrimary else SereneBrandPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun Modifier.searchEngineButtonGestures(
+    carouselState: SearchEngineCarouselState,
+    onClick: () -> Unit
+): Modifier {
+    val currentOnClick by rememberUpdatedState(onClick)
+    val viewConfig = androidx.compose.ui.platform.LocalViewConfiguration.current
+
+    return this.pointerInput(carouselState) {
+        val velocityTracker = VelocityTracker()
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            velocityTracker.resetTracking()
+            velocityTracker.addPosition(down.uptimeMillis, down.position)
+            var totalDragX = 0f
+            var isDrag = false
+
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) {
+                    if (!isDrag) {
+                        currentOnClick()
+                    } else {
+                        val velocity = velocityTracker.calculateVelocity().x
+                        carouselState.onDragEnd(velocity)
+                    }
+                    break
+                }
+                velocityTracker.addPosition(change.uptimeMillis, change.position)
+                val dragX = change.position.x - change.previousPosition.x
+                totalDragX += dragX
+                if (!isDrag && abs(totalDragX) > viewConfig.touchSlop) {
+                    isDrag = true
+                    carouselState.onDragStart()
+                }
+                if (isDrag) {
+                    change.consume()
+                    carouselState.onDrag(dragX)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun Modifier.searchEngineButtonGestures(
+    density: Density = LocalDensity.current,
+    thresholdDp: Dp = 64.dp,
+    onClick: () -> Unit,
+    onSwipeLeft: () -> Unit,
+    onSwipeRight: () -> Unit
+): Modifier {
+    val currentOnClick by rememberUpdatedState(onClick)
+    val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
+    val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
+    val thresholdPx = with(density) { thresholdDp.toPx() }
+
+    return this.pointerInput(density) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var totalDragX = 0f
+            var isDrag = false
+
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) {
+                    if (!isDrag) {
+                        currentOnClick()
+                    }
+                    break
+                }
+                val dragX = change.position.x - change.previousPosition.x
+                totalDragX += dragX
+                if (abs(totalDragX) > viewConfiguration.touchSlop) {
+                    isDrag = true
+                }
+                if (isDrag) {
+                    if (totalDragX <= -thresholdPx) {
+                        totalDragX += thresholdPx
+                        change.consume()
+                        currentOnSwipeLeft()
+                    } else if (totalDragX >= thresholdPx) {
+                        totalDragX -= thresholdPx
+                        change.consume()
+                        currentOnSwipeRight()
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun Modifier.searchEngineInputGestures(
+    carouselState: SearchEngineCarouselState,
+    enabled: Boolean = true
+): Modifier {
+    if (!enabled) return this
+    val viewConfig = androidx.compose.ui.platform.LocalViewConfiguration.current
+
+    return this.pointerInput(enabled, carouselState) {
+        val velocityTracker = VelocityTracker()
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            velocityTracker.resetTracking()
+            velocityTracker.addPosition(down.uptimeMillis, down.position)
+            var totalDragX = 0f
+            var isDrag = false
+
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) {
+                    if (isDrag) {
+                        val velocity = velocityTracker.calculateVelocity().x
+                        carouselState.onDragEnd(velocity)
+                    }
+                    break
+                }
+                velocityTracker.addPosition(change.uptimeMillis, change.position)
+                val dragX = change.position.x - change.previousPosition.x
+                totalDragX += dragX
+                if (!isDrag && abs(totalDragX) > viewConfig.touchSlop) {
+                    isDrag = true
+                    carouselState.onDragStart()
+                }
+                if (isDrag) {
+                    change.consume()
+                    carouselState.onDrag(dragX)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun Modifier.horizontalSwipeCycler(
+    density: Density = LocalDensity.current,
+    enabled: Boolean = true,
+    thresholdDp: Dp = 64.dp,
+    onSwipeLeft: () -> Unit,
+    onSwipeRight: () -> Unit
+): Modifier {
+    if (!enabled) return this
+    val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
+    val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
+    val thresholdPx = with(density) { thresholdDp.toPx() }
+
+    return this.pointerInput(enabled, density) {
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var totalDragX = 0f
+            var isDrag = false
+
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
+
+                val dragX = change.position.x - change.previousPosition.x
+                totalDragX += dragX
+                if (abs(totalDragX) > viewConfiguration.touchSlop) {
+                    isDrag = true
+                }
+                if (isDrag) {
+                    if (totalDragX <= -thresholdPx) {
+                        totalDragX += thresholdPx
+                        change.consume()
+                        currentOnSwipeLeft()
+                    } else if (totalDragX >= thresholdPx) {
+                        totalDragX -= thresholdPx
+                        change.consume()
+                        currentOnSwipeRight()
+                    }
+                }
+            }
+        }
     }
 }
 

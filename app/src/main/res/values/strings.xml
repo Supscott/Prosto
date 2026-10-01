@@ -2,6 +2,7 @@
 <resources>
     <string name="app_name">Hori</string>
     <string name="search_placeholder">Search or enter website name</string>
+    <string name="search_with_engine">Search with %1$s</string>
     <string name="new_tab">New Tab</string>
     <string name="home">Home</string>
     <string name="search">Search</string>

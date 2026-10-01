@@ -53,7 +53,7 @@ class ImageContextMenuPreviewTest {
 
         activity.setContentView(composeView)
 
-        val width = 1080
+val width = 440
         val height = 1200
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),

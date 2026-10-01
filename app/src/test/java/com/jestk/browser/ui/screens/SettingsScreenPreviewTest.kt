@@ -44,8 +44,8 @@ class SettingsScreenPreviewTest {
         }
 
         activity.setContentView(composeView)
-        val width = 1080
-        val height = 1920
+val width = 440
+        val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
@@ -84,8 +84,8 @@ class SettingsScreenPreviewTest {
         }
 
         activity.setContentView(composeView)
-        val width = 1080
-        val height = 1920
+val width = 440
+        val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)

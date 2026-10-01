@@ -148,6 +148,62 @@ This document tracks bugs encountered during development, their root causes, and
   2. For elevated floating pills inside parent surfaces, use an opaque solid tint (e.g. `Color(0xFFE9F1F7)` instead of `Color(0x1A2271B3)`) so the RenderNode outline retains `alpha = 1.0f` and casts a full, crisp elevation shadow.
   3. Keep `combinedClickable` and corner clipping inside `Surface` (on the inner content `Row`/`Box`) so the outer `Surface` shadow is not clipped.
 
+### AnimatedVisibility DSL overload ambiguity and layering floating menus
+
+- **Date:** 2026-09-30
+- **Symptom:**
+  1. Kotlin compilation failed with `'fun ColumnScope.AnimatedVisibility(...) cannot be called in this context with an implicit receiver'`.
+  2. Placing a floating dropdown menu inside a nested bottom `Box` within a `Column` either pushes other elements up on open (layout shift) or clips touch events if artificially given 0 measured height.
+- **Root Cause:**
+  1. When `AnimatedVisibility` is called inside a `Box` that is itself nested inside an outer `Column`, the Kotlin compiler sees `ColumnScope.AnimatedVisibility` from the outer receiver scope rather than the top-level overload, triggering `@DslMarker` receiver ambiguity.
+  2. In Jetpack Compose, hit-testing traverses from parent down to children. If a parent container has measured height 52.dp and a child is placed via negative offset above it, the parent's hit test rejects touches landing outside its bounds (`y < 0`), failing to dispatch clicks to the child menu items. Furthermore, if the child is measured normally, it increases the parent container's height and shifts sibling layout elements (favorites, history) upwards.
+- **Resolution & Prevention:**
+  1. Place floating popups/dropdowns as a separate Layer 3 directly inside the root full-screen `Box` (`Modifier.fillMaxSize()`), aligned to `BottomEnd` with matching insets (`statusBarsPadding()`, `navigationBarsPadding()`, `imePadding()`, and `padding(bottom = 60.dp)`).
+  2. This guarantees:
+     - No `@DslMarker` ambiguity (direct child of `Box`, not inside `ColumnScope`).
+     - Zero layout shift: Layer 2 `Column` retains its stable height and siblings do not move when the dropdown animates open or closed.
+     - Flawless hit-testing: The root `Box` encloses the entire screen, so touches on the floating card always pass hit-testing and execute click actions.
+
+### Stale closure in Modifier.pointerInput causing swipe cycling to lock between two items
+
+- **Date:** 2026-10-01
+- **Symptom:** Horizontal swipe gestures on search engine button/input only switched between two search engines and could never loop through all three engines.
+- **Root Cause:**
+  1. `Modifier.pointerInput(density)` had `density` as its only key. Because `density` never changes during the screen lifecycle, `pointerInput` never restarted its coroutine upon recomposition.
+  2. The callbacks `onSwipeLeft` and `onSwipeRight` were captured by value when the coroutine first launched, referencing the initial `uiState.settings.searchEngine` (e.g. `GOOGLE`).
+  3. Every subsequent swipe called the stale lambda, which always evaluated `(GOOGLE ± 1)`, trapping the user between only two search engines: `DUCKDUCKGO` and `BING`.
+  4. Furthermore, relying asynchronously on outer ViewModel updates across rapid successive swipes can cause race conditions where a fast second swipe reads the uncommitted prior engine.
+- **Resolution & Prevention:**
+  1. Make custom gesture modifiers `@Composable Modifier` extension functions and wrap all event callbacks (`onClick`, `onSwipeLeft`, `onSwipeRight`) in `rememberUpdatedState`. This allows the active gesture coroutine to remain uninterrupted while always executing the latest recomposition's lambdas.
+  2. In `SearchOverlay`, track an immediate synchronous Compose state `var currentEngine by remember(uiState.settings.searchEngine) { mutableStateOf(...) }` that updates instantly on swipe, preventing gesture races.
+  3. Use incremental threshold subtraction (`totalDragX += thresholdPx` / `totalDragX -= thresholdPx`) so both discrete swipe flicks and continuous dragging cycle smoothly step-by-step.
+
+### MonotonicFrameClock required for Compose Animatable in JVM runTest
+
+- **Date:** 2026-10-01
+- **Symptom:** Unit tests asserting `Animatable.animateTo` (such as carousel fling decay and spring snapping) threw `IllegalStateException: A MonotonicFrameClock is not available in this CoroutineContext` when run inside `kotlinx.coroutines.test.runTest`.
+- **Root Cause:** In Jetpack Compose, animation drivers (`Animatable`, `animateDecay`, `animateFloatAsState`) rely on a `MonotonicFrameClock` in the coroutine context to coordinate frame updates. A standard `runTest` context does not provide a Compose frame clock by default.
+- **Resolution & Prevention:** Provide a lightweight test `MonotonicFrameClock` implementing `withFrameNanos`:
+  ```kotlin
+  private val testFrameClock = object : MonotonicFrameClock {
+      private var time = 0L
+      override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R {
+          time += 16_000_000L
+          return onFrame(time)
+      }
+  }
+  ```
+  Pass `testFrameClock` directly to `runTest(testFrameClock) { ... }`. When testing Compose animations in JVM tests without an active Compose Rule or Window, always supply `testFrameClock` to enable frame progression.
+
+### Full-revolution modulo wrapping under high-velocity fling momentum
+
+- **Date:** 2026-10-01
+- **Symptom:** A strong fling test asserted that the final search engine differed from the starting engine (`selectedEngine != SearchEngine.GOOGLE`), but failed because `selectedEngine` remained `SearchEngine.GOOGLE` despite the fling traversing 6 full slots.
+- **Root Cause:** With 3 search engines (`[DUCKDUCKGO, GOOGLE, BING]`), advancing by `targetSlot = 6` results in `(1 + 6).mod(3) == 1` (exactly 2 complete revolutions back to the starting engine). The fling physics correctly calculated velocity decay, clamped to 6 slots, executed all 6 slot transitions with 6 haptic ticks, and settled on slot 6.
+- **Resolution & Prevention:** When writing unit tests for circular collections under high momentum, account for modulo periodicity `(index + slots) % size`. Assert both the number of haptic ticks/slots traversed (`hapticTicks >= 5`) and verify intermediate/moderate velocities (`-800 px/sec`) that land on distinct items (`(1 + 2) % 3 == 0`).
+
+
+
 
 
 
