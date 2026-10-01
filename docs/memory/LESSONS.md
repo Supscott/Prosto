@@ -201,6 +201,19 @@ This document tracks bugs encountered during development, their root causes, and
 - **Symptom:** A strong fling test asserted that the final search engine differed from the starting engine (`selectedEngine != SearchEngine.GOOGLE`), but failed because `selectedEngine` remained `SearchEngine.GOOGLE` despite the fling traversing 6 full slots.
 - **Root Cause:** With 3 search engines (`[DUCKDUCKGO, GOOGLE, BING]`), advancing by `targetSlot = 6` results in `(1 + 6).mod(3) == 1` (exactly 2 complete revolutions back to the starting engine). The fling physics correctly calculated velocity decay, clamped to 6 slots, executed all 6 slot transitions with 6 haptic ticks, and settled on slot 6.
 - **Resolution & Prevention:** When writing unit tests for circular collections under high momentum, account for modulo periodicity `(index + slots) % size`. Assert both the number of haptic ticks/slots traversed (`hapticTicks >= 5`) and verify intermediate/moderate velocities (`-800 px/sec`) that land on distinct items (`(1 + 2) % 3 == 0`).
+### Fast typing in Compose TextField triggers stale state echo and full-text selection
+
+- **Date:** 2026-10-01
+- **Symptom:** Fast typing into the search input intermittently selected all text, causing subsequent keystrokes to overwrite and erase previously entered text.
+- **Root Cause:** `HeroSearchInputField` kept an internal `textFieldValue` state and attempted to synchronize with the parent `query: String` via `LaunchedEffect(query) { if (query != textFieldValue.text) textFieldValue = TextFieldValue(text = query, selection = TextRange(0, query.length)) }`. Because typing dispatches `UpdateSearchQuery` through ViewModel coroutines and StateFlow to parent state asynchronously, fast consecutive keystrokes cause older query emissions from the parent to arrive while the local field has already accepted newer characters (`query != textFieldValue.text` evaluates to true). The effect reset the field with the stale text and forced `TextRange(0, query.length)` selection, which was then immediately replaced by the user's next keystroke.
+- **Resolution & Prevention:** Hoist `TextFieldValue` state to the parent overlay (`SearchOverlay`) as a single source of truth. Initialize `selection = TextRange(0, length)` only once on initial composition for prefilled URLs (standard browser address bar behavior). Remove `LaunchedEffect(query)` feedback loops; update `textFieldValue` directly on user input (`onValueChange`), history item insertion, voice recognition, and clear actions. Never reset selection to `TextRange(0, length)` inside an effect observing text state changes.
+
+### Text clipped at bottom inside 52dp capsule using OutlinedTextField
+
+- **Date:** 2026-10-01
+- **Symptom:** Text inside the 52dp search input capsule had descenders ('g', 'j', 'p', 'q', 'y', '_') and bottom glyph bounds clipped.
+- **Root Cause:** The search pill wrapped Material 3 `OutlinedTextField` inside a container constrained to `52.dp`. Material 3's `OutlinedTextField` enforces a default `minHeight = 56.dp` and incorporates internal outline label content padding (`top = 8.dp`), shifting the baseline downward and pushing descending characters outside the single-line scroll clip bounds.
+- **Resolution & Prevention:** For custom pill or capsule surfaces where borders and backgrounds are already drawn by parent containers (e.g. `Surface(shape = CircleShape, border = border)`), use `BasicTextField` with `decorationBox` instead of `OutlinedTextField`. Combine `Modifier.weight(1f).fillMaxHeight()` and `Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart)` to guarantee true vertical centering and unobstructed vertical breathing room without M3 min-height constraints.
 
 ### WebChromeClient late attachment and static path caching collisions for favicons
 
@@ -217,11 +230,3 @@ This document tracks bugs encountered during development, their root causes, and
   3. **Domain-Aware Favicon Reset:** In `BrowserViewModel.loadUrl` and `handlePageStarted`, check if navigating to a different domain via `isSameDomain(tab.url, newUrl)`. If different, reset `faviconUrl` to `null` in both `BrowserUiState` and Room DB (`TabDao.updateFavicon(id, null)`). If within the same domain, preserve the current favicon to avoid unnecessary flicker.
   4. **Dual Favicon Ingestion:** Added `JestkWebViewClient.onFaviconReceived` extracting icons from `onPageStarted` and `onPageFinished` in addition to `JestkWebChromeClient.onReceivedIcon`.
   5. **Dock Substrate Pattern:** In `ActiveTabPill`, `TabStripRow`, and `TabOverviewGrid`, render the domain letter glyph substrate while loading or on error, but hide the letter once `isFaviconSuccess` is true to prevent transparent favicon PNGs from overlaying the letter.
-
-
-
-
-
-
-
-

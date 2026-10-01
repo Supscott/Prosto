@@ -81,11 +81,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.ui.res.stringResource
 import com.jestk.browser.R
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -198,6 +199,19 @@ fun SearchOverlay(
         isDropdownOpen = false
     }
 
+    var textFieldValue by remember {
+        mutableStateOf(
+            TextFieldValue(
+                text = uiState.searchQuery,
+                selection = if (uiState.searchQuery.isNotEmpty()) {
+                    TextRange(0, uiState.searchQuery.length)
+                } else {
+                    TextRange.Zero
+                }
+            )
+        )
+    }
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
@@ -241,7 +255,7 @@ fun SearchOverlay(
             var prevMaxValue by remember { mutableIntStateOf(0) }
 
             // Scroll to bottom on initial open, expansion toggle, or query change
-            LaunchedEffect(uiState.isSearchHistoryExpanded, uiState.searchQuery) {
+            LaunchedEffect(uiState.isSearchHistoryExpanded, textFieldValue.text) {
                 if (scrollState.maxValue > 0) {
                     scrollState.scrollTo(scrollState.maxValue)
                 }
@@ -322,7 +336,13 @@ fun SearchOverlay(
                                 item.title.isNotEmpty() && !item.title.startsWith("http://") && !item.title.startsWith("https://") -> item.title
                                 else -> item.url
                             }
+                            textFieldValue = TextFieldValue(
+                                text = queryText,
+                                selection = TextRange(queryText.length)
+                            )
                             onEvent(BrowserUiEvent.UpdateSearchQuery(queryText))
+                            focusRequester.requestFocus()
+                            keyboardController?.show()
                         },
                         onClearHistory = {
                             onEvent(BrowserUiEvent.ClearAllHistory)
@@ -361,16 +381,31 @@ fun SearchOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 HeroSearchInputField(
-                    query = uiState.searchQuery,
+                    textFieldValue = textFieldValue,
+                    onValueChange = { newValue ->
+                        textFieldValue = newValue
+                        onEvent(BrowserUiEvent.UpdateSearchQuery(newValue.text))
+                    },
                     searchEngine = carouselState.currentEngine,
                     isDark = isDark,
                     focusRequester = focusRequester,
-                    onQueryChange = { onEvent(BrowserUiEvent.UpdateSearchQuery(it)) },
                     onSubmit = {
-                        onEvent(BrowserUiEvent.SubmitSearch(uiState.searchQuery))
+                        onEvent(BrowserUiEvent.SubmitSearch(textFieldValue.text))
                         onEvent(BrowserUiEvent.DismissOverlay)
                     },
-                    onClear = { onEvent(BrowserUiEvent.UpdateSearchQuery("")) },
+                    onClear = {
+                        textFieldValue = TextFieldValue("", TextRange.Zero)
+                        onEvent(BrowserUiEvent.UpdateSearchQuery(""))
+                    },
+                    onVoiceResult = { spokenText ->
+                        textFieldValue = TextFieldValue(
+                            text = spokenText,
+                            selection = TextRange(spokenText.length)
+                        )
+                        onEvent(BrowserUiEvent.UpdateSearchQuery(spokenText))
+                        focusRequester.requestFocus()
+                        keyboardController?.show()
+                    },
                     carouselState = carouselState,
                     density = density,
                     modifier = Modifier.weight(1f)
@@ -412,13 +447,14 @@ fun SearchOverlay(
 
 @Composable
 private fun HeroSearchInputField(
-    query: String,
+    textFieldValue: TextFieldValue,
+    onValueChange: (TextFieldValue) -> Unit,
     searchEngine: SearchEngine,
     isDark: Boolean,
     focusRequester: FocusRequester,
-    onQueryChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onClear: () -> Unit,
+    onVoiceResult: (String) -> Unit,
     carouselState: SearchEngineCarouselState? = null,
     density: Density = LocalDensity.current,
     onSwipeLeft: () -> Unit = {},
@@ -426,32 +462,15 @@ private fun HeroSearchInputField(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
             val spokenText = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
             if (!spokenText.isNullOrBlank()) {
-                onQueryChange(spokenText)
+                onVoiceResult(spokenText)
             }
-        }
-    }
-
-    var textFieldValue by remember {
-        mutableStateOf(
-            TextFieldValue(
-                text = query,
-                selection = if (query.isNotEmpty()) TextRange(0, query.length) else TextRange.Zero
-            )
-        )
-    }
-
-    LaunchedEffect(query) {
-        if (query != textFieldValue.text) {
-            textFieldValue = TextFieldValue(
-                text = query,
-                selection = if (query.isNotEmpty()) TextRange(0, query.length) else TextRange.Zero
-            )
         }
     }
 
@@ -461,12 +480,12 @@ private fun HeroSearchInputField(
     val gestureModifier = if (carouselState != null) {
         Modifier.searchEngineInputGestures(
             carouselState = carouselState,
-            enabled = query.isEmpty()
+            enabled = textFieldValue.text.isEmpty()
         )
     } else {
         Modifier.horizontalSwipeCycler(
             density = density,
-            enabled = query.isEmpty(),
+            enabled = textFieldValue.text.isEmpty(),
             thresholdDp = 64.dp,
             onSwipeLeft = onSwipeLeft,
             onSwipeRight = onSwipeRight
@@ -498,41 +517,50 @@ private fun HeroSearchInputField(
             )
 
             // Input Text Field
-            OutlinedTextField(
+            BasicTextField(
                 value = textFieldValue,
-                onValueChange = { newValue ->
-                    textFieldValue = newValue
-                    onQueryChange(newValue.text)
-                },
-                placeholder = {
-                    Text(
-                        text = stringResource(R.string.search_with_engine, searchEngine.displayName),
-                        style = LocalSereneTypography.current.bodyMd,
-                        color = SereneMutedSlate,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
+                onValueChange = onValueChange,
                 singleLine = true,
+                textStyle = LocalSereneTypography.current.bodyMd.copy(
+                    color = if (isDark) DarkOnSurface else SereneDarkText
+                ),
+                cursorBrush = SolidColor(SereneBrandPrimary),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
                     imeAction = ImeAction.Go
                 ),
                 keyboardActions = KeyboardActions(onGo = { onSubmit() }),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color.Transparent,
-                    unfocusedBorderColor = Color.Transparent,
-                    cursorColor = SereneBrandPrimary
-                ),
                 modifier = Modifier
                     .weight(1f)
-                    .focusRequester(focusRequester)
+                    .fillMaxHeight()
+                    .focusRequester(focusRequester),
+                decorationBox = { innerTextField ->
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (textFieldValue.text.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.search_with_engine, searchEngine.displayName),
+                                style = LocalSereneTypography.current.bodyMd,
+                                color = SereneMutedSlate,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                        innerTextField()
+                    }
+                }
             )
 
             // Clear Button / Submit Button / Voice Button
-            if (query.isNotEmpty()) {
+            if (textFieldValue.text.isNotEmpty()) {
                 IconButton(
-                    onClick = onClear,
+                    onClick = {
+                        onClear()
+                        focusRequester.requestFocus()
+                        keyboardController?.show()
+                    },
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
