@@ -15,7 +15,8 @@ class JestkWebViewClient(
     private val onNavigationStateChanged: (tabId: String, canGoBack: Boolean, canGoForward: Boolean) -> Unit,
     private val onSnapshotReady: (tabId: String, path: String) -> Unit,
     private val onThemeColorDetected: (tabId: String, color: Int?) -> Unit = { _, _ -> },
-    private val isDarkTheme: (() -> Boolean)? = null
+    private val isDarkTheme: (() -> Boolean)? = null,
+    private val onFaviconReceived: ((tabId: String, icon: Bitmap) -> Unit)? = null
 ) : WebViewClient() {
 
     override fun shouldInterceptRequest(
@@ -40,6 +41,7 @@ class JestkWebViewClient(
         val validUrl = url.orEmpty()
         if (validUrl.isEmpty() || validUrl == "about:blank") return
         (view as? NestedWebView)?.loadedUrl = validUrl
+        favicon?.let { onFaviconReceived?.invoke(tabId, it) }
         onPageStarted(tabId, validUrl)
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
@@ -64,6 +66,7 @@ class JestkWebViewClient(
         if (validUrl.isEmpty() || validUrl == "about:blank") return
         (view as? NestedWebView)?.loadedUrl = validUrl
         val title = view?.title.orEmpty()
+        view?.favicon?.let { onFaviconReceived?.invoke(tabId, it) }
         onPageFinished(tabId, validUrl, title)
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())

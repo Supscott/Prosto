@@ -52,6 +52,7 @@ class WebViewPool(
 
     var onDownloadStarted: ((DownloadItem) -> Unit)? = null
     var isAdBlockerEnabled: (() -> Boolean)? = null
+    var onWebViewCreated: ((tabId: String, webView: WebView) -> Unit)? = null
 
     class AdBlockBridge(
         private val isEnabled: () -> Boolean
@@ -220,6 +221,7 @@ class WebViewPool(
 
             pool[tabId] = webView
             trimPool(tabId)
+            onWebViewCreated?.invoke(tabId, webView)
             return webView
         } catch (t: Throwable) {
             Log.w("HoriEngine", "Failed to initialize WebView with Activity context, falling back to Application context", t)
@@ -256,6 +258,7 @@ class WebViewPool(
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
             pool[tabId] = fallbackWebView
             trimPool(tabId)
+            onWebViewCreated?.invoke(tabId, fallbackWebView)
             return fallbackWebView
         }
     }

@@ -520,5 +520,28 @@
   - Using `graphicsLayer { translationX = xPos }` instead of layout `offset` ensures all carousel badge translations occur entirely on the RenderNode / GPU draw pass with zero layout remeasurement.
   - Edge fade is applied via `Modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent { drawContent(); drawRect(..., blendMode = BlendMode.DstIn) }` on the inner badge container, preserving the outer `Surface` pill's shadow and rim border.
 
+### Session: Dock Favicon Lifecycle & Cache-Busting Fix
+
+- **Completed:**
+  - Diagnosed and resolved all dock favicon display bugs: favicons not loading on fresh navigation, requiring reload or tab switch to appear, and old website favicons lingering after navigating to a new site.
+  - **Early Client Attachment in WebViewPool:** Added `onWebViewCreated` callback to `WebViewPool` and wired `JestkApp` to immediately attach `JestkWebChromeClient` and `JestkWebViewClient` upon `WebView` creation. This eliminates the race condition where `loadUrl` began before `WebChromeClient` was attached in Compose `AndroidView.factory`.
+  - **Dual Favicon Extraction:** Extended `JestkWebViewClient` with `onFaviconReceived` extracting `favicon` from `onPageStarted(favicon)` and `onPageFinished(view?.favicon)` alongside `JestkWebChromeClient.onReceivedIcon`.
+  - **Timestamped Favicon Files:** Updated `FaviconManager.saveFavicon` to save timestamped files (`favicon_${tabId}_${timestamp}.png`) and delete older tab files, preventing Coil's in-memory bitmap cache from serving stale images from identical file paths. Added `FaviconManager.deleteTabFavicons(context, tabId)`.
+  - **Domain-Aware Reset:** Updated `BrowserViewModel.loadUrl` and `handlePageStarted` with `isSameDomain(oldUrl, newUrl)` check. Navigating to a new domain immediately resets `tab.faviconUrl = null` in both `BrowserUiState` and Room DB (`TabDao.updateFavicon(id, null)`). Intra-domain navigation preserves existing favicons to avoid flicker.
+  - **Database & Event Nullability:** Made `TabDao.updateFavicon`, `TabRepository.updateFavicon`, and `BrowserUiEvent.UpdateFaviconUrl` accept nullable `faviconUrl: String?` to support favicon clearing.
+  - **Dock Substrate Pattern:** Refactored `ActiveTabPill.kt`, `TabStripRow.kt`, and `TabOverviewGrid.kt` with `isFaviconSuccess` state pattern. Substrate letter initial is displayed during loading or on error, and hidden once the favicon image successfully decodes, preventing visual artifacts through transparent PNG favicons.
+  - **Tests & Verification:**
+    - Added unit tests in `FaviconManagerTest` (`saveFavicon_createsTimestampedFileAndCleansUpOlderTabFiles`, `deleteTabFavicons_removesAllFaviconsForTab`).
+    - Added unit tests in `BrowserViewModelTest` (`loadUrl_toDifferentDomain_resetsFaviconToNull`, `loadUrl_toSameDomain_preservesFavicon`, `onPageStarted_toDifferentDomain_resetsFaviconToNull`, `onPageStarted_toSameDomain_preservesFavicon`).
+    - Full unit and visual test suite (`:app:testDebugUnitTest`) executed and 100% green (33 actionable tasks, 0 failures).
+- **Current State:**
+  - Branch: `fix-favicon`
+  - All unit and visual preview tests passing green.
+- **Key Architectural Decisions:**
+  - Attach WebKit clients (`WebChromeClient`, `WebViewClient`) synchronously at the moment of `WebView` instantiation (`onWebViewCreated`) rather than waiting for Compose `AndroidView.factory` layout pass.
+  - Invalidate Coil bitmap cache by producing timestamped URI paths (`favicon_${tabId}_${timestamp}.png`) rather than overwriting static files in-place.
+  - Immediately clear favicon state on cross-domain navigation while preserving it for intra-domain page changes.
+
+
 
 

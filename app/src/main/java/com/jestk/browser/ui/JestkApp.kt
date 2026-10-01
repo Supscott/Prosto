@@ -71,7 +71,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
+import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
+import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
@@ -99,6 +101,7 @@ import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 private fun android.content.Context.findActivity(): Activity? {
     var ctx = this
@@ -117,7 +120,9 @@ fun JestkApp(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isDark = com.jestk.browser.ui.theme.isAppDarkTheme(uiState.settings.themeMode)
 
     // Handle back button press hierarchy
     BackHandler {
@@ -135,10 +140,46 @@ fun JestkApp(
         }
     }
 
-    // Connect WebViewPool download listener to ViewModel
+    // Connect WebViewPool download listener and web client initializer to ViewModel
     LaunchedEffect(webViewPool, viewModel) {
         webViewPool.onDownloadStarted = { item ->
             viewModel.onDownloadStarted(item)
+        }
+        webViewPool.onWebViewCreated = { tabId, wv ->
+            if (wv.webChromeClient == null) {
+                val handleFavicon: (String, android.graphics.Bitmap) -> Unit = { id, icon ->
+                    coroutineScope.launch {
+                        val path = FaviconManager.saveFavicon(context, id, icon)
+                        if (path != null) {
+                            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
+                        }
+                    }
+                }
+                wv.webViewClient = JestkWebViewClient(
+                    tabId = tabId,
+                    isAdBlockerEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled },
+                    onPageStarted = { id, url -> viewModel.onEvent(BrowserUiEvent.OnPageStarted(id, url)) },
+                    onPageFinished = { id, url, title -> viewModel.onEvent(BrowserUiEvent.OnPageFinished(id, url, title)) },
+                    onNavigationStateChanged = { id, canBack, canForward -> viewModel.onEvent(BrowserUiEvent.OnNavigationStateChanged(id, canBack, canForward)) },
+                    onSnapshotReady = { id, path -> viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(id, path)) },
+                    onThemeColorDetected = { id, color -> viewModel.onEvent(BrowserUiEvent.OnThemeColorReceived(id, color)) },
+                    isDarkTheme = { isDark },
+                    onFaviconReceived = handleFavicon
+                )
+                wv.webChromeClient = JestkWebChromeClient(
+                    tabId = tabId,
+                    webView = wv,
+                    onProgressChanged = { id, progress -> viewModel.onEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
+                    onTitleReceived = { _, _ -> },
+                    onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
+                        viewModel.onEvent(BrowserUiEvent.SetFullscreenCustomView(view, isFullscreen, orientation))
+                    },
+                    onVideoPlayingStateChanged = { isPlaying ->
+                        viewModel.onEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
+                    },
+                    onFaviconReceived = handleFavicon
+                )
+            }
         }
     }
 

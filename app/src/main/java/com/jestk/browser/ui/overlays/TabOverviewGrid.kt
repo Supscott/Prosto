@@ -489,20 +489,12 @@ private fun TwoColumnGridTabCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Favicon / Icon
-                    if (!tab.faviconUrl.isNullOrEmpty()) {
-                        val imageModel = remember(tab.faviconUrl) {
-                            FaviconManager.toImageModel(tab.faviconUrl)
-                        }
-                        if (imageModel != null) {
-                            AsyncImage(
-                                model = imageModel,
-                                contentDescription = null,
-                                modifier = Modifier
-                                    .size(16.dp)
-                                    .clip(CircleShape)
-                            )
-                        }
-                    } else {
+                    var isFaviconSuccess by remember(tab.faviconUrl) { mutableStateOf(false) }
+                    val imageModel = remember(tab.faviconUrl) {
+                        FaviconManager.toImageModel(tab.faviconUrl)
+                    }
+
+                    if (!isFaviconSuccess) {
                         Box(
                             modifier = Modifier
                                 .size(18.dp)
@@ -517,6 +509,18 @@ private fun TwoColumnGridTabCard(
                                 modifier = Modifier.size(12.dp)
                             )
                         }
+                    }
+
+                    if (imageModel != null) {
+                        AsyncImage(
+                            model = imageModel,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape),
+                            onSuccess = { isFaviconSuccess = true },
+                            onError = { isFaviconSuccess = false }
+                        )
                     }
 
                     // Title

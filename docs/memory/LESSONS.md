@@ -202,6 +202,22 @@ This document tracks bugs encountered during development, their root causes, and
 - **Root Cause:** With 3 search engines (`[DUCKDUCKGO, GOOGLE, BING]`), advancing by `targetSlot = 6` results in `(1 + 6).mod(3) == 1` (exactly 2 complete revolutions back to the starting engine). The fling physics correctly calculated velocity decay, clamped to 6 slots, executed all 6 slot transitions with 6 haptic ticks, and settled on slot 6.
 - **Resolution & Prevention:** When writing unit tests for circular collections under high momentum, account for modulo periodicity `(index + slots) % size`. Assert both the number of haptic ticks/slots traversed (`hapticTicks >= 5`) and verify intermediate/moderate velocities (`-800 px/sec`) that land on distinct items (`(1 + 2) % 3 == 0`).
 
+### WebChromeClient late attachment and static path caching collisions for favicons
+
+- **Date:** 2026-10-01
+- **Symptom:** Favicons in the floating dock and tab switchers failed to load on initial site opening (requiring a reload or switching tabs), or retained an old website's icon after navigating to a different website in the same tab.
+- **Root Cause:**
+  1. **Late Client Attachment Race:** `WebViewPool.getOrCreateWebView` created WebViews without `webChromeClient` attached. `WebChromeClient` was only attached later during `AndroidView.factory` composition in `WebViewContainer`. When `openNewTab` or `loadUrl` began loading the page immediately upon tab creation, the page load started with `webChromeClient == null`, dropping `WebChromeClient.onReceivedIcon` entirely. Reloading the page or switching tabs worked because `webChromeClient` was attached by that time.
+  2. **Coil In-Memory Cache Collision on Static Paths:** Tab favicons were saved to a static file path `favicon_${tabId}.png`. Navigating to a new site in the same tab overwrote the file on disk, but the file path URI remained identical (`/data/user/0/.../favicons/favicon_${tabId}.png`). Coil's in-memory bitmap cache keyed on the file path and continued serving the cached bitmap of the old site.
+  3. **No Reset on Inter-Domain Navigation:** Neither `loadUrl` nor `handlePageStarted` reset `tab.faviconUrl` when navigating to a new domain, and `TabDao.updateTabDetails` omitted `faviconUrl`. Thus, the old favicon URL remained in UI state and SQLite until an icon arrived (or indefinitely if the new site had no favicon).
+  4. **Single-Callback Vulnerability:** Favicon reception relied exclusively on `WebChromeClient.onReceivedIcon`, missing fallback opportunities from `WebViewClient.onPageStarted` (which receives `favicon: Bitmap?`) and `WebViewClient.onPageFinished` (`view.favicon`).
+- **Resolution & Prevention:**
+  1. **Lifecycle Hook in WebViewPool:** Added `onWebViewCreated` callback to `WebViewPool` and attached `JestkWebChromeClient` and `JestkWebViewClient` synchronously inside `JestkApp` at the exact moment a `WebView` instance is instantiated, before any `loadUrl` call can occur.
+  2. **Timestamped Cache-Busting File Paths:** Switched `FaviconManager.saveFavicon` to save files with unique timestamped names (`favicon_${tabId}_${timestamp}.png`), while deleting older favicon files for that tab. Any update changes the file path string, immediately busting Coil's memory and disk caches.
+  3. **Domain-Aware Favicon Reset:** In `BrowserViewModel.loadUrl` and `handlePageStarted`, check if navigating to a different domain via `isSameDomain(tab.url, newUrl)`. If different, reset `faviconUrl` to `null` in both `BrowserUiState` and Room DB (`TabDao.updateFavicon(id, null)`). If within the same domain, preserve the current favicon to avoid unnecessary flicker.
+  4. **Dual Favicon Ingestion:** Added `JestkWebViewClient.onFaviconReceived` extracting icons from `onPageStarted` and `onPageFinished` in addition to `JestkWebChromeClient.onReceivedIcon`.
+  5. **Dock Substrate Pattern:** In `ActiveTabPill`, `TabStripRow`, and `TabOverviewGrid`, render the domain letter glyph substrate while loading or on error, but hide the letter once `isFaviconSuccess` is true to prevent transparent favicon PNGs from overlaying the letter.
+
 
 
 

@@ -101,7 +101,7 @@ class TabRepositoryImpl(
 
     override suspend fun updateFavicon(
         id: String,
-        faviconUrl: String,
+        faviconUrl: String?,
     ) = withContext(ioDispatcher) {
         tabDao.updateFavicon(id, faviconUrl)
     }

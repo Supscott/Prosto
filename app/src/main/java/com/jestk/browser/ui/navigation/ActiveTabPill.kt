@@ -132,10 +132,33 @@ fun ActiveTabPill(
                         tint = iconTint,
                         modifier = Modifier.size(18.dp)
                     )
-                } else if (!faviconUrl.isNullOrEmpty()) {
+                } else {
+                    var isFaviconSuccess by remember(faviconUrl) { mutableStateOf(false) }
                     val imageModel = remember(faviconUrl) {
                         FaviconManager.toImageModel(faviconUrl)
                     }
+
+                    if (!isFaviconSuccess) {
+                        val initial = title.trim().firstOrNull()?.uppercaseChar()
+                        if (initial != null && initial.isLetterOrDigit() && title != "Hori Browser" && title != "Hori" && title != "New Tab") {
+                            Text(
+                                text = initial.toString(),
+                                style = typography.labelMd.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                ),
+                                color = iconTint
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = "Secure Connection",
+                                tint = iconTint,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+
                     if (imageModel != null) {
                         AsyncImage(
                             model = imageModel,
@@ -143,33 +166,9 @@ fun ActiveTabPill(
                             modifier = Modifier
                                 .size(18.dp)
                                 .clip(RoundedCornerShape(4.dp)),
-                            contentScale = ContentScale.Fit
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Secure Connection",
-                            tint = iconTint,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                } else {
-                    val initial = title.trim().firstOrNull()?.uppercaseChar()
-                    if (initial != null && initial.isLetterOrDigit() && title != "Hori Browser" && title != "Hori" && title != "New Tab") {
-                        Text(
-                            text = initial.toString(),
-                            style = typography.labelMd.copy(
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp
-                            ),
-                            color = iconTint
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = "Secure Connection",
-                            tint = iconTint,
-                            modifier = Modifier.size(16.dp)
+                            contentScale = ContentScale.Fit,
+                            onSuccess = { isFaviconSuccess = true },
+                            onError = { isFaviconSuccess = false }
                         )
                     }
                 }

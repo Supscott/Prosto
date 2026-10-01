@@ -37,15 +37,30 @@ object FaviconManager {
                 val dir = File(context.filesDir, "favicons").apply {
                     if (!exists()) mkdirs()
                 }
-                val targetFile = File(dir, "favicon_${tabId}.png")
+                val targetFile = File(dir, "favicon_${tabId}_${System.currentTimeMillis()}.png")
                 FileOutputStream(targetFile).use { out ->
                     icon.compress(Bitmap.CompressFormat.PNG, 100, out)
                 }
+                // Clean up previous tab favicon files for this tab
+                dir.listFiles { _, name ->
+                    (name.startsWith("favicon_${tabId}_") || name == "favicon_${tabId}.png") && name != targetFile.name
+                }?.forEach { it.delete() }
                 targetFile.absolutePath
             } catch (_: Exception) {
                 null
             }
         }
+
+    fun deleteTabFavicons(context: Context, tabId: String) {
+        try {
+            val dir = File(context.filesDir, "favicons")
+            if (dir.exists()) {
+                dir.listFiles { _, name ->
+                    name.startsWith("favicon_${tabId}_") || name == "favicon_${tabId}.png"
+                }?.forEach { it.delete() }
+            }
+        } catch (_: Throwable) {}
+    }
 
     fun toImageModel(urlOrPath: String?): Any? {
         if (urlOrPath.isNullOrBlank()) return null

@@ -1,6 +1,7 @@
 package com.jestk.browser.ui.viewmodel
 
 import android.content.Context
+import android.net.Uri
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -912,7 +913,7 @@ class BrowserViewModel(
             context?.let { ctx ->
                 try {
                     File(ctx.filesDir, "snapshots/tab_$tabId.jpg").delete()
-                    File(ctx.filesDir, "favicons/favicon_$tabId.png").delete()
+                    FaviconManager.deleteTabFavicons(ctx, tabId)
                 } catch (_: Throwable) {
                 }
             }
@@ -1090,6 +1091,22 @@ class BrowserViewModel(
         }
     }
 
+    private fun isSameDomain(url1: String?, url2: String?): Boolean {
+        if (url1.isNullOrBlank() || url2.isNullOrBlank()) return false
+        if (url1 == "about:blank" || url2 == "about:blank") return false
+        return try {
+            val cleanUrl1 = if (url1.startsWith("http://") || url1.startsWith("https://")) url1 else "https://$url1"
+            val cleanUrl2 = if (url2.startsWith("http://") || url2.startsWith("https://")) url2 else "https://$url2"
+            val uri1 = Uri.parse(cleanUrl1)
+            val uri2 = Uri.parse(cleanUrl2)
+            val host1 = uri1.host?.lowercase()?.removePrefix("www.")
+            val host2 = uri2.host?.lowercase()?.removePrefix("www.")
+            !host1.isNullOrBlank() && host1 == host2
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
     private fun loadUrl(rawUrl: String) {
         val trimmed = rawUrl.trim()
         val finalUrl =
@@ -1121,7 +1138,12 @@ class BrowserViewModel(
         webViewPool?.onTabActivated(activeId, false)
         if (finalUrl.isEmpty()) {
             _uiState.update {
+                val updatedTabs =
+                    it.tabs.map { tab ->
+                        if (tab.id == activeId) tab.copy(url = "", title = "Home", faviconUrl = null) else tab
+                    }
                 it.copy(
+                    tabs = updatedTabs,
                     currentUrl = "",
                     pageTitle = "Home",
                     isLoading = false,
@@ -1131,14 +1153,19 @@ class BrowserViewModel(
             }
             viewModelScope.launch(ioDispatcher) {
                 tabRepository.updateTabDetails(activeId, "", "Home", canGoBack = false, canGoForward = false)
+                tabRepository.updateFavicon(activeId, null)
             }
             return
         }
 
+        val currentTab = _uiState.value.tabs.find { it.id == activeId }
+        val sameDomain = currentTab != null && isSameDomain(currentTab.url, finalUrl)
+        val newFavicon = if (sameDomain) currentTab?.faviconUrl else null
+
         _uiState.update {
             val updatedTabs =
                 it.tabs.map { tab ->
-                    if (tab.id == activeId) tab.copy(url = finalUrl, title = finalUrl) else tab
+                    if (tab.id == activeId) tab.copy(url = finalUrl, title = finalUrl, faviconUrl = newFavicon) else tab
                 }
             it.copy(
                 tabs = updatedTabs,
@@ -1153,6 +1180,9 @@ class BrowserViewModel(
         }
         viewModelScope.launch(ioDispatcher) {
             tabRepository.updateTabDetails(activeId, finalUrl, finalUrl, canGoBack = false, canGoForward = false)
+            if (!sameDomain) {
+                tabRepository.updateFavicon(activeId, null)
+            }
         }
         _navigationCommands.tryEmit(NavigationCommand.LoadUrl(finalUrl))
     }
@@ -1262,11 +1292,15 @@ class BrowserViewModel(
         url: String,
     ) {
         if (url.isEmpty() || url == "about:blank") return
-        if (_uiState.value.activeTabId == tabId) {
-            _uiState.update { state ->
-                val updatedTabs = state.tabs.map { tab ->
-                    if (tab.id == tabId) tab.copy(url = url) else tab
-                }
+        val currentTab = _uiState.value.tabs.find { it.id == tabId }
+        val sameDomain = currentTab != null && isSameDomain(currentTab.url, url)
+        val newFavicon = if (sameDomain) currentTab?.faviconUrl else null
+
+        _uiState.update { state ->
+            val updatedTabs = state.tabs.map { tab ->
+                if (tab.id == tabId) tab.copy(url = url, faviconUrl = newFavicon) else tab
+            }
+            if (state.activeTabId == tabId) {
                 state.copy(
                     tabs = updatedTabs,
                     currentUrl = url,
@@ -1274,6 +1308,13 @@ class BrowserViewModel(
                     loadingProgress = 0.15f,
                     isBottomBarVisible = true
                 )
+            } else {
+                state.copy(tabs = updatedTabs)
+            }
+        }
+        if (!sameDomain) {
+            viewModelScope.launch(ioDispatcher) {
+                tabRepository.updateFavicon(tabId, null)
             }
         }
     }
@@ -1371,7 +1412,7 @@ class BrowserViewModel(
 
     private fun handleUpdateFavicon(
         tabId: String,
-        faviconUrl: String,
+        faviconUrl: String?,
     ) {
         _uiState.update { state ->
             state.copy(
@@ -1384,7 +1425,7 @@ class BrowserViewModel(
         viewModelScope.launch(ioDispatcher) {
             tabRepository.updateFavicon(tabId, faviconUrl)
             val tab = tabRepository.getTabById(tabId)
-            if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:")) {
+            if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:") && !faviconUrl.isNullOrEmpty()) {
                 recentTabRepository?.updateFavicon(tab.url, faviconUrl)
                 if (favoriteRepository.isFavorite(tab.url)) {
                     val persistentIconPath = if (context != null && (faviconUrl.startsWith("/") || faviconUrl.startsWith("file:"))) {
