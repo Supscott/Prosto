@@ -813,4 +813,65 @@ val width = 440
         assertTrue(hapticTicks - hapticBeforeStrongFling >= 5)
         assertTrue(!state.isFlinging)
     }
+
+    @Test
+    fun renderSearchOverlayPrefilledTextPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val state = BrowserUiState(
+            searchQuery = "https://typography-preview.org/query_with_descenders_gypqj",
+            settings = BrowserSettings(searchEngine = SearchEngine.DUCKDUCKGO),
+            favorites = listOf(
+                FavoriteItem(1L, "Google", "https://google.com"),
+                FavoriteItem(2L, "GitHub", "https://github.com")
+            )
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(0xFF8E8E93))
+                ) {
+                    Box(modifier = Modifier.weight(1f).fillMaxSize()) {
+                        JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                            SearchOverlay(uiState = state, onEvent = {})
+                        }
+                    }
+                    Box(modifier = Modifier.weight(1f).fillMaxSize()) {
+                        JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                            SearchOverlay(
+                                uiState = state.copy(
+                                    settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+                                ),
+                                onEvent = {}
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 824
+        val height = 892
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/search_overlay_prefilled_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        assertTrue(outputFile.exists())
+    }
 }
+

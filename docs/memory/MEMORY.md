@@ -519,6 +519,27 @@
   - `SearchEngineCarouselState` provides a single source of truth for carousel drag offset, fling decay, spring snapping, and engine commitment, allowing both `SearchEngineSelectorButton` and `HeroSearchInputField` to drive the animation simultaneously.
   - Using `graphicsLayer { translationX = xPos }` instead of layout `offset` ensures all carousel badge translations occur entirely on the RenderNode / GPU draw pass with zero layout remeasurement.
   - Edge fade is applied via `Modifier.graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }.drawWithContent { drawContent(); drawRect(..., blendMode = BlendMode.DstIn) }` on the inner badge container, preserving the outer `Surface` pill's shadow and rim border.
+### Session: Fix Search Input Fast-Typing Selection Race & Bottom Text Clipping
 
-
-
+- **Completed:**
+  - **Fixed Fast-Typing Text Selection Bug:**
+    - Diagnosed the race condition where fast typing caused incoming asynchronous ViewModel `searchQuery` updates to trigger `LaunchedEffect(query) { if (query != textFieldValue.text) ... }`, resetting `textFieldValue` with stale text and selecting all text (`TextRange(0, length)`), causing subsequent keystrokes to overwrite and erase previously typed characters.
+    - Hoisted `TextFieldValue` to [`SearchOverlay.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt) as the single source of truth for the overlay session.
+    - Configured initial selection to auto-select all text ONLY on initial open when a prefilled URL exists (standard browser address bar behavior).
+    - Removed `LaunchedEffect(query)` state-echo loop; updated `textFieldValue` directly on user input (`onValueChange`), history item insertion, voice recognition, and clear actions.
+    - History item insertion now sets the cursor at the end (`TextRange(queryText.length)`), without selecting all text.
+    - Tapping Clear (X) resets the query to empty, keeps focus in the input, and keeps the soft keyboard open.
+  - **Fixed Bottom Text Clipping:**
+    - Replaced Material 3 `OutlinedTextField` with `BasicTextField` using `decorationBox` inside `HeroSearchInputField`.
+    - Eliminated Material 3 `OutlinedTextField`'s 56.dp min-height constraint and internal outline label padding that was pushing text descenders against the container clip bounds.
+    - Applied `Modifier.weight(1f).fillMaxHeight()` and `Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart)` with `LocalSereneTypography.current.bodyMd` (14sp / 20sp line height) inside the 52.dp capsule, guaranteeing perfect vertical centering and 32.dp of vertical headroom without clipping glyph descenders ('g', 'j', 'p', 'q', 'y', '_').
+  - **Testing & Visual Verification:**
+    - Created [`SearchOverlayInputTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/SearchOverlayInputTest.kt) covering fast typing event dispatch, prefilled URL rendering, Clear button behavior, exact query submission, and history item insertion.
+    - Added `renderSearchOverlayPrefilledTextPreview` in [`SearchOverlayPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/overlays/SearchOverlayPreviewTest.kt) to visually render prefilled text with descenders in both Light and Dark themes (`search_overlay_prefilled_preview.png`). Verified 0px clipping and pristine alignment.
+    - Verified entire test suite passes 100% green (`:app:testDebugUnitTest`).
+- **Current State:**
+  - Branch: `fix-search-input`
+  - All unit and visual preview tests passing green.
+- **Key Architectural Decisions:**
+  - `TextFieldValue` state is hoisted to `SearchOverlay` so that all input modifications (IME typing, history suggestions, voice recognition, clear) originate from the single source of truth without asynchronous state echo loops.
+  - Custom capsule surfaces and search bars use `BasicTextField` with explicit vertical centering rather than Material 3 `OutlinedTextField` to avoid 56.dp container height constraints and outline label offset issues.
