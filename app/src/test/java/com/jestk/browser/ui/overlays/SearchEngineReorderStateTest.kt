@@ -431,4 +431,38 @@ class SearchEngineReorderStateTest {
         state.onDragCancel()
         testScheduler.advanceUntilIdle()
     }
+
+    @Test
+    fun dragEnd_isDraggingBecomesFalseImmediatelyAndDropSettlesPromptly() = runTest(testFrameClock) {
+        var persistedList: List<SearchEngine>? = null
+        val state = SearchEngineReorderState(
+            slotHeightPx = 48f,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING),
+            onReorder = { persistedList = it }
+        )
+
+        state.onDragStart(SearchEngine.GOOGLE.id)
+        assertTrue(state.isDragging)
+        assertFalse(state.isDropping)
+
+        state.onDrag(50f)
+        assertEquals(1, state.targetIndex)
+
+        // Release finger
+        state.onDragEnd()
+
+        // isDragging MUST become false immediately so scale/elevation begin landing
+        assertFalse(state.isDragging)
+        assertTrue(state.isDropping)
+
+        // Snappy spring settles in <= 200ms, does not hang for 500ms
+        testScheduler.advanceTimeBy(250)
+        assertFalse(state.isDropping)
+        assertNull(state.draggingEngineId)
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.GOOGLE, SearchEngine.BING), state.currentList)
+        assertEquals(state.currentList, persistedList)
+    }
 }
+

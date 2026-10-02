@@ -1454,19 +1454,20 @@ class SearchEngineReorderState(
     var currentList by mutableStateOf(initialList)
         private set
 
+    var isDragging by mutableStateOf(false)
+        private set
+    var isDropping by mutableStateOf(false)
+        private set
     var draggingEngineId by mutableStateOf<String?>(null)
     var draggingIndex by mutableStateOf<Int?>(null)
     var targetIndex by mutableIntStateOf(-1)
     var dragOffsetY by mutableFloatStateOf(0f)
-    var isDropping by mutableStateOf(false)
-    val dropAnim = Animatable(0f)
+    val dropAnim = Animatable(0f, visibilityThreshold = 0.5f)
 
     private var dropJob: Job? = null
     private var pendingDropFinalTarget: Int = -1
     private var pendingDropStartIndex: Int = -1
     private var pendingOnListUpdated: ((List<SearchEngine>) -> Unit)? = null
-
-    val isDragging: Boolean get() = draggingEngineId != null
 
     fun updateList(newList: List<SearchEngine>) {
         if (!isDragging && !isDropping) {
@@ -1499,6 +1500,7 @@ class SearchEngineReorderState(
                 dropAnim.snapTo(0f)
             }
             isDropping = false
+            isDragging = false
         }
     }
 
@@ -1511,6 +1513,8 @@ class SearchEngineReorderState(
         }
         val startIndex = currentList.indexOfFirst { it.id == engineId }
         if (startIndex == -1) return
+        isDragging = true
+        isDropping = false
         draggingEngineId = engineId
         draggingIndex = startIndex
         targetIndex = startIndex
@@ -1525,6 +1529,8 @@ class SearchEngineReorderState(
         if (list != null && list.isNotEmpty() && !isDragging) {
             currentList = list
         }
+        isDragging = true
+        isDropping = false
         draggingEngineId = "index_$index"
         draggingIndex = index
         targetIndex = index
@@ -1580,20 +1586,21 @@ class SearchEngineReorderState(
     ) {
         val id = draggingEngineId ?: return
         if (isDropping) return
+        isDragging = false
         val baseList = if (list != null && list.isNotEmpty()) list else currentList
         val startIndex = (if (!id.startsWith("index_")) baseList.indexOfFirst { it.id == id }.takeIf { it != -1 } else null)
             ?: draggingIndex ?: return
         val finalTarget = targetIndex.coerceIn(0, baseList.lastIndex)
 
         if (finalTarget == startIndex) {
-            coroutineScope.launch {
-                isDropping = true
+            isDropping = true
+            dropJob = coroutineScope.launch {
                 dropAnim.snapTo(dragOffsetY)
                 dropAnim.animateTo(
                     targetValue = 0f,
                     animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMediumLow
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMedium
                     )
                 )
                 draggingEngineId = null
@@ -1602,23 +1609,24 @@ class SearchEngineReorderState(
                 dragOffsetY = 0f
                 dropAnim.snapTo(0f)
                 isDropping = false
+                dropJob = null
             }
             return
         }
 
+        val targetOffset = (finalTarget - startIndex) * slotHeightPx
         pendingDropStartIndex = startIndex
         pendingDropFinalTarget = finalTarget
         pendingOnListUpdated = onListUpdated
         isDropping = true
 
         dropJob = coroutineScope.launch {
-            val targetOffset = (finalTarget - startIndex) * slotHeightPx
             dropAnim.snapTo(dragOffsetY)
             dropAnim.animateTo(
                 targetValue = targetOffset,
                 animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMediumLow
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMedium
                 )
             )
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
@@ -1647,14 +1655,15 @@ class SearchEngineReorderState(
 
     fun onDragCancel() {
         if (draggingEngineId == null && draggingIndex == null) return
-        coroutineScope.launch {
-            isDropping = true
+        isDragging = false
+        isDropping = true
+        dropJob = coroutineScope.launch {
             dropAnim.snapTo(dragOffsetY)
             dropAnim.animateTo(
                 targetValue = 0f,
                 animationSpec = spring(
-                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                    stiffness = Spring.StiffnessMediumLow
+                    dampingRatio = Spring.DampingRatioLowBouncy,
+                    stiffness = Spring.StiffnessMedium
                 )
             )
             draggingEngineId = null
@@ -1663,6 +1672,7 @@ class SearchEngineReorderState(
             dragOffsetY = 0f
             dropAnim.snapTo(0f)
             isDropping = false
+            dropJob = null
         }
     }
 
@@ -1755,10 +1765,11 @@ fun SearchEngineDropdownCard(
                 key(engine.id) {
                     val isSelected = engine.id == selectedEngine.id
                     val isDraggingThis = activeReorderState.draggingEngineId == engine.id
+                    val isLifted = isDraggingThis && activeReorderState.isDragging
                     val isReorderActive = activeReorderState.isDragging || activeReorderState.isDropping
 
                     val targetSiblingOffset = if (isDraggingThis) 0f else activeReorderState.getSiblingTargetOffset(engine.id)
-                    val siblingOffsetAnim = remember(engine.id) { Animatable(0f) }
+                    val siblingOffsetAnim = remember(engine.id) { Animatable(0f, visibilityThreshold = 0.5f) }
 
                     LaunchedEffect(targetSiblingOffset, isReorderActive) {
                         if (!isReorderActive) {
@@ -1767,8 +1778,8 @@ fun SearchEngineDropdownCard(
                             siblingOffsetAnim.animateTo(
                                 targetValue = targetSiblingOffset,
                                 animationSpec = spring(
-                                    dampingRatio = Spring.DampingRatioMediumBouncy,
-                                    stiffness = Spring.StiffnessMediumLow
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessMedium
                                 )
                             )
                         }
@@ -1781,29 +1792,32 @@ fun SearchEngineDropdownCard(
                     }
 
                     val animatedScale by animateFloatAsState(
-                        targetValue = if (isDraggingThis) 1.04f else 1.0f,
+                        targetValue = if (isLifted) 1.04f else 1.0f,
                         animationSpec = spring(
-                            dampingRatio = Spring.DampingRatioMediumBouncy,
-                            stiffness = Spring.StiffnessMediumLow
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessMedium
                         ),
                         label = "ItemScale_${engine.id}"
                     )
 
                     val animatedElevation by animateDpAsState(
-                        targetValue = if (isDraggingThis) 8.dp else 0.dp,
+                        targetValue = if (isLifted) 8.dp else 0.dp,
+                        animationSpec = spring(
+                            stiffness = Spring.StiffnessMedium
+                        ),
                         label = "ItemElevation_${engine.id}"
                     )
 
                     val itemBg = when {
-                        isDraggingThis && isDark -> DarkSurfaceVariant
-                        isDraggingThis && !isDark -> Color.White
+                        isLifted && isDark -> DarkSurfaceVariant
+                        isLifted && !isDark -> Color.White
                         !isEditMode && isSelected && isDark -> DarkSurfaceVariant
                         !isEditMode && isSelected && !isDark -> SerenePaleBlue
                         else -> Color.Transparent
                     }
 
                     val itemBorder = when {
-                        isDraggingThis -> BorderStroke(1.5.dp, if (isDark) DarkPrimary else SereneBrandPrimary)
+                        isLifted -> BorderStroke(1.5.dp, if (isDark) DarkPrimary else SereneBrandPrimary)
                         !isEditMode && isSelected -> BorderStroke(1.dp, if (isDark) DarkPrimary.copy(alpha = 0.5f) else SereneBrandPrimary.copy(alpha = 0.5f))
                         else -> null
                     }
@@ -1839,8 +1853,12 @@ fun SearchEngineDropdownCard(
                                             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                                             val pointerId = down.id
 
-                                            // If another item is already dragging or dropping, ignore until released
-                                            if (activeReorderState.isDragging || activeReorderState.isDropping) {
+                                            if (activeReorderState.isDropping) {
+                                                activeReorderState.finishPendingDropImmediately()
+                                            }
+
+                                            // If another item is actively being dragged, ignore
+                                            if (activeReorderState.isDragging && activeReorderState.draggingEngineId != engine.id) {
                                                 while (true) {
                                                     val event = awaitPointerEvent(pass = PointerEventPass.Initial)
                                                     val change = event.changes.firstOrNull { it.id == pointerId } ?: break
@@ -1903,6 +1921,9 @@ fun SearchEngineDropdownCard(
                                                 val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                                                 val pointerId = down.id
                                                 down.consume()
+                                                if (activeReorderState.isDropping) {
+                                                    activeReorderState.finishPendingDropImmediately()
+                                                }
                                                 activeReorderState.onDragStart(engine.id)
 
                                                 while (true) {
@@ -1928,7 +1949,7 @@ fun SearchEngineDropdownCard(
                                     Icon(
                                         imageVector = Icons.Default.DragHandle,
                                         contentDescription = "Reorder",
-                                        tint = if (isDraggingThis) {
+                                        tint = if (isLifted) {
                                             if (isDark) DarkPrimary else SereneBrandPrimary
                                         } else {
                                             if (isDark) DarkOnSurfaceVariant else SereneMutedSlate

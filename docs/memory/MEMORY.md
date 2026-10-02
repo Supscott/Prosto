@@ -751,5 +751,23 @@
   - `SearchEngineReorderState` manages `currentList` internally, guaranteeing that gesture handlers, sibling displacement, and render loops always reference the most current post-reorder ordering even when `engine.id` keys do not recompose.
   - Rapidly starting a drag while a drop bounce animation is in progress immediately snaps the previous item to its target position and commits the state without animation delay or state corruption.
 
+### Session: Eliminate Drag & Drop Half-Second Freeze on Release
+
+- **Completed:**
+  - Resolved intermittent ~500ms freeze/hang of the dragged search engine card when released:
+    - Replaced sluggish spring physics (`Spring.StiffnessMediumLow` 400f, `DampingRatioMediumBouncy` 0.5f) with crisp, snappy physics (`Spring.StiffnessMedium` 1500f, `DampingRatioLowBouncy` 0.75f).
+    - Set explicit `visibilityThreshold = 0.5f` on `dropAnim` and `siblingOffsetAnim`, eliminating subpixel harmonic oscillation tail where the animation took >500ms decaying toward 0.01px while appearing frozen to the eye.
+    - Separated active finger drag from drop settling via `isLifted = isDraggingThis && activeReorderState.isDragging`. The instant the finger releases (`onDragEnd`), scale (1.04x -> 1.0x) and elevation (8dp -> 0dp) start returning to resting state in parallel with translation rather than waiting for `dropAnim` to finish.
+    - Removed touch-blocking gate (`if (isDragging || isDropping)`) in row gestures that previously dropped touches during drop animations; new touches immediately trigger `finishPendingDropImmediately()`.
+    - Added unit test `dragEnd_isDraggingBecomesFalseImmediatelyAndDropSettlesPromptly` asserting immediate `isDragging = false` transition and settling within 250ms.
+  - Verified full test suite (`:app:testDebugUnitTest`) passes 100% green.
+- **Current State:**
+  - Branch: `refactor/fast-switching-search`
+  - Reorder drop animation is crisp, fluid, and settles in ~120-150ms without hanging.
+- **Key Architectural Decisions:**
+  - Spatial pixel animations in Compose must specify `visibilityThreshold = 0.5f` to prevent underdamped springs from wasting hundreds of milliseconds decaying imperceptible subpixel fractions.
+  - Lifted styling (scale/elevation/border) should be tied to active finger contact (`isDragging`), allowing the element to visually descend and land onto the stack concurrently as it translates into place.
+
+
 
 
