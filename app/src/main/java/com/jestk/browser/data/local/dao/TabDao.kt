@@ -78,7 +78,7 @@ interface TabDao {
     @Query("UPDATE tabs SET faviconUrl = :faviconUrl WHERE id = :id")
     suspend fun updateFavicon(
         id: String,
-        faviconUrl: String,
+        faviconUrl: String?,
     )
 
     @Query("UPDATE tabs SET themeColor = :themeColor WHERE id = :id")

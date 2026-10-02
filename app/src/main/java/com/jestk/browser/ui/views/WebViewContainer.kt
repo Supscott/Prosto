@@ -280,6 +280,15 @@ fun WebViewContainer(
                         }
                     }
 
+                    val handleFavicon: (String, android.graphics.Bitmap) -> Unit = { id, icon ->
+                        scope.launch {
+                            val path = FaviconManager.saveFavicon(context, id, icon)
+                            if (path != null) {
+                                currentOnEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
+                            }
+                        }
+                    }
+
                     webView.webViewClient = JestkWebViewClient(
                         tabId = tabId,
                         isAdBlockerEnabled = { currentUiState.settings.isAdBlockerEnabled },
@@ -296,7 +305,8 @@ fun WebViewContainer(
                         onThemeColorDetected = { id, color ->
                             currentOnEvent(BrowserUiEvent.OnThemeColorReceived(id, color))
                         },
-                        isDarkTheme = { isDark }
+                        isDarkTheme = { isDark },
+                        onFaviconReceived = handleFavicon
                     )
 
                     webView.webChromeClient = JestkWebChromeClient(
@@ -310,14 +320,7 @@ fun WebViewContainer(
                         onVideoPlayingStateChanged = { isPlaying ->
                             currentOnEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
                         },
-                        onFaviconReceived = { id, icon ->
-                            scope.launch {
-                                val path = FaviconManager.saveFavicon(context, id, icon)
-                                if (path != null) {
-                                    currentOnEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
-                                }
-                            }
-                        },
+                        onFaviconReceived = handleFavicon,
                         onShowFileChooser = { callback, params ->
                             val activity = context.findActivity() as? MainActivity
                                 ?: webView.context.findActivity() as? MainActivity

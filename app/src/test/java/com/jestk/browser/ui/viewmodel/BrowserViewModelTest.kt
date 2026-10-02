@@ -391,6 +391,80 @@ class BrowserViewModelTest {
         }
 
     @Test
+    fun loadUrl_toDifferentDomain_resetsFaviconToNull() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val activeId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://siteA.com"))
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(activeId, "/data/user/0/favicons/favicon_siteA.png"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.activeTab?.faviconUrl).isEqualTo("/data/user/0/favicons/favicon_siteA.png")
+
+            // Navigating to a different domain must immediately reset favicon to null to avoid stale icon retention
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://siteB.com"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.activeTab?.faviconUrl).isNull()
+        }
+
+    @Test
+    fun loadUrl_toSameDomain_preservesFavicon() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val activeId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://siteA.com/page1"))
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(activeId, "/data/user/0/favicons/favicon_siteA.png"))
+            advanceUntilIdle()
+
+            // Navigating within the same domain must preserve the favicon smoothly
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://siteA.com/page2"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.activeTab?.faviconUrl).isEqualTo("/data/user/0/favicons/favicon_siteA.png")
+        }
+
+    @Test
+    fun onPageStarted_toDifferentDomain_resetsFaviconToNull() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val activeId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(activeId, "/data/user/0/favicons/favicon_siteA.png"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OnPageStarted(activeId, "https://differentdomain.org"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.activeTab?.faviconUrl).isNull()
+        }
+
+    @Test
+    fun onPageStarted_toSameDomain_preservesFavicon() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val activeId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://samedomain.org/articles"))
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(activeId, "/data/user/0/favicons/favicon_samedomain.png"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OnPageStarted(activeId, "https://samedomain.org/about"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.activeTab?.faviconUrl).isEqualTo("/data/user/0/favicons/favicon_samedomain.png")
+        }
+
+    @Test
     fun addCurrentTabToFavorites_savesFavoriteWithFavicon() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()

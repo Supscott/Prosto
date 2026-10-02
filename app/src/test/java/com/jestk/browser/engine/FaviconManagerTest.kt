@@ -77,5 +77,43 @@ class FaviconManagerTest {
         assertThat(destFile.name).endsWith(".png")
         assertThat(destFile.readText()).isEqualTo("mock_png_data")
     }
+
+    @Test
+    fun saveFavicon_createsTimestampedFileAndCleansUpOlderTabFiles() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
+
+        val path1 = FaviconManager.saveFavicon(context, "test_tab_1", bitmap)
+        assertThat(path1).isNotNull()
+        val file1 = java.io.File(path1!!)
+        assertThat(file1.exists()).isTrue()
+        assertThat(file1.name).matches("favicon_test_tab_1_\\d+\\.png")
+
+        // Small delay to ensure timestamp advances
+        kotlinx.coroutines.delay(10)
+
+        val path2 = FaviconManager.saveFavicon(context, "test_tab_1", bitmap)
+        assertThat(path2).isNotNull()
+        assertThat(path2).isNotEqualTo(path1)
+
+        val file2 = java.io.File(path2!!)
+        assertThat(file2.exists()).isTrue()
+        // Prior tab icon was deleted to avoid stale caching and disk bloat
+        assertThat(file1.exists()).isFalse()
+    }
+
+    @Test
+    fun deleteTabFavicons_removesAllFaviconsForTab() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
+
+        val path = FaviconManager.saveFavicon(context, "test_tab_delete", bitmap)
+        assertThat(path).isNotNull()
+        val file = java.io.File(path!!)
+        assertThat(file.exists()).isTrue()
+
+        FaviconManager.deleteTabFavicons(context, "test_tab_delete")
+        assertThat(file.exists()).isFalse()
+    }
 }
 

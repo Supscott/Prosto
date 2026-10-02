@@ -399,10 +399,33 @@ fun InactiveTabButton(
                     tint = normalTint,
                     modifier = Modifier.size(19.dp)
                 )
-            } else if (!tab.faviconUrl.isNullOrEmpty()) {
+            } else {
+                var isFaviconSuccess by remember(tab.faviconUrl) { mutableStateOf(false) }
                 val imageModel = remember(tab.faviconUrl) {
                     FaviconManager.toImageModel(tab.faviconUrl)
                 }
+
+                if (!isFaviconSuccess) {
+                    val initial = tab.title.trim().firstOrNull()?.uppercaseChar()
+                    if (initial != null && initial.isLetterOrDigit() && tab.title != "New Tab") {
+                        Text(
+                            text = initial.toString(),
+                            style = typography.labelMd.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            ),
+                            color = normalTint
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Language,
+                            contentDescription = tab.title,
+                            tint = normalTint,
+                            modifier = Modifier.size(19.dp)
+                        )
+                    }
+                }
+
                 if (imageModel != null) {
                     AsyncImage(
                         model = imageModel,
@@ -410,33 +433,9 @@ fun InactiveTabButton(
                         modifier = Modifier
                             .size(20.dp)
                             .clip(RoundedCornerShape(5.dp)),
-                        contentScale = ContentScale.Fit
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = tab.title,
-                        tint = normalTint,
-                        modifier = Modifier.size(19.dp)
-                    )
-                }
-            } else {
-                val initial = tab.title.trim().firstOrNull()?.uppercaseChar()
-                if (initial != null && initial.isLetterOrDigit() && tab.title != "New Tab") {
-                    Text(
-                        text = initial.toString(),
-                        style = typography.labelMd.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
-                        ),
-                        color = normalTint
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = tab.title,
-                        tint = normalTint,
-                        modifier = Modifier.size(19.dp)
+                        contentScale = ContentScale.Fit,
+                        onSuccess = { isFaviconSuccess = true },
+                        onError = { isFaviconSuccess = false }
                     )
                 }
             }
