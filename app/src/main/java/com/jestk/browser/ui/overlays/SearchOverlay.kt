@@ -1448,8 +1448,12 @@ class SearchEngineReorderState(
     val slotHeightPx: Float,
     val coroutineScope: CoroutineScope,
     val haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    initialList: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     val onReorder: (List<SearchEngine>) -> Unit
 ) {
+    var currentList by mutableStateOf(initialList)
+        private set
+
     var draggingEngineId by mutableStateOf<String?>(null)
     var draggingIndex by mutableStateOf<Int?>(null)
     var targetIndex by mutableIntStateOf(-1)
@@ -1457,10 +1461,54 @@ class SearchEngineReorderState(
     var isDropping by mutableStateOf(false)
     val dropAnim = Animatable(0f)
 
+    private var dropJob: Job? = null
+    private var pendingDropFinalTarget: Int = -1
+    private var pendingDropStartIndex: Int = -1
+    private var pendingOnListUpdated: ((List<SearchEngine>) -> Unit)? = null
+
     val isDragging: Boolean get() = draggingEngineId != null
 
-    fun onDragStart(engineId: String, currentList: List<SearchEngine>) {
-        if (isDropping) return
+    fun updateList(newList: List<SearchEngine>) {
+        if (!isDragging && !isDropping) {
+            currentList = newList
+        }
+    }
+
+    fun finishPendingDropImmediately() {
+        if (isDropping) {
+            dropJob?.cancel()
+            dropJob = null
+            if (pendingDropFinalTarget != -1 && pendingDropStartIndex != -1 && pendingDropFinalTarget != pendingDropStartIndex) {
+                if (pendingDropStartIndex in currentList.indices && pendingDropFinalTarget in currentList.indices) {
+                    val mutable = currentList.toMutableList()
+                    val moved = mutable.removeAt(pendingDropStartIndex)
+                    mutable.add(pendingDropFinalTarget, moved)
+                    currentList = mutable
+                    pendingOnListUpdated?.invoke(mutable)
+                    onReorder(mutable)
+                }
+            }
+            pendingDropFinalTarget = -1
+            pendingDropStartIndex = -1
+            pendingOnListUpdated = null
+            draggingEngineId = null
+            draggingIndex = null
+            targetIndex = -1
+            dragOffsetY = 0f
+            coroutineScope.launch {
+                dropAnim.snapTo(0f)
+            }
+            isDropping = false
+        }
+    }
+
+    fun onDragStart(engineId: String, list: List<SearchEngine>? = null) {
+        if (isDropping) {
+            finishPendingDropImmediately()
+        }
+        if (list != null && list.isNotEmpty() && !isDragging) {
+            currentList = list
+        }
         val startIndex = currentList.indexOfFirst { it.id == engineId }
         if (startIndex == -1) return
         draggingEngineId = engineId
@@ -1470,14 +1518,13 @@ class SearchEngineReorderState(
         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
 
-    fun onDragStart(index: Int, currentList: List<SearchEngine>) {
-        if (index in currentList.indices) {
-            onDragStart(currentList[index].id, currentList)
+    fun onDragStart(index: Int, list: List<SearchEngine>? = null) {
+        if (isDropping) {
+            finishPendingDropImmediately()
         }
-    }
-
-    fun onDragStart(index: Int) {
-        if (isDropping) return
+        if (list != null && list.isNotEmpty() && !isDragging) {
+            currentList = list
+        }
         draggingEngineId = "index_$index"
         draggingIndex = index
         targetIndex = index
@@ -1485,14 +1532,18 @@ class SearchEngineReorderState(
         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
     }
 
-    fun onDrag(deltaY: Float, currentList: List<SearchEngine>) {
+    fun onDrag(deltaY: Float, list: List<SearchEngine>? = null) {
         val id = draggingEngineId ?: return
         if (isDropping) return
-        val currentIndex = currentList.indexOfFirst { it.id == id }.takeIf { it != -1 } ?: draggingIndex ?: return
+        if (list != null && list.isNotEmpty() && !isDragging) {
+            currentList = list
+        }
+        val currentIndex = (if (!id.startsWith("index_")) currentList.indexOfFirst { it.id == id }.takeIf { it != -1 } else null)
+            ?: draggingIndex ?: return
         draggingIndex = currentIndex
         dragOffsetY += deltaY
 
-        // Clamp drag offset so the item stays within list bounds
+        // Strict clamp drag offset so the item stays within list bounds
         val minOffset = -currentIndex * slotHeightPx
         val maxOffset = (currentList.size - 1 - currentIndex) * slotHeightPx
         dragOffsetY = dragOffsetY.coerceIn(minOffset, maxOffset)
@@ -1511,12 +1562,10 @@ class SearchEngineReorderState(
         if (isDropping) return
         dragOffsetY += deltaY
 
-        // Clamp drag offset so the item stays within list bounds
         val minOffset = -currentIndex * slotHeightPx
         val maxOffset = (listSize - 1 - currentIndex) * slotHeightPx
         dragOffsetY = dragOffsetY.coerceIn(minOffset, maxOffset)
 
-        // Calculate prospective slot index
         val currentSlotFloat = currentIndex + (dragOffsetY / slotHeightPx)
         val newTarget = currentSlotFloat.roundToInt().coerceIn(0, listSize - 1)
         if (newTarget != targetIndex) {
@@ -1526,16 +1575,43 @@ class SearchEngineReorderState(
     }
 
     fun onDragEnd(
-        currentList: List<SearchEngine>,
-        onListUpdated: (List<SearchEngine>) -> Unit
+        list: List<SearchEngine>? = null,
+        onListUpdated: ((List<SearchEngine>) -> Unit)? = null
     ) {
         val id = draggingEngineId ?: return
         if (isDropping) return
-        val startIndex = currentList.indexOfFirst { it.id == id }.takeIf { it != -1 } ?: draggingIndex ?: return
-        val finalTarget = targetIndex.coerceIn(0, currentList.lastIndex)
+        val baseList = if (list != null && list.isNotEmpty()) list else currentList
+        val startIndex = (if (!id.startsWith("index_")) baseList.indexOfFirst { it.id == id }.takeIf { it != -1 } else null)
+            ?: draggingIndex ?: return
+        val finalTarget = targetIndex.coerceIn(0, baseList.lastIndex)
 
-        coroutineScope.launch {
-            isDropping = true
+        if (finalTarget == startIndex) {
+            coroutineScope.launch {
+                isDropping = true
+                dropAnim.snapTo(dragOffsetY)
+                dropAnim.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                )
+                draggingEngineId = null
+                draggingIndex = null
+                targetIndex = -1
+                dragOffsetY = 0f
+                dropAnim.snapTo(0f)
+                isDropping = false
+            }
+            return
+        }
+
+        pendingDropStartIndex = startIndex
+        pendingDropFinalTarget = finalTarget
+        pendingOnListUpdated = onListUpdated
+        isDropping = true
+
+        dropJob = coroutineScope.launch {
             val targetOffset = (finalTarget - startIndex) * slotHeightPx
             dropAnim.snapTo(dragOffsetY)
             dropAnim.animateTo(
@@ -1547,20 +1623,25 @@ class SearchEngineReorderState(
             )
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
 
-            if (finalTarget != startIndex) {
-                val mutable = currentList.toMutableList()
+            if (finalTarget != startIndex && startIndex in baseList.indices && finalTarget in baseList.indices) {
+                val mutable = baseList.toMutableList()
                 val moved = mutable.removeAt(startIndex)
                 mutable.add(finalTarget, moved)
-                onListUpdated(mutable)
+                currentList = mutable
+                onListUpdated?.invoke(mutable)
                 onReorder(mutable)
             }
 
+            pendingDropStartIndex = -1
+            pendingDropFinalTarget = -1
+            pendingOnListUpdated = null
             draggingEngineId = null
             draggingIndex = null
             targetIndex = -1
             dragOffsetY = 0f
             dropAnim.snapTo(0f)
             isDropping = false
+            dropJob = null
         }
     }
 
@@ -1585,11 +1666,12 @@ class SearchEngineReorderState(
         }
     }
 
-    fun getSiblingTargetOffset(engineId: String, currentList: List<SearchEngine>): Float {
+    fun getSiblingTargetOffset(engineId: String, list: List<SearchEngine>? = null): Float {
         val id = draggingEngineId ?: return 0f
         if (engineId == id) return 0f
-        val activeIndex = currentList.indexOfFirst { it.id == id }
-        val itemIndex = currentList.indexOfFirst { it.id == engineId }
+        val listToUse = list ?: currentList
+        val activeIndex = listToUse.indexOfFirst { it.id == id }
+        val itemIndex = listToUse.indexOfFirst { it.id == engineId }
         if (activeIndex == -1 || itemIndex == -1) return 0f
         val target = targetIndex
         if (target == -1 || target == activeIndex) return 0f
@@ -1630,26 +1712,27 @@ fun SearchEngineDropdownCard(
     reorderState: SearchEngineReorderState? = null,
 ) {
     var isEditMode by remember { mutableStateOf(initialEditMode) }
-    var currentList by remember(engines) { mutableStateOf(engines) }
-    LaunchedEffect(engines) {
-        currentList = engines
-    }
-
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
+    val currentOnReorderEngines by rememberUpdatedState(onReorderEngines)
 
     val itemHeight = 44.dp
     val itemSpacing = 4.dp
     val slotHeightPx = with(density) { (itemHeight + itemSpacing).toPx() }
 
-    val reorderState = reorderState ?: remember(slotHeightPx, onReorderEngines) {
+    val activeReorderState = reorderState ?: remember(slotHeightPx) {
         SearchEngineReorderState(
             slotHeightPx = slotHeightPx,
             coroutineScope = coroutineScope,
             haptic = haptic,
-            onReorder = onReorderEngines
+            initialList = engines,
+            onReorder = { reordered -> currentOnReorderEngines(reordered) }
         )
+    }
+
+    LaunchedEffect(engines) {
+        activeReorderState.updateList(engines)
     }
 
     val bg = if (isDark) DarkSurface else Color.White
@@ -1668,13 +1751,13 @@ fun SearchEngineDropdownCard(
                 .padding(vertical = 6.dp, horizontal = 6.dp),
             verticalArrangement = Arrangement.spacedBy(itemSpacing)
         ) {
-            currentList.forEachIndexed { index, engine ->
+            activeReorderState.currentList.forEachIndexed { index, engine ->
                 key(engine.id) {
                     val isSelected = engine.id == selectedEngine.id
-                    val isDraggingThis = reorderState.draggingEngineId == engine.id
-                    val isReorderActive = reorderState.isDragging || reorderState.isDropping
+                    val isDraggingThis = activeReorderState.draggingEngineId == engine.id
+                    val isReorderActive = activeReorderState.isDragging || activeReorderState.isDropping
 
-                    val targetSiblingOffset = if (isDraggingThis) 0f else reorderState.getSiblingTargetOffset(engine.id, currentList)
+                    val targetSiblingOffset = if (isDraggingThis) 0f else activeReorderState.getSiblingTargetOffset(engine.id)
                     val siblingOffsetAnim = remember(engine.id) { Animatable(0f) }
 
                     LaunchedEffect(targetSiblingOffset, isReorderActive) {
@@ -1692,13 +1775,13 @@ fun SearchEngineDropdownCard(
                     }
 
                     val itemTranslationY = if (isDraggingThis) {
-                        if (reorderState.isDropping) reorderState.dropAnim.value else reorderState.dragOffsetY
+                        if (activeReorderState.isDropping) activeReorderState.dropAnim.value else activeReorderState.dragOffsetY
                     } else {
                         if (isReorderActive) siblingOffsetAnim.value else 0f
                     }
 
                     val animatedScale by animateFloatAsState(
-                        targetValue = if (isDraggingThis) 1.05f else 1.0f,
+                        targetValue = if (isDraggingThis) 1.04f else 1.0f,
                         animationSpec = spring(
                             dampingRatio = Spring.DampingRatioMediumBouncy,
                             stiffness = Spring.StiffnessMediumLow
@@ -1707,7 +1790,7 @@ fun SearchEngineDropdownCard(
                     )
 
                     val animatedElevation by animateDpAsState(
-                        targetValue = if (isDraggingThis) 10.dp else 0.dp,
+                        targetValue = if (isDraggingThis) 8.dp else 0.dp,
                         label = "ItemElevation_${engine.id}"
                     )
 
@@ -1720,7 +1803,7 @@ fun SearchEngineDropdownCard(
                     }
 
                     val itemBorder = when {
-                        isDraggingThis -> BorderStroke(2.dp, if (isDark) DarkPrimary else SereneBrandPrimary)
+                        isDraggingThis -> BorderStroke(1.5.dp, if (isDark) DarkPrimary else SereneBrandPrimary)
                         !isEditMode && isSelected -> BorderStroke(1.dp, if (isDark) DarkPrimary.copy(alpha = 0.5f) else SereneBrandPrimary.copy(alpha = 0.5f))
                         else -> null
                     }
@@ -1757,7 +1840,7 @@ fun SearchEngineDropdownCard(
                                             val pointerId = down.id
 
                                             // If another item is already dragging or dropping, ignore until released
-                                            if (reorderState.isDragging || reorderState.isDropping) {
+                                            if (activeReorderState.isDragging || activeReorderState.isDropping) {
                                                 while (true) {
                                                     val event = awaitPointerEvent(pass = PointerEventPass.Initial)
                                                     val change = event.changes.firstOrNull { it.id == pointerId } ?: break
@@ -1771,31 +1854,31 @@ fun SearchEngineDropdownCard(
                                                 while (true) {
                                                     val event = awaitPointerEvent(pass = PointerEventPass.Initial)
                                                     val change = event.changes.firstOrNull { it.id == pointerId } ?: return@withTimeoutOrNull false
-                                                    if (!change.pressed) {
-                                                        // Finger released before 200ms -> this is a tap/click
+                                                    if (!change.pressed || activeReorderState.isDragging) {
+                                                        // Finger released before 200ms or drag started from handle -> not row hold
                                                         return@withTimeoutOrNull false
                                                     }
                                                 }
                                             } == null
 
-                                            if (holdTriggered) {
-                                                reorderState.onDragStart(engine.id, currentList)
+                                            if (holdTriggered && !activeReorderState.isDragging) {
+                                                activeReorderState.onDragStart(engine.id)
 
                                                 while (true) {
                                                     val event = awaitPointerEvent(pass = PointerEventPass.Initial)
                                                     val change = event.changes.firstOrNull { it.id == pointerId }
                                                     if (change == null) {
-                                                        reorderState.onDragCancel()
+                                                        activeReorderState.onDragCancel()
                                                         break
                                                     }
                                                     if (!change.pressed) {
                                                         change.consume()
-                                                        reorderState.onDragEnd(currentList) { updated -> currentList = updated }
+                                                        activeReorderState.onDragEnd()
                                                         break
                                                     }
                                                     val deltaY = change.position.y - change.previousPosition.y
                                                     change.consume()
-                                                    reorderState.onDrag(deltaY, currentList)
+                                                    activeReorderState.onDrag(deltaY)
                                                 }
                                             }
                                         }
@@ -1811,9 +1894,35 @@ fun SearchEngineDropdownCard(
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             if (isEditMode) {
-                                // Left 1: Drag handle icon
+                                // Left 1: Drag handle icon with instant drag
                                 Box(
-                                    modifier = Modifier.size(28.dp),
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .pointerInput(engine.id) {
+                                            awaitEachGesture {
+                                                val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                                val pointerId = down.id
+                                                down.consume()
+                                                activeReorderState.onDragStart(engine.id)
+
+                                                while (true) {
+                                                    val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                                                    val change = event.changes.firstOrNull { it.id == pointerId }
+                                                    if (change == null) {
+                                                        activeReorderState.onDragCancel()
+                                                        break
+                                                    }
+                                                    if (!change.pressed) {
+                                                        change.consume()
+                                                        activeReorderState.onDragEnd()
+                                                        break
+                                                    }
+                                                    val deltaY = change.position.y - change.previousPosition.y
+                                                    change.consume()
+                                                    activeReorderState.onDrag(deltaY)
+                                                }
+                                            }
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
@@ -1885,7 +1994,7 @@ fun SearchEngineDropdownCard(
                                 }
                             } else {
                                 // Right: Delete trash icon (disabled if currentList.size <= 1)
-                                val canDelete = currentList.size > 1
+                                val canDelete = activeReorderState.currentList.size > 1
                                 IconButton(
                                     onClick = { onDeleteEngineClick(engine) },
                                     enabled = canDelete,
@@ -1954,7 +2063,7 @@ fun SearchEngineDropdownCard(
                         .clip(RoundedCornerShape(12.dp))
                         .clickable {
                             isEditMode = false
-                            onReorderEngines(currentList)
+                            onReorderEngines(activeReorderState.currentList)
                         }
                 ) {
                     Box(contentAlignment = Alignment.Center) {

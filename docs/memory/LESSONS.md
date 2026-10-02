@@ -318,4 +318,19 @@ This document tracks bugs encountered during development, their root causes, and
   2. Once vertical displacement exceeds `touchSlop`, consume the pointer change (`change.consume()`) on `PointerEventPass.Initial`. Child clickables see that the event has been consumed and immediately cancel their pending click gestures without triggering action callbacks.
   3. All subsequent movements drive the continuous drag smoothly.
 
+### Stale closure in pointerInput and Kotlin default parameter trap during list reordering
+
+- **Date:** 2026-10-03
+- **Symptom:** Repeated drag-and-drop operations in `SearchEngineDropdownCard` caused items to escape outside the card boundaries, empty slots to open under the wrong element, and list order to scramble upon release.
+- **Root Cause:**
+  1. `Modifier.pointerInput(engine.id)` only keyed on `engine.id`. Because item IDs remain unchanged across reorders, the gesture coroutine never restarted and held a stale `currentList` delegate closure.
+  2. `SearchEngineReorderState` methods used default arguments like `list: List<SearchEngine> = currentList`. In Kotlin, default parameter expressions are evaluated at the call site *before* entering the function body. When `finishPendingDropImmediately()` mutated `currentList` inside `onDragStart`, the pre-evaluated parameter was already bound to the stale pre-drop list.
+  3. Clamping calculated bounds relative to total container height rather than each item's individual distance from the first and last slots.
+- **Resolution & Prevention:**
+  1. Centralize the reorder list as an internal `currentList by mutableStateOf(initialList)` inside `SearchEngineReorderState`, making it the single authoritative source of truth, and render items by iterating over `activeReorderState.currentList`.
+  2. Implement `finishPendingDropImmediately()` to instantly commit and cancel ongoing drop bounce jobs if a new drag begins mid-animation.
+  3. Never use a mutable state property directly as a Kotlin default parameter (`arg = mutableProperty`) when the function itself may mutate that state; use `arg: Type? = null` and resolve it inside the body (`val effective = arg ?: mutableProperty`) *after* any prerequisite state mutations.
+  4. Enforce strict slot boundary clamping: `minOffset = -currentIndex * slotHeightPx` and `maxOffset = (size - 1 - currentIndex) * slotHeightPx`.
+
+
 

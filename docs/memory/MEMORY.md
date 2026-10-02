@@ -719,4 +719,37 @@
   - Use `PointerEventPass.Initial` to detect and consume vertical drag gestures before child clickables (pencil, delete) process them, allowing the whole row to be draggable while preserving button tap clicks.
   - Sibling offsets and the dragged item's drop offset are driven by spring physics while keeping the item's identity stable (`key(engine.id)`), ensuring seamless transitions with zero layout flicker upon list commitment.
 
+### Session: Fix Repeated Drag & Drop List Desync, Boundary Overflow & Interruption
+
+- **Completed:**
+  - Resolved repeated drag-and-drop corruption in `SearchEngineDropdownCard` (`SearchOverlay.kt`):
+    - Items escaping outside card boundaries.
+    - Sibling gap opening under the wrong item.
+    - Scrambled list ordering after consecutive drags.
+  - **Internal Authoritative List State:**
+    - Added `currentList by mutableStateOf(initialList)` inside `SearchEngineReorderState` as the single source of truth.
+    - Refactored `SearchEngineDropdownCard` to render directly from `activeReorderState.currentList`, eliminating stale list closures in `pointerInput(engine.id)`.
+  - **Instant Commit on Drop Interruption:**
+    - Implemented `finishPendingDropImmediately()` to instantly commit any in-flight drop animations, set `currentList`, and cancel drop coroutine jobs before initiating a new drag, preventing gesture lockups and race conditions during rapid reordering.
+  - **Kotlin Default Parameter Fix:**
+    - Replaced `list: List<SearchEngine> = currentList` parameter traps with `list: List<SearchEngine>? = null` resolved in the method body after `finishPendingDropImmediately()` runs.
+  - **Strict Slot-Based Clamping:**
+    - Replaced container-height clamping with individual slot bounds: `minOffset = -currentIndex * slotHeightPx` and `maxOffset = (size - 1 - currentIndex) * slotHeightPx`.
+  - **Hybrid Gesture Architecture:**
+    - Instant drag on drag handle (`≡`) with immediate touch consumption.
+    - 200ms hold-to-drag guard on the rest of the row, preserving instant responsiveness for edit and delete child buttons.
+  - **Comprehensive Unit Testing:**
+    - Added 3 new unit tests in `SearchEngineReorderStateTest.kt`:
+      - `dragInterruption_newDragDuringDropBounce_instantlyCommitsPendingDropAndStartsNewDrag`
+      - `multipleConsecutiveDragsWithoutPassingList_updatesAuthoritativeCurrentList`
+      - `strictClamping_preventsDraggingBeyondBoxBoundaries`
+    - Full test suite `:app:testDebugUnitTest` (all 33 tasks, 690+ tests) passing green.
+- **Current State:**
+  - Branch: `refactor/fast-switching-search`
+  - Reordering in search engine dropdown is rock-solid across rapid, consecutive drags with zero boundary escapes or order desyncs.
+- **Key Architectural Decisions:**
+  - `SearchEngineReorderState` manages `currentList` internally, guaranteeing that gesture handlers, sibling displacement, and render loops always reference the most current post-reorder ordering even when `engine.id` keys do not recompose.
+  - Rapidly starting a drag while a drop bounce animation is in progress immediately snaps the previous item to its target position and commits the state without animation delay or state corruption.
+
+
 

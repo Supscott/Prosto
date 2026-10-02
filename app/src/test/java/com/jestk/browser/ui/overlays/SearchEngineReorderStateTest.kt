@@ -311,4 +311,124 @@ class SearchEngineReorderStateTest {
         // Dragged item itself has 0 sibling offset
         assertEquals(0f, state.getSiblingTargetOffset(SearchEngine.GOOGLE.id, list), 0.001f)
     }
+
+    @Test
+    fun dragInterruption_newDragDuringDropBounce_instantlyCommitsPendingDropAndStartsNewDrag() = runTest(testFrameClock) {
+        var persistedList: List<SearchEngine>? = null
+        val state = SearchEngineReorderState(
+            slotHeightPx = 48f,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING),
+            onReorder = { persistedList = it }
+        )
+
+        // 1st drag: Move Google (index 0) to slot 2
+        state.onDragStart(SearchEngine.GOOGLE.id)
+        state.onDrag(100f)
+        assertEquals(2, state.targetIndex)
+
+        // Release to start drop animation (dropAnim starts bouncing)
+        state.onDragEnd()
+        assertTrue(state.isDropping)
+
+        // Immediately start 2nd drag before drop animation completes!
+        state.onDragStart(SearchEngine.DUCKDUCKGO.id)
+
+        // Previous drop must have been committed instantly!
+        assertFalse(state.isDropping)
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BING, SearchEngine.GOOGLE), state.currentList)
+        assertEquals(state.currentList, persistedList)
+
+        // And new drag must be active on DUCKDUCKGO at index 0
+        assertEquals(SearchEngine.DUCKDUCKGO.id, state.draggingEngineId)
+        assertEquals(0, state.draggingIndex)
+
+        // Drag DuckDuckGo down to slot 1
+        state.onDrag(50f)
+        assertEquals(1, state.targetIndex)
+        state.onDragEnd()
+
+        testScheduler.advanceUntilIdle()
+
+        // Final list: [BING, DUCKDUCKGO, GOOGLE]
+        assertEquals(listOf(SearchEngine.BING, SearchEngine.DUCKDUCKGO, SearchEngine.GOOGLE), state.currentList)
+        assertEquals(state.currentList, persistedList)
+    }
+
+    @Test
+    fun multipleConsecutiveDragsWithoutPassingList_updatesAuthoritativeCurrentList() = runTest(testFrameClock) {
+        var persistedList: List<SearchEngine>? = null
+        val state = SearchEngineReorderState(
+            slotHeightPx = 48f,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING),
+            onReorder = { persistedList = it }
+        )
+
+        // 1. Move Google to slot 2
+        state.onDragStart(SearchEngine.GOOGLE.id)
+        state.onDrag(100f)
+        state.onDragEnd()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BING, SearchEngine.GOOGLE), state.currentList)
+
+        // 2. Move Google back to slot 0
+        state.onDragStart(SearchEngine.GOOGLE.id)
+        assertEquals(2, state.draggingIndex) // dynamic lookup in authoritative list!
+        state.onDrag(-100f)
+        assertEquals(0, state.targetIndex)
+        state.onDragEnd()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING), state.currentList)
+
+        // 3. Move Bing to slot 1
+        state.onDragStart(SearchEngine.BING.id)
+        assertEquals(2, state.draggingIndex)
+        state.onDrag(-48f)
+        assertEquals(1, state.targetIndex)
+        state.onDragEnd()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.BING, SearchEngine.DUCKDUCKGO), state.currentList)
+        assertEquals(state.currentList, persistedList)
+    }
+
+    @Test
+    fun strictClamping_preventsDraggingBeyondBoxBoundaries() = runTest(testFrameClock) {
+        val state = SearchEngineReorderState(
+            slotHeightPx = 48f,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING),
+            onReorder = {}
+        )
+
+        // Index 0: can only drag down, never up
+        state.onDragStart(SearchEngine.GOOGLE.id)
+        state.onDrag(-200f)
+        assertEquals(0f, state.dragOffsetY, 0.001f)
+        state.onDrag(500f)
+        assertEquals(96f, state.dragOffsetY, 0.001f) // clamped to maxOffset = 2 * 48 = 96
+        state.onDragCancel()
+        testScheduler.advanceUntilIdle()
+
+        // Index 2: can only drag up, never down
+        state.onDragStart(SearchEngine.BING.id)
+        state.onDrag(200f)
+        assertEquals(0f, state.dragOffsetY, 0.001f)
+        state.onDrag(-500f)
+        assertEquals(-96f, state.dragOffsetY, 0.001f) // clamped to minOffset = -2 * 48 = -96
+        state.onDragCancel()
+        testScheduler.advanceUntilIdle()
+
+        // Index 1 (middle): can drag ±48px
+        state.onDragStart(SearchEngine.DUCKDUCKGO.id)
+        state.onDrag(-200f)
+        assertEquals(-48f, state.dragOffsetY, 0.001f)
+        state.onDrag(500f)
+        assertEquals(48f, state.dragOffsetY, 0.001f)
+        state.onDragCancel()
+        testScheduler.advanceUntilIdle()
+    }
 }
