@@ -1753,9 +1753,18 @@ fun SearchEngineDropdownCard(
                                 } else {
                                     Modifier.pointerInput(engine.id) {
                                         awaitEachGesture {
-                                            if (reorderState.isDragging || reorderState.isDropping) return@awaitEachGesture
                                             val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                                             val pointerId = down.id
+
+                                            // If another item is already dragging or dropping, ignore until released
+                                            if (reorderState.isDragging || reorderState.isDropping) {
+                                                while (true) {
+                                                    val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                                                    val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                                                    if (!change.pressed) break
+                                                }
+                                                return@awaitEachGesture
+                                            }
 
                                             // Hold detection: wait up to 200ms while finger remains pressed
                                             val holdTriggered = withTimeoutOrNull(200L) {
@@ -1774,7 +1783,11 @@ fun SearchEngineDropdownCard(
 
                                                 while (true) {
                                                     val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                                                    val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                                                    val change = event.changes.firstOrNull { it.id == pointerId }
+                                                    if (change == null) {
+                                                        reorderState.onDragCancel()
+                                                        break
+                                                    }
                                                     if (!change.pressed) {
                                                         change.consume()
                                                         reorderState.onDragEnd(currentList) { updated -> currentList = updated }
