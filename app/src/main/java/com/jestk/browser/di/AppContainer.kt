@@ -30,6 +30,7 @@ interface AppContainer {
     val favoriteRepository: FavoriteRepository
     val settingsRepository: SettingsRepository
     val recentTabRepository: RecentTabRepository
+    val downloadRepository: DownloadRepository
     val downloadManager: HoriDownloadManager
     val searchEngineRepository: SearchEngineRepository
     val webViewPool: WebViewPool
