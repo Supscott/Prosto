@@ -137,3 +137,23 @@ fun com.jestk.browser.domain.model.DownloadItem.toEntity(): com.jestk.browser.da
     downloadId = downloadId
 )
 
+fun com.jestk.browser.data.local.entity.SearchEngineEntity.toDomain(): com.jestk.browser.domain.model.SearchEngine = com.jestk.browser.domain.model.SearchEngine(
+    id = id,
+    displayName = displayName,
+    searchUrlTemplate = searchUrlTemplate,
+    iconUrl = iconUrl,
+    shortcut = shortcut,
+    orderPosition = orderPosition,
+    isBuiltIn = isBuiltIn
+)
+
+fun com.jestk.browser.domain.model.SearchEngine.toEntity(): com.jestk.browser.data.local.entity.SearchEngineEntity = com.jestk.browser.data.local.entity.SearchEngineEntity(
+    id = id,
+    displayName = displayName,
+    searchUrlTemplate = searchUrlTemplate,
+    iconUrl = iconUrl,
+    shortcut = shortcut,
+    orderPosition = orderPosition,
+    isBuiltIn = isBuiltIn
+)
+

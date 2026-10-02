@@ -72,6 +72,18 @@ sealed interface BrowserUiEvent {
     data class SetSearchEngine(val engine: SearchEngine) : BrowserUiEvent
     data class SetAdBlockerEnabled(val enabled: Boolean) : BrowserUiEvent
 
+    // Search Engine Management
+    data class ShowAddSearchEngineDialog(val engineToEdit: SearchEngine? = null) : BrowserUiEvent
+    data object DismissAddSearchEngineDialog : BrowserUiEvent
+    data class SaveSearchEngine(
+        val id: String?,
+        val title: String,
+        val shortcut: String?,
+        val urlTemplate: String
+    ) : BrowserUiEvent
+    data class DeleteSearchEngine(val id: String) : BrowserUiEvent
+    data class ReorderSearchEngines(val orderedEngines: List<SearchEngine>) : BrowserUiEvent
+
     // Dynamic UI Translation
     data class OnWebScroll(
         val deltaY: Float,

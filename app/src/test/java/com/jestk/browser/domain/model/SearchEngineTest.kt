@@ -87,4 +87,34 @@ class SearchEngineTest {
         assertThat(SearchEngine.findMatchingEngineAndQuery("")).isNull()
         assertThat(SearchEngine.findMatchingEngineAndQuery(null)).isNull()
     }
+
+    @Test
+    fun customSearchEngine_buildSearchUrlAndMatchesUrl() {
+        val youtube = SearchEngine(
+            id = "custom_youtube",
+            displayName = "YouTube",
+            searchUrlTemplate = "https://www.youtube.com/results?search_query=%s",
+            iconUrl = "https://www.youtube.com/favicon.ico",
+            shortcut = "y",
+            orderPosition = 3,
+            isBuiltIn = false
+        )
+
+        assertThat(youtube.buildSearchUrl("lofi hip hop")).isEqualTo("https://www.youtube.com/results?search_query=lofi+hip+hop")
+        assertThat(youtube.matchesUrl("https://www.youtube.com/results?search_query=lofi")).isTrue()
+        assertThat(youtube.extractQuery("https://www.youtube.com/results?search_query=lofi+hip+hop")).isEqualTo("lofi hip hop")
+
+        val engines = SearchEngine.DEFAULT_ENGINES + youtube
+        val match = SearchEngine.findMatchingEngineAndQuery("https://www.youtube.com/results?search_query=lofi+music", engines)
+        assertThat(match).isNotNull()
+        assertThat(match?.first?.displayName).isEqualTo("YouTube")
+        assertThat(match?.second).isEqualTo("lofi music")
+    }
+
+    @Test
+    fun defaultEngines_haveExpectedShortcuts() {
+        assertThat(SearchEngine.GOOGLE.shortcut).isEqualTo("g")
+        assertThat(SearchEngine.DUCKDUCKGO.shortcut).isEqualTo("d")
+        assertThat(SearchEngine.BING.shortcut).isEqualTo("b")
+    }
 }

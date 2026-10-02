@@ -565,3 +565,78 @@
   - Attach WebKit clients (`WebChromeClient`, `WebViewClient`) synchronously at the moment of `WebView` instantiation (`onWebViewCreated`) rather than waiting for Compose `AndroidView.factory` layout pass.
   - Invalidate Coil bitmap cache by producing timestamped URI paths (`favicon_${tabId}_${timestamp}.png`) rather than overwriting static files in-place.
   - Immediately clear favicon state on cross-domain navigation while preserving it for intra-domain page changes.
+
+### Session: Custom Search Providers, Dynamic Reordering, and Shortcut Search Execution
+
+- **Completed:**
+  - **Dynamic Search Engine Architecture:**
+    - Converted `SearchEngine` from fixed `enum` to an extensible data class with companion constants (`DUCKDUCKGO`, `GOOGLE`, `BING`, `DEFAULT_ENGINES`) and `@JvmField` / `@JvmStatic` annotations for Java interop.
+    - Added Room persistence via `SearchEngineEntity`, `SearchEngineDao`, and `SearchEngineRepositoryImpl` (Room DB bumped to version 5 with automatic default engine seeding).
+    - Repository and Room layer support full CRUD, order position queries, and case-insensitive shortcut lookup.
+  - **Real-Time Shortcut Search Execution:**
+    - Integrated real-time shortcut detection in `HeroSearchInputField`: typing `<shortcut> ` (e.g. `g `, `d `, `b `, or custom shortcuts like `y `) immediately switches the active search engine badge/carousel and clears the prefix from the input field.
+    - Added fallback shortcut detection on query submission in `BrowserViewModel.loadUrl` for pasted queries (e.g. `g android architecture` directly dispatches to Google search and sets the active engine).
+  - **Custom Search Provider Modal (`AddEditSearchEngineDialog`):**
+    - Built modal with 3 inputs: Title, Shortcut (optional), and URL Template (prefilled with `https://`).
+    - Added inline `%s` check, shortcut uniqueness validation against existing engines, and informational helper card: `Write the search url and replace the query with %s.\n\nFor example: https://youtube.com/search?q=%s.`.
+    - Integrated immediate favicon preview using `FaviconManager.toImageModel()` and automatic favicon resolution from domain.
+    - Wired dialog into `JestkApp.kt`, `SearchOverlay.kt`, and `SettingsScreen.kt`.
+  - **Interactive Search Engine Dropdown (`SearchEngineDropdownCard`):**
+    - Added bottom flex row with Edit (pencil) and Add (+) buttons.
+    - Edit mode reveals a drag handle (`=`) and edit pencil on the left, shortcut badge and delete trash can on the right, and transforms the bottom row into a full-width "Done" button.
+    - Supported reordering with haptic feedback, inline editing, and deletion (with safety guard preventing deleting the last engine).
+  - **Settings Integration:**
+    - Updated `SettingsScreen.kt` Search Engine dropdown to render dynamic providers with shortcuts.
+    - Added "Add Search Engine" action row in the settings group card.
+  - **Testing & Visual Verification:**
+    - Added comprehensive unit tests in `SearchEngineDaoTest.kt`, `SearchEngineRepositoryTest.kt`, `SearchProviderViewModelTest.kt`, and `SearchEngineTest.kt` covering CRUD, reordering, shortcut dispatch, and fallback behavior.
+    - Created `AddEditSearchEngineDialogPreviewTest.kt` producing visual PNG previews for Light/Dark themes and Normal/Edit modes (`add_edit_search_engine_dialog_preview.png`, `search_engine_dropdown_card_preview.png`).
+    - Executed full test suite (`:app:testDebugUnitTest`) with 690+ tests passing 100% green.
+- **Current State:**
+  - Branch: `search-providers`
+  - All unit, DAO, repository, ViewModel, and Robolectric visual preview tests passing green.
+- **Key Architectural Decisions:**
+  - Converting `SearchEngine` to an open data class with `@JvmField` and `@JvmStatic` companion members maintained 100% backward compatibility with all legacy Java and Kotlin test suites while unlocking database-backed custom providers.
+  - Safely extract host from search URL templates containing `%s` without failing RFC 2396 URI parsing (`searchUrlTemplate.replace("%s", "placeholder")`).
+  - Resolve dynamic search engines against `state.searchEngines` inside `BrowserViewModel`'s settings collector so custom providers persist across app restarts and updates.
+
+### Session: Fix Pre-Installed Search Engine Favicon Display
+
+- **Completed:**
+  - Diagnosed and fixed the bug where pre-installed search engines (Google, DuckDuckGo, Bing) did not display their favicons/SVGs, rendering only fallback initial letter glyphs ("D", "G", "B").
+  - **Asset URI Resolution in FaviconManager:**
+    - Root cause: `FaviconManager.toImageModel()` stripped `"file://"` and returned `java.io.File("/android_asset/...")` for built-in engines. APK assets do not exist on the Linux filesystem root, causing Coil's `FileFetcher` to fail with `FileNotFoundException`.
+    - Fix: Updated `FaviconManager.toImageModel()` to intercept `file:///android_asset/` and `/android_asset/` and return `Uri.parse(urlOrPath)` directly. This routes the request to Coil's `AssetUriFetcher` which reads from APK asset resources via `context.assets.open(...)`.
+  - **Immediate Rendering in SearchEngineBadge:**
+    - Replaced `.crossfade(true)` with `.crossfade(false)` in `SearchEngineBadge`'s `ImageRequest.Builder` to prevent transparent initial frames and animation flicker.
+  - **Tests & Verification:**
+    - Added assertions to `FaviconManagerTest.toImageModel_handlesNullBlankLocalAndRemotePaths` verifying that asset URLs return `android.net.Uri` instances.
+    - Updated `SearchOverlayPreviewTest` and `AddEditSearchEngineDialogPreviewTest` to idle the looper and ensure asynchronous image decodes complete before preview capture.
+    - Verified generated visual PNG artifacts (`search_badges_preview.png`, `search_engine_dropdown_card_preview.png`, `search_overlay_dropdown_open_preview.png`, `search_overlay_preview.png`), confirming that DuckDuckGo, Google, and Bing SVG favicons render crisply across light and dark themes.
+    - Full test suite (`:app:testDebugUnitTest`) executed with all 690+ tests passing 100% green.
+- **Current State:**
+  - Branch: `search-providers`
+  - Pre-installed search engines and custom search providers both render favicons properly.
+- **Key Architectural Decisions:**
+  - Always map Android asset paths (`file:///android_asset/...`) to `android.net.Uri` rather than `java.io.File` so image loaders utilize `AssetUriFetcher` rather than `FileFetcher`.
+  - Disable crossfade transitions on small icon/badge composables to ensure instantaneous rendering without visual delay.
+
+### Session: Scroll Animation to Search Engine on Shortcut
+
+- **Completed:**
+  - Added smooth animated scrolling to the selected search engine in `SearchEngineCarouselState` when triggered via shortcut search (e.g. typing `g `, `d `, `b `, or custom shortcuts like `y `) and dropdown selection.
+  - **Shortest Circular Distance Algorithm:**
+    - Evaluates circular distance in `SearchEngineCarouselState.animateToEngine`: calculates shortest path (`(targetIndex - currentIndex).mod(size)`) in forward or backward directions so the carousel takes the most natural, shortest scroll path.
+  - **Organic Spring Physics & Haptics:**
+    - Drives the carousel transition using a spring animation (`dampingRatio = 0.85f`, `stiffness = Spring.StiffnessMediumLow`).
+    - Fires tactile haptic ticks (`HapticFeedbackType.TextHandleMove`) for each slot traversed during the animation.
+    - Synchronously sets `isFlinging = true` and updates settings so queries submitted immediately during the animation execute with the chosen engine without delay.
+  - **Tests & Verification:**
+    - Added unit tests in `SearchOverlayPreviewTest` (`testAnimateToEngineForwardAndBackward`, `testAnimateToEngineWithCustomEngines`) verifying forward, backward, wrap-around circular motion, haptic emission, and custom engine traversal.
+    - Full project test suite (`:app:testDebugUnitTest`) executed with 100% pass rate.
+- **Current State:**
+  - Branch: `search-providers`
+  - Carousel smoothly animates to matched engine upon shortcut entry.
+- **Key Architectural Decisions:**
+  - Set `isFlinging = true` synchronously outside the launched coroutine so UI state masks (fade alpha and arrow hiding) respond immediately to shortcut entry.
+

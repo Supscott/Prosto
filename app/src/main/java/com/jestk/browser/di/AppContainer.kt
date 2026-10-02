@@ -17,6 +17,8 @@ import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
+import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
+import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 
@@ -28,6 +30,7 @@ interface AppContainer {
     val settingsRepository: SettingsRepository
     val recentTabRepository: RecentTabRepository
     val downloadRepository: DownloadRepository
+    val searchEngineRepository: SearchEngineRepository
     val webViewPool: WebViewPool
     val viewModelFactory: ViewModelProvider.Factory
 }
@@ -66,6 +69,10 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         RecentTabRepositoryImpl(database.recentTabDao())
     }
 
+    override val searchEngineRepository: SearchEngineRepository by lazy {
+        SearchEngineRepositoryImpl(database.searchEngineDao())
+    }
+
     override val viewModelFactory: ViewModelProvider.Factory = viewModelFactory {
         initializer {
             BrowserViewModel(
@@ -75,6 +82,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
                 settingsRepository = settingsRepository,
                 recentTabRepository = recentTabRepository,
                 downloadRepository = downloadRepository,
+                searchEngineRepository = searchEngineRepository,
                 context = context.applicationContext,
                 webViewPool = webViewPool
             )
