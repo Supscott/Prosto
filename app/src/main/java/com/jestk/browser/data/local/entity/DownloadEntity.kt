@@ -8,7 +8,8 @@ import androidx.room.PrimaryKey
     tableName = "downloads",
     indices = [
         Index(value = ["timestamp"]),
-        Index(value = ["downloadId"])
+        Index(value = ["downloadId"]),
+        Index(value = ["status"])
     ]
 )
 data class DownloadEntity(
@@ -20,5 +21,10 @@ data class DownloadEntity(
     val mimeType: String?,
     val contentLength: Long,
     val timestamp: Long = System.currentTimeMillis(),
-    val downloadId: Long = -1
+    val downloadId: Long = -1,
+    val status: String = "COMPLETED",
+    val bytesDownloaded: Long = 0L,
+    val totalBytes: Long = 0L,
+    val errorMessage: String? = null,
+    val etag: String? = null
 )

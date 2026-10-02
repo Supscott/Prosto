@@ -18,6 +18,7 @@ import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.engine.download.HoriDownloadManager
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 
 interface AppContainer {
@@ -28,6 +29,7 @@ interface AppContainer {
     val settingsRepository: SettingsRepository
     val recentTabRepository: RecentTabRepository
     val downloadRepository: DownloadRepository
+    val downloadManager: HoriDownloadManager
     val webViewPool: WebViewPool
     val viewModelFactory: ViewModelProvider.Factory
 }
@@ -42,8 +44,12 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         DownloadRepositoryImpl(database.downloadDao())
     }
 
+    override val downloadManager: HoriDownloadManager by lazy {
+        HoriDownloadManager.getInstance(context, downloadRepository)
+    }
+
     override val webViewPool: WebViewPool by lazy {
-        WebViewPool(context.applicationContext, downloadRepository)
+        WebViewPool(context.applicationContext, downloadRepository, downloadManager)
     }
 
     override val tabRepository: TabRepository by lazy {
@@ -75,6 +81,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
                 settingsRepository = settingsRepository,
                 recentTabRepository = recentTabRepository,
                 downloadRepository = downloadRepository,
+                downloadManager = downloadManager,
                 context = context.applicationContext,
                 webViewPool = webViewPool
             )

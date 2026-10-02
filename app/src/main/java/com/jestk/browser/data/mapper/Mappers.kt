@@ -123,7 +123,12 @@ fun com.jestk.browser.data.local.entity.DownloadEntity.toDomain(): com.jestk.bro
     mimeType = mimeType,
     contentLength = contentLength,
     timestamp = timestamp,
-    downloadId = downloadId
+    downloadId = downloadId,
+    status = runCatching { com.jestk.browser.domain.model.DownloadStatus.valueOf(status) }.getOrDefault(com.jestk.browser.domain.model.DownloadStatus.COMPLETED),
+    bytesDownloaded = bytesDownloaded,
+    totalBytes = if (totalBytes > 0L) totalBytes else contentLength,
+    errorMessage = errorMessage,
+    etag = etag
 )
 
 fun com.jestk.browser.domain.model.DownloadItem.toEntity(): com.jestk.browser.data.local.entity.DownloadEntity = com.jestk.browser.data.local.entity.DownloadEntity(
@@ -134,6 +139,11 @@ fun com.jestk.browser.domain.model.DownloadItem.toEntity(): com.jestk.browser.da
     mimeType = mimeType,
     contentLength = contentLength,
     timestamp = timestamp,
-    downloadId = downloadId
+    downloadId = downloadId,
+    status = status.name,
+    bytesDownloaded = bytesDownloaded,
+    totalBytes = totalBytes,
+    errorMessage = errorMessage,
+    etag = etag
 )
 

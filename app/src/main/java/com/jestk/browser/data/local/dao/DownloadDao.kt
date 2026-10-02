@@ -19,6 +19,18 @@ interface DownloadDao {
     @Query("SELECT * FROM downloads WHERE id = :id")
     suspend fun getDownloadById(id: Long): DownloadEntity?
 
+    @Query("UPDATE downloads SET status = :status, bytesDownloaded = :bytesDownloaded, totalBytes = :totalBytes WHERE id = :id")
+    suspend fun updateProgress(id: Long, status: String, bytesDownloaded: Long, totalBytes: Long)
+
+    @Query("UPDATE downloads SET status = :status, errorMessage = :errorMessage WHERE id = :id")
+    suspend fun updateStatus(id: Long, status: String, errorMessage: String? = null)
+
+    @Query("UPDATE downloads SET filePath = :filePath, fileName = :fileName WHERE id = :id")
+    suspend fun updateFilePath(id: Long, filePath: String, fileName: String)
+
+    @Query("SELECT * FROM downloads WHERE status IN ('PENDING', 'DOWNLOADING', 'PAUSED') ORDER BY timestamp ASC")
+    suspend fun getActiveOrPendingDownloads(): List<DownloadEntity>
+
     @Query("DELETE FROM downloads WHERE id = :id")
     suspend fun deleteDownloadById(id: Long)
 

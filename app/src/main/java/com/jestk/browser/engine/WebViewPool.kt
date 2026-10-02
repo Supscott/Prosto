@@ -2,7 +2,6 @@ package com.jestk.browser.engine
 
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.DownloadManager
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.MutableContextWrapper
@@ -23,10 +22,13 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.repository.DownloadRepository
+import com.jestk.browser.engine.download.DownloadFileNameResolver
+import com.jestk.browser.engine.download.HoriDownloadManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
@@ -43,7 +45,8 @@ fun Context.findActivity(): Activity? {
 
 class WebViewPool(
     private val applicationContext: Context,
-    var downloadRepository: DownloadRepository? = null
+    var downloadRepository: DownloadRepository? = null,
+    var downloadManager: HoriDownloadManager? = null
 ) {
 
     companion object {
@@ -311,69 +314,35 @@ class WebViewPool(
         }
 
         try {
-            val rawFileName = URLUtil.guessFileName(url, contentDisposition, mimeType)
-            val fileName = File(rawFileName).name.replace(Regex("[^a-zA-Z0-9._-]"), "_").ifBlank { "download_${System.currentTimeMillis()}" }
-            val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            if (!downloadDir.exists()) {
-                downloadDir.mkdirs()
+            val fileName = DownloadFileNameResolver.resolveFileName(url, contentDisposition, mimeType)
+            val downloadMgr = downloadManager ?: downloadRepository?.let {
+                HoriDownloadManager.getInstance(applicationContext, it)
             }
-            val file = File(downloadDir, fileName)
-            if (!file.canonicalPath.startsWith(downloadDir.canonicalPath)) {
-                throw SecurityException("Path traversal attempt detected")
-            }
-            val filePath = file.absolutePath
-
-            var downloadId = -1L
-            val dm = targetContext.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
-            if (dm != null) {
-                val request = DownloadManager.Request(Uri.parse(url)).apply {
-                    if (!mimeType.isNullOrEmpty()) {
-                        setMimeType(mimeType)
-                    }
-                    if (!userAgent.isNullOrEmpty()) {
-                        addRequestHeader("User-Agent", userAgent)
-                    }
-                    try {
-                        val cookies = CookieManager.getInstance().getCookie(url)
-                        if (!cookies.isNullOrEmpty()) {
-                            addRequestHeader("Cookie", cookies)
-                        }
-                    } catch (t: Throwable) {
-                        Log.w("HoriEngine", "Failed to retrieve cookies for download request", t)
-                    }
-                    setDescription("Downloading file...")
-                    setTitle(fileName)
-                    setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                    setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, fileName)
-                }
-                downloadId = dm.enqueue(request)
-            }
+            val refererUrl = try { webView?.url } catch (_: Throwable) { null }
 
             Toast.makeText(targetContext, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
 
-            val downloadItem = DownloadItem(
-                url = url,
-                fileName = fileName,
-                filePath = filePath,
-                mimeType = mimeType,
-                contentLength = contentLength,
-                timestamp = System.currentTimeMillis(),
-                downloadId = downloadId
-            )
-            onDownloadStarted?.invoke(downloadItem)
-
-            coroutineScope.launch {
-                try {
-                    downloadRepository?.recordDownload(
-                        url = url,
-                        fileName = fileName,
-                        filePath = filePath,
-                        mimeType = mimeType,
-                        contentLength = contentLength,
-                        downloadId = downloadId
-                    )
-                } catch (t: Throwable) {
-                    Log.w("HoriEngine", "Failed to record download in repository", t)
+            if (downloadMgr != null) {
+                coroutineScope.launch {
+                    try {
+                        val downloadId = downloadMgr.enqueueDownload(
+                            url = url,
+                            userAgent = userAgent,
+                            contentDisposition = contentDisposition,
+                            mimeType = mimeType,
+                            contentLength = contentLength,
+                            referer = refererUrl,
+                            customFileName = fileName
+                        )
+                        val item = downloadRepository?.getDownloadById(downloadId)
+                        if (item != null) {
+                            withContext(Dispatchers.Main) {
+                                onDownloadStarted?.invoke(item)
+                            }
+                        }
+                    } catch (t: Throwable) {
+                        Log.e("HoriEngine", "Failed to enqueue download", t)
+                    }
                 }
             }
         } catch (e: Throwable) {
@@ -394,93 +363,27 @@ class WebViewPool(
         context: Context
     ) {
         val targetContext = context.findActivity() ?: applicationContext
-        try {
-            val commaIndex = url.indexOf(',')
-            if (commaIndex == -1) {
-                Toast.makeText(targetContext, "Download failed: Invalid data URL", Toast.LENGTH_SHORT).show()
-                return
-            }
-            val metadata = url.substring(5, commaIndex)
-            val base64Data = url.substring(commaIndex + 1)
-            val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+        val downloadMgr = downloadManager ?: downloadRepository?.let {
+            HoriDownloadManager.getInstance(applicationContext, it)
+        }
 
-            val metaMime = metadata.substringBefore(';').trim().ifEmpty { null }
-            val resolvedMime = metaMime ?: mimeType ?: "application/octet-stream"
-
-            val ext = MimeTypeMap.getSingleton().getExtensionFromMimeType(resolvedMime)
-                ?: when {
-                    resolvedMime.startsWith("image/png") -> "png"
-                    resolvedMime.startsWith("image/jpeg") || resolvedMime.startsWith("image/jpg") -> "jpg"
-                    resolvedMime.startsWith("image/webp") -> "webp"
-                    resolvedMime.startsWith("image/gif") -> "gif"
-                    resolvedMime.startsWith("image/svg") -> "svg"
-                    resolvedMime.contains("pdf") -> "pdf"
-                    else -> "png"
-                }
-
-            val guessed = URLUtil.guessFileName(url, contentDisposition, resolvedMime)
-            val rawName = if (!guessed.isNullOrBlank() && guessed != "downloadfile" && !guessed.startsWith("downloadfile.") && guessed != "data" && !guessed.endsWith(".bin")) {
-                guessed
-            } else {
-                val prefix = if (resolvedMime.startsWith("image/")) "image" else "download"
-                "${prefix}_${System.currentTimeMillis()}.$ext"
-            }
-            val sanitizedName = File(rawName).name.replace(Regex("[^a-zA-Z0-9._-]"), "_").ifBlank { "download_${System.currentTimeMillis()}.$ext" }
-
-            val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            if (!downloadDir.exists()) {
-                downloadDir.mkdirs()
-            }
-            var destFile = File(downloadDir, sanitizedName)
-            if (!destFile.canonicalPath.startsWith(downloadDir.canonicalPath)) {
-                throw SecurityException("Path traversal attempt detected")
-            }
-            if (destFile.exists()) {
-                val base = sanitizedName.substringBeforeLast('.')
-                val extension = sanitizedName.substringAfterLast('.', "")
-                val extStr = if (extension.isNotEmpty()) ".$extension" else ""
-                destFile = File(downloadDir, "${base}_${System.currentTimeMillis()}$extStr")
-                if (!destFile.canonicalPath.startsWith(downloadDir.canonicalPath)) {
-                    throw SecurityException("Path traversal attempt detected")
-                }
-            }
-            destFile.writeBytes(bytes)
-            val finalFileName = destFile.name
-            val filePath = destFile.absolutePath
-
-            Toast.makeText(targetContext, "Downloading $finalFileName...", Toast.LENGTH_SHORT).show()
-
-            val downloadItem = DownloadItem(
-                url = if (url.length > 2048) url.take(2048) + "..." else url,
-                fileName = finalFileName,
-                filePath = filePath,
-                mimeType = resolvedMime,
-                contentLength = bytes.size.toLong(),
-                timestamp = System.currentTimeMillis(),
-                downloadId = -1L
-            )
-            onDownloadStarted?.invoke(downloadItem)
-
+        if (downloadMgr != null) {
             coroutineScope.launch {
                 try {
-                    downloadRepository?.recordDownload(
-                        url = downloadItem.url,
-                        fileName = downloadItem.fileName,
-                        filePath = downloadItem.filePath,
-                        mimeType = downloadItem.mimeType,
-                        contentLength = downloadItem.contentLength,
-                        downloadId = downloadItem.downloadId
-                    )
-                } catch (t: Throwable) {
-                    Log.w("HoriEngine", "Failed to record data URL download in repository", t)
+                    val downloadId = downloadMgr.handleDataUrl(url, contentDisposition, mimeType)
+                    val item = downloadRepository?.getDownloadById(downloadId)
+                    if (item != null) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(targetContext, "Downloading ${item.fileName}...", Toast.LENGTH_SHORT).show()
+                            onDownloadStarted?.invoke(item)
+                        }
+                    }
+                } catch (e: Throwable) {
+                    Log.e("HoriEngine", "Data URL download failed", e)
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
                 }
-            }
-        } catch (e: Throwable) {
-            Log.e("HoriEngine", "Data URL download failed", e)
-            try {
-                Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
-            } catch (t: Throwable) {
-                Log.w("HoriEngine", "Failed to show data URL error toast", t)
             }
         }
     }

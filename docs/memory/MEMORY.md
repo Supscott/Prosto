@@ -543,3 +543,61 @@
 - **Key Architectural Decisions:**
   - `TextFieldValue` state is hoisted to `SearchOverlay` so that all input modifications (IME typing, history suggestions, voice recognition, clear) originate from the single source of truth without asynchronous state echo loops.
   - Custom capsule surfaces and search bars use `BasicTextField` with explicit vertical centering rather than Material 3 `OutlinedTextField` to avoid 56.dp container height constraints and outline label offset issues.
+
+### Session: Industrial Standard Download Engine & Bug Fixes
+
+- **Completed:**
+  - **Fixed MP3 .bin Extension & Filename Parsing:**
+    - Created [`DownloadFileNameResolver.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/download/DownloadFileNameResolver.kt) supporting RFC 6266 / RFC 5987 UTF-8 `filename*=` Content-Disposition headers.
+    - Preserved valid media extensions (`.mp3`, `.m4a`, `.flac`, `.wav`, `.mp4`, `.pdf`, `.zip`, `.apk`, etc.) regardless of server returning generic `application/octet-stream` or `binary/octet-stream` MIME types.
+    - Preserved international and Cyrillic filenames (e.g. `Любимая песня.mp3`) instead of stripping non-ASCII characters with overly aggressive regexes.
+    - Added automatic non-colliding duplicate file resolution `(1)`, `(2)` matching standard browser behavior.
+  - **Branded Hori Notifications & Foreground Service:**
+    - Replaced Android system `DownloadManager` with [`HoriDownloadService.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/download/HoriDownloadService.kt) running as a foreground service with `dataSync` type.
+    - Notifications are posted under the Hori branding with custom notification icon, live progress bar, speed, formatted progress text, and action buttons (`Pause`, `Resume`, `Cancel`, `Retry`, `Open`).
+    - Added `<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />`, `FOREGROUND_SERVICE_DATA_SYNC`, and `POST_NOTIFICATIONS` in `AndroidManifest.xml`.
+  - **Auto-Resume & Background Resilience:**
+    - Implemented streaming with HTTP `Range: bytes=X-` partial download resumption in [`HoriDownloadManager.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/download/HoriDownloadManager.kt) using `.crdownload` temporary files.
+    - Downloads survive when Hori is swiped away from Recents or unloaded from memory; sticky foreground service and database persistence ensure uninterrupted downloads.
+    - Propagated WebView cookies, User-Agent, and Referer headers to eliminate 403 Forbidden anti-hotlink failures.
+  - **Real-Time Reactive Progress & UI Refactor:**
+    - Replaced static `"Downloading..."` with dynamic formatted size `"14.2 MB / 45.0 MB (31%)"`, falling back to `"14.2 MB"` if total size is unknown.
+    - Streamed live progress via `StateFlow` to [`DownloadsScreen.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/screens/DownloadsScreen.kt) with smooth progress bar updates.
+    - Implemented Pause, Resume, Cancel, Retry, and Delete controls on each download card.
+    - Deleting a download deletes both the database record and the physical file from disk.
+    - Completed downloads are indexed into Android `MediaScannerConnection` so they immediately appear in system file managers and media players.
+  - **Data Layer & Room Migration:**
+    - Bumped `AppDatabase` to version 5 with updated `DownloadEntity` (`status`, `bytesDownloaded`, `totalBytes`, `errorMessage`, `etag`).
+    - Added `DownloadStatus` enum and progress/status DAO queries in `DownloadDao`.
+  - **Testing & Visual Verification:**
+    - Created unit tests in [`DownloadFileNameResolverTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/engine/download/DownloadFileNameResolverTest.kt), [`DownloadDaoTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/data/local/DownloadDaoTest.kt), and [`DownloadRepositoryTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/data/repository/DownloadRepositoryTest.kt).
+    - Expanded [`BrowserViewModelDownloadsTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/viewmodel/BrowserViewModelDownloadsTest.kt) with download events and physical file deletion tests.
+    - Added `renderActiveDownloadsScreenPreview` in [`DownloadsScreenPreviewTest.kt`](file:///Users/ilya/CODING/browser/app/src/test/java/com/jestk/browser/ui/screens/DownloadsScreenPreviewTest.kt) and visually verified `build/downloads_active_preview.png`.
+    - All unit and visual tests pass 100% green (`:app:testDebugUnitTest`).
+- **Current State:**
+  - Branch: `fix-search-input`
+  - All unit and Robolectric tests passing green.
+- **Key Architectural Decisions:**
+  - Modern browsers must run their own foreground download service with persistent notifications rather than delegating to Android system `DownloadManager`, which lacks custom branding, fails on complex redirects/headers, doesn't support blob/data URLs natively, and provides no reactive progress streams.
+  - Incomplete downloads write to `.crdownload` temporary files and resume using HTTP `Range: bytes=X-` and `If-Range` headers.
+  - File names must be resolved with RFC 5987 / RFC 6266 UTF-8 decoders, preserving original media extensions even if the HTTP server returns `application/octet-stream`.
+
+### Session: Fix ForegroundServiceDidNotStartInTimeException, Runtime POST_NOTIFICATIONS & GitHub Redirects
+
+- **Completed:**
+  - **Eliminated Foreground Service Crash Loop:**
+    - Modified [`HoriDownloadService.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/download/HoriDownloadService.kt) to call `ensureForegroundStarted()` immediately at entry of `onStartCommand()`, satisfying Android's OS contract for `startForegroundService()` and eliminating `ForegroundServiceDidNotStartInTimeException`.
+    - Changed service return to `START_NOT_STICKY` to prevent infinite restart crashes.
+    - Updated [`HoriDownloadManager.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/download/HoriDownloadManager.kt) so `deleteDownload()` and `cancelDownload()` only interact with the service if the download was actually running, and use `startService()` for control signals.
+  - **Added Runtime Notification Permission (Android 13+):**
+    - Implemented `ActivityResultContracts.RequestPermission()` for `android.permission.POST_NOTIFICATIONS` in [`MainActivity.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/MainActivity.kt) on API 33+ so users can grant notification permissions and see status bar download progress.
+  - **Robust GitHub & Redirect Downloads:**
+    - Equipped `OkHttpClient` with an Android `CookieManager`-backed `CookieJar` so redirected domains (e.g. `github.com` -> `objects.githubusercontent.com`) automatically share cookies.
+    - Added fallback to mobile Chrome `User-Agent` and standard browser headers (`Accept`, `Accept-Language`, `Connection`) to prevent CDN blocks.
+    - Added dynamic refinement of destination filename if server specifies a `Content-Disposition` header upon redirect.
+  - **Database Migration Bump:**
+    - Bumped `AppDatabase` version to 6 so `fallbackToDestructiveMigration()` cleans up old/corrupted table states.
+  - Verified with full test suite `:app:testDebugUnitTest` (all tests passing) and built debug APK (`:app:assembleDebug`).
+- **Current State:**
+  - Branch: `fix-search-input`
+  - All tests passing, debug APK built and ready to install.

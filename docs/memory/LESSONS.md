@@ -214,3 +214,51 @@ This document tracks bugs encountered during development, their root causes, and
 - **Symptom:** Text inside the 52dp search input capsule had descenders ('g', 'j', 'p', 'q', 'y', '_') and bottom glyph bounds clipped.
 - **Root Cause:** The search pill wrapped Material 3 `OutlinedTextField` inside a container constrained to `52.dp`. Material 3's `OutlinedTextField` enforces a default `minHeight = 56.dp` and incorporates internal outline label content padding (`top = 8.dp`), shifting the baseline downward and pushing descending characters outside the single-line scroll clip bounds.
 - **Resolution & Prevention:** For custom pill or capsule surfaces where borders and backgrounds are already drawn by parent containers (e.g. `Surface(shape = CircleShape, border = border)`), use `BasicTextField` with `decorationBox` instead of `OutlinedTextField`. Combine `Modifier.weight(1f).fillMaxHeight()` and `Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.CenterStart)` to guarantee true vertical centering and unobstructed vertical breathing room without M3 min-height constraints.
+
+### Android URLUtil.guessFileName replaces MP3 and media extensions with .bin
+
+- **Date:** 2026-10-02
+- **Symptom:** Downloading MP3 audio files or media files resulted in filenames ending in `.bin` (e.g. `track.bin` instead of `track.mp3`).
+- **Root Cause:**
+  1. Most web download servers return `Content-Type: application/octet-stream` or `binary/octet-stream` on file downloads.
+  2. Android's internal `URLUtil.guessFileName(url, contentDisposition, mimeType)` checks if the extension derived from the filename matches `mimeType`. When the filename is `track.mp3` (`audio/mpeg`) but `mimeType` is `application/octet-stream`, `URLUtil` replaces the file's extension with `MimeTypeMap.getExtensionFromMimeType("application/octet-stream")`, which evaluates to `"bin"`.
+  3. Furthermore, `URLUtil.parseContentDisposition` does not support RFC 5987 / RFC 6266 `filename*=UTF-8''...` headers, and raw regex replacements stripped international/Cyrillic characters.
+- **Resolution & Prevention:** Implement a dedicated [`DownloadFileNameResolver`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/download/DownloadFileNameResolver.kt):
+  1. Parse RFC 5987 / 6266 UTF-8 encoded `filename*=` as well as RFC 2616 quoted/token `filename=`.
+  2. If the extracted filename already has a recognized media/file extension (e.g. `.mp3`, `.m4a`, `.flac`, `.pdf`, `.zip`, `.apk`), preserve it! Never allow generic `application/octet-stream` MIME types to overwrite known extensions with `.bin`.
+  3. Sanitize only filesystem-forbidden characters (`[\\/:*?"<>|]`), preserving Unicode and Cyrillic script.
+  4. Automatically resolve collisions with `filename (1).ext`, `filename (2).ext` instead of appending arbitrary timestamps.
+
+### System DownloadManager delegates notifications and fails on memory unload
+
+- **Date:** 2026-10-02
+- **Symptom:** Downloads showed "Download Manager" / "Диспетчер загрузок" in status bar notifications rather than "Hori"; downloads aborted when Hori was swiped away from Recents or cleared from memory; download progress did not update in real-time in the UI without re-opening the screen.
+- **Root Cause:**
+  1. Android's `DownloadManager` runs under system UID `com.android.providers.downloads`, which displays "Download Manager" in notification headers on Android 8.0+.
+  2. `DownloadManager` lacks referer headers from WebView tabs, causing hotlink-protected media downloads to fail with 403 Forbidden.
+  3. Hori had no Foreground Service or sticky background process, and in-memory download tracking was lost on process death.
+  4. `DownloadsScreen` used a one-shot `LaunchedEffect` that queried the system cursor once on composition without polling or listening to updates.
+- **Resolution & Prevention:**
+  1. Replace system `DownloadManager` with an in-app [`HoriDownloadService`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/download/HoriDownloadService.kt) (`android:foregroundServiceType="dataSync"`) and [`HoriDownloadManager`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/download/HoriDownloadManager.kt).
+  2. Post notifications directly under Hori's notification channel with Hori's app title, icon, and custom actions (`Pause`, `Resume`, `Cancel`, `Retry`, `Open`).
+  3. Stream downloads to `.crdownload` temporary files with HTTP `Range: bytes=X-` and `If-Range` resume support so interrupted downloads seamlessly continue.
+  4. Stream real-time progress via Kotlin `StateFlow<Map<Long, DownloadProgressInfo>>` updating every 150ms to `DownloadsScreen`, displaying dynamic `"14.2 MB / 45.0 MB (31%)"` and real-time progress bars.
+  5. Index completed files into Android `MediaScannerConnection` so they immediately appear in system media players and file managers.
+
+### ForegroundServiceDidNotStartInTimeException, Missing Runtime POST_NOTIFICATIONS & Redirect Downloads
+
+- **Date:** 2026-10-02
+- **Symptom:**
+  1. Tapping "Delete" on downloads caused `ForegroundServiceDidNotStartInTimeException` and crashed the app into a restart loop ("app won't open").
+  2. Status bar notification for downloading files was never shown.
+  3. GitHub downloads showed a "Downloading..." toast but failed to download.
+- **Root Cause:**
+  1. **Foreground Service Crash:** `startForegroundService` was invoked for `ACTION_CANCEL` when deleting an item. Because the item was not actively downloading, the service immediately called `checkFinishService() -> stopSelf()` without having called `startForeground()`. On Android 8.0+, calling `stopSelf()` before `startForeground()` causes the system to throw `ForegroundServiceDidNotStartInTimeException`. Furthermore, returning `START_STICKY` caused Android to restart the service on every app boot, creating an unrecoverable crash loop.
+  2. **Missing Runtime Permission:** On Android 13+ (API 33+), `Manifest.permission.POST_NOTIFICATIONS` is a runtime permission. Declaring it only in `AndroidManifest.xml` without runtime user prompt caused Android to silently drop all posted notifications.
+  3. **Redirect & User-Agent on GitHub:** GitHub download URLs (such as releases or archive zips) redirect from `github.com` to `objects.githubusercontent.com` / `codeload.github.com`. Cross-domain redirects require cookies from `CookieManager` to be retained across matching domains, standard browser `User-Agent` headers (servers reject `okhttp/*`), and refinements from server-provided `Content-Disposition`. Also, Room database schema mismatch occurred when `downloads` table columns changed without bumping the database version.
+- **Resolution & Prevention:**
+  1. In [`HoriDownloadService`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/download/HoriDownloadService.kt), call `ensureForegroundStarted()` immediately at entry of `onStartCommand()`, regardless of action. Return `START_NOT_STICKY` to prevent restart loops.
+  2. In [`HoriDownloadManager`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/download/HoriDownloadManager.kt), only notify the foreground service for cancel/delete if the job was actually running. For secondary actions, use `startService()` rather than `startForegroundService()`.
+  3. Add runtime `POST_NOTIFICATIONS` permission request via `ActivityResultContracts.RequestPermission()` in [`MainActivity`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/ui/MainActivity.kt) on API 33+.
+  4. Equip `OkHttpClient` with a `CookieJar` linked directly to Android's `CookieManager`, provide standard mobile Chrome fallback `User-Agent`, standard browser HTTP headers (`Accept`, `Accept-Language`, `Connection`), and dynamically refine destination filename from server `Content-Disposition`.
+  5. Bump Room database version to 6 in [`AppDatabase.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/data/local/AppDatabase.kt) so `fallbackToDestructiveMigration()` cleans up old table schemas.

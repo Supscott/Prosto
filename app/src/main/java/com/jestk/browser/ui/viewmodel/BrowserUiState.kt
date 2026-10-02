@@ -9,6 +9,7 @@ import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.engine.download.DownloadProgressInfo
 
 data class BrowserUiState(
     // Tabs & Sessions
@@ -41,6 +42,7 @@ data class BrowserUiState(
     val lastDownloadNotification: DownloadItem? = null,
     val showDownloadSnackbar: Boolean = false,
     val activeDownloadIds: Set<Long> = emptySet(),
+    val downloadProgressMap: Map<Long, DownloadProgressInfo> = emptyMap(),
     // Settings
     val settings: BrowserSettings = BrowserSettings(),
     // UI Dynamics & Gestures

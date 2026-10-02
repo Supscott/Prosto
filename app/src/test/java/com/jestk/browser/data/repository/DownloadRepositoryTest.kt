@@ -100,4 +100,36 @@ class DownloadRepositoryTest {
         val after = repository.getAllDownloads().first()
         assertThat(after).isEmpty()
     }
+
+    @Test
+    fun updateProgress_and_deleteWithPhysicalFile() = runTest(testDispatcher) {
+        val tempFile = java.io.File.createTempFile("test_download", ".mp3")
+        tempFile.writeText("sample audio content")
+        assertThat(tempFile.exists()).isTrue()
+
+        val id = repository.recordDownload(
+            url = "https://example.com/song.mp3",
+            fileName = tempFile.name,
+            filePath = tempFile.absolutePath,
+            mimeType = "audio/mpeg",
+            contentLength = tempFile.length()
+        )
+
+        repository.updateProgress(
+            id = id,
+            bytesDownloaded = 500L,
+            totalBytes = 1000L,
+            status = com.jestk.browser.domain.model.DownloadStatus.DOWNLOADING
+        )
+
+        val item = repository.getDownloadById(id)
+        assertThat(item?.status).isEqualTo(com.jestk.browser.domain.model.DownloadStatus.DOWNLOADING)
+        assertThat(item?.bytesDownloaded).isEqualTo(500L)
+
+        // Delete with physical file
+        repository.deleteDownload(id, deleteFile = true)
+
+        assertThat(repository.getDownloadById(id)).isNull()
+        assertThat(tempFile.exists()).isFalse()
+    }
 }

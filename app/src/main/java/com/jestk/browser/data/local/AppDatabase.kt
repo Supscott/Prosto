@@ -27,7 +27,7 @@ import com.jestk.browser.data.local.entity.TabEntity
         RecentTabEntity::class,
         DownloadEntity::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)

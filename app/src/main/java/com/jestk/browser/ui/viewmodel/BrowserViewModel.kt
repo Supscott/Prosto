@@ -18,6 +18,7 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.engine.download.HoriDownloadManager
 import com.jestk.browser.util.DefaultBrowserHelper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -48,6 +49,7 @@ class BrowserViewModel(
     private val settingsRepository: SettingsRepository,
     private val recentTabRepository: RecentTabRepository? = null,
     private val downloadRepository: DownloadRepository? = null,
+    private val downloadManager: HoriDownloadManager? = null,
     private val context: Context? = null,
     private val webViewPool: WebViewPool? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -259,6 +261,30 @@ class BrowserViewModel(
                 }
             }
         }
+
+        if (downloadManager != null) {
+            viewModelScope.launch(ioDispatcher) {
+                downloadManager.activeDownloads.collectLatest { progressMap ->
+                    _uiState.update { current ->
+                        current.copy(
+                            downloadProgressMap = progressMap,
+                            activeDownloadIds = progressMap.keys
+                        )
+                    }
+                }
+            }
+
+            viewModelScope.launch(ioDispatcher) {
+                downloadManager.completedDownloads.collectLatest { completedItem ->
+                    _uiState.update { current ->
+                        current.copy(
+                            lastDownloadNotification = completedItem,
+                            showDownloadSnackbar = true
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun onDownloadStarted(item: DownloadItem) {
@@ -400,13 +426,43 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.PauseDownload -> {
+                downloadManager?.pauseDownload(event.id)
+            }
+
+            is BrowserUiEvent.ResumeDownload -> {
+                downloadManager?.resumeDownload(event.id)
+            }
+
+            is BrowserUiEvent.CancelDownload -> {
+                downloadManager?.cancelDownload(event.id)
+                _uiState.update { current ->
+                    val shouldDismissSnackbar = current.lastDownloadNotification?.id == event.id
+                    current.copy(
+                        activeDownloadIds = current.activeDownloadIds - event.id,
+                        downloadProgressMap = current.downloadProgressMap - event.id,
+                        showDownloadSnackbar = if (shouldDismissSnackbar) false else current.showDownloadSnackbar,
+                        lastDownloadNotification = if (shouldDismissSnackbar) null else current.lastDownloadNotification,
+                    )
+                }
+            }
+
+            is BrowserUiEvent.RetryDownload -> {
+                downloadManager?.retryDownload(event.id)
+            }
+
             is BrowserUiEvent.DeleteDownload -> {
                 viewModelScope.launch(ioDispatcher) {
-                    downloadRepository?.deleteDownload(event.id)
+                    if (downloadManager != null) {
+                        downloadManager.deleteDownload(event.id, event.deleteFile)
+                    } else {
+                        downloadRepository?.deleteDownload(event.id, event.deleteFile)
+                    }
                     _uiState.update { current ->
                         val shouldDismissSnackbar = current.lastDownloadNotification?.id == event.id
                         current.copy(
                             activeDownloadIds = current.activeDownloadIds - event.id,
+                            downloadProgressMap = current.downloadProgressMap - event.id,
                             showDownloadSnackbar = if (shouldDismissSnackbar) false else current.showDownloadSnackbar,
                             lastDownloadNotification = if (shouldDismissSnackbar) null else current.lastDownloadNotification,
                         )

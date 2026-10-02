@@ -112,4 +112,31 @@ class DownloadDaoTest {
         val after = downloadDao.getAllDownloadsFlow().first()
         assertThat(after).isEmpty()
     }
+
+    @Test
+    fun updateProgress_and_updateStatus() = runTest {
+        val id = downloadDao.insertDownload(
+            DownloadEntity(
+                url = "https://example.com/audio.mp3",
+                fileName = "audio.mp3",
+                filePath = "/storage/emulated/0/Download/audio.mp3",
+                mimeType = "audio/mpeg",
+                contentLength = 10_000_000L,
+                status = "PENDING"
+            )
+        )
+
+        val pending = downloadDao.getActiveOrPendingDownloads()
+        assertThat(pending).hasSize(1)
+        assertThat(pending[0].status).isEqualTo("PENDING")
+
+        downloadDao.updateProgress(id, "DOWNLOADING", 5_000_000L, 10_000_000L)
+        val active = downloadDao.getDownloadById(id)
+        assertThat(active?.status).isEqualTo("DOWNLOADING")
+        assertThat(active?.bytesDownloaded).isEqualTo(5_000_000L)
+
+        downloadDao.updateStatus(id, "COMPLETED", null)
+        val completed = downloadDao.getDownloadById(id)
+        assertThat(completed?.status).isEqualTo("COMPLETED")
+    }
 }

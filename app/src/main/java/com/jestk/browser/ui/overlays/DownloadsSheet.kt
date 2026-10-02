@@ -2,9 +2,7 @@ package com.jestk.browser.ui.overlays
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import com.jestk.browser.ui.screens.DownloadsContent
 import com.jestk.browser.ui.screens.DownloadsScreen
-import com.jestk.browser.ui.screens.DownloadsSheet
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 

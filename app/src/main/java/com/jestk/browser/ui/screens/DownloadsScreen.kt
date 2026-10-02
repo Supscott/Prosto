@@ -1,6 +1,5 @@
 package com.jestk.browser.ui.screens
 
-import android.app.DownloadManager
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
@@ -37,6 +36,9 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VideoFile
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,11 +49,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,19 +57,18 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.jestk.browser.domain.model.DownloadItem
+import com.jestk.browser.domain.model.DownloadStatus
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.engine.download.DownloadProgressInfo
 import com.jestk.browser.ui.theme.DarkBackground
-import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.DarkOnSurface
-import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
-import com.jestk.browser.ui.theme.LocalIsDarkTheme
+import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalSereneTypography
 import com.jestk.browser.ui.theme.SereneBorders
 import com.jestk.browser.ui.theme.SereneBrandPrimary
@@ -88,90 +84,44 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-enum class FileCategory {
-    IMAGE,
-    VIDEO,
-    AUDIO,
-    DOCUMENT,
-    ARCHIVE,
-    APK,
-    GENERIC
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * DownloadsScreen — Dedicated, separate full screen for managing file downloads.
+ * Conforms strictly to Serene Canvas design tokens with solid surfaces,
+ * elevation shadows, rim borders, and ZERO BLUR.
+ */
 @Composable
 fun DownloadsScreen(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isDark = LocalIsDarkTheme.current
+    val isDark = uiState.settings.themeMode == ThemeMode.DARK
+    val context = LocalContext.current
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(if (isDark) DarkBackground else SereneCanvasFloor)
             .statusBarsPadding()
             .navigationBarsPadding()
-    ) {
-        DownloadsContent(uiState = uiState, onEvent = onEvent, modifier = Modifier.fillMaxSize())
-    }
-}
-
-@Deprecated("Use DownloadsScreen directly")
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun DownloadsSheet(
-    uiState: BrowserUiState,
-    onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val isDark = LocalIsDarkTheme.current
-    val sheetBg = if (isDark) DarkSurface else Color.White
-
-    ModalBottomSheet(
-        onDismissRequest = { onEvent(BrowserUiEvent.DismissOverlay) },
-        sheetState = sheetState,
-        shape = SereneShapes.BottomSheet,
-        containerColor = sheetBg,
-        scrimColor = Color.Black.copy(alpha = 0.25f),
-        modifier = modifier
-    ) {
-        DownloadsContent(
-            uiState = uiState,
-            onEvent = onEvent
-        )
-    }
-}
-
-@Composable
-fun DownloadsContent(
-    uiState: BrowserUiState,
-    onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val isDark = LocalIsDarkTheme.current
-
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
             .padding(horizontal = 20.dp)
     ) {
-        // Header Bar
+        // Top Bar: Back Button, Screen Title, Close Button
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
-                onClick = { onEvent(BrowserUiEvent.DismissOverlay) },
-                modifier = Modifier.size(40.dp)
+                onClick = { onEvent(BrowserUiEvent.HandleBackPress) },
+                modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                     contentDescription = "Back",
-                    tint = SereneBrandPrimary,
+                    tint = if (isDark) DarkOnSurface else SereneDarkText,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -183,19 +133,19 @@ fun DownloadsContent(
             )
 
             IconButton(
-                onClick = { onEvent(BrowserUiEvent.DismissOverlay) },
-                modifier = Modifier.size(40.dp)
+                onClick = { onEvent(BrowserUiEvent.HandleBackPress) },
+                modifier = Modifier.size(44.dp)
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close",
                     tint = SereneMutedSlate,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }
 
-        Spacer(modifier = Modifier.height(10.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Large Title Row
         Row(
@@ -243,22 +193,27 @@ fun DownloadsContent(
                     items = uiState.downloads,
                     key = { it.id }
                 ) { item ->
-                    val isInProgress = item.id in uiState.activeDownloadIds ||
-                            (item.id == uiState.lastDownloadNotification?.id && uiState.showDownloadSnackbar) ||
-                            (!File(item.filePath).exists() && (System.currentTimeMillis() - item.timestamp < 30_000))
+                    val progressInfo = uiState.downloadProgressMap[item.id]
 
                     DownloadItemCard(
                         item = item,
-                        isInProgress = isInProgress,
+                        progressInfo = progressInfo,
                         isDark = isDark,
                         onClick = {
-                            if (isInProgress && !File(item.filePath).exists()) {
+                            val currentStatus = progressInfo?.status ?: item.status
+                            if (currentStatus == DownloadStatus.DOWNLOADING || currentStatus == DownloadStatus.PENDING || currentStatus == DownloadStatus.PAUSED) {
                                 Toast.makeText(context, "Download in progress...", Toast.LENGTH_SHORT).show()
+                            } else if (currentStatus == DownloadStatus.FAILED) {
+                                Toast.makeText(context, "Download failed. Tap retry to restart.", Toast.LENGTH_SHORT).show()
                             } else {
                                 openDownloadedFile(context, item)
                             }
                         },
-                        onDelete = { onEvent(BrowserUiEvent.DeleteDownload(item.id)) }
+                        onPause = { onEvent(BrowserUiEvent.PauseDownload(item.id)) },
+                        onResume = { onEvent(BrowserUiEvent.ResumeDownload(item.id)) },
+                        onCancel = { onEvent(BrowserUiEvent.CancelDownload(item.id)) },
+                        onRetry = { onEvent(BrowserUiEvent.RetryDownload(item.id)) },
+                        onDelete = { onEvent(BrowserUiEvent.DeleteDownload(item.id, deleteFile = true)) }
                     )
                 }
             }
@@ -317,50 +272,24 @@ private fun DownloadsEmptyState(
 @Composable
 private fun DownloadItemCard(
     item: DownloadItem,
-    isInProgress: Boolean = false,
+    progressInfo: DownloadProgressInfo? = null,
     isDark: Boolean,
     onClick: () -> Unit,
+    onPause: () -> Unit = {},
+    onResume: () -> Unit = {},
+    onCancel: () -> Unit = {},
+    onRetry: () -> Unit = {},
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val context = LocalContext.current
     val category = resolveFileCategory(item.fileName, item.mimeType)
 
-    var downloadProgress by remember(item.downloadId, item.id) {
-        mutableStateOf<Float?>(null)
-    }
-    var activeInProgress by remember(isInProgress, item.id) {
-        mutableStateOf(isInProgress)
-    }
-
-    LaunchedEffect(item.downloadId, isInProgress) {
-        if (item.downloadId != -1L) {
-            val dm = context.getSystemService(Context.DOWNLOAD_SERVICE) as? DownloadManager
-            if (dm != null) {
-                try {
-                    val cursor = dm.query(DownloadManager.Query().setFilterById(item.downloadId))
-                    if (cursor != null && cursor.moveToFirst()) {
-                        val statusIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS)
-                        val status = if (statusIndex != -1) cursor.getInt(statusIndex) else -1
-                        val bytesSoFarIdx = cursor.getColumnIndex(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR)
-                        val totalBytesIdx = cursor.getColumnIndex(DownloadManager.COLUMN_TOTAL_SIZE_BYTES)
-                        val soFar = if (bytesSoFarIdx != -1) cursor.getLong(bytesSoFarIdx) else 0L
-                        val total = if (totalBytesIdx != -1) cursor.getLong(totalBytesIdx) else 0L
-                        cursor.close()
-
-                        if (status == DownloadManager.STATUS_RUNNING || status == DownloadManager.STATUS_PENDING) {
-                            activeInProgress = true
-                            if (total > 0L) {
-                                downloadProgress = (soFar.toFloat() / total.toFloat()).coerceIn(0f, 1f)
-                            }
-                        } else if (status == DownloadManager.STATUS_SUCCESSFUL) {
-                            activeInProgress = false
-                        }
-                    }
-                } catch (_: Throwable) {}
-            }
-        }
-    }
+    val currentStatus = progressInfo?.status ?: item.status
+    val isDownloading = currentStatus == DownloadStatus.DOWNLOADING || currentStatus == DownloadStatus.PENDING
+    val isPaused = currentStatus == DownloadStatus.PAUSED
+    val isFailed = currentStatus == DownloadStatus.FAILED
+    val bytesDownloaded = progressInfo?.bytesDownloaded ?: item.bytesDownloaded
+    val totalBytes = progressInfo?.totalBytes ?: item.totalBytes
 
     Surface(
         shape = SereneShapes.Card,
@@ -402,63 +331,95 @@ private fun DownloadItemCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (activeInProgress) {
-                        Text(
-                            text = "Downloading...",
-                            style = LocalSereneTypography.current.bodySm.copy(
-                                fontWeight = FontWeight.SemiBold
-                            ),
-                            color = SereneBrandPrimary
-                        )
-                        Text(
-                            text = "·",
-                            style = LocalSereneTypography.current.bodySm.copy(
-                                fontWeight = FontWeight.Bold
-                            ),
-                            color = SereneMutedSlate
-                        )
-                    }
-
-                    val sizeStr = formatFileSize(item.contentLength)
-                    if (sizeStr.isNotEmpty()) {
-                        Text(
-                            text = sizeStr,
-                            style = LocalSereneTypography.current.bodySm.copy(
-                                fontWeight = FontWeight.Medium
-                            ),
-                            color = SereneMutedSlate
-                        )
-                    }
-
-                    if (item.timestamp > 0) {
-                        if (sizeStr.isNotEmpty()) {
+                    when {
+                        isDownloading -> {
+                            val progressText = formatProgressText(bytesDownloaded, totalBytes)
                             Text(
-                                text = "·",
+                                text = progressText,
                                 style = LocalSereneTypography.current.bodySm.copy(
-                                    fontWeight = FontWeight.Bold
+                                    fontWeight = FontWeight.SemiBold
                                 ),
-                                color = SereneMutedSlate
+                                color = SereneBrandPrimary
+                            )
+                            if (progressInfo?.speedBytesPerSec != null && progressInfo.speedBytesPerSec > 0) {
+                                Text(
+                                    text = "·",
+                                    style = LocalSereneTypography.current.bodySm.copy(
+                                        fontWeight = FontWeight.Bold
+                                    ),
+                                    color = SereneMutedSlate
+                                )
+                                Text(
+                                    text = "${formatFileSize(progressInfo.speedBytesPerSec)}/s",
+                                    style = LocalSereneTypography.current.bodySm.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = SereneMutedSlate
+                                )
+                            }
+                        }
+                        isPaused -> {
+                            val progressText = formatProgressText(bytesDownloaded, totalBytes)
+                            Text(
+                                text = "Paused · $progressText",
+                                style = LocalSereneTypography.current.bodySm.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = Color(0xFFF59E0B)
                             )
                         }
-                        Text(
-                            text = formatTimestamp(item.timestamp),
-                            style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate
-                        )
+                        isFailed -> {
+                            Text(
+                                text = "Download failed",
+                                style = LocalSereneTypography.current.bodySm.copy(
+                                    fontWeight = FontWeight.SemiBold
+                                ),
+                                color = Color(0xFFEF4444)
+                            )
+                        }
+                        else -> {
+                            val sizeStr = formatFileSize(if (totalBytes > 0L) totalBytes else item.contentLength)
+                            if (sizeStr.isNotEmpty()) {
+                                Text(
+                                    text = sizeStr,
+                                    style = LocalSereneTypography.current.bodySm.copy(
+                                        fontWeight = FontWeight.Medium
+                                    ),
+                                    color = SereneMutedSlate
+                                )
+                            }
+
+                            if (item.timestamp > 0) {
+                                if (sizeStr.isNotEmpty()) {
+                                    Text(
+                                        text = "·",
+                                        style = LocalSereneTypography.current.bodySm.copy(
+                                            fontWeight = FontWeight.Bold
+                                        ),
+                                        color = SereneMutedSlate
+                                    )
+                                }
+                                Text(
+                                    text = formatTimestamp(item.timestamp),
+                                    style = LocalSereneTypography.current.bodySm,
+                                    color = SereneMutedSlate
+                                )
+                            }
+                        }
                     }
                 }
 
-                if (activeInProgress) {
+                if (isDownloading || isPaused) {
                     Spacer(modifier = Modifier.height(6.dp))
-                    val p = downloadProgress
-                    if (p != null) {
+                    val fraction = if (totalBytes > 0L) (bytesDownloaded.toFloat() / totalBytes.toFloat()).coerceIn(0f, 1f) else null
+                    if (fraction != null) {
                         LinearProgressIndicator(
-                            progress = { p },
+                            progress = { fraction },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(4.dp)
                                 .clip(RoundedCornerShape(2.dp)),
-                            color = SereneBrandPrimary,
+                            color = if (isPaused) Color(0xFFF59E0B) else SereneBrandPrimary,
                             trackColor = if (isDark) DarkSurfaceVariant else SerenePaleBlue
                         )
                     } else {
@@ -467,24 +428,105 @@ private fun DownloadItemCard(
                                 .fillMaxWidth()
                                 .height(4.dp)
                                 .clip(RoundedCornerShape(2.dp)),
-                            color = SereneBrandPrimary,
+                            color = if (isPaused) Color(0xFFF59E0B) else SereneBrandPrimary,
                             trackColor = if (isDark) DarkSurfaceVariant else SerenePaleBlue
                         )
                     }
                 }
             }
 
-            // Delete Button
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.size(36.dp)
+            // Action Buttons
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Default.DeleteOutline,
-                    contentDescription = "Delete download",
-                    tint = SereneMutedSlate,
-                    modifier = Modifier.size(20.dp)
-                )
+                when {
+                    isDownloading -> {
+                        IconButton(
+                            onClick = onPause,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Pause,
+                                contentDescription = "Pause download",
+                                tint = SereneBrandPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = onCancel,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancel download",
+                                tint = SereneMutedSlate,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    isPaused -> {
+                        IconButton(
+                            onClick = onResume,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PlayArrow,
+                                contentDescription = "Resume download",
+                                tint = SereneBrandPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = onCancel,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = "Cancel download",
+                                tint = SereneMutedSlate,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    isFailed -> {
+                        IconButton(
+                            onClick = onRetry,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Refresh,
+                                contentDescription = "Retry download",
+                                tint = SereneBrandPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Delete download",
+                                tint = SereneMutedSlate,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    else -> {
+                        IconButton(
+                            onClick = onDelete,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DeleteOutline,
+                                contentDescription = "Delete download",
+                                tint = SereneMutedSlate,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -523,28 +565,28 @@ private fun CategoryIconBadge(
             Color(0xFFFEF3C7),
             Color(0xFF78350F),
             Color(0xFFD97706),
-            Color(0xFFFDE68A)
+            Color(0xFFFBBF24)
         )
         FileCategory.ARCHIVE -> CategoryStyle(
             Icons.Default.FolderZip,
             Color(0xFFEDE9FE),
             Color(0xFF4C1D95),
             Color(0xFF7C3AED),
-            Color(0xFFDDD6FE)
+            Color(0xFFA78BFA)
         )
         FileCategory.APK -> CategoryStyle(
             Icons.Default.Android,
             Color(0xFFDCFCE7),
             Color(0xFF14532D),
             Color(0xFF16A34A),
-            Color(0xFFA7F3D0)
+            Color(0xFF4ADE80)
         )
-        FileCategory.GENERIC -> CategoryStyle(
+        FileCategory.OTHER -> CategoryStyle(
             Icons.AutoMirrored.Filled.InsertDriveFile,
-            Color(0xFFF1F5F9),
-            Color(0xFF334155),
+            SerenePaleBlue,
+            DarkSurfaceVariant,
             SereneMutedSlate,
-            Color(0xFF94A3B8)
+            SereneMutedSlate
         )
     }
 
@@ -572,20 +614,35 @@ private data class CategoryStyle(
     val tintDark: Color
 )
 
-fun resolveFileCategory(fileName: String, mimeType: String?): FileCategory {
+private enum class FileCategory {
+    IMAGE, VIDEO, AUDIO, DOCUMENT, ARCHIVE, APK, OTHER
+}
+
+private fun resolveFileCategory(fileName: String, mimeType: String?): FileCategory {
+    val ext = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
     val mime = mimeType?.lowercase(Locale.ROOT) ?: ""
-    val name = fileName.lowercase(Locale.ROOT)
-    val extension = name.substringAfterLast('.', "")
 
     return when {
-        mime.startsWith("image/") || extension in listOf("jpg", "jpeg", "png", "webp", "gif", "svg", "bmp", "ico", "avif") -> FileCategory.IMAGE
-        mime.startsWith("video/") || extension in listOf("mp4", "mkv", "webm", "avi", "mov", "flv", "3gp") -> FileCategory.VIDEO
-        mime.startsWith("audio/") || extension in listOf("mp3", "wav", "ogg", "m4a", "flac", "aac", "opus") -> FileCategory.AUDIO
-        mime == "application/pdf" || extension == "pdf" ||
-                mime.startsWith("text/") || extension in listOf("txt", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "csv", "json", "xml", "html", "md") -> FileCategory.DOCUMENT
-        extension in listOf("zip", "rar", "7z", "tar", "gz", "bz2", "xz") || mime.contains("zip") || mime.contains("compressed") || mime.contains("tar") -> FileCategory.ARCHIVE
-        extension == "apk" || mime == "application/vnd.android.package-archive" -> FileCategory.APK
-        else -> FileCategory.GENERIC
+        mime.startsWith("image/") || ext in setOf("png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico") ->
+            FileCategory.IMAGE
+
+        mime.startsWith("video/") || ext in setOf("mp4", "mkv", "webm", "avi", "mov", "3gp", "flv") ->
+            FileCategory.VIDEO
+
+        mime.startsWith("audio/") || ext in setOf("mp3", "m4a", "wav", "ogg", "flac", "aac", "opus", "wma") ->
+            FileCategory.AUDIO
+
+        mime.contains("pdf") || ext in setOf("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "csv") ->
+            FileCategory.DOCUMENT
+
+        mime.contains("zip") || mime.contains("tar") || mime.contains("rar") ||
+                ext in setOf("zip", "rar", "7z", "tar", "gz", "bz2", "xz") ->
+            FileCategory.ARCHIVE
+
+        mime.contains("android.package-archive") || ext == "apk" ->
+            FileCategory.APK
+
+        else -> FileCategory.OTHER
     }
 }
 
@@ -599,6 +656,17 @@ fun formatFileSize(bytes: Long): String {
         mb >= 1.0 -> String.format(Locale.US, "%.1f MB", mb)
         kb >= 1.0 -> String.format(Locale.US, "%.1f KB", kb)
         else -> "$bytes B"
+    }
+}
+
+fun formatProgressText(bytesDownloaded: Long, totalBytes: Long): String {
+    val downloadedStr = formatFileSize(bytesDownloaded).ifEmpty { "0 B" }
+    return if (totalBytes > 0L) {
+        val totalStr = formatFileSize(totalBytes)
+        val percent = ((bytesDownloaded * 100) / totalBytes).coerceIn(0, 100)
+        "$downloadedStr / $totalStr ($percent%)"
+    } else {
+        downloadedStr
     }
 }
 

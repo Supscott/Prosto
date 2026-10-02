@@ -8,5 +8,10 @@ data class DownloadItem @JvmOverloads constructor(
     val mimeType: String? = null,
     val contentLength: Long = 0L,
     val timestamp: Long = System.currentTimeMillis(),
-    val downloadId: Long = -1L
+    val downloadId: Long = -1L,
+    val status: DownloadStatus = DownloadStatus.COMPLETED,
+    val bytesDownloaded: Long = 0L,
+    val totalBytes: Long = contentLength,
+    val errorMessage: String? = null,
+    val etag: String? = null
 )

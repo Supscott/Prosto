@@ -137,4 +137,32 @@ class BrowserViewModelDownloadsTest {
 
             assertThat(vm.uiState.value.downloads).isEmpty()
         }
+
+    @Test
+    fun deleteDownload_withPhysicalFile_deletesFileFromDisk() =
+        runTest(testDispatcher) {
+            val vm = createViewModel()
+            advanceUntilIdle()
+
+            val tempFile = java.io.File.createTempFile("vm_test_download", ".mp3")
+            tempFile.writeText("test mp3 data")
+            assertThat(tempFile.exists()).isTrue()
+
+            val id = downloadRepo.recordDownload(
+                url = "https://example.com/test.mp3",
+                fileName = tempFile.name,
+                filePath = tempFile.absolutePath,
+                mimeType = "audio/mpeg",
+                contentLength = tempFile.length()
+            )
+            advanceUntilIdle()
+
+            assertThat(vm.uiState.value.downloads).hasSize(1)
+
+            vm.onEvent(BrowserUiEvent.DeleteDownload(id, deleteFile = true))
+            advanceUntilIdle()
+
+            assertThat(vm.uiState.value.downloads).isEmpty()
+            assertThat(tempFile.exists()).isFalse()
+        }
 }

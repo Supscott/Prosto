@@ -572,8 +572,9 @@ fun JestkApp(
                             tint = SereneBrandPrimary,
                             modifier = Modifier.size(18.dp),
                         )
+                        val isCompleted = download?.status == com.jestk.browser.domain.model.DownloadStatus.COMPLETED
                         Text(
-                            text = "Downloading $fileName",
+                            text = if (isCompleted) "Downloaded $fileName" else "Downloading $fileName",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                             color = if (isDark) DarkOnSurface else SereneDarkText,
                             maxLines = 1,
@@ -581,7 +582,7 @@ fun JestkApp(
                             modifier = Modifier.weight(1f, fill = false),
                         )
                         Text(
-                            text = "Подробнее",
+                            text = if (isCompleted) "Open" else "Details",
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = SereneBrandPrimary),
                             modifier =
                                 Modifier

@@ -54,6 +54,18 @@ class MainActivity : ComponentActivity() {
         filePathCallback = null
     }
 
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ -> }
+
+    private fun checkNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+    }
+
     fun openFileChooser(
         callback: ValueCallback<Array<Uri>>?,
         params: WebChromeClient.FileChooserParams?
@@ -105,6 +117,7 @@ class MainActivity : ComponentActivity() {
 
         viewModel = ViewModelProvider(this, container.viewModelFactory)[BrowserViewModel::class.java]
         viewModel.checkDefaultBrowser(this)
+        checkNotificationPermission()
 
         handleIntent(intent)
 
