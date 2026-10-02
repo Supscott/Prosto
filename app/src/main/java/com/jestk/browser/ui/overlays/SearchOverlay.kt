@@ -64,9 +64,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.automirrored.filled.ManageSearch
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.CloseFullscreen
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.DragHandle
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Mic
@@ -181,6 +186,7 @@ fun SearchOverlay(
 
     val carouselState = rememberSearchEngineCarouselState(
         initialEngine = uiState.settings.searchEngine,
+        engines = uiState.searchEngines,
         density = density,
         coroutineScope = coroutineScope,
         haptic = haptic,
@@ -383,8 +389,22 @@ fun SearchOverlay(
                 HeroSearchInputField(
                     textFieldValue = textFieldValue,
                     onValueChange = { newValue ->
-                        textFieldValue = newValue
-                        onEvent(BrowserUiEvent.UpdateSearchQuery(newValue.text))
+                        val matchedEngine = uiState.searchEngines.firstOrNull { engine ->
+                            !engine.shortcut.isNullOrBlank() &&
+                                newValue.text.startsWith("${engine.shortcut} ", ignoreCase = true)
+                        }
+                        if (matchedEngine != null) {
+                            carouselState.animateToEngine(matchedEngine)
+                            val remaining = newValue.text.substring(matchedEngine.shortcut!!.length + 1)
+                            textFieldValue = TextFieldValue(
+                                text = remaining,
+                                selection = TextRange(remaining.length)
+                            )
+                            onEvent(BrowserUiEvent.UpdateSearchQuery(remaining))
+                        } else {
+                            textFieldValue = newValue
+                            onEvent(BrowserUiEvent.UpdateSearchQuery(newValue.text))
+                        }
                     },
                     searchEngine = carouselState.currentEngine,
                     isDark = isDark,
@@ -435,9 +455,24 @@ fun SearchOverlay(
         ) {
             SearchEngineDropdownCard(
                 selectedEngine = carouselState.currentEngine,
+                engines = uiState.searchEngines,
                 onSelectEngine = { engine ->
-                    carouselState.setEngineDirectly(engine)
+                    carouselState.animateToEngine(engine)
                     isDropdownOpen = false
+                },
+                onAddEngineClick = {
+                    isDropdownOpen = false
+                    onEvent(BrowserUiEvent.ShowAddSearchEngineDialog())
+                },
+                onEditEngineClick = { engine ->
+                    isDropdownOpen = false
+                    onEvent(BrowserUiEvent.ShowAddSearchEngineDialog(engine))
+                },
+                onDeleteEngineClick = { engine ->
+                    onEvent(BrowserUiEvent.DeleteSearchEngine(engine.id))
+                },
+                onReorderEngines = { reordered ->
+                    onEvent(BrowserUiEvent.ReorderSearchEngines(reordered))
                 },
                 isDark = isDark
             )
@@ -987,6 +1022,7 @@ class SearchEngineCarouselState(
     val density: Density,
     val coroutineScope: CoroutineScope,
     val haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    var engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     val onEngineSelected: (SearchEngine) -> Unit
 ) {
     var currentEngine by mutableStateOf(initialEngine)
@@ -1084,10 +1120,10 @@ class SearchEngineCarouselState(
                 }
 
                 // Settle and commit
-                val entries = SearchEngine.entries
-                val currentIndex = entries.indexOf(currentEngine).let { if (it == -1) 0 else it }
-                val finalIndex = (currentIndex + targetSlot).mod(entries.size)
-                val newEngine = entries[finalIndex]
+                val list = if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
+                val currentIndex = list.indexOfFirst { it.id == currentEngine.id }.let { if (it == -1) 0 else it }
+                val finalIndex = (currentIndex + targetSlot).mod(list.size)
+                val newEngine = list[finalIndex]
 
                 currentEngine = newEngine
                 animOffset.snapTo(0f)
@@ -1116,6 +1152,88 @@ class SearchEngineCarouselState(
             onEngineSelected(engine)
         }
     }
+
+    fun animateToEngine(targetEngine: SearchEngine) {
+        val list = if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
+        val currentIndex = list.indexOfFirst { it.id == currentEngine.id }.let { if (it == -1) 0 else it }
+        val targetIndex = list.indexOfFirst { it.id == targetEngine.id }
+        if (targetIndex == -1) {
+            setEngineDirectly(targetEngine)
+            return
+        }
+
+        val size = list.size
+        if (size <= 1) {
+            setEngineDirectly(targetEngine)
+            return
+        }
+
+        val rawDiff = (targetIndex - currentIndex).mod(size)
+        val targetSlot = if (rawDiff <= size / 2) rawDiff else rawDiff - size
+
+        if (targetSlot == 0) {
+            if (animOffset.value != 0f) {
+                activeJob?.cancel()
+                activeJob = coroutineScope.launch {
+                    isFlinging = true
+                    try {
+                        animOffset.animateTo(
+                            targetValue = 0f,
+                            animationSpec = spring(
+                                dampingRatio = 0.85f,
+                                stiffness = Spring.StiffnessMediumLow
+                            )
+                        )
+                        animOffset.snapTo(0f)
+                        lastHapticSlot = 0
+                        isFlinging = false
+                        isDragging = false
+                    } catch (_: kotlinx.coroutines.CancellationException) {
+                        isFlinging = false
+                    }
+                }
+            }
+            onEngineSelected(targetEngine)
+            return
+        }
+
+        activeJob?.cancel()
+        onEngineSelected(targetEngine)
+        isFlinging = true
+        val targetX = -targetSlot * itemSpacingPx
+        lastHapticSlot = (-animOffset.value / itemSpacingPx).roundToInt()
+
+        activeJob = coroutineScope.launch {
+            try {
+                animOffset.animateTo(
+                    targetValue = targetX,
+                    animationSpec = spring(
+                        dampingRatio = 0.85f,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                ) {
+                    val currentSlot = (-value / itemSpacingPx).roundToInt()
+                    if (currentSlot != lastHapticSlot) {
+                        lastHapticSlot = currentSlot
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    }
+                }
+
+                currentEngine = targetEngine
+                animOffset.snapTo(0f)
+                lastHapticSlot = 0
+                isFlinging = false
+                isDragging = false
+                onEngineSelected(targetEngine)
+            } catch (e: Exception) {
+                if (e is kotlinx.coroutines.CancellationException) {
+                    isFlinging = false
+                } else {
+                    throw e
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -1124,21 +1242,25 @@ class SearchEngineCarouselState(
 @Composable
 fun rememberSearchEngineCarouselState(
     initialEngine: SearchEngine,
+    engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     density: Density = LocalDensity.current,
     coroutineScope: CoroutineScope = rememberCoroutineScope(),
     haptic: androidx.compose.ui.hapticfeedback.HapticFeedback = LocalHapticFeedback.current,
     onEngineSelected: (SearchEngine) -> Unit
 ): SearchEngineCarouselState {
     val currentOnEngineSelected by rememberUpdatedState(onEngineSelected)
-    return remember(density) {
+    val state = remember(density) {
         SearchEngineCarouselState(
             initialEngine = initialEngine,
             density = density,
             coroutineScope = coroutineScope,
             haptic = haptic,
+            engines = engines,
             onEngineSelected = { currentOnEngineSelected(it) }
         )
     }
+    state.engines = engines
+    return state
 }
 
 @Composable
@@ -1224,15 +1346,15 @@ fun SearchEngineSelectorButton(
                     },
                 contentAlignment = Alignment.Center
             ) {
-                val entries = SearchEngine.entries
-                val baseIndex = entries.indexOf(carouselState.currentEngine).let { if (it == -1) 0 else it }
+                val list = if (carouselState.engines.isNotEmpty()) carouselState.engines else SearchEngine.DEFAULT_ENGINES
+                val baseIndex = list.indexOfFirst { it.id == carouselState.currentEngine.id }.let { if (it == -1) 0 else it }
                 val centerSlotFloat = -carouselState.animOffset.value / carouselState.itemSpacingPx
                 val centerSlotInt = centerSlotFloat.roundToInt()
 
                 for (k in (centerSlotInt - 2)..(centerSlotInt + 2)) {
                     key(k) {
-                        val engineIndex = (baseIndex + k).mod(entries.size)
-                        val engine = entries[engineIndex]
+                        val engineIndex = (baseIndex + k).mod(list.size)
+                        val engine = list[engineIndex]
                         val xPos = k * carouselState.itemSpacingPx + carouselState.animOffset.value + restingShiftPx
 
                         SearchEngineBadge(
@@ -1274,27 +1396,29 @@ fun SearchEngineSelectorButton(
     onClick: () -> Unit,
     onSwipeLeft: () -> Unit,
     onSwipeRight: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES
 ) {
     val coroutineScope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
     val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
 
-    val carouselState = remember(selectedEngine, density) {
+    val carouselState = remember(selectedEngine, density, engines) {
         SearchEngineCarouselState(
             initialEngine = selectedEngine,
             density = density,
             coroutineScope = coroutineScope,
             haptic = haptic,
+            engines = engines,
             onEngineSelected = { target ->
-                val entries = SearchEngine.entries
-                val oldIdx = entries.indexOf(selectedEngine).let { if (it == -1) 0 else it }
-                val newIdx = entries.indexOf(target).let { if (it == -1) 0 else it }
-                val diff = (newIdx - oldIdx).mod(entries.size)
+                val list = if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
+                val oldIdx = list.indexOfFirst { it.id == selectedEngine.id }.let { if (it == -1) 0 else it }
+                val newIdx = list.indexOfFirst { it.id == target.id }.let { if (it == -1) 0 else it }
+                val diff = (newIdx - oldIdx).mod(list.size)
                 if (diff == 1) {
                     currentOnSwipeLeft()
-                } else if (diff == entries.size - 1) {
+                } else if (diff == list.size - 1) {
                     currentOnSwipeRight()
                 }
             }
@@ -1314,9 +1438,20 @@ fun SearchEngineSelectorButton(
 fun SearchEngineDropdownCard(
     selectedEngine: SearchEngine,
     onSelectEngine: (SearchEngine) -> Unit,
+    onAddEngineClick: () -> Unit,
+    onEditEngineClick: (SearchEngine) -> Unit,
+    onDeleteEngineClick: (SearchEngine) -> Unit,
+    onReorderEngines: (List<SearchEngine>) -> Unit,
     isDark: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
+    initialEditMode: Boolean = false,
 ) {
+    var isEditMode by remember { mutableStateOf(initialEditMode) }
+    var currentList by remember(engines) { mutableStateOf(engines) }
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+
     val bg = if (isDark) DarkSurface else Color.White
     val border = SereneBorders.cardBorder(isDark)
 
@@ -1325,23 +1460,23 @@ fun SearchEngineDropdownCard(
         color = bg,
         border = border,
         shadowElevation = 10.dp,
-        modifier = modifier.width(184.dp)
+        modifier = modifier.width(if (isEditMode) 250.dp else 210.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 6.dp, horizontal = 6.dp)
         ) {
-            SearchEngine.entries.forEach { engine ->
-                val isSelected = engine == selectedEngine
+            currentList.forEachIndexed { index, engine ->
+                val isSelected = engine.id == selectedEngine.id
                 val itemBg = when {
-                    isSelected && isDark -> DarkSurfaceVariant
-                    isSelected && !isDark -> SerenePaleBlue
+                    !isEditMode && isSelected && isDark -> DarkSurfaceVariant
+                    !isEditMode && isSelected && !isDark -> SerenePaleBlue
                     else -> Color.Transparent
                 }
                 val textColor = when {
-                    isSelected && isDark -> DarkOnSurface
-                    isSelected && !isDark -> SereneBrandPrimary
+                    !isEditMode && isSelected && isDark -> DarkOnSurface
+                    !isEditMode && isSelected && !isDark -> SereneBrandPrimary
                     isDark -> DarkOnSurfaceVariant
                     else -> SereneDarkText
                 }
@@ -1353,15 +1488,75 @@ fun SearchEngineDropdownCard(
                         .fillMaxWidth()
                         .height(44.dp)
                         .clip(RoundedCornerShape(14.dp))
-                        .clickable { onSelectEngine(engine) }
+                        .then(
+                            if (!isEditMode) {
+                                Modifier.clickable { onSelectEngine(engine) }
+                            } else {
+                                Modifier
+                            }
+                        )
                 ) {
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(horizontal = 10.dp),
+                            .padding(horizontal = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
+                        if (isEditMode) {
+                            // Left 1: Drag handle button
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .pointerInput(currentList) {
+                                        var accumulatedDrag = 0f
+                                        val itemHeightPx = with(density) { 44.dp.toPx() }
+                                        detectDragGestures(
+                                            onDragStart = { accumulatedDrag = 0f },
+                                            onDragEnd = { onReorderEngines(currentList) },
+                                            onDragCancel = {},
+                                            onDrag = { change, dragAmount ->
+                                                change.consume()
+                                                accumulatedDrag += dragAmount.y
+                                                val steps = (accumulatedDrag / itemHeightPx).toInt()
+                                                if (steps != 0) {
+                                                    val targetIdx = (index + steps).coerceIn(0, currentList.lastIndex)
+                                                    if (targetIdx != index) {
+                                                        val mutable = currentList.toMutableList()
+                                                        val item = mutable.removeAt(index)
+                                                        mutable.add(targetIdx, item)
+                                                        currentList = mutable
+                                                        accumulatedDrag = 0f
+                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DragHandle,
+                                    contentDescription = "Reorder",
+                                    tint = if (isDark) DarkOnSurfaceVariant else SereneMutedSlate,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            // Left 2: Edit pencil button
+                            IconButton(
+                                onClick = { onEditEngineClick(engine) },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = "Edit Provider",
+                                    tint = if (isDark) DarkPrimary else SereneBrandPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+
                         SearchEngineBadge(
                             engine = engine,
                             size = 22.dp,
@@ -1371,25 +1566,141 @@ fun SearchEngineDropdownCard(
                         Text(
                             text = engine.displayName,
                             style = LocalSereneTypography.current.bodyMd.copy(
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                                fontWeight = if (!isEditMode && isSelected) FontWeight.Bold else FontWeight.Medium
                             ),
                             color = textColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
                         )
 
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = "Selected",
-                                tint = if (isDark) DarkPrimary else SereneBrandPrimary,
-                                modifier = Modifier.size(18.dp)
-                            )
+                        if (!engine.shortcut.isNullOrBlank()) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                                modifier = Modifier.padding(end = 2.dp)
+                            ) {
+                                Text(
+                                    text = engine.shortcut,
+                                    style = LocalSereneTypography.current.labelSm.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
+                                    color = SereneMutedSlate,
+                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                )
+                            }
                         }
+
+                        if (!isEditMode) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Selected",
+                                    tint = if (isDark) DarkPrimary else SereneBrandPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        } else {
+                            // Right: Delete trash icon (disabled if currentList.size <= 1)
+                            val canDelete = currentList.size > 1
+                            IconButton(
+                                onClick = { onDeleteEngineClick(engine) },
+                                enabled = canDelete,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteOutline,
+                                    contentDescription = "Delete Provider",
+                                    tint = if (canDelete) Color(0xFFEF4444) else if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Divider above bottom row
+            HorizontalDivider(
+                color = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9),
+                thickness = 1.dp,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+            )
+
+            // Pinned Bottom Actions
+            if (!isEditMode) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { isEditMode = true },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit Search Engines",
+                            tint = if (isDark) DarkOnSurfaceVariant else SereneMutedSlate,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = onAddEngineClick,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = "Add Search Engine",
+                            tint = if (isDark) DarkPrimary else SereneBrandPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable {
+                            isEditMode = false
+                            onReorderEngines(currentList)
+                        }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Done",
+                            style = LocalSereneTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
+                            color = if (isDark) DarkPrimary else SereneBrandPrimary
+                        )
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+fun SearchEngineDropdownCard(
+    selectedEngine: SearchEngine,
+    onSelectEngine: (SearchEngine) -> Unit,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    SearchEngineDropdownCard(
+        selectedEngine = selectedEngine,
+        onSelectEngine = onSelectEngine,
+        onAddEngineClick = {},
+        onEditEngineClick = {},
+        onDeleteEngineClick = {},
+        onReorderEngines = {},
+        isDark = isDark,
+        modifier = modifier
+    )
 }
 
 @Composable
@@ -1586,25 +1897,46 @@ fun SearchEngineBadge(
     isDark: Boolean = false
 ) {
     val context = LocalContext.current
-    val imageRequest = remember(engine, context) {
+    var isImageError by remember(engine.iconUrl) { mutableStateOf(false) }
+
+    val imageModel = remember(engine.iconUrl) {
+        FaviconManager.toImageModel(engine.iconUrl)
+    }
+
+    val imageRequest = remember(imageModel, context) {
         ImageRequest.Builder(context)
-            .data(engine.iconAssetUrl)
+            .data(imageModel)
             .decoderFactory(SvgDecoder.Factory())
+            .crossfade(false)
             .build()
     }
 
     Box(
         modifier = modifier
             .size(size)
-            .clip(CircleShape),
+            .clip(CircleShape)
+            .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
         contentAlignment = Alignment.Center
     ) {
-        AsyncImage(
-            model = imageRequest,
-            contentDescription = engine.displayName,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.size(size)
-        )
+        if (!isImageError && imageModel != null) {
+            AsyncImage(
+                model = imageRequest,
+                contentDescription = engine.displayName,
+                contentScale = ContentScale.Fit,
+                onError = { isImageError = true },
+                onSuccess = { isImageError = false },
+                modifier = Modifier.size(size)
+            )
+        } else {
+            Text(
+                text = engine.displayName.take(1).uppercase(),
+                style = LocalSereneTypography.current.labelSm.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = (size.value * 0.45f).sp
+                ),
+                color = if (isDark) DarkPrimary else SereneBrandPrimary
+            )
+        }
     }
 }
 
@@ -1614,6 +1946,7 @@ fun SearchEngineSwitcherRow(
     onSelectEngine: (SearchEngine) -> Unit,
     isDark: Boolean,
     modifier: Modifier = Modifier,
+    engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     elevation: Dp = 0.dp
 ) {
     val scrollState = rememberScrollState()
@@ -1625,8 +1958,8 @@ fun SearchEngineSwitcherRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        SearchEngine.entries.forEach { engine ->
-            val isSelected = engine == selectedEngine
+        engines.forEach { engine ->
+            val isSelected = engine.id == selectedEngine.id
             SearchEngineChip(
                 engine = engine,
                 isSelected = isSelected,

@@ -31,6 +31,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.BrightnessAuto
@@ -558,7 +559,7 @@ fun SettingsContent(
                             horizontalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                text = uiState.settings.searchEngine.name.lowercase().replaceFirstChar { it.uppercase() },
+                                text = uiState.settings.searchEngine.displayName,
                                 style = LocalSereneTypography.current.labelSm.copy(fontWeight = FontWeight.SemiBold),
                                 color = SereneBrandPrimary
                             )
@@ -576,8 +577,8 @@ fun SettingsContent(
                         onDismissRequest = { searchMenuExpanded = false },
                         modifier = Modifier.background(if (isDark) DarkSurface else Color.White)
                     ) {
-                        SearchEngine.entries.forEach { engine ->
-                            val isSelected = uiState.settings.searchEngine == engine
+                        uiState.searchEngines.forEach { engine ->
+                            val isSelected = uiState.settings.searchEngine.id == engine.id
                             DropdownMenuItem(
                                 text = {
                                     Row(
@@ -585,10 +586,17 @@ fun SettingsContent(
                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                                     ) {
                                         Text(
-                                            text = engine.name.lowercase().replaceFirstChar { it.uppercase() },
+                                            text = engine.displayName,
                                             style = LocalSereneTypography.current.bodyMd,
                                             color = if (isDark) DarkOnSurface else SereneDarkText
                                         )
+                                        if (engine.shortcut != null) {
+                                            Text(
+                                                text = "(${engine.shortcut})",
+                                                style = LocalSereneTypography.current.labelSm,
+                                                color = SereneMutedSlate
+                                            )
+                                        }
                                         if (isSelected) {
                                             Icon(
                                                 imageVector = Icons.Default.Check,
@@ -607,6 +615,62 @@ fun SettingsContent(
                         }
                     }
                 }
+            }
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 64.dp)
+            )
+
+            // Add Search Engine Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onEvent(BrowserUiEvent.ShowAddSearchEngineDialog()) }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = null,
+                            tint = SereneBrandPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = "Add Search Engine",
+                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else SereneDarkText
+                        )
+                        Text(
+                            text = "Add custom provider with shortcuts",
+                            style = LocalSereneTypography.current.bodySm,
+                            color = SereneMutedSlate
+                        )
+                    }
+                }
+
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = SereneMutedSlate,
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
 

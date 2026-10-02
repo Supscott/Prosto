@@ -61,6 +61,9 @@ data class BrowserUiState(
     val contextMenuAnchor: Offset? = null,
     val isDefaultBrowser: Boolean = true,
     val showAddFavoriteDialog: Boolean = false,
+    val searchEngines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
+    val showAddEditSearchEngineDialog: Boolean = false,
+    val editingSearchEngine: SearchEngine? = null,
 ) {
     val activeTab: Tab?
         get() = tabs.find { it.id == activeTabId }
@@ -99,6 +102,6 @@ data class BrowserUiState(
             if (isHome) return null
             val activeTabUrl = activeTab?.url.orEmpty()
             val candidate = currentUrl.ifEmpty { activeTabUrl }
-            return SearchEngine.findMatchingEngineAndQuery(candidate)
+            return SearchEngine.findMatchingEngineAndQuery(candidate, searchEngines)
         }
 }

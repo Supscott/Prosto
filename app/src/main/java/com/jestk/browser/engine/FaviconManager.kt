@@ -64,6 +64,12 @@ object FaviconManager {
 
     fun toImageModel(urlOrPath: String?): Any? {
         if (urlOrPath.isNullOrBlank()) return null
+        if (urlOrPath.startsWith("file:///android_asset/") || urlOrPath.startsWith("file:/android_asset/")) {
+            return Uri.parse(urlOrPath)
+        }
+        if (urlOrPath.startsWith("/android_asset/")) {
+            return Uri.parse("file://$urlOrPath")
+        }
         return if (urlOrPath.startsWith("/") || urlOrPath.startsWith("file://")) {
             File(urlOrPath.removePrefix("file://"))
         } else {

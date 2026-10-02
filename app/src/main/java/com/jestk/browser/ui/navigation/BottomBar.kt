@@ -120,6 +120,7 @@ fun UnifiedBottomBar(
                     val (selectedEngine, query) = searchMatch
                     SearchEngineSwitcherRow(
                         selectedEngine = selectedEngine,
+                        engines = uiState.searchEngines,
                         onSelectEngine = { engine ->
                             onEvent(BrowserUiEvent.SwitchSearchEngineForQuery(engine, query))
                         },

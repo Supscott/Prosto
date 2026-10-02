@@ -59,6 +59,14 @@ class FaviconManagerTest {
         val fileUriModel = FaviconManager.toImageModel("file:///data/user/0/favicons/fav.png")
         assertThat(fileUriModel).isInstanceOf(java.io.File::class.java)
         assertThat((fileUriModel as java.io.File).absolutePath).isEqualTo("/data/user/0/favicons/fav.png")
+
+        val assetUriModel = FaviconManager.toImageModel("file:///android_asset/icons/duckduckgo.svg")
+        assertThat(assetUriModel).isInstanceOf(android.net.Uri::class.java)
+        assertThat((assetUriModel as android.net.Uri).toString()).isEqualTo("file:///android_asset/icons/duckduckgo.svg")
+
+        val assetSlashModel = FaviconManager.toImageModel("/android_asset/icons/google.svg")
+        assertThat(assetSlashModel).isInstanceOf(android.net.Uri::class.java)
+        assertThat((assetSlashModel as android.net.Uri).toString()).isEqualTo("file:///android_asset/icons/google.svg")
     }
 
     @Test

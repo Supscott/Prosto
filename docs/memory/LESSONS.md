@@ -278,3 +278,34 @@ This document tracks bugs encountered during development, their root causes, and
   3. **Domain-Aware Favicon Reset:** In `BrowserViewModel.loadUrl` and `handlePageStarted`, check if navigating to a different domain via `isSameDomain(tab.url, newUrl)`. If different, reset `faviconUrl` to `null` in both `BrowserUiState` and Room DB (`TabDao.updateFavicon(id, null)`). If within the same domain, preserve the current favicon to avoid unnecessary flicker.
   4. **Dual Favicon Ingestion:** Added `JestkWebViewClient.onFaviconReceived` extracting icons from `onPageStarted` and `onPageFinished` in addition to `JestkWebChromeClient.onReceivedIcon`.
   5. **Dock Substrate Pattern:** In `ActiveTabPill`, `TabStripRow`, and `TabOverviewGrid`, render the domain letter glyph substrate while loading or on error, but hide the letter once `isFaviconSuccess` is true to prevent transparent favicon PNGs from overlaying the letter.
+
+### java.net.URI throws URISyntaxException on search URL templates with `%s`
+
+- **Date:** 2026-10-02
+- **Symptom:** `SearchEngine.matchesUrl` failed for custom search engine templates containing query placeholders like `https://www.youtube.com/results?search_query=%s`.
+- **Root Cause:** RFC 2396 URI syntax requires the `%` character in URI query strings to be immediately followed by two hexadecimal digits representing an escaped octet. `%s` is not a valid hex escape sequence, causing `java.net.URI(template)` constructor to throw `URISyntaxException: Malformed escape pair`.
+- **Resolution & Prevention:** Before feeding template strings to `java.net.URI`, replace `%s` with an alphanumeric placeholder (e.g. `template.replace("%s", "placeholder")`), with a regex/substring fallback (`substringAfter("://").substringBefore("/").substringBefore("?")`).
+
+### Converting Kotlin enum to data class requires `@JvmField` and `@JvmStatic` for Java interop
+
+- **Date:** 2026-10-02
+- **Symptom:** Java test classes (e.g. `ArchitectureAndDatabaseCoverageTest`, `SettingsSheetBoundaryTest`) failed compilation with `error: DUCKDUCKGO has private access in SearchEngine` and `error: cannot find symbol: method values()`.
+- **Root Cause:** In Kotlin, `companion object` properties and functions without explicit Jvm annotations compile as private static fields accessed via companion object getters and methods on the `Companion` class. Java callers expecting enum-like public static constants (`SearchEngine.GOOGLE`) and static methods (`SearchEngine.values()`) cannot access them.
+- **Resolution & Prevention:** Annotate companion constants with `@JvmField` and companion functions with `@JvmStatic` (and `@JvmOverloads` where default arguments exist). In Java pattern matching switch statements (`switch (engine)`), replace with explicit `if-else` or `.equals()` checks since Java 17 only permits switching on primitives, Strings, and true enums.
+
+### Converting Android asset file:// URLs to java.io.File breaks Coil AssetUriFetcher
+
+- **Date:** 2026-10-02
+- **Symptom:** Pre-installed search engines (Google, DuckDuckGo, Bing) did not display their favicons/SVGs in `SearchEngineBadge`, the search engine switcher chips, or the dropdown list, displaying only the fallback initial letter glyphs ("D", "G", "B"). Custom providers (such as YouTube with HTTP favicons) rendered properly.
+- **Root Cause:**
+  1. Built-in search engines have `iconUrl = "file:///android_asset/icons/duckduckgo.svg"`.
+  2. `FaviconManager.toImageModel(urlOrPath)` checked `if (urlOrPath.startsWith("/") || urlOrPath.startsWith("file://"))` and stripped `"file://"` to instantiate `java.io.File("/android_asset/...")`.
+  3. APK assets are packaged inside the APK archive and do not exist as standalone files on the Linux root filesystem (`/android_asset/...`). Coil's `FileFetcher` called `File.exists()`, which returned `false` with `FileNotFoundException`.
+  4. Coil includes a specialized `AssetUriFetcher` that checks `isAssetUri(uri: Uri)`: `uri.scheme == "file" && uri.pathSegments.firstOrNull() == "android_asset"`. Because `toImageModel` passed a `File` object instead of an `android.net.Uri` (or URL string), Coil routed through `FileFetcher` rather than `AssetUriFetcher`, triggering `onError = { isImageError = true }` and falling back to initial letter avatars.
+  5. Furthermore, in Compose previews and unit tests, `crossfade(true)` in `SearchEngineBadge` resulted in zero alpha on initial frame capture.
+- **Resolution & Prevention:**
+  1. In `FaviconManager.toImageModel`, explicitly intercept `file:///android_asset/` and `/android_asset/` and return `Uri.parse(urlOrPath)` so Coil routes to `AssetUriFetcher` and opens the stream via `context.assets.open(...)`.
+  2. In `SearchEngineBadge`, set `.crossfade(false)` on `ImageRequest.Builder` for instant icon display without transparent initial frames or animation delay.
+  3. Added assertions in `FaviconManagerTest` verifying that asset paths return `android.net.Uri` instances rather than `File`.
+
+

@@ -76,6 +76,7 @@ import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
+import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
 import com.jestk.browser.ui.overlays.LinkContextMenuModal
@@ -684,6 +685,26 @@ fun JestkApp(
                     onConfirm = { title, url ->
                         viewModel.onEvent(BrowserUiEvent.AddFavorite(title, url))
                         viewModel.onEvent(BrowserUiEvent.DismissAddFavoriteDialog)
+                    },
+                )
+            }
+
+            // Add / Edit Search Engine Modal Dialog
+            if (uiState.showAddEditSearchEngineDialog) {
+                AddEditSearchEngineDialog(
+                    isDark = isDark,
+                    existingEngines = uiState.searchEngines,
+                    engineToEdit = uiState.editingSearchEngine,
+                    onDismiss = { viewModel.onEvent(BrowserUiEvent.DismissAddSearchEngineDialog) },
+                    onSave = { id, title, shortcut, urlTemplate ->
+                        viewModel.onEvent(
+                            BrowserUiEvent.SaveSearchEngine(
+                                id = id,
+                                title = title,
+                                shortcut = shortcut,
+                                urlTemplate = urlTemplate,
+                            )
+                        )
                     },
                 )
             }

@@ -15,6 +15,7 @@ import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
+import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.FaviconManager
@@ -51,6 +52,7 @@ class BrowserViewModel(
     private val recentTabRepository: RecentTabRepository? = null,
     private val downloadRepository: DownloadRepository? = null,
     private val downloadManager: HoriDownloadManager? = null,
+    private val searchEngineRepository: SearchEngineRepository? = null,
     private val context: Context? = null,
     private val webViewPool: WebViewPool? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -92,6 +94,17 @@ class BrowserViewModel(
                 tab.themeColor?.let { color -> tabThemeColors[tab.id] = color }
             }
 
+            val currentEngines = if (searchEngineRepository != null) {
+                searchEngineRepository.ensureDefaultEnginesSeeded()
+                val engines = searchEngineRepository.getAllSearchEngines()
+                if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
+            } else {
+                SearchEngine.DEFAULT_ENGINES
+            }
+            val resolvedEngine = currentEngines.firstOrNull { it.id == initialSettings.searchEngine.id }
+                ?: currentEngines.first()
+            val effectiveSettings = initialSettings.copy(searchEngine = resolvedEngine)
+
             // If tabs were already populated in _uiState (e.g. openNewTab ran first during quick user interaction)
             val currentUiTabs = _uiState.value.tabs
             if (currentUiTabs.isNotEmpty()) {
@@ -101,7 +114,8 @@ class BrowserViewModel(
                 val initialThemeColor = if (hasWebUrl) (tabThemeColors[currentActiveTab.id] ?: currentActiveTab.themeColor) else null
                 _uiState.update { state ->
                     state.copy(
-                        settings = initialSettings,
+                        settings = effectiveSettings,
+                        searchEngines = currentEngines,
                         activeThemeColor = initialThemeColor ?: state.activeThemeColor,
                         activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME,
                     )
@@ -133,7 +147,7 @@ class BrowserViewModel(
             webViewPool?.onTabActivated(activeTab.id, false)
             val hasWebUrl = activeTab.url.isNotEmpty() && activeTab.url != "about:blank"
             val initialThemeColor = if (hasWebUrl) (tabThemeColors[activeTab.id] ?: activeTab.themeColor) else null
-            val menuExpandedInitial = initialSettings.isMenuExpandedOnWeb
+            val menuExpandedInitial = effectiveSettings.isMenuExpandedOnWeb
 
             _uiState.update { state ->
                 state.copy(
@@ -146,7 +160,8 @@ class BrowserViewModel(
                     activeThemeColor = initialThemeColor,
                     isLoading = hasWebUrl,
                     loadingProgress = if (hasWebUrl) 0.15f else 0f,
-                    settings = initialSettings,
+                    settings = effectiveSettings,
+                    searchEngines = currentEngines,
                     isMenuExpanded = menuExpandedInitial,
                     activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME,
                 )
@@ -226,7 +241,31 @@ class BrowserViewModel(
 
         viewModelScope.launch(ioDispatcher) {
             settingsRepository.getSettings().collectLatest { settings ->
-                _uiState.update { it.copy(settings = settings) }
+                _uiState.update { state ->
+                    val resolvedEngine = state.searchEngines.firstOrNull {
+                        it.id.equals(settings.searchEngine.id, ignoreCase = true) ||
+                            it.name.equals(settings.searchEngine.id, ignoreCase = true) ||
+                            it.displayName.equals(settings.searchEngine.displayName, ignoreCase = true)
+                    } ?: settings.searchEngine
+                    state.copy(settings = settings.copy(searchEngine = resolvedEngine))
+                }
+            }
+        }
+
+        if (searchEngineRepository != null) {
+            viewModelScope.launch(ioDispatcher) {
+                searchEngineRepository.getSearchEngines().collectLatest { engines ->
+                    _uiState.update { state ->
+                        val currentSelected = state.settings.searchEngine
+                        val updatedSelected = engines.firstOrNull { it.id == currentSelected.id }
+                            ?: engines.firstOrNull()
+                            ?: currentSelected
+                        state.copy(
+                            searchEngines = engines,
+                            settings = state.settings.copy(searchEngine = updatedSelected)
+                        )
+                    }
+                }
             }
         }
 
@@ -654,6 +693,41 @@ class BrowserViewModel(
                 viewModelScope.launch(ioDispatcher) {
                     settingsRepository.setAdBlockerEnabled(event.enabled)
                 }
+            }
+
+            is BrowserUiEvent.ShowAddSearchEngineDialog -> {
+                _uiState.update {
+                    it.copy(
+                        showAddEditSearchEngineDialog = true,
+                        editingSearchEngine = event.engineToEdit
+                    )
+                }
+            }
+
+            is BrowserUiEvent.DismissAddSearchEngineDialog -> {
+                _uiState.update {
+                    it.copy(
+                        showAddEditSearchEngineDialog = false,
+                        editingSearchEngine = null
+                    )
+                }
+            }
+
+            is BrowserUiEvent.SaveSearchEngine -> {
+                saveSearchEngine(
+                    id = event.id,
+                    title = event.title,
+                    shortcut = event.shortcut,
+                    urlTemplate = event.urlTemplate
+                )
+            }
+
+            is BrowserUiEvent.DeleteSearchEngine -> {
+                deleteSearchEngine(event.id)
+            }
+
+            is BrowserUiEvent.ReorderSearchEngines -> {
+                reorderSearchEngines(event.orderedEngines)
             }
 
             is BrowserUiEvent.OnWebScroll -> {
@@ -1165,6 +1239,7 @@ class BrowserViewModel(
 
     private fun loadUrl(rawUrl: String) {
         val trimmed = rawUrl.trim()
+        var matchedShortcutEngine: SearchEngine? = null
         val finalUrl =
             when {
                 trimmed.isEmpty() -> {
@@ -1185,8 +1260,22 @@ class BrowserViewModel(
                 }
 
                 else -> {
-                    _uiState.value.settings.searchEngine
-                        .buildSearchUrl(trimmed)
+                    val shortcutMatch = Regex("""^([a-zA-Z0-9_-]+)\s+(.+)$""").find(trimmed)
+                    val shortcutEngine = if (shortcutMatch != null) {
+                        val prefix = shortcutMatch.groupValues[1]
+                        _uiState.value.searchEngines.firstOrNull { it.shortcut?.equals(prefix, ignoreCase = true) == true }
+                    } else null
+
+                    if (shortcutEngine != null) {
+                        matchedShortcutEngine = shortcutEngine
+                        viewModelScope.launch(ioDispatcher) {
+                            settingsRepository.setSearchEngine(shortcutEngine)
+                        }
+                        val searchTargetQuery = shortcutMatch!!.groupValues[2].trim()
+                        shortcutEngine.buildSearchUrl(searchTargetQuery)
+                    } else {
+                        _uiState.value.settings.searchEngine.buildSearchUrl(trimmed)
+                    }
                 }
             }
 
@@ -1226,6 +1315,7 @@ class BrowserViewModel(
             it.copy(
                 tabs = updatedTabs,
                 currentUrl = finalUrl,
+                settings = if (matchedShortcutEngine != null) it.settings.copy(searchEngine = matchedShortcutEngine) else it.settings,
                 isLoading = true,
                 loadingProgress = 0.1f,
                 activeThemeColor = tabThemeColors[activeId] ?: it.tabs.find { tab -> tab.id == activeId }?.themeColor,
@@ -1249,18 +1339,18 @@ class BrowserViewModel(
 
     private fun switchSearchEngineForQuery(targetEngine: SearchEngine, explicitQuery: String?) {
         val currentCandidate = _uiState.value.currentUrl.ifEmpty { _uiState.value.activeTab?.url.orEmpty() }
-        val currentMatch = SearchEngine.findMatchingEngineAndQuery(currentCandidate)
+        val currentMatch = SearchEngine.findMatchingEngineAndQuery(currentCandidate, _uiState.value.searchEngines)
         val query = explicitQuery ?: currentMatch?.second ?: return
 
-        if (currentMatch?.first == targetEngine) return
+        if (currentMatch?.first?.id == targetEngine.id) return
 
         val activeId = _uiState.value.activeTabId
         val matchingTab = _uiState.value.tabs
             .filter { tab ->
                 if (tab.id == activeId) return@filter false
-                val tabMatch = SearchEngine.findMatchingEngineAndQuery(tab.url)
+                val tabMatch = SearchEngine.findMatchingEngineAndQuery(tab.url, _uiState.value.searchEngines)
                 tabMatch != null &&
-                    tabMatch.first == targetEngine &&
+                    tabMatch.first.id == targetEngine.id &&
                     tabMatch.second.equals(query, ignoreCase = true)
             }
             .maxByOrNull { it.lastActiveTimestamp }
@@ -1270,6 +1360,116 @@ class BrowserViewModel(
         } else {
             val targetUrl = targetEngine.buildSearchUrl(query)
             openNewTab(targetUrl)
+        }
+    }
+
+    private fun saveSearchEngine(
+        id: String?,
+        title: String,
+        shortcut: String?,
+        urlTemplate: String
+    ) {
+        val trimmedTitle = title.trim()
+        val trimmedShortcut = shortcut?.trim()?.takeIf { it.isNotBlank() }
+        val trimmedUrl = urlTemplate.trim()
+
+        val normalizedUrl = when {
+            trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://") -> trimmedUrl
+            else -> "https://$trimmedUrl"
+        }
+
+        val finalUrl = if (normalizedUrl.contains("%s")) {
+            normalizedUrl
+        } else {
+            "$normalizedUrl%s"
+        }
+
+        val currentEngines = _uiState.value.searchEngines
+        val existing = id?.let { engineId -> currentEngines.firstOrNull { it.id == engineId } }
+
+        val iconUrl = if (existing != null && existing.isBuiltIn && existing.searchUrlTemplate == finalUrl) {
+            existing.iconUrl
+        } else {
+            FaviconManager.extractFallbackFaviconUrl(finalUrl)
+                ?: existing?.iconUrl
+                ?: "file:///android_asset/icons/google.svg"
+        }
+
+        val engineToSave = if (existing != null) {
+            existing.copy(
+                displayName = trimmedTitle,
+                searchUrlTemplate = finalUrl,
+                shortcut = trimmedShortcut,
+                iconUrl = iconUrl
+            )
+        } else {
+            SearchEngine(
+                id = java.util.UUID.randomUUID().toString(),
+                displayName = trimmedTitle,
+                searchUrlTemplate = finalUrl,
+                iconUrl = iconUrl,
+                shortcut = trimmedShortcut,
+                orderPosition = currentEngines.size,
+                isBuiltIn = false
+            )
+        }
+
+        val updatedList = if (existing != null) {
+            currentEngines.map { if (it.id == engineToSave.id) engineToSave else it }
+        } else {
+            currentEngines + engineToSave
+        }
+
+        _uiState.update { state ->
+            val updatedSettings = if (state.settings.searchEngine.id == engineToSave.id) {
+                state.settings.copy(searchEngine = engineToSave)
+            } else {
+                state.settings
+            }
+            state.copy(
+                searchEngines = updatedList,
+                settings = updatedSettings,
+                showAddEditSearchEngineDialog = false,
+                editingSearchEngine = null
+            )
+        }
+
+        viewModelScope.launch(ioDispatcher) {
+            searchEngineRepository?.saveSearchEngine(engineToSave)
+            if (_uiState.value.settings.searchEngine.id == engineToSave.id) {
+                settingsRepository.setSearchEngine(engineToSave)
+            }
+        }
+    }
+
+    private fun deleteSearchEngine(id: String) {
+        val currentEngines = _uiState.value.searchEngines
+        if (currentEngines.size <= 1) return
+
+        val remainingEngines = currentEngines.filterNot { it.id == id }
+        val wasSelected = _uiState.value.settings.searchEngine.id == id
+        val fallbackEngine = if (wasSelected) remainingEngines.first() else _uiState.value.settings.searchEngine
+
+        _uiState.update { state ->
+            state.copy(
+                searchEngines = remainingEngines,
+                settings = state.settings.copy(searchEngine = fallbackEngine)
+            )
+        }
+
+        viewModelScope.launch(ioDispatcher) {
+            searchEngineRepository?.deleteSearchEngine(id)
+            if (wasSelected) {
+                settingsRepository.setSearchEngine(fallbackEngine)
+            }
+        }
+    }
+
+    private fun reorderSearchEngines(ordered: List<SearchEngine>) {
+        val updated = ordered.mapIndexed { index, engine -> engine.copy(orderPosition = index) }
+        _uiState.update { it.copy(searchEngines = updated) }
+        viewModelScope.launch(ioDispatcher) {
+            searchEngineRepository?.reorderSearchEngines(updated)
         }
     }
 
@@ -1587,6 +1787,10 @@ class BrowserViewModel(
 
     private fun handleBackNavigation() {
         val current = _uiState.value
+        if (current.showAddEditSearchEngineDialog) {
+            _uiState.update { it.copy(showAddEditSearchEngineDialog = false, editingSearchEngine = null) }
+            return
+        }
         if (current.showAddFavoriteDialog) {
             _uiState.update { it.copy(showAddFavoriteDialog = false) }
             return
