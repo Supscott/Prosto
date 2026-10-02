@@ -26,11 +26,13 @@ public class SearchQueryDispatchEngineCoverageTest {
             }
 
             String encoded = URLEncoder.encode(trimmed, StandardCharsets.UTF_8);
-            return switch (engine) {
-                case DUCKDUCKGO -> "https://duckduckgo.com/?q=" + encoded;
-                case GOOGLE -> "https://www.google.com/search?q=" + encoded;
-                case BING -> "https://www.bing.com/search?q=" + encoded;
-            };
+            if (engine.equals(SearchEngine.GOOGLE)) {
+                return "https://www.google.com/search?q=" + encoded;
+            } else if (engine.equals(SearchEngine.BING)) {
+                return "https://www.bing.com/search?q=" + encoded;
+            } else {
+                return "https://duckduckgo.com/?q=" + encoded;
+            }
         }
     }
 

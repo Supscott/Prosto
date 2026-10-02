@@ -183,7 +183,10 @@ val width = 440
         }
 
         activity.setContentView(composeView)
-val width = 440
+        Thread.sleep(200)
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+
+        val width = 440
         val height = 600
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
@@ -872,6 +875,102 @@ val width = 440
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
         assertTrue(outputFile.exists())
+    }
+
+    @Test
+    fun testAnimateToEngineForwardAndBackward() = runTest(testFrameClock) {
+        val density = Density(1f)
+        var hapticTicks = 0
+        val dummyHaptic = object : HapticFeedback {
+            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {
+                hapticTicks++
+            }
+        }
+        var selectedEngine = SearchEngine.GOOGLE
+
+        val state = SearchEngineCarouselState(
+            initialEngine = SearchEngine.GOOGLE,
+            density = density,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            onEngineSelected = { selectedEngine = it }
+        )
+
+        // 1. Animate from Google to Bing (forward 1 slot)
+        state.animateToEngine(SearchEngine.BING)
+        assertTrue(state.isFlinging || state.isScrolling)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SearchEngine.BING, selectedEngine)
+        assertEquals(SearchEngine.BING, state.currentEngine)
+        assertEquals(0f, state.animOffset.value, 0.1f)
+        assertTrue(hapticTicks >= 1)
+        assertTrue(!state.isFlinging)
+
+        // 2. Animate from Bing to DuckDuckGo (forward 1 slot circularly)
+        val hapticsBeforeDDG = hapticTicks
+        state.animateToEngine(SearchEngine.DUCKDUCKGO)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SearchEngine.DUCKDUCKGO, selectedEngine)
+        assertEquals(SearchEngine.DUCKDUCKGO, state.currentEngine)
+        assertEquals(0f, state.animOffset.value, 0.1f)
+        assertTrue(hapticTicks > hapticsBeforeDDG)
+
+        // 3. Animate from DuckDuckGo to Bing (backward 1 slot)
+        val hapticsBeforeBing = hapticTicks
+        state.animateToEngine(SearchEngine.BING)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SearchEngine.BING, selectedEngine)
+        assertEquals(SearchEngine.BING, state.currentEngine)
+        assertEquals(0f, state.animOffset.value, 0.1f)
+        assertTrue(hapticTicks > hapticsBeforeBing)
+
+        // 4. Calling animateToEngine on already selected engine should not start animation
+        val hapticBeforeSame = hapticTicks
+        state.animateToEngine(SearchEngine.BING)
+        assertTrue(!state.isFlinging)
+        assertEquals(hapticBeforeSame, hapticTicks)
+    }
+
+    @Test
+    fun testAnimateToEngineWithCustomEngines() = runTest(testFrameClock) {
+        val density = Density(1f)
+        var hapticTicks = 0
+        val dummyHaptic = object : HapticFeedback {
+            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {
+                hapticTicks++
+            }
+        }
+        val youtube = SearchEngine(
+            id = "youtube",
+            displayName = "YouTube",
+            searchUrlTemplate = "https://youtube.com/results?search_query=%s",
+            iconUrl = "https://youtube.com/favicon.ico",
+            shortcut = "y",
+            orderPosition = 3
+        )
+        val engines = SearchEngine.DEFAULT_ENGINES + youtube // [DDG(0), Google(1), Bing(2), YouTube(3)]
+        var selectedEngine = SearchEngine.GOOGLE
+
+        val state = SearchEngineCarouselState(
+            initialEngine = SearchEngine.GOOGLE,
+            density = density,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            engines = engines,
+            onEngineSelected = { selectedEngine = it }
+        )
+
+        // From Google (index 1) to YouTube (index 3): diff = 2 -> shortest slot = 2
+        state.animateToEngine(youtube)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(youtube, selectedEngine)
+        assertEquals(youtube, state.currentEngine)
+        assertEquals(0f, state.animOffset.value, 0.1f)
+        assertTrue(hapticTicks >= 2)
     }
 }
 

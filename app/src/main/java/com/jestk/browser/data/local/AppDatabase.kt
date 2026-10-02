@@ -18,6 +18,9 @@ import com.jestk.browser.data.local.dao.RecentTabDao
 import com.jestk.browser.data.local.entity.RecentTabEntity
 import com.jestk.browser.data.local.entity.TabEntity
 
+import com.jestk.browser.data.local.dao.SearchEngineDao
+import com.jestk.browser.data.local.entity.SearchEngineEntity
+
 @Database(
     entities = [
         TabEntity::class,
@@ -25,9 +28,10 @@ import com.jestk.browser.data.local.entity.TabEntity
         FavoriteEntity::class,
         SettingEntity::class,
         RecentTabEntity::class,
-        DownloadEntity::class
+        DownloadEntity::class,
+        SearchEngineEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -39,6 +43,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun settingDao(): SettingDao
     abstract fun recentTabDao(): RecentTabDao
     abstract fun downloadDao(): DownloadDao
+    abstract fun searchEngineDao(): SearchEngineDao
 
     companion object {
         private const val DATABASE_NAME = "jestk_browser.db"
