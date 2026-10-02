@@ -308,4 +308,14 @@ This document tracks bugs encountered during development, their root causes, and
   2. In `SearchEngineBadge`, set `.crossfade(false)` on `ImageRequest.Builder` for instant icon display without transparent initial frames or animation delay.
   3. Added assertions in `FaviconManagerTest` verifying that asset paths return `android.net.Uri` instances rather than `File`.
 
+### PointerEventPass.Initial for row-wide drag gestures with child clickable buttons
+
+- **Date:** 2026-10-02
+- **Symptom:** In reorderable lists (such as `SearchEngineDropdownCard`), having clickable buttons (e.g. edit pencil, delete trash) inside a draggable row causes touch event conflicts: either the child buttons consume the touch and prevent dragging over them, or putting standard drag gestures on the container blocks button click events.
+- **Root Cause:** In Jetpack Compose, gestures on `PointerEventPass.Main` are processed by child clickables before parent containers. If a child consumes down/motion events, parent pointer input receives events with `isConsumed == true`. Conversely, consuming all pointer events on the parent prevents child `clickable` / `IconButton` instances from detecting taps.
+- **Resolution & Prevention:** Intercept pointer motion using `awaitPointerEvent(pass = PointerEventPass.Initial)`.
+  1. Observe pointer delta on `PointerEventPass.Initial` without consuming if motion is below `touchSlop`. Child buttons receive unconsumed events on `PointerEventPass.Main` and process taps/clicks normally.
+  2. Once vertical displacement exceeds `touchSlop`, consume the pointer change (`change.consume()`) on `PointerEventPass.Initial`. Child clickables see that the event has been consumed and immediately cancel their pending click gestures without triggering action callbacks.
+  3. All subsequent movements drive the continuous drag smoothly.
+
 

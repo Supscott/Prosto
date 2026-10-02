@@ -31,6 +31,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.calculateTargetValue
 import androidx.compose.animation.core.spring
@@ -97,6 +98,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -111,6 +113,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -133,6 +136,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
@@ -1434,6 +1438,123 @@ fun SearchEngineSelectorButton(
     )
 }
 
+/**
+ * State and gesture controller for vertical drag & drop reordering in SearchEngineDropdownCard.
+ * Provides real drag & drop with continuous finger tracking, fluid spring animated gap opening
+ * under the dragged element ("освобождается место под ним"), bounds clamping, and bouncy snap landing.
+ */
+class SearchEngineReorderState(
+    val slotHeightPx: Float,
+    val coroutineScope: CoroutineScope,
+    val haptic: androidx.compose.ui.hapticfeedback.HapticFeedback,
+    val onReorder: (List<SearchEngine>) -> Unit
+) {
+    var draggingIndex by mutableStateOf<Int?>(null)
+    var targetIndex by mutableIntStateOf(-1)
+    var dragOffsetY by mutableFloatStateOf(0f)
+    var isDropping by mutableStateOf(false)
+    val dropAnim = Animatable(0f)
+
+    val isDragging: Boolean get() = draggingIndex != null
+
+    fun onDragStart(index: Int) {
+        if (isDropping) return
+        draggingIndex = index
+        targetIndex = index
+        dragOffsetY = 0f
+        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+    }
+
+    fun onDrag(deltaY: Float, listSize: Int) {
+        val currentIndex = draggingIndex ?: return
+        if (isDropping) return
+        dragOffsetY += deltaY
+
+        // Clamp drag offset so the item stays within list bounds
+        val minOffset = -currentIndex * slotHeightPx
+        val maxOffset = (listSize - 1 - currentIndex) * slotHeightPx
+        dragOffsetY = dragOffsetY.coerceIn(minOffset, maxOffset)
+
+        // Calculate prospective slot index
+        val currentSlotFloat = currentIndex + (dragOffsetY / slotHeightPx)
+        val newTarget = currentSlotFloat.roundToInt().coerceIn(0, listSize - 1)
+        if (newTarget != targetIndex) {
+            targetIndex = newTarget
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+    }
+
+    fun onDragEnd(
+        currentList: List<SearchEngine>,
+        onListUpdated: (List<SearchEngine>) -> Unit
+    ) {
+        val startIndex = draggingIndex ?: return
+        if (isDropping) return
+        val finalTarget = targetIndex.coerceIn(0, currentList.lastIndex)
+
+        coroutineScope.launch {
+            isDropping = true
+            val targetOffset = (finalTarget - startIndex) * slotHeightPx
+            dropAnim.snapTo(dragOffsetY)
+            dropAnim.animateTo(
+                targetValue = targetOffset,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+
+            if (finalTarget != startIndex) {
+                val mutable = currentList.toMutableList()
+                val moved = mutable.removeAt(startIndex)
+                mutable.add(finalTarget, moved)
+                onListUpdated(mutable)
+                onReorder(mutable)
+            }
+
+            draggingIndex = null
+            targetIndex = -1
+            dragOffsetY = 0f
+            dropAnim.snapTo(0f)
+            isDropping = false
+        }
+    }
+
+    fun onDragCancel() {
+        val startIndex = draggingIndex ?: return
+        coroutineScope.launch {
+            isDropping = true
+            dropAnim.snapTo(dragOffsetY)
+            dropAnim.animateTo(
+                targetValue = 0f,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+            draggingIndex = null
+            targetIndex = -1
+            dragOffsetY = 0f
+            dropAnim.snapTo(0f)
+            isDropping = false
+        }
+    }
+
+    fun getSiblingTargetOffset(index: Int): Float {
+        val activeIndex = draggingIndex ?: return 0f
+        if (index == activeIndex) return 0f
+        val target = targetIndex
+        if (target == -1 || target == activeIndex) return 0f
+
+        return if (target > activeIndex) {
+            if (index in (activeIndex + 1)..target) -slotHeightPx else 0f
+        } else {
+            if (index in target until activeIndex) slotHeightPx else 0f
+        }
+    }
+}
+
 @Composable
 fun SearchEngineDropdownCard(
     selectedEngine: SearchEngine,
@@ -1446,11 +1567,31 @@ fun SearchEngineDropdownCard(
     modifier: Modifier = Modifier,
     engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     initialEditMode: Boolean = false,
+    reorderState: SearchEngineReorderState? = null,
 ) {
     var isEditMode by remember { mutableStateOf(initialEditMode) }
     var currentList by remember(engines) { mutableStateOf(engines) }
+    LaunchedEffect(engines) {
+        currentList = engines
+    }
+
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
+    val coroutineScope = rememberCoroutineScope()
+    val viewConfig = androidx.compose.ui.platform.LocalViewConfiguration.current
+
+    val itemHeight = 44.dp
+    val itemSpacing = 4.dp
+    val slotHeightPx = with(density) { (itemHeight + itemSpacing).toPx() }
+
+    val reorderState = reorderState ?: remember(slotHeightPx, onReorderEngines) {
+        SearchEngineReorderState(
+            slotHeightPx = slotHeightPx,
+            coroutineScope = coroutineScope,
+            haptic = haptic,
+            onReorder = onReorderEngines
+        )
+    }
 
     val bg = if (isDark) DarkSurface else Color.White
     val border = SereneBorders.cardBorder(isDark)
@@ -1465,153 +1606,219 @@ fun SearchEngineDropdownCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 6.dp, horizontal = 6.dp)
+                .padding(vertical = 6.dp, horizontal = 6.dp),
+            verticalArrangement = Arrangement.spacedBy(itemSpacing)
         ) {
             currentList.forEachIndexed { index, engine ->
-                val isSelected = engine.id == selectedEngine.id
-                val itemBg = when {
-                    !isEditMode && isSelected && isDark -> DarkSurfaceVariant
-                    !isEditMode && isSelected && !isDark -> SerenePaleBlue
-                    else -> Color.Transparent
-                }
-                val textColor = when {
-                    !isEditMode && isSelected && isDark -> DarkOnSurface
-                    !isEditMode && isSelected && !isDark -> SereneBrandPrimary
-                    isDark -> DarkOnSurfaceVariant
-                    else -> SereneDarkText
-                }
+                key(engine.id) {
+                    val isSelected = engine.id == selectedEngine.id
+                    val isDraggingThis = reorderState.draggingIndex == index
 
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = itemBg,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(44.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .then(
-                            if (!isEditMode) {
-                                Modifier.clickable { onSelectEngine(engine) }
-                            } else {
-                                Modifier
-                            }
-                        )
-                ) {
-                    Row(
+                    val targetSiblingOffset = if (isDraggingThis) 0f else reorderState.getSiblingTargetOffset(index)
+                    val animatedSiblingOffset by animateFloatAsState(
+                        targetValue = targetSiblingOffset,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        label = "SiblingDisplacement_${engine.id}"
+                    )
+
+                    val itemTranslationY = if (isDraggingThis) {
+                        if (reorderState.isDropping) reorderState.dropAnim.value else reorderState.dragOffsetY
+                    } else {
+                        animatedSiblingOffset
+                    }
+
+                    val animatedScale by animateFloatAsState(
+                        targetValue = if (isDraggingThis) 1.04f else 1.0f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow
+                        ),
+                        label = "ItemScale_${engine.id}"
+                    )
+
+                    val animatedElevation by animateDpAsState(
+                        targetValue = if (isDraggingThis) 8.dp else 0.dp,
+                        label = "ItemElevation_${engine.id}"
+                    )
+
+                    val itemBg = when {
+                        isDraggingThis && isDark -> DarkSurfaceVariant
+                        isDraggingThis && !isDark -> Color.White
+                        !isEditMode && isSelected && isDark -> DarkSurfaceVariant
+                        !isEditMode && isSelected && !isDark -> SerenePaleBlue
+                        else -> Color.Transparent
+                    }
+
+                    val itemBorder = when {
+                        isDraggingThis -> BorderStroke(1.5.dp, if (isDark) DarkPrimary else SereneBrandPrimary)
+                        !isEditMode && isSelected -> BorderStroke(1.dp, if (isDark) DarkPrimary.copy(alpha = 0.5f) else SereneBrandPrimary.copy(alpha = 0.5f))
+                        else -> null
+                    }
+
+                    val textColor = when {
+                        !isEditMode && isSelected && isDark -> DarkOnSurface
+                        !isEditMode && isSelected && !isDark -> SereneBrandPrimary
+                        isDark -> DarkOnSurfaceVariant
+                        else -> SereneDarkText
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = itemBg,
+                        border = itemBorder,
+                        shadowElevation = animatedElevation,
                         modifier = Modifier
-                            .fillMaxSize()
-                            .padding(horizontal = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        if (isEditMode) {
-                            // Left 1: Drag handle button
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .pointerInput(currentList) {
-                                        var accumulatedDrag = 0f
-                                        val itemHeightPx = with(density) { 44.dp.toPx() }
-                                        detectDragGestures(
-                                            onDragStart = { accumulatedDrag = 0f },
-                                            onDragEnd = { onReorderEngines(currentList) },
-                                            onDragCancel = {},
-                                            onDrag = { change, dragAmount ->
-                                                change.consume()
-                                                accumulatedDrag += dragAmount.y
-                                                val steps = (accumulatedDrag / itemHeightPx).toInt()
-                                                if (steps != 0) {
-                                                    val targetIdx = (index + steps).coerceIn(0, currentList.lastIndex)
-                                                    if (targetIdx != index) {
-                                                        val mutable = currentList.toMutableList()
-                                                        val item = mutable.removeAt(index)
-                                                        mutable.add(targetIdx, item)
-                                                        currentList = mutable
-                                                        accumulatedDrag = 0f
-                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            .fillMaxWidth()
+                            .height(itemHeight)
+                            .zIndex(if (isDraggingThis) 10f else 0f)
+                            .graphicsLayer {
+                                translationY = itemTranslationY
+                                scaleX = animatedScale
+                                scaleY = animatedScale
+                            }
+                            .clip(RoundedCornerShape(14.dp))
+                            .then(
+                                if (!isEditMode) {
+                                    Modifier.clickable { onSelectEngine(engine) }
+                                } else {
+                                    Modifier.pointerInput(engine.id) {
+                                        val touchSlop = viewConfig.touchSlop
+                                        awaitEachGesture {
+                                            val down = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                                            var totalDragY = 0f
+                                            var totalDragX = 0f
+                                            var isItemDragging = false
+                                            val pointerId = down.id
+
+                                            while (true) {
+                                                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                                                val change = event.changes.firstOrNull { it.id == pointerId } ?: break
+                                                if (!change.pressed) {
+                                                    if (isItemDragging) {
+                                                        change.consume()
+                                                        reorderState.onDragEnd(currentList) { updated -> currentList = updated }
                                                     }
+                                                    break
+                                                }
+                                                val deltaY = change.position.y - change.previousPosition.y
+                                                val deltaX = change.position.x - change.previousPosition.x
+                                                totalDragY += deltaY
+                                                totalDragX += deltaX
+
+                                                if (!isItemDragging && abs(totalDragY) > touchSlop && abs(totalDragY) > abs(totalDragX)) {
+                                                    isItemDragging = true
+                                                    reorderState.onDragStart(index)
+                                                    change.consume()
+                                                }
+
+                                                if (isItemDragging) {
+                                                    change.consume()
+                                                    reorderState.onDrag(deltaY, currentList.size)
                                                 }
                                             }
-                                        )
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.DragHandle,
-                                    contentDescription = "Reorder",
-                                    tint = if (isDark) DarkOnSurfaceVariant else SereneMutedSlate,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                                        }
+                                    }
+                                }
+                            )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            if (isEditMode) {
+                                // Left 1: Drag handle icon
+                                Box(
+                                    modifier = Modifier.size(28.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DragHandle,
+                                        contentDescription = "Reorder",
+                                        tint = if (isDraggingThis) {
+                                            if (isDark) DarkPrimary else SereneBrandPrimary
+                                        } else {
+                                            if (isDark) DarkOnSurfaceVariant else SereneMutedSlate
+                                        },
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                // Left 2: Edit pencil button
+                                IconButton(
+                                    onClick = { onEditEngineClick(engine) },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Edit,
+                                        contentDescription = "Edit Provider",
+                                        tint = if (isDark) DarkPrimary else SereneBrandPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
 
-                            // Left 2: Edit pencil button
-                            IconButton(
-                                onClick = { onEditEngineClick(engine) },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Edit,
-                                    contentDescription = "Edit Provider",
-                                    tint = if (isDark) DarkPrimary else SereneBrandPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
+                            SearchEngineBadge(
+                                engine = engine,
+                                size = 22.dp,
+                                isDark = isDark
+                            )
+
+                            Text(
+                                text = engine.displayName,
+                                style = LocalSereneTypography.current.bodyMd.copy(
+                                    fontWeight = if (!isEditMode && isSelected) FontWeight.Bold else FontWeight.Medium
+                                ),
+                                color = textColor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            if (!engine.shortcut.isNullOrBlank()) {
+                                Surface(
+                                    shape = RoundedCornerShape(4.dp),
+                                    color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                                    modifier = Modifier.padding(end = 2.dp)
+                                ) {
+                                    Text(
+                                        text = engine.shortcut,
+                                        style = LocalSereneTypography.current.labelSm.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
+                                        color = SereneMutedSlate,
+                                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                    )
+                                }
                             }
-                        }
 
-                        SearchEngineBadge(
-                            engine = engine,
-                            size = 22.dp,
-                            isDark = isDark
-                        )
-
-                        Text(
-                            text = engine.displayName,
-                            style = LocalSereneTypography.current.bodyMd.copy(
-                                fontWeight = if (!isEditMode && isSelected) FontWeight.Bold else FontWeight.Medium
-                            ),
-                            color = textColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f)
-                        )
-
-                        if (!engine.shortcut.isNullOrBlank()) {
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                                modifier = Modifier.padding(end = 2.dp)
-                            ) {
-                                Text(
-                                    text = engine.shortcut,
-                                    style = LocalSereneTypography.current.labelSm.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
-                                    color = SereneMutedSlate,
-                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
-                                )
-                            }
-                        }
-
-                        if (!isEditMode) {
-                            if (isSelected) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Selected",
-                                    tint = if (isDark) DarkPrimary else SereneBrandPrimary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            }
-                        } else {
-                            // Right: Delete trash icon (disabled if currentList.size <= 1)
-                            val canDelete = currentList.size > 1
-                            IconButton(
-                                onClick = { onDeleteEngineClick(engine) },
-                                enabled = canDelete,
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.DeleteOutline,
-                                    contentDescription = "Delete Provider",
-                                    tint = if (canDelete) Color(0xFFEF4444) else if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1),
-                                    modifier = Modifier.size(18.dp)
-                                )
+                            if (!isEditMode) {
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = if (isDark) DarkPrimary else SereneBrandPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            } else {
+                                // Right: Delete trash icon (disabled if currentList.size <= 1)
+                                val canDelete = currentList.size > 1
+                                IconButton(
+                                    onClick = { onDeleteEngineClick(engine) },
+                                    enabled = canDelete,
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.DeleteOutline,
+                                        contentDescription = "Delete Provider",
+                                        tint = if (canDelete) Color(0xFFEF4444) else if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -1622,7 +1829,7 @@ fun SearchEngineDropdownCard(
             HorizontalDivider(
                 color = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9),
                 thickness = 1.dp,
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
             )
 
             // Pinned Bottom Actions

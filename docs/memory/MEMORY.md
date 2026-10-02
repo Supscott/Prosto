@@ -693,9 +693,30 @@
   - **Tests & Verification:**
     - Added unit tests in `SearchOverlayPreviewTest` (`testAnimateToEngineForwardAndBackward`, `testAnimateToEngineWithCustomEngines`) verifying forward, backward, wrap-around circular motion, haptic emission, and custom engine traversal.
     - Full project test suite (`:app:testDebugUnitTest`) executed with 100% pass rate.
+### Session: Real Search Engine Drag & Drop with Fluid Animations & Sibling Displacement
+
+- **Completed:**
+  - Implemented real, physics-driven vertical drag & drop reordering for search engines in `SearchEngineDropdownCard` Edit Mode.
+  - **Dynamic Gap Opening ("Освобождение места под ним"):**
+    - Built [`SearchEngineReorderState`](file:///Users/ilya/CODING/browser/.worktrees/refactor/fast-switching-search/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt): calculates continuous slot position during drag and drives sibling items up or down with spring displacement (`Spring.DampingRatioMediumBouncy`), dynamically holding an empty slot open under the floating item.
+  - **Tactile Floating Drag Layer:**
+    - The active item lifts with scale (`1.04x`), elevation shadow (`8.dp`), brand highlight rim border, and `zIndex = 10f`, continuously following finger movement with bounds clamping.
+  - **Universal Row Drag Gesture with Child Click Protection:**
+    - Dragging can be initiated anywhere on the card row using `PointerEventPass.Initial` past `touchSlop`.
+    - Tap actions on the edit pencil and delete trash buttons remain responsive and independent (touch slop cancellation prevents accidental edits during drag).
+  - **Bouncy Snap Drop & Immediate Persistence:**
+    - On release, the dragged item smoothly snaps into the target slot using `Animatable.animateTo` with bouncy spring physics and landing haptics (`HapticFeedbackType.TextHandleMove`).
+    - Immediately commits reordered list to Room database (`SearchEngineRepository.updateOrderPositions`) on drop.
+  - **Tests & Visual Previews:**
+    - Created comprehensive unit test suite in [`SearchEngineReorderStateTest.kt`](file:///Users/ilya/CODING/browser/.worktrees/refactor/fast-switching-search/app/src/test/java/com/jestk/browser/ui/overlays/SearchEngineReorderStateTest.kt) covering downward drag, upward drag, sibling offset calculations, bounds clamping, drop animations, and cancel recovery (all 6 tests passing).
+    - Added `renderSearchEngineDropdownCardDragPreview` in [`AddEditSearchEngineDialogPreviewTest.kt`](file:///Users/ilya/CODING/browser/.worktrees/refactor/fast-switching-search/app/src/test/java/com/jestk/browser/ui/overlays/AddEditSearchEngineDialogPreviewTest.kt) rendering the active mid-flight drag and sibling gap displacement in both Light and Dark modes to `build/search_engine_dropdown_drag_preview.png`.
+    - Full test suite (`:app:testDebugUnitTest`) executed 100% green.
+    - Updated TickTick task "драг эн дроп" to `test` column.
 - **Current State:**
-  - Branch: `search-providers`
-  - Carousel smoothly animates to matched engine upon shortcut entry.
+  - Branch: `refactor/fast-switching-search`
+  - Reordering search engines in the dropdown features fluid spring animations, tactile drag feedback, and dynamic slot displacement.
 - **Key Architectural Decisions:**
-  - Set `isFlinging = true` synchronously outside the launched coroutine so UI state masks (fade alpha and arrow hiding) respond immediately to shortcut entry.
+  - Use `PointerEventPass.Initial` to detect and consume vertical drag gestures before child clickables (pencil, delete) process them, allowing the whole row to be draggable while preserving button tap clicks.
+  - Sibling offsets and the dragged item's drop offset are driven by spring physics while keeping the item's identity stable (`key(engine.id)`), ensuring seamless transitions with zero layout flicker upon list commitment.
+
 
