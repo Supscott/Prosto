@@ -199,4 +199,116 @@ class SearchEngineReorderStateTest {
         assertEquals(0f, state.dragOffsetY, 0.001f)
         assertFalse(state.isDragging)
     }
+
+    @Test
+    fun dragByEngineId_reordersCorrectlyAcrossMultipleRapidDrags() = runTest(testFrameClock) {
+        var persistedList: List<SearchEngine>? = null
+        val state = SearchEngineReorderState(
+            slotHeightPx = 48f,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            onReorder = { persistedList = it }
+        )
+
+        var list = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+
+        // 1st drag: Move Google (index 0) to slot 2
+        state.onDragStart(SearchEngine.GOOGLE.id, list)
+        assertEquals(SearchEngine.GOOGLE.id, state.draggingEngineId)
+        assertEquals(0, state.draggingIndex)
+
+        state.onDrag(100f, list)
+        assertEquals(2, state.targetIndex)
+
+        state.onDragEnd(list) { updated -> list = updated }
+        testScheduler.advanceUntilIdle()
+
+        // List is now: [DUCKDUCKGO, BING, GOOGLE]
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BING, SearchEngine.GOOGLE), list)
+        assertEquals(list, persistedList)
+
+        // 2nd rapid drag: Move GOOGLE (now at index 2!) up to slot 0
+        state.onDragStart(SearchEngine.GOOGLE.id, list)
+        assertEquals(SearchEngine.GOOGLE.id, state.draggingEngineId)
+        assertEquals(2, state.draggingIndex) // Dynamically resolved to 2, NOT stale 0!
+
+        state.onDrag(-100f, list)
+        assertEquals(0, state.targetIndex)
+
+        state.onDragEnd(list) { updated -> list = updated }
+        testScheduler.advanceUntilIdle()
+
+        // List is back to: [GOOGLE, DUCKDUCKGO, BING]
+        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING), list)
+        assertEquals(list, persistedList)
+
+        // 3rd rapid drag: Move BING (index 2) to slot 1
+        state.onDragStart(SearchEngine.BING.id, list)
+        assertEquals(2, state.draggingIndex)
+        state.onDrag(-48f, list)
+        assertEquals(1, state.targetIndex)
+
+        state.onDragEnd(list) { updated -> list = updated }
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.BING, SearchEngine.DUCKDUCKGO), list)
+    }
+
+    @Test
+    fun dragReleaseInSameSlot_settlesWithoutUpdatingListOrDB() = runTest(testFrameClock) {
+        var onReorderCalled = false
+        var onListUpdatedCalled = false
+
+        val state = SearchEngineReorderState(
+            slotHeightPx = 48f,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            onReorder = { onReorderCalled = true }
+        )
+
+        val list = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+
+        // Start drag on DuckDuckGo (index 1)
+        state.onDragStart(SearchEngine.DUCKDUCKGO.id, list)
+        assertEquals(1, state.draggingIndex)
+
+        // Small nudge that doesn't cross slot threshold (stays in slot 1)
+        state.onDrag(10f, list)
+        assertEquals(1, state.targetIndex)
+
+        state.onDragEnd(list) {
+            onListUpdatedCalled = true
+        }
+        testScheduler.advanceUntilIdle()
+
+        // Must NOT update list or call onReorder
+        assertFalse(onListUpdatedCalled)
+        assertFalse(onReorderCalled)
+        assertNull(state.draggingEngineId)
+        assertFalse(state.isDragging)
+        assertFalse(state.isDropping)
+    }
+
+    @Test
+    fun getSiblingTargetOffset_byEngineId_accuratelyDisplacesSiblings() = runTest(testFrameClock) {
+        val state = SearchEngineReorderState(
+            slotHeightPx = 48f,
+            coroutineScope = this,
+            haptic = dummyHaptic,
+            onReorder = {}
+        )
+
+        val list = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+
+        state.onDragStart(SearchEngine.GOOGLE.id, list)
+        state.onDrag(50f, list) // target slot 1
+
+        assertEquals(1, state.targetIndex)
+        // DuckDuckGo should move UP into slot 0
+        assertEquals(-48f, state.getSiblingTargetOffset(SearchEngine.DUCKDUCKGO.id, list), 0.001f)
+        // Bing should stay at 0f
+        assertEquals(0f, state.getSiblingTargetOffset(SearchEngine.BING.id, list), 0.001f)
+        // Dragged item itself has 0 sibling offset
+        assertEquals(0f, state.getSiblingTargetOffset(SearchEngine.GOOGLE.id, list), 0.001f)
+    }
 }
