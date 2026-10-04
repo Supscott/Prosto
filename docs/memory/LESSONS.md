@@ -306,6 +306,37 @@ This document tracks bugs encountered during development, their root causes, and
 - **Resolution & Prevention:**
   1. In `FaviconManager.toImageModel`, explicitly intercept `file:///android_asset/` and `/android_asset/` and return `Uri.parse(urlOrPath)` so Coil routes to `AssetUriFetcher` and opens the stream via `context.assets.open(...)`.
   2. In `SearchEngineBadge`, set `.crossfade(false)` on `ImageRequest.Builder` for instant icon display without transparent initial frames or animation delay.
-  3. Added assertions in `FaviconManagerTest` verifying that asset paths return `android.net.Uri` instances rather than `File`.
+### PointerEventPass.Initial for row-wide drag gestures with child clickable buttons
+
+- **Date:** 2026-10-02
+- **Symptom:** In reorderable lists (such as `SearchEngineDropdownCard`), having clickable buttons (e.g. edit pencil, delete trash) inside a draggable row causes touch event conflicts: either the child buttons consume the touch and prevent dragging over them, or putting standard drag gestures on the container blocks button click events.
+- **Root Cause:** In Jetpack Compose, gestures on `PointerEventPass.Main` are processed by child clickables before parent containers. If a child consumes down/motion events, parent pointer input receives events with `isConsumed == true`. Conversely, consuming all pointer events on the parent prevents child `clickable` / `IconButton` instances from detecting taps.
+- **Resolution & Prevention:** Intercept pointer motion using `awaitPointerEvent(pass = PointerEventPass.Initial)`.
+  1. Observe pointer delta on `PointerEventPass.Initial` without consuming if motion is below `touchSlop`. Child buttons receive unconsumed events on `PointerEventPass.Main` and process taps/clicks normally.
+  2. Once vertical displacement exceeds `touchSlop`, consume the pointer change (`change.consume()`) on `PointerEventPass.Initial`. Child clickables see that the event has been consumed and immediately cancel their pending click gestures without triggering action callbacks.
+  3. All subsequent movements drive the continuous drag smoothly.
+
+### Stale captured index in drag gesture closures corrupts list reorder sequence
+
+- **Date:** 2026-10-02
+- **Symptom:** During rapid or frequent reordering of search engines in the dropdown card, items became mixed up or transposed. For instance, tapping item 1 selected item 3, and dragging an item moved an entirely different item in the list.
+- **Root Cause:** In Jetpack Compose, `Modifier.pointerInput(key)` only restarts its gesture coroutine when `key` changes. When `pointerInput(engine.id)` captured `index: Int` from `forEachIndexed`, the item's `id` stayed constant across reorder operations. When item 0 moved to index 2, its `pointerInput` lambda retained the stale captured `index = 0`. On subsequent drags, `onDragStart(index)` and `onDragEnd` called `list.removeAt(0)` instead of `list.removeAt(2)`, removing and shifting the wrong item.
+- **Resolution & Prevention:** Never capture transient positional indices (`index: Int`) inside long-lived gesture lambdas. Key drag operations on immutable domain identifiers (`engine.id`) and dynamically resolve current list indices (`currentList.indexOfFirst { it.id == engineId }`) at the moment of drag start, during drag displacement, and at drop commitment.
+
+### Sibling item jump caused by spring animation after layout slot shift
+
+- **Date:** 2026-10-02
+- **Symptom:** Upon releasing a dragged item, once the drop settled, the neighboring displaced item visibly jumped or flickered before settling into place.
+- **Root Cause:** During drag, the neighboring sibling was displaced by an animated offset `targetSiblingOffset = -48f` (`animateFloatAsState`). When the drop finished, `currentList` updated and Compose recomposed: the sibling moved to its new layout slot (which is already 48px higher). Simultaneously, dragging ended so `targetSiblingOffset` reset to `0f`. Because `animateFloatAsState` does not instantly snap to `0f`, it ran a spring animation from `-48f` to `0f`. Adding `-48f` to the new layout position displaced the sibling by a double offset (`-96px`), creating a visible jump.
+- **Resolution & Prevention:** Guard visual displacement with active reorder state (`isReorderActive = isDragging || isDropping`). If not active, immediately clamp visual translation to `0f` in the layout phase, and use an explicit `Animatable.snapTo(0f)` when the reorder cycle terminates, ensuring zero frame offset jumps upon layout index updates.
+
+### Early return in `awaitEachGesture` before suspending causes 100% CPU lockup (ANR)
+
+- **Date:** 2026-10-02
+- **Symptom:** Releasing an item after dragging caused the app to instantly freeze and crash with an ANR (`98% CPU: com.jestk.browser.debug: 94% user + 4.3% kernel`).
+- **Root Cause:** In Jetpack Compose, `awaitEachGesture` runs an internal `while (currentCoroutineContext().isActive)` loop. If the lambda returns without suspending (e.g. `if (reorderState.isDragging || reorderState.isDropping) return@awaitEachGesture` placed before `awaitFirstDown`), the loop runs un-suspended at full CPU speed. When `isDropping` was set to `true` upon releasing the pointer, the gesture ended and `awaitEachGesture` immediately restarted, hit the early return on every iteration, and spun millions of times per second on the Android main looper thread, blocking the UI and choreographer until killed by the OS.
+- **Resolution & Prevention:** NEVER place non-suspending conditional exits at the top of `awaitEachGesture`. The very first statement in `awaitEachGesture` must always be a suspending pointer call (such as `awaitFirstDown()`). If the gesture should be ignored while another action is in progress, suspend on pointer events (`awaitPointerEvent`) until all pointers are released before returning.
+
+
 
 

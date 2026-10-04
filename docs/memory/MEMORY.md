@@ -699,3 +699,27 @@
 - **Key Architectural Decisions:**
   - Set `isFlinging = true` synchronously outside the launched coroutine so UI state masks (fade alpha and arrow hiding) respond immediately to shortcut entry.
 
+### Session: Refactor Search Engine Drag & Drop (Order Scrambling, Sibling Drop Jump, and 200ms Hold Lift)
+
+- **Completed:**
+  - Resolved list order confusion during rapid reordering by keying drag operations by `engine.id` rather than stale index closures.
+  - Eliminated the sibling drop "jump" glitch by replacing `animateFloatAsState` with a dedicated `Animatable(0f)` that immediately snaps to `0f` upon drop settlement when new layout slots take effect.
+  - Implemented tactile 200ms press-and-hold lift:
+    - `withTimeoutOrNull(200L)` timer on `PointerEventPass.Initial`: taps (<200ms) pass through to edit/delete buttons, while holding >= 200ms triggers lift.
+    - Lift styling: scales up to `1.05f`, elevates to `10.dp`, highlights with brand primary border, and emits haptic tick.
+    - Dropping in the same slot smoothly settles the item back into place without triggering Room DB writes or list updates.
+  - Fixed critical ANR/freeze on drop release:
+    - Root cause: `if (reorderState.isDragging || reorderState.isDropping) return@awaitEachGesture` occurred before `awaitFirstDown`, causing `awaitEachGesture` to spin in an infinite tight while loop consuming 100% CPU when `isDropping` was true on release.
+    - Fix: Moved `awaitFirstDown` to the very top of `awaitEachGesture` so the coroutine suspends until the next touch event, and properly wait for pointer release before exiting when another item is active.
+  - Added unit tests in `SearchEngineReorderStateTest.kt` verifying rapid multi-reorder consistency, same-slot release behavior, and ID-based sibling displacement.
+  - Verified full test suite (`:app:testDebugUnitTest`) passing 100% green.
+  - Built and installed debug APK on physical test device (`motorola edge 60 fusion`).
+- **Current State:**
+  - Branch: `refactor/fast-switching-search`
+  - Drag & drop reordering is robust, fluid, tested on hardware, and verified against rapid interaction edge cases.
+- **Key Architectural Decisions:**
+  - In Compose `awaitEachGesture`, never return early before a suspending pointer call (such as `awaitFirstDown`), as `awaitEachGesture` will spin in a tight un-suspended CPU loop.
+  - Always key reorderable list gestures and state on stable entity IDs (`engine.id`) rather than captured lambda indices.
+  - For sibling displacement in reordered lists, snap animated offsets to `0f` when layout indices shift to avoid compounding visual displacements.
+
+
