@@ -786,12 +786,23 @@
   - Added unit tests in `SearchEngineReorderStateTest.kt` verifying rapid multi-reorder consistency, same-slot release behavior, and ID-based sibling displacement.
   - Verified full test suite (`:app:testDebugUnitTest`) passing 100% green.
   - Built and installed debug APK on physical test device (`motorola edge 60 fusion`).
+### Session: Cleanup Obsolete Git Worktrees & Branches
+
+- **Completed:**
+  - Integrated unmerged feature work from `refactor/fast-switching-search` into `main` via merge commit (`6e0bf01`), verified with full unit test suite passing green (`:app:testDebugUnitTest`).
+  - Removed all 9 obsolete and detached git worktrees across the filesystem (`~/CODING/browser-fix-favicon`, `~/CODING/browser-fix-search-input`, `~/CODING/browser-fix-serach-engine`, `~/CODING/browser-search-providers`, `~/.gemini/antigravity/worktrees/browser/fix_favorites_favicon`, 3 old subagent worktrees in `.gemini/antigravity/brain/...`, and `.worktrees/refactor/fast-switching-search`), recovering over 700 MB of disk space.
+  - Pruned git worktree metadata (`git worktree prune`) and cleaned up empty leftover directories in `.worktrees/`.
+  - Deleted 28 obsolete local git branches (27 merged feature/fix branches and 1 superseded subagent branch).
+  - Cleaned up obsolete GitButler remote `gb-local` and purged its 32 tracking refs.
 - **Current State:**
-  - Branch: `refactor/fast-switching-search`
-  - Drag & drop reordering is robust, fluid, tested on hardware, and verified against rapid interaction edge cases.
+  - Branch: `main` (active primary repository)
+  - Worktrees: 1 (`~/CODING/browser` [main])
+  - Local branches: 1 (`main`)
+  - Remote: `origin` (`https://github.com/Supscott/browser.git`)
+  - Repository is completely clean, test suite passes 100% green.
 - **Key Architectural Decisions:**
-  - In Compose `awaitEachGesture`, never return early before a suspending pointer call (such as `awaitFirstDown`), as `awaitEachGesture` will spin in a tight un-suspended CPU loop.
-  - Always key reorderable list gestures and state on stable entity IDs (`engine.id`) rather than captured lambda indices.
-  - For sibling displacement in reordered lists, snap animated offsets to `0f` when layout indices shift to avoid compounding visual displacements.
+  - Feature work completed in temporary or subagent worktrees must be formally merged into `main` before deleting the worktree/branch to prevent code regression.
+  - Always clean up subagent worktrees and remote tracking refs when deprecating legacy tooling (e.g. GitButler).
+
 
 
