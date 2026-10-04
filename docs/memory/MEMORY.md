@@ -693,11 +693,83 @@
   - **Tests & Verification:**
     - Added unit tests in `SearchOverlayPreviewTest` (`testAnimateToEngineForwardAndBackward`, `testAnimateToEngineWithCustomEngines`) verifying forward, backward, wrap-around circular motion, haptic emission, and custom engine traversal.
     - Full project test suite (`:app:testDebugUnitTest`) executed with 100% pass rate.
+### Session: Real Search Engine Drag & Drop with Fluid Animations & Sibling Displacement
+
+- **Completed:**
+  - Implemented real, physics-driven vertical drag & drop reordering for search engines in `SearchEngineDropdownCard` Edit Mode.
+  - **Dynamic Gap Opening ("Освобождение места под ним"):**
+    - Built [`SearchEngineReorderState`](file:///Users/ilya/CODING/browser/.worktrees/refactor/fast-switching-search/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt): calculates continuous slot position during drag and drives sibling items up or down with spring displacement (`Spring.DampingRatioMediumBouncy`), dynamically holding an empty slot open under the floating item.
+  - **Tactile Floating Drag Layer:**
+    - The active item lifts with scale (`1.04x`), elevation shadow (`8.dp`), brand highlight rim border, and `zIndex = 10f`, continuously following finger movement with bounds clamping.
+  - **Universal Row Drag Gesture with Child Click Protection:**
+    - Dragging can be initiated anywhere on the card row using `PointerEventPass.Initial` past `touchSlop`.
+    - Tap actions on the edit pencil and delete trash buttons remain responsive and independent (touch slop cancellation prevents accidental edits during drag).
+  - **Bouncy Snap Drop & Immediate Persistence:**
+    - On release, the dragged item smoothly snaps into the target slot using `Animatable.animateTo` with bouncy spring physics and landing haptics (`HapticFeedbackType.TextHandleMove`).
+    - Immediately commits reordered list to Room database (`SearchEngineRepository.updateOrderPositions`) on drop.
+  - **Tests & Visual Previews:**
+    - Created comprehensive unit test suite in [`SearchEngineReorderStateTest.kt`](file:///Users/ilya/CODING/browser/.worktrees/refactor/fast-switching-search/app/src/test/java/com/jestk/browser/ui/overlays/SearchEngineReorderStateTest.kt) covering downward drag, upward drag, sibling offset calculations, bounds clamping, drop animations, and cancel recovery (all 6 tests passing).
+    - Added `renderSearchEngineDropdownCardDragPreview` in [`AddEditSearchEngineDialogPreviewTest.kt`](file:///Users/ilya/CODING/browser/.worktrees/refactor/fast-switching-search/app/src/test/java/com/jestk/browser/ui/overlays/AddEditSearchEngineDialogPreviewTest.kt) rendering the active mid-flight drag and sibling gap displacement in both Light and Dark modes to `build/search_engine_dropdown_drag_preview.png`.
+    - Full test suite (`:app:testDebugUnitTest`) executed 100% green.
+    - Updated TickTick task "драг эн дроп" to `test` column.
 - **Current State:**
-  - Branch: `search-providers`
-  - Carousel smoothly animates to matched engine upon shortcut entry.
+  - Branch: `refactor/fast-switching-search`
+  - Reordering search engines in the dropdown features fluid spring animations, tactile drag feedback, and dynamic slot displacement.
 - **Key Architectural Decisions:**
-  - Set `isFlinging = true` synchronously outside the launched coroutine so UI state masks (fade alpha and arrow hiding) respond immediately to shortcut entry.
+  - Use `PointerEventPass.Initial` to detect and consume vertical drag gestures before child clickables (pencil, delete) process them, allowing the whole row to be draggable while preserving button tap clicks.
+  - Sibling offsets and the dragged item's drop offset are driven by spring physics while keeping the item's identity stable (`key(engine.id)`), ensuring seamless transitions with zero layout flicker upon list commitment.
+
+### Session: Fix Repeated Drag & Drop List Desync, Boundary Overflow & Interruption
+
+- **Completed:**
+  - Resolved repeated drag-and-drop corruption in `SearchEngineDropdownCard` (`SearchOverlay.kt`):
+    - Items escaping outside card boundaries.
+    - Sibling gap opening under the wrong item.
+    - Scrambled list ordering after consecutive drags.
+  - **Internal Authoritative List State:**
+    - Added `currentList by mutableStateOf(initialList)` inside `SearchEngineReorderState` as the single source of truth.
+    - Refactored `SearchEngineDropdownCard` to render directly from `activeReorderState.currentList`, eliminating stale list closures in `pointerInput(engine.id)`.
+  - **Instant Commit on Drop Interruption:**
+    - Implemented `finishPendingDropImmediately()` to instantly commit any in-flight drop animations, set `currentList`, and cancel drop coroutine jobs before initiating a new drag, preventing gesture lockups and race conditions during rapid reordering.
+  - **Kotlin Default Parameter Fix:**
+    - Replaced `list: List<SearchEngine> = currentList` parameter traps with `list: List<SearchEngine>? = null` resolved in the method body after `finishPendingDropImmediately()` runs.
+  - **Strict Slot-Based Clamping:**
+    - Replaced container-height clamping with individual slot bounds: `minOffset = -currentIndex * slotHeightPx` and `maxOffset = (size - 1 - currentIndex) * slotHeightPx`.
+  - **Hybrid Gesture Architecture:**
+    - Instant drag on drag handle (`≡`) with immediate touch consumption.
+    - 200ms hold-to-drag guard on the rest of the row, preserving instant responsiveness for edit and delete child buttons.
+  - **Comprehensive Unit Testing:**
+    - Added 3 new unit tests in `SearchEngineReorderStateTest.kt`:
+      - `dragInterruption_newDragDuringDropBounce_instantlyCommitsPendingDropAndStartsNewDrag`
+      - `multipleConsecutiveDragsWithoutPassingList_updatesAuthoritativeCurrentList`
+      - `strictClamping_preventsDraggingBeyondBoxBoundaries`
+    - Full test suite `:app:testDebugUnitTest` (all 33 tasks, 690+ tests) passing green.
+- **Current State:**
+  - Branch: `refactor/fast-switching-search`
+  - Reordering in search engine dropdown is rock-solid across rapid, consecutive drags with zero boundary escapes or order desyncs.
+- **Key Architectural Decisions:**
+  - `SearchEngineReorderState` manages `currentList` internally, guaranteeing that gesture handlers, sibling displacement, and render loops always reference the most current post-reorder ordering even when `engine.id` keys do not recompose.
+  - Rapidly starting a drag while a drop bounce animation is in progress immediately snaps the previous item to its target position and commits the state without animation delay or state corruption.
+
+### Session: Eliminate Drag & Drop Half-Second Freeze on Release
+
+- **Completed:**
+  - Resolved intermittent ~500ms freeze/hang of the dragged search engine card when released:
+    - Replaced sluggish spring physics (`Spring.StiffnessMediumLow` 400f, `DampingRatioMediumBouncy` 0.5f) with crisp, snappy physics (`Spring.StiffnessMedium` 1500f, `DampingRatioLowBouncy` 0.75f).
+    - Set explicit `visibilityThreshold = 0.5f` on `dropAnim` and `siblingOffsetAnim`, eliminating subpixel harmonic oscillation tail where the animation took >500ms decaying toward 0.01px while appearing frozen to the eye.
+    - Separated active finger drag from drop settling via `isLifted = isDraggingThis && activeReorderState.isDragging`. The instant the finger releases (`onDragEnd`), scale (1.04x -> 1.0x) and elevation (8dp -> 0dp) start returning to resting state in parallel with translation rather than waiting for `dropAnim` to finish.
+    - Removed touch-blocking gate (`if (isDragging || isDropping)`) in row gestures that previously dropped touches during drop animations; new touches immediately trigger `finishPendingDropImmediately()`.
+    - Added unit test `dragEnd_isDraggingBecomesFalseImmediatelyAndDropSettlesPromptly` asserting immediate `isDragging = false` transition and settling within 250ms.
+  - Verified full test suite (`:app:testDebugUnitTest`) passes 100% green.
+- **Current State:**
+  - Branch: `refactor/fast-switching-search`
+  - Reorder drop animation is crisp, fluid, and settles in ~120-150ms without hanging.
+- **Key Architectural Decisions:**
+  - Spatial pixel animations in Compose must specify `visibilityThreshold = 0.5f` to prevent underdamped springs from wasting hundreds of milliseconds decaying imperceptible subpixel fractions.
+  - Lifted styling (scale/elevation/border) should be tied to active finger contact (`isDragging`), allowing the element to visually descend and land onto the stack concurrently as it translates into place.
+
+
+
 
 ### Session: Refactor Search Engine Drag & Drop (Order Scrambling, Sibling Drop Jump, and 200ms Hold Lift)
 

@@ -339,4 +339,44 @@ This document tracks bugs encountered during development, their root causes, and
 
 
 
+### PointerEventPass.Initial for row-wide drag gestures with child clickable buttons
+
+- **Date:** 2026-10-02
+- **Symptom:** In reorderable lists (such as `SearchEngineDropdownCard`), having clickable buttons (e.g. edit pencil, delete trash) inside a draggable row causes touch event conflicts: either the child buttons consume the touch and prevent dragging over them, or putting standard drag gestures on the container blocks button click events.
+- **Root Cause:** In Jetpack Compose, gestures on `PointerEventPass.Main` are processed by child clickables before parent containers. If a child consumes down/motion events, parent pointer input receives events with `isConsumed == true`. Conversely, consuming all pointer events on the parent prevents child `clickable` / `IconButton` instances from detecting taps.
+- **Resolution & Prevention:** Intercept pointer motion using `awaitPointerEvent(pass = PointerEventPass.Initial)`.
+  1. Observe pointer delta on `PointerEventPass.Initial` without consuming if motion is below `touchSlop`. Child buttons receive unconsumed events on `PointerEventPass.Main` and process taps/clicks normally.
+  2. Once vertical displacement exceeds `touchSlop`, consume the pointer change (`change.consume()`) on `PointerEventPass.Initial`. Child clickables see that the event has been consumed and immediately cancel their pending click gestures without triggering action callbacks.
+  3. All subsequent movements drive the continuous drag smoothly.
+
+### Stale closure in pointerInput and Kotlin default parameter trap during list reordering
+
+- **Date:** 2026-10-03
+- **Symptom:** Repeated drag-and-drop operations in `SearchEngineDropdownCard` caused items to escape outside the card boundaries, empty slots to open under the wrong element, and list order to scramble upon release.
+- **Root Cause:**
+  1. `Modifier.pointerInput(engine.id)` only keyed on `engine.id`. Because item IDs remain unchanged across reorders, the gesture coroutine never restarted and held a stale `currentList` delegate closure.
+  2. `SearchEngineReorderState` methods used default arguments like `list: List<SearchEngine> = currentList`. In Kotlin, default parameter expressions are evaluated at the call site *before* entering the function body. When `finishPendingDropImmediately()` mutated `currentList` inside `onDragStart`, the pre-evaluated parameter was already bound to the stale pre-drop list.
+  3. Clamping calculated bounds relative to total container height rather than each item's individual distance from the first and last slots.
+- **Resolution & Prevention:**
+  1. Centralize the reorder list as an internal `currentList by mutableStateOf(initialList)` inside `SearchEngineReorderState`, making it the single authoritative source of truth, and render items by iterating over `activeReorderState.currentList`.
+  2. Implement `finishPendingDropImmediately()` to instantly commit and cancel ongoing drop bounce jobs if a new drag begins mid-animation.
+  3. Never use a mutable state property directly as a Kotlin default parameter (`arg = mutableProperty`) when the function itself may mutate that state; use `arg: Type? = null` and resolve it inside the body (`val effective = arg ?: mutableProperty`) *after* any prerequisite state mutations.
+  4. Enforce strict slot boundary clamping: `minOffset = -currentIndex * slotHeightPx` and `maxOffset = (size - 1 - currentIndex) * slotHeightPx`.
+
+### Underdamped spring oscillation with default 0.01f visibility threshold causes lingering drag release state
+
+- **Date:** 2026-10-03
+- **Symptom:** Upon releasing a dragged search engine in `SearchEngineDropdownCard`, the item would intermittently freeze/hang in mid-air for ~500ms before snapping down into the slot, while releasing when already positioned over the slot dropped immediately.
+- **Root Cause:**
+  1. `dropAnim` had Compose's default `visibilityThreshold = 0.01f` and `Spring.StiffnessMediumLow` (400f) with `Spring.DampingRatioMediumBouncy` (0.5f). When releasing with a non-zero displacement to the target slot, underdamped harmonic decay toward 0.01px took >500ms. Subpixel oscillations between +0.2px and -0.1px were invisible to the eye, making the element appear motionless and frozen.
+  2. `isDraggingThis = activeReorderState.draggingEngineId == engine.id` remained `true` throughout the drop animation. The card remained locked in the lifted state (scaled 1.04x, elevated 8dp, blue rim border) until `dropAnim` finished, and only *then* did scale and elevation start animating down.
+  3. Gestures on the row surface had `if (activeReorderState.isDragging || activeReorderState.isDropping)` which ignored and dropped user touches for the duration of the drop animation.
+- **Resolution & Prevention:**
+  1. Set explicit `visibilityThreshold = 0.5f` on spatial pixel Animatable instances (`dropAnim = Animatable(0f, visibilityThreshold = 0.5f)`, `siblingOffsetAnim = Animatable(0f, visibilityThreshold = 0.5f)`). Once the difference is subpixel (<0.5px), the spring terminates immediately rather than running for hundreds of milliseconds on sub-hundredth-pixel tails.
+  2. Use snappy spring specs (`Spring.StiffnessMedium` = 1500f, `Spring.DampingRatioLowBouncy` = 0.75f) for list reordering transitions (~120-150ms settling time).
+  3. Separate active finger drag from drop animation: `isLifted = isDraggingThis && isDragging`. On finger release (`onDragEnd`), `isDragging` becomes `false` immediately so scale (1.04x -> 1.0x) and elevation (8dp -> 0dp) start returning to resting state concurrently with `dropAnim` translation, landing the card onto the stack.
+  4. On new touch down while `isDropping == true`, call `finishPendingDropImmediately()` to commit the drop and begin handling the new gesture with zero lockout.
+
+
+
 

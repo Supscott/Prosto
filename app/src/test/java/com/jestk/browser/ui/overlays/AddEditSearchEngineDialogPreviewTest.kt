@@ -193,4 +193,109 @@ class AddEditSearchEngineDialogPreviewTest {
         }
         assertTrue(outputFile.exists())
     }
+
+    @Test
+    fun renderSearchEngineDropdownCardDragPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val dummyHaptic = object : androidx.compose.ui.hapticfeedback.HapticFeedback {
+            override fun performHapticFeedback(feedbackConstant: androidx.compose.ui.hapticfeedback.HapticFeedbackType) {}
+        }
+        val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main)
+
+        val lightDragState = SearchEngineReorderState(
+            slotHeightPx = 48f * activity.resources.displayMetrics.density,
+            coroutineScope = scope,
+            haptic = dummyHaptic,
+            onReorder = {}
+        ).apply {
+            onDragStart(0)
+            onDrag(26f * activity.resources.displayMetrics.density, SearchEngine.DEFAULT_ENGINES.size)
+        }
+
+        val darkDragState = SearchEngineReorderState(
+            slotHeightPx = 48f * activity.resources.displayMetrics.density,
+            coroutineScope = scope,
+            haptic = dummyHaptic,
+            onReorder = {}
+        ).apply {
+            onDragStart(0)
+            onDrag(56f * activity.resources.displayMetrics.density, SearchEngine.DEFAULT_ENGINES.size)
+        }
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFE2E8F0))
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Text("Dropdown Card Reorder Drag (Light & Dark)", fontSize = 14.sp, color = Color.Black)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        Box(modifier = Modifier.weight(1f)) {
+                            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                                SearchEngineDropdownCard(
+                                    selectedEngine = SearchEngine.GOOGLE,
+                                    onSelectEngine = {},
+                                    onAddEngineClick = {},
+                                    onEditEngineClick = {},
+                                    onDeleteEngineClick = {},
+                                    onReorderEngines = {},
+                                    isDark = false,
+                                    engines = SearchEngine.DEFAULT_ENGINES,
+                                    initialEditMode = true,
+                                    reorderState = lightDragState
+                                )
+                            }
+                        }
+
+                        Box(modifier = Modifier.weight(1f)) {
+                            JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                                SearchEngineDropdownCard(
+                                    selectedEngine = SearchEngine.DUCKDUCKGO,
+                                    onSelectEngine = {},
+                                    onAddEngineClick = {},
+                                    onEditEngineClick = {},
+                                    onDeleteEngineClick = {},
+                                    onReorderEngines = {},
+                                    isDark = true,
+                                    engines = SearchEngine.DEFAULT_ENGINES,
+                                    initialEditMode = true,
+                                    reorderState = darkDragState
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        Thread.sleep(200)
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+
+        val width = 560
+        val height = 450
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/search_engine_dropdown_drag_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        assertTrue(outputFile.exists())
+    }
 }
