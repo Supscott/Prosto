@@ -4,7 +4,7 @@
 
 - **Project:** Hori (Android Web Browser)
 - **Language:** Kotlin / Jetpack Compose
-- **Design:** Liquid Pastel Sunset (`DESIGN.md`)
+- **Design:** Serene Canvas (NO BLUR) (`DESIGN.md`)
 
 ---
 
@@ -894,3 +894,51 @@
 - **Key Architectural Decisions:**
   - `HoriDownloadManager` exposes `val downloadProgress` as a canonical alias for `activeDownloads`, maintaining complete backward compatibility while matching caller nomenclature.
   - Robolectric shadow intent queues require consuming/clearing prior service intents between multi-step download operations.
+
+### Session: Tech Debt Remediation & Merge to Main
+
+- **Completed:**
+  - **Track A (Build Hygiene, Dead Code Removal & Config):**
+    - Added direct OkHttp dependency (`com.squareup.okhttp3:okhttp:4.12.0`).
+    - Migrated Kotlin DSL from deprecated `kotlinOptions` to modern `compilerOptions` with `JvmTarget.JVM_17`.
+    - Enabled R8 release minification (`isMinifyEnabled = true`, `isShrinkResources = true`).
+    - Configured Room schema export via KSP (`room.schemaLocation`).
+    - Replaced 948-line duplicate `SettingsSheet.kt` with a 25-line deprecated stub forwarding to `SettingsScreen`.
+    - Cleaned unused `ActionDock` composable, dead `searchEngineButtonGestures` overload, and purged phantom `hazeState` parameters.
+    - Scoped `file_paths.xml` to `Download/`, `snapshots/`, `favicons/` (no broad root directory exposure).
+    - Updated documentation and style references to Serene Canvas (NO BLUR).
+  - **Track B (Test Purge, Pure Kotlin & Modern Compose Contracts):**
+    - Purged 72 synthetic Java mock test files (337 mock tests) from `app/src/test/java/com/jestk/browser/e2e/`.
+    - Cleaned `@JvmField` and `@JvmStatic` annotations from `SearchEngine.kt` while preserving Kotlin companion `valueOf(name: String)`.
+    - Migrated deprecated Compose APIs: `LocalClipboardManager` -> `LocalClipboard.current` with coroutine suspension, `Icons.Filled.ShortText` -> `Icons.AutoMirrored.Filled.ShortText`, removed `isStatusBarContrastEnforced`.
+    - Strongly typed `fullscreenCustomView` to `android.view.View?`.
+    - Pruned orphaned setting `isMenuExpandedOnWeb` across domain, database entity, repository, and UI.
+  - **Track C (Engine Bugs, Resource Hygiene & Dependency Injection):**
+    - Fixed PiP floating mini player drag bounds clamping via density-aware pixel calculations.
+    - Resolved Activity context leak in `SnapshotEngine.kt` by using `applicationContext`, offloaded synchronous pixel color sampling to `Dispatchers.IO`.
+    - Extracted shared `FileSizeFormatter` utility, deduplicating logic between `HoriDownloadService` and `DownloadsScreen`.
+    - Decoupled `Context` from `BrowserViewModel` constructor and `AppContainer`.
+  - **Track D (Room 3.0 Readiness, Database Resilience & Performance):**
+    - Added composite index on `HistoryEntity(url, timestamp)`.
+    - Upgraded Room database version to 8 with KSP schema export (`8.json`) and implemented `MIGRATION_7_8`.
+    - Replaced destructive fallback on upgrades with `fallbackToDestructiveMigrationOnDowngrade()`.
+    - Replaced O(N²) correlated subqueries in `HistoryDao` with SQLite 3.18 / minSdk 26 compatible `MAX(timestamp)` grouping joins.
+    - Converted blocking `TabDao` positional methods to `suspend`.
+  - **Track E (Genuine Test Coverage):**
+    - Added Robolectric unit test suite `HoriDownloadManagerTest.kt` verifying progress streaming, lifecycle actions, Base64 downloads, and formatting.
+    - Added Robolectric test suite `WebViewPoolRobolectricTest.kt` verifying pool size constraints, LRU eviction, parent detachment, and context swapping.
+  - **Track F (High-Churn Monolith Modularization):**
+    - Modularized `SearchOverlay.kt` (2,525 LOC -> 451 LOC) into `SearchEngineCarousel.kt`, `SearchEngineReorderList.kt`, `SearchHistoryCard.kt`, `SearchInputPill.kt`, and `SearchFavoritesSection.kt`.
+    - Decomposed `BrowserViewModel.kt` (1,855 LOC -> 788 LOC) into `TabCoordinator.kt`, `SearchCoordinator.kt`, and `DownloadCoordinator.kt`, preserving 100% of public API and StateFlow contracts.
+  - **Commit & Merge:**
+    - Committed changes on branch `fix/tech-debt` (commit `9c86c65`).
+    - Successfully merged branch `fix/tech-debt` into `main` worktree at `/Users/ilya/CODING/browser` (merge commit `7a699a5`).
+- **Current State:**
+  - Branch: `main` (commit `7a699a5`) ahead of `origin/main` by 2 commits.
+  - 404 unit & Robolectric tests passing 100% green.
+  - Release APK compiles with R8 minification enabled (~4.0 MB).
+- **Key Architectural Decisions:**
+  - Preserved backward compatibility across all ViewModel StateFlows and Composable APIs.
+  - All Room queries are minSdk 26 / SQLite 3.18 safe without window functions.
+  - R8 release minification verified and passing with configured ProGuard rules.
+
