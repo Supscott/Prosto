@@ -125,7 +125,12 @@ com.jestk.browser/
   - Long-press drag-and-drop tab reordering across dock tabs (both active and inactive) with threshold movement vs context menu release.
   - Replaced WebView top 3dp loading progress bar with an in-capsule active tab loading fill (100% height, 20% opacity brand primary).
   - Implemented centered tab scrolling on inactive tab selection via calculated negative scroll offsets.
+- **Search Screen Refinements & Fast Carousel Switching:**
+  - Removed redundant Go/arrow forward button from `HeroSearchInputField`; kept clear ("x") button with IME submission.
+  - Tighter search provider favicon spacing (`40dp` vs `64dp`) and dynamic container expansion from `68dp` to `160dp` during horizontal scroll/swipe, rendering ~3-4 providers at once.
+  - Set `visibilityThreshold = 0.5f` on spatial animation offset and tuned to snappy spring physics, eliminating the ~0.5s freeze/delay when releasing dragged providers.
 - **Adblock Stats & Protection Card:**
+
   - Persisted blocked ads and trackers counts in `SettingDao` via atomic SQL increments (`KEY_BLOCKED_ADS_COUNT`, `KEY_BLOCKED_TRACKERS_COUNT`).
   - Added tracker detection heuristics (`isTracker(url)`) in `AdBlockerEngine` for analytics, beacons, telemetry, and tracking pixels.
   - Intercepted and counted blocked ad and tracker requests asynchronously in `JestkWebViewClient` and `AdBlockerEngine`.
