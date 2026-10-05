@@ -46,6 +46,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -155,18 +156,69 @@ fun TabStripRow(
             if (idx >= 0) idx else if (currentTabs.isNotEmpty()) uiState.activeTabIndex.coerceIn(0, currentTabs.lastIndex) else 0
         }
 
+        val activeTabWidthPx = with(density) { activeTabWidth.toPx() }
+        val totalChipWidthPx = with(density) { totalChipWidth.toPx() }
+
         LaunchedEffect(uiState.activeTabId, activeIndex) {
             if (activeIndex in currentTabs.indices) {
-                lazyListState.animateScrollToItem(activeIndex)
+                val viewportWidthPx = lazyListState.layoutInfo.viewportSize.width.takeIf { it > 0 }?.toFloat()
+                    ?: totalChipWidthPx
+                val centeringOffsetPx = ((viewportWidthPx - activeTabWidthPx) / 2f).coerceAtLeast(0f)
+                val scrollOffset = -centeringOffsetPx.toInt()
+                lazyListState.animateScrollToItem(activeIndex, scrollOffset)
             }
+        }
+
+        val handleTabDragStart: (String) -> Unit = { tabId ->
+            draggingTabId = tabId
+            dragOffsetPx = 0f
+            isDragging = true
+        }
+
+        val handleTabDrag: (String, Float) -> Unit = { tabId, deltaX ->
+            dragOffsetPx += deltaX
+            val currentIndex = currentTabs.indexOfFirst { it.id == tabId }
+            if (currentIndex != -1) {
+                val swapThreshold = with(density) { 44.dp.toPx() }
+                if (dragOffsetPx > swapThreshold && currentIndex < currentTabs.lastIndex) {
+                    val targetIndex = currentIndex + 1
+                    val mutable = currentTabs.toMutableList()
+                    Collections.swap(mutable, currentIndex, targetIndex)
+                    currentTabs = mutable
+                    dragOffsetPx -= swapThreshold
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                } else if (dragOffsetPx < -swapThreshold && currentIndex > 0) {
+                    val targetIndex = currentIndex - 1
+                    val mutable = currentTabs.toMutableList()
+                    Collections.swap(mutable, currentIndex, targetIndex)
+                    currentTabs = mutable
+                    dragOffsetPx += swapThreshold
+                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+            }
+        }
+
+        val handleTabDragEnd: () -> Unit = {
+            if (isDragging && currentTabs != displayTabs) {
+                onEvent(BrowserUiEvent.ReorderTabs(currentTabs))
+            }
+            draggingTabId = null
+            dragOffsetPx = 0f
+            isDragging = false
+        }
+
+        val handleTabDragCancel: () -> Unit = {
+            draggingTabId = null
+            dragOffsetPx = 0f
+            isDragging = false
         }
 
         LazyRow(
             state = lazyListState,
             modifier = Modifier.fillMaxWidth(),
-            contentPadding = PaddingValues(start = 8.dp, end = 52.dp),
+            contentPadding = PaddingValues(start = 5.dp, end = 46.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             itemsIndexed(
                 items = currentTabs,
@@ -174,6 +226,7 @@ fun TabStripRow(
             ) { index, tab ->
                 val isActive = index == activeIndex
                 val tabIsHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home" || (isHome && isActive)
+                val isDraggingThis = draggingTabId == tab.id
 
                 if (isActive) {
                     val currentTitle = if (tabIsHome) "Home" else when {
@@ -192,6 +245,8 @@ fun TabStripRow(
                         backgroundColor = centerPillBg,
                         border = centerPillBorder,
                         isDark = isDark,
+                        isLoading = uiState.isLoading,
+                        loadingProgress = uiState.loadingProgress,
                         onOpenSearch = {
                             val targetPrefill = if (tab.url.isNotBlank() && tab.url != "about:blank") tab.url else null
                             onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = targetPrefill, openInNewTab = false))
@@ -205,12 +260,22 @@ fun TabStripRow(
                         onShare = { urlToShare ->
                             shareWebpageUrl(context, urlToShare)
                         },
-                        modifier = Modifier.width(activeTabWidth)
+                        modifier = Modifier
+                            .width(activeTabWidth)
+                            .zIndex(if (isDraggingThis) 10f else 0f)
+                            .graphicsLayer {
+                                if (isDraggingThis) {
+                                    translationX = dragOffsetPx
+                                    scaleX = 1.05f
+                                    scaleY = 1.05f
+                                }
+                            },
+                        onDragStart = { handleTabDragStart(tab.id) },
+                        onDrag = { deltaX -> handleTabDrag(tab.id, deltaX) },
+                        onDragEnd = handleTabDragEnd,
+                        onDragCancel = handleTabDragCancel
                     )
                 } else {
-                    val isDraggingThis = draggingTabId == tab.id
-                    val touchSlop = with(density) { 8.dp.toPx() }
-
                     InactiveTabButton(
                         tab = tab,
                         isDark = isDark,
@@ -233,68 +298,11 @@ fun TabStripRow(
                                     scaleX = 1.08f
                                     scaleY = 1.08f
                                 }
-                            }
-                            .pointerInput(tab.id) {
-                                awaitEachGesture {
-                                    val down = awaitFirstDown(requireUnconsumed = false)
-                                    val longPress = awaitLongPressOrCancellation(down.id)
-                                    if (longPress != null) {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        draggingTabId = tab.id
-                                        dragOffsetPx = 0f
-                                        isDragging = false
-
-                                        val currentPointerId = longPress.id
-                                        while (true) {
-                                            val event = awaitPointerEvent()
-                                            val dragChange = event.changes.firstOrNull { it.id == currentPointerId } ?: break
-
-                                            if (dragChange.isConsumed) break
-                                            if (dragChange.changedToUp()) {
-                                                dragChange.consume()
-                                                break
-                                            }
-
-                                            val dragAmount = dragChange.positionChange()
-                                            dragOffsetPx += dragAmount.x
-                                            dragChange.consume()
-
-                                            if (!isDragging && abs(dragOffsetPx) > touchSlop) {
-                                                isDragging = true
-                                            }
-
-                                            if (isDragging) {
-                                                val currentIndex = currentTabs.indexOfFirst { it.id == draggingTabId }
-                                                if (currentIndex != -1) {
-                                                    val swapThreshold = with(density) { 44.dp.toPx() }
-                                                    if (dragOffsetPx > swapThreshold && currentIndex < currentTabs.lastIndex) {
-                                                        val targetIndex = currentIndex + 1
-                                                        val mutable = currentTabs.toMutableList()
-                                                        Collections.swap(mutable, currentIndex, targetIndex)
-                                                        currentTabs = mutable
-                                                        dragOffsetPx -= swapThreshold
-                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    } else if (dragOffsetPx < -swapThreshold && currentIndex > 0) {
-                                                        val targetIndex = currentIndex - 1
-                                                        val mutable = currentTabs.toMutableList()
-                                                        Collections.swap(mutable, currentIndex, targetIndex)
-                                                        currentTabs = mutable
-                                                        dragOffsetPx += swapThreshold
-                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        if (isDragging && currentTabs != displayTabs) {
-                                            onEvent(BrowserUiEvent.ReorderTabs(currentTabs))
-                                        }
-                                        draggingTabId = null
-                                        dragOffsetPx = 0f
-                                        isDragging = false
-                                    }
-                                }
-                            }
+                            },
+                        onDragStart = { handleTabDragStart(tab.id) },
+                        onDrag = { deltaX -> handleTabDrag(tab.id, deltaX) },
+                        onDragEnd = handleTabDragEnd,
+                        onDragCancel = handleTabDragCancel
                     )
                 }
             }
@@ -306,8 +314,8 @@ fun TabStripRow(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .fillMaxHeight()
-                    .width(44.dp)
-                    .clip(RoundedCornerShape(topStart = 32.dp, bottomStart = 32.dp))
+                    .width(36.dp)
+                    .clip(RoundedCornerShape(topStart = 25.dp, bottomStart = 25.dp))
                     .background(
                         Brush.horizontalGradient(
                             colors = listOf(
@@ -325,8 +333,8 @@ fun TabStripRow(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .width(48.dp)
-                .clip(RoundedCornerShape(topEnd = 32.dp, bottomEnd = 32.dp))
+                .width(42.dp)
+                .clip(RoundedCornerShape(topEnd = 25.dp, bottomEnd = 25.dp))
                 .background(
                     Brush.horizontalGradient(
                         listOf(
@@ -348,7 +356,7 @@ fun TabStripRow(
             },
             modifier = Modifier
                 .align(Alignment.CenterEnd)
-                .padding(end = 6.dp)
+                .padding(end = 4.dp)
         )
     }
 }
@@ -357,7 +365,6 @@ fun TabStripRow(
  * Circular inactive tab button with favicon or site initial glyph.
  * Transparent background, SereneMutedSlate icons and text, label-md typography.
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun InactiveTabButton(
     tab: Tab,
@@ -367,12 +374,24 @@ fun InactiveTabButton(
     onClick: () -> Unit,
     onClose: () -> Unit,
     onAddFavorite: (String, String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onDragStart: (() -> Unit)? = null,
+    onDrag: ((Float) -> Unit)? = null,
+    onDragEnd: (() -> Unit)? = null,
+    onDragCancel: (() -> Unit)? = null,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    val density = LocalDensity.current
+    val haptic = LocalHapticFeedback.current
+    val touchSlop = with(density) { 8.dp.toPx() }
     val typography = LocalSereneTypography.current
     val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
+
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentOnDrag by rememberUpdatedState(onDrag)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+    val currentOnDragCancel by rememberUpdatedState(onDragCancel)
 
     Surface(
         shape = CircleShape,
@@ -380,12 +399,62 @@ fun InactiveTabButton(
         border = border,
         shadowElevation = 0.dp,
         modifier = modifier
-            .size(44.dp)
+            .size(38.dp)
             .clip(CircleShape)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = { showMenu = true }
-            )
+            .pointerInput(tab.id) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val longPress = awaitLongPressOrCancellation(down.id)
+                    if (longPress != null) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        var totalDragX = 0f
+                        var isDraggingInternal = false
+                        val currentPointerId = longPress.id
+                        var cancelled = false
+
+                        while (true) {
+                            val event = awaitPointerEvent()
+                            val dragChange = event.changes.firstOrNull { it.id == currentPointerId }
+                            if (dragChange == null) {
+                                cancelled = true
+                                break
+                            }
+                            if (dragChange.isConsumed) {
+                                cancelled = true
+                                break
+                            }
+                            if (dragChange.changedToUp()) {
+                                dragChange.consume()
+                                break
+                            }
+
+                            val dragAmount = dragChange.positionChange()
+                            totalDragX += dragAmount.x
+                            dragChange.consume()
+
+                            if (!isDraggingInternal && abs(totalDragX) > touchSlop) {
+                                isDraggingInternal = true
+                                currentOnDragStart?.invoke()
+                            }
+
+                            if (isDraggingInternal) {
+                                currentOnDrag?.invoke(dragAmount.x)
+                            }
+                        }
+
+                        if (isDraggingInternal) {
+                            if (cancelled) {
+                                currentOnDragCancel?.invoke()
+                            } else {
+                                currentOnDragEnd?.invoke()
+                            }
+                        } else if (!cancelled) {
+                            showMenu = true
+                        }
+                    }
+                }
+            }
+            .clickable(onClick = onClick)
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -397,7 +466,7 @@ fun InactiveTabButton(
                     imageVector = Icons.Default.Home,
                     contentDescription = "Home",
                     tint = normalTint,
-                    modifier = Modifier.size(19.dp)
+                    modifier = Modifier.size(18.dp)
                 )
             } else {
                 var isFaviconSuccess by remember(tab.faviconUrl) { mutableStateOf(false) }
@@ -412,7 +481,7 @@ fun InactiveTabButton(
                             text = initial.toString(),
                             style = typography.labelMd.copy(
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp
+                                fontSize = 12.sp
                             ),
                             color = normalTint
                         )
@@ -421,7 +490,7 @@ fun InactiveTabButton(
                             imageVector = Icons.Default.Language,
                             contentDescription = tab.title,
                             tint = normalTint,
-                            modifier = Modifier.size(19.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
@@ -431,8 +500,8 @@ fun InactiveTabButton(
                         model = imageModel,
                         contentDescription = tab.title,
                         modifier = Modifier
-                            .size(20.dp)
-                            .clip(RoundedCornerShape(5.dp)),
+                            .size(18.dp)
+                            .clip(RoundedCornerShape(4.dp)),
                         contentScale = ContentScale.Fit,
                         onSuccess = { isFaviconSuccess = true },
                         onError = { isFaviconSuccess = false }
@@ -483,7 +552,7 @@ fun AddTabDockButton(
         border = border,
         shadowElevation = 0.dp,
         modifier = modifier
-            .size(44.dp)
+            .size(38.dp)
             .clip(CircleShape)
             .clickable(onClick = onClick)
     ) {
@@ -495,7 +564,7 @@ fun AddTabDockButton(
                 imageVector = Icons.Default.Add,
                 contentDescription = "New Tab",
                 tint = normalTint,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(18.dp)
             )
         }
     }

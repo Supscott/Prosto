@@ -210,7 +210,7 @@ fun ActionDockMenuButton(
 
     Box(
         modifier = modifier
-            .size(width = 44.dp, height = 58.dp)
+            .size(width = 44.dp, height = 50.dp)
             .sereneFloatingSurface(
                 shape = SereneShapes.Card,
                 isDark = isDark,

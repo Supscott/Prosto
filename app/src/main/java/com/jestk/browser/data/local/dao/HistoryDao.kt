@@ -30,7 +30,7 @@ interface HistoryDao {
             SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
         GROUP BY h.url
-        ORDER BY h.timestamp DESC
+        ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit
     """,
     )
@@ -43,7 +43,7 @@ interface HistoryDao {
             SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
         GROUP BY h.url
-        ORDER BY h.timestamp DESC
+        ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit
     """,
     )
@@ -56,7 +56,7 @@ interface HistoryDao {
             SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
         GROUP BY h.url
-        ORDER BY h.timestamp DESC
+        ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit OFFSET :offset
     """,
     )
@@ -73,7 +73,7 @@ interface HistoryDao {
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
         WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
         GROUP BY h.url
-        ORDER BY h.timestamp DESC
+        ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit
     """,
     )
@@ -90,7 +90,7 @@ interface HistoryDao {
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
         WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
         GROUP BY h.url
-        ORDER BY h.timestamp DESC
+        ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit
     """,
     )
@@ -107,7 +107,7 @@ interface HistoryDao {
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
         WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
         GROUP BY h.url
-        ORDER BY h.timestamp DESC
+        ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit OFFSET :offset
     """,
     )

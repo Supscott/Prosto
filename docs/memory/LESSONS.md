@@ -148,6 +148,11 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
 - **Root Cause:** Room's `@Transaction` on a Kotlin interface `suspend fun` default body wraps execution in `RoomDatabaseKt.withTransaction`. When child queries invalidate tables, active Room `Flow` observers re-query on the same thread/coroutine context, triggering Room's concurrent transaction assertion.
 - **Resolution & Prevention:** Do not annotate Kotlin interface default helper methods with `@Transaction` when looping over atomic queries (e.g. `reorderTabs`). Declare them as plain `suspend fun`. If an atomic transaction is required, invoke `database.withTransaction { ... }` explicitly at the repository layer.
 
+### Rapid sequential inserts produce identical timestamps leading to non-deterministic pagination
+- **Symptom:** `HistoryRepositoryTest.getPagedHistory_delegatesToDaoAndMapsToDomain` intermittently fails with expected URL mismatches when running the full test suite.
+- **Root Cause:** In tight loops, multiple entities are inserted within the same millisecond, resulting in identical `timestamp` values. SQLite's `ORDER BY timestamp DESC` without a secondary unique tiebreaker yields non-deterministic row ordering across query runs.
+- **Resolution & Prevention:** Always include a secondary tiebreaker like `id DESC` (e.g. `ORDER BY timestamp DESC, id DESC`) for time-ordered queries and pagination to guarantee deterministic, stable sorting.
+
 ---
 
 ## 9. Android OS Integration

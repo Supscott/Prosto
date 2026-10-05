@@ -133,14 +133,14 @@ fun UnifiedBottomBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding()
-                    .padding(top = 0.dp, bottom = 8.dp),
+                    .padding(top = 0.dp, bottom = 2.dp),
                 contentAlignment = Alignment.BottomCenter
             ) {
                 // Floating Dock Row
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(62.dp)
+                        .height(54.dp)
                         .padding(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -149,7 +149,7 @@ fun UnifiedBottomBar(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(58.dp)
+                            .height(50.dp)
                             .sereneFloatingSurface(
                                 shape = SereneShapes.Dock,
                                 isDark = isDark,

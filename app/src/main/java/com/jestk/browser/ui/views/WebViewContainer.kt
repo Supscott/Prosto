@@ -8,16 +8,11 @@ import android.os.Message
 import android.view.MotionEvent
 import android.view.ViewGroup
 import android.webkit.WebView
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import com.jestk.browser.domain.model.OverlayType
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -61,7 +56,6 @@ import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.SereneAccent
-import com.jestk.browser.ui.theme.SereneActiveTabBorderBrush
 import com.jestk.browser.ui.theme.SereneBrandPrimary
 import com.jestk.browser.ui.theme.SereneCanvasFloor
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
@@ -429,34 +423,6 @@ fun WebViewContainer(
                 },
                 modifier = Modifier.fillMaxSize()
             )
-        }
-
-        // Web Loading Progress Bar with brand gradient and 0.3s smooth fade-out
-        val animatedProgress by animateFloatAsState(
-            targetValue = uiState.loadingProgress.coerceIn(0f, 1f),
-            animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
-            label = "WebLoadingProgress"
-        )
-
-        AnimatedVisibility(
-            visible = uiState.isLoading,
-            enter = fadeIn(animationSpec = tween(150)),
-            exit = fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)),
-            modifier = Modifier.align(Alignment.TopCenter)
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .background(Color.Transparent)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(fraction = animatedProgress)
-                        .height(3.dp)
-                        .background(SereneActiveTabBorderBrush)
-                )
-            }
         }
         }
     }

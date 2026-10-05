@@ -119,3 +119,9 @@ com.jestk.browser/
   - Purged legacy synthetic mock test files, standardizing on pure Kotlin tests and Robolectric Native Graphics.
   - Decoupled `Context` from `BrowserViewModel` and modularized it into `TabCoordinator`, `SearchCoordinator`, and `DownloadCoordinator`.
   - Upgraded Room to version 8 with schema exports, non-destructive migration on downgrade, and SQLite 3.18 compatible queries.
+- **Floating Dock Refinements & Tab Interactivity:**
+  - Lowered floating dock position (bottom padding 2dp, capsule height 50dp, row height 54dp) ensuring it sits strictly within the 62dp viewport underlay.
+  - Compact inner tab layout with 42dp active tab and 38dp inactive tabs with tight 4dp vertical padding.
+  - Long-press drag-and-drop tab reordering across dock tabs (both active and inactive) with threshold movement vs context menu release.
+  - Replaced WebView top 3dp loading progress bar with an in-capsule active tab loading fill (100% height, 20% opacity brand primary).
+  - Implemented centered tab scrolling on inactive tab selection via calculated negative scroll offsets.
