@@ -11,3 +11,4 @@ captures
 .cxx
 *.apk
 *.aab
+.worktrees/
