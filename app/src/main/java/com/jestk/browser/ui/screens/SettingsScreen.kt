@@ -230,6 +230,7 @@ fun SettingsContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        /*
         // SECTION 2: ACCOUNT
         SettingsSectionHeader(title = "ACCOUNT")
         InsetGroupedCard(isDark = isDark) {
@@ -344,6 +345,7 @@ fun SettingsContent(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+        */
 
         // SECTION: DEFAULT BROWSER (Only visible if not default)
         if (!uiState.isDefaultBrowser) {

@@ -51,4 +51,51 @@ class JestkWebViewClientTest {
         client.onPageFinished(null, "https://example.com")
         assertThat(finishedUrl).isEqualTo("https://example.com")
     }
+
+    @Test
+    fun shouldInterceptRequest_blocksAndInvokesTracking() {
+        var interceptedTracker: Boolean? = null
+        var interceptedUrl: String? = null
+
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onBlockedResource = { url, isTracker ->
+                interceptedUrl = url
+                interceptedTracker = isTracker
+            }
+        )
+
+        val adRequest = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse("https://doubleclick.net/ad.js")
+            override fun isForMainFrame(): Boolean = false
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = false
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        val adResponse = client.shouldInterceptRequest(null, adRequest)
+        assertThat(adResponse).isNotNull()
+        assertThat(interceptedUrl).isEqualTo("https://doubleclick.net/ad.js")
+        assertThat(interceptedTracker).isFalse()
+
+        val trackerRequest = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse("https://google-analytics.com/analytics.js")
+            override fun isForMainFrame(): Boolean = false
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = false
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        val trackerResponse = client.shouldInterceptRequest(null, trackerRequest)
+        assertThat(trackerResponse).isNotNull()
+        assertThat(interceptedUrl).isEqualTo("https://google-analytics.com/analytics.js")
+        assertThat(interceptedTracker).isTrue()
+    }
 }

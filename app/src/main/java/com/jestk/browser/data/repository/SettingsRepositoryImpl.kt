@@ -52,4 +52,22 @@ class SettingsRepositoryImpl(
     override suspend fun setAdBlockerEnabled(enabled: Boolean) = withContext(ioDispatcher) {
         settingDao.setSetting(SettingEntity(SettingKeys.AD_BLOCKER_ENABLED, enabled.toString()))
     }
+
+    override fun getBlockedAdsCount(): Flow<Long> =
+        settingDao.getSettingFlow(SettingKeys.KEY_BLOCKED_ADS_COUNT)
+            .map { it?.toLongOrNull() ?: 0L }
+            .flowOn(ioDispatcher)
+
+    override fun getBlockedTrackersCount(): Flow<Long> =
+        settingDao.getSettingFlow(SettingKeys.KEY_BLOCKED_TRACKERS_COUNT)
+            .map { it?.toLongOrNull() ?: 0L }
+            .flowOn(ioDispatcher)
+
+    override suspend fun incrementBlockedAds(count: Long) = withContext(ioDispatcher) {
+        settingDao.incrementBlockedAds(count)
+    }
+
+    override suspend fun incrementBlockedTrackers(count: Long) = withContext(ioDispatcher) {
+        settingDao.incrementBlockedTrackers(count)
+    }
 }

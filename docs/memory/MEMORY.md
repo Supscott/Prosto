@@ -7,8 +7,8 @@
 - **Tech Stack:** Kotlin (JVM 17), Jetpack Compose (BOM `2025.12.00`), AndroidX Room 2.6.1 (KSP, DB v8), Android WebKit, OkHttp 4.12.0, Coil 2.7.0.
 - **Design System:** **Serene Canvas (STRICT NO BLUR)** — crisp, tactile solid surfaces, ambient dispersion shadows, precision micro-borders (`SereneBorders`), and Plus Jakarta Sans typography.
 - **Current State:**
-  - Branch: `main` (clean working tree).
-  - Test Suite: 404 unit & Robolectric tests passing 100% green (`:app:testDebugUnitTest`).
+  - Branch: `feature/adblock-and-settings`.
+  - Test Suite: 417 unit & Robolectric tests passing 100% green (`:app:testDebugUnitTest`).
   - Build: R8 minification enabled for release builds (`isMinifyEnabled = true`, `isShrinkResources = true`, ~4.0 MB APK).
 
 ---
@@ -125,3 +125,12 @@ com.jestk.browser/
   - Long-press drag-and-drop tab reordering across dock tabs (both active and inactive) with threshold movement vs context menu release.
   - Replaced WebView top 3dp loading progress bar with an in-capsule active tab loading fill (100% height, 20% opacity brand primary).
   - Implemented centered tab scrolling on inactive tab selection via calculated negative scroll offsets.
+- **Adblock Stats & Protection Card:**
+  - Persisted blocked ads and trackers counts in `SettingDao` via atomic SQL increments (`KEY_BLOCKED_ADS_COUNT`, `KEY_BLOCKED_TRACKERS_COUNT`).
+  - Added tracker detection heuristics (`isTracker(url)`) in `AdBlockerEngine` for analytics, beacons, telemetry, and tracking pixels.
+  - Intercepted and counted blocked ad and tracker requests asynchronously in `JestkWebViewClient` and `AdBlockerEngine`.
+  - Exposed live statistics via `SettingsRepository` flows into `BrowserUiState` and `BrowserViewModel`.
+  - Designed tactile Serene Canvas `PrivacyProtectionCard` on `HomeScreen` (positioned directly beneath `HeroSearchCapsule`) with solid card surfaces, subtle elevation, and dual stat chips ("Ads Blocked", "Trackers Stopped").
+  - Cleaned up non-functional "ACCOUNT" sync stub in `SettingsScreen`.
+  - Added deterministic tie-breaking secondary ordering (`h.id DESC`) to `HistoryDao` queries to eliminate sub-millisecond timestamp tie ambiguities.
+

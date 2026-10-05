@@ -75,4 +75,26 @@ class SettingDaoTest {
         val value = settingDao.getSetting(SettingKeys.THEME_MODE)
         assertThat(value).isNull()
     }
+
+    @Test
+    fun incrementBlockedAds_incrementsPersistentCount() = runTest {
+        assertThat(settingDao.getSetting(SettingKeys.KEY_BLOCKED_ADS_COUNT)).isNull()
+
+        settingDao.incrementBlockedAds(1)
+        assertThat(settingDao.getSetting(SettingKeys.KEY_BLOCKED_ADS_COUNT)).isEqualTo("1")
+
+        settingDao.incrementBlockedAds(5)
+        assertThat(settingDao.getSetting(SettingKeys.KEY_BLOCKED_ADS_COUNT)).isEqualTo("6")
+    }
+
+    @Test
+    fun incrementBlockedTrackers_incrementsPersistentCount() = runTest {
+        assertThat(settingDao.getSetting(SettingKeys.KEY_BLOCKED_TRACKERS_COUNT)).isNull()
+
+        settingDao.incrementBlockedTrackers(1)
+        assertThat(settingDao.getSetting(SettingKeys.KEY_BLOCKED_TRACKERS_COUNT)).isEqualTo("1")
+
+        settingDao.incrementBlockedTrackers(10)
+        assertThat(settingDao.getSetting(SettingKeys.KEY_BLOCKED_TRACKERS_COUNT)).isEqualTo("11")
+    }
 }

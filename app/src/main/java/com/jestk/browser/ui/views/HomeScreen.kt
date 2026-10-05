@@ -54,6 +54,7 @@ import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -216,6 +217,18 @@ fun HomeScreen(
                     onQrScanClick = {
                         Toast.makeText(context, "QR Scanner coming soon", Toast.LENGTH_SHORT).show()
                     },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Privacy & Protection Card
+                PrivacyProtectionCard(
+                    blockedAdsCount = uiState.blockedAdsCount,
+                    blockedTrackersCount = uiState.blockedTrackersCount,
+                    isDark = isDark,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp)
@@ -1148,12 +1161,135 @@ private fun DefaultBrowserPromptCard(
     }
 }
 
+fun formatStatCount(count: Long): String {
+    if (count <= 0) return "0"
+    if (count < 1000) return count.toString()
+    if (count < 1_000_000) {
+        val thousands = count / 1000.0
+        val formatted = String.format(java.util.Locale.US, "%.1f", thousands)
+        return if (formatted.endsWith(".0")) "${count / 1000}k" else "${formatted}k"
+    }
+    val millions = count / 1_000_000.0
+    val formatted = String.format(java.util.Locale.US, "%.1f", millions)
+    return if (formatted.endsWith(".0")) "${count / 1_000_000}M" else "${formatted}M"
+}
+
+@Composable
+fun PrivacyProtectionCard(
+    blockedAdsCount: Long,
+    blockedTrackersCount: Long,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = SereneShapes.Card,
+        color = if (isDark) DarkSurface else SereneCardSurface,
+        border = SereneBorders.hairlineBorder(isDark),
+        shadowElevation = 2.dp,
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Header Row: Shield icon and "Protection Active"
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = SereneBrandPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Text(
+                    text = "Protection Active",
+                    style = LocalSereneTypography.current.headlineSm.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold),
+                    color = if (isDark) DarkOnSurface else SereneDarkText
+                )
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Two Stat Chips Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                ProtectionStatChip(
+                    title = "Ads Blocked",
+                    count = formatStatCount(blockedAdsCount),
+                    isDark = isDark,
+                    modifier = Modifier.weight(1f)
+                )
+
+                ProtectionStatChip(
+                    title = "Trackers Stopped",
+                    count = formatStatCount(blockedTrackersCount),
+                    isDark = isDark,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ProtectionStatChip(
+    title: String,
+    count: String,
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = if (isDark) DarkSurfaceVariant else SereneCanvasFloor,
+        border = SereneBorders.hairlineBorder(isDark),
+        shadowElevation = 0.dp,
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = count,
+                style = LocalSereneTypography.current.headlineSm.copy(fontWeight = FontWeight.Bold),
+                color = SereneBrandPrimary
+            )
+            Text(
+                text = title,
+                style = LocalSereneTypography.current.labelSm,
+                color = SereneMutedSlate,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
 @Preview(name = "HomeScreen Light", showBackground = true, widthDp = 412, heightDp = 915)
 @Composable
 fun HomeScreenLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
         HomeScreen(
             uiState = BrowserUiState(
+                blockedAdsCount = 14L,
+                blockedTrackersCount = 1200L,
                 favorites = listOf(
                     FavoriteItem(1, "Google", "https://google.com"),
                     FavoriteItem(2, "GitHub", "https://github.com"),
@@ -1177,6 +1313,8 @@ fun HomeScreenDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         HomeScreen(
             uiState = BrowserUiState(
+                blockedAdsCount = 42L,
+                blockedTrackersCount = 380L,
                 favorites = listOf(
                     FavoriteItem(1, "Google", "https://google.com"),
                     FavoriteItem(2, "GitHub", "https://github.com"),

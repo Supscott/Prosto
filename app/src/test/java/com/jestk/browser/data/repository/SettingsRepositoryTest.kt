@@ -68,4 +68,31 @@ class SettingsRepositoryTest {
         val settings = repository.getSettings().first()
         assertThat(settings.isAdBlockerEnabled).isFalse()
     }
+
+    @Test
+    fun getBlockedCounts_returnsZeroInitially() = runTest(testDispatcher) {
+        val adsCount = repository.getBlockedAdsCount().first()
+        val trackersCount = repository.getBlockedTrackersCount().first()
+
+        assertThat(adsCount).isEqualTo(0L)
+        assertThat(trackersCount).isEqualTo(0L)
+    }
+
+    @Test
+    fun incrementBlockedAds_incrementsAndEmits() = runTest(testDispatcher) {
+        repository.incrementBlockedAds(1)
+        assertThat(repository.getBlockedAdsCount().first()).isEqualTo(1L)
+
+        repository.incrementBlockedAds(4)
+        assertThat(repository.getBlockedAdsCount().first()).isEqualTo(5L)
+    }
+
+    @Test
+    fun incrementBlockedTrackers_incrementsAndEmits() = runTest(testDispatcher) {
+        repository.incrementBlockedTrackers(1)
+        assertThat(repository.getBlockedTrackersCount().first()).isEqualTo(1L)
+
+        repository.incrementBlockedTrackers(7)
+        assertThat(repository.getBlockedTrackersCount().first()).isEqualTo(8L)
+    }
 }

@@ -190,3 +190,22 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
 - **Symptom:** Asserting secondary actions (e.g. `cancelDownload`) fails with `expected: CANCEL_DOWNLOAD but was: START_DOWNLOAD`.
 - **Root Cause:** In Robolectric, `shadowOf(application).nextStartedService` polls from a FIFO queue. Preceding setup steps (e.g. `enqueueDownload`) queued `START_DOWNLOAD`, which remains at the head of the queue.
 - **Resolution & Prevention:** In multi-step workflow tests, consume or clear prior service intents (`clearStartedServices()`) after setup steps before asserting subsequent actions.
+
+---
+
+## 11. Kotlin & JVM Interop
+
+### JVM platform declaration clash on nullable parameter overload
+- **Symptom:** Kotlin compilation fails with `Platform declaration clash: The following methods have the same JVM signature (isTracker(Ljava/lang/String;)Z)`.
+- **Root Cause:** In Kotlin, `String` and `String?` compile to the same underlying Java type `java.lang.String`. Creating both `fun isTracker(url: String): Boolean` and `fun isTracker(url: String?): Boolean` generates identical JVM signatures.
+- **Resolution & Prevention:** Annotate the nullable helper function with `@JvmName("isTrackerNullable")` (or consolidate into a single `String?` parameter with default value). This changes the bytecode symbol name while preserving idiomatic Kotlin usage for callers with either type.
+
+---
+
+## 12. Database Query Ordering & Concurrency
+
+### SQLite identical timestamp tie ambiguities in rapid loop insertions
+- **Symptom:** Paged history or search tests intermittently fail on `page[0]` ordering after loop insertions (e.g. `expected: Item 15 but was: Item 9`).
+- **Root Cause:** `System.currentTimeMillis()` has millisecond resolution. High-speed loop insertions in unit tests or rapid user actions generate identical timestamps across multiple rows. `ORDER BY h.timestamp DESC` without a secondary discriminator produces indeterminate order (often determined by index traversal order on `url`).
+- **Resolution & Prevention:** Always include a secondary tie-breaker in SQL queries that order by timestamp: `ORDER BY h.timestamp DESC, h.id DESC`. Because `id` is an auto-incrementing primary key, it guarantees deterministic descending order matching insertion sequence.
+

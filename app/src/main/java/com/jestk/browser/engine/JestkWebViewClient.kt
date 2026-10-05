@@ -6,6 +6,10 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import com.jestk.browser.domain.repository.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class JestkWebViewClient(
     private val tabId: String,
@@ -16,7 +20,9 @@ class JestkWebViewClient(
     private val onSnapshotReady: (tabId: String, path: String) -> Unit,
     private val onThemeColorDetected: (tabId: String, color: Int?) -> Unit = { _, _ -> },
     private val isDarkTheme: (() -> Boolean)? = null,
-    private val onFaviconReceived: ((tabId: String, icon: Bitmap) -> Unit)? = null
+    private val onFaviconReceived: ((tabId: String, icon: Bitmap) -> Unit)? = null,
+    private val settingsRepository: SettingsRepository? = null,
+    private val onBlockedResource: ((url: String, isTracker: Boolean) -> Unit)? = null
 ) : WebViewClient() {
 
     override fun shouldInterceptRequest(
@@ -27,6 +33,20 @@ class JestkWebViewClient(
         if (isAdBlockerEnabled()) {
             val url = request.url?.toString()
             if (AdBlockerEngine.shouldBlock(url)) {
+                val validUrl = url.orEmpty()
+                val isTracker = AdBlockerEngine.isTracker(validUrl)
+                onBlockedResource?.invoke(validUrl, isTracker)
+                if (settingsRepository != null) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        if (isTracker) {
+                            settingsRepository.incrementBlockedTrackers()
+                        } else {
+                            settingsRepository.incrementBlockedAds()
+                        }
+                    }
+                } else {
+                    AdBlockerEngine.recordBlockedRequest(validUrl)
+                }
                 return AdBlockerEngine.createSmartBlockedResponse(
                     url = url,
                     requestHeaders = request.requestHeaders

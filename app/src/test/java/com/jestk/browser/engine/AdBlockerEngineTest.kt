@@ -309,5 +309,76 @@ class AdBlockerEngineTest {
         val body = String(response.data.readBytes())
         assertThat(body).contains("<!DOCTYPE html>")
     }
+
+    // --- 7. Tracker Detection & Interception Counting Tests ---
+
+    @Test
+    fun isTracker_identifiesAnalyticsTrackersAndTelemetry() {
+        // Analytics & telemetry domains
+        assertThat(AdBlockerEngine.isTracker("https://google-analytics.com/analytics.js")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://www.google-analytics.com/collect?v=2")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://scorecardresearch.com/beacon.js")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://sb.scorecardresearch.com/p")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://quantserve.com/quant.js")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://pixel.quantserve.com/pixel/p-test.gif")).isTrue()
+
+        // Yandex Metrika & adfstat
+        assertThat(AdBlockerEngine.isTracker("https://mc.yandex.ru/metrika/tag.js")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://adfstat.yandex.ru/adfstat/banner")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://metrika.yandex.ru/watch/12345")).isTrue()
+
+        // Mail.ru / Rambler counters & beacons
+        assertThat(AdBlockerEngine.isTracker("https://top-fwz1.mail.ru/counter?id=123")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://counter.yadro.ru/hit?test")).isTrue()
+
+        // Generic beacon/pixel/telemetry URLs
+        assertThat(AdBlockerEngine.isTracker("https://example.com/beacon/send")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://example.com/tracking/pixel.gif")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://example.com/api/telemetry")).isTrue()
+        assertThat(AdBlockerEngine.isTracker("https://example.com/stats/collect")).isTrue()
+    }
+
+    @Test
+    fun isTracker_returnsFalseForNonTrackerAdsAndRegularUrls() {
+        // Pure ads
+        assertThat(AdBlockerEngine.isTracker("https://doubleclick.net/ad.js")).isFalse()
+        assertThat(AdBlockerEngine.isTracker("https://googleadservices.com/pagead/conversion.js")).isFalse()
+        assertThat(AdBlockerEngine.isTracker("https://adfox.ru/banner")).isFalse()
+
+        // Regular URLs
+        assertThat(AdBlockerEngine.isTracker("https://google.com/search?q=test")).isFalse()
+        assertThat(AdBlockerEngine.isTracker("https://en.wikipedia.org/wiki/Main_Page")).isFalse()
+        assertThat(AdBlockerEngine.isTracker("")).isFalse()
+        assertThat(AdBlockerEngine.isTracker(null)).isFalse()
+    }
+
+    @Test
+    fun recordBlockedRequest_incrementsRepositoryCounts() = runBlocking {
+        var adsIncremented = 0L
+        var trackersIncremented = 0L
+
+        val fakeRepo = object : com.jestk.browser.domain.repository.SettingsRepository {
+            override fun getSettings() = kotlinx.coroutines.flow.emptyFlow<com.jestk.browser.domain.model.BrowserSettings>()
+            override suspend fun getCurrentSettings() = com.jestk.browser.domain.model.BrowserSettings()
+            override suspend fun setThemeMode(mode: com.jestk.browser.domain.model.ThemeMode) {}
+            override suspend fun setSearchEngine(engine: com.jestk.browser.domain.model.SearchEngine) {}
+            override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
+            override fun getBlockedAdsCount() = kotlinx.coroutines.flow.flowOf(adsIncremented)
+            override fun getBlockedTrackersCount() = kotlinx.coroutines.flow.flowOf(trackersIncremented)
+            override suspend fun incrementBlockedAds(count: Long) { adsIncremented += count }
+            override suspend fun incrementBlockedTrackers(count: Long) { trackersIncremented += count }
+        }
+
+        AdBlockerEngine.settingsRepository = fakeRepo
+
+        AdBlockerEngine.recordBlockedRequest("https://doubleclick.net/ad.js")
+        AdBlockerEngine.recordBlockedRequest("https://google-analytics.com/analytics.js")
+
+        // Wait brief delay for coroutine launch
+        kotlinx.coroutines.delay(100)
+
+        assertThat(adsIncremented).isEqualTo(1L)
+        assertThat(trackersIncremented).isEqualTo(1L)
+    }
 }
 

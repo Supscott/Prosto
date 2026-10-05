@@ -19,6 +19,7 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
 import com.jestk.browser.domain.repository.SearchEngineRepository
+import com.jestk.browser.engine.AdBlockerEngine
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewPool
@@ -75,7 +76,9 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override val settingsRepository: SettingsRepository by lazy {
-        SettingsRepositoryImpl(database.settingDao())
+        SettingsRepositoryImpl(database.settingDao()).also {
+            AdBlockerEngine.settingsRepository = it
+        }
     }
 
     override val recentTabRepository: RecentTabRepository by lazy {

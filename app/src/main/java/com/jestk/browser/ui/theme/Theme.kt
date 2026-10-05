@@ -184,6 +184,14 @@ object SereneBorders {
     }
 
     /**
+     * Hairline micro-border: 1px subtle boundary for Serene Canvas surfaces and stat chips.
+     */
+    fun hairlineBorder(
+        isDark: Boolean = false,
+        width: Dp = 1.dp,
+    ): BorderStroke = cardBorder(isDark = isDark, width = width)
+
+    /**
      * Level 2 floating rim highlight: 1px solid rgba(255, 255, 255, 0.8) vertical gradient in light mode,
      * subtle slate rim in dark mode.
      */

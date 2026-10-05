@@ -36,7 +36,7 @@ class BrowserViewModel(
     private val tabRepository: TabRepository,
     private val historyRepository: HistoryRepository,
     private val favoriteRepository: FavoriteRepository,
-    private val settingsRepository: SettingsRepository,
+    val settingsRepository: SettingsRepository,
     private val recentTabRepository: RecentTabRepository? = null,
     private val downloadRepository: DownloadRepository? = null,
     private val downloadManager: HoriDownloadManager? = null,
@@ -117,6 +117,28 @@ class BrowserViewModel(
         tabCoordinator.observeDatabaseFlows()
         searchCoordinator.observeDatabaseFlows()
         downloadCoordinator.observeDatabaseFlows()
+        viewModelScope.launch(ioDispatcher) {
+            settingsRepository.getBlockedAdsCount().collect { count ->
+                _uiState.update { it.copy(blockedAdsCount = count) }
+            }
+        }
+        viewModelScope.launch(ioDispatcher) {
+            settingsRepository.getBlockedTrackersCount().collect { count ->
+                _uiState.update { it.copy(blockedTrackersCount = count) }
+            }
+        }
+    }
+
+    fun incrementBlockedAds(count: Long = 1) {
+        viewModelScope.launch(ioDispatcher) {
+            settingsRepository.incrementBlockedAds(count)
+        }
+    }
+
+    fun incrementBlockedTrackers(count: Long = 1) {
+        viewModelScope.launch(ioDispatcher) {
+            settingsRepository.incrementBlockedTrackers(count)
+        }
     }
 
     fun onDownloadStarted(item: DownloadItem) {

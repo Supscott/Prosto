@@ -1865,5 +1865,21 @@ class BrowserViewModelTest {
             assertThat(viewModel.uiState.value.tabs).hasSize(2)
             assertThat(viewModel.uiState.value.activeTabId).isEqualTo(googleTabId)
         }
+
+    @Test
+    fun blockedStats_flowUpdatesUiState() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.blockedAdsCount).isEqualTo(0L)
+        assertThat(viewModel.uiState.value.blockedTrackersCount).isEqualTo(0L)
+
+        viewModel.incrementBlockedAds(5)
+        viewModel.incrementBlockedTrackers(3)
+        advanceUntilIdle()
+
+        assertThat(viewModel.uiState.value.blockedAdsCount).isEqualTo(5L)
+        assertThat(viewModel.uiState.value.blockedTrackersCount).isEqualTo(3L)
+    }
 }
 

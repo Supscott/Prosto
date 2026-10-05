@@ -11,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import com.jestk.browser.domain.repository.SettingsRepository
 import java.io.BufferedReader
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -452,6 +453,103 @@ object AdBlockerEngine {
 
     fun containsHost(host: String): Boolean = blockedHosts.contains(host.lowercase())
 
+    @Volatile
+    var settingsRepository: SettingsRepository? = null
+
+    private val engineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    /**
+     * Determines whether a given URL belongs to an analytics, tracker, telemetry, or beacon service.
+     * Examples: google-analytics.com, mc.yandex.ru, scorecardresearch.com, quantserve.com, adfstat, metrika, beacon, pixel, etc.
+     */
+    fun isTracker(url: String): Boolean {
+        if (url.isBlank()) return false
+        val cleanUrl = url.lowercase().trim()
+        val uri = try {
+            val normalized = when {
+                cleanUrl.startsWith("//") -> "https:$cleanUrl"
+                !cleanUrl.contains("://") -> "https://$cleanUrl"
+                else -> cleanUrl
+            }
+            Uri.parse(normalized)
+        } catch (_: Exception) {
+            null
+        }
+
+        val host = uri?.host?.lowercase().orEmpty()
+        val path = uri?.path?.lowercase().orEmpty()
+
+        // Known tracker & analytics domains
+        val trackerDomains = listOf(
+            "google-analytics.com",
+            "scorecardresearch.com",
+            "quantserve.com",
+            "hotjar.com",
+            "clarity.ms",
+            "segment.io",
+            "segment.com",
+            "mixpanel.com",
+            "amplitude.com",
+            "statcounter.com",
+            "counter.yadro.ru",
+            "top-fwz1.mail.ru"
+        )
+        if (trackerDomains.any { host == it || host.endsWith(".$it") }) {
+            return true
+        }
+
+        // Host fragments specifically associated with telemetry / metrics
+        if (host.contains("adfstat") ||
+            host.contains("metrika") ||
+            host.startsWith("mc.yandex.") ||
+            host.contains(".metrika.") ||
+            host.contains("analytics.") ||
+            host.contains("telemetry.") ||
+            host.contains("tracker.") ||
+            host.contains("tracking.") ||
+            host.contains("stats.")
+        ) {
+            return true
+        }
+
+        // Path or URL fragments indicating beacons, telemetry, pixels, collectors
+        if (path.contains("/collect") ||
+            path.contains("/beacon") ||
+            path.contains("/analytics") ||
+            path.contains("/telemetry") ||
+            path.contains("/pixel") ||
+            path.contains("/metrika") ||
+            path.contains("/track") ||
+            cleanUrl.contains("beacon") ||
+            cleanUrl.contains("pixel") ||
+            cleanUrl.contains("telemetry") ||
+            cleanUrl.contains("adfstat") ||
+            cleanUrl.contains("metrika")
+        ) {
+            return true
+        }
+
+        return false
+    }
+
+    @JvmName("isTrackerNullable")
+    fun isTracker(url: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        return isTracker(url as String)
+    }
+
+    fun recordBlockedRequest(url: String) {
+        val repo = settingsRepository ?: return
+        val tracker = isTracker(url)
+        engineScope.launch {
+            if (tracker) {
+                repo.incrementBlockedTrackers()
+            } else {
+                repo.incrementBlockedAds()
+            }
+        }
+    }
+
     fun resetForTests() {
         synchronized(this) {
             initJob?.cancel()
@@ -459,6 +557,7 @@ object AdBlockerEngine {
             blockedHosts.clear()
             blockedHosts.addAll(DEFAULT_HOSTS)
             isInitialized = false
+            settingsRepository = null
         }
     }
 }
