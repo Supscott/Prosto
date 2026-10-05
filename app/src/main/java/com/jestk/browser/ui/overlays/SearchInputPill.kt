@@ -20,7 +20,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Search
@@ -164,7 +163,7 @@ internal fun HeroSearchInputField(
                 }
             )
 
-            // Clear Button / Submit Button / Voice Button
+            // Clear Button / Voice Button
             if (textFieldValue.text.isNotEmpty()) {
                 IconButton(
                     onClick = {
@@ -179,21 +178,6 @@ internal fun HeroSearchInputField(
                         contentDescription = "Clear",
                         tint = SereneMutedSlate,
                         modifier = Modifier.size(18.dp)
-                    )
-                }
-
-                IconButton(
-                    onClick = onSubmit,
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(SereneBrandPrimary)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                        contentDescription = "Go",
-                        tint = Color.White,
-                        modifier = Modifier.size(17.dp)
                     )
                 }
             } else {

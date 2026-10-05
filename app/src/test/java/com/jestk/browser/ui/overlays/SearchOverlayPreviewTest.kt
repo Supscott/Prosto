@@ -749,10 +749,10 @@ val width = 440
         assertTrue(state.isDragging)
         assertTrue(state.isScrolling)
 
-        // 2. Drag by -64f (1 full item spacing left => should cross to Bing)
-        state.onDrag(-64f)
+        // 2. Drag by -40f (1 full item spacing left => should cross to Bing)
+        state.onDrag(-40f)
         testScheduler.advanceUntilIdle()
-        assertEquals(-64f, state.animOffset.value, 0.1f)
+        assertEquals(-40f, state.animOffset.value, 0.1f)
         assertTrue(hapticTicks > 0)
 
         // 3. Drag end with 0 velocity => snap to nearest slot (targetSlot = 1 -> Bing)
@@ -786,7 +786,7 @@ val width = 440
             onEngineSelected = { selectedEngine = it }
         )
 
-        // 1. Moderate fling left (velocity = -800 px/sec) => advances to DuckDuckGo (2 slots)
+        // 1. Moderate fling left (velocity = -800 px/sec) => advances across 4 slots to Bing
         state.onDragStart()
         state.onDrag(-20f)
         testScheduler.advanceUntilIdle()
@@ -794,13 +794,13 @@ val width = 440
         state.onDragEnd(velocity = -800f)
         testScheduler.advanceUntilIdle()
 
-        assertEquals(SearchEngine.DUCKDUCKGO, selectedEngine)
-        assertEquals(SearchEngine.DUCKDUCKGO, state.currentEngine)
+        assertEquals(SearchEngine.BING, selectedEngine)
+        assertEquals(SearchEngine.BING, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
         assertTrue(hapticTicks >= 1)
         assertTrue(!state.isFlinging)
 
-        // 2. Strong fling left (velocity = -2500 px/sec) => carries momentum across 6 slots (2 full loops)
+        // 2. Strong fling left (velocity = -2500 px/sec) => carries momentum across 6 slots (2 full loops) to Bing
         val hapticBeforeStrongFling = hapticTicks
         state.onDragStart()
         state.onDrag(-20f)
@@ -809,7 +809,7 @@ val width = 440
         state.onDragEnd(velocity = -2500f)
         testScheduler.advanceUntilIdle()
 
-        // 6 slots traversed => lands at DuckDuckGo with multiple haptic ticks
+        // 7 slots traversed (-260f / 40f => 7 slots) => lands at DuckDuckGo with multiple haptic ticks
         assertEquals(SearchEngine.DUCKDUCKGO, selectedEngine)
         assertEquals(SearchEngine.DUCKDUCKGO, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
@@ -971,6 +971,31 @@ val width = 440
         assertEquals(youtube, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
         assertTrue(hapticTicks >= 2)
+    }
+
+    @Test
+    fun testSearchEngineCarouselConfiguration() {
+        val density = Density(2f)
+        val dummyHaptic = object : HapticFeedback {
+            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {}
+        }
+        val coroutineScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
+        val state = SearchEngineCarouselState(
+            initialEngine = SearchEngine.GOOGLE,
+            density = density,
+            coroutineScope = coroutineScope,
+            haptic = dummyHaptic,
+            onEngineSelected = {}
+        )
+
+        // Verify item spacing is 40.dp (80px at 2x density)
+        assertEquals(40.dp, state.itemSpacingDp)
+        assertEquals(80f, state.itemSpacingPx, 0.01f)
+
+        // Verify scrolling state transitions for container expansion
+        assertTrue(!state.isScrolling)
+        state.onDragStart()
+        assertTrue(state.isScrolling)
     }
 }
 

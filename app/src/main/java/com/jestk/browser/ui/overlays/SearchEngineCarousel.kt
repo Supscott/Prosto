@@ -2,6 +2,7 @@ package com.jestk.browser.ui.overlays
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.calculateTargetValue
 import androidx.compose.animation.core.spring
@@ -99,12 +100,12 @@ internal class SearchEngineCarouselState(
     val onEngineSelected: (SearchEngine) -> Unit
 ) {
     var currentEngine by mutableStateOf(initialEngine)
-    val animOffset = Animatable(0f)
+    val animOffset = Animatable(0f, visibilityThreshold = 0.5f)
     var isDragging by mutableStateOf(false)
     var isFlinging by mutableStateOf(false)
     val isScrolling: Boolean get() = isDragging || isFlinging || abs(animOffset.value) > 0.5f
 
-    val itemSpacingDp: Dp = 64.dp
+    val itemSpacingDp: Dp = 40.dp
     val itemSpacingPx: Float = with(density) { itemSpacingDp.toPx() }
 
     private var lastHapticSlot: Int = 0
@@ -134,11 +135,11 @@ internal class SearchEngineCarouselState(
         isDragging = false
         val minFlingVelocity = 400f // px/sec
         activeJob = coroutineScope.launch {
+            isFlinging = true
             val currentOffset = animOffset.value
             val targetSlot: Int
 
             if (abs(velocity) >= minFlingVelocity) {
-                isFlinging = true
                 val decay = splineBasedDecay<Float>(density)
                 val predictedDelta = decay.calculateTargetValue(0f, velocity)
                 val maxSlots = 6
@@ -166,7 +167,7 @@ internal class SearchEngineCarouselState(
                         targetValue = targetX,
                         animationSpec = spring(
                             dampingRatio = 0.85f,
-                            stiffness = Spring.StiffnessMediumLow
+                            stiffness = Spring.StiffnessMedium
                         ),
                         initialVelocity = velocity
                     ) {
@@ -181,7 +182,7 @@ internal class SearchEngineCarouselState(
                         targetValue = targetX,
                         animationSpec = spring(
                             dampingRatio = 0.85f,
-                            stiffness = Spring.StiffnessMediumLow
+                            stiffness = Spring.StiffnessMedium
                         )
                     ) {
                         val currentSlot = (-value / itemSpacingPx).roundToInt()
@@ -254,7 +255,7 @@ internal class SearchEngineCarouselState(
                             targetValue = 0f,
                             animationSpec = spring(
                                 dampingRatio = 0.85f,
-                                stiffness = Spring.StiffnessMediumLow
+                                stiffness = Spring.StiffnessMedium
                             )
                         )
                         animOffset.snapTo(0f)
@@ -282,7 +283,7 @@ internal class SearchEngineCarouselState(
                     targetValue = targetX,
                     animationSpec = spring(
                         dampingRatio = 0.85f,
-                        stiffness = Spring.StiffnessMediumLow
+                        stiffness = Spring.StiffnessMedium
                     )
                 ) {
                     val currentSlot = (-value / itemSpacingPx).roundToInt()
@@ -348,6 +349,15 @@ internal fun SearchEngineSelectorButton(
     val border = SereneBorders.cardBorder(isDark)
     val density = carouselState.density
 
+    val containerWidth by animateDpAsState(
+        targetValue = if (carouselState.isScrolling) 160.dp else 68.dp,
+        animationSpec = spring(
+            dampingRatio = 0.85f,
+            stiffness = Spring.StiffnessMedium
+        ),
+        label = "containerWidth"
+    )
+
     val arrowRotation by animateFloatAsState(
         targetValue = if (isMenuOpen) 180f else 0f,
         animationSpec = tween(durationMillis = 200),
@@ -374,7 +384,7 @@ internal fun SearchEngineSelectorButton(
         border = border,
         shadowElevation = 4.dp,
         modifier = modifier
-            .width(68.dp)
+            .width(containerWidth)
             .height(52.dp)
             .semantics {
                 role = Role.Button
@@ -396,13 +406,14 @@ internal fun SearchEngineSelectorButton(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .clip(CircleShape)
                     .graphicsLayer {
                         compositingStrategy = CompositingStrategy.Offscreen
                     }
                     .drawWithContent {
                         drawContent()
                         if (fadeAlpha > 0.01f) {
-                            val fadeWidth = 14.dp.toPx() * fadeAlpha
+                            val fadeWidth = 24.dp.toPx() * fadeAlpha
                             val w = size.width
                             if (fadeWidth > 0f && w > 0f) {
                                 drawRect(
@@ -424,7 +435,7 @@ internal fun SearchEngineSelectorButton(
                 val centerSlotFloat = -carouselState.animOffset.value / carouselState.itemSpacingPx
                 val centerSlotInt = centerSlotFloat.roundToInt()
 
-                for (k in (centerSlotInt - 2)..(centerSlotInt + 2)) {
+                for (k in (centerSlotInt - 3)..(centerSlotInt + 3)) {
                     key(k) {
                         val engineIndex = (baseIndex + k).mod(list.size)
                         val engine = list[engineIndex]

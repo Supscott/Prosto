@@ -4,6 +4,7 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.HistoryItem
@@ -85,7 +86,7 @@ class SearchOverlayInputTest {
     }
 
     @Test
-    fun searchOverlay_submitButton_submitsExactCurrentText() {
+    fun searchOverlay_nonEmptyInput_showsClearButtonAndNoGoButton_submitsViaIme() {
         val events = mutableListOf<BrowserUiEvent>()
         val state = BrowserUiState(
             searchQuery = "jetpack compose",
@@ -101,8 +102,12 @@ class SearchOverlayInputTest {
             }
         }
 
-        composeTestRule.onNodeWithContentDescription("Go").assertExists()
-        composeTestRule.onNodeWithContentDescription("Go").performClick()
+        // Only Clear button exists; Go button is removed
+        composeTestRule.onNodeWithContentDescription("Clear").assertExists()
+        composeTestRule.onNodeWithContentDescription("Go").assertDoesNotExist()
+
+        // Submit via IME Action
+        composeTestRule.onNodeWithText("jetpack compose").performImeAction()
 
         val submitEvents = events.filterIsInstance<BrowserUiEvent.SubmitSearch>()
         assertEquals(1, submitEvents.size)
