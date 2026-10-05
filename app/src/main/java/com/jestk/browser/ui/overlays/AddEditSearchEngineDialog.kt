@@ -24,7 +24,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.ShortText
+import androidx.compose.material.icons.automirrored.filled.ShortText
 import androidx.compose.material.icons.filled.Title
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -40,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,7 +48,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -111,7 +113,8 @@ fun AddEditSearchEngineDialogContent(
     var urlTemplate by remember { mutableStateOf(engineToEdit?.searchUrlTemplate ?: "https://") }
 
     val focusRequester = remember { FocusRequester() }
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
 
     val dialogBg = if (isDark) DarkSurface else Color.White
     val inputBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
@@ -271,7 +274,7 @@ fun AddEditSearchEngineDialogContent(
                 placeholder = { Text("e.g. y, yt, w") },
                 leadingIcon = {
                     Icon(
-                        imageVector = Icons.Default.ShortText,
+                        imageVector = Icons.AutoMirrored.Filled.ShortText,
                         contentDescription = null,
                         tint = SereneMutedSlate,
                         modifier = Modifier.size(20.dp),
@@ -349,9 +352,14 @@ fun AddEditSearchEngineDialogContent(
                         }
                         IconButton(
                             onClick = {
-                                val clipText = clipboardManager.getText()?.text
-                                if (!clipText.isNullOrBlank()) {
-                                    urlTemplate = clipText.trim()
+                                coroutineScope.launch {
+                                    val clip = clipboard.getClipEntry()
+                                    val clipText = clip?.clipData?.let {
+                                        if (it.itemCount > 0) it.getItemAt(0).text?.toString() else null
+                                    }
+                                    if (!clipText.isNullOrBlank()) {
+                                        urlTemplate = clipText.trim()
+                                    }
                                 }
                             },
                             modifier = Modifier.size(28.dp),

@@ -161,4 +161,63 @@ class HistoryDaoTest {
             assertThat(pagedMatches2).hasSize(5)
             assertThat(pagedMatches2[0].url).isEqualTo("https://example.com/topic5")
         }
+
+    @Test
+    fun getRecentHistory_respectsLimitAndOrdersDescending() = runTest {
+        for (i in 1..10) {
+            historyDao.insertHistory(
+                HistoryEntity(
+                    url = "https://site$i.com",
+                    title = "Site $i",
+                    timestamp = 1000L * i,
+                ),
+            )
+        }
+        val recent = historyDao.getRecentHistory(limit = 3)
+        assertThat(recent).hasSize(3)
+        assertThat(recent.map { it.url }).containsExactly(
+            "https://site10.com",
+            "https://site9.com",
+            "https://site8.com",
+        ).inOrder()
+    }
+
+    @Test
+    fun searchHistory_filtersByTitleAndUrlWithLimit() = runTest {
+        historyDao.insertHistory(
+            HistoryEntity(url = "https://alpha.com/one", title = "First Article", timestamp = 1000L),
+        )
+        historyDao.insertHistory(
+            HistoryEntity(url = "https://beta.com/article", title = "Second Page", timestamp = 2000L),
+        )
+        historyDao.insertHistory(
+            HistoryEntity(url = "https://gamma.com/other", title = "Third Article", timestamp = 3000L),
+        )
+
+        val results = historyDao.searchHistory(query = "Article", limit = 10)
+        assertThat(results.map { it.url }).containsExactly(
+            "https://gamma.com/other",
+            "https://beta.com/article",
+            "https://alpha.com/one",
+        ).inOrder()
+    }
+
+    @Test
+    fun migration_7_8_createsCompositeIndex() {
+        val sqliteDb = db.openHelper.writableDatabase
+        AppDatabase.MIGRATION_7_8.migrate(sqliteDb)
+
+        val cursor = sqliteDb.query("PRAGMA index_list('history')")
+        val indexNames = mutableListOf<String>()
+        while (cursor.moveToNext()) {
+            val nameIndex = cursor.getColumnIndex("name")
+            if (nameIndex != -1) {
+                indexNames.add(cursor.getString(nameIndex))
+            }
+        }
+        cursor.close()
+
+        assertThat(indexNames).contains("index_history_url_timestamp")
+    }
 }
+

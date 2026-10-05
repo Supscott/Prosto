@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -41,8 +43,24 @@ fun FloatingVideoMiniPlayer(
     onClose: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var offsetX by remember { mutableFloatStateOf(20f) }
-    var offsetY by remember { mutableFloatStateOf(100f) }
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+
+    val cardWidth = 200.dp
+    val cardHeight = 120.dp
+    val safeMargin = 16.dp
+
+    val cardWidthPx = with(density) { cardWidth.toPx() }
+    val cardHeightPx = with(density) { cardHeight.toPx() }
+    val marginPx = with(density) { safeMargin.toPx() }
+    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val screenHeightPx = with(density) { configuration.screenHeightDp.dp.toPx() }
+
+    val maxXPx = (screenWidthPx - cardWidthPx - marginPx).coerceAtLeast(0f)
+    val maxYPx = (screenHeightPx - cardHeightPx - marginPx).coerceAtLeast(0f)
+
+    var offsetX by remember { mutableFloatStateOf(marginPx) }
+    var offsetY by remember { mutableFloatStateOf(100f.coerceIn(marginPx, maxYPx.coerceAtLeast(marginPx))) }
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -50,13 +68,13 @@ fun FloatingVideoMiniPlayer(
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         modifier = modifier
             .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
-            .width(200.dp)
-            .height(120.dp)
-            .pointerInput(Unit) {
+            .width(cardWidth)
+            .height(cardHeight)
+            .pointerInput(maxXPx, maxYPx, marginPx) {
                 detectDragGestures { change, dragAmount ->
                     change.consume()
-                    offsetX += dragAmount.x
-                    offsetY += dragAmount.y
+                    offsetX = (offsetX + dragAmount.x).coerceIn(marginPx, maxXPx.coerceAtLeast(marginPx))
+                    offsetY = (offsetY + dragAmount.y).coerceIn(marginPx, maxYPx.coerceAtLeast(marginPx))
                 }
             }
     ) {

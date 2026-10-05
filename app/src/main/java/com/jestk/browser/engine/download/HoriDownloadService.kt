@@ -19,6 +19,7 @@ import com.jestk.browser.R
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.DownloadStatus
 import com.jestk.browser.ui.MainActivity
+import com.jestk.browser.util.FileSizeFormatter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -52,29 +53,10 @@ class HoriDownloadService : Service() {
         const val EXTRA_REFERER = "extra_referer"
         const val EXTRA_USER_AGENT = "extra_user_agent"
 
-        fun formatFileSize(bytes: Long): String {
-            if (bytes <= 0L) return ""
-            val kb = bytes / 1024.0
-            val mb = kb / 1024.0
-            val gb = mb / 1024.0
-            return when {
-                gb >= 1.0 -> String.format(Locale.US, "%.1f GB", gb)
-                mb >= 1.0 -> String.format(Locale.US, "%.1f MB", mb)
-                kb >= 1.0 -> String.format(Locale.US, "%.1f KB", kb)
-                else -> "$bytes B"
-            }
-        }
+        fun formatFileSize(bytes: Long): String = FileSizeFormatter.formatFileSize(bytes)
 
-        fun formatProgressText(bytesDownloaded: Long, totalBytes: Long): String {
-            val downloadedStr = formatFileSize(bytesDownloaded).ifEmpty { "0 B" }
-            return if (totalBytes > 0L) {
-                val totalStr = formatFileSize(totalBytes)
-                val percent = ((bytesDownloaded * 100) / totalBytes).coerceIn(0, 100)
-                "$downloadedStr / $totalStr ($percent%)"
-            } else {
-                downloadedStr
-            }
-        }
+        fun formatProgressText(bytesDownloaded: Long, totalBytes: Long): String =
+            FileSizeFormatter.formatProgressText(bytesDownloaded, totalBytes)
 
         fun formatSpeed(bytesPerSec: Long): String {
             if (bytesPerSec <= 0L) return ""

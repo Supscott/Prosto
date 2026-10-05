@@ -89,13 +89,11 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
     } ?: SearchEngine.DUCKDUCKGO
 
     val isAdBlockerEnabled = map[SettingKeys.AD_BLOCKER_ENABLED]?.toBooleanStrictOrNull() ?: true
-    val isMenuExpandedOnWeb = map[SettingKeys.MENU_EXPANDED_ON_WEB]?.toBooleanStrictOrNull() ?: false
 
     return BrowserSettings(
         themeMode = themeMode,
         searchEngine = searchEngine,
-        isAdBlockerEnabled = isAdBlockerEnabled,
-        isMenuExpandedOnWeb = isMenuExpandedOnWeb
+        isAdBlockerEnabled = isAdBlockerEnabled
     )
 }
 

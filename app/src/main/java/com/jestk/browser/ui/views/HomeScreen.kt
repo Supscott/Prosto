@@ -72,17 +72,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import android.content.ClipData
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
+import kotlinx.coroutines.launch
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.ui.theme.CardPreviewBlueBrush
@@ -143,7 +146,6 @@ fun HomeScreen(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
-    hazeState: Any? = null,
 ) {
     val context = LocalContext.current
     val speechLauncher = rememberLauncherForActivityResult(
@@ -531,7 +533,8 @@ private fun FavoriteSquircleCard(
     modifier: Modifier = Modifier
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
     val squircleBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
 
     Box(modifier = modifier) {
@@ -617,7 +620,10 @@ private fun FavoriteSquircleCard(
                 },
                 onClick = {
                     showMenu = false
-                    clipboardManager.setText(AnnotatedString(item.url))
+                    coroutineScope.launch {
+                        val clipData = ClipData.newPlainText("URL", item.url)
+                        clipboard.setClipEntry(clipData.toClipEntry())
+                    }
                 }
             )
             if (item.id != null && onDelete != null) {

@@ -92,7 +92,6 @@ data class SearchEngine(
     }
 
     companion object {
-        @JvmField
         val DUCKDUCKGO = SearchEngine(
             id = "duckduckgo",
             displayName = "DuckDuckGo",
@@ -103,7 +102,6 @@ data class SearchEngine(
             isBuiltIn = true
         )
 
-        @JvmField
         val GOOGLE = SearchEngine(
             id = "google",
             displayName = "Google",
@@ -114,7 +112,6 @@ data class SearchEngine(
             isBuiltIn = true
         )
 
-        @JvmField
         val BING = SearchEngine(
             id = "bing",
             displayName = "Bing",
@@ -125,17 +122,11 @@ data class SearchEngine(
             isBuiltIn = true
         )
 
-        @JvmField
         val DEFAULT_ENGINES = listOf(DUCKDUCKGO, GOOGLE, BING)
 
-        @JvmStatic
         val entries: List<SearchEngine>
             get() = DEFAULT_ENGINES
 
-        @JvmStatic
-        fun values(): Array<SearchEngine> = DEFAULT_ENGINES.toTypedArray()
-
-        @JvmStatic
         fun valueOf(name: String): SearchEngine {
             val upper = name.uppercase()
             return when (upper) {
@@ -155,8 +146,6 @@ data class SearchEngine(
             }
         }
 
-        @JvmStatic
-        @JvmOverloads
         fun findMatchingEngineAndQuery(url: String?, engines: List<SearchEngine> = DEFAULT_ENGINES): Pair<SearchEngine, String>? {
             if (url.isNullOrBlank()) return null
             for (engine in engines) {

@@ -377,6 +377,27 @@ This document tracks bugs encountered during development, their root causes, and
   3. Separate active finger drag from drop animation: `isLifted = isDraggingThis && isDragging`. On finger release (`onDragEnd`), `isDragging` becomes `false` immediately so scale (1.04x -> 1.0x) and elevation (8dp -> 0dp) start returning to resting state concurrently with `dropAnim` translation, landing the card onto the stack.
   4. On new touch down while `isDropping == true`, call `finishPendingDropImmediately()` to commit the drop and begin handling the new gesture with zero lockout.
 
+### Room `@Transaction suspend fun` default methods trigger `assertNotSuspendingTransaction` with active Flows
 
+- **Date:** 2026-10-04
+- **Symptom:** Unit tests asserting ViewModel operations (e.g. `closeTab`) failed with `java.lang.IllegalStateException: Cannot access database on a different coroutine context inherited from a suspending transaction` at `RoomDatabase.assertNotSuspendingTransaction(RoomDatabase.kt:451)` during Flow emission.
+- **Root Cause:**
+  1. In Room Kotlin interfaces, annotating a `suspend fun` that has a default body with `@Transaction` generates a wrapper calling `RoomDatabaseKt.withTransaction(db) { super.reorderTabs(...) }`.
+  2. `withTransaction` injects a `TransactionElement` into the coroutine context.
+  3. When inner queries mutate the database (such as `updatePosition`), Room's `InvalidationTracker` dispatches table invalidation notifications to active Room `Flow` observers (`getAllTabsFlow()`).
+  4. In unit tests using `InstantTaskExecutorRule` or test dispatchers where execution is synchronous on the same thread, the Flow re-query runs on the thread/coroutine context that inherited the transaction element. Room detects this and throws `IllegalStateException: Cannot access database on a different coroutine context inherited from a suspending transaction`.
+- **Resolution & Prevention:**
+  1. Avoid annotating Kotlin interface default helper methods with `@Transaction` when those methods loop over atomic DAO queries (`updatePosition`). Follow the pattern established in `FavoriteDao` and `SearchEngineDao`: declare the helper as a plain `suspend fun reorderTabs(...)`.
+  2. If an atomic multi-query transaction is strictly required at the DAO level, either use Room `@Transaction` on an abstract method in an `abstract class AppDatabase` or invoke `database.withTransaction { ... }` explicitly at the repository/caller boundary where transaction lifecycle and coroutine context are explicitly scoped.
 
+### Robolectric ShadowApplication service intent queue is FIFO and retains earlier intents
 
+- **Date:** 2026-10-04
+- **Symptom:** Unit tests asserting that a secondary action (such as `cancelDownload` or `pauseDownload`) dispatched an intent failed with `expected: com.jestk.browser.action.CANCEL_DOWNLOAD but was: com.jestk.browser.action.START_DOWNLOAD`.
+- **Root Cause:**
+  1. In Robolectric, `shadowOf(application).nextStartedService` polls from a FIFO queue (`Queue<Intent>`) of all intents dispatched via `startService()` or `startForegroundService()`.
+  2. Preceding setup steps (e.g. `enqueueDownload`) dispatched `START_DOWNLOAD` to the service intent queue.
+  3. Later, when `cancelDownload` queued `CANCEL_DOWNLOAD`, calling `shadowOf(application).nextStartedService` returned the head of the FIFO queue (`START_DOWNLOAD`) rather than the newly posted intent.
+- **Resolution & Prevention:**
+  1. In multi-step workflow tests, always consume or clear prior service intents after setup actions (e.g. `shadowOf(context as Application).nextStartedService` or `clearStartedServices()`) before invoking the method under test.
+  2. Assert service actions immediately after each distinct state transition to verify the sequential intent stream.

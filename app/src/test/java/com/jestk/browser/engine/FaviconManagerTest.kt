@@ -123,5 +123,36 @@ class FaviconManagerTest {
         FaviconManager.deleteTabFavicons(context, "test_tab_delete")
         assertThat(file.exists()).isFalse()
     }
+
+    @Test
+    fun deleteTabFavicons_withoutContextParameter_removesFaviconsWhenInitialized() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        FaviconManager.init(context)
+        val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
+
+        val path = FaviconManager.saveFavicon(context, "test_tab_no_ctx", bitmap)
+        assertThat(path).isNotNull()
+        val file = java.io.File(path!!)
+        assertThat(file.exists()).isTrue()
+
+        FaviconManager.deleteTabFavicons("test_tab_no_ctx")
+        assertThat(file.exists()).isFalse()
+    }
+
+    @Test
+    fun deleteAllFavicons_clearsEntireFaviconsDirectory() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        FaviconManager.init(context)
+        val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
+
+        val path1 = FaviconManager.saveFavicon(context, "tab_1", bitmap)
+        val path2 = FaviconManager.saveFavicon(context, "tab_2", bitmap)
+        assertThat(java.io.File(path1!!).exists()).isTrue()
+        assertThat(java.io.File(path2!!).exists()).isTrue()
+
+        FaviconManager.deleteAllFavicons()
+        assertThat(java.io.File(path1).exists()).isFalse()
+        assertThat(java.io.File(path2).exists()).isFalse()
+    }
 }
 

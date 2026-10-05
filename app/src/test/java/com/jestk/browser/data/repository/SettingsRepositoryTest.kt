@@ -68,15 +68,4 @@ class SettingsRepositoryTest {
         val settings = repository.getSettings().first()
         assertThat(settings.isAdBlockerEnabled).isFalse()
     }
-
-    @Test
-    fun setMenuExpandedOnWeb_persistsAndEmits() = runTest(testDispatcher) {
-        assertThat(repository.getCurrentSettings().isMenuExpandedOnWeb).isFalse()
-
-        repository.setMenuExpandedOnWeb(true)
-
-        val settings = repository.getSettings().first()
-        assertThat(settings.isMenuExpandedOnWeb).isTrue()
-        assertThat(repository.getCurrentSettings().isMenuExpandedOnWeb).isTrue()
-    }
 }

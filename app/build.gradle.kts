@@ -31,7 +31,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -48,13 +49,6 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-        freeCompilerArgs += listOf(
-            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
-            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
-        )
-    }
 
     buildFeatures {
         compose = true
@@ -75,8 +69,25 @@ android {
         }
     }
 }
+ 
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+        freeCompilerArgs.addAll(
+            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api"
+        )
+    }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
 
 dependencies {
+    // Network & HTTP Client
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     // AndroidX Core & Lifecycle
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.activity:activity-compose:1.9.3")

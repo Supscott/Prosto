@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.jestk.browser.data.local.dao.DownloadDao
 import com.jestk.browser.data.local.dao.FavoriteDao
 import com.jestk.browser.data.local.dao.HistoryDao
@@ -31,8 +33,8 @@ import com.jestk.browser.data.local.entity.SearchEngineEntity
         DownloadEntity::class,
         SearchEngineEntity::class
     ],
-    version = 7,
-    exportSchema = false
+    version = 8,
+    exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
@@ -48,6 +50,12 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         private const val DATABASE_NAME = "jestk_browser.db"
 
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_history_url_timestamp` ON `history` (`url`, `timestamp`)")
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -58,7 +66,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                .fallbackToDestructiveMigration()
+                .addMigrations(MIGRATION_7_8)
+                .fallbackToDestructiveMigrationOnDowngrade()
                 .build()
                 .also { instance = it }
             }
