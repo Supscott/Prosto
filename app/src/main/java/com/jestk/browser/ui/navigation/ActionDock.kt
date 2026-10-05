@@ -75,135 +75,6 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
 /**
- * The grounded 4-button dock (Home, Search, Tabs Overview, Settings).
- * Features:
- * - Serene Canvas Level 2 floating capsule (SereneShapes.Dock 32.dp)
- * - Solid surface: pure #FFFFFF in light, #1E293B in dark. NO BLUR.
- * - Level 2 ambient elevation shadow and crisp rim border.
- * - 48px touch targets for action buttons with SereneMutedSlate inactive tint.
- * - Scroll-driven auto-hide offset translation via [BrowserUiState.bottomBarOffsetY].
- * - Swipe-up gesture to search.
- */
-@Composable
-fun ActionDock(
-    uiState: BrowserUiState,
-    onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier,
-    isDark: Boolean = LocalIsDarkTheme.current,
-    hazeState: Any? = null,
-) {
-    val density = LocalDensity.current
-    val currentOnEvent by rememberUpdatedState(onEvent)
-    val isHome = uiState.isHome
-
-    val dockBg = if (isDark) DarkSurface else SereneCardSurface
-    val activeTint = if (isDark) SereneAccent else SereneBrandPrimary
-    val inactiveTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
-
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(58.dp)
-            .graphicsLayer {
-                translationY = uiState.bottomBarOffsetY
-            }
-            .sereneFloatingSurface(
-                shape = SereneShapes.Dock,
-                isDark = isDark,
-                backgroundColor = dockBg,
-                elevation = 10.dp
-            )
-            .swipeUpToSearch(density) {
-                currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
-            }
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            // Home Button (48px touch target)
-            IconButton(
-                onClick = {
-                    if (isHome && uiState.activeOverlay == OverlayType.HOME) {
-                        currentOnEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        currentOnEvent(BrowserUiEvent.OpenHome)
-                    }
-                },
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Home",
-                    tint = if (isHome && uiState.activeOverlay == OverlayType.HOME) activeTint else inactiveTint,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            // Search Button (48px touch target)
-            IconButton(
-                onClick = {
-                    if (uiState.activeOverlay == OverlayType.SEARCH) {
-                        currentOnEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
-                    }
-                },
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = if (uiState.activeOverlay == OverlayType.SEARCH) activeTint else inactiveTint,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            // Tabs Overview Button (48px touch target)
-            IconButton(
-                onClick = {
-                    if (uiState.activeOverlay == OverlayType.TAB_GRID) {
-                        currentOnEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        currentOnEvent(BrowserUiEvent.OpenTabGrid)
-                    }
-                },
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.FilterNone,
-                    contentDescription = "Tabs Overview",
-                    tint = if (uiState.activeOverlay == OverlayType.TAB_GRID) activeTint else inactiveTint,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-
-            // Settings Button (48px touch target)
-            IconButton(
-                onClick = {
-                    if (uiState.activeScreen == ScreenType.SETTINGS) {
-                        currentOnEvent(BrowserUiEvent.DismissOverlay)
-                    } else {
-                        currentOnEvent(BrowserUiEvent.OpenSettings)
-                    }
-                },
-                modifier = Modifier.size(48.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
-                    tint = if (uiState.activeScreen == ScreenType.SETTINGS) activeTint else inactiveTint,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-        }
-    }
-}
-
-/**
  * Animated popup actions card anchored above the Menu button.
  * Adheres to Serene Canvas design system:
  * - Floating card with 24px radius (SereneShapes.Card), pure solid #FFFFFF (Dark: #1E293B).
@@ -218,7 +89,6 @@ fun ActionPopupMenu(
     expanded: Boolean,
     uiState: BrowserUiState,
     isDark: Boolean,
-    hazeState: Any? = null,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -332,7 +202,6 @@ fun ActionDockMenuButton(
     isExpanded: Boolean,
     isDark: Boolean,
     backgroundColor: Color = if (isDark) DarkSurface else SereneCardSurface,
-    hazeState: Any? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {

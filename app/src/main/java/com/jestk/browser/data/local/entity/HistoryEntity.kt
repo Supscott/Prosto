@@ -8,7 +8,8 @@ import androidx.room.PrimaryKey
     tableName = "history",
     indices = [
         Index(value = ["timestamp"]),
-        Index(value = ["url"])
+        Index(value = ["url"]),
+        Index(value = ["url", "timestamp"])
     ]
 )
 data class HistoryEntity(

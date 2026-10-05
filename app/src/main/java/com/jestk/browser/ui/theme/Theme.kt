@@ -106,7 +106,6 @@ fun isAppDarkTheme(themeMode: ThemeMode = ThemeMode.SYSTEM): Boolean =
 @Composable
 fun JestkBrowserTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
-    hazeState: Any? = null,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = isAppDarkTheme(themeMode)
@@ -296,7 +295,6 @@ fun Modifier.liquidFrostedGlass(
     borderColor: Color? = null,
     borderBrush: Brush? = null,
     borderWidth: Dp = 1.dp,
-    hazeState: Any? = null,
 ): Modifier {
     val bg = tintColor ?: if (isDark) DarkSurface else SereneCardSurface
     val resolvedBg = if (alpha != null) bg.copy(alpha = alpha) else bg
@@ -333,7 +331,6 @@ fun LiquidFrostedGlassBox(
     borderColor: Color? = null,
     borderBrush: Brush? = null,
     borderWidth: Dp = 1.dp,
-    hazeState: Any? = null,
     content: @Composable BoxScope.() -> Unit,
 ) {
     Box(
@@ -347,7 +344,6 @@ fun LiquidFrostedGlassBox(
                 borderColor = borderColor,
                 borderBrush = borderBrush,
                 borderWidth = borderWidth,
-                hazeState = hazeState,
             ),
     ) {
         content()

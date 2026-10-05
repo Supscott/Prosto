@@ -54,7 +54,6 @@ fun UnifiedBottomBar(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
-    hazeState: Any? = null,
 ) {
     val density = LocalDensity.current
     val currentOnEvent by rememberUpdatedState(onEvent)
@@ -85,7 +84,6 @@ fun UnifiedBottomBar(
                 expanded = uiState.isMenuExpanded,
                 uiState = uiState,
                 isDark = isDark,
-                hazeState = hazeState,
                 onEvent = onEvent
             )
 
@@ -178,7 +176,6 @@ fun UnifiedBottomBar(
                         isExpanded = uiState.isMenuExpanded,
                         isDark = isDark,
                         backgroundColor = dockBg,
-                        hazeState = hazeState,
                         onClick = {
                             onEvent(BrowserUiEvent.ToggleMenu())
                         }
@@ -197,13 +194,11 @@ fun BottomBar(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
-    hazeState: Any? = null,
 ) {
     UnifiedBottomBar(
         uiState = uiState,
         onEvent = onEvent,
         modifier = modifier,
-        hazeState = hazeState,
     )
 }
 

@@ -1,6 +1,7 @@
 package com.jestk.browser.ui.viewmodel
 
 import android.content.Context
+import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.SearchEngine
@@ -36,6 +37,8 @@ sealed interface BrowserUiEvent {
     data class ResumeDownload(val id: Long) : BrowserUiEvent
     data class CancelDownload(val id: Long) : BrowserUiEvent
     data class RetryDownload(val id: Long) : BrowserUiEvent
+    data object DismissDownloadSnackbar : BrowserUiEvent
+    data class DownloadStarted(val item: DownloadItem) : BrowserUiEvent
 
     // Web Navigation & Actions
     data class LoadUrl(val url: String) : BrowserUiEvent
@@ -101,7 +104,7 @@ sealed interface BrowserUiEvent {
     // Media & Fullscreen
     data class SetVideoPlaying(val isPlaying: Boolean) : BrowserUiEvent
     data class SetFullscreenCustomView(
-        val view: Any?,
+        val view: android.view.View?,
         val isFullscreen: Boolean,
         val requestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     ) : BrowserUiEvent

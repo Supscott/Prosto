@@ -8,6 +8,12 @@ import java.io.FileOutputStream
 
 object FaviconManager {
 
+    private var applicationContext: Context? = null
+
+    fun init(context: Context) {
+        applicationContext = context.applicationContext
+    }
+
     fun extractFallbackFaviconUrl(url: String?): String? {
         if (url.isNullOrBlank()) return null
         return try {
@@ -33,8 +39,9 @@ object FaviconManager {
 
     suspend fun saveFavicon(context: Context, tabId: String, icon: Bitmap): String? =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            init(context)
             try {
-                val dir = File(context.filesDir, "favicons").apply {
+                val dir = File(context.applicationContext.filesDir, "favicons").apply {
                     if (!exists()) mkdirs()
                 }
                 val targetFile = File(dir, "favicon_${tabId}_${System.currentTimeMillis()}.png")
@@ -51,15 +58,33 @@ object FaviconManager {
             }
         }
 
+    fun deleteTabFavicons(tabId: String) {
+        applicationContext?.let { ctx ->
+            deleteTabFavicons(ctx, tabId)
+        }
+    }
+
     fun deleteTabFavicons(context: Context, tabId: String) {
+        init(context)
         try {
-            val dir = File(context.filesDir, "favicons")
+            val dir = File(context.applicationContext.filesDir, "favicons")
             if (dir.exists()) {
                 dir.listFiles { _, name ->
                     name.startsWith("favicon_${tabId}_") || name == "favicon_${tabId}.png"
                 }?.forEach { it.delete() }
             }
         } catch (_: Throwable) {}
+    }
+
+    fun deleteAllFavicons(context: Context? = applicationContext) {
+        context?.let { ctx ->
+            try {
+                val dir = File(ctx.applicationContext.filesDir, "favicons")
+                if (dir.exists()) {
+                    dir.listFiles()?.forEach { it.delete() }
+                }
+            } catch (_: Throwable) {}
+        }
     }
 
     fun toImageModel(urlOrPath: String?): Any? {
@@ -77,13 +102,19 @@ object FaviconManager {
         }
     }
 
+    suspend fun persistFaviconForFavorite(sourcePath: String): String? {
+        val ctx = applicationContext ?: return null
+        return persistFaviconForFavorite(ctx, sourcePath)
+    }
+
     suspend fun persistFaviconForFavorite(context: Context, sourcePath: String): String? =
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            init(context)
             try {
                 val cleanPath = sourcePath.removePrefix("file://")
                 val sourceFile = File(cleanPath)
                 if (!sourceFile.exists() || !sourceFile.isFile) return@withContext null
-                val dir = File(context.filesDir, "favicons").apply {
+                val dir = File(context.applicationContext.filesDir, "favicons").apply {
                     if (!exists()) mkdirs()
                 }
                 val targetFile = File(dir, "fav_${java.util.UUID.randomUUID()}.png")

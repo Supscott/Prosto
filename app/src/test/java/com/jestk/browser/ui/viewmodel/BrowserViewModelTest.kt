@@ -745,7 +745,7 @@ class BrowserViewModelTest {
             val viewModel = createViewModel()
             advanceUntilIdle()
 
-            val fakeView = Any()
+            val fakeView = android.view.View(ApplicationProvider.getApplicationContext())
             viewModel.onEvent(
                 BrowserUiEvent.SetFullscreenCustomView(
                     view = fakeView,
@@ -767,7 +767,7 @@ class BrowserViewModelTest {
             val viewModel = createViewModel()
             advanceUntilIdle()
 
-            val fakeView = Any()
+            val fakeView = android.view.View(ApplicationProvider.getApplicationContext())
             viewModel.onEvent(
                 BrowserUiEvent.SetFullscreenCustomView(
                     view = fakeView,
@@ -847,20 +847,10 @@ class BrowserViewModelTest {
             advanceUntilIdle()
             assertThat(viewModel.uiState.value.isMenuExpanded).isTrue()
 
-            // Verify it was saved in settings repo
-            val savedSettings = settingsRepo.getCurrentSettings()
-            assertThat(savedSettings.isMenuExpandedOnWeb).isTrue()
-
-            // Opening a new web tab should now respect the remembered preference
-            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://kotlinlang.org"))
-            advanceUntilIdle()
-            assertThat(viewModel.uiState.value.isMenuExpanded).isTrue()
-
             // User closes menu on web page
             viewModel.onEvent(BrowserUiEvent.ToggleMenu())
             advanceUntilIdle()
             assertThat(viewModel.uiState.value.isMenuExpanded).isFalse()
-            assertThat(settingsRepo.getCurrentSettings().isMenuExpandedOnWeb).isFalse()
         }
 
     @Test

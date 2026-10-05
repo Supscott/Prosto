@@ -13,13 +13,11 @@ import kotlinx.coroutines.flow.Flow
 interface HistoryDao {
     @Query(
         """
-        SELECT * FROM history AS h
-        WHERE h.id = (
-            SELECT latest.id FROM history AS latest
-            WHERE latest.url = h.url
-            ORDER BY latest.timestamp DESC, latest.id DESC
-            LIMIT 1
-        )
+        SELECT h.* FROM history AS h
+        INNER JOIN (
+            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+        ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
+        GROUP BY h.url
         ORDER BY h.timestamp DESC
     """,
     )
@@ -27,13 +25,11 @@ interface HistoryDao {
 
     @Query(
         """
-        SELECT * FROM history AS h
-        WHERE h.id = (
-            SELECT latest.id FROM history AS latest
-            WHERE latest.url = h.url
-            ORDER BY latest.timestamp DESC, latest.id DESC
-            LIMIT 1
-        )
+        SELECT h.* FROM history AS h
+        INNER JOIN (
+            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+        ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
+        GROUP BY h.url
         ORDER BY h.timestamp DESC
         LIMIT :limit
     """,
@@ -42,13 +38,11 @@ interface HistoryDao {
 
     @Query(
         """
-        SELECT * FROM history AS h
-        WHERE h.id = (
-            SELECT latest.id FROM history AS latest
-            WHERE latest.url = h.url
-            ORDER BY latest.timestamp DESC, latest.id DESC
-            LIMIT 1
-        )
+        SELECT h.* FROM history AS h
+        INNER JOIN (
+            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+        ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
+        GROUP BY h.url
         ORDER BY h.timestamp DESC
         LIMIT :limit
     """,
@@ -57,13 +51,11 @@ interface HistoryDao {
 
     @Query(
         """
-        SELECT * FROM history AS h
-        WHERE h.id = (
-            SELECT latest.id FROM history AS latest
-            WHERE latest.url = h.url
-            ORDER BY latest.timestamp DESC, latest.id DESC
-            LIMIT 1
-        )
+        SELECT h.* FROM history AS h
+        INNER JOIN (
+            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+        ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
+        GROUP BY h.url
         ORDER BY h.timestamp DESC
         LIMIT :limit OFFSET :offset
     """,
@@ -75,14 +67,12 @@ interface HistoryDao {
 
     @Query(
         """
-        SELECT * FROM history AS h
+        SELECT h.* FROM history AS h
+        INNER JOIN (
+            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+        ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
         WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
-          AND h.id = (
-              SELECT latest.id FROM history AS latest
-              WHERE latest.url = h.url
-              ORDER BY latest.timestamp DESC, latest.id DESC
-              LIMIT 1
-          )
+        GROUP BY h.url
         ORDER BY h.timestamp DESC
         LIMIT :limit
     """,
@@ -94,14 +84,12 @@ interface HistoryDao {
 
     @Query(
         """
-        SELECT * FROM history AS h
+        SELECT h.* FROM history AS h
+        INNER JOIN (
+            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+        ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
         WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
-          AND h.id = (
-              SELECT latest.id FROM history AS latest
-              WHERE latest.url = h.url
-              ORDER BY latest.timestamp DESC, latest.id DESC
-              LIMIT 1
-          )
+        GROUP BY h.url
         ORDER BY h.timestamp DESC
         LIMIT :limit
     """,
@@ -113,14 +101,12 @@ interface HistoryDao {
 
     @Query(
         """
-        SELECT * FROM history AS h
+        SELECT h.* FROM history AS h
+        INNER JOIN (
+            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+        ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
         WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
-          AND h.id = (
-              SELECT latest.id FROM history AS latest
-              WHERE latest.url = h.url
-              ORDER BY latest.timestamp DESC, latest.id DESC
-              LIMIT 1
-          )
+        GROUP BY h.url
         ORDER BY h.timestamp DESC
         LIMIT :limit OFFSET :offset
     """,

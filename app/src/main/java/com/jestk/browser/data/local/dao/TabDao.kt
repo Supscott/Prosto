@@ -97,7 +97,7 @@ interface TabDao {
     )
 
     @Query("UPDATE tabs SET position = :position WHERE id = :id")
-    fun updatePosition(
+    suspend fun updatePosition(
         id: String,
         position: Int,
     )
@@ -123,15 +123,13 @@ interface TabDao {
         setActiveTabAtomic(activeId, System.currentTimeMillis())
     }
 
-    @Transaction
-    fun reorderTabs(orderedTabs: List<TabEntity>) {
+    suspend fun reorderTabs(orderedTabs: List<TabEntity>) {
         orderedTabs.forEachIndexed { index, tab ->
             updatePosition(tab.id, index)
         }
     }
 
-    @Transaction
-    fun reorderTabIds(orderedTabIds: List<String>) {
+    suspend fun reorderTabIds(orderedTabIds: List<String>) {
         orderedTabIds.forEachIndexed { index, tabId ->
             updatePosition(tabId, index)
         }

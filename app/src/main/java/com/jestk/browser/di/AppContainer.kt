@@ -19,6 +19,8 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
 import com.jestk.browser.domain.repository.SearchEngineRepository
+import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.download.HoriDownloadManager
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
@@ -38,6 +40,11 @@ interface AppContainer {
 }
 
 class DefaultAppContainer(private val context: Context) : AppContainer {
+
+    init {
+        SnapshotEngine.init(context.applicationContext)
+        FaviconManager.init(context.applicationContext)
+    }
 
     override val database: AppDatabase by lazy {
         AppDatabase.getInstance(context)
@@ -90,7 +97,6 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
                 downloadRepository = downloadRepository,
                 downloadManager = downloadManager,
                 searchEngineRepository = searchEngineRepository,
-                context = context.applicationContext,
                 webViewPool = webViewPool
             )
         }

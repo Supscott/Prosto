@@ -29,18 +29,15 @@ class SettingsRepositoryImpl(
         val themeStr = settingDao.getSetting(SettingKeys.THEME_MODE)
         val searchStr = settingDao.getSetting(SettingKeys.SEARCH_ENGINE)
         val adBlockerStr = settingDao.getSetting(SettingKeys.AD_BLOCKER_ENABLED)
-        val menuExpandedStr = settingDao.getSetting(SettingKeys.MENU_EXPANDED_ON_WEB)
 
         val theme = themeStr?.let { runCatching { ThemeMode.valueOf(it) }.getOrDefault(ThemeMode.SYSTEM) } ?: ThemeMode.SYSTEM
         val search = searchStr?.let { runCatching { SearchEngine.valueOf(it) }.getOrDefault(SearchEngine.DUCKDUCKGO) } ?: SearchEngine.DUCKDUCKGO
         val adBlocker = adBlockerStr?.toBooleanStrictOrNull() ?: true
-        val menuExpanded = menuExpandedStr?.toBooleanStrictOrNull() ?: false
 
         BrowserSettings(
             themeMode = theme,
             searchEngine = search,
-            isAdBlockerEnabled = adBlocker,
-            isMenuExpandedOnWeb = menuExpanded
+            isAdBlockerEnabled = adBlocker
         )
     }
 
@@ -54,9 +51,5 @@ class SettingsRepositoryImpl(
 
     override suspend fun setAdBlockerEnabled(enabled: Boolean) = withContext(ioDispatcher) {
         settingDao.setSetting(SettingEntity(SettingKeys.AD_BLOCKER_ENABLED, enabled.toString()))
-    }
-
-    override suspend fun setMenuExpandedOnWeb(expanded: Boolean) = withContext(ioDispatcher) {
-        settingDao.setSetting(SettingEntity(SettingKeys.MENU_EXPANDED_ON_WEB, expanded.toString()))
     }
 }

@@ -34,14 +34,16 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.res.stringResource
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -108,7 +110,8 @@ fun AddFavoriteDialogContent(
     var title by remember { mutableStateOf(initialTitle) }
     var url by remember { mutableStateOf(initialUrl) }
     val focusRequester = remember { FocusRequester() }
-    val clipboardManager = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
+    val coroutineScope = rememberCoroutineScope()
 
     val dialogBg = if (isDark) DarkSurface else Color.White
     val inputBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
@@ -261,16 +264,25 @@ fun AddFavoriteDialogContent(
                             )
                         }
                     } else {
-                        val clipText = clipboardManager.getText()?.text
-                        if (!clipText.isNullOrBlank()) {
-                            IconButton(onClick = { url = clipText.trim() }) {
-                                Icon(
-                                    imageVector = Icons.Default.ContentPaste,
-                                    contentDescription = "Paste",
-                                    tint = SereneBrandPrimary,
-                                    modifier = Modifier.size(18.dp),
-                                )
+                        IconButton(
+                            onClick = {
+                                coroutineScope.launch {
+                                    val clip = clipboard.getClipEntry()
+                                    val clipText = clip?.clipData?.let {
+                                        if (it.itemCount > 0) it.getItemAt(0).text?.toString() else null
+                                    }
+                                    if (!clipText.isNullOrBlank()) {
+                                        url = clipText.trim()
+                                    }
+                                }
                             }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ContentPaste,
+                                contentDescription = "Paste",
+                                tint = SereneBrandPrimary,
+                                modifier = Modifier.size(18.dp),
+                            )
                         }
                     }
                 },

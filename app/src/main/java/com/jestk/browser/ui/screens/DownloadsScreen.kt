@@ -64,6 +64,7 @@ import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.DownloadStatus
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.engine.download.DownloadProgressInfo
+import com.jestk.browser.util.FileSizeFormatter
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -646,29 +647,10 @@ private fun resolveFileCategory(fileName: String, mimeType: String?): FileCatego
     }
 }
 
-fun formatFileSize(bytes: Long): String {
-    if (bytes <= 0L) return ""
-    val kb = bytes / 1024.0
-    val mb = kb / 1024.0
-    val gb = mb / 1024.0
-    return when {
-        gb >= 1.0 -> String.format(Locale.US, "%.1f GB", gb)
-        mb >= 1.0 -> String.format(Locale.US, "%.1f MB", mb)
-        kb >= 1.0 -> String.format(Locale.US, "%.1f KB", kb)
-        else -> "$bytes B"
-    }
-}
+fun formatFileSize(bytes: Long): String = FileSizeFormatter.formatFileSize(bytes)
 
-fun formatProgressText(bytesDownloaded: Long, totalBytes: Long): String {
-    val downloadedStr = formatFileSize(bytesDownloaded).ifEmpty { "0 B" }
-    return if (totalBytes > 0L) {
-        val totalStr = formatFileSize(totalBytes)
-        val percent = ((bytesDownloaded * 100) / totalBytes).coerceIn(0, 100)
-        "$downloadedStr / $totalStr ($percent%)"
-    } else {
-        downloadedStr
-    }
-}
+fun formatProgressText(bytesDownloaded: Long, totalBytes: Long): String =
+    FileSizeFormatter.formatProgressText(bytesDownloaded, totalBytes)
 
 fun formatTimestamp(timestamp: Long): String {
     if (timestamp <= 0L) return ""

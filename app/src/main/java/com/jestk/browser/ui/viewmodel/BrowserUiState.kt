@@ -53,7 +53,7 @@ data class BrowserUiState(
     // Media & Fullscreen
     val isVideoPlaying: Boolean = false,
     val isFullscreenCustomView: Boolean = false,
-    val fullscreenCustomView: Any? = null,
+    val fullscreenCustomView: android.view.View? = null,
     val fullscreenRequestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
     val linkContextMenuUrl: String? = null,
     val selectedImageUrl: String? = null,

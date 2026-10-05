@@ -81,6 +81,7 @@ class HoriDownloadManager(
 
     private val _activeDownloads = MutableStateFlow<Map<Long, DownloadProgressInfo>>(emptyMap())
     val activeDownloads: StateFlow<Map<Long, DownloadProgressInfo>> = _activeDownloads.asStateFlow()
+    val downloadProgress: StateFlow<Map<Long, DownloadProgressInfo>> get() = activeDownloads
 
     private val _completedDownloads = MutableSharedFlow<DownloadItem>(extraBufferCapacity = 64)
     val completedDownloads: SharedFlow<DownloadItem> = _completedDownloads.asSharedFlow()

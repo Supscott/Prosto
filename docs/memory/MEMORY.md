@@ -804,5 +804,93 @@
   - Feature work completed in temporary or subagent worktrees must be formally merged into `main` before deleting the worktree/branch to prevent code regression.
   - Always clean up subagent worktrees and remote tracking refs when deprecating legacy tooling (e.g. GitButler).
 
+### Session: Tech Debt Track C — Engine Bugs, Resource Hygiene & Context Decoupling
+
+- **Completed:**
+  - `FloatingVideoMiniPlayer.kt`: Clamped `offsetX` and `offsetY` drag gestures using density-aware conversions (`LocalDensity.current` and `LocalConfiguration.current`) with safe margins (`16.dp`), card dimensions (`200.dp`, `120.dp`), and `coerceIn(marginPx, maxXPx.coerceAtLeast(marginPx))` preventing the mini player from being dragged off-screen.
+  - `SnapshotEngine.kt`: Replaced `context.filesDir` with `context.applicationContext.filesDir` to prevent Activity context leaks. Moved synchronous pixel color sampling (`thumbnailBitmap.getPixel(centerX, topY)`) to the background coroutine before JPEG compression and disk write, eliminating UI thread stalls. Added static helper methods `deleteTabSnapshot(tabId)`, `deleteTabSnapshot(context, tabId)`, and `deleteAllSnapshots(context)`.
+  - Created [`FileSizeFormatter.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/util/FileSizeFormatter.kt) providing canonical `formatFileSize(bytes)` and `formatProgressText(bytesDownloaded, totalBytes)`.
+  - `HoriDownloadService.kt` & `DownloadsScreen.kt`: Replaced duplicated formatting logic with calls/delegation to `FileSizeFormatter`.
+  - Decoupled `Context` from `BrowserViewModel.kt`: Completely removed `context: Context? = null` constructor parameter from `BrowserViewModel`. Routed snapshot and favicon cleanup through static helpers in `SnapshotEngine` and `FaviconManager`. Removed `context = context.applicationContext` from `AppContainer.kt:93`. Initialized `SnapshotEngine.init(applicationContext)` and `FaviconManager.init(applicationContext)` in `JestkApplication.onCreate()` and `DefaultAppContainer`.
+  - Added unit test suites [`FileSizeFormatterTest.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/test/java/com/jestk/browser/util/FileSizeFormatterTest.kt) and [`SnapshotEngineTest.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/test/java/com/jestk/browser/engine/SnapshotEngineTest.kt), and expanded [`FaviconManagerTest.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/test/java/com/jestk/browser/engine/FaviconManagerTest.kt).
+- **Current State:**
+  - Branch: `fix/tech-debt`
+  - `:app:compileDebugKotlin` and all unit tests in `:app:testDebugUnitTest` pass 100% green.
+- **Key Architectural Decisions:**
+  - `BrowserViewModel` does not hold any Android `Context` reference. Filesystem asset operations for snapshots and favicons are handled by engine managers initialized with the application context.
+  - Pixel sampling and disk compression for snapshots always run on `Dispatchers.IO`, never on the UI thread or visual state callback handler.
+### Session: Tech Debt Track D — Room 3.0 Readiness, Database Resilience & Performance
+
+- **Completed:**
+  - `HistoryEntity.kt`: Added composite index `Index(value = ["url", "timestamp"])` on `history` table to accelerate duplicate deduplication, recent visits, and query filtering.
+  - `AppDatabase.kt`: Bumped database schema version to `8`, enabled schema export (`exportSchema = true`), implemented explicit `MIGRATION_7_8` creating `index_history_url_timestamp`, registered `MIGRATION_7_8` via `addMigrations`, and replaced `.fallbackToDestructiveMigration()` with `.fallbackToDestructiveMigrationOnDowngrade()`.
+  - `HistoryDao.kt`: Replaced O(N²) correlated subquery `WHERE h.id = (SELECT latest.id FROM history AS latest WHERE latest.url = h.url ...)` across all 7 history queries (`getAllHistoryFlow`, `getRecentHistoryFlow`, `getRecentHistory`, `getPagedHistory`, `searchHistoryFlow`, `searchHistory`, `searchHistoryPaged`) with SQLite `MAX(timestamp)` join compatible down to SQLite 3.18 / API 26:
+    ```sql
+    SELECT h.* FROM history AS h
+    INNER JOIN (
+        SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+    ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
+    [WHERE ...]
+    GROUP BY h.url
+    ORDER BY h.timestamp DESC
+    ```
+  - `TabDao.kt`: Converted blocking functions `updatePosition`, `reorderTabs`, and `reorderTabIds` to `suspend`, matching `FavoriteDao` and `SearchEngineDao` patterns and preventing thread lockouts and suspending transaction assertion failures.
+  - `HistoryDaoTest.kt`: Added test coverage for `getRecentHistory`, `searchHistory`, and SQLite execution of `MIGRATION_7_8`.
+  - Room Schema Generation: Verified KSP generated version 8 schema artifact `app/schemas/com.jestk.browser.data.local.AppDatabase/8.json`.
+- **Current State:**
+  - Branch: `fix/tech-debt`
+  - `:app:kspDebugKotlin`, `:app:compileDebugKotlin`, and full test suite `:app:testDebugUnitTest` pass 100% green (374+ tests passing, 0 failures).
+- **Key Architectural Decisions:**
+  - For SQLite 3.18 / minSdk 26 compatibility without window functions (`ROW_NUMBER()`), grouping deduplication is achieved via `INNER JOIN (SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts`.
+  - Never allow destructive migration on upgrades (`fallbackToDestructiveMigrationOnDowngrade` is used) to prevent user data loss.
+
+### Session: Tech Debt Track F — High-Churn Monolith Modularization
+
+- **Completed:**
+  - Decomposed `SearchOverlay.kt` (previously 2,525 LOC) into modular, single-responsibility composables:
+    - [`SearchEngineCarousel.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/ui/overlays/SearchEngineCarousel.kt): Extracted `SearchEngineCarouselState`, `rememberSearchEngineCarouselState`, carousel fling decay calculations with inertia, `SearchEngineSelectorButton`, `SearchEngineBadge`, `SearchEngineSwitcherRow`, `SearchEngineChip`, and gesture modifiers (`searchEngineButtonGestures`, `searchEngineInputGestures`, `horizontalSwipeCycler`).
+    - [`SearchEngineReorderList.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/ui/overlays/SearchEngineReorderList.kt): Extracted `SearchEngineReorderState`, `SearchEngineDropdownCard`, `ReorderableSearchEngineRow`, drag displacement physics, and custom provider rows.
+    - [`SearchHistoryCard.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/ui/overlays/SearchHistoryCard.kt): Extracted `InsetGroupedHistoryCard`, `HistoryEmptyCard`, history item rendering with query insertion shortcut (`↖`), and pagination progress spinner.
+    - [`SearchInputPill.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/ui/overlays/SearchInputPill.kt): Extracted `HeroSearchInputField`, mic voice search launcher, text clear action, and enter submission.
+    - [`SearchFavoritesSection.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/ui/overlays/SearchFavoritesSection.kt): Extracted `SearchFavoritesSection` and `SearchFavoriteSquircleCard`.
+    - [`SearchOverlay.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt): Refactored into a clean orchestrator composable (~450 LOC including previews) assembling the modular components.
+  - Decomposed `BrowserViewModel.kt` (previously 1,855 LOC) into domain coordinators in `com.jestk.browser.ui.viewmodel`:
+    - [`DownloadCoordinator.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/ui/viewmodel/DownloadCoordinator.kt): Isolated download database observation, active/completed download streaming from `HoriDownloadManager`, download notifications/snackbars, and pause/resume/cancel/retry/delete actions (139 LOC).
+    - [`SearchCoordinator.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/ui/viewmodel/SearchCoordinator.kt): Isolated search engine settings observation, history suggestions pagination with `HISTORY_PAGE_SIZE = 20`, search engine CRUD, and search switching (304 LOC).
+    - [`TabCoordinator.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/ui/viewmodel/TabCoordinator.kt): Isolated multi-tab lifecycle (create, select, close, undo, reorder, adjacent swipe), WebChromeClient / WebViewClient event handling, favicon management, tab theme color caching, tab snapshots, and favorites management (783 LOC).
+    - [`BrowserViewModel.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserViewModel.kt): Retained 100% of exact public API (`uiState`, `navigationCommands`, `onEvent`, public helpers) orchestrating delegates and back navigation hierarchy (788 LOC).
+- **Current State:**
+  - Branch: `fix/tech-debt`
+  - `:app:compileDebugKotlin`, `:app:compileReleaseKotlin`, and `:app:testDebugUnitTest` pass 100% green without modification to callers or tests.
+- **Key Architectural Decisions:**
+  - Modularized `SearchOverlay` composables and helpers into internal components in package `com.jestk.browser.ui.overlays`, preserving binary compatibility with Robolectric preview tests (`SearchOverlayPreviewTest.kt` and `AddEditSearchEngineDialogPreviewTest.kt`).
+  - Separated `BrowserViewModel` concerns into single-responsibility coordinators (`TabCoordinator`, `SearchCoordinator`, `DownloadCoordinator`), while maintaining a unified public façade to protect existing callers and unit tests from breaking changes.
 
 
+### Session: Tech Debt Track E — Genuine Test Suite Coverage
+
+- **Completed:**
+  - Created [`HoriDownloadManagerTest.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/test/java/com/jestk/browser/engine/download/HoriDownloadManagerTest.kt) (Robolectric test suite covering `HoriDownloadManager`):
+    - Added `val downloadProgress: StateFlow<Map<Long, DownloadProgressInfo>> get() = activeDownloads` property alias in `HoriDownloadManager.kt`.
+    - Tested download tracking and StateFlow progress updates (`downloadProgress` / `activeDownloads`).
+    - Tested `DownloadProgressInfo` calculated properties: `progressFraction`, `progressPercentage`, and `isIndeterminate` across bounded (known length), 0%, 100%, and chunked/indeterminate streams.
+    - Tested pause, resume, cancel, retry, and delete state transitions with corresponding `HoriDownloadService` action intent dispatches (`ACTION_START_DOWNLOAD`, `ACTION_UPDATE_NOTIFICATION`, `ACTION_RESUME`, `ACTION_CANCEL`).
+    - Tested `.crdownload` partial file deletion on cancellation and retry.
+    - Tested Base64 data URL decoding and disk write via `handleDataUrl(...)`.
+    - Tested progress and speed formatting integration with `FileSizeFormatter`.
+    - Implemented in-memory `FakeDownloadRepository` implementing `DownloadRepository`.
+  - Created [`WebViewPoolRobolectricTest.kt`](file:///Users/ilya/CODING/browser/.worktrees/fix/tech-debt/app/src/test/java/com/jestk/browser/engine/WebViewPoolRobolectricTest.kt) (Robolectric test suite covering `WebViewPool`):
+    - Tested pool size constraints and LRU eviction: verified that requesting more than 5 WebViews safely evicts the least recently used WebView while keeping active ones.
+    - Tested safe parent detachment (`detachFromParent`): verified evicted WebViews are detached from parent view hierarchies to prevent memory leaks.
+    - Tested `MutableContextWrapper` context swapping when attaching an Activity context, switching activities on reused tabs, and resetting to `applicationContext` on `removeWebView`.
+    - Tested `removeWebView(tabId)` cleans up the pool, detaches from parent, resets baseContext, and destroys the WebView instance.
+    - Tested `onTabActivated(tabId)` promotes the tab to MRU (front of LRU deque), protecting it from subsequent LRU eviction.
+    - Tested `clearAll()` releases and destroys all cached WebViews.
+    - Tested media-playing tabs protection during LRU eviction when alternative candidates exist.
+    - Tested `retainTabs(activeTabIds)` cleanly drops untracked instances.
+- **Current State:**
+  - Branch: `fix/tech-debt`
+  - `:app:compileDebugUnitTestKotlin` and `:app:testDebugUnitTest` pass 100% green: **404 tests completed, 0 failures, 0 ignored**.
+- **Key Architectural Decisions:**
+  - `HoriDownloadManager` exposes `val downloadProgress` as a canonical alias for `activeDownloads`, maintaining complete backward compatibility while matching caller nomenclature.
+  - Robolectric shadow intent queues require consuming/clearing prior service intents between multi-step download operations.

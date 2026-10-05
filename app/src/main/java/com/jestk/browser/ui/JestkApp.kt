@@ -97,7 +97,6 @@ import com.jestk.browser.ui.theme.SereneDarkText
 import com.jestk.browser.ui.theme.SereneShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
-import com.jestk.browser.ui.viewmodel.DismissDownloadSnackbar
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
@@ -285,7 +284,6 @@ fun JestkApp(
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         window.isNavigationBarContrastEnforced = false
-                        window.isStatusBarContrastEnforced = false
                     }
                     @Suppress("DEPRECATION")
                     window.statusBarColor = animatedAppBg.toArgb()
@@ -592,7 +590,7 @@ fun JestkApp(
                 LaunchedEffect(uiState.showDownloadSnackbar, download?.id, download?.timestamp) {
                     if (uiState.showDownloadSnackbar) {
                         kotlinx.coroutines.delay(5000)
-                        viewModel.onEvent(DismissDownloadSnackbar)
+                        viewModel.onEvent(BrowserUiEvent.DismissDownloadSnackbar)
                     }
                 }
 
@@ -630,7 +628,7 @@ fun JestkApp(
                                 Modifier
                                     .clickable {
                                         viewModel.onEvent(BrowserUiEvent.OpenDownloads)
-                                        viewModel.onEvent(DismissDownloadSnackbar)
+                                        viewModel.onEvent(BrowserUiEvent.DismissDownloadSnackbar)
                                     }.padding(horizontal = 4.dp, vertical = 2.dp),
                         )
                         Icon(
@@ -641,7 +639,7 @@ fun JestkApp(
                                 Modifier
                                     .size(16.dp)
                                     .clickable {
-                                        viewModel.onEvent(DismissDownloadSnackbar)
+                                        viewModel.onEvent(BrowserUiEvent.DismissDownloadSnackbar)
                                     },
                         )
                     }
@@ -710,7 +708,7 @@ fun JestkApp(
             }
 
             // Fullscreen Custom View (HTML5 Video Fullscreen)
-            val customView = uiState.fullscreenCustomView as? android.view.View
+            val customView = uiState.fullscreenCustomView
             if (uiState.isFullscreenCustomView && customView != null) {
                 val density = LocalDensity.current
                 val swipeThresholdPx = remember(density) { with(density) { 70.dp.toPx() } }
