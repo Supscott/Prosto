@@ -1,41 +1,43 @@
 # Orchestrator Task Board: 2026-10-06
 
-## Wave 1 (Parallel Independent Tracks)
+## Wave 1 (Parallel Independent Tracks) - COMPLETED
+- [x] Track 1: `fix/search-selector` (Merged into `main`)
+- [x] Track 2: `fix/tab-drag-spring` (Merged into `main`)
+- [x] Track 3: `fix/tab-loading-leak` (Merged into `main`)
 
-- [x] Track 1: `fix/search-selector` (Branch: `fix/search-selector`, Dir: `.worktrees/search-selector`)
-  - Scope: Search Engine Carousel (`SearchEngineCarousel.kt`) - During scroll: expanded 160dp container, active selected provider scaled (1.15) with accent indicator/pill, adjacent providers dimmed (alpha 0.45).
-  - [x] Worktree provisioned
-  - [x] Subagent dispatched
-  - [x] Verification gate passed
-  - [x] Rebased on main & merged
+## Wave 2 (Sequential Track) - COMPLETED
+- [x] Track 4: `fix/favicon-cache` (Merged into `main`)
 
-- [x] Track 2: `fix/tab-drag-spring` (Branch: `fix/tab-drag-spring`, Dir: `.worktrees/tab-drag-spring`)
-  - Scope: Floating dock tab drag&drop (`TabStripRow.kt`) - Snappy tactile spring animation on release (`Spring.StiffnessMedium`, `Spring.DampingRatioLowBouncy`), smooth offset & scale decay.
-  - [x] Worktree provisioned
-  - [x] Subagent dispatched
-  - [x] Verification gate passed
-  - [x] Rebased on main & merged
+## Wave 3 (Sequential Polish Tracks)
 
-- [x] Track 3: `fix/tab-loading-leak` (Branch: `fix/tab-loading-leak`, Dir: `.worktrees/tab-loading-leak`)
-  - Scope: Tab loading isolation (`TabCoordinator.kt`, `BrowserUiState.kt`) - Per-tab loading state (`tabLoadingProgress: Map<String, Float>`), prevent loading indicators from leaking across tab switches.
-  - [x] Worktree provisioned
-  - [x] Subagent dispatched
-  - [x] Verification gate passed
-  - [x] Rebased on main & merged
+- [ ] Track 5: `fix/dock-spring-teleport` (Branch: `fix/dock-spring-teleport`, Dir: `.worktrees/dock-spring-teleport`)
+  - Scope: Tab Drag Spring Animation & Teleport Elimination (`TabStripRow.kt`, `ActiveTabPill.kt`)
+    - Disable `LazyRow` scroll during drag/settle (`userScrollEnabled = !dragState.isDragging && !dragState.isSettling`).
+    - Handle pointer input on `PointerEventPass.Initial`, preventing premature gesture cancellation by parent scroll.
+    - Add `Modifier.animateItem()` to `LazyRow` items for fluid physics-based placement of neighbor tabs.
+    - Accurate width-based swap thresholds (148dp active pill vs 38dp circle).
+    - Snappy spring drop settlement without teleporting.
+  - [ ] Worktree provisioned
+  - [ ] Subagent dispatched
+  - [ ] Verification gate passed
+  - [ ] Rebased on main & merged
 
-## Wave 2 (Sequential / Coupled Track)
-
-- [x] Track 4: `fix/favicon-cache` (Branch: `fix/favicon-cache`, Dir: `.worktrees/favicon-cache`)
-  - Scope: Favicon persistence and instant dock loading (`FaviconManager.kt`, `TabCoordinator.kt`, `ActiveTabPill.kt`, `TabStripRow.kt`) - Domain-based persistent cache, instant lookup on navigation start without Google S2 leaks, eliminate flash of fallback letter glyph.
-  - [x] Worktree provisioned
-  - [x] Subagent dispatched
-  - [x] Verification gate passed
-  - [x] Rebased on main & merged
+- [ ] Track 6: `fix/tab-title-url-sync` (Branch: `fix/tab-title-url-sync`, Dir: `.worktrees/tab-title-url-sync`)
+  - Scope: Stale Title & URL Fix (`JestkWebViewClient.kt`, `JestkWebChromeClient.kt`, `JestkApp.kt`, `WebViewContainer.kt`, `BrowserUiEvent.kt`, `BrowserViewModel.kt`, `TabCoordinator.kt`)
+    - Wire `WebChromeClient.onReceivedTitle` to `BrowserUiEvent.OnTitleReceived` and `TabCoordinator.handleTitleReceived`.
+    - Implement `doUpdateVisitedHistory` in `JestkWebViewClient` for redirects, pushState, and SPA navigation.
+    - Reset lingering previous titles to "Loading..." / clean host in `handlePageStarted`.
+    - Fix `TabCoordinator.observeDatabaseFlows()` to prioritize `state.activeTabId` over stale Room flags.
+    - Sync live WebView URL/title on `selectTab`.
+  - [ ] Worktree provisioned
+  - [ ] Subagent dispatched
+  - [ ] Verification gate passed
+  - [ ] Rebased on main & merged
 
 ## Finalization
-- [x] All feature branches merged sequentially into `main`
-- [x] Full unit & UI test suite verified (`./gradlew testDebugUnitTest`)
-- [x] Worktrees cleaned up & pruned
-- [x] `docs/memory/MEMORY.md` updated
-- [x] `docs/memory/LESSONS.md` updated
-- [x] User summary delivered
+- [ ] All feature branches merged sequentially into `main`
+- [ ] Full unit & UI test suite verified (`./gradlew testDebugUnitTest`)
+- [ ] Worktrees cleaned up & pruned
+- [ ] `docs/memory/MEMORY.md` updated
+- [ ] `docs/memory/LESSONS.md` updated
+- [ ] User summary delivered
