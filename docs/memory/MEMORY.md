@@ -156,10 +156,11 @@ com.jestk.browser/
   - Fixed cross-tab progress leakage when switching from a loading tab to a loaded tab.
   - Recorded progress and page finished events for background tabs, allowing seamless state restoration when returning to background tabs.
   - Added `TabCoordinatorTest` and `BrowserViewModelTest` unit test suites covering background tab progress tracking and tab switching isolation.
-- **Domain-Based Persistent Favicon Caching:**
-  - Implemented persistent domain favicon disk storage (`favicons/domain_<sanitized_host>.png`) and in-memory indexing in `FaviconManager`.
-  - Zero external network calls (Brave/DuckDuckGo style privacy compliance).
-  - Integrated with `TabCoordinator`: pre-populates `faviconUrl` immediately on URL navigation, tab opening, and page start.
-  - Eliminated dock fallback letter glyph flashing in `ActiveTabPill` and `TabStripRow` by initializing `isFaviconSuccess` with local file existence validation.
-  - Full unit test coverage in `FaviconManagerTest` and `TabCoordinatorTest` (462 tests green).
+- **Floating Dock Tab Spring Release & Teleport Elimination:**
+  - Resolved tab "teleport" bug by replacing hardcoded 44dp swap threshold with dynamic slot distance calculation `(currentWidth + targetWidth) / 2f + spacingPx`. For active tab (148dp) and inactive tab (38dp), exact 98dp distance is subtracted from `dragOffsetPx`, keeping the dragged tab rock-solid under the finger without jumping.
+  - Added `Modifier.animateItem(placementSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioLowBouncy))` to neighbor tabs in `LazyRow`, so displaced tabs smoothly spring-glide to their new slots during reordering.
+  - Keyed `ActiveTabPill` pointer gesture detection on `tabId` and upgraded gesture loops in `ActiveTabPill` and `InactiveTabButton` to `PointerEventPass.Initial`, consuming pointer deltas immediately and removing premature cancellation on `isConsumed`.
+  - Set `userScrollEnabled = !dragState.isDragging && !dragState.isSettling` on `LazyRow` and guarded auto-centering `animateScrollToItem` from triggering while dragging or settling.
+  - Updated `TabCoordinator.reorderTabs` to immediately update in-memory `uiState.tabs`, eliminating UI stutter while waiting for Room DB writes.
+  - All unit and Robolectric tests passing 100% green.
 

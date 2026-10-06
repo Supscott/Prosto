@@ -59,6 +59,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -172,10 +173,11 @@ fun TabStripRow(
 
         val activeTabWidthPx = with(density) { activeTabWidth.toPx() }
         val totalChipWidthPx = with(density) { totalChipWidth.toPx() }
-        val swapThreshold = with(density) { 44.dp.toPx() }
+        val inactiveTabWidthPx = with(density) { 38.dp.toPx() }
+        val tabSpacingPx = with(density) { 5.dp.toPx() }
 
-        LaunchedEffect(uiState.activeTabId, activeIndex) {
-            if (activeIndex in dragState.currentTabs.indices) {
+        LaunchedEffect(uiState.activeTabId, activeIndex, dragState.isDragging, dragState.isSettling) {
+            if (!dragState.isDragging && !dragState.isSettling && activeIndex in dragState.currentTabs.indices) {
                 val viewportWidthPx = lazyListState.layoutInfo.viewportSize.width.takeIf { it > 0 }?.toFloat()
                     ?: totalChipWidthPx
                 val centeringOffsetPx = ((viewportWidthPx - activeTabWidthPx) / 2f).coerceAtLeast(0f)
@@ -187,6 +189,7 @@ fun TabStripRow(
         LazyRow(
             state = lazyListState,
             modifier = Modifier.fillMaxWidth(),
+            userScrollEnabled = !dragState.isDragging && !dragState.isSettling,
             contentPadding = PaddingValues(start = 5.dp, end = 46.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(5.dp)
@@ -212,6 +215,17 @@ fun TabStripRow(
                     else -> 1.0f
                 }
 
+                val itemPlacementModifier = if (isDraggingThis) {
+                    Modifier
+                } else {
+                    Modifier.animateItem(
+                        placementSpec = spring(
+                            stiffness = Spring.StiffnessMedium,
+                            dampingRatio = Spring.DampingRatioLowBouncy
+                        )
+                    )
+                }
+
                 if (isActive) {
                     val currentTitle = if (tabIsHome) "Home" else when {
                         tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
@@ -221,6 +235,7 @@ fun TabStripRow(
                     val currentDomain = if (tabIsHome) "" else extractDomain(tab.url)
 
                     ActiveTabPill(
+                        tabId = tab.id,
                         title = currentTitle,
                         domain = currentDomain,
                         url = tab.url.ifEmpty { uiState.currentUrl },
@@ -246,6 +261,7 @@ fun TabStripRow(
                         },
                         modifier = Modifier
                             .width(activeTabWidth)
+                            .then(itemPlacementModifier)
                             .zIndex(if (isElevated) 10f else 0f)
                             .graphicsLayer {
                                 translationX = itemTranslationX
@@ -257,7 +273,10 @@ fun TabStripRow(
                             dragState.onDrag(
                                 tabId = tab.id,
                                 deltaX = deltaX,
-                                swapThreshold = swapThreshold,
+                                activeTabWidthPx = activeTabWidthPx,
+                                inactiveTabWidthPx = inactiveTabWidthPx,
+                                spacingPx = tabSpacingPx,
+                                activeTabId = uiState.activeTabId,
                                 onSwapHaptic = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                             )
                         },
@@ -280,6 +299,7 @@ fun TabStripRow(
                             onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
                         },
                         modifier = Modifier
+                            .then(itemPlacementModifier)
                             .zIndex(if (isElevated) 10f else 0f)
                             .graphicsLayer {
                                 translationX = itemTranslationX
@@ -291,7 +311,10 @@ fun TabStripRow(
                             dragState.onDrag(
                                 tabId = tab.id,
                                 deltaX = deltaX,
-                                swapThreshold = swapThreshold,
+                                activeTabWidthPx = activeTabWidthPx,
+                                inactiveTabWidthPx = inactiveTabWidthPx,
+                                spacingPx = tabSpacingPx,
+                                activeTabId = uiState.activeTabId,
                                 onSwapHaptic = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
                             )
                         },
@@ -407,13 +430,9 @@ fun InactiveTabButton(
                         var cancelled = false
 
                         while (true) {
-                            val event = awaitPointerEvent()
+                            val event = awaitPointerEvent(PointerEventPass.Initial)
                             val dragChange = event.changes.firstOrNull { it.id == currentPointerId }
                             if (dragChange == null) {
-                                cancelled = true
-                                break
-                            }
-                            if (dragChange.isConsumed) {
                                 cancelled = true
                                 break
                             }
@@ -743,32 +762,95 @@ internal class TabStripDragState(
         isDragging = true
     }
 
+    fun computeSlotDistance(
+        currentIndex: Int,
+        targetIndex: Int,
+        activeTabWidthPx: Float,
+        inactiveTabWidthPx: Float,
+        spacingPx: Float,
+        activeTabId: String? = null
+    ): Float {
+        if (currentIndex !in currentTabs.indices || targetIndex !in currentTabs.indices) {
+            return inactiveTabWidthPx + spacingPx
+        }
+        val currentTab = currentTabs[currentIndex]
+        val targetTab = currentTabs[targetIndex]
+        val isCurrentActive = currentTab.isActive || (activeTabId != null && currentTab.id == activeTabId)
+        val isTargetActive = targetTab.isActive || (activeTabId != null && targetTab.id == activeTabId)
+        val currentWidth = if (isCurrentActive) activeTabWidthPx else inactiveTabWidthPx
+        val targetWidth = if (isTargetActive) activeTabWidthPx else inactiveTabWidthPx
+        return (currentWidth + targetWidth) / 2f + spacingPx
+    }
+
     fun onDrag(
         tabId: String,
         deltaX: Float,
-        swapThreshold: Float,
+        activeTabWidthPx: Float,
+        inactiveTabWidthPx: Float,
+        spacingPx: Float,
+        activeTabId: String? = null,
         onSwapHaptic: () -> Unit = {}
     ) {
         if (!isDragging || draggingTabId != tabId) return
         dragOffsetPx += deltaX
         val currentIndex = currentTabs.indexOfFirst { it.id == tabId }
         if (currentIndex != -1) {
-            if (dragOffsetPx > swapThreshold && currentIndex < currentTabs.lastIndex) {
+            if (currentIndex < currentTabs.lastIndex) {
                 val targetIndex = currentIndex + 1
-                val mutable = currentTabs.toMutableList()
-                Collections.swap(mutable, currentIndex, targetIndex)
-                currentTabs = mutable
-                dragOffsetPx -= swapThreshold
-                onSwapHaptic()
-            } else if (dragOffsetPx < -swapThreshold && currentIndex > 0) {
+                val distance = computeSlotDistance(
+                    currentIndex = currentIndex,
+                    targetIndex = targetIndex,
+                    activeTabWidthPx = activeTabWidthPx,
+                    inactiveTabWidthPx = inactiveTabWidthPx,
+                    spacingPx = spacingPx,
+                    activeTabId = activeTabId
+                )
+                if (dragOffsetPx > distance) {
+                    val mutable = currentTabs.toMutableList()
+                    Collections.swap(mutable, currentIndex, targetIndex)
+                    currentTabs = mutable
+                    dragOffsetPx -= distance
+                    onSwapHaptic()
+                    return
+                }
+            }
+            if (currentIndex > 0) {
                 val targetIndex = currentIndex - 1
-                val mutable = currentTabs.toMutableList()
-                Collections.swap(mutable, currentIndex, targetIndex)
-                currentTabs = mutable
-                dragOffsetPx += swapThreshold
-                onSwapHaptic()
+                val distance = computeSlotDistance(
+                    currentIndex = currentIndex,
+                    targetIndex = targetIndex,
+                    activeTabWidthPx = activeTabWidthPx,
+                    inactiveTabWidthPx = inactiveTabWidthPx,
+                    spacingPx = spacingPx,
+                    activeTabId = activeTabId
+                )
+                if (dragOffsetPx < -distance) {
+                    val mutable = currentTabs.toMutableList()
+                    Collections.swap(mutable, currentIndex, targetIndex)
+                    currentTabs = mutable
+                    dragOffsetPx += distance
+                    onSwapHaptic()
+                    return
+                }
             }
         }
+    }
+
+    fun onDrag(
+        tabId: String,
+        deltaX: Float,
+        swapThreshold: Float,
+        onSwapHaptic: () -> Unit = {}
+    ) {
+        onDrag(
+            tabId = tabId,
+            deltaX = deltaX,
+            activeTabWidthPx = swapThreshold,
+            inactiveTabWidthPx = swapThreshold,
+            spacingPx = 0f,
+            activeTabId = null,
+            onSwapHaptic = onSwapHaptic
+        )
     }
 
     fun onDragEnd(isReleasedActive: Boolean, originalTabs: List<Tab>? = null) {

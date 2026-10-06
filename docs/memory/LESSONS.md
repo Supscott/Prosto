@@ -93,6 +93,18 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
 - **Root Cause:** Default `visibilityThreshold = 0.01f` causes underdamped springs to spend >500ms decaying imperceptible subpixel oscillations (between +0.2px and -0.1px).
 - **Resolution & Prevention:** Set explicit `visibilityThreshold = 0.5f` on spatial pixel `Animatable` instances (`dropAnim`, `siblingOffsetAnim`). Once displacement is under 0.5px, the animation completes immediately. Use snappy specs (`Spring.StiffnessMedium` = 1500f, `Spring.DampingRatioLowBouncy` = 0.75f).
 
+### Parent scroll container gesture consumption and asymmetrical item width slot jump during reorder
+- **Symptom:** Dragging a tab in the bottom dock either aborted immediately on touch (cancelling spring release and dropping with a visual "teleport"), or caused the dragged tab to visibly jump ~50-60px upon swapping slots.
+- **Root Cause:**
+  1. Drag gesture loops inspected `if (dragChange.isConsumed) { cancelled = true; break }`. The parent `LazyRow` consumed pointer deltas on `PointerEventPass.Main`, aborting the drag into `currentOnDragCancel`.
+  2. Fixed swap threshold (44dp) subtracted only 44px on swap, but swapping an active tab (148dp) and inactive tab (38dp) shifted layout slots by `(148 + 38) / 2 + 5 = 98px`. The 54px difference caused an immediate visual teleport under the user's finger.
+  3. Neighbor tabs lacked layout placement animation, instantly snapping to new slots.
+- **Resolution & Prevention:**
+  1. Intercept pointer events on `PointerEventPass.Initial`, consume immediately via `dragChange.consume()`, and remove premature cancellation on `isConsumed`. Always call `onDragEnd` when `changedToUp()` occurs.
+  2. Disable parent `LazyRow` scrolling (`userScrollEnabled = !dragState.isDragging && !dragState.isSettling`) and auto-centering during gestures.
+  3. Dynamically compute slot distance `(currentWidth + targetWidth) / 2f + spacingPx` and subtract the exact distance from `dragOffsetPx`, keeping the dragged item stationary relative to the finger.
+  4. Apply `Modifier.animateItem(placementSpec = spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioLowBouncy))` to neighbor items in `LazyRow` so they spring-glide into place.
+
 ---
 
 ## 5. State Management & Navigation

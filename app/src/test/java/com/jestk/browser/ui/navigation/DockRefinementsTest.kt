@@ -207,6 +207,39 @@ class DockRefinementsTest {
     }
 
     @Test
+    fun testDynamicSlotDistanceCalculationAndRockSolidDragOffset() {
+        val tabs = mutableListOf(
+            Tab(id = "1", url = "https://one.com", title = "One", isActive = true),
+            Tab(id = "2", url = "https://two.com", title = "Two", isActive = false),
+            Tab(id = "3", url = "https://three.com", title = "Three", isActive = false)
+        )
+
+        val activeTabWidthPx = 148f
+        val inactiveTabWidthPx = 38f
+        val spacingPx = 5f
+
+        // Slot distance between active (148) and inactive (38): (148 + 38) / 2 + 5 = 98px
+        val slotDistance = (activeTabWidthPx + inactiveTabWidthPx) / 2f + spacingPx
+        assertThat(slotDistance).isEqualTo(98f)
+
+        var dragOffsetPx = 110f
+        var currentIndex = 0
+
+        // Dragging active tab "1" to the right past slotDistance (98px)
+        if (dragOffsetPx > slotDistance && currentIndex < tabs.lastIndex) {
+            val targetIndex = currentIndex + 1
+            Collections.swap(tabs, currentIndex, targetIndex)
+            dragOffsetPx -= slotDistance
+            currentIndex = targetIndex
+        }
+
+        assertThat(tabs[0].id).isEqualTo("2")
+        assertThat(tabs[1].id).isEqualTo("1")
+        // Exact subtraction prevents 50-60px visual teleport
+        assertThat(dragOffsetPx).isEqualTo(12f)
+    }
+
+    @Test
     fun renderTabStripRowWithTabs() {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()

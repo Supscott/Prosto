@@ -299,4 +299,79 @@ class TabStripDragSpringTest {
         assertFalse("Spring should have settled within 350ms due to 0.5f visibility threshold", state.isSettling)
         assertNull(state.settlingTabId)
     }
+
+    @Test
+    fun computeSlotDistance_calculatesCorrectDistanceForActiveAndInactive() = runTest(testFrameClock) {
+        val state = TabStripDragState(
+            initialTabs = sampleTabs, // tab1: active, tab2: inactive, tab3: inactive
+            coroutineScope = this,
+            onReorder = {}
+        )
+
+        // Active (148px) <-> Inactive (38px) with 5px spacing -> (148 + 38) / 2 + 5 = 98px
+        val activeToInactive = state.computeSlotDistance(
+            currentIndex = 0,
+            targetIndex = 1,
+            activeTabWidthPx = 148f,
+            inactiveTabWidthPx = 38f,
+            spacingPx = 5f
+        )
+        assertEquals(98f, activeToInactive, 0.001f)
+
+        // Inactive (38px) <-> Inactive (38px) with 5px spacing -> (38 + 38) / 2 + 5 = 43px
+        val inactiveToInactive = state.computeSlotDistance(
+            currentIndex = 1,
+            targetIndex = 2,
+            activeTabWidthPx = 148f,
+            inactiveTabWidthPx = 38f,
+            spacingPx = 5f
+        )
+        assertEquals(43f, inactiveToInactive, 0.001f)
+    }
+
+    @Test
+    fun onDrag_dynamicActiveAndInactiveSlotDistance_adjustsOffsetByActualDistance() = runTest(testFrameClock) {
+        var hapticCount = 0
+        val state = TabStripDragState(
+            initialTabs = sampleTabs, // tab1: active, tab2: inactive, tab3: inactive
+            coroutineScope = this,
+            onReorder = {}
+        )
+
+        state.onDragStart("tab1")
+
+        // Slot distance between tab1 (148px) and tab2 (38px) is 98px
+        // Drag right by 105px (past 98px distance)
+        state.onDrag(
+            tabId = "tab1",
+            deltaX = 105f,
+            activeTabWidthPx = 148f,
+            inactiveTabWidthPx = 38f,
+            spacingPx = 5f,
+            onSwapHaptic = { hapticCount++ }
+        )
+
+        // tab1 and tab2 should be swapped
+        assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
+        // dragOffsetPx should have exact slot distance (98px) subtracted: 105 - 98 = 7px
+        // Rock-solid: no visual jump under finger!
+        assertEquals(7f, state.dragOffsetPx, 0.001f)
+        assertEquals(1, hapticCount)
+
+        // Drag tab1 left by -109px (total = 7 - 109 = -102px, past -98px distance)
+        state.onDrag(
+            tabId = "tab1",
+            deltaX = -109f,
+            activeTabWidthPx = 148f,
+            inactiveTabWidthPx = 38f,
+            spacingPx = 5f,
+            onSwapHaptic = { hapticCount++ }
+        )
+
+        // tab1 swaps back to index 0
+        assertEquals(listOf("tab1", "tab2", "tab3"), state.currentTabs.map { it.id })
+        // dragOffsetPx should have exact slot distance (98px) added: -102 + 98 = -4px
+        assertEquals(-4f, state.dragOffsetPx, 0.001f)
+        assertEquals(2, hapticCount)
+    }
 }

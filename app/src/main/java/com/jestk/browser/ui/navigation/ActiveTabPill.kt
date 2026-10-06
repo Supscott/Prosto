@@ -49,6 +49,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
@@ -86,6 +87,7 @@ import kotlin.math.abs
  */
 @Composable
 fun ActiveTabPill(
+    tabId: String? = null,
     title: String,
     domain: String,
     url: String,
@@ -178,7 +180,7 @@ fun ActiveTabPill(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .pointerInput(Unit) {
+                    .pointerInput(tabId ?: url) {
                         awaitEachGesture {
                             val down = awaitFirstDown(requireUnconsumed = false)
                             val longPress = awaitLongPressOrCancellation(down.id)
@@ -190,13 +192,9 @@ fun ActiveTabPill(
                                 var cancelled = false
 
                                 while (true) {
-                                    val event = awaitPointerEvent()
+                                    val event = awaitPointerEvent(PointerEventPass.Initial)
                                     val dragChange = event.changes.firstOrNull { it.id == currentPointerId }
                                     if (dragChange == null) {
-                                        cancelled = true
-                                        break
-                                    }
-                                    if (dragChange.isConsumed) {
                                         cancelled = true
                                         break
                                     }
@@ -387,6 +385,7 @@ fun ActiveTabPill(
     onDragCancel: (() -> Unit)? = null,
 ) {
     ActiveTabPill(
+        tabId = tab.id,
         title = displayTitle,
         domain = displayDomain,
         url = tab.url,
@@ -416,6 +415,7 @@ fun ActiveTabPill(
  */
 @Composable
 fun ActiveTabCenterCapsule(
+    tabId: String? = null,
     title: String,
     domain: String,
     url: String,
@@ -439,6 +439,7 @@ fun ActiveTabCenterCapsule(
     onDragCancel: (() -> Unit)? = null,
 ) {
     ActiveTabPill(
+        tabId = tabId,
         title = title,
         domain = domain,
         url = url,

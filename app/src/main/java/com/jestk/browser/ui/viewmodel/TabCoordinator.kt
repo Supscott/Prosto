@@ -590,6 +590,7 @@ internal class TabCoordinator(
     }
 
     fun reorderTabs(orderedTabs: List<Tab>) {
+        updateUiState { it.copy(tabs = orderedTabs) }
         scope.launch(ioDispatcher) {
             tabRepository.reorderTabs(orderedTabs)
         }

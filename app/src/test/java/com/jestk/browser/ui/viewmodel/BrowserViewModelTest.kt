@@ -673,6 +673,28 @@ class BrowserViewModelTest {
         }
 
     @Test
+    fun reorderTabs_updatesTabPositionsImmediatelyInMemory() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://first.com"))
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://second.com"))
+            advanceUntilIdle()
+
+            val currentTabs = viewModel.uiState.value.tabs
+            val reversed = currentTabs.reversed()
+
+            viewModel.onEvent(BrowserUiEvent.ReorderTabs(reversed))
+            // Immediately in-memory, without waiting for advanceUntilIdle() / DB:
+            assertThat(viewModel.uiState.value.tabs.map { it.id }).isEqualTo(reversed.map { it.id })
+
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.tabs.map { it.id }).isEqualTo(reversed.map { it.id })
+        }
+
+    @Test
     fun openSearch_whenOnHome_doesNotCreateNewTab() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()
