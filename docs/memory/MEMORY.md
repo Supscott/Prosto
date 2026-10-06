@@ -163,4 +163,13 @@ com.jestk.browser/
   - Set `userScrollEnabled = !dragState.isDragging && !dragState.isSettling` on `LazyRow` and guarded auto-centering `animateScrollToItem` from triggering while dragging or settling.
   - Updated `TabCoordinator.reorderTabs` to immediately update in-memory `uiState.tabs`, eliminating UI stutter while waiting for Room DB writes.
   - All unit and Robolectric tests passing 100% green.
+- **Live Page Titles & URLs Synchronization and Stale Metadata Elimination:**
+  - Added `BrowserUiEvent.OnTitleReceived` wired from both `JestkWebChromeClient` and `JestkWebViewClient` (via `doUpdateVisitedHistory` for SPAs and in-page history navigation).
+  - Implemented `handleTitleReceived` in `TabCoordinator` with immediate in-memory update and asynchronous persistence to `TabRepository` and `HistoryRepository`.
+  - Reset title to `"Loading..."` on cross-domain navigation in `handlePageStarted` to eliminate stale title flashes.
+  - Synchronized live WebView `url` and `title` immediately in `selectTab` from `WebViewPool`.
+  - Hardened `observeDatabaseFlows` against stale Room snapshot emissions overwriting in-flight active tab state or reverting `activeTabId` during rapid tab creation.
+  - Updated `TabStripRow` `ActiveTabPill` to prioritize live `uiState.pageTitle` and `uiState.currentUrl`.
+  - 100% unit tests passing green.
+
 

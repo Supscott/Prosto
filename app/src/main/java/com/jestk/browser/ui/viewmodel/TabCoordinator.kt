@@ -152,31 +152,44 @@ internal class TabCoordinator(
         scope.launch(ioDispatcher) {
             tabRepository.getAllTabs().collectLatest { tabs ->
                 updateUiState { state ->
-                    val activeId =
-                        tabs.firstOrNull { it.isActive }?.id
-                            ?: if (tabs.any { it.id == state.activeTabId }) {
-                                state.activeTabId
-                            } else {
-                                tabs.firstOrNull()?.id
-                            }
+                    if (state.tabs.any { it.id == state.activeTabId } && tabs.none { it.id == state.activeTabId }) {
+                        return@updateUiState state
+                    }
+                    val activeId = if (tabs.any { it.id == state.activeTabId }) {
+                        state.activeTabId
+                    } else {
+                        tabs.firstOrNull { it.isActive }?.id ?: tabs.firstOrNull()?.id
+                    }
+                    val isSameAsActive = activeId != null && activeId == state.activeTabId
                     val enrichedTabs =
                         tabs.map { tab ->
-                            val cached = tabThemeColors[tab.id] ?: state.tabs.find { it.id == tab.id }?.themeColor
+                            val inMemoryTab = state.tabs.find { it.id == tab.id }
+                            val cached = tabThemeColors[tab.id] ?: inMemoryTab?.themeColor
+                            val isActive = tab.id == activeId
+                            val tabUrl = if (isActive && isSameAsActive) state.currentUrl else tab.url
+                            val tabTitle = if (isActive && isSameAsActive) state.pageTitle else tab.title
+                            val tabFavicon = if (isActive && isSameAsActive && inMemoryTab != null) inMemoryTab.faviconUrl else tab.faviconUrl
                             if (cached != null) {
                                 tabThemeColors[tab.id] = cached
-                                tab.copy(themeColor = cached)
-                            } else {
-                                tab
                             }
+                            tab.copy(
+                                url = tabUrl,
+                                title = tabTitle,
+                                isActive = isActive,
+                                themeColor = cached ?: tab.themeColor,
+                                faviconUrl = tabFavicon,
+                            )
                         }
                     val currentTab = enrichedTabs.find { it.id == activeId }
                     val isHome = currentTab?.url.isNullOrEmpty() || currentTab?.url == "about:blank"
                     val activeColor = if (activeId != null) tabThemeColors[activeId] else null
+                    val resolvedUrl = if (isSameAsActive) state.currentUrl else (currentTab?.url ?: state.currentUrl)
+                    val resolvedTitle = if (isSameAsActive) state.pageTitle else (currentTab?.title ?: state.pageTitle)
                     state.copy(
                         tabs = enrichedTabs,
                         activeTabId = activeId,
-                        currentUrl = currentTab?.url ?: state.currentUrl,
-                        pageTitle = currentTab?.title ?: state.pageTitle,
+                        currentUrl = resolvedUrl,
+                        pageTitle = resolvedTitle,
                         canGoBack = currentTab?.canGoBack ?: state.canGoBack,
                         canGoForward = currentTab?.canGoForward ?: state.canGoForward,
                         activeThemeColor = if (isHome) null else (activeColor ?: state.activeThemeColor),
@@ -356,7 +369,16 @@ internal class TabCoordinator(
         webViewPool?.onTabActivated(tabId, getCurrentState().isVideoPlaying)
         val selected = getCurrentState().tabs.find { it.id == tabId }
         if (selected != null) {
-            val isHome = selected.url.isEmpty() || selected.url == "about:blank"
+            val liveWebView = webViewPool?.getWebView(tabId)
+            val liveUrl = liveWebView?.url?.takeIf { it.isNotBlank() && it != "about:blank" }
+            val liveTitle = liveWebView?.title?.takeIf { it.isNotBlank() }
+
+            val effectiveUrl = liveUrl ?: selected.url
+            val effectiveTitle = liveTitle ?: (if (liveUrl != null && (selected.title.isEmpty() || selected.title == "Home")) liveUrl else selected.title)
+            val effectiveCanGoBack = liveWebView?.canGoBack() ?: selected.canGoBack
+            val effectiveCanGoForward = liveWebView?.canGoForward() ?: selected.canGoForward
+
+            val isHome = effectiveUrl.isEmpty() || effectiveUrl == "about:blank"
             val cachedColor = tabThemeColors[tabId] ?: selected.themeColor
             val progress = tabLoadingProgress[tabId]
             val isTabLoading = progress != null && progress < 100
@@ -369,22 +391,47 @@ internal class TabCoordinator(
                 val updatedTabs =
                     state.tabs.map { t ->
                         val c = tabThemeColors[t.id] ?: t.themeColor
-                        t.copy(isActive = t.id == tabId, themeColor = c)
+                        if (t.id == tabId) {
+                            t.copy(
+                                isActive = true,
+                                url = effectiveUrl,
+                                title = effectiveTitle,
+                                canGoBack = effectiveCanGoBack,
+                                canGoForward = effectiveCanGoForward,
+                                themeColor = c
+                            )
+                        } else {
+                            t.copy(isActive = false, themeColor = c)
+                        }
                     }
                 state.copy(
                     tabs = updatedTabs,
                     activeTabId = tabId,
-                    currentUrl = selected.url,
-                    pageTitle = selected.title,
+                    currentUrl = effectiveUrl,
+                    pageTitle = effectiveTitle,
                     isLoading = isTabLoading,
                     loadingProgress = tabProgress,
-                    canGoBack = selected.canGoBack,
-                    canGoForward = selected.canGoForward,
+                    canGoBack = effectiveCanGoBack,
+                    canGoForward = effectiveCanGoForward,
                     activeThemeColor = if (isHome) null else cachedColor,
                     isMenuExpanded = false,
                     activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
                     isBottomBarVisible = true,
                 )
+            }
+            if (liveUrl != null || liveTitle != null) {
+                scope.launch(ioDispatcher) {
+                    tabRepository.updateTabDetails(
+                        id = tabId,
+                        url = effectiveUrl,
+                        title = effectiveTitle,
+                        canGoBack = effectiveCanGoBack,
+                        canGoForward = effectiveCanGoForward,
+                    )
+                    if (effectiveUrl.isNotEmpty() && !effectiveUrl.startsWith("about:") && effectiveTitle.isNotEmpty()) {
+                        historyRepository.recordVisit(effectiveUrl, effectiveTitle)
+                    }
+                }
             }
         }
         scope.launch(ioDispatcher) {
@@ -643,6 +690,7 @@ internal class TabCoordinator(
             it.copy(
                 tabs = updatedTabs,
                 currentUrl = finalUrl,
+                pageTitle = finalUrl,
                 settings = if (matchedShortcutEngine != null) it.settings.copy(searchEngine = matchedShortcutEngine) else it.settings,
                 isLoading = true,
                 loadingProgress = 0.1f,
@@ -675,20 +723,41 @@ internal class TabCoordinator(
             cachedFavicon
         }
 
+        val shouldResetTitle = currentTab != null && currentTab.url != url && !sameDomain
+        val newTitle = if (shouldResetTitle) "Loading..." else null
+
         updateUiState { state ->
             val updatedTabs = state.tabs.map { tab ->
-                if (tab.id == tabId) tab.copy(url = url, faviconUrl = newFavicon) else tab
+                if (tab.id == tabId) {
+                    tab.copy(
+                        url = url,
+                        title = newTitle ?: tab.title,
+                        faviconUrl = newFavicon
+                    )
+                } else tab
             }
             if (state.activeTabId == tabId) {
                 state.copy(
                     tabs = updatedTabs,
                     currentUrl = url,
+                    pageTitle = if (shouldResetTitle) (if (url.isEmpty()) "Home" else "Loading...") else state.pageTitle,
                     isLoading = true,
                     loadingProgress = 0.15f,
                     isBottomBarVisible = true,
                 )
             } else {
                 state.copy(tabs = updatedTabs)
+            }
+        }
+        if (shouldResetTitle) {
+            scope.launch(ioDispatcher) {
+                tabRepository.updateTabDetails(
+                    id = tabId,
+                    url = url,
+                    title = "Loading...",
+                    canGoBack = currentTab?.canGoBack ?: false,
+                    canGoForward = currentTab?.canGoForward ?: false
+                )
             }
         }
         if (newFavicon != currentTab?.faviconUrl) {
@@ -732,6 +801,49 @@ internal class TabCoordinator(
                 recentTabRepository?.recordRecentTab(
                     url = url,
                     title = displayTitle,
+                    snapshotPath = tab?.snapshotPath,
+                    faviconUrl = tab?.faviconUrl,
+                )
+            }
+        }
+    }
+
+    fun handleTitleReceived(tabId: String, title: String) {
+        val trimmedTitle = title.trim()
+        if (trimmedTitle.isEmpty() || trimmedTitle.equals("about:blank", ignoreCase = true)) return
+        val currentTab = getCurrentState().tabs.find { it.id == tabId }
+        val effectiveUrl = currentTab?.url.orEmpty()
+        if (effectiveUrl.isEmpty() || effectiveUrl == "about:blank") return
+
+        updateUiState { state ->
+            val updatedTabs = state.tabs.map { tab ->
+                if (tab.id == tabId) tab.copy(title = trimmedTitle) else tab
+            }
+            if (state.activeTabId == tabId) {
+                state.copy(
+                    tabs = updatedTabs,
+                    pageTitle = trimmedTitle,
+                )
+            } else {
+                state.copy(tabs = updatedTabs)
+            }
+        }
+
+        scope.launch(ioDispatcher) {
+            val tab = tabRepository.getTabById(tabId)
+            val url = tab?.url?.takeIf { it.isNotEmpty() } ?: effectiveUrl
+            tabRepository.updateTabDetails(
+                id = tabId,
+                url = url,
+                title = trimmedTitle,
+                canGoBack = tab?.canGoBack ?: (if (getCurrentState().activeTabId == tabId) getCurrentState().canGoBack else false),
+                canGoForward = tab?.canGoForward ?: false,
+            )
+            if (url.isNotEmpty() && !url.startsWith("about:")) {
+                historyRepository.recordVisit(url, trimmedTitle)
+                recentTabRepository?.recordRecentTab(
+                    url = url,
+                    title = trimmedTitle,
                     snapshotPath = tab?.snapshotPath,
                     faviconUrl = tab?.faviconUrl,
                 )

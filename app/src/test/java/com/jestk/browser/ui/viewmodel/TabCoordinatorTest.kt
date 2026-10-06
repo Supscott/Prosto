@@ -15,6 +15,7 @@ import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.engine.FaviconManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -391,5 +392,138 @@ class TabCoordinatorTest {
             val cached = FaviconManager.getCachedFaviconForUrl("https://news.ycombinator.com/item?id=123")
             assertThat(cached).isNotNull()
             assertThat(java.io.File(cached!!).name).isEqualTo("domain_news.ycombinator.com.png")
+        }
+
+    @Test
+    fun handleTitleReceived_updatesUiStateAndPersistsToRepositories() =
+        runTest(testDispatcher) {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            coordinator.navigateToUrl("https://example.com")
+            advanceUntilIdle()
+
+            coordinator.handleTitleReceived(activeTabId, "Example Domain")
+            advanceUntilIdle()
+
+            val activeTab = uiState.tabs.find { it.id == activeTabId }
+            assertThat(activeTab?.title).isEqualTo("Example Domain")
+            assertThat(uiState.pageTitle).isEqualTo("Example Domain")
+
+            val persistedTab = tabRepo.getTabById(activeTabId)
+            assertThat(persistedTab?.title).isEqualTo("Example Domain")
+
+            val history = historyRepo.getAllHistory().first()
+            assertThat(history.any { it.url == "https://example.com" && it.title == "Example Domain" }).isTrue()
+        }
+
+    @Test
+    fun handleTitleReceived_whenBlankOrAboutBlank_isIgnored() =
+        runTest(testDispatcher) {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            coordinator.navigateToUrl("https://example.com")
+            advanceUntilIdle()
+
+            coordinator.handleTitleReceived(activeTabId, "   ")
+            advanceUntilIdle()
+            assertThat(uiState.pageTitle).isEqualTo("https://example.com")
+
+            coordinator.handleTitleReceived(activeTabId, "about:blank")
+            advanceUntilIdle()
+            assertThat(uiState.pageTitle).isEqualTo("https://example.com")
+        }
+
+    @Test
+    fun handlePageStarted_whenCrossDomain_resetsTitleToLoading() =
+        runTest(testDispatcher) {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            coordinator.navigateToUrl("https://first-site.com")
+            coordinator.handlePageFinished(activeTabId, "https://first-site.com", "First Site Title")
+            advanceUntilIdle()
+
+            assertThat(uiState.pageTitle).isEqualTo("First Site Title")
+
+            // Navigate to cross-domain site
+            coordinator.handlePageStarted(activeTabId, "https://second-site.org/path")
+            advanceUntilIdle()
+
+            assertThat(uiState.pageTitle).isEqualTo("Loading...")
+            val activeTab = uiState.tabs.find { it.id == activeTabId }
+            assertThat(activeTab?.title).isEqualTo("Loading...")
+            assertThat(tabRepo.getTabById(activeTabId)?.title).isEqualTo("Loading...")
+        }
+
+    @Test
+    fun observeDatabaseFlows_prioritizesInMemoryActiveTabIdAndPreservesNewUrl() =
+        runTest(testDispatcher) {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            // Open a second tab
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+            val secondTabId = uiState.activeTabId!!
+
+            // Start navigation in memory
+            coordinator.handlePageStarted(secondTabId, "https://tab2-new.com")
+            assertThat(uiState.currentUrl).isEqualTo("https://tab2-new.com")
+            assertThat(uiState.pageTitle).isEqualTo("Loading...")
+
+            // Let Room flow collect and advance
+            advanceUntilIdle()
+
+            assertThat(uiState.activeTabId).isEqualTo(secondTabId)
+            assertThat(uiState.currentUrl).isEqualTo("https://tab2-new.com")
+            assertThat(uiState.pageTitle).isEqualTo("Loading...")
+        }
+
+    @Test
+    fun selectTab_whenLiveWebViewHasUrlAndTitle_syncsLiveState() =
+        runTest(testDispatcher) {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val pool = com.jestk.browser.engine.WebViewPool(context, null)
+            val coordinatorWithPool = TabCoordinator(
+                tabRepository = tabRepo,
+                recentTabRepository = recentTabRepo,
+                favoriteRepository = favoriteRepo,
+                historyRepository = historyRepo,
+                webViewPool = pool,
+                tabOperationMutex = tabMutex,
+                tabThemeColors = tabThemeColors,
+                getCurrentState = { uiState },
+                updateUiState = { transform -> uiState = transform(uiState) },
+                emitNavigation = { navigationCommands.add(it) },
+                scope = testScope,
+                ioDispatcher = testDispatcher,
+                tabLoadingProgress = tabLoadingProgress,
+            )
+
+            coordinatorWithPool.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val tab1Id = uiState.activeTabId!!
+
+            // Open tab 2
+            coordinatorWithPool.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+
+            // Get live WebView for tab 1 and load a live URL
+            val wv1 = pool.getOrCreateWebView(tab1Id, context)
+            wv1.loadUrl("https://tab1-live.com")
+
+            // Switch back to tab 1
+            coordinatorWithPool.selectTab(tab1Id)
+            advanceUntilIdle()
+
+            assertThat(uiState.activeTabId).isEqualTo(tab1Id)
+            assertThat(uiState.currentUrl).isEqualTo("https://tab1-live.com")
         }
 }

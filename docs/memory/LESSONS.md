@@ -132,6 +132,22 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
   3. `handleProgressChanged` and `handlePageFinished` ignored events when `activeTabId != tabId`, so background tabs never updated their loading state.
 - **Resolution & Prevention:** Track per-tab loading progress in `TabCoordinator` using a thread-safe map (`tabLoadingProgress: MutableMap<String, Int>`). Record all progress and page finished events into the map regardless of whether the tab is currently active. In `selectTab(tabId)`, query `tabLoadingProgress[tabId]` and immediately project the active tab's progress into `BrowserUiState.isLoading` and `loadingProgress`. Remove map entries in `closeTab(tabId)` and clear them in `closeAllTabs()`.
 
+### Title and URL desync across navigation, SPAs, and asynchronous database flow emissions
+- **Symptom:** Website URL and titles displayed incorrectly, showing stale metadata from previous websites or retaining old titles when navigating to new domains or in single page apps (SPA).
+- **Root Cause:**
+  1. WebKit's `onPageStarted` was only notifying URL changes without resetting the page title, and `doUpdateVisitedHistory` (firing during SPA routing and redirects) did not dispatch title updates or page started events when the URL changed.
+  2. `JestkWebViewClient.onTitleReceived` was not piped into `BrowserViewModel`. Only `WebChromeClient.onReceivedTitle` was connected, which doesn't reliably fire on history traversal or client-side navigation.
+  3. Room Flow emission race: When Room emitted updated tabs lists, it overwrote in-memory `state.currentUrl`, `state.pageTitle`, and `state.tabFavicon` with stale DB values while asynchronous persistence was in flight.
+  4. Room Flow emission during rapid tab creation: When creating multiple tabs rapidly, older Room emissions lacking the new `activeTabId` arrived, erroneously reverting `activeTabId` to tab 1.
+  5. In `TabStripRow.kt`, `ActiveTabPill` resolved its title from `tab.title` rather than the active authoritative `uiState.pageTitle`.
+- **Resolution & Prevention:**
+  1. Added `BrowserUiEvent.OnTitleReceived` and `tabCoordinator.handleTitleReceived(tabId, title)` which synchronously updates in-memory tab title, active `state.pageTitle`, and asynchronously persists to `TabRepository` and `HistoryRepository`.
+  2. In `JestkWebViewClient.doUpdateVisitedHistory`, notify `onPageStarted` and invoke `onTitleReceived` if `view?.title` is present.
+  3. In `handlePageStarted`, reset `tab.title` and `state.pageTitle` to `"Loading..."` on cross-domain navigation to prevent stale title flashes, and persist `"Loading..."` to Room.
+  4. In `observeDatabaseFlows`, treat in-memory active tab metadata (`currentUrl`, `pageTitle`, `tabFavicon`) as authoritative over stale Room emissions. Drop Room emissions that lack the newly created `activeTabId` when `state.tabs.any { it.id == state.activeTabId }`.
+  5. In `selectTab(tabId)`, query `webViewPool?.getWebView(tabId)` to immediately sync live URL and title into UI state and database.
+  6. In `TabStripRow.kt`, resolve `ActiveTabPill` title using `if (isActive) uiState.pageTitle.ifBlank { tab.title } else tab.title`.
+
 ---
 
 ## 6. In-App Downloads & Background Processing

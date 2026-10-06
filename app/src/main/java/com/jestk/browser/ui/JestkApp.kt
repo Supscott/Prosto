@@ -168,13 +168,14 @@ fun JestkApp(
                     onSnapshotReady = { id, path -> viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(id, path)) },
                     onThemeColorDetected = { id, color -> viewModel.onEvent(BrowserUiEvent.OnThemeColorReceived(id, color)) },
                     isDarkTheme = { isDark },
-                    onFaviconReceived = handleFavicon
+                    onFaviconReceived = handleFavicon,
+                    onTitleReceived = { id, title -> viewModel.onEvent(BrowserUiEvent.OnTitleReceived(id, title)) }
                 )
                 wv.webChromeClient = JestkWebChromeClient(
                     tabId = tabId,
                     webView = wv,
                     onProgressChanged = { id, progress -> viewModel.onEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
-                    onTitleReceived = { _, _ -> },
+                    onTitleReceived = { id, title -> viewModel.onEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
                     onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
                         viewModel.onEvent(BrowserUiEvent.SetFullscreenCustomView(view, isFullscreen, orientation))
                     },

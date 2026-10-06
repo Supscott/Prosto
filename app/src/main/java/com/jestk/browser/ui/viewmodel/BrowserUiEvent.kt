@@ -53,6 +53,7 @@ sealed interface BrowserUiEvent {
     // Web Callbacks
     data class OnPageStarted(val tabId: String, val url: String) : BrowserUiEvent
     data class OnPageFinished(val tabId: String, val url: String, val title: String) : BrowserUiEvent
+    data class OnTitleReceived(val tabId: String, val title: String) : BrowserUiEvent
     data class OnProgressChanged(val tabId: String, val progress: Int) : BrowserUiEvent
     data class OnNavigationStateChanged(val tabId: String, val canGoBack: Boolean, val canGoForward: Boolean) : BrowserUiEvent
     data class OnSnapshotCaptured(val tabId: String, val snapshotPath: String) : BrowserUiEvent

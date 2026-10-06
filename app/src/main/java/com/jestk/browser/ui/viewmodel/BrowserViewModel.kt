@@ -334,6 +334,10 @@ class BrowserViewModel(
                 tabCoordinator.handlePageFinished(event.tabId, event.url, event.title)
             }
 
+            is BrowserUiEvent.OnTitleReceived -> {
+                tabCoordinator.handleTitleReceived(event.tabId, event.title)
+            }
+
             is BrowserUiEvent.OnProgressChanged -> {
                 tabCoordinator.handleProgressChanged(event.tabId, event.progress)
             }

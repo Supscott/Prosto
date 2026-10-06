@@ -98,4 +98,46 @@ class JestkWebViewClientTest {
         assertThat(interceptedUrl).isEqualTo("https://google-analytics.com/analytics.js")
         assertThat(interceptedTracker).isTrue()
     }
+
+    @Test
+    fun doUpdateVisitedHistory_withValidUrlAndTitle_invokesPageStartedAndTitleReceived() {
+        var startedUrl: String? = null
+        var receivedTitle: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, url -> startedUrl = url },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onTitleReceived = { _, title -> receivedTitle = title }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = android.webkit.WebView(context)
+
+        client.doUpdateVisitedHistory(webView, "https://example.com/spa-route", false)
+        assertThat(startedUrl).isEqualTo("https://example.com/spa-route")
+        // Title on empty webView is null/empty so onTitleReceived is not invoked
+        assertThat(receivedTitle).isNull()
+    }
+
+    @Test
+    fun doUpdateVisitedHistory_withBlankOrAboutBlankUrl_doesNotInvokePageStarted() {
+        var startedUrl: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, url -> startedUrl = url },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> }
+        )
+
+        client.doUpdateVisitedHistory(null, "", false)
+        assertThat(startedUrl).isNull()
+
+        client.doUpdateVisitedHistory(null, "about:blank", false)
+        assertThat(startedUrl).isNull()
+    }
 }

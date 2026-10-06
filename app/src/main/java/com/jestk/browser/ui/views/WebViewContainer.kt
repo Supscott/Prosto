@@ -304,14 +304,15 @@ fun WebViewContainer(
                             currentOnEvent(BrowserUiEvent.OnThemeColorReceived(id, color))
                         },
                         isDarkTheme = { isDark },
-                        onFaviconReceived = handleFavicon
+                        onFaviconReceived = handleFavicon,
+                        onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) }
                     )
 
                     webView.webChromeClient = JestkWebChromeClient(
                         tabId = tabId,
                         webView = webView,
                         onProgressChanged = { id, progress -> currentOnEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
-                        onTitleReceived = { _, _ -> },
+                        onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
                         onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
                             currentOnEvent(BrowserUiEvent.SetFullscreenCustomView(view, isFullscreen, orientation))
                         },

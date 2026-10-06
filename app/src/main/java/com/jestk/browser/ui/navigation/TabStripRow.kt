@@ -228,17 +228,18 @@ fun TabStripRow(
 
                 if (isActive) {
                     val currentTitle = if (tabIsHome) "Home" else when {
+                        isActive && uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
                         tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
-                        uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
                         else -> "Hori Browser"
                     }
-                    val currentDomain = if (tabIsHome) "" else extractDomain(tab.url)
+                    val currentUrl = if (isActive && uiState.currentUrl.isNotEmpty()) uiState.currentUrl else tab.url
+                    val currentDomain = if (tabIsHome) "" else extractDomain(currentUrl)
 
                     ActiveTabPill(
                         tabId = tab.id,
                         title = currentTitle,
                         domain = currentDomain,
-                        url = tab.url.ifEmpty { uiState.currentUrl },
+                        url = currentUrl,
                         faviconUrl = tab.faviconUrl,
                         isHome = tabIsHome,
                         backgroundColor = centerPillBg,
@@ -247,7 +248,7 @@ fun TabStripRow(
                         isLoading = uiState.isLoading,
                         loadingProgress = uiState.loadingProgress,
                         onOpenSearch = {
-                            val targetPrefill = if (tab.url.isNotBlank() && tab.url != "about:blank") tab.url else null
+                            val targetPrefill = if (currentUrl.isNotBlank() && currentUrl != "about:blank") currentUrl else null
                             onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = targetPrefill, openInNewTab = false))
                         },
                         onClose = {

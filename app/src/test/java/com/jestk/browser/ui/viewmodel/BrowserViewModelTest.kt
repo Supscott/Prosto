@@ -2076,6 +2076,45 @@ class BrowserViewModelTest {
             // Tab A remains stopped (not loading)
             assertThat(viewModel.uiState.value.isLoading).isFalse()
         }
+
+    @Test
+    fun onTitleReceived_updatesPageTitleAndActiveTabTitle() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://spa-example.com"))
+            advanceUntilIdle()
+            val activeTabId = viewModel.uiState.value.activeTabId!!
+
+            viewModel.onEvent(BrowserUiEvent.OnTitleReceived(activeTabId, "Single Page App Dashboard"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.pageTitle).isEqualTo("Single Page App Dashboard")
+            val activeTab = viewModel.uiState.value.tabs.find { it.id == activeTabId }
+            assertThat(activeTab?.title).isEqualTo("Single Page App Dashboard")
+        }
+
+    @Test
+    fun onPageStarted_resetsTitleWhenNavigatingCrossDomain() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val tabId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://first-site.com"))
+            viewModel.onEvent(BrowserUiEvent.OnPageFinished(tabId, "https://first-site.com", "First Site"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.pageTitle).isEqualTo("First Site")
+
+            viewModel.onEvent(BrowserUiEvent.OnPageStarted(tabId, "https://different-site.com/home"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.pageTitle).isEqualTo("Loading...")
+            val activeTab = viewModel.uiState.value.tabs.find { it.id == tabId }
+            assertThat(activeTab?.title).isEqualTo("Loading...")
+        }
 }
 
 
