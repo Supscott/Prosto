@@ -259,8 +259,14 @@ internal class TabCoordinator(
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 val title = if (url.isEmpty() || url == "about:blank") "Home" else "Loading..."
+                val cachedFavicon = if (url.isNotEmpty() && url != "about:blank") {
+                    FaviconManager.getCachedFaviconForUrl(url)
+                } else null
                 val created = tabRepository.createTab(url = url, title = title)
                 tabRepository.setActiveTab(created.id)
+                if (cachedFavicon != null) {
+                    tabRepository.updateFavicon(created.id, cachedFavicon)
+                }
                 webViewPool?.onTabActivated(created.id, false)
                 val baseTabs =
                     if (getCurrentState().tabs.isEmpty()) {
@@ -269,7 +275,7 @@ internal class TabCoordinator(
                         getCurrentState().tabs.filter { it.id != created.id }
                     }
                 val currentTabs = baseTabs.map { it.copy(isActive = false) }
-                val updatedTabs = (currentTabs + created.copy(isActive = true)).distinctBy { it.id }
+                val updatedTabs = (currentTabs + created.copy(isActive = true, faviconUrl = cachedFavicon)).distinctBy { it.id }
                 val isHome = url.isEmpty() || url == "about:blank"
                 val isWebLoading = !isHome && url.isNotEmpty()
                 if (isWebLoading) {
@@ -304,14 +310,20 @@ internal class TabCoordinator(
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 val title = if (url.isEmpty() || url == "about:blank") "Home" else "Loading..."
+                val cachedFavicon = if (url.isNotEmpty() && url != "about:blank") {
+                    FaviconManager.getCachedFaviconForUrl(url)
+                } else null
                 val created = tabRepository.createTab(url = url, title = title)
+                if (cachedFavicon != null) {
+                    tabRepository.updateFavicon(created.id, cachedFavicon)
+                }
                 val baseTabs =
                     if (getCurrentState().tabs.isEmpty()) {
                         tabRepository.getInitialTabs().filter { it.id != created.id }
                     } else {
                         getCurrentState().tabs.filter { it.id != created.id }
                     }
-                val updatedTabs = (baseTabs + created.copy(isActive = false)).distinctBy { it.id }
+                val updatedTabs = (baseTabs + created.copy(isActive = false, faviconUrl = cachedFavicon)).distinctBy { it.id }
                 updateUiState {
                     it.copy(
                         tabs = updatedTabs,
@@ -612,7 +624,14 @@ internal class TabCoordinator(
 
         val currentTab = getCurrentState().tabs.find { it.id == activeId }
         val sameDomain = currentTab != null && isSameDomain(currentTab.url, finalUrl)
-        val newFavicon = if (sameDomain) currentTab?.faviconUrl else null
+        val cachedFavicon = if (!sameDomain || currentTab?.faviconUrl == null) {
+            FaviconManager.getCachedFaviconForUrl(finalUrl)
+        } else null
+        val newFavicon = if (sameDomain && currentTab?.faviconUrl != null) {
+            currentTab.faviconUrl
+        } else {
+            cachedFavicon
+        }
 
         tabLoadingProgress[activeId] = 10
         updateUiState {
@@ -634,8 +653,8 @@ internal class TabCoordinator(
         }
         scope.launch(ioDispatcher) {
             tabRepository.updateTabDetails(activeId, finalUrl, finalUrl, canGoBack = false, canGoForward = false)
-            if (!sameDomain) {
-                tabRepository.updateFavicon(activeId, null)
+            if (newFavicon != currentTab?.faviconUrl) {
+                tabRepository.updateFavicon(activeId, newFavicon)
             }
         }
         emitNavigation(NavigationCommand.LoadUrl(finalUrl))
@@ -646,7 +665,14 @@ internal class TabCoordinator(
         tabLoadingProgress[tabId] = 15
         val currentTab = getCurrentState().tabs.find { it.id == tabId }
         val sameDomain = currentTab != null && isSameDomain(currentTab.url, url)
-        val newFavicon = if (sameDomain) currentTab?.faviconUrl else null
+        val cachedFavicon = if (!sameDomain || currentTab?.faviconUrl == null) {
+            FaviconManager.getCachedFaviconForUrl(url)
+        } else null
+        val newFavicon = if (sameDomain && currentTab?.faviconUrl != null) {
+            currentTab.faviconUrl
+        } else {
+            cachedFavicon
+        }
 
         updateUiState { state ->
             val updatedTabs = state.tabs.map { tab ->
@@ -664,9 +690,9 @@ internal class TabCoordinator(
                 state.copy(tabs = updatedTabs)
             }
         }
-        if (!sameDomain) {
+        if (newFavicon != currentTab?.faviconUrl) {
             scope.launch(ioDispatcher) {
-                tabRepository.updateFavicon(tabId, null)
+                tabRepository.updateFavicon(tabId, newFavicon)
             }
         }
     }
@@ -774,6 +800,7 @@ internal class TabCoordinator(
             val tab = tabRepository.getTabById(tabId)
             if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:") && !faviconUrl.isNullOrEmpty()) {
                 recentTabRepository?.updateFavicon(tab.url, faviconUrl)
+                FaviconManager.cacheFaviconPathForDomain(tab.url, faviconUrl)
                 if (favoriteRepository.isFavorite(tab.url)) {
                     val persistentIconPath = if (faviconUrl.startsWith("/") || faviconUrl.startsWith("file:")) {
                         FaviconManager.persistFaviconForFavorite(faviconUrl)

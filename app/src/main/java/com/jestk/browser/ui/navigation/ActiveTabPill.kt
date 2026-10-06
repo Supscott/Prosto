@@ -249,7 +249,10 @@ fun ActiveTabPill(
                             modifier = Modifier.size(17.dp)
                         )
                     } else {
-                        var isFaviconSuccess by remember(faviconUrl) { mutableStateOf(false) }
+                        val hasLocalFavicon = remember(faviconUrl) {
+                            FaviconManager.isValidLocalFavicon(faviconUrl)
+                        }
+                        var isFaviconSuccess by remember(faviconUrl) { mutableStateOf(hasLocalFavicon) }
                         val imageModel = remember(faviconUrl) {
                             FaviconManager.toImageModel(faviconUrl)
                         }

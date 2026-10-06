@@ -51,9 +51,10 @@ Every agent working on this codebase must adhere to the following architectural 
 
 ### 2.5 Favicon Subsystem
 - **Cache-Busting File Paths:** Tab favicons are stored as `favicon_${tabId}_${timestamp}.png`. Unique timestamps bust Coil memory and disk caches upon navigation.
+- **Persistent Domain Cache:** Domain favicons are persistently stored as `domain_<sanitized_host>.png` and indexed in a thread-safe `ConcurrentHashMap`. Navigating or opening tabs immediately loads the cached domain favicon to prevent fallback letter glyph flicker.
 - **Persistent Favorites:** When a tab is saved to favorites, its icon is copied to persistent storage (`fav_*.png`), surviving tab closure.
 - **Asset URI Resolution:** Android asset URLs (`file:///android_asset/...`) must map to `android.net.Uri` (not `java.io.File`) so Coil routes them to `AssetUriFetcher`.
-- **Domain-Aware Reset:** Cross-domain navigation clears `faviconUrl` to `null`; intra-domain navigation preserves existing favicons to eliminate flicker.
+- **Domain-Aware Reset:** Cross-domain navigation clears `faviconUrl` to `null` only if no cached domain favicon exists; navigation to a previously visited domain pre-populates `faviconUrl` immediately from cache. Intra-domain navigation preserves existing favicons to eliminate flicker.
 
 ### 2.6 In-App Download Subsystem
 - **Foreground Service:** Uses in-app `HoriDownloadService` (`START_NOT_STICKY`, `ensureForegroundStarted()` at entry) with `POST_NOTIFICATIONS` runtime permission check on Android 13+.
@@ -150,4 +151,10 @@ com.jestk.browser/
   - Fixed cross-tab progress leakage when switching from a loading tab to a loaded tab.
   - Recorded progress and page finished events for background tabs, allowing seamless state restoration when returning to background tabs.
   - Added `TabCoordinatorTest` and `BrowserViewModelTest` unit test suites covering background tab progress tracking and tab switching isolation.
+- **Domain-Based Persistent Favicon Caching:**
+  - Implemented persistent domain favicon disk storage (`favicons/domain_<sanitized_host>.png`) and in-memory indexing in `FaviconManager`.
+  - Zero external network calls (Brave/DuckDuckGo style privacy compliance).
+  - Integrated with `TabCoordinator`: pre-populates `faviconUrl` immediately on URL navigation, tab opening, and page start.
+  - Eliminated dock fallback letter glyph flashing in `ActiveTabPill` and `TabStripRow` by initializing `isFaviconSuccess` with local file existence validation.
+  - Full unit test coverage in `FaviconManagerTest` and `TabCoordinatorTest` (462 tests green).
 

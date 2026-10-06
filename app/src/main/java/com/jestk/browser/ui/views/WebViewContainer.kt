@@ -276,7 +276,11 @@ fun WebViewContainer(
 
                     val handleFavicon: (String, android.graphics.Bitmap) -> Unit = { id, icon ->
                         scope.launch {
-                            val path = FaviconManager.saveFavicon(context, id, icon)
+                            val currentTabUrl = currentTab?.url?.takeIf { it.isNotBlank() }
+                            val activeUrl = if (currentUiState.activeTabId == id) currentUiState.currentUrl.takeIf { it.isNotBlank() } else null
+                            val webViewUrl = webView.url?.takeIf { it.isNotBlank() }
+                            val currentUrl = currentTabUrl ?: activeUrl ?: webViewUrl ?: targetUrl.takeIf { it.isNotBlank() }
+                            val path = FaviconManager.saveFavicon(context, id, icon, currentUrl)
                             if (path != null) {
                                 currentOnEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
                             }

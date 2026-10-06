@@ -154,5 +154,116 @@ class FaviconManagerTest {
         assertThat(java.io.File(path1).exists()).isFalse()
         assertThat(java.io.File(path2).exists()).isFalse()
     }
+
+    @Test
+    fun extractHost_normalizesAndSanitizesProperly() {
+        assertThat(FaviconManager.extractHost("https://github.com/torvalds/linux")).isEqualTo("github.com")
+        assertThat(FaviconManager.extractHost("http://www.google.com/search?q=kotlin")).isEqualTo("google.com")
+        assertThat(FaviconManager.extractHost("duckduckgo.com")).isEqualTo("duckduckgo.com")
+        assertThat(FaviconManager.extractHost("about:blank")).isNull()
+        assertThat(FaviconManager.extractHost("http://localhost:8080")).isNull()
+        assertThat(FaviconManager.extractHost("http://127.0.0.1")).isNull()
+        assertThat(FaviconManager.extractHost("")).isNull()
+        assertThat(FaviconManager.extractHost(null)).isNull()
+    }
+
+    @Test
+    fun saveFavicon_withPageUrl_persistsAndIndexesDomainFavicon() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        FaviconManager.init(context)
+        val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
+
+        val tabPath = FaviconManager.saveFavicon(context, "tab_host_test", bitmap, "https://github.com/trending")
+        assertThat(tabPath).isNotNull()
+
+        val cachedByUrl = FaviconManager.getCachedFaviconForUrl("https://github.com/stars")
+        assertThat(cachedByUrl).isNotNull()
+        assertThat(java.io.File(cachedByUrl!!).exists()).isTrue()
+        assertThat(java.io.File(cachedByUrl).name).isEqualTo("domain_github.com.png")
+
+        val cachedByDomain = FaviconManager.getCachedFaviconForDomain("github.com")
+        assertThat(cachedByDomain).isEqualTo(cachedByUrl)
+    }
+
+    @Test
+    fun cacheFaviconForDomain_savesAndIndexesDomainFaviconDirectly() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        FaviconManager.init(context)
+        val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
+
+        val domainPath = FaviconManager.cacheFaviconForDomain("https://en.wikipedia.org/wiki/Android", bitmap, context)
+        assertThat(domainPath).isNotNull()
+        assertThat(java.io.File(domainPath!!).name).isEqualTo("domain_en.wikipedia.org.png")
+
+        val cached = FaviconManager.getCachedFaviconForUrl("https://en.wikipedia.org/wiki/Kotlin")
+        assertThat(cached).isEqualTo(domainPath)
+    }
+
+    @Test
+    fun init_scansExistingDomainFaviconsIntoMemoryCache() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        FaviconManager.deleteAllFavicons(context)
+        FaviconManager.init(context)
+        assertThat(FaviconManager.getCachedFaviconForDomain("example.com")).isNull()
+
+        val dir = java.io.File(context.filesDir, "favicons").apply { if (!exists()) mkdirs() }
+        val dummyFile = java.io.File(dir, "domain_example.com.png").apply {
+            writeBytes("mock_png".toByteArray())
+        }
+
+        FaviconManager.init(context)
+        val cached = FaviconManager.getCachedFaviconForDomain("example.com")
+        assertThat(cached).isEqualTo(dummyFile.absolutePath)
+    }
+
+    @Test
+    fun deleteTabFavicons_doesNotDeleteDomainFavicons() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        FaviconManager.init(context)
+        val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
+
+        val tabPath = FaviconManager.saveFavicon(context, "tab_isolate", bitmap, "https://gitlab.com/repo")
+        assertThat(tabPath).isNotNull()
+        assertThat(java.io.File(tabPath!!).exists()).isTrue()
+
+        val domainPath = FaviconManager.getCachedFaviconForDomain("gitlab.com")
+        assertThat(domainPath).isNotNull()
+        assertThat(java.io.File(domainPath!!).exists()).isTrue()
+
+        FaviconManager.deleteTabFavicons(context, "tab_isolate")
+        assertThat(java.io.File(tabPath).exists()).isFalse()
+        assertThat(java.io.File(domainPath).exists()).isTrue()
+        assertThat(FaviconManager.getCachedFaviconForDomain("gitlab.com")).isEqualTo(domainPath)
+    }
+
+    @Test
+    fun deleteAllFavicons_clearsDomainCacheAndFiles() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        FaviconManager.init(context)
+        val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
+
+        FaviconManager.saveFavicon(context, "tab_purge", bitmap, "https://purge-site.com")
+        assertThat(FaviconManager.getCachedFaviconForDomain("purge-site.com")).isNotNull()
+
+        FaviconManager.deleteAllFavicons(context)
+        assertThat(FaviconManager.getCachedFaviconForDomain("purge-site.com")).isNull()
+    }
+
+    @Test
+    fun isValidLocalFavicon_identifiesLocalFilesAndAssets() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val dummyFile = java.io.File(context.filesDir, "test_valid.png").apply {
+            writeBytes("data".toByteArray())
+        }
+
+        assertThat(FaviconManager.isValidLocalFavicon(dummyFile.absolutePath)).isTrue()
+        assertThat(FaviconManager.isValidLocalFavicon("file://${dummyFile.absolutePath}")).isTrue()
+        assertThat(FaviconManager.isValidLocalFavicon("/nonexistent/file.png")).isFalse()
+        assertThat(FaviconManager.isValidLocalFavicon("file:///android_asset/icons/google.svg")).isTrue()
+        assertThat(FaviconManager.isValidLocalFavicon("/android_asset/icons/google.svg")).isTrue()
+        assertThat(FaviconManager.isValidLocalFavicon("https://example.com/icon.png")).isFalse()
+        assertThat(FaviconManager.isValidLocalFavicon(null)).isFalse()
+        assertThat(FaviconManager.isValidLocalFavicon("")).isFalse()
+    }
 }
 

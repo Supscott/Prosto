@@ -1,6 +1,7 @@
 package com.jestk.browser.ui.viewmodel
 
 import android.content.Context
+import android.graphics.Bitmap
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -11,6 +12,7 @@ import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.SearchEngine
+import com.jestk.browser.engine.FaviconManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.sync.Mutex
@@ -55,6 +57,7 @@ class TabCoordinatorTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         val context = ApplicationProvider.getApplicationContext<Context>()
+        FaviconManager.init(context)
         db = AppDatabase.createInMemory(context)
         tabRepo = TabRepositoryImpl(db.tabDao(), testDispatcher)
         historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
@@ -81,6 +84,7 @@ class TabCoordinatorTest {
     @After
     @Throws(IOException::class)
     fun teardown() {
+        FaviconManager.deleteAllFavicons()
         Dispatchers.resetMain()
         db.close()
     }
@@ -277,5 +281,115 @@ class TabCoordinatorTest {
             // Tab A remains stopped
             assertThat(uiState.isLoading).isFalse()
             assertThat(uiState.loadingProgress).isEqualTo(1.0f)
+        }
+
+    @Test
+    fun navigateToUrl_whenCachedFaviconExists_prepopulatesFaviconImmediately() =
+        runTest(testDispatcher) {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)
+            val cachedPath = FaviconManager.cacheFaviconForDomain("github.com", bitmap, context)
+            assertThat(cachedPath).isNotNull()
+
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+
+            coordinator.navigateToUrl("https://github.com/torvalds/linux")
+            advanceUntilIdle()
+
+            val activeTab = uiState.tabs.find { it.id == activeTabId }
+            assertThat(activeTab?.faviconUrl).isEqualTo(cachedPath)
+            assertThat(tabRepo.getTabById(activeTabId)?.faviconUrl).isEqualTo(cachedPath)
+        }
+
+    @Test
+    fun navigateToUrl_whenUncachedAndCrossDomain_resetsFaviconToNull() =
+        runTest(testDispatcher) {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            coordinator.handleUpdateFavicon(activeTabId, "/dummy/old_favicon.png")
+            advanceUntilIdle()
+            assertThat(uiState.tabs.find { it.id == activeTabId }?.faviconUrl).isEqualTo("/dummy/old_favicon.png")
+
+            // Navigate to an uncached cross-domain URL
+            coordinator.navigateToUrl("https://uncached-site.org/home")
+            advanceUntilIdle()
+
+            val activeTab = uiState.tabs.find { it.id == activeTabId }
+            assertThat(activeTab?.faviconUrl).isNull()
+            assertThat(tabRepo.getTabById(activeTabId)?.faviconUrl).isNull()
+        }
+
+    @Test
+    fun handlePageStarted_whenCachedFaviconExists_setsFaviconFromCache() =
+        runTest(testDispatcher) {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)
+            val cachedPath = FaviconManager.cacheFaviconForDomain("kotlinlang.org", bitmap, context)
+            assertThat(cachedPath).isNotNull()
+
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            coordinator.handlePageStarted(activeTabId, "https://kotlinlang.org/docs/home.html")
+            advanceUntilIdle()
+
+            val activeTab = uiState.tabs.find { it.id == activeTabId }
+            assertThat(activeTab?.faviconUrl).isEqualTo(cachedPath)
+            assertThat(tabRepo.getTabById(activeTabId)?.faviconUrl).isEqualTo(cachedPath)
+        }
+
+    @Test
+    fun openNewTab_whenCachedFaviconExists_prepopulatesFaviconImmediately() =
+        runTest(testDispatcher) {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)
+            val cachedPath = FaviconManager.cacheFaviconForDomain("reddit.com", bitmap, context)
+            assertThat(cachedPath).isNotNull()
+
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            coordinator.openNewTab("https://reddit.com/r/android")
+            advanceUntilIdle()
+
+            val newTabId = uiState.activeTabId!!
+            val newTab = uiState.tabs.find { it.id == newTabId }
+            assertThat(newTab?.faviconUrl).isEqualTo(cachedPath)
+            assertThat(tabRepo.getTabById(newTabId)?.faviconUrl).isEqualTo(cachedPath)
+        }
+
+    @Test
+    fun handleUpdateFavicon_updatesRecentTabAndCachesDomainFavicon() =
+        runTest(testDispatcher) {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            FaviconManager.init(context)
+            val dummyFile = java.io.File(context.filesDir, "favicons/test_source.png").apply {
+                parentFile?.mkdirs()
+                writeBytes("png_data".toByteArray())
+            }
+
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            coordinator.navigateToUrl("https://news.ycombinator.com")
+            advanceUntilIdle()
+
+            coordinator.handleUpdateFavicon(activeTabId, dummyFile.absolutePath)
+            advanceUntilIdle()
+
+            val activeTab = uiState.tabs.find { it.id == activeTabId }
+            assertThat(activeTab?.faviconUrl).isEqualTo(dummyFile.absolutePath)
+
+            // Verify domain cache was populated
+            val cached = FaviconManager.getCachedFaviconForUrl("https://news.ycombinator.com/item?id=123")
+            assertThat(cached).isNotNull()
+            assertThat(java.io.File(cached!!).name).isEqualTo("domain_news.ycombinator.com.png")
         }
 }

@@ -149,7 +149,11 @@ fun JestkApp(
             if (wv.webChromeClient == null) {
                 val handleFavicon: (String, android.graphics.Bitmap) -> Unit = { id, icon ->
                     coroutineScope.launch {
-                        val path = FaviconManager.saveFavicon(context, id, icon)
+                        val currentTab = viewModel.uiState.value.tabs.find { it.id == id }
+                        val currentUrl = currentTab?.url?.takeIf { it.isNotBlank() }
+                            ?: (if (viewModel.uiState.value.activeTabId == id) viewModel.uiState.value.currentUrl.takeIf { it.isNotBlank() } else null)
+                            ?: wv.url?.takeIf { it.isNotBlank() }
+                        val path = FaviconManager.saveFavicon(context, id, icon, currentUrl)
                         if (path != null) {
                             viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
                         }

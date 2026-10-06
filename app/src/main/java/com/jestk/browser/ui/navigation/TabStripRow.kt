@@ -463,7 +463,10 @@ fun InactiveTabButton(
                     modifier = Modifier.size(18.dp)
                 )
             } else {
-                var isFaviconSuccess by remember(tab.faviconUrl) { mutableStateOf(false) }
+                val hasLocalFavicon = remember(tab.faviconUrl) {
+                    FaviconManager.isValidLocalFavicon(tab.faviconUrl)
+                }
+                var isFaviconSuccess by remember(tab.faviconUrl) { mutableStateOf(hasLocalFavicon) }
                 val imageModel = remember(tab.faviconUrl) {
                     FaviconManager.toImageModel(tab.faviconUrl)
                 }
