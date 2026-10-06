@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.splineBasedDecay
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -85,6 +87,56 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
+
+/**
+ * Calculations for scale, alpha, and indicator visibility of items in the search engine carousel.
+ * Provides smooth continuous interpolation during drag and fling gestures, smoothly settling
+ * to resting state when inactive.
+ */
+internal object SearchEngineCarouselInterpolation {
+    const val ACTIVE_SCALE = 1.15f
+    const val INACTIVE_SCALE = 1.0f
+    const val ACTIVE_ALPHA = 1.0f
+    const val INACTIVE_ALPHA = 0.45f
+
+    /**
+     * Calculates scale for an item at [slotIndex] given the continuous [centerSlotFloat].
+     * Interpolates smoothly from [ACTIVE_SCALE] (dist = 0) down to [INACTIVE_SCALE] (dist >= 1).
+     */
+    fun calculateScale(slotIndex: Int, centerSlotFloat: Float, scrollProgress: Float = 1f): Float {
+        val dist = abs(slotIndex - centerSlotFloat)
+        val focusFraction = (1f - dist).coerceIn(0f, 1f)
+        return INACTIVE_SCALE + (ACTIVE_SCALE - INACTIVE_SCALE) * focusFraction * scrollProgress
+    }
+
+    /**
+     * Calculates alpha for an item at [slotIndex] given the continuous [centerSlotFloat].
+     * During scroll, interpolates smoothly from [ACTIVE_ALPHA] (dist = 0) down to [INACTIVE_ALPHA] (dist >= 1).
+     * When resting (scrollProgress = 0), returns 1f for slot 0, and 0f for other slots.
+     */
+    fun calculateAlpha(slotIndex: Int, centerSlotFloat: Float, scrollProgress: Float = 1f): Float {
+        val dist = abs(slotIndex - centerSlotFloat)
+        val focusFraction = (1f - dist).coerceIn(0f, 1f)
+        val scrollAlpha = INACTIVE_ALPHA + (ACTIVE_ALPHA - INACTIVE_ALPHA) * focusFraction
+        return if (slotIndex == 0) {
+            1f - (1f - scrollAlpha) * scrollProgress
+        } else {
+            scrollAlpha * scrollProgress
+        }
+    }
+
+    /**
+     * Calculates the alpha for the active indicator (ring and dot) for an item at [slotIndex].
+     * The indicator is only visible for the item within 0.5 slots of center (dist < 0.5f),
+     * and fades out to 0f at dist >= 0.5f.
+     */
+    fun calculateIndicatorAlpha(slotIndex: Int, centerSlotFloat: Float, scrollProgress: Float = 1f): Float {
+        val dist = abs(slotIndex - centerSlotFloat)
+        if (dist >= 0.5f) return 0f
+        val focus = (1f - dist * 2f).coerceIn(0f, 1f)
+        return focus * scrollProgress
+    }
+}
 
 /**
  * State and gesture controller for the search engine logo carousel in SearchOverlay.
@@ -434,6 +486,8 @@ internal fun SearchEngineSelectorButton(
                 val baseIndex = list.indexOfFirst { it.id == carouselState.currentEngine.id }.let { if (it == -1) 0 else it }
                 val centerSlotFloat = -carouselState.animOffset.value / carouselState.itemSpacingPx
                 val centerSlotInt = centerSlotFloat.roundToInt()
+                val scrollProgress = if (carouselState.isScrolling) 1f else fadeAlpha
+                val accentColor = if (isDark) DarkPrimary else SereneBrandPrimary
 
                 for (k in (centerSlotInt - 3)..(centerSlotInt + 3)) {
                     key(k) {
@@ -441,14 +495,66 @@ internal fun SearchEngineSelectorButton(
                         val engine = list[engineIndex]
                         val xPos = k * carouselState.itemSpacingPx + carouselState.animOffset.value + restingShiftPx
 
-                        SearchEngineBadge(
-                            engine = engine,
-                            size = 26.dp,
-                            isDark = isDark,
-                            modifier = Modifier.graphicsLayer {
-                                translationX = xPos
-                            }
+                        val itemScale = SearchEngineCarouselInterpolation.calculateScale(
+                            slotIndex = k,
+                            centerSlotFloat = centerSlotFloat,
+                            scrollProgress = scrollProgress
                         )
+                        val itemAlpha = SearchEngineCarouselInterpolation.calculateAlpha(
+                            slotIndex = k,
+                            centerSlotFloat = centerSlotFloat,
+                            scrollProgress = scrollProgress
+                        )
+                        val indicatorAlpha = SearchEngineCarouselInterpolation.calculateIndicatorAlpha(
+                            slotIndex = k,
+                            centerSlotFloat = centerSlotFloat,
+                            scrollProgress = scrollProgress
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .graphicsLayer {
+                                    translationX = xPos
+                                    scaleX = itemScale
+                                    scaleY = itemScale
+                                    alpha = itemAlpha
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            // Serene Canvas active accent ring around badge
+                            if (indicatorAlpha > 0.01f) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .graphicsLayer { alpha = indicatorAlpha }
+                                        .border(
+                                            width = 1.5.dp,
+                                            color = accentColor,
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
+
+                            SearchEngineBadge(
+                                engine = engine,
+                                size = 26.dp,
+                                isDark = isDark
+                            )
+
+                            // Serene Canvas active accent indicator pill below badge
+                            if (indicatorAlpha > 0.01f) {
+                                Box(
+                                    modifier = Modifier
+                                        .offset(y = 18.dp)
+                                        .size(width = 8.dp, height = 3.dp)
+                                        .graphicsLayer { alpha = indicatorAlpha }
+                                        .background(
+                                            color = accentColor,
+                                            shape = CircleShape
+                                        )
+                                )
+                            }
+                        }
                     }
                 }
             }
