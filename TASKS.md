@@ -27,9 +27,9 @@
 
 - [ ] Track 4: `fix/favicon-cache` (Branch: `fix/favicon-cache`, Dir: `.worktrees/favicon-cache`)
   - Scope: Favicon persistence and instant dock loading (`FaviconManager.kt`, `TabCoordinator.kt`, `ActiveTabPill.kt`, `TabStripRow.kt`) - Domain-based persistent cache, instant lookup on navigation start without Google S2 leaks, eliminate flash of fallback letter glyph.
-  - [ ] Worktree provisioned
-  - [ ] Subagent dispatched
-  - [ ] Verification gate passed
+  - [x] Worktree provisioned
+  - [x] Subagent dispatched
+  - [x] Verification gate passed
   - [ ] Rebased on main & merged
 
 ## Finalization
