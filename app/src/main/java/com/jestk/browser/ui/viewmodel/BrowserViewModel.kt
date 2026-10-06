@@ -73,7 +73,7 @@ class BrowserViewModel(
         ioDispatcher = ioDispatcher,
     )
 
-    private val tabCoordinator = TabCoordinator(
+    internal val tabCoordinator = TabCoordinator(
         tabRepository = tabRepository,
         recentTabRepository = recentTabRepository,
         favoriteRepository = favoriteRepository,
@@ -319,7 +319,7 @@ class BrowserViewModel(
 
             is BrowserUiEvent.StopLoading -> {
                 _navigationCommands.tryEmit(NavigationCommand.StopLoading)
-                _uiState.update { it.copy(isLoading = false) }
+                tabCoordinator.handleStopLoading()
             }
 
             is BrowserUiEvent.SwitchSearchEngineForQuery -> {

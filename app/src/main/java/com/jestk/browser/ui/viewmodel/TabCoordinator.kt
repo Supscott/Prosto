@@ -57,6 +57,7 @@ internal class TabCoordinator(
     private val emitNavigation: (NavigationCommand) -> Unit,
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher,
+    internal val tabLoadingProgress: MutableMap<String, Int> = ConcurrentHashMap(),
 ) {
     suspend fun restoreSession(
         initialSettings: BrowserSettings,
@@ -81,12 +82,17 @@ internal class TabCoordinator(
                 webViewPool?.onTabActivated(currentActiveTab.id, false)
                 val hasWebUrl = currentActiveTab.url.isNotEmpty() && currentActiveTab.url != "about:blank"
                 val initialThemeColor = if (hasWebUrl) (tabThemeColors[currentActiveTab.id] ?: currentActiveTab.themeColor) else null
+                if (hasWebUrl) {
+                    tabLoadingProgress[currentActiveTab.id] = 15
+                }
                 updateUiState { state ->
                     state.copy(
                         settings = effectiveSettings,
                         searchEngines = currentEngines,
                         activeThemeColor = initialThemeColor ?: state.activeThemeColor,
                         activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME,
+                        isLoading = if (hasWebUrl) true else state.isLoading,
+                        loadingProgress = if (hasWebUrl) 0.15f else state.loadingProgress,
                     )
                 }
                 return@withLock
@@ -116,6 +122,11 @@ internal class TabCoordinator(
             webViewPool?.onTabActivated(activeTab.id, false)
             val hasWebUrl = activeTab.url.isNotEmpty() && activeTab.url != "about:blank"
             val initialThemeColor = if (hasWebUrl) (tabThemeColors[activeTab.id] ?: activeTab.themeColor) else null
+            if (hasWebUrl) {
+                tabLoadingProgress[activeTab.id] = 15
+            } else {
+                tabLoadingProgress[activeTab.id] = 100
+            }
 
             updateUiState { state ->
                 state.copy(
@@ -222,6 +233,7 @@ internal class TabCoordinator(
                     }
                 val currentTabs = baseTabs.map { it.copy(isActive = false) }
                 val updatedTabs = (currentTabs + created.copy(isActive = true)).distinctBy { it.id }
+                tabLoadingProgress[created.id] = 100
                 updateUiState {
                     it.copy(
                         tabs = updatedTabs,
@@ -229,6 +241,7 @@ internal class TabCoordinator(
                         currentUrl = "",
                         pageTitle = "Search",
                         isLoading = false,
+                        loadingProgress = 0f,
                         activeThemeColor = null,
                         activeOverlay = OverlayType.SEARCH,
                         searchQuery = "",
@@ -258,13 +271,20 @@ internal class TabCoordinator(
                 val currentTabs = baseTabs.map { it.copy(isActive = false) }
                 val updatedTabs = (currentTabs + created.copy(isActive = true)).distinctBy { it.id }
                 val isHome = url.isEmpty() || url == "about:blank"
+                val isWebLoading = !isHome && url.isNotEmpty()
+                if (isWebLoading) {
+                    tabLoadingProgress[created.id] = 15
+                } else {
+                    tabLoadingProgress[created.id] = 100
+                }
                 updateUiState {
                     it.copy(
                         tabs = updatedTabs,
                         activeTabId = created.id,
                         currentUrl = url,
                         pageTitle = title,
-                        isLoading = url.isNotEmpty(),
+                        isLoading = isWebLoading,
+                        loadingProgress = if (isWebLoading) 0.15f else 0f,
                         activeThemeColor = null,
                         isMenuExpanded = false,
                         activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
@@ -326,6 +346,13 @@ internal class TabCoordinator(
         if (selected != null) {
             val isHome = selected.url.isEmpty() || selected.url == "about:blank"
             val cachedColor = tabThemeColors[tabId] ?: selected.themeColor
+            val progress = tabLoadingProgress[tabId]
+            val isTabLoading = progress != null && progress < 100
+            val tabProgress = when {
+                isTabLoading -> (progress!! / 100f).coerceIn(0f, 1f)
+                isHome -> 0f
+                else -> 1.0f
+            }
             updateUiState { state ->
                 val updatedTabs =
                     state.tabs.map { t ->
@@ -337,6 +364,8 @@ internal class TabCoordinator(
                     activeTabId = tabId,
                     currentUrl = selected.url,
                     pageTitle = selected.title,
+                    isLoading = isTabLoading,
+                    loadingProgress = tabProgress,
                     canGoBack = selected.canGoBack,
                     canGoForward = selected.canGoForward,
                     activeThemeColor = if (isHome) null else cachedColor,
@@ -355,6 +384,7 @@ internal class TabCoordinator(
 
     fun closeTab(tabId: String) {
         tabThemeColors.remove(tabId)
+        tabLoadingProgress.remove(tabId)
         webViewPool?.removeWebView(tabId)
         val closingTab = getCurrentState().tabs.find { it.id == tabId }
         scope.launch(ioDispatcher) {
@@ -371,12 +401,15 @@ internal class TabCoordinator(
                     val newTab = tabRepository.createTab(url = "", title = "Home")
                     tabRepository.setActiveTab(newTab.id)
                     webViewPool?.onTabActivated(newTab.id, false)
+                    tabLoadingProgress[newTab.id] = 100
                     updateUiState {
                         it.copy(
                             tabs = listOf(newTab.copy(isActive = true)),
                             activeTabId = newTab.id,
                             currentUrl = "",
                             pageTitle = "Home",
+                            isLoading = false,
+                            loadingProgress = 0f,
                             activeThemeColor = null,
                             activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
                             recentlyClosedTab = tabToSave,
@@ -396,6 +429,13 @@ internal class TabCoordinator(
                     val nextColor = tabThemeColors[nextActive.id] ?: nextActive.themeColor
                     tabRepository.setActiveTab(nextActive.id)
                     webViewPool?.onTabActivated(nextActive.id, false)
+                    val nextProgress = tabLoadingProgress[nextActive.id]
+                    val isNextLoading = nextProgress != null && nextProgress < 100
+                    val nextLoadingProgress = when {
+                        isNextLoading -> (nextProgress!! / 100f).coerceIn(0f, 1f)
+                        isNextHome -> 0f
+                        else -> 1.0f
+                    }
                     updateUiState {
                         it.copy(
                             tabs = remainingTabs.map { t -> t.copy(isActive = t.id == nextActive.id) },
@@ -404,6 +444,8 @@ internal class TabCoordinator(
                             pageTitle = nextActive.title,
                             canGoBack = nextActive.canGoBack,
                             canGoForward = nextActive.canGoForward,
+                            isLoading = isNextLoading,
+                            loadingProgress = nextLoadingProgress,
                             activeThemeColor = if (isNextHome) null else nextColor,
                             activeOverlay =
                                 if (it.activeOverlay == OverlayType.TAB_GRID) {
@@ -455,6 +497,12 @@ internal class TabCoordinator(
                         .distinctBy { it.id }
 
                 val isHome = restoredTab.url.isEmpty() || restoredTab.url == "about:blank"
+                val isWebLoading = !isHome && restoredTab.url.isNotEmpty()
+                if (isWebLoading) {
+                    tabLoadingProgress[created.id] = 15
+                } else {
+                    tabLoadingProgress[created.id] = 100
+                }
                 val themeColor = if (isHome) null else (tabThemeColors[created.id] ?: restoredTab.themeColor)
 
                 updateUiState { state ->
@@ -465,6 +513,8 @@ internal class TabCoordinator(
                         pageTitle = restoredTab.title,
                         canGoBack = restoredTab.canGoBack,
                         canGoForward = restoredTab.canGoForward,
+                        isLoading = isWebLoading,
+                        loadingProgress = if (isWebLoading) 0.15f else 0f,
                         activeThemeColor = themeColor,
                         recentlyClosedTab = null,
                         showUndoTabCloseSnackbar = false,
@@ -488,6 +538,7 @@ internal class TabCoordinator(
 
     fun closeAllTabs() {
         tabThemeColors.clear()
+        tabLoadingProgress.clear()
         webViewPool?.clearAll()
         scope.launch(ioDispatcher) {
             SnapshotEngine.deleteAllSnapshots()
@@ -497,12 +548,15 @@ internal class TabCoordinator(
                 val newTab = tabRepository.createTab(url = "", title = "Home")
                 tabRepository.setActiveTab(newTab.id)
                 webViewPool?.onTabActivated(newTab.id, false)
+                tabLoadingProgress[newTab.id] = 100
                 updateUiState {
                     it.copy(
                         tabs = listOf(newTab.copy(isActive = true)),
                         activeTabId = newTab.id,
                         currentUrl = "",
                         pageTitle = "Home",
+                        isLoading = false,
+                        loadingProgress = 0f,
                         activeThemeColor = null,
                         activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
                     )
@@ -533,6 +587,7 @@ internal class TabCoordinator(
         val activeId = getCurrentState().activeTabId ?: return
         webViewPool?.onTabActivated(activeId, false)
         if (finalUrl.isEmpty()) {
+            tabLoadingProgress[activeId] = 100
             updateUiState {
                 val updatedTabs =
                     it.tabs.map { tab ->
@@ -543,6 +598,7 @@ internal class TabCoordinator(
                     currentUrl = "",
                     pageTitle = "Home",
                     isLoading = false,
+                    loadingProgress = 0f,
                     isMenuExpanded = false,
                     activeOverlay = OverlayType.HOME,
                 )
@@ -558,6 +614,7 @@ internal class TabCoordinator(
         val sameDomain = currentTab != null && isSameDomain(currentTab.url, finalUrl)
         val newFavicon = if (sameDomain) currentTab?.faviconUrl else null
 
+        tabLoadingProgress[activeId] = 10
         updateUiState {
             val updatedTabs =
                 it.tabs.map { tab ->
@@ -586,6 +643,7 @@ internal class TabCoordinator(
 
     fun handlePageStarted(tabId: String, url: String) {
         if (url.isEmpty() || url == "about:blank") return
+        tabLoadingProgress[tabId] = 15
         val currentTab = getCurrentState().tabs.find { it.id == tabId }
         val sameDomain = currentTab != null && isSameDomain(currentTab.url, url)
         val newFavicon = if (sameDomain) currentTab?.faviconUrl else null
@@ -615,12 +673,13 @@ internal class TabCoordinator(
 
     fun handlePageFinished(tabId: String, url: String, title: String) {
         if (url.isEmpty() || url == "about:blank") return
+        tabLoadingProgress[tabId] = 100
         val displayTitle = title.ifEmpty { url }
-        if (getCurrentState().activeTabId == tabId) {
-            updateUiState { state ->
-                val updatedTabs = state.tabs.map { tab ->
-                    if (tab.id == tabId) tab.copy(url = url, title = displayTitle) else tab
-                }
+        updateUiState { state ->
+            val updatedTabs = state.tabs.map { tab ->
+                if (tab.id == tabId) tab.copy(url = url, title = displayTitle) else tab
+            }
+            if (state.activeTabId == tabId) {
                 state.copy(
                     tabs = updatedTabs,
                     currentUrl = url,
@@ -628,6 +687,8 @@ internal class TabCoordinator(
                     isLoading = false,
                     loadingProgress = 1.0f,
                 )
+            } else {
+                state.copy(tabs = updatedTabs)
             }
         }
         scope.launch(ioDispatcher) {
@@ -652,6 +713,7 @@ internal class TabCoordinator(
     }
 
     fun handleProgressChanged(tabId: String, progress: Int) {
+        tabLoadingProgress[tabId] = progress
         if (getCurrentState().activeTabId == tabId) {
             updateUiState {
                 it.copy(
@@ -659,6 +721,14 @@ internal class TabCoordinator(
                     isLoading = progress < 100,
                 )
             }
+        }
+    }
+
+    fun handleStopLoading(tabId: String? = null) {
+        val targetId = tabId ?: getCurrentState().activeTabId ?: return
+        tabLoadingProgress[targetId] = 100
+        if (getCurrentState().activeTabId == targetId) {
+            updateUiState { it.copy(isLoading = false) }
         }
     }
 

@@ -1881,5 +1881,179 @@ class BrowserViewModelTest {
         assertThat(viewModel.uiState.value.blockedAdsCount).isEqualTo(5L)
         assertThat(viewModel.uiState.value.blockedTrackersCount).isEqualTo(3L)
     }
+
+    @Test
+    fun tabSwitching_whenTabAIsLoadingAndSwitchToTabB_isLoadingBecomesFalseImmediately() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            // Open Tab A
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://tab-a.com"))
+            advanceUntilIdle()
+            val tabAId = viewModel.uiState.value.activeTabId!!
+
+            // Tab A begins loading
+            viewModel.onEvent(BrowserUiEvent.OnPageStarted(tabAId, "https://tab-a.com"))
+            viewModel.onEvent(BrowserUiEvent.OnProgressChanged(tabAId, 45))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isLoading).isTrue()
+            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(0.45f)
+
+            // Open Tab B and complete its loading
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://tab-b.com"))
+            advanceUntilIdle()
+            val tabBId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.OnPageStarted(tabBId, "https://tab-b.com"))
+            viewModel.onEvent(BrowserUiEvent.OnProgressChanged(tabBId, 100))
+            viewModel.onEvent(BrowserUiEvent.OnPageFinished(tabBId, "https://tab-b.com", "Tab B"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isLoading).isFalse()
+            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(1.0f)
+
+            // Make Tab A active and verify it was loading
+            viewModel.onEvent(BrowserUiEvent.SelectTab(tabAId))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isLoading).isTrue()
+            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(0.45f)
+
+            // Switch to Tab B (loaded): isLoading becomes false immediately without leaking Tab A's progress
+            viewModel.onEvent(BrowserUiEvent.SelectTab(tabBId))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tabBId)
+            assertThat(viewModel.uiState.value.isLoading).isFalse()
+            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(1.0f)
+        }
+
+    @Test
+    fun backgroundTabCompletion_updatesProgressAndSwitchingBackShowsNotLoading() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://tab-a.com"))
+            advanceUntilIdle()
+            val tabAId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.OnPageStarted(tabAId, "https://tab-a.com"))
+            viewModel.onEvent(BrowserUiEvent.OnProgressChanged(tabAId, 30))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://tab-b.com"))
+            advanceUntilIdle()
+            val tabBId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.OnPageFinished(tabBId, "https://tab-b.com", "Tab B"))
+            advanceUntilIdle()
+
+            // Verify Tab A is still tracked as loading at 30
+            assertThat(viewModel.tabCoordinator.tabLoadingProgress[tabAId]).isEqualTo(30)
+            assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tabBId)
+            assertThat(viewModel.uiState.value.isLoading).isFalse()
+
+            // Tab A finishes in background while Tab B is active
+            viewModel.onEvent(BrowserUiEvent.OnProgressChanged(tabAId, 100))
+            viewModel.onEvent(BrowserUiEvent.OnPageFinished(tabAId, "https://tab-a.com", "Tab A"))
+            advanceUntilIdle()
+
+            // Verify Tab A's progress in tabLoadingProgress is updated to 100
+            assertThat(viewModel.tabCoordinator.tabLoadingProgress[tabAId]).isEqualTo(100)
+            // Active tab (Tab B) state remains unchanged
+            assertThat(viewModel.uiState.value.isLoading).isFalse()
+            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(1.0f)
+
+            // Switch back to Tab A: shows isLoading = false
+            viewModel.onEvent(BrowserUiEvent.SelectTab(tabAId))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tabAId)
+            assertThat(viewModel.uiState.value.isLoading).isFalse()
+            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(1.0f)
+        }
+
+    @Test
+    fun switchingBackToTabA_whileStillLoading_restoresLoadingState() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://tab-a.com"))
+            advanceUntilIdle()
+            val tabAId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.OnPageStarted(tabAId, "https://tab-a.com"))
+            viewModel.onEvent(BrowserUiEvent.OnProgressChanged(tabAId, 60))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://tab-b.com"))
+            advanceUntilIdle()
+            val tabBId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.OnPageFinished(tabBId, "https://tab-b.com", "Tab B"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isLoading).isFalse()
+
+            // While Tab B is active, Tab A's progress advances to 80 in background
+            viewModel.onEvent(BrowserUiEvent.OnProgressChanged(tabAId, 80))
+            advanceUntilIdle()
+            assertThat(viewModel.tabCoordinator.tabLoadingProgress[tabAId]).isEqualTo(80)
+
+            // Switch back to Tab A: correctly restores Tab A's loading state at 80%
+            viewModel.onEvent(BrowserUiEvent.SelectTab(tabAId))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tabAId)
+            assertThat(viewModel.uiState.value.isLoading).isTrue()
+            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(0.80f)
+        }
+
+    @Test
+    fun closeTab_cleansUpTabLoadingProgress() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://tab-a.com"))
+            advanceUntilIdle()
+            val tabAId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.OnPageStarted(tabAId, "https://tab-a.com"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.tabCoordinator.tabLoadingProgress).containsKey(tabAId)
+
+            viewModel.onEvent(BrowserUiEvent.CloseTab(tabAId))
+            advanceUntilIdle()
+
+            assertThat(viewModel.tabCoordinator.tabLoadingProgress).doesNotContainKey(tabAId)
+        }
+
+    @Test
+    fun stopLoading_updatesTabLoadingProgressAndState() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://tab-a.com"))
+            advanceUntilIdle()
+            val tabAId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.OnPageStarted(tabAId, "https://tab-a.com"))
+            viewModel.onEvent(BrowserUiEvent.OnProgressChanged(tabAId, 40))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isLoading).isTrue()
+
+            viewModel.onEvent(BrowserUiEvent.StopLoading)
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isLoading).isFalse()
+            assertThat(viewModel.tabCoordinator.tabLoadingProgress[tabAId]).isEqualTo(100)
+
+            // Open Tab B and switch back to Tab A
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://tab-b.com"))
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.SelectTab(tabAId))
+            advanceUntilIdle()
+
+            // Tab A remains stopped (not loading)
+            assertThat(viewModel.uiState.value.isLoading).isFalse()
+        }
 }
+
 

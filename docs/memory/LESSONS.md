@@ -106,6 +106,14 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
 - **Root Cause:** Functions used default arguments like `list: List<SearchEngine> = currentList`. Kotlin evaluates default argument expressions at the call site *before* entering the function body. When `finishPendingDropImmediately()` mutated `currentList` inside `onDragStart`, the parameter was already bound to the pre-drop list.
 - **Resolution & Prevention:** Never use mutable state properties as default parameters (`arg = mutableState`) when the function itself mutates that state. Use `arg: Type? = null` and resolve it inside the body (`val effective = arg ?: mutableState`) *after* prerequisite mutations run.
 
+### Global web loading progress leakage across tabs
+- **Symptom:** Opening a website on Tab A and switching to loaded Tab B before Tab A finishes loading causes Tab A's loading progress bar to appear stuck on Tab B. It never disappears until switching back to Tab A and waiting for it to finish.
+- **Root Cause:**
+  1. `isLoading` and `loadingProgress` in `BrowserUiState` represent the active tab, but `TabCoordinator` did not track loading states per tab.
+  2. `selectTab(tabId)` did not update `isLoading` or `loadingProgress`, copying whatever values were left by the previous active tab.
+  3. `handleProgressChanged` and `handlePageFinished` ignored events when `activeTabId != tabId`, so background tabs never updated their loading state.
+- **Resolution & Prevention:** Track per-tab loading progress in `TabCoordinator` using a thread-safe map (`tabLoadingProgress: MutableMap<String, Int>`). Record all progress and page finished events into the map regardless of whether the tab is currently active. In `selectTab(tabId)`, query `tabLoadingProgress[tabId]` and immediately project the active tab's progress into `BrowserUiState.isLoading` and `loadingProgress`. Remove map entries in `closeTab(tabId)` and clear them in `closeAllTabs()`.
+
 ---
 
 ## 6. In-App Downloads & Background Processing

@@ -145,4 +145,9 @@ com.jestk.browser/
   - Maintains `zIndex = 10f` during the spring settling phase so the landing tab floats neatly over adjacent tabs until rest.
   - Cleanly handles interruptions when a new drag gesture starts while an existing drop spring is in progress.
   - Full logic and visual test suite coverage in `TabStripDragSpringTest` and `DockRefinementsTest`.
+- **Tab Loading State Isolation:**
+  - Implemented thread-safe per-tab loading tracking in `TabCoordinator` via `tabLoadingProgress: MutableMap<String, Int>`.
+  - Fixed cross-tab progress leakage when switching from a loading tab to a loaded tab.
+  - Recorded progress and page finished events for background tabs, allowing seamless state restoration when returning to background tabs.
+  - Added `TabCoordinatorTest` and `BrowserViewModelTest` unit test suites covering background tab progress tracking and tab switching isolation.
 

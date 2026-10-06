@@ -21,7 +21,7 @@ data class BrowserUiState(
     // Active Viewport / Overlay
     val activeOverlay: OverlayType = OverlayType.NONE,
     val activeScreen: ScreenType = ScreenType.NONE,
-    // Web Navigation & Progress (for active tab)
+    // Web Navigation & Progress (for active tab; isolated per tab by TabCoordinator)
     val currentUrl: String = "",
     val pageTitle: String = "",
     val isLoading: Boolean = false,
