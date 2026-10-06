@@ -10,7 +10,7 @@
 
 ## Wave 3 (Sequential Polish Tracks)
 
-- [ ] Track 5: `fix/dock-spring-teleport` (Branch: `fix/dock-spring-teleport`, Dir: `.worktrees/dock-spring-teleport`)
+- [x] Track 5: `fix/dock-spring-teleport` (Branch: `fix/dock-spring-teleport`, Dir: `.worktrees/dock-spring-teleport`)
   - Scope: Tab Drag Spring Animation & Teleport Elimination (`TabStripRow.kt`, `ActiveTabPill.kt`)
     - Disable `LazyRow` scroll during drag/settle (`userScrollEnabled = !dragState.isDragging && !dragState.isSettling`).
     - Handle pointer input on `PointerEventPass.Initial`, preventing premature gesture cancellation by parent scroll.
@@ -20,9 +20,9 @@
   - [x] Worktree provisioned
   - [x] Subagent dispatched
   - [x] Verification gate passed
-  - [ ] Rebased on main & merged
+  - [x] Rebased on main & merged
 
-- [ ] Track 6: `fix/tab-title-url-sync` (Branch: `fix/tab-title-url-sync`, Dir: `.worktrees/tab-title-url-sync`)
+- [x] Track 6: `fix/tab-title-url-sync` (Branch: `fix/tab-title-url-sync`, Dir: `.worktrees/tab-title-url-sync`)
   - Scope: Stale Title & URL Fix (`JestkWebViewClient.kt`, `JestkWebChromeClient.kt`, `JestkApp.kt`, `WebViewContainer.kt`, `BrowserUiEvent.kt`, `BrowserViewModel.kt`, `TabCoordinator.kt`)
     - Wire `WebChromeClient.onReceivedTitle` to `BrowserUiEvent.OnTitleReceived` and `TabCoordinator.handleTitleReceived`.
     - Implement `doUpdateVisitedHistory` in `JestkWebViewClient` for redirects, pushState, and SPA navigation.
@@ -32,12 +32,12 @@
   - [x] Worktree provisioned
   - [x] Subagent dispatched
   - [x] Verification gate passed
-  - [ ] Rebased on main & merged
+  - [x] Rebased on main & merged
 
 ## Finalization
-- [ ] All feature branches merged sequentially into `main`
-- [ ] Full unit & UI test suite verified (`./gradlew testDebugUnitTest`)
-- [ ] Worktrees cleaned up & pruned
-- [ ] `docs/memory/MEMORY.md` updated
-- [ ] `docs/memory/LESSONS.md` updated
-- [ ] User summary delivered
+- [x] All feature branches merged sequentially into `main`
+- [x] Full unit & UI test suite verified (`./gradlew testDebugUnitTest`)
+- [x] Worktrees cleaned up & pruned
+- [x] `docs/memory/MEMORY.md` updated
+- [x] `docs/memory/LESSONS.md` updated
+- [x] User summary delivered
