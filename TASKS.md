@@ -25,17 +25,17 @@
 
 ## Wave 2 (Sequential / Coupled Track)
 
-- [ ] Track 4: `fix/favicon-cache` (Branch: `fix/favicon-cache`, Dir: `.worktrees/favicon-cache`)
+- [x] Track 4: `fix/favicon-cache` (Branch: `fix/favicon-cache`, Dir: `.worktrees/favicon-cache`)
   - Scope: Favicon persistence and instant dock loading (`FaviconManager.kt`, `TabCoordinator.kt`, `ActiveTabPill.kt`, `TabStripRow.kt`) - Domain-based persistent cache, instant lookup on navigation start without Google S2 leaks, eliminate flash of fallback letter glyph.
   - [x] Worktree provisioned
   - [x] Subagent dispatched
   - [x] Verification gate passed
-  - [ ] Rebased on main & merged
+  - [x] Rebased on main & merged
 
 ## Finalization
-- [ ] All feature branches merged sequentially into `main`
-- [ ] Full unit & UI test suite verified (`./gradlew testDebugUnitTest`)
-- [ ] Worktrees cleaned up & pruned
-- [ ] `docs/memory/MEMORY.md` updated
-- [ ] `docs/memory/LESSONS.md` updated
-- [ ] User summary delivered
+- [x] All feature branches merged sequentially into `main`
+- [x] Full unit & UI test suite verified (`./gradlew testDebugUnitTest`)
+- [x] Worktrees cleaned up & pruned
+- [x] `docs/memory/MEMORY.md` updated
+- [x] `docs/memory/LESSONS.md` updated
+- [x] User summary delivered

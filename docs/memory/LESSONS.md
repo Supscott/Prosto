@@ -30,10 +30,16 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
   2. Invalidate Coil caches by writing timestamped file paths (`favicon_${tabId}_${timestamp}.png`) and deleting older files for that tab.
   3. Reset `faviconUrl` to `null` on cross-domain navigation (`isSameDomain(oldUrl, newUrl) == false`), but retain it during intra-domain navigation.
 
-### Converting Android asset `file://` URLs to `java.io.File` breaks Coil `AssetUriFetcher`
-- **Symptom:** Built-in search engines using `file:///android_asset/icons/...` fail to display SVG favicons, falling back to initial letter glyphs.
-- **Root Cause:** Stripping `"file://"` into `java.io.File("/android_asset/...")` routes to Coil's `FileFetcher`. APK assets are packaged inside the APK archive, not on the Linux root filesystem, throwing `FileNotFoundException`.
-- **Resolution & Prevention:** In `FaviconManager.toImageModel`, intercept `file:///android_asset/` and `/android_asset/` and return `android.net.Uri.parse(...)` so Coil routes through `AssetUriFetcher` to `context.assets.open(...)`. Also set `.crossfade(false)` on small badge icons to avoid transparent initial frames.
+### Lack of persistent domain favicon cache causing navigation delay and fallback glyph flash
+- **Symptom:** Opening a tab or navigating to a previously visited website caused the floating dock to show a fallback letter or lock glyph for several seconds, or momentarily flash the letter glyph before loading the favicon.
+- **Root Cause:**
+  1. Favicons were only stored per-tab (`favicon_${tabId}_${timestamp}.png`). On cross-domain navigation, `TabCoordinator` cleared `faviconUrl = null`, discarding icons even for sites visited hundreds of times.
+  2. Floating dock composables (`ActiveTabPill`, `TabStripRow`) initialized `var isFaviconSuccess by remember(faviconUrl) { mutableStateOf(false) }`, causing an artificial 1-frame flash of the initial letter glyph even when an icon file already existed locally on disk.
+- **Resolution & Prevention:**
+  1. Maintain a persistent domain favicon cache in `FaviconManager` (`favicons/domain_<sanitized_host>.png`) indexed in memory (`ConcurrentHashMap`).
+  2. On navigation, tab opening, and page start, check `FaviconManager.getCachedFaviconForUrl(url)` and immediately pre-populate `tab.faviconUrl` with 0ms delay.
+  3. Initialize `isFaviconSuccess` with `FaviconManager.isValidLocalFavicon(faviconUrl)` so cached local icons render immediately without flashing fallback initial glyphs.
+  4. Ensure zero third-party network calls are made (privacy compliant).
 
 ---
 

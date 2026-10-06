@@ -139,6 +139,11 @@ com.jestk.browser/
   - Designed tactile Serene Canvas `PrivacyProtectionCard` on `HomeScreen` (positioned directly beneath `HeroSearchCapsule`) with solid card surfaces, subtle elevation, and dual stat chips ("Ads Blocked", "Trackers Stopped").
   - Cleaned up non-functional "ACCOUNT" sync stub in `SettingsScreen`.
   - Added deterministic tie-breaking secondary ordering (`h.id DESC`) to `HistoryDao` queries to eliminate sub-millisecond timestamp tie ambiguities.
+- **Search Engine Selector Dynamic Active Highlight & Scrolling Dimming:**
+  - Implemented `SearchEngineCarouselInterpolation` in `SearchEngineCarousel.kt` for smooth focus transitions during carousel scroll.
+  - Active center provider dynamically scales to `1.15f` with full `1.0f` opacity and a tactile Serene Canvas accent ring + indicator pill dot.
+  - Adjacent non-selected providers in the expanded 160dp row smoothly dim to `0.45f` alpha and scale down to `1.0f`.
+  - Added dedicated unit and visual Robolectric tests in `SearchEngineCarouselTest` verifying scale, opacity, and indicator distance thresholds.
 - **Floating Dock Drag & Drop Tactile Spring Release:**
   - Implemented `TabStripDragState` with Compose `Animatable` spring physics (`Spring.StiffnessMedium`, `Spring.DampingRatioLowBouncy`).
   - Added spatial `visibilityThreshold = 0.5f` on horizontal translation spring to prevent lingering subpixel oscillation tails.
