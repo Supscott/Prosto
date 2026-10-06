@@ -17,9 +17,9 @@
     - Add `Modifier.animateItem()` to `LazyRow` items for fluid physics-based placement of neighbor tabs.
     - Accurate width-based swap thresholds (148dp active pill vs 38dp circle).
     - Snappy spring drop settlement without teleporting.
-  - [ ] Worktree provisioned
-  - [ ] Subagent dispatched
-  - [ ] Verification gate passed
+  - [x] Worktree provisioned
+  - [x] Subagent dispatched
+  - [x] Verification gate passed
   - [ ] Rebased on main & merged
 
 - [ ] Track 6: `fix/tab-title-url-sync` (Branch: `fix/tab-title-url-sync`, Dir: `.worktrees/tab-title-url-sync`)
