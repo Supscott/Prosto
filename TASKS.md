@@ -29,9 +29,9 @@
     - Reset lingering previous titles to "Loading..." / clean host in `handlePageStarted`.
     - Fix `TabCoordinator.observeDatabaseFlows()` to prioritize `state.activeTabId` over stale Room flags.
     - Sync live WebView URL/title on `selectTab`.
-  - [ ] Worktree provisioned
-  - [ ] Subagent dispatched
-  - [ ] Verification gate passed
+  - [x] Worktree provisioned
+  - [x] Subagent dispatched
+  - [x] Verification gate passed
   - [ ] Rebased on main & merged
 
 ## Finalization
