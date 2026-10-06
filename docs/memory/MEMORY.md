@@ -138,4 +138,11 @@ com.jestk.browser/
   - Designed tactile Serene Canvas `PrivacyProtectionCard` on `HomeScreen` (positioned directly beneath `HeroSearchCapsule`) with solid card surfaces, subtle elevation, and dual stat chips ("Ads Blocked", "Trackers Stopped").
   - Cleaned up non-functional "ACCOUNT" sync stub in `SettingsScreen`.
   - Added deterministic tie-breaking secondary ordering (`h.id DESC`) to `HistoryDao` queries to eliminate sub-millisecond timestamp tie ambiguities.
+- **Floating Dock Drag & Drop Tactile Spring Release:**
+  - Implemented `TabStripDragState` with Compose `Animatable` spring physics (`Spring.StiffnessMedium`, `Spring.DampingRatioLowBouncy`).
+  - Added spatial `visibilityThreshold = 0.5f` on horizontal translation spring to prevent lingering subpixel oscillation tails.
+  - Smoothly settles released tab `translationX` back to 0f and `scale` from lifted (1.05f active / 1.08f inactive) back to 1.0f.
+  - Maintains `zIndex = 10f` during the spring settling phase so the landing tab floats neatly over adjacent tabs until rest.
+  - Cleanly handles interruptions when a new drag gesture starts while an existing drop spring is in progress.
+  - Full logic and visual test suite coverage in `TabStripDragSpringTest` and `DockRefinementsTest`.
 

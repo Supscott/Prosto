@@ -179,12 +179,13 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
   private val testFrameClock = object : MonotonicFrameClock {
       private var time = 0L
       override suspend fun <R> withFrameNanos(onFrame: (Long) -> R): R {
+          kotlinx.coroutines.delay(16)
           time += 16_000_000L
           return onFrame(time)
       }
   }
   ```
-  Pass `testFrameClock` to `runTest(testFrameClock) { ... }`.
+  Pass `testFrameClock` to `runTest(testFrameClock) { ... }`. When asserting intermediate frame progression or interruption with `testScheduler.advanceTimeBy()`, include `delay(16)` so the test scheduler paces frame progression across virtual time rather than running all frames synchronously in a tight loop.
 
 ### Robolectric `ShadowApplication` service intent queue is FIFO and retains earlier intents
 - **Symptom:** Asserting secondary actions (e.g. `cancelDownload`) fails with `expected: CANCEL_DOWNLOAD but was: START_DOWNLOAD`.

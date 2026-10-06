@@ -2,6 +2,9 @@ package com.jestk.browser.ui.navigation
 
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -46,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -84,6 +88,10 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
 import java.net.URI
 import java.util.Collections
 import kotlin.math.abs
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 
 /**
  * Horizontal scrollable strip of tabs (`LazyRow`).
@@ -146,71 +154,34 @@ fun TabStripRow(
             tabs.distinctBy { it.id }
         }
 
-        var currentTabs by remember(displayTabs) { mutableStateOf(displayTabs) }
-        var draggingTabId by remember { mutableStateOf<String?>(null) }
-        var dragOffsetPx by remember { mutableFloatStateOf(0f) }
-        var isDragging by remember { mutableStateOf(false) }
+        val coroutineScope = rememberCoroutineScope()
+        val dragState = rememberTabStripDragState(
+            initialTabs = displayTabs,
+            onReorder = { reordered -> onEvent(BrowserUiEvent.ReorderTabs(reordered)) },
+            coroutineScope = coroutineScope
+        )
 
-        val activeIndex = remember(currentTabs, uiState.activeTabId, uiState.activeTabIndex) {
-            val idx = currentTabs.indexOfFirst { it.id == uiState.activeTabId }
-            if (idx >= 0) idx else if (currentTabs.isNotEmpty()) uiState.activeTabIndex.coerceIn(0, currentTabs.lastIndex) else 0
+        LaunchedEffect(displayTabs) {
+            dragState.updateTabs(displayTabs)
+        }
+
+        val activeIndex = remember(dragState.currentTabs, uiState.activeTabId, uiState.activeTabIndex) {
+            val idx = dragState.currentTabs.indexOfFirst { it.id == uiState.activeTabId }
+            if (idx >= 0) idx else if (dragState.currentTabs.isNotEmpty()) uiState.activeTabIndex.coerceIn(0, dragState.currentTabs.lastIndex) else 0
         }
 
         val activeTabWidthPx = with(density) { activeTabWidth.toPx() }
         val totalChipWidthPx = with(density) { totalChipWidth.toPx() }
+        val swapThreshold = with(density) { 44.dp.toPx() }
 
         LaunchedEffect(uiState.activeTabId, activeIndex) {
-            if (activeIndex in currentTabs.indices) {
+            if (activeIndex in dragState.currentTabs.indices) {
                 val viewportWidthPx = lazyListState.layoutInfo.viewportSize.width.takeIf { it > 0 }?.toFloat()
                     ?: totalChipWidthPx
                 val centeringOffsetPx = ((viewportWidthPx - activeTabWidthPx) / 2f).coerceAtLeast(0f)
                 val scrollOffset = -centeringOffsetPx.toInt()
                 lazyListState.animateScrollToItem(activeIndex, scrollOffset)
             }
-        }
-
-        val handleTabDragStart: (String) -> Unit = { tabId ->
-            draggingTabId = tabId
-            dragOffsetPx = 0f
-            isDragging = true
-        }
-
-        val handleTabDrag: (String, Float) -> Unit = { tabId, deltaX ->
-            dragOffsetPx += deltaX
-            val currentIndex = currentTabs.indexOfFirst { it.id == tabId }
-            if (currentIndex != -1) {
-                val swapThreshold = with(density) { 44.dp.toPx() }
-                if (dragOffsetPx > swapThreshold && currentIndex < currentTabs.lastIndex) {
-                    val targetIndex = currentIndex + 1
-                    val mutable = currentTabs.toMutableList()
-                    Collections.swap(mutable, currentIndex, targetIndex)
-                    currentTabs = mutable
-                    dragOffsetPx -= swapThreshold
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                } else if (dragOffsetPx < -swapThreshold && currentIndex > 0) {
-                    val targetIndex = currentIndex - 1
-                    val mutable = currentTabs.toMutableList()
-                    Collections.swap(mutable, currentIndex, targetIndex)
-                    currentTabs = mutable
-                    dragOffsetPx += swapThreshold
-                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                }
-            }
-        }
-
-        val handleTabDragEnd: () -> Unit = {
-            if (isDragging && currentTabs != displayTabs) {
-                onEvent(BrowserUiEvent.ReorderTabs(currentTabs))
-            }
-            draggingTabId = null
-            dragOffsetPx = 0f
-            isDragging = false
-        }
-
-        val handleTabDragCancel: () -> Unit = {
-            draggingTabId = null
-            dragOffsetPx = 0f
-            isDragging = false
         }
 
         LazyRow(
@@ -221,12 +192,25 @@ fun TabStripRow(
             horizontalArrangement = Arrangement.spacedBy(5.dp)
         ) {
             itemsIndexed(
-                items = currentTabs,
+                items = dragState.currentTabs,
                 key = { _, tab -> tab.id }
             ) { index, tab ->
                 val isActive = index == activeIndex
                 val tabIsHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home" || (isHome && isActive)
-                val isDraggingThis = draggingTabId == tab.id
+                val isDraggingThis = dragState.draggingTabId == tab.id
+                val isSettlingThis = dragState.settlingTabId == tab.id
+                val isElevated = isDraggingThis || isSettlingThis
+
+                val itemTranslationX = when {
+                    isDraggingThis -> dragState.dragOffsetPx
+                    isSettlingThis -> dragState.settleOffsetAnim.value
+                    else -> 0f
+                }
+                val itemScale = when {
+                    isDraggingThis -> if (isActive) 1.05f else 1.08f
+                    isSettlingThis -> dragState.settleScaleAnim.value
+                    else -> 1.0f
+                }
 
                 if (isActive) {
                     val currentTitle = if (tabIsHome) "Home" else when {
@@ -262,18 +246,23 @@ fun TabStripRow(
                         },
                         modifier = Modifier
                             .width(activeTabWidth)
-                            .zIndex(if (isDraggingThis) 10f else 0f)
+                            .zIndex(if (isElevated) 10f else 0f)
                             .graphicsLayer {
-                                if (isDraggingThis) {
-                                    translationX = dragOffsetPx
-                                    scaleX = 1.05f
-                                    scaleY = 1.05f
-                                }
+                                translationX = itemTranslationX
+                                scaleX = itemScale
+                                scaleY = itemScale
                             },
-                        onDragStart = { handleTabDragStart(tab.id) },
-                        onDrag = { deltaX -> handleTabDrag(tab.id, deltaX) },
-                        onDragEnd = handleTabDragEnd,
-                        onDragCancel = handleTabDragCancel
+                        onDragStart = { dragState.onDragStart(tab.id) },
+                        onDrag = { deltaX ->
+                            dragState.onDrag(
+                                tabId = tab.id,
+                                deltaX = deltaX,
+                                swapThreshold = swapThreshold,
+                                onSwapHaptic = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+                            )
+                        },
+                        onDragEnd = { dragState.onDragEnd(isReleasedActive = true, originalTabs = displayTabs) },
+                        onDragCancel = { dragState.onDragCancel(isReleasedActive = true) }
                     )
                 } else {
                     InactiveTabButton(
@@ -291,18 +280,23 @@ fun TabStripRow(
                             onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
                         },
                         modifier = Modifier
-                            .zIndex(if (isDraggingThis) 10f else 0f)
+                            .zIndex(if (isElevated) 10f else 0f)
                             .graphicsLayer {
-                                if (isDraggingThis) {
-                                    translationX = dragOffsetPx
-                                    scaleX = 1.08f
-                                    scaleY = 1.08f
-                                }
+                                translationX = itemTranslationX
+                                scaleX = itemScale
+                                scaleY = itemScale
                             },
-                        onDragStart = { handleTabDragStart(tab.id) },
-                        onDrag = { deltaX -> handleTabDrag(tab.id, deltaX) },
-                        onDragEnd = handleTabDragEnd,
-                        onDragCancel = handleTabDragCancel
+                        onDragStart = { dragState.onDragStart(tab.id) },
+                        onDrag = { deltaX ->
+                            dragState.onDrag(
+                                tabId = tab.id,
+                                deltaX = deltaX,
+                                swapThreshold = swapThreshold,
+                                onSwapHaptic = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+                            )
+                        },
+                        onDragEnd = { dragState.onDragEnd(isReleasedActive = false, originalTabs = displayTabs) },
+                        onDragCancel = { dragState.onDragCancel(isReleasedActive = false) }
                     )
                 }
             }
@@ -673,5 +667,226 @@ private fun extractDomain(url: String): String {
         URI(url).host?.removePrefix("www.") ?: url.removePrefix("https://").removePrefix("http://")
     } catch (_: Exception) {
         url
+    }
+}
+
+/**
+ * State controller managing drag & drop tab reordering and tactile spring release physics
+ * in [TabStripRow].
+ *
+ * Provides smooth dragging, immediate slot swapping with haptic feedback,
+ * and spring-driven release settlement back to translation 0f and scale 1.0f.
+ */
+internal class TabStripDragState(
+    initialTabs: List<Tab>,
+    val coroutineScope: CoroutineScope,
+    val onReorder: (List<Tab>) -> Unit
+) {
+    var currentTabs by mutableStateOf(initialTabs)
+        private set
+
+    var draggingTabId by mutableStateOf<String?>(null)
+        private set
+
+    var settlingTabId by mutableStateOf<String?>(null)
+        private set
+
+    var dragOffsetPx by mutableFloatStateOf(0f)
+        private set
+
+    var isDragging by mutableStateOf(false)
+        private set
+
+    val isSettling: Boolean
+        get() = settlingTabId != null
+
+    val settleOffsetAnim = Animatable(0f, visibilityThreshold = 0.5f)
+    val settleScaleAnim = Animatable(1.0f)
+
+    private var settleJob: Job? = null
+    private var pendingTabs: List<Tab>? = null
+
+    fun updateTabs(newTabs: List<Tab>) {
+        if (!isDragging && !isSettling) {
+            currentTabs = newTabs
+            pendingTabs = null
+        } else {
+            pendingTabs = newTabs
+        }
+    }
+
+    fun cancelSettlingImmediately() {
+        if (isSettling) {
+            settleJob?.cancel()
+            settleJob = null
+            settlingTabId = null
+            coroutineScope.launch {
+                settleOffsetAnim.snapTo(0f)
+                settleScaleAnim.snapTo(1.0f)
+            }
+            pendingTabs?.let {
+                currentTabs = it
+                pendingTabs = null
+            }
+        }
+    }
+
+    fun onDragStart(tabId: String) {
+        if (isSettling) {
+            cancelSettlingImmediately()
+        }
+        draggingTabId = tabId
+        dragOffsetPx = 0f
+        isDragging = true
+    }
+
+    fun onDrag(
+        tabId: String,
+        deltaX: Float,
+        swapThreshold: Float,
+        onSwapHaptic: () -> Unit = {}
+    ) {
+        if (!isDragging || draggingTabId != tabId) return
+        dragOffsetPx += deltaX
+        val currentIndex = currentTabs.indexOfFirst { it.id == tabId }
+        if (currentIndex != -1) {
+            if (dragOffsetPx > swapThreshold && currentIndex < currentTabs.lastIndex) {
+                val targetIndex = currentIndex + 1
+                val mutable = currentTabs.toMutableList()
+                Collections.swap(mutable, currentIndex, targetIndex)
+                currentTabs = mutable
+                dragOffsetPx -= swapThreshold
+                onSwapHaptic()
+            } else if (dragOffsetPx < -swapThreshold && currentIndex > 0) {
+                val targetIndex = currentIndex - 1
+                val mutable = currentTabs.toMutableList()
+                Collections.swap(mutable, currentIndex, targetIndex)
+                currentTabs = mutable
+                dragOffsetPx += swapThreshold
+                onSwapHaptic()
+            }
+        }
+    }
+
+    fun onDragEnd(isReleasedActive: Boolean, originalTabs: List<Tab>? = null) {
+        val tabId = draggingTabId ?: return
+        if (!isDragging) return
+
+        val finalOffset = dragOffsetPx
+        val startScale = if (isReleasedActive) 1.05f else 1.08f
+
+        if (originalTabs != null && currentTabs != originalTabs) {
+            onReorder(currentTabs)
+        }
+
+        isDragging = false
+        draggingTabId = null
+        dragOffsetPx = 0f
+
+        settlingTabId = tabId
+        settleJob?.cancel()
+        settleJob = coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            settleOffsetAnim.snapTo(finalOffset)
+            settleScaleAnim.snapTo(startScale)
+
+            val offsetJob = launch {
+                settleOffsetAnim.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMedium,
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        visibilityThreshold = 0.5f
+                    )
+                )
+            }
+            val scaleJob = launch {
+                settleScaleAnim.animateTo(
+                    targetValue = 1.0f,
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMedium,
+                        dampingRatio = Spring.DampingRatioLowBouncy
+                    )
+                )
+            }
+            offsetJob.join()
+            scaleJob.join()
+
+            settlingTabId = null
+            settleOffsetAnim.snapTo(0f)
+            settleScaleAnim.snapTo(1.0f)
+            settleJob = null
+
+            pendingTabs?.let {
+                currentTabs = it
+                pendingTabs = null
+            }
+        }
+    }
+
+    fun onDragCancel(isReleasedActive: Boolean) {
+        val tabId = draggingTabId ?: return
+        if (!isDragging) return
+
+        val finalOffset = dragOffsetPx
+        val startScale = if (isReleasedActive) 1.05f else 1.08f
+
+        isDragging = false
+        draggingTabId = null
+        dragOffsetPx = 0f
+
+        settlingTabId = tabId
+        settleJob?.cancel()
+        settleJob = coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+            settleOffsetAnim.snapTo(finalOffset)
+            settleScaleAnim.snapTo(startScale)
+
+            val offsetJob = launch {
+                settleOffsetAnim.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMedium,
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        visibilityThreshold = 0.5f
+                    )
+                )
+            }
+            val scaleJob = launch {
+                settleScaleAnim.animateTo(
+                    targetValue = 1.0f,
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMedium,
+                        dampingRatio = Spring.DampingRatioLowBouncy
+                    )
+                )
+            }
+            offsetJob.join()
+            scaleJob.join()
+
+            settlingTabId = null
+            settleOffsetAnim.snapTo(0f)
+            settleScaleAnim.snapTo(1.0f)
+            settleJob = null
+
+            pendingTabs?.let {
+                currentTabs = it
+                pendingTabs = null
+            }
+        }
+    }
+}
+
+@Composable
+internal fun rememberTabStripDragState(
+    initialTabs: List<Tab>,
+    onReorder: (List<Tab>) -> Unit,
+    coroutineScope: CoroutineScope = rememberCoroutineScope()
+): TabStripDragState {
+    val currentOnReorder by rememberUpdatedState(onReorder)
+    return remember {
+        TabStripDragState(
+            initialTabs = initialTabs,
+            coroutineScope = coroutineScope,
+            onReorder = { currentOnReorder(it) }
+        )
     }
 }
