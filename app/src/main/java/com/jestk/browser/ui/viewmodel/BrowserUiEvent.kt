@@ -91,6 +91,8 @@ sealed interface BrowserUiEvent {
     ) : BrowserUiEvent
     data class DeleteSearchEngine(val id: String) : BrowserUiEvent
     data class ReorderSearchEngines(val orderedEngines: List<SearchEngine>) : BrowserUiEvent
+    data class ToggleSearchPageEngineVisibility(val engineId: String, val isVisible: Boolean) : BrowserUiEvent
+    data class SetSearchEngineSwitcherEditExpanded(val expanded: Boolean) : BrowserUiEvent
 
     // Dynamic UI Translation
     data class OnWebScroll(

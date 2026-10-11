@@ -26,6 +26,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.ui.overlays.SearchEngineSwitcherEditPopup
 import com.jestk.browser.ui.overlays.SearchEngineSwitcherRow
 import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -106,8 +107,10 @@ fun UnifiedBottomBar(
 
             // 3. Quick Search Engine Switcher (visible on search results page)
             val searchMatch = uiState.searchPageMatch
+            val isEditExpanded = uiState.isSearchEngineSwitcherEditExpanded
+            val hasVisibleEngines = uiState.visibleSearchPageEngines.isNotEmpty()
             AnimatedVisibility(
-                visible = searchMatch != null && !isHome && !uiState.isMenuExpanded,
+                visible = searchMatch != null && !isHome && !uiState.isMenuExpanded && (hasVisibleEngines || isEditExpanded),
                 enter = fadeIn(animationSpec = tween(200)) + slideInVertically(animationSpec = tween(200)) { it / 2 },
                 exit = fadeOut(animationSpec = tween(150)) + slideOutVertically(animationSpec = tween(150)) { it / 2 },
                 modifier = Modifier
@@ -116,15 +119,38 @@ fun UnifiedBottomBar(
             ) {
                 if (searchMatch != null) {
                     val (selectedEngine, query) = searchMatch
-                    SearchEngineSwitcherRow(
-                        selectedEngine = selectedEngine,
-                        engines = uiState.searchEngines,
-                        onSelectEngine = { engine ->
-                            onEvent(BrowserUiEvent.SwitchSearchEngineForQuery(engine, query))
-                        },
-                        isDark = isDark,
-                        elevation = 3.dp
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        SearchEngineSwitcherEditPopup(
+                            expanded = isEditExpanded,
+                            engines = uiState.searchEngines,
+                            hiddenEngineIds = uiState.settings.hiddenSearchPageEngineIds,
+                            isDark = isDark,
+                            onToggleEngine = { engineId, isVisible ->
+                                onEvent(BrowserUiEvent.ToggleSearchPageEngineVisibility(engineId, isVisible))
+                            },
+                            onDismiss = {
+                                onEvent(BrowserUiEvent.SetSearchEngineSwitcherEditExpanded(false))
+                            },
+                            modifier = Modifier.padding(bottom = 8.dp, end = 12.dp)
+                        )
+
+                        SearchEngineSwitcherRow(
+                            selectedEngine = selectedEngine,
+                            engines = uiState.visibleSearchPageEngines,
+                            onSelectEngine = { engine ->
+                                onEvent(BrowserUiEvent.SwitchSearchEngineForQuery(engine, query))
+                            },
+                            isDark = isDark,
+                            elevation = 3.dp,
+                            isEditActive = isEditExpanded,
+                            onEditClick = {
+                                onEvent(BrowserUiEvent.SetSearchEngineSwitcherEditExpanded(!isEditExpanded))
+                            }
+                        )
+                    }
                 }
             }
 

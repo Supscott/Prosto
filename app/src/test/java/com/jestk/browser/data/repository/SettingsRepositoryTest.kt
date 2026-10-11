@@ -95,4 +95,27 @@ class SettingsRepositoryTest {
         repository.incrementBlockedTrackers(7)
         assertThat(repository.getBlockedTrackersCount().first()).isEqualTo(8L)
     }
+
+    @Test
+    fun getSettings_hiddenSearchPageEngines_defaultsToEmptySet() = runTest(testDispatcher) {
+        val settings = repository.getCurrentSettings()
+        assertThat(settings.hiddenSearchPageEngineIds).isEmpty()
+    }
+
+    @Test
+    fun setHiddenSearchPageEngineIds_persistsAndEmits() = runTest(testDispatcher) {
+        val enginesToHide = setOf("bing", "yahoo", "ecosia")
+        repository.setHiddenSearchPageEngineIds(enginesToHide)
+
+        val settings = repository.getSettings().first()
+        assertThat(settings.hiddenSearchPageEngineIds).containsExactly("bing", "yahoo", "ecosia")
+
+        val current = repository.getCurrentSettings()
+        assertThat(current.hiddenSearchPageEngineIds).containsExactly("bing", "yahoo", "ecosia")
+
+        // Clearing hidden engines
+        repository.setHiddenSearchPageEngineIds(emptySet())
+        val cleared = repository.getCurrentSettings()
+        assertThat(cleared.hiddenSearchPageEngineIds).isEmpty()
+    }
 }

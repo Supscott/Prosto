@@ -90,10 +90,18 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
 
     val isAdBlockerEnabled = map[SettingKeys.AD_BLOCKER_ENABLED]?.toBooleanStrictOrNull() ?: true
 
+    val hiddenEngines = map[SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES]
+        ?.takeIf { it.isNotBlank() }
+        ?.split(",")
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?.toSet() ?: emptySet()
+
     return BrowserSettings(
         themeMode = themeMode,
         searchEngine = searchEngine,
-        isAdBlockerEnabled = isAdBlockerEnabled
+        isAdBlockerEnabled = isAdBlockerEnabled,
+        hiddenSearchPageEngineIds = hiddenEngines
     )
 }
 

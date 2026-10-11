@@ -252,3 +252,17 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
 - **Root Cause:** `System.currentTimeMillis()` has millisecond resolution. High-speed loop insertions in unit tests or rapid user actions generate identical timestamps across multiple rows. `ORDER BY h.timestamp DESC` without a secondary discriminator produces indeterminate order (often determined by index traversal order on `url`).
 - **Resolution & Prevention:** Always include a secondary tie-breaker in SQL queries that order by timestamp: `ORDER BY h.timestamp DESC, h.id DESC`. Because `id` is an auto-incrementing primary key, it guarantees deterministic descending order matching insertion sequence.
 
+## Landing hero breakpoint should use CSS viewport width
+- **Symptom:** The hero looked like a single-column layout even though the browser screenshot was nearly 2,000 pixels wide.
+- **Root Cause:** The screenshot was captured at device pixel ratio 2, so its 1,994-pixel image represented a 997 CSS-pixel viewport. A `lg` breakpoint at 1,024 CSS pixels kept the simulator below the hero copy.
+- **Resolution & Prevention:** Choose breakpoints against CSS viewport width, not screenshot pixel dimensions. Move the hero to two columns at `md` and keep its actions stacked until wider viewports.
+
+---
+
+## 13. Jetpack Compose Layout Clipping & Scroll Viewports
+
+### Horizontally scrolling rows with absolute trailing buttons require padding *before* `horizontalScroll`
+- **Symptom:** Adding an absolute-positioned button at the end of a horizontal scrolling list causes list items to visibly scroll and peek underneath the button, despite setting trailing padding.
+- **Root Cause:** In Compose `Modifier` chains, applying `Modifier.padding(end = X.dp)` *after* `Modifier.horizontalScroll()` acts as inner content padding for the scrollable child items. The parent scrolling viewport itself still spans edge-to-edge underneath the button.
+- **Resolution & Prevention:** Apply `Modifier.padding(end = X.dp)` *before* `Modifier.horizontalScroll()`. This constrains the measurement bounds of the scrollable viewport itself, ensuring content naturally clips before reaching the absolute button.
+

@@ -2115,6 +2115,109 @@ class BrowserViewModelTest {
             val activeTab = viewModel.uiState.value.tabs.find { it.id == tabId }
             assertThat(activeTab?.title).isEqualTo("Loading...")
         }
+
+    @Test
+    fun toggleSearchPageEngineVisibility_updatesHiddenSetAndVisibleList() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            // Initially, all registered engines are visible
+            val allEngines = viewModel.uiState.value.searchEngines
+            assertThat(viewModel.uiState.value.visibleSearchPageEngines).isEqualTo(allEngines)
+
+            // Hide the first engine
+            val engineToHide = allEngines.first()
+            viewModel.onEvent(
+                BrowserUiEvent.ToggleSearchPageEngineVisibility(
+                    engineId = engineToHide.id,
+                    isVisible = false
+                )
+            )
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.settings.hiddenSearchPageEngineIds).contains(engineToHide.id)
+            assertThat(viewModel.uiState.value.visibleSearchPageEngines).doesNotContain(engineToHide)
+
+            // Re-enable visibility
+            viewModel.onEvent(
+                BrowserUiEvent.ToggleSearchPageEngineVisibility(
+                    engineId = engineToHide.id,
+                    isVisible = true
+                )
+            )
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.settings.hiddenSearchPageEngineIds).doesNotContain(engineToHide.id)
+            assertThat(viewModel.uiState.value.visibleSearchPageEngines).contains(engineToHide)
+        }
+
+    @Test
+    fun searchEngineSwitcherEditExpanded_canBeToggled() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isSearchEngineSwitcherEditExpanded).isFalse()
+
+            viewModel.onEvent(BrowserUiEvent.SetSearchEngineSwitcherEditExpanded(true))
+            assertThat(viewModel.uiState.value.isSearchEngineSwitcherEditExpanded).isTrue()
+
+            viewModel.onEvent(BrowserUiEvent.SetSearchEngineSwitcherEditExpanded(false))
+            assertThat(viewModel.uiState.value.isSearchEngineSwitcherEditExpanded).isFalse()
+        }
+
+    @Test
+    fun handleBackNavigation_whenEditExpanded_closesPopupAndConsumesEvent() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.SetSearchEngineSwitcherEditExpanded(true))
+            assertThat(viewModel.uiState.value.isSearchEngineSwitcherEditExpanded).isTrue()
+
+            viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchEngineSwitcherEditExpanded).isFalse()
+        }
+
+    @Test
+    fun handleWebScroll_downwardScrollDismissesEditPopup() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://www.google.com/search?q=kotlin"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.SetSearchEngineSwitcherEditExpanded(true))
+            assertThat(viewModel.uiState.value.isSearchEngineSwitcherEditExpanded).isTrue()
+
+            // Downward scroll (deltaY > 8)
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 10f, scrollY = 50, viewportHeight = 800))
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.isSearchEngineSwitcherEditExpanded).isFalse()
+        }
+
+    @Test
+    fun selectTab_resetsEditExpanded() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://second-tab.com"))
+            advanceUntilIdle()
+            val secondTabId = viewModel.uiState.value.activeTabId!!
+
+            viewModel.onEvent(BrowserUiEvent.SetSearchEngineSwitcherEditExpanded(true))
+            assertThat(viewModel.uiState.value.isSearchEngineSwitcherEditExpanded).isTrue()
+
+            val firstTabId = viewModel.uiState.value.tabs.first { it.id != secondTabId }.id
+            viewModel.onEvent(BrowserUiEvent.SelectTab(firstTabId))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isSearchEngineSwitcherEditExpanded).isFalse()
+        }
 }
 
 

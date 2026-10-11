@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
@@ -46,6 +47,7 @@ import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -70,9 +72,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.ui.overlays.SearchEngineBadge
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -218,6 +222,7 @@ fun SettingsContent(
         onEvent(BrowserUiEvent.CheckDefaultBrowser(context))
     }
     var isTrackingProtectionEnabled by remember { mutableStateOf(true) }
+    var showProvidersDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
         // SECTION 1: THEME PICKER (Segmented Control Container)
@@ -674,6 +679,74 @@ fun SettingsContent(
                     modifier = Modifier.size(20.dp)
                 )
             }
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 64.dp)
+            )
+
+            // Search Page Providers Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { showProvidersDialog = true }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = null,
+                            tint = SereneBrandPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = "Search Page Providers",
+                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else SereneDarkText
+                        )
+                        Text(
+                            text = "Choose engines shown on search results",
+                            style = LocalSereneTypography.current.bodySm,
+                            color = SereneMutedSlate
+                        )
+                    }
+                }
+
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = SereneMutedSlate,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        if (showProvidersDialog) {
+            SearchPageProvidersDialog(
+                engines = uiState.searchEngines,
+                hiddenEngineIds = uiState.settings.hiddenSearchPageEngineIds,
+                isDark = isDark,
+                onToggleEngine = { engineId, isVisible ->
+                    onEvent(BrowserUiEvent.ToggleSearchPageEngineVisibility(engineId, isVisible))
+                },
+                onDismiss = { showProvidersDialog = false }
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -1007,6 +1080,122 @@ fun DefaultBrowserSettingTile(
                     tint = SereneBrandPrimary,
                     modifier = Modifier.size(14.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+fun SearchPageProvidersDialog(
+    engines: List<SearchEngine>,
+    hiddenEngineIds: Set<String>,
+    isDark: Boolean,
+    onToggleEngine: (String, Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = SereneShapes.Card,
+            color = if (isDark) DarkSurface else Color.White,
+            border = SereneBorders.cardBorder(isDark),
+            shadowElevation = 8.dp,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Search Page Providers",
+                        style = LocalSereneTypography.current.headlineSm.copy(fontWeight = FontWeight.Bold),
+                        color = if (isDark) DarkOnSurface else SereneDarkText
+                    )
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = SereneMutedSlate,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Text(
+                    text = "Enable or disable providers that appear in the quick switcher on search results pages.",
+                    style = LocalSereneTypography.current.bodySm,
+                    color = SereneMutedSlate,
+                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                )
+
+                HorizontalDivider(
+                    color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                    thickness = 1.dp
+                )
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp)
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    engines.forEachIndexed { index, engine ->
+                        val isChecked = engine.id !in hiddenEngineIds
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                SearchEngineBadge(
+                                    engine = engine,
+                                    size = 28.dp,
+                                    isDark = isDark
+                                )
+                                Column {
+                                    Text(
+                                        text = engine.displayName,
+                                        style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                                        color = if (isDark) DarkOnSurface else SereneDarkText
+                                    )
+                                    if (engine.shortcut != null) {
+                                        Text(
+                                            text = "Shortcut: ${engine.shortcut}",
+                                            style = LocalSereneTypography.current.labelSm,
+                                            color = SereneMutedSlate
+                                        )
+                                    }
+                                }
+                            }
+
+                            LiquidSunsetSwitch(
+                                checked = isChecked,
+                                onCheckedChange = { onToggleEngine(engine.id, it) }
+                            )
+                        }
+
+                        if (index < engines.lastIndex) {
+                            HorizontalDivider(
+                                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                                thickness = 0.5.dp
+                            )
+                        }
+                    }
+                }
             }
         }
     }

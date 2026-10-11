@@ -367,6 +367,7 @@ class AdBlockerEngineTest {
             override fun getBlockedTrackersCount() = kotlinx.coroutines.flow.flowOf(trackersIncremented)
             override suspend fun incrementBlockedAds(count: Long) { adsIncremented += count }
             override suspend fun incrementBlockedTrackers(count: Long) { trackersIncremented += count }
+            override suspend fun setHiddenSearchPageEngineIds(ids: Set<String>) {}
         }
 
         AdBlockerEngine.settingsRepository = fakeRepo

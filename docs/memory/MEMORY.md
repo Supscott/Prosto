@@ -171,5 +171,51 @@ com.jestk.browser/
   - Hardened `observeDatabaseFlows` against stale Room snapshot emissions overwriting in-flight active tab state or reverting `activeTabId` during rapid tab creation.
   - Updated `TabStripRow` `ActiveTabPill` to prioritize live `uiState.pageTitle` and `uiState.currentUrl`.
   - 100% unit tests passing green.
+- **Prosto Official Landing Page Development (Astro + Tailwind CSS):**
+  - Created dedicated open-source landing page in `landing/` using Astro 7 + Tailwind CSS v4.
+  - Implemented `DeviceSimulator.astro` with 4 interactive scenario modes: 1-swipe dock gesture, engine carousel scaling, power shortcuts (`g `, `d `, `b `, `k `), and privacy shield statistics.
+  - Authored `ThumbReach.astro` highlighting mobile ergonomic reach zones on 6.7"+ displays vs traditional browsers.
+  - Designed Serene Canvas styled `FeaturesBento.astro`, `TechSpecs.astro`, and `DownloadSection.astro` (direct GitHub Releases APK download and MIT license).
+  - Production build verified (`pnpm build` outputting zero-config static site to `landing/dist/`).
+- **Landing Serene Canvas Color Migration & Subagent Review Fixes:**
+  - Migrated entire site styling to dual Serene Canvas Light/Dark design tokens from `DESIGN.md` and `Color.kt`.
+  - Added theme switcher (Sun/Moon) in `Navbar.astro` with anti-FOUC script in `Layout.astro` and persistent `localStorage` synchronization.
+  - Implemented multi-point ambient radial mesh gradients mimicking Android engine's `Modifier.sereneSkyBackground`.
+  - Dispatched specialized review subagent and resolved all identified issues:
+    - Fixed mobile viewport horizontal overflow on <=360px viewports (`max-w-[310px] sm:max-w-[350px]`).
+    - Fixed input state desync in shortcuts scenario (handled empty/invalid inputs resetting to neutral search icon).
+    - Fixed engine carousel dot state and DOM desync across all provider buttons.
+    - Added `type="button"` and `aria-label` across all interactive elements.
+    - Converted brand logo anchor from `#` to `/`.
+    - Adopted event delegation on engine carousel and shortcut buttons.
+- Authored comprehensive product and landing page technical specification in `landing/SPEC.md`.
+  - Re-verified production build (`pnpm build` 100% clean in <450ms).
 
+## Landing Page Review — 2026-10-08
+- Fixed review findings in `DeviceSimulator.astro`: upward pointer swipes now trigger the demo, the search trigger uses button semantics, and carousel selection follows horizontal scrolling with `aria-pressed` state.
+- Updated the primary download CTA to the versioned APK release asset URL specified by `landing/SPEC.md`.
+- Current status: changes made; build and tests were not run.
+
+## Landing Visual Refresh — 2026-10-08
+- Compared the provided Prosto home and search screenshots with the live Helium landing page and the local landing page in Orca’s browser.
+- Reworked the landing page into a quieter dark-navy visual system, shorter hero, compact feature list, simple ergonomic comparison, and reduced technical/download sections. Updated the simulator to reflect the real Prosto home screen.
+- Verified the static Astro build and visually reviewed the rendered desktop hero in Orca. Android emulator was unavailable; the supplied device screenshots were used as the app reference.
+
+## Search Engine Switcher Edit & Provider Visibility Management — 2026-10-11
+- **Feature Completed:** Added absolute-positioned Edit button and floating dropdown/popup to manage visible search providers directly on search results URL pages (`SearchEngineSwitcherRow`) and in `SettingsScreen`.
+- **UI & Ergonomics:**
+  - Absolute Edit button anchored to the right of available providers (32dp CircleShape, rim border, elevation shadow, pencil icon).
+  - Horizontal scrolling for provider chips with `padding(end = 52.dp)` applied to the scroll container, ensuring chips never overlap or hide beneath the Edit button.
+  - Serene Canvas floating card popup anchored above the Edit button with `LiquidSunsetSwitch` toggles for each registered provider and bounded vertical scroll (`heightIn(max = 280.dp)`).
+  - Toggling OFF removes the provider from the search results quick switcher while keeping it available on the main search screen (`SearchOverlay`, `SearchEngineCarousel`).
+  - Hides the switcher row when all providers are disabled (once the edit popup closes).
+  - Added identical provider visibility management dialog in `SettingsScreen` under the Search Engine section (`SearchPageProvidersDialog`).
+- **Persistence & Architecture:**
+  - Persisted state via `SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES` in `SettingDao` (comma-delimited set, zero DB schema bump from v8).
+  - Extended `BrowserSettings`, `SettingsRepository`, `BrowserUiState`, and `BrowserViewModel`.
+  - Back-press and downward web scroll dismiss the floating popup. Tab switching/closing cleanly resets edit state via `TabCoordinator`.
+- **Quality & Verification:**
+  - 100% unit tests passing (`SettingsRepositoryTest`, `BrowserViewModelTest`).
+  - Robolectric Native Graphics visual preview tests passing (`SearchEngineSwitcherEditPreviewTest`).
+  - Full test suite passing green (`:app:testDebugUnitTest`).
 

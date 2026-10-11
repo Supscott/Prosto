@@ -142,6 +142,7 @@ internal class TabCoordinator(
                     settings = effectiveSettings,
                     searchEngines = currentEngines,
                     isMenuExpanded = false,
+                    isSearchEngineSwitcherEditExpanded = false,
                     activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME,
                 )
             }
@@ -306,6 +307,7 @@ internal class TabCoordinator(
                         loadingProgress = if (isWebLoading) 0.15f else 0f,
                         activeThemeColor = null,
                         isMenuExpanded = false,
+                        isSearchEngineSwitcherEditExpanded = false,
                         activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
                         linkContextMenuUrl = null,
                         selectedImageUrl = null,
@@ -415,6 +417,7 @@ internal class TabCoordinator(
                     canGoForward = effectiveCanGoForward,
                     activeThemeColor = if (isHome) null else cachedColor,
                     isMenuExpanded = false,
+                    isSearchEngineSwitcherEditExpanded = false,
                     activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
                     isBottomBarVisible = true,
                 )
@@ -660,6 +663,7 @@ internal class TabCoordinator(
                     isLoading = false,
                     loadingProgress = 0f,
                     isMenuExpanded = false,
+                    isSearchEngineSwitcherEditExpanded = false,
                     activeOverlay = OverlayType.HOME,
                 )
             }
@@ -697,6 +701,7 @@ internal class TabCoordinator(
                 activeThemeColor = tabThemeColors[activeId] ?: it.tabs.find { tab -> tab.id == activeId }?.themeColor,
                 isVideoPlaying = false,
                 isMenuExpanded = false,
+                isSearchEngineSwitcherEditExpanded = false,
                 activeOverlay = OverlayType.NONE,
             )
         }

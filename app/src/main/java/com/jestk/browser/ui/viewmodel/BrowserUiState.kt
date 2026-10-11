@@ -64,9 +64,13 @@ data class BrowserUiState(
     val searchEngines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     val showAddEditSearchEngineDialog: Boolean = false,
     val editingSearchEngine: SearchEngine? = null,
+    val isSearchEngineSwitcherEditExpanded: Boolean = false,
     val blockedAdsCount: Long = 0L,
     val blockedTrackersCount: Long = 0L,
 ) {
+    val visibleSearchPageEngines: List<SearchEngine>
+        get() = searchEngines.filter { it.id !in settings.hiddenSearchPageEngineIds }
+
     val activeTab: Tab?
         get() = tabs.find { it.id == activeTabId }
 

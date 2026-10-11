@@ -484,6 +484,25 @@ class BrowserViewModel(
                 searchCoordinator.reorderSearchEngines(event.orderedEngines)
             }
 
+            is BrowserUiEvent.ToggleSearchPageEngineVisibility -> {
+                val currentHidden = _uiState.value.settings.hiddenSearchPageEngineIds
+                val updatedHidden = if (event.isVisible) {
+                    currentHidden - event.engineId
+                } else {
+                    currentHidden + event.engineId
+                }
+                _uiState.update { state ->
+                    state.copy(settings = state.settings.copy(hiddenSearchPageEngineIds = updatedHidden))
+                }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setHiddenSearchPageEngineIds(updatedHidden)
+                }
+            }
+
+            is BrowserUiEvent.SetSearchEngineSwitcherEditExpanded -> {
+                _uiState.update { it.copy(isSearchEngineSwitcherEditExpanded = event.expanded) }
+            }
+
             is BrowserUiEvent.OnWebScroll -> {
                 handleWebScroll(event.deltaY, event.scrollY, event.viewportHeight)
             }
@@ -673,16 +692,16 @@ class BrowserViewModel(
         viewportHeight: Int = 0,
     ) {
         val current = _uiState.value
+        if (deltaY > 8f && (current.isMenuExpanded || current.isSearchEngineSwitcherEditExpanded)) {
+            _uiState.update { it.copy(isMenuExpanded = false, isSearchEngineSwitcherEditExpanded = false) }
+        }
+
         val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
         if (isHome) {
             if (!current.isBottomBarVisible) {
                 _uiState.update { it.copy(isBottomBarVisible = true) }
             }
             return
-        }
-
-        if (deltaY > 8f && current.isMenuExpanded) {
-            _uiState.update { it.copy(isMenuExpanded = false) }
         }
 
         // Hiding the dock starts working below h-screen (scrollY > viewportHeight)
@@ -696,7 +715,7 @@ class BrowserViewModel(
             // Below h-screen: hide if scrolling down, show if scrolling up
             if (deltaY > 8f) {
                 if (current.isBottomBarVisible) {
-                    _uiState.update { it.copy(isBottomBarVisible = false, isMenuExpanded = false) }
+                    _uiState.update { it.copy(isBottomBarVisible = false, isMenuExpanded = false, isSearchEngineSwitcherEditExpanded = false) }
                 }
             } else if (deltaY < -8f) {
                 if (!current.isBottomBarVisible) {
@@ -712,6 +731,10 @@ class BrowserViewModel(
 
     private fun handleBackNavigation() {
         val current = _uiState.value
+        if (current.isSearchEngineSwitcherEditExpanded) {
+            _uiState.update { it.copy(isSearchEngineSwitcherEditExpanded = false) }
+            return
+        }
         if (current.showAddEditSearchEngineDialog) {
             _uiState.update { it.copy(showAddEditSearchEngineDialog = false, editingSearchEngine = null) }
             return

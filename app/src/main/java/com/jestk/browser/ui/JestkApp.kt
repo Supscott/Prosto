@@ -390,8 +390,8 @@ fun JestkApp(
                 }
             }
 
-            // Outside dim scrim to close expanded menu when tapping on webpage
-            if (uiState.isMenuExpanded) {
+            // Outside dim scrim to close expanded menu or edit popup when tapping on webpage
+            if (uiState.isMenuExpanded || uiState.isSearchEngineSwitcherEditExpanded) {
                 Box(
                     modifier =
                         Modifier
@@ -401,7 +401,8 @@ fun JestkApp(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
                             ) {
-                                viewModel.onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                                if (uiState.isMenuExpanded) viewModel.onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                                if (uiState.isSearchEngineSwitcherEditExpanded) viewModel.onEvent(BrowserUiEvent.SetSearchEngineSwitcherEditExpanded(false))
                             },
                 )
             }
