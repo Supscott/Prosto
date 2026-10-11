@@ -12,3 +12,4 @@ captures
 *.apk
 *.aab
 .worktrees/
+.freebuff/

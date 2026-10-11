@@ -1,0 +1,32 @@
+name: "💡 Feature Request"
+description: "Suggest an idea or improvement for Prosto Browser"
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make thumb-first browsing even simpler? We'd love to hear it!
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Is your feature request related to a problem?
+      description: A clear and concise description of the problem or limitation you are facing.
+      placeholder: "e.g., I often browse at night and want quick access to desktop mode..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe how you envision this feature working in Prosto Browser.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative Solutions Considered
+      description: Any alternative ideas or workarounds you've thought of?

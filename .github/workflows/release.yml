@@ -1,0 +1,121 @@
+name: Release Build & Publish
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build & Release APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v4
+
+      - name: Run Test Suite
+        run: ./gradlew testDebugUnitTest --no-daemon
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Prepare Android Signing Tools
+        run: |
+          BUILD_TOOLS_PATH="${ANDROID_HOME}/build-tools/35.0.0"
+          echo "BUILD_TOOLS_PATH=${BUILD_TOOLS_PATH}" >> $GITHUB_ENV
+
+      - name: Sign Release APK
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          RAW_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          if [ -z "$RAW_APK" ]; then
+            echo "Error: Release APK not found!"
+            exit 1
+          fi
+          echo "Found raw APK: $RAW_APK"
+
+          TAG_NAME="${{ github.ref_name }}"
+          RELEASE_APK="prosto-${TAG_NAME}.apk"
+
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "Signing with repository secret keystore..."
+            echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+            $BUILD_TOOLS_PATH/apksigner sign --ks release.jks \
+              --ks-key-alias "$KEY_ALIAS" \
+              --ks-pass "pass:$KEYSTORE_PASSWORD" \
+              --key-pass "pass:$KEY_PASSWORD" \
+              --out "$RELEASE_APK" \
+              "$RAW_APK"
+            rm -f release.jks
+          else
+            echo "Repository secret KEYSTORE_BASE64 not configured."
+            echo "Generating automated CI release signing key for direct installation..."
+            keytool -genkey -v -keystore ci-release.jks -alias prosto -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass "prostobrowser" -keypass "prostobrowser" \
+              -dname "CN=Prosto Browser, OU=Release, O=OpenSource, L=World, S=Global, C=XX"
+            
+            $BUILD_TOOLS_PATH/apksigner sign --ks ci-release.jks \
+              --ks-key-alias prosto \
+              --ks-pass "pass:prostobrowser" \
+              --key-pass "pass:prostobrowser" \
+              --out "$RELEASE_APK" \
+              "$RAW_APK"
+            rm -f ci-release.jks
+          fi
+
+          echo "Verifying APK signature..."
+          $BUILD_TOOLS_PATH/apksigner verify --verbose "$RELEASE_APK"
+
+          echo "RELEASE_APK=$RELEASE_APK" >> $GITHUB_ENV
+
+      - name: Generate SHA-256 Checksum
+        run: |
+          sha256sum "$RELEASE_APK" > checksums.txt
+          cat checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Prosto Browser ${{ github.ref_name }}"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ${{ env.RELEASE_APK }}
+            checksums.txt
+          body: |
+            ### 🚀 Prosto Browser ${{ github.ref_name }}
+            
+            **Browsing made simple. Tabs at your thumb.**
+
+            #### 📦 Downloads
+            - **Installable APK:** [`${{ env.RELEASE_APK }}`](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ env.RELEASE_APK }})
+            - **Checksums:** Verify your download using `checksums.txt` (`sha256sum -c checksums.txt`)
+
+            #### 📱 Requirements
+            - Android 8.0+ (Oreo, API 26+)
+            - ARM64 / ARMv7 / x86_64
+
+            ---
+            *Built and signed with GitHub Actions.*

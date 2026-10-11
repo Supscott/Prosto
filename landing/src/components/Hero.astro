@@ -1,0 +1,29 @@
+---
+import DeviceSimulator from './DeviceSimulator.astro';
+---
+
+<section id="simulator" class="page-shell grid items-center gap-10 pb-16 pt-14 sm:pb-20 sm:pt-20 md:grid-cols-[0.92fr_1.08fr] md:gap-8 lg:gap-14 lg:py-20">
+  <div class="max-w-[540px]">
+    <p class="eyebrow mb-5">A little more room to breathe</p>
+    <h1 class="max-w-[520px] text-[clamp(2.8rem,6vw,5.15rem)] font-semibold leading-[1.03] tracking-[-0.065em] text-[var(--text-primary)]">
+      The web, <span class="text-[var(--brand-accent)]">within reach.</span>
+    </h1>
+    <p class="mt-6 max-w-[470px] text-lg leading-8 text-[var(--text-secondary)] sm:text-xl sm:leading-9">
+      A calm, private browser made for one hand. Search, switch tabs, and get back to what you came for — all from your thumb.
+    </p>
+    <div class="mt-8 flex flex-col gap-3 lg:flex-row">
+      <a href="#download" class="button-primary whitespace-nowrap">
+        <svg class="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0 4-4m-4 4-4-4m-4 7v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"/></svg>
+        Download for Android
+      </a>
+      <a href="https://github.com/Supscott/browser" target="_blank" rel="noopener noreferrer" class="button-secondary whitespace-nowrap">Explore the source <span aria-hidden="true">↗</span></a>
+    </div>
+    <div class="mt-7 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-[var(--text-muted)]">
+      <span>Android 8+</span><span aria-hidden="true">·</span><span>About 4 MB</span><span aria-hidden="true">·</span><span>Open source</span>
+    </div>
+  </div>
+
+  <div class="w-full min-w-0">
+    <DeviceSimulator />
+  </div>
+</section>

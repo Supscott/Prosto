@@ -1,0 +1,61 @@
+name: "🐛 Bug Report"
+description: "Report a bug or problem in Prosto Browser"
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping us improve Prosto Browser! Please fill out the details below.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Problem Description
+      description: A clear and concise description of what the bug is.
+      placeholder: "e.g., Tapping on search provider doesn't update the input query..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: What are the exact steps to reproduce the behavior?
+      placeholder: |
+        1. Open the app
+        2. Swipe up on the floating dock
+        3. Navigate to 'example.com'
+        4. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device Model & Android Version
+      placeholder: "e.g., Google Pixel 8 / Android 14"
+    validations:
+      required: true
+
+  - type: input
+    id: app-version
+    attributes:
+      label: App Version
+      placeholder: "e.g., v0.1.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional Context, Screenshots, or Logs
+      description: Attach screenshots, screen recordings, or logcat output if available.
