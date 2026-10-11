@@ -266,3 +266,37 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
 - **Root Cause:** In Compose `Modifier` chains, applying `Modifier.padding(end = X.dp)` *after* `Modifier.horizontalScroll()` acts as inner content padding for the scrollable child items. The parent scrolling viewport itself still spans edge-to-edge underneath the button.
 - **Resolution & Prevention:** Apply `Modifier.padding(end = X.dp)` *before* `Modifier.horizontalScroll()`. This constrains the measurement bounds of the scrollable viewport itself, ensuring content naturally clips before reaching the absolute button.
 
+---
+
+## 14. URI Parsing & Scheme Resolution
+
+### Android `Uri.parse().host` treats custom scheme actions as hosts
+- **Symptom:** `extractDomain("tg://resolve?domain=test")` returned `"resolve"` instead of the service name `"tg"`.
+- **Root Cause:** In Android's `Uri.parse("tg://resolve?domain=test")`, standard URI parsing interprets the authority segment following `//` as `host`. For custom app action schemes lacking actual internet domains, `uri.host` yields the action verb (`resolve`).
+- **Resolution & Prevention:** When extracting service domain identities, check if the scheme is non-web (`scheme != "http" && scheme != "https" && scheme != "intent"`). If so, return `scheme` directly as the service identifier, reserving `uri.host` specifically for web and intent URLs.
+
+### Cross-domain navigation clearing external app prompts immediately on click
+- **Symptom:** Clicking an external link (like `instagram.com`) on Google results briefly flashed "Открыть в Instagram" which instantly vanished as soon as page loading began.
+- **Root Cause:** `TabCoordinator.handlePageStarted` reset `externalAppPrompt = if (!sameDomain) null else state.externalAppPrompt`. When clicking a search result link, `!sameDomain("google.com", "instagram.com")` evaluates to `true`, clearing the newly issued prompt ~50ms later when `handlePageStarted` fired for `instagram.com`.
+- **Resolution & Prevention:** Verify whether `externalAppPrompt` matches the arriving navigation target URL (`isPromptForCurrentNavigation`) before clearing. Retain the prompt if its domain, intent URI, or domain alias matches the target URL.
+
+### Direct URL loading bypasses WebKit `shouldOverrideUrlLoading`
+- **Symptom:** Navigating directly to websites via URL bar (e.g. typing `vk.ru`) never offered "Открыть в приложении", even though the native app was installed.
+- **Root Cause:** Android WebKit never invokes `shouldOverrideUrlLoading` for programmatic `webView.loadUrl()`. It only invokes it for user link clicks and HTTP redirects.
+- **Resolution & Prevention:** In addition to `shouldOverrideUrlLoading`, trigger app resolution in `JestkWebViewClient.onPageStarted` and `doUpdateVisitedHistory` for HTTP/HTTPS URLs.
+
+### App link domain discrepancy between country-code TLDs and canonical domains
+- **Symptom:** Entering `vk.ru` did not resolve the VK Android app.
+### Android 11+ Package Visibility filtering hiding apps from browser queryIntentActivities
+- **Symptom:** `PackageManager.queryIntentActivities` returns an empty list on real devices (API 30+) for installed apps like Reddit or VK.
+- **Root Cause:** Android 11+ enforces package visibility filtering. By default, an app cannot see other installed packages unless they are declared under `<queries>` or the app holds `QUERY_ALL_PACKAGES` permission.
+- **Resolution & Prevention:** Declare `<uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" tools:ignore="QueryAllPackagesPermission" />` in `AndroidManifest.xml` (which is explicitly allowed for Web Browsers under Google Play policy), and declare `<package>` elements for major applications in `<queries>`.
+
+### Bare root URLs failing deep-link intent filters due to subdomains or path prefixes
+- **Symptom:** Opening `reddit.com` or `vk.ru` returned no matching activity despite the app being installed.
+- **Root Cause:** Apps often register intent filters strictly for subdomains (e.g. `www.reddit.com`, `m.vk.com`) or require path prefixes (e.g. `/r/...`, `/feed/...`). Querying `Intent(ACTION_VIEW, "https://reddit.com")` fails exact host and path matching.
+- **Resolution & Prevention:** In `ExternalAppResolver`, generate candidate host variations (`cleanHost`, `www.$cleanHost`, `m.$cleanHost`, and domain aliases). Furthermore, maintain a `KNOWN_DOMAIN_APPS` table with an installed package check fallback (`isPackageInstalled`), resolving the app's real label/icon and falling back to its launch intent if it cannot directly handle root URLs.
+
+
+
+

@@ -78,6 +78,7 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
+import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
 import com.jestk.browser.ui.overlays.LinkContextMenuModal
 import com.jestk.browser.ui.overlays.SearchOverlay
@@ -169,7 +170,9 @@ fun JestkApp(
                     onThemeColorDetected = { id, color -> viewModel.onEvent(BrowserUiEvent.OnThemeColorReceived(id, color)) },
                     isDarkTheme = { isDark },
                     onFaviconReceived = handleFavicon,
-                    onTitleReceived = { id, title -> viewModel.onEvent(BrowserUiEvent.OnTitleReceived(id, title)) }
+                    onTitleReceived = { id, title -> viewModel.onEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
+                    isOpenInAppsEnabled = { viewModel.uiState.value.settings.isOpenInAppsEnabled },
+                    onExternalAppOffered = { id, prompt -> viewModel.onEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt)) }
                 )
                 wv.webChromeClient = JestkWebChromeClient(
                     tabId = tabId,
@@ -649,6 +652,70 @@ fun JestkApp(
                                     },
                         )
                     }
+                }
+            }
+
+            // External App Floating Notification Pill
+            AnimatedVisibility(
+                visible = uiState.externalAppPrompt != null,
+                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
+                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(
+                        bottom = snackbarBaseBottomOffset +
+                            (if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) 56.dp else 0.dp) +
+                            (if (uiState.showDownloadSnackbar && uiState.lastDownloadNotification != null) 56.dp else 0.dp),
+                        start = 16.dp,
+                        end = 16.dp
+                    ),
+            ) {
+                uiState.externalAppPrompt?.let { prompt ->
+                    ExternalAppNotificationPill(
+                        prompt = prompt,
+                        onOpen = {
+                            viewModel.onEvent(BrowserUiEvent.OpenExternalApp(prompt))
+                            try {
+                                val intent = android.content.Intent.parseUri(prompt.intentUri, android.content.Intent.URI_INTENT_SCHEME).apply {
+                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                }
+                                context.startActivity(intent)
+                            } catch (e: Exception) {
+                                val pkg = prompt.appPackage
+                                val launchIntent = if (!pkg.isNullOrBlank()) {
+                                    context.packageManager.getLaunchIntentForPackage(pkg)?.apply {
+                                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                } else null
+
+                                if (launchIntent != null) {
+                                    try {
+                                        context.startActivity(launchIntent)
+                                    } catch (t: Throwable) {
+                                        android.util.Log.w("JestkApp", "Failed to launch package via launch intent", t)
+                                    }
+                                } else if (!prompt.isInstalled && !prompt.appPackage.isNullOrBlank()) {
+                                    try {
+                                        val webPlay = android.content.Intent(
+                                            android.content.Intent.ACTION_VIEW,
+                                            android.net.Uri.parse("https://play.google.com/store/apps/details?id=${prompt.appPackage}")
+                                        ).apply {
+                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                        context.startActivity(webPlay)
+                                    } catch (t: Throwable) {
+                                        android.util.Log.w("JestkApp", "Failed to launch play store fallback", t)
+                                    }
+                                } else {
+                                    android.util.Log.w("JestkApp", "Failed to open external app", e)
+                                }
+                            }
+                        },
+                        onDismiss = {
+                            viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(rememberDomain = true))
+                        }
+                    )
                 }
             }
 

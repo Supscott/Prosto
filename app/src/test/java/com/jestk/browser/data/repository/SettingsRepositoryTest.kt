@@ -118,4 +118,22 @@ class SettingsRepositoryTest {
         val cleared = repository.getCurrentSettings()
         assertThat(cleared.hiddenSearchPageEngineIds).isEmpty()
     }
+
+    @Test
+    fun setOpenInAppsEnabled_persistsAndEmits() = runTest(testDispatcher) {
+        val initial = repository.getCurrentSettings()
+        assertThat(initial.isOpenInAppsEnabled).isTrue()
+
+        repository.setOpenInAppsEnabled(false)
+
+        val updated = repository.getSettings().first()
+        assertThat(updated.isOpenInAppsEnabled).isFalse()
+
+        val current = repository.getCurrentSettings()
+        assertThat(current.isOpenInAppsEnabled).isFalse()
+
+        repository.setOpenInAppsEnabled(true)
+        val reEnabled = repository.getCurrentSettings()
+        assertThat(reEnabled.isOpenInAppsEnabled).isTrue()
+    }
 }

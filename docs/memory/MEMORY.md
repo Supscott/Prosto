@@ -219,3 +219,78 @@ com.jestk.browser/
   - Robolectric Native Graphics visual preview tests passing (`SearchEngineSwitcherEditPreviewTest`).
   - Full test suite passing green (`:app:testDebugUnitTest`).
 
+## Open Source Preparation & GitHub Repository Showcase — 2026-10-11
+- **GitHub & Open Source Identity:** Established official open-source repository branding as **Prosto Browser** under GNU General Public License v3.0 (GPL-3.0).
+- **Comprehensive Documentation Suite:**
+  - Authored industry-standard English [`README.md`](file:///Users/ilya/CODING/browser/README.md) featuring dynamic shields badges, one-handed ergonomics rationale, key features breakdown (Floating Gesture Dock, Search Carousel, Adblock Shield, Download Manager), ASCII visual layout, APK download links, build-from-source guides, Clean Architecture map, and roadmap.
+  - Added [`LICENSE`](file:///Users/ilya/CODING/browser/LICENSE) (GNU General Public License v3.0).
+  - Authored [`CONTRIBUTING.md`](file:///Users/ilya/CODING/browser/CONTRIBUTING.md) with guidelines for forks, PRs, Conventional Commits, Serene Canvas rules (NO BLUR), and test execution.
+  - Added [`CODE_OF_CONDUCT.md`](file:///Users/ilya/CODING/browser/CODE_OF_CONDUCT.md) (Contributor Covenant 2.1) and [`SECURITY.md`](file:///Users/ilya/CODING/browser/SECURITY.md) for private vulnerability reporting.
+- **GitHub Actions Workflows:**
+  - Created `.github/workflows/ci.yml` for automated linting and unit test execution on PRs and pushes to `main`.
+  - Created `.github/workflows/release.yml` for automated APK compilation (`./gradlew assembleRelease`), signing (with Secrets or reproducible CI key fallback), SHA-256 checksum calculation, and automatic GitHub Release creation on tag push `v*.*.*`.
+- **Community Templates:**
+  - Configured GitHub Issue Forms (`.github/ISSUE_TEMPLATE/bug_report.yml`, `feature_request.yml`, `config.yml`).
+  - Added PR review checklist template (`.github/PULL_REQUEST_TEMPLATE.md`).
+- **Version Alignment:** Updated `app/build.gradle.kts` and `landing/src/components/DownloadSection.astro` to initial release version `0.1.0`. All unit tests 100% green.
+
+## External App Open Prompts ("Открыть в приложении") — 2026-10-11
+- **Feature Completed:** Added native prompt pill offering to open web pages, intents, and custom schemes in installed external applications (e.g. YouTube, Telegram, Google Play, dialer, email, etc.).
+- **Detection & Resolution Engine (`ExternalAppResolver`):**
+  - Intercepts `intent://`, `market://`, `tel:`, `mailto:`, `sms:`, and custom schemes (`tg://`, `whatsapp://`, etc.) in `JestkWebViewClient.shouldOverrideUrlLoading`.
+  - For `http://` and `https://` URLs, queries `PackageManager` and identifies dedicated native apps by excluding generic web browsers via `https://generic-browser-probe.example.internal` activity probe.
+  - Excludes search engine queries (Google, Yandex, DuckDuckGo, Bing, etc.) to keep search browsing frictionless.
+  - Declared `<queries>` elements in `AndroidManifest.xml` for package visibility on Android 11+ (API 30+ through targetSdk 35).
+  - Handles uninstalled apps: provides "market://details?id=..." intent fallback to Google Play.
+- **WebView & Tab Lifecycle Coordination:**
+  - For custom schemes / intents: cancels WebView navigation (`return true`) to avoid `ERR_UNKNOWN_URL_SCHEME` error pages and preserves current page state.
+  - For HTTP/HTTPS links: continues loading page in WebView in parallel (`return false`) while presenting prompt pill.
+  - Spam prevention: tracks dismissed domains per tab in `TabCoordinator.dismissedExternalAppDomains`; suppresses repeated prompts for the same domain until page reload or navigation to another domain.
+  - Resets active prompt on tab switch or close.
+- **Serene Canvas UI (`ExternalAppNotificationPill`):**
+  - Floating pill anchored above navigation dock with Level 1 solid surface, floating border, 8dp elevation shadow, and NO blur.
+  - Displays app icon and specific app name ("Открыть в YouTube") or generic "Открыть в приложении", action button "Открыть", and close button "✕".
+  - Horizontal swipe-to-dismiss gesture with spring physics in either direction.
+  - 5-second auto-dismiss countdown with interactive pause during touch and swipe gestures.
+- **Settings Integration:**
+  - Added "Open in apps" ("Открыть в приложениях") setting row with `LiquidSunsetSwitch` toggle in `SettingsScreen`.
+  - Persisted state via `SettingKeys.OPEN_IN_APPS_ENABLED` in `SettingDao`.
+- **Quality & Verification:**
+  - Added unit test suite in `ExternalAppResolverTest`.
+  - Added `shouldOverrideUrlLoading` tests in `JestkWebViewClientTest`.
+  - Added dismissal suppression and domain clearing tests in `TabCoordinatorTest`.
+  - Added persistence tests in `SettingsRepositoryTest`.
+  - Added Robolectric Native Graphics visual preview test in `ExternalAppNotificationPillTest` verifying Light and Dark theme pill renders.
+  - All 500 unit and Robolectric tests passing 100% green (`:app:testDebugUnitTest`).
+
+## External App Prompt Navigation Preservation & Direct URL Detection — 2026-10-11
+- **Bug Fixed (Instagram / Search Result Click Prompt Disappearance):**
+  - In `TabCoordinator.handlePageStarted`, previously `externalAppPrompt = if (!sameDomain) null else state.externalAppPrompt`. When clicking an Instagram link from Google Search, `!sameDomain("google.com", "instagram.com")` wiped out the newly created prompt within ~50ms of navigation start.
+  - Fix: Checked `isPromptForCurrentNavigation` in `TabCoordinator.handlePageStarted`:
+    `isSameDomain(prompt.domain, url) || isSameDomain(prompt.intentUri, url) || ExternalAppResolver.areDomainAliases(prompt.domain, ExternalAppResolver.extractDomain(url))`
+    Preserves the prompt if it was offered for the destination URL or an alias of it, while clearing it if navigating to an unrelated domain.
+- **Feature Completed (Direct Navigation & Domain Alias App Detection):**
+  - Android WebKit's `shouldOverrideUrlLoading` is only called for link clicks and HTTP redirects, never for `loadUrl()` (such as entering URLs via address bar or bookmarks).
+  - Added `checkExternalAppOffer(view, url)` inside `JestkWebViewClient.onPageStarted` and `JestkWebViewClient.doUpdateVisitedHistory` so opening URLs directly or through SPA transitions detects installed dedicated apps.
+  - Added `DOMAIN_ALIASES` mapping (`vk.ru -> vk.com`, `wb.ru -> wildberries.ru`, `ok.ru -> odnoklassniki.ru`, `fb.com -> facebook.com`, `x.com -> twitter.com`, etc.) and `areDomainAliases()` in `ExternalAppResolver`. When probing `vk.ru`, if the VK app is registered under `vk.com`, it automatically probes the canonical alias and resolves `com.vkontakte.android`.
+  - In `ExternalAppResolver.queryActivities`, queries `CATEGORY_BROWSABLE` first, falling back to non-categorized intent to guarantee 100% coverage across manifest configurations.
+- **Verification:**
+  - 506 unit and Robolectric tests passing 100% green (`:app:testDebugUnitTest`).
+
+## External App Detection Fix for Reddit & VK (Package Visibility & Known Apps) — 2026-10-11
+- **Root Cause Identified:**
+  1. On Android 11+ (API 30-35), Android's package visibility security model filters out third-party packages from `PackageManager.queryIntentActivities` unless the caller declares them in `<queries>` or holds `QUERY_ALL_PACKAGES` (a permission explicitly permitted by Google Play policy for Web Browsers).
+  2. Apps like Reddit declare intent filters strictly for `www.reddit.com` or specific deep paths (`/r/...`), while users entering `reddit.com` hit bare domain URLs that don't match strict host/path intent filters.
+  3. Apps like VK declare intent filters for `vk.com` and `m.vk.com`, but not `vk.ru`, and often require deep-link paths.
+- **Fixes Applied:**
+  1. Added `QUERY_ALL_PACKAGES` permission and explicit `<package>` declarations for 20+ major services (Reddit, VK, Telegram, YouTube, Twitter/X, Instagram, Wildberries, Ozon, Avito, Kinopoisk, 2GIS, Discord, Twitch, Spotify, TikTok, etc.) to `AndroidManifest.xml`.
+  2. Implemented candidate host generation in `ExternalAppResolver.resolveHttpScheme` probing `cleanHost`, `www.$cleanHost`, `m.$cleanHost`, and alias hosts.
+  3. Added `KNOWN_DOMAIN_APPS` registry in `ExternalAppResolver` with `isPackageInstalled` check. When on root domains (`reddit.com`, `vk.ru`), if an app is installed on the phone, its real label and icon are resolved and presented with fallback to launch intent.
+  4. Added `getLaunchIntentForPackage` fallback in `JestkApp.kt` when opening an app via URI scheme throws.
+- **Verification:**
+  - Added test cases in `ExternalAppResolverTest.kt` verifying `www.` subdomain resolution, Reddit package installed fallback, and VK installed package resolution on `vk.ru`.
+  - All 508 unit and Robolectric tests passing 100% green (`:app:testDebugUnitTest`).
+
+
+
+

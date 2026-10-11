@@ -3,6 +3,7 @@ package com.jestk.browser.ui.viewmodel
 import androidx.compose.ui.geometry.Offset
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.DownloadItem
+import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.OverlayType
@@ -18,6 +19,7 @@ data class BrowserUiState(
     val activeTabId: String? = null,
     val recentlyClosedTab: Tab? = null,
     val showUndoTabCloseSnackbar: Boolean = false,
+    val externalAppPrompt: ExternalAppPrompt? = null,
     // Active Viewport / Overlay
     val activeOverlay: OverlayType = OverlayType.NONE,
     val activeScreen: ScreenType = ScreenType.NONE,

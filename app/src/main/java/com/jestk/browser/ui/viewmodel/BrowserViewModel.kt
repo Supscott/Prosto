@@ -449,6 +449,25 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.SetOpenInAppsEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(isOpenInAppsEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setOpenInAppsEnabled(event.enabled)
+                }
+            }
+
+            is BrowserUiEvent.OnExternalAppOffered -> {
+                tabCoordinator.handleExternalAppOffered(event.tabId, event.prompt)
+            }
+
+            is BrowserUiEvent.DismissExternalAppPrompt -> {
+                tabCoordinator.dismissExternalAppPrompt(event.rememberDomain)
+            }
+
+            is BrowserUiEvent.OpenExternalApp -> {
+                tabCoordinator.dismissExternalAppPrompt(rememberDomain = false)
+            }
+
             is BrowserUiEvent.ShowAddSearchEngineDialog -> {
                 _uiState.update {
                     it.copy(

@@ -510,6 +510,59 @@ fun SettingsContent(
                 modifier = Modifier.padding(start = 64.dp)
             )
 
+            // Open in Apps Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                            contentDescription = null,
+                            tint = SereneBrandPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = "Open in apps",
+                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else SereneDarkText
+                        )
+                        Text(
+                            text = "Offer to open supported links in installed apps",
+                            style = LocalSereneTypography.current.bodySm,
+                            color = SereneMutedSlate
+                        )
+                    }
+                }
+
+                LiquidSunsetSwitch(
+                    checked = uiState.settings.isOpenInAppsEnabled,
+                    onCheckedChange = { onEvent(BrowserUiEvent.SetOpenInAppsEnabled(it)) }
+                )
+            }
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 64.dp)
+            )
+
             // Search Engine Row with Dropdown Menu
             var searchMenuExpanded by remember { mutableStateOf(false) }
             Row(

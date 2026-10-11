@@ -1,9 +1,15 @@
 package com.jestk.browser.engine
 
+import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.pm.ApplicationInfo
+import android.content.pm.ResolveInfo
 import com.google.common.truth.Truth.assertThat
+import com.jestk.browser.domain.model.ExternalAppPrompt
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
 class JestkWebViewClientTest {
@@ -139,5 +145,115 @@ class JestkWebViewClientTest {
 
         client.doUpdateVisitedHistory(null, "about:blank", false)
         assertThat(startedUrl).isNull()
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_withUnresolvableCustomScheme_returnsTrue() {
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = android.webkit.WebView(context)
+
+        // Custom unknown scheme returns true to prevent WebView error
+        val shouldOverride = client.shouldOverrideUrlLoading(webView, "unknownscheme://path")
+        assertThat(shouldOverride).isTrue()
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_whenDisabled_allowsHttp() {
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            isOpenInAppsEnabled = { false }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = android.webkit.WebView(context)
+
+        val shouldOverride = client.shouldOverrideUrlLoading(webView, "https://example.com")
+        assertThat(shouldOverride).isFalse()
+    }
+
+    @Test
+    fun onPageStarted_offersExternalApp_whenDedicatedAppInstalled() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        ExternalAppResolver.clearBrowserPackagesCache()
+        val pm = context.packageManager
+
+        val vkIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://vk.com/feed"))
+        val resolveInfo = ResolveInfo().apply {
+            activityInfo = ActivityInfo().apply {
+                packageName = "com.vkontakte.android"
+                name = "com.vkontakte.android.MainActivity"
+                applicationInfo = ApplicationInfo().apply {
+                    packageName = "com.vkontakte.android"
+                }
+            }
+        }
+        shadowOf(pm).addResolveInfoForIntent(vkIntent, resolveInfo)
+
+        var offeredPrompt: ExternalAppPrompt? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onExternalAppOffered = { _, prompt -> offeredPrompt = prompt }
+        )
+
+        val webView = android.webkit.WebView(context)
+        client.onPageStarted(webView, "https://vk.ru/feed", null)
+
+        assertThat(offeredPrompt).isNotNull()
+        assertThat(offeredPrompt?.appPackage).isEqualTo("com.vkontakte.android")
+    }
+
+    @Test
+    fun doUpdateVisitedHistory_offersExternalApp_whenDedicatedAppInstalled() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        ExternalAppResolver.clearBrowserPackagesCache()
+        val pm = context.packageManager
+
+        val ytIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("https://youtube.com/watch?v=123"))
+        val resolveInfo = ResolveInfo().apply {
+            activityInfo = ActivityInfo().apply {
+                packageName = "com.google.android.youtube"
+                name = "com.google.android.youtube.WatchActivity"
+                applicationInfo = ApplicationInfo().apply {
+                    packageName = "com.google.android.youtube"
+                }
+            }
+        }
+        shadowOf(pm).addResolveInfoForIntent(ytIntent, resolveInfo)
+
+        var offeredPrompt: ExternalAppPrompt? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onExternalAppOffered = { _, prompt -> offeredPrompt = prompt }
+        )
+
+        val webView = android.webkit.WebView(context)
+        client.doUpdateVisitedHistory(webView, "https://youtube.com/watch?v=123", false)
+
+        assertThat(offeredPrompt).isNotNull()
+        assertThat(offeredPrompt?.appPackage).isEqualTo("com.google.android.youtube")
     }
 }

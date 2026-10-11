@@ -12,6 +12,7 @@ interface SettingsRepository {
     suspend fun setSearchEngine(engine: SearchEngine)
     suspend fun setAdBlockerEnabled(enabled: Boolean)
     suspend fun setHiddenSearchPageEngineIds(hiddenIds: Set<String>)
+    suspend fun setOpenInAppsEnabled(enabled: Boolean)
     fun getBlockedAdsCount(): Flow<Long>
     fun getBlockedTrackersCount(): Flow<Long>
     suspend fun incrementBlockedAds(count: Long = 1)

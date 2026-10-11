@@ -89,6 +89,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
     } ?: SearchEngine.DUCKDUCKGO
 
     val isAdBlockerEnabled = map[SettingKeys.AD_BLOCKER_ENABLED]?.toBooleanStrictOrNull() ?: true
+    val isOpenInAppsEnabled = map[SettingKeys.OPEN_IN_APPS_ENABLED]?.toBooleanStrictOrNull() ?: true
 
     val hiddenEngines = map[SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES]
         ?.takeIf { it.isNotBlank() }
@@ -101,7 +102,8 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
         themeMode = themeMode,
         searchEngine = searchEngine,
         isAdBlockerEnabled = isAdBlockerEnabled,
-        hiddenSearchPageEngineIds = hiddenEngines
+        hiddenSearchPageEngineIds = hiddenEngines,
+        isOpenInAppsEnabled = isOpenInAppsEnabled
     )
 }
 

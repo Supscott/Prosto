@@ -2,6 +2,7 @@ package com.jestk.browser.ui.viewmodel
 
 import android.net.Uri
 import com.jestk.browser.domain.model.BrowserSettings
+import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.SearchEngine
@@ -58,7 +59,31 @@ internal class TabCoordinator(
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher,
     internal val tabLoadingProgress: MutableMap<String, Int> = ConcurrentHashMap(),
+    internal val dismissedExternalAppDomains: MutableMap<String, MutableSet<String>> = ConcurrentHashMap(),
 ) {
+    fun handleExternalAppOffered(tabId: String, prompt: ExternalAppPrompt) {
+        val current = getCurrentState()
+        if (current.activeTabId != tabId) return
+        val dismissedForTab = dismissedExternalAppDomains[tabId]
+        if (dismissedForTab != null && (dismissedForTab.contains(prompt.domain) || dismissedForTab.any { com.jestk.browser.engine.ExternalAppResolver.areDomainAliases(it, prompt.domain) })) {
+            return
+        }
+        val existing = current.externalAppPrompt
+        if (existing != null && (existing.domain == prompt.domain || com.jestk.browser.engine.ExternalAppResolver.areDomainAliases(existing.domain, prompt.domain))) {
+            return
+        }
+        updateUiState { it.copy(externalAppPrompt = prompt) }
+    }
+
+    fun dismissExternalAppPrompt(rememberDomain: Boolean = true) {
+        val current = getCurrentState()
+        val prompt = current.externalAppPrompt
+        if (prompt != null && rememberDomain) {
+            val set = dismissedExternalAppDomains.getOrPut(prompt.tabId) { ConcurrentHashMap.newKeySet() }
+            set.add(prompt.domain)
+        }
+        updateUiState { it.copy(externalAppPrompt = null) }
+    }
     suspend fun restoreSession(
         initialSettings: BrowserSettings,
         currentEngines: List<SearchEngine>
@@ -418,6 +443,7 @@ internal class TabCoordinator(
                     activeThemeColor = if (isHome) null else cachedColor,
                     isMenuExpanded = false,
                     isSearchEngineSwitcherEditExpanded = false,
+                    externalAppPrompt = null,
                     activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
                     isBottomBarVisible = true,
                 )
@@ -447,6 +473,7 @@ internal class TabCoordinator(
     fun closeTab(tabId: String) {
         tabThemeColors.remove(tabId)
         tabLoadingProgress.remove(tabId)
+        dismissedExternalAppDomains.remove(tabId)
         webViewPool?.removeWebView(tabId)
         val closingTab = getCurrentState().tabs.find { it.id == tabId }
         scope.launch(ioDispatcher) {
@@ -476,6 +503,7 @@ internal class TabCoordinator(
                             activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
                             recentlyClosedTab = tabToSave,
                             showUndoTabCloseSnackbar = tabToSave != null,
+                            externalAppPrompt = null,
                         )
                     }
                 } else {
@@ -519,6 +547,7 @@ internal class TabCoordinator(
                                 },
                             recentlyClosedTab = tabToSave,
                             showUndoTabCloseSnackbar = tabToSave != null,
+                            externalAppPrompt = null,
                         )
                     }
                 }
@@ -601,6 +630,7 @@ internal class TabCoordinator(
     fun closeAllTabs() {
         tabThemeColors.clear()
         tabLoadingProgress.clear()
+        dismissedExternalAppDomains.clear()
         webViewPool?.clearAll()
         scope.launch(ioDispatcher) {
             SnapshotEngine.deleteAllSnapshots()
@@ -620,6 +650,7 @@ internal class TabCoordinator(
                         isLoading = false,
                         loadingProgress = 0f,
                         activeThemeColor = null,
+                        externalAppPrompt = null,
                         activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
                     )
                 }
@@ -731,6 +762,10 @@ internal class TabCoordinator(
         val shouldResetTitle = currentTab != null && currentTab.url != url && !sameDomain
         val newTitle = if (shouldResetTitle) "Loading..." else null
 
+        if (!sameDomain) {
+            dismissedExternalAppDomains[tabId]?.clear()
+        }
+
         updateUiState { state ->
             val updatedTabs = state.tabs.map { tab ->
                 if (tab.id == tabId) {
@@ -742,6 +777,15 @@ internal class TabCoordinator(
                 } else tab
             }
             if (state.activeTabId == tabId) {
+                val isPromptForCurrentNavigation = state.externalAppPrompt?.let { prompt ->
+                    isSameDomain(prompt.domain, url) ||
+                        isSameDomain(prompt.intentUri, url) ||
+                        com.jestk.browser.engine.ExternalAppResolver.areDomainAliases(
+                            prompt.domain,
+                            com.jestk.browser.engine.ExternalAppResolver.extractDomain(url)
+                        )
+                } ?: false
+
                 state.copy(
                     tabs = updatedTabs,
                     currentUrl = url,
@@ -749,6 +793,7 @@ internal class TabCoordinator(
                     isLoading = true,
                     loadingProgress = 0.15f,
                     isBottomBarVisible = true,
+                    externalAppPrompt = if (sameDomain || isPromptForCurrentNavigation) state.externalAppPrompt else null,
                 )
             } else {
                 state.copy(tabs = updatedTabs)

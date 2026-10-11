@@ -6,6 +6,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.repository.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,8 +24,54 @@ class JestkWebViewClient(
     private val onFaviconReceived: ((tabId: String, icon: Bitmap) -> Unit)? = null,
     private val settingsRepository: SettingsRepository? = null,
     private val onBlockedResource: ((url: String, isTracker: Boolean) -> Unit)? = null,
-    private val onTitleReceived: ((tabId: String, title: String) -> Unit)? = null
+    private val onTitleReceived: ((tabId: String, title: String) -> Unit)? = null,
+    private val isOpenInAppsEnabled: (() -> Boolean)? = null,
+    private val onExternalAppOffered: ((tabId: String, prompt: ExternalAppPrompt) -> Unit)? = null
 ) : WebViewClient() {
+
+    override fun shouldOverrideUrlLoading(
+        view: WebView?,
+        request: WebResourceRequest?
+    ): Boolean {
+        if (request == null) return false
+        if (!request.isForMainFrame) return false
+        val url = request.url?.toString().orEmpty()
+        return handleUrlLoading(view, url)
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+        val validUrl = url.orEmpty()
+        if (validUrl.isBlank()) return false
+        return handleUrlLoading(view, validUrl)
+    }
+
+    private fun handleUrlLoading(view: WebView?, url: String): Boolean {
+        val isEnabled = isOpenInAppsEnabled?.invoke() ?: true
+        if (!isEnabled) {
+            val uri = try { android.net.Uri.parse(url) } catch (e: Exception) { null }
+            val scheme = uri?.scheme?.lowercase().orEmpty()
+            return if (scheme == "http" || scheme == "https") {
+                false
+            } else {
+                true
+            }
+        }
+
+        val context = view?.context ?: return false
+        return when (val resolution = ExternalAppResolver.resolve(context, url, tabId)) {
+            is ExternalAppResolution.Offer -> {
+                onExternalAppOffered?.invoke(tabId, resolution.prompt)
+                resolution.isCustomScheme
+            }
+            is ExternalAppResolution.UnresolvableScheme -> {
+                true
+            }
+            is ExternalAppResolution.NoApp -> {
+                false
+            }
+        }
+    }
 
     override fun shouldInterceptRequest(
         view: WebView?,
@@ -57,6 +104,15 @@ class JestkWebViewClient(
         return super.shouldInterceptRequest(view, request)
     }
 
+    private fun checkExternalAppOffer(view: WebView?, url: String) {
+        if (isOpenInAppsEnabled?.invoke() == false) return
+        val context = view?.context ?: return
+        val resolution = ExternalAppResolver.resolve(context, url, tabId)
+        if (resolution is ExternalAppResolution.Offer && !resolution.isCustomScheme) {
+            onExternalAppOffered?.invoke(tabId, resolution.prompt)
+        }
+    }
+
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         val validUrl = url.orEmpty()
@@ -65,6 +121,7 @@ class JestkWebViewClient(
         favicon?.let { onFaviconReceived?.invoke(tabId, it) }
         onPageStarted(tabId, validUrl)
         view?.let { wv ->
+            checkExternalAppOffer(wv, validUrl)
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
             val isDark = isDarkTheme?.invoke() ?: false
             injectColorScheme(wv, isDark)
@@ -214,6 +271,7 @@ class JestkWebViewClient(
         if (validUrl.isNotBlank() && validUrl != "about:blank") {
             (view as? NestedWebView)?.loadedUrl = validUrl
             onPageStarted(tabId, validUrl)
+            checkExternalAppOffer(view, validUrl)
             val title = view?.title
             if (!title.isNullOrBlank()) {
                 onTitleReceived?.invoke(tabId, title)

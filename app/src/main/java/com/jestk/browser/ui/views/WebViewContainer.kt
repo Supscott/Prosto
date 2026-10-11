@@ -305,7 +305,9 @@ fun WebViewContainer(
                         },
                         isDarkTheme = { isDark },
                         onFaviconReceived = handleFavicon,
-                        onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) }
+                        onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
+                        isOpenInAppsEnabled = { currentUiState.settings.isOpenInAppsEnabled },
+                        onExternalAppOffered = { id, prompt -> currentOnEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt)) }
                     )
 
                     webView.webChromeClient = JestkWebChromeClient(

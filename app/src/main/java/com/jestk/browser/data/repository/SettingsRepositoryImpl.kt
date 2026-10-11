@@ -30,10 +30,12 @@ class SettingsRepositoryImpl(
         val searchStr = settingDao.getSetting(SettingKeys.SEARCH_ENGINE)
         val adBlockerStr = settingDao.getSetting(SettingKeys.AD_BLOCKER_ENABLED)
         val hiddenStr = settingDao.getSetting(SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES)
+        val openInAppsStr = settingDao.getSetting(SettingKeys.OPEN_IN_APPS_ENABLED)
 
         val theme = themeStr?.let { runCatching { ThemeMode.valueOf(it) }.getOrDefault(ThemeMode.SYSTEM) } ?: ThemeMode.SYSTEM
         val search = searchStr?.let { runCatching { SearchEngine.valueOf(it) }.getOrDefault(SearchEngine.DUCKDUCKGO) } ?: SearchEngine.DUCKDUCKGO
         val adBlocker = adBlockerStr?.toBooleanStrictOrNull() ?: true
+        val openInApps = openInAppsStr?.toBooleanStrictOrNull() ?: true
         val hiddenEngines = hiddenStr
             ?.takeIf { it.isNotBlank() }
             ?.split(",")
@@ -45,7 +47,8 @@ class SettingsRepositoryImpl(
             themeMode = theme,
             searchEngine = search,
             isAdBlockerEnabled = adBlocker,
-            hiddenSearchPageEngineIds = hiddenEngines
+            hiddenSearchPageEngineIds = hiddenEngines,
+            isOpenInAppsEnabled = openInApps
         )
     }
 
@@ -64,6 +67,10 @@ class SettingsRepositoryImpl(
     override suspend fun setHiddenSearchPageEngineIds(hiddenIds: Set<String>) = withContext(ioDispatcher) {
         val serialized = hiddenIds.filter { it.isNotBlank() }.joinToString(",")
         settingDao.setSetting(SettingEntity(SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES, serialized))
+    }
+
+    override suspend fun setOpenInAppsEnabled(enabled: Boolean) = withContext(ioDispatcher) {
+        settingDao.setSetting(SettingEntity(SettingKeys.OPEN_IN_APPS_ENABLED, enabled.toString()))
     }
 
     override fun getBlockedAdsCount(): Flow<Long> =

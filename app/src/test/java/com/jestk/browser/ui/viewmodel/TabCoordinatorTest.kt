@@ -526,4 +526,100 @@ class TabCoordinatorTest {
             assertThat(uiState.activeTabId).isEqualTo(tab1Id)
             assertThat(uiState.currentUrl).isEqualTo("https://tab1-live.com")
         }
+
+    @Test
+    fun handleExternalAppOffered_displaysPromptForActiveTab_andSuppressesAfterDismissal() =
+        testScope.runTest {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            val prompt = com.jestk.browser.domain.model.ExternalAppPrompt(
+                tabId = activeTabId,
+                appName = "YouTube",
+                appPackage = "com.google.android.youtube",
+                intentUri = "https://youtube.com/watch?v=123",
+                isInstalled = true,
+                domain = "youtube.com"
+            )
+
+            // Offer for active tab sets prompt
+            coordinator.handleExternalAppOffered(activeTabId, prompt)
+            assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
+
+            // Dismiss with rememberDomain = true
+            coordinator.dismissExternalAppPrompt(rememberDomain = true)
+            assertThat(uiState.externalAppPrompt).isNull()
+
+            // Subsequent offer for same domain is suppressed
+            val secondPrompt = prompt.copy(id = "prompt_2")
+            coordinator.handleExternalAppOffered(activeTabId, secondPrompt)
+            assertThat(uiState.externalAppPrompt).isNull()
+
+            // Navigating to a different domain clears suppression
+            coordinator.handlePageStarted(activeTabId, "https://wikipedia.org/wiki/Kotlin")
+            advanceUntilIdle()
+
+            // Now YouTube offer can appear again or new domain offer works
+            coordinator.handleExternalAppOffered(activeTabId, secondPrompt)
+            assertThat(uiState.externalAppPrompt).isEqualTo(secondPrompt)
+        }
+
+    @Test
+    fun handleExternalAppOffered_ignoresBackgroundTab() =
+        testScope.runTest {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+
+            val bgTabId = uiState.tabs.first { !it.isActive }.id
+            val prompt = com.jestk.browser.domain.model.ExternalAppPrompt(
+                tabId = bgTabId,
+                appName = "Telegram",
+                intentUri = "tg://resolve?domain=test",
+                domain = "tg"
+            )
+
+            coordinator.handleExternalAppOffered(bgTabId, prompt)
+            assertThat(uiState.externalAppPrompt).isNull()
+        }
+
+    @Test
+    fun handlePageStarted_preservesPrompt_whenNavigatingFromSearchToTargetDomain() =
+        testScope.runTest {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            // User begins on google.com
+            coordinator.handlePageStarted(activeTabId, "https://google.com/search?q=instagram")
+            advanceUntilIdle()
+
+            // User taps instagram.com link: external app offered for instagram.com
+            val instagramPrompt = com.jestk.browser.domain.model.ExternalAppPrompt(
+                tabId = activeTabId,
+                appName = "Instagram",
+                appPackage = "com.instagram.android",
+                intentUri = "https://instagram.com/profile",
+                isInstalled = true,
+                domain = "instagram.com"
+            )
+            coordinator.handleExternalAppOffered(activeTabId, instagramPrompt)
+            assertThat(uiState.externalAppPrompt).isEqualTo(instagramPrompt)
+
+            // Web navigation begins loading the clicked destination: https://instagram.com/profile
+            // Previously, !sameDomain("google.com", "instagram.com") caused prompt to be wiped out immediately.
+            coordinator.handlePageStarted(activeTabId, "https://instagram.com/profile")
+            advanceUntilIdle()
+
+            // The prompt MUST be preserved because it was offered for this navigation destination!
+            assertThat(uiState.externalAppPrompt).isEqualTo(instagramPrompt)
+
+            // If user subsequently navigates to an unrelated domain (e.g. wikipedia.org), prompt is cleared
+            coordinator.handlePageStarted(activeTabId, "https://en.wikipedia.org/wiki/Kotlin")
+            advanceUntilIdle()
+            assertThat(uiState.externalAppPrompt).isNull()
+        }
 }

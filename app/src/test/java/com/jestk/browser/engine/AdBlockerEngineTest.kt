@@ -368,6 +368,7 @@ class AdBlockerEngineTest {
             override suspend fun incrementBlockedAds(count: Long) { adsIncremented += count }
             override suspend fun incrementBlockedTrackers(count: Long) { trackersIncremented += count }
             override suspend fun setHiddenSearchPageEngineIds(ids: Set<String>) {}
+            override suspend fun setOpenInAppsEnabled(enabled: Boolean) {}
         }
 
         AdBlockerEngine.settingsRepository = fakeRepo
