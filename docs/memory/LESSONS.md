@@ -11,6 +11,13 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
 - **Root Cause:** Android Studio bundles JBR 25, but Gradle 8.14.x cannot parse Java 25 version strings during Kotlin DSL script compilation.
 - **Resolution & Prevention:** Pin the Gradle daemon JVM to JDK 23 via `org.gradle.java.home` in `~/.gradle/gradle.properties` (or `gradle/gradle-daemon-jvm.properties` with `toolchainVersion=23`). When a build fails before task execution with a bare version string, suspect the Gradle daemon JVM.
 
+### GitHub Actions CI fails with `ToolchainDownloadException: Unable to download toolchain matching languageVersion=23`
+- **Symptom:** GitHub Actions runner fails with `Unable to download toolchain matching the requirements ({languageVersion=23, vendor=any vendor}) from 'null', due to: No defined toolchain download url for LINUX on x86_64 architecture`.
+- **Root Cause:** `gradle/gradle-daemon-jvm.properties` specifies `toolchainVersion=23`. When CI runs with JDK 17, Gradle attempts to download JDK 23. Without a toolchain download repository plugin, Gradle cannot locate a download URL.
+- **Resolution & Prevention:**
+  1. Pin `actions/setup-java@v4` to `java-version: '23'` in `.github/workflows/ci.yml` and `release.yml`.
+  2. Add `id("org.gradle.toolchains.foojay-resolver-convention") version "0.9.0"` to `settings.gradle.kts` so Gradle can automatically provision missing toolchains from Foojay Disco API on any platform.
+
 ---
 
 ## 2. Web Engine & Rendering

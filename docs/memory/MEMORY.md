@@ -291,6 +291,15 @@ com.jestk.browser/
   - Added test cases in `ExternalAppResolverTest.kt` verifying `www.` subdomain resolution, Reddit package installed fallback, and VK installed package resolution on `vk.ru`.
   - All 508 unit and Robolectric tests passing 100% green (`:app:testDebugUnitTest`).
 
-
-
-
+## Technical Debt Comprehensive Audit — 2026-10-12
+- **Audit Completed:** Executed end-to-end technical debt audit across all 9 architectural dimensions, compiling detailed cited report in [`TECH_DEBT_AUDIT.md`](file:///Users/ilya/CODING/browser/TECH_DEBT_AUDIT.md).
+- **Tooling Executed:**
+  - `:app:testDebugUnitTest`: 508 tests passing 100% green in 9s.
+  - `:app:compileDebugKotlin` & `:app:compileDebugUnitTestKotlin`: Recompiled with `--rerun-tasks`; identified deprecations in WebSettings.
+  - `:app:lintDebug`: Executed full Android Lint analysis (found 5 errors including API 27 attribute violations on API 26 minSdk, and 141 warnings).
+  - `landing/`: `pnpm audit` (0 CVEs) and `pnpm build` verified clean in 1.7s.
+- **Audit Comparison & Living Tracking:**
+  - Verified that 24 of 26 findings from previous `tech-debt.md` (2026-10-04) are now RESOLVED (Room DB v8 migrations, OkHttp direct dependency, SearchOverlay decomposition, SettingsSheet pruning, R8 minification, README authoring, test suite real tests).
+  - Cataloged 16 NEW findings, ranked by severity and blast radius.
+  - Identified critical download file rename desync in `HoriDownloadManager.kt:341-410` and missing `onRenderProcessGone` resilience in `JestkWebViewClient.kt`.
+- **Current State:** Working branch `main`, clean git status. `TECH_DEBT_AUDIT.md` generated at repo root.
