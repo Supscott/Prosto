@@ -26,8 +26,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
-import com.jestk.browser.ui.overlays.SearchEngineSwitcherEditPopup
-import com.jestk.browser.ui.overlays.SearchEngineSwitcherRow
 import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme

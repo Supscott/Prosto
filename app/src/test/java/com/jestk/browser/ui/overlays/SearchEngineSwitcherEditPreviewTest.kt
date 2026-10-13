@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.sp
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.ui.navigation.SearchEngineSwitcherEditPopup
+import com.jestk.browser.ui.navigation.SearchEngineSwitcherRow
 import com.jestk.browser.ui.screens.SearchPageProvidersDialog
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import org.junit.Assert.assertTrue

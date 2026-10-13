@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -52,6 +53,7 @@ import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.sereneSkyBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import kotlinx.coroutines.flow.filter
 
 /**
  * Search & History Overlay - Serene Canvas design system (NO BLUR).
@@ -181,20 +183,21 @@ fun SearchOverlay(
 
             // Pagination trigger: When user scrolls to the end of the loaded list (top of reversed list)
             LaunchedEffect(
-                scrollState.value,
                 uiState.isSearchHistoryExpanded,
                 uiState.hasMoreHistory,
-                uiState.isLoadingMoreHistory,
-                uiState.searchHistorySuggestions.size
+                uiState.isLoadingMoreHistory
             ) {
-                if (uiState.isSearchHistoryExpanded &&
-                    uiState.hasMoreHistory &&
-                    !uiState.isLoadingMoreHistory &&
-                    uiState.searchHistorySuggestions.isNotEmpty() &&
-                    scrollState.value <= 20
-                ) {
-                    onEvent(BrowserUiEvent.LoadMoreSearchHistory)
-                }
+                snapshotFlow { scrollState.value }
+                    .filter { it <= 20 }
+                    .collect {
+                        if (uiState.isSearchHistoryExpanded &&
+                            uiState.hasMoreHistory &&
+                            !uiState.isLoadingMoreHistory &&
+                            uiState.searchHistorySuggestions.isNotEmpty()
+                        ) {
+                            onEvent(BrowserUiEvent.LoadMoreSearchHistory)
+                        }
+                    }
             }
 
             // Top Area: Scrollable column containing history suggestions
