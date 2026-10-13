@@ -27,7 +27,7 @@ interface DownloadRepository {
         status: DownloadStatus = DownloadStatus.DOWNLOADING
     )
     suspend fun updateStatus(id: Long, status: DownloadStatus, errorMessage: String? = null)
-    suspend fun updateFilePath(id: Long, filePath: String, fileName: String)
+    suspend fun updateFilePath(id: Long, fileName: String, filePath: String)
     suspend fun deleteDownload(id: Long, deleteFile: Boolean = true)
     suspend fun clearAllDownloads(deleteFiles: Boolean = true)
 }

@@ -2,6 +2,7 @@ package com.jestk.browser.engine
 
 import android.graphics.Bitmap
 import android.util.Log
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -10,6 +11,7 @@ import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.repository.SettingsRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class JestkWebViewClient(
@@ -28,6 +30,15 @@ class JestkWebViewClient(
     private val isOpenInAppsEnabled: (() -> Boolean)? = null,
     private val onExternalAppOffered: ((tabId: String, prompt: ExternalAppPrompt) -> Unit)? = null
 ) : WebViewClient() {
+
+    private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+        android.util.Log.e("JestkWebViewClient", "Chromium render process gone for tab $tabId (didCrash=${detail?.didCrash()})")
+        (view?.parent as? android.view.ViewGroup)?.removeView(view)
+        view?.destroy()
+        return true
+    }
 
     override fun shouldOverrideUrlLoading(
         view: WebView?,
@@ -85,7 +96,7 @@ class JestkWebViewClient(
                 val isTracker = AdBlockerEngine.isTracker(validUrl)
                 onBlockedResource?.invoke(validUrl, isTracker)
                 if (settingsRepository != null) {
-                    CoroutineScope(Dispatchers.IO).launch {
+                    telemetryScope.launch {
                         if (isTracker) {
                             settingsRepository.incrementBlockedTrackers()
                         } else {

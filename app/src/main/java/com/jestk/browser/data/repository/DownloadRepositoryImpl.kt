@@ -84,10 +84,10 @@ class DownloadRepositoryImpl(
 
     override suspend fun updateFilePath(
         id: Long,
-        filePath: String,
-        fileName: String
+        fileName: String,
+        filePath: String
     ) = withContext(ioDispatcher) {
-        downloadDao.updateFilePath(id, filePath, fileName)
+        downloadDao.updateFilePath(id, fileName = fileName, filePath = filePath)
     }
 
     override suspend fun deleteDownload(id: Long, deleteFile: Boolean) = withContext(ioDispatcher) {

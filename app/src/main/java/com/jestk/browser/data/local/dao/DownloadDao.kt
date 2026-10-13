@@ -26,7 +26,7 @@ interface DownloadDao {
     suspend fun updateStatus(id: Long, status: String, errorMessage: String? = null)
 
     @Query("UPDATE downloads SET filePath = :filePath, fileName = :fileName WHERE id = :id")
-    suspend fun updateFilePath(id: Long, filePath: String, fileName: String)
+    suspend fun updateFilePath(id: Long, fileName: String, filePath: String)
 
     @Query("SELECT * FROM downloads WHERE status IN ('PENDING', 'DOWNLOADING', 'PAUSED') ORDER BY timestamp ASC")
     suspend fun getActiveOrPendingDownloads(): List<DownloadEntity>

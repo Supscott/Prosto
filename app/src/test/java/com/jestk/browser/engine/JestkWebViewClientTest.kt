@@ -256,4 +256,33 @@ class JestkWebViewClientTest {
         assertThat(offeredPrompt).isNotNull()
         assertThat(offeredPrompt?.appPackage).isEqualTo("com.google.android.youtube")
     }
+
+    @Test
+    fun onRenderProcessGone_cleansUpViewAndReturnsTrue() {
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val parentLayout = android.widget.FrameLayout(context)
+        val webView = android.webkit.WebView(context)
+        parentLayout.addView(webView)
+
+        assertThat(webView.parent).isNotNull()
+
+        val detail = object : android.webkit.RenderProcessGoneDetail() {
+            override fun didCrash(): Boolean = true
+            override fun rendererPriorityAtExit(): Int = 0
+        }
+
+        val handled = client.onRenderProcessGone(webView, detail)
+
+        assertThat(handled).isTrue()
+        assertThat(webView.parent).isNull()
+    }
 }

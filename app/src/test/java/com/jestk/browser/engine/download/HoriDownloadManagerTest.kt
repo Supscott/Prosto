@@ -27,6 +27,11 @@ import org.robolectric.annotation.Config
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -344,6 +349,80 @@ class HoriDownloadManagerTest {
         assertThat(indeterminateText).isEqualTo("15.0 MB")
     }
 
+    @Test
+    fun performDownload_whenContentDispositionChangesFilename_renamesToRedirectDestination() = testScope.runTest {
+        val downloadedContent = "Redirected PDF file content payload"
+        val mockClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val body = downloadedContent.toByteArray().toResponseBody("application/pdf".toMediaType())
+                Response.Builder()
+                    .request(request)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(200)
+                    .message("OK")
+                    .header("Content-Disposition", "attachment; filename=\"redirected_final.pdf\"")
+                    .header("Content-Type", "application/pdf")
+                    .header("Content-Length", body.contentLength().toString())
+                    .body(body)
+                    .build()
+            }
+            .build()
+
+        val downloadManagerWithMock = HoriDownloadManager(
+            context = context,
+            downloadRepository = fakeRepository,
+            ioDispatcher = testDispatcher,
+            okHttpClient = mockClient
+        )
+
+        val initialFile = File(tempFolder.root, "initial_name.bin")
+        val downloadId = fakeRepository.recordDownload(
+            url = "https://example.com/download/start",
+            fileName = "initial_name.bin",
+            filePath = initialFile.absolutePath,
+            mimeType = "application/octet-stream",
+            contentLength = downloadedContent.length.toLong(),
+            status = DownloadStatus.PENDING,
+            bytesDownloaded = 0L,
+            totalBytes = downloadedContent.length.toLong()
+        )
+
+        var completedItem: DownloadItem? = null
+        downloadManagerWithMock.performDownload(
+            id = downloadId,
+            referer = null,
+            userAgent = null,
+            onProgress = {},
+            onComplete = { item -> completedItem = item },
+            onError = { _, _ -> }
+        )
+        advanceUntilIdle()
+
+        assertThat(completedItem).isNotNull()
+        assertThat(completedItem?.fileName).isEqualTo("redirected_final.pdf")
+        assertThat(completedItem?.status).isEqualTo(DownloadStatus.COMPLETED)
+        assertThat(completedItem?.filePath).endsWith("redirected_final.pdf")
+
+        // Final target file must exist with downloaded content
+        val finalDestinationFile = File(completedItem!!.filePath)
+        assertThat(finalDestinationFile.exists()).isTrue()
+        assertThat(finalDestinationFile.readText()).isEqualTo(downloadedContent)
+
+        // Initial pre-redirect destination file and .crdownload must NOT exist
+        assertThat(initialFile.exists()).isFalse()
+        assertThat(File("${initialFile.absolutePath}.crdownload").exists()).isFalse()
+
+        // Repository must reflect updated fileName and filePath
+        val repoItem = fakeRepository.getDownloadById(downloadId)
+        assertThat(repoItem).isNotNull()
+        assertThat(repoItem?.fileName).isEqualTo("redirected_final.pdf")
+        assertThat(repoItem?.filePath).isEqualTo(finalDestinationFile.absolutePath)
+
+        // Cleanup
+        finalDestinationFile.delete()
+    }
+
     /**
      * In-memory fake implementation of [DownloadRepository] for unit testing.
      */
@@ -422,11 +501,11 @@ class HoriDownloadManagerTest {
             notifyChange()
         }
 
-        override suspend fun updateFilePath(id: Long, filePath: String, fileName: String) {
+        override suspend fun updateFilePath(id: Long, fileName: String, filePath: String) {
             val existing = storage[id] ?: return
             storage[id] = existing.copy(
-                filePath = filePath,
-                fileName = fileName
+                fileName = fileName,
+                filePath = filePath
             )
             notifyChange()
         }

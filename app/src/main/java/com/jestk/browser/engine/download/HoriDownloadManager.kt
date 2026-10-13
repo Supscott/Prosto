@@ -42,12 +42,13 @@ import java.util.concurrent.TimeUnit
 class HoriDownloadManager(
     private val context: Context,
     private val downloadRepository: DownloadRepository,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    okHttpClient: OkHttpClient? = null
 ) {
 
     private val coroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
-    private val client = OkHttpClient.Builder()
+    private val client = okHttpClient ?: OkHttpClient.Builder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .followRedirects(true)
@@ -260,7 +261,7 @@ class HoriDownloadManager(
                 return@launch
             }
 
-            val finalFile = File(item.filePath)
+            var targetDestinationFile = File(item.filePath)
             val partFile = File("${item.filePath}.crdownload")
             var downloadedBytes = if (partFile.exists()) partFile.length() else 0L
 
@@ -344,6 +345,7 @@ class HoriDownloadManager(
                     if (serverSuggestedName.isNotBlank() && serverSuggestedName != item.fileName) {
                         val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                         val newFinalFile = DownloadFileNameResolver.resolveUniqueFile(downloadDir, serverSuggestedName)
+                        targetDestinationFile = newFinalFile
                         item = item.copy(fileName = newFinalFile.name, filePath = newFinalFile.absolutePath)
                         downloadRepository.updateFilePath(id, newFinalFile.name, newFinalFile.absolutePath)
                     }
@@ -399,12 +401,12 @@ class HoriDownloadManager(
                 }
 
                 // Atomic rename from .crdownload to final destination
-                if (finalFile.exists()) {
-                    finalFile.delete()
+                if (targetDestinationFile.exists()) {
+                    targetDestinationFile.delete()
                 }
-                val renameSuccess = partFile.renameTo(finalFile)
+                val renameSuccess = partFile.renameTo(targetDestinationFile)
                 if (!renameSuccess) {
-                    partFile.copyTo(finalFile, overwrite = true)
+                    partFile.copyTo(targetDestinationFile, overwrite = true)
                     partFile.delete()
                 }
 
@@ -425,7 +427,7 @@ class HoriDownloadManager(
                 try {
                     MediaScannerConnection.scanFile(
                         context,
-                        arrayOf(finalFile.absolutePath),
+                        arrayOf(targetDestinationFile.absolutePath),
                         if (completedItem.mimeType != null) arrayOf(completedItem.mimeType) else null,
                         null
                     )
