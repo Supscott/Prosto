@@ -309,6 +309,30 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
 - **Root Cause:** Standard HTML comments `<!-- ... -->` placed inside JSX JavaScript blocks `{ ... }` are parsed as JavaScript code rather than markup comments, causing token parsing errors.
 - **Resolution & Prevention:** Never use HTML comments `<!-- -->` inside JSX curly brace expressions in `.astro` files. Use standard JSX comments `{/* ... */}` or keep comments in standard HTML template scope outside curly braces.
 
+---
+
+## 15. Downloads & Engine Reliability
+
+### Download redirect filename desynchronization and broken file scan
+- **Symptom:** Downloading redirected files (e.g. GitHub releases) caused file managers to report missing files or open operations to throw `FileNotFoundException`.
+- **Root Cause:** When `newFinalFile` was resolved from HTTP `Content-Disposition`, the database record and domain item were updated with the new path, but the file renaming operation (`partFile.renameTo(finalFile)`) and `MediaScannerConnection.scanFile(...)` still referenced the pre-redirect `finalFile` path.
+- **Resolution & Prevention:** Maintain a mutable `var targetDestinationFile = File(item.filePath)` in `HoriDownloadManager.downloadFile()`. Update `targetDestinationFile = newFinalFile` immediately upon redirect resolution, ensuring disk renaming and media scanner indexing strictly match the database record.
+
+### Chromium renderer process termination kills host app without `onRenderProcessGone`
+- **Symptom:** When Android OS killed Chromium's render process under low memory pressure (OOM) or an internal WebKit crash occurred, the entire browser app abruptly vanished / terminated.
+- **Root Cause:** The default WebKit implementation of `WebViewClient.onRenderProcessGone()` returns `false`, causing the Android framework to forcefully terminate the host application process via `Process.killProcess(Process.myPid())`.
+- **Resolution & Prevention:** Always override `onRenderProcessGone(view, detail)` in `JestkWebViewClient`. Remove the crashed WebView from its parent view group, destroy the WebView instance, and return `true` to notify the OS that the app handled the crash cleanly.
+
+### `android:windowLightNavigationBar` attribute aborts Lint on minSdk 26
+- **Symptom:** Android Lint failed `:app:lintDebug` with hard `NewApi` errors pointing to `themes.xml`.
+- **Root Cause:** `android:windowLightNavigationBar` requires API level 27 (Android 8.1), while the application declares `minSdk = 26`.
+- **Resolution & Prevention:** Declare `xmlns:tools="http://schemas.android.com/tools"` on `<resources>` and annotate the attribute with `tools:targetApi="27"`: `<item name="android:windowLightNavigationBar" tools:targetApi="27">true</item>`.
+
+### Keying `LaunchedEffect` directly on `scrollState.value` causes coroutine thrashing
+- **Symptom:** Dragging or scrolling lists caused pagination effects to repeatedly cancel and restart up to 120 times per second.
+- **Root Cause:** Passing a rapidly changing state value (like `scrollState.value`) as a key to `LaunchedEffect` restarts the effect block on every single frame/subpixel change.
+- **Resolution & Prevention:** Pass only stable keys (like expanded flags) to `LaunchedEffect`, and observe scroll changes inside the block using `snapshotFlow { scrollState.value }.filter { ... }.collect { ... }`.
+
 
 
 

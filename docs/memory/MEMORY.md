@@ -302,23 +302,45 @@ com.jestk.browser/
   - Verified that 24 of 26 findings from previous `tech-debt.md` (2026-10-04) are now RESOLVED (Room DB v8 migrations, OkHttp direct dependency, SearchOverlay decomposition, SettingsSheet pruning, R8 minification, README authoring, test suite real tests).
   - Cataloged 16 NEW findings, ranked by severity and blast radius.
   - Identified critical download file rename desync in `HoriDownloadManager.kt:341-410` and missing `onRenderProcessGone` resilience in `JestkWebViewClient.kt`.
-305: - **Current State:** Working branch `main`, clean git status. `TECH_DEBT_AUDIT.md` generated at repo root.
-306: 
-307: ## Prosto Landing Page Refactor (Hybrid Helium + Arc Search) — 2026-10-13
-308: - **Refactor Completed:** Completely overhauled `landing/` to transform it from a passive showcase into a high-converting, product-led landing page inspired by `helium.computer` and `arc.net/search`.
-309: - **Aesthetic & Design System:**
-310:   - Adopted strict Dark-only theme (`#060913`, `#0a0f1d`), laser-sharp micro-borders, electric cyan/blue accents (`#38bdf8`), and high-contrast typography (Plus Jakarta Sans + JetBrains Mono).
-311:   - Maintained Serene Canvas STRICT NO BLUR architectural invariant.
-312: - **Centered Hero with Interactive Mockup:**
-313:   - Centered headline: *"Every action in a single swipe. Browsing stripped to pure speed."*
-314:   - Core metrics bar: 4.0 MB uncompressed, 0ms thumb reach, EasyList AdBlock, Android 8-15, GPL-3.0.
-315:   - Centerpiece phone mockup featuring interactive bottom Floating Dock (switchable active/inactive tabs) and omnibox search trigger.
-316: - **3 Super Bento Cards (Core Value Propositions):**
-317:   1. **Thumb Dock & Search Swipe:** Interactive search engine swipe input (Google, DuckDuckGo, Yandex, Bing) + bottom dock tabs.
-318:   2. **Cross-Engine Comparison:** Dynamic looping animation demonstrating instant query re-execution across Google, DuckDuckGo, Yandex, and Bing via the floating switcher bar above the dock without re-typing.
-319:   3. **Native AdBlock & 4 MB Zero Bloat:** Interactive AdBlock toggle shield with live counter (42 ads, 18 trackers) and APK size comparison bar (4 MB vs 190–240 MB conventional browsers).
-320: - **Dedicated Media Placeholders (`MediaPlaceholder.astro`):**
-321:   - Created reusable placeholder component for screenshots and screen recordings with exact aspect ratios (`9/16`, `9/19`, `16/10`) and stylized "photo" and "video" badges.
-322: - **Verification:**
-323:   - `pnpm build` in `landing/` succeeds with 0 errors in <800ms.
-324:   - Full Android test suite `:app:testDebugUnitTest` (508 tests) passing 100% green.
+- **Current State:** Working branch `main`, clean git status. `TECH_DEBT_AUDIT.md` generated at repo root.
+
+## Prosto Landing Page Refactor (Hybrid Helium + Arc Search) — 2026-10-13
+- **Refactor Completed:** Completely overhauled `landing/` to transform it from a passive showcase into a high-converting, product-led landing page inspired by `helium.computer` and `arc.net/search`.
+- **Aesthetic & Design System:**
+  - Adopted strict Dark-only theme (`#060913`, `#0a0f1d`), laser-sharp micro-borders, electric cyan/blue accents (`#38bdf8`), and high-contrast typography (Plus Jakarta Sans + JetBrains Mono).
+  - Maintained Serene Canvas STRICT NO BLUR architectural invariant.
+- **Centered Hero with Interactive Mockup:**
+  - Centered headline: *"Every action in a single swipe. Browsing stripped to pure speed."*
+  - Core metrics bar: 4.0 MB uncompressed, 0ms thumb reach, EasyList AdBlock, Android 8-15, GPL-3.0.
+  - Centerpiece phone mockup featuring interactive bottom Floating Dock (switchable active/inactive tabs) and omnibox search trigger.
+- **3 Super Bento Cards (Core Value Propositions):**
+  1. **Thumb Dock & Search Swipe:** Interactive search engine swipe input (Google, DuckDuckGo, Yandex, Bing) + bottom dock tabs.
+  2. **Cross-Engine Comparison:** Dynamic looping animation demonstrating instant query re-execution across Google, DuckDuckGo, Yandex, and Bing via the floating switcher bar above the dock without re-typing.
+  3. **Native AdBlock & 4 MB Zero Bloat:** Interactive AdBlock toggle shield with live counter (42 ads, 18 trackers) and APK size comparison bar (4 MB vs 190–240 MB conventional browsers).
+- **Dedicated Media Placeholders (`MediaPlaceholder.astro`):**
+  - Created reusable placeholder component for screenshots and screen recordings with exact aspect ratios (`9/16`, `9/19`, `16/10`) and stylized "photo" and "video" badges.
+- **Verification:**
+  - `pnpm build` in `landing/` succeeds with 0 errors in <800ms.
+  - Full Android test suite `:app:testDebugUnitTest` (508 tests) passing 100% green.
+
+## Technical Debt Comprehensive Remediation (Wave 1) — 2026-10-13
+- **Remediation Completed:** Orchestrated 3 parallel worker subagents in dedicated Git worktrees to resolve top priority technical debt findings from `TECH_DEBT_AUDIT.md`.
+- **Track 1 (`feature/engine-fixes`):**
+  - **Download Redirect Filename Desync Fixed (`NEW-BUG-01`):** Updated `HoriDownloadManager.kt` so that when HTTP redirects supply Content-Disposition filenames, `targetDestinationFile` is updated immediately. `partFile.renameTo(targetDestinationFile)` and `MediaScannerConnection.scanFile(...)` now accurately index the final file path matching Room database records.
+  - **Lint Hard Failure on minSdk 26 Resolved (`NEW-CRIT-01`):** Annotated `android:windowLightNavigationBar` in `values/themes.xml` and `values-night/themes.xml` with `tools:targetApi="27"`, eliminating hard build failures in `:app:lintDebug`.
+  - **WebKit Crash Resilience Added (`NEW-RELIAB-01`):** Implemented `JestkWebViewClient.onRenderProcessGone(...)` returning `true` after removing and destroying the crashed WebView, preventing Android OS from killing the entire browser application process.
+  - **AdBlock Telemetry CoroutineScope Hygiene (`PERF-03`):** Replaced per-request `CoroutineScope(Dispatchers.IO).launch` allocations with a reusable lifecycle scope (`telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)`).
+  - Added unit test suites in `HoriDownloadManagerTest` and `JestkWebViewClientTest`.
+- **Track 2 (`feature/ui-decomposition`):**
+  - **SearchEngineCarousel Monolith Decomposed (`NEW-ARCH-03`):** Extracted `SearchEngineSwitcherRow`, `SearchEngineSwitcherEditPopup`, and chips into dedicated `SearchEngineSwitcherRow.kt`.
+  - **TabStripRow Monolith Decomposed (`NEW-ARCH-04`):** Extracted 300 LOC `TabStripDragState` into dedicated `TabStripDragState.kt`.
+  - **Search Overlay Pagination Debounced (`NEW-PERF-01`):** Replaced scroll-keyed `LaunchedEffect` in `SearchOverlay.kt` with `snapshotFlow { scrollState.value }.filter { it <= 20 }`, eliminating 120Hz coroutine restart thrashing on scroll.
+- **Track 3 (`feature/code-hygiene`):**
+  - **Dead Code Pruned (`NEW-ARCH-01`):** Removed 116 lines of commented-out Account & Sync stubs and unused imports from `SettingsScreen.kt`.
+  - **Utility Consolidation (`CONS-03`, `NEW-CONS-01`):** Created `ContextExtensions.kt` (`findActivity()`) and `ClipboardHelper.kt`, replacing duplicated implementations across `WebViewPool.kt`, `JestkApp.kt`, `WebViewContainer.kt`, `ActiveTabPill.kt`, and context menus.
+  - **Compose Lint & Localization (`NEW-LINT-01`, `CONS-05`, `NEW-CONS-03`):** Resolved Compose `context.getString()` warnings and localized hardcoded English strings into `strings.xml` and `values-ru/strings.xml`.
+  - Added unit test suites for `ContextExtensionsTest` and `ClipboardHelperTest`.
+- **Verification & Quality Gate:**
+  - Full test suite: **514 unit and Robolectric tests passing 100% green** (`:app:testDebugUnitTest` in 53s).
+  - Android Lint: **0 errors** (`:app:lintDebug` in 1m 19s).
+

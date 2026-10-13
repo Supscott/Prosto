@@ -337,16 +337,16 @@ Ranked by **Severity** (Critical -> High -> Medium -> Low), then by **Blast Radi
 
 ## 6. Quick Wins (Low Effort × Medium+ Severity)
 
-- [ ] **Fix `themes.xml` API 27 attribute (`res/values/themes.xml:7`):** Add `tools:targetApi="27"` to unblock `./gradlew lintDebug`.
-- [ ] **Fix download redirect renaming bug (`HoriDownloadManager.kt:347`):** Reassign `targetDestinationFile = newFinalFile`.
-- [ ] **Add `onRenderProcessGone` to `JestkWebViewClient.kt:105`:** Return `true` to stop OOM renderer crashes from killing the browser process.
-- [ ] **Remove 116 lines of commented-out Account code (`SettingsScreen.kt:238-353`):** Clean up dead code.
-- [ ] **Debounce `SearchOverlay.kt:184` pagination scroll:** Replace `LaunchedEffect(scrollState.value)` with `snapshotFlow`.
-- [ ] **Consolidate duplicated `findActivity()` (`WebViewPool.kt:37`, `JestkApp.kt:107`):** Move to `ContextExtensions.kt`.
+- [x] **Fix `themes.xml` API 27 attribute (`res/values/themes.xml:7`):** Add `tools:targetApi="27"` to unblock `./gradlew lintDebug`. *(Resolved 2026-10-13)*
+- [x] **Fix download redirect renaming bug (`HoriDownloadManager.kt:347`):** Reassign `targetDestinationFile = newFinalFile`. *(Resolved 2026-10-13)*
+- [x] **Add `onRenderProcessGone` to `JestkWebViewClient.kt:105`:** Return `true` to stop OOM renderer crashes from killing the browser process. *(Resolved 2026-10-13)*
+- [x] **Remove 116 lines of commented-out Account code (`SettingsScreen.kt:238-353`):** Clean up dead code. *(Resolved 2026-10-13)*
+- [x] **Debounce `SearchOverlay.kt:184` pagination scroll:** Replace `LaunchedEffect(scrollState.value)` with `snapshotFlow`. *(Resolved 2026-10-13)*
+- [x] **Consolidate duplicated `findActivity()` (`WebViewPool.kt:37`, `JestkApp.kt:107`):** Move to `ContextExtensions.kt`. *(Resolved 2026-10-13)*
 - [ ] **Decouple `android.graphics.Bitmap` from `ExternalAppPrompt.kt:14`:** Store app icon file path or model representation instead of raw framework Bitmap in domain layer.
-- [ ] **Extract `TabStripDragState` from `TabStripRow.kt:703`:** Move 270 lines to `TabStripDragState.kt`.
-- [ ] **Consolidate clipboard copying into `ClipboardHelper`:** Replace 4 diverging implementations across UI.
-- [ ] **Localize hardcoded strings in `AddEditSearchEngineDialog.kt:226-320` and `HomeScreen.kt:628,644,698`:** Move to `strings.xml` and `values-ru/strings.xml`.
+- [x] **Extract `TabStripDragState` from `TabStripRow.kt:703`:** Move 270 lines to `TabStripDragState.kt`. *(Resolved 2026-10-13)*
+- [x] **Consolidate clipboard copying into `ClipboardHelper`:** Replace 4 diverging implementations across UI. *(Resolved 2026-10-13)*
+- [x] **Localize hardcoded strings in `AddEditSearchEngineDialog.kt:226-320` and `HomeScreen.kt:628,644,698`:** Move to `strings.xml` and `values-ru/strings.xml`. *(Resolved 2026-10-13)*
 
 ---
 

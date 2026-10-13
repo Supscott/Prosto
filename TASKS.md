@@ -1,8 +1,8 @@
 # Orchestrator Task Board: 2026-10-13 (Tech Debt Remediation)
 
-## Wave 1 (Parallel Independent Tracks)
+## Wave 1 (Parallel Independent Tracks) - COMPLETED
 
-- [ ] Track 1: `feature/engine-fixes` (Dir: `.worktrees/engine-fixes`)
+- [x] Track 1: `feature/engine-fixes` (Dir: `.worktrees/engine-fixes`)
   - Scope: Engine Reliability, Download Fixes & Lint Standards
     - NEW-BUG-01: Fix download redirect renaming and MediaStore desync in `HoriDownloadManager.kt:341-410`.
     - NEW-CRIT-01: Add `tools:targetApi="27"` to `android:windowLightNavigationBar` in `res/values/themes.xml` and `res/values-night/themes.xml`.
@@ -14,7 +14,7 @@
   - [x] Verification gate passed
   - [x] Rebased on main & merged
 
-- [ ] Track 2: `feature/ui-decomposition` (Dir: `.worktrees/ui-decomposition`)
+- [x] Track 2: `feature/ui-decomposition` (Dir: `.worktrees/ui-decomposition`)
   - Scope: UI Monolith Decomposition & Scroll Performance
     - NEW-ARCH-03: Decompose `SearchEngineCarousel.kt` monolith; extract `SearchEngineSwitcherRow` and `SearchEngineSwitcherEditPopup` into `com.jestk.browser.ui.navigation.SearchEngineSwitcherRow.kt`.
     - NEW-ARCH-04: Decompose `TabStripRow.kt`; extract `TabStripDragState` into `com.jestk.browser.ui.navigation.TabStripDragState.kt`.
@@ -25,7 +25,7 @@
   - [x] Verification gate passed
   - [x] Rebased on main & merged
 
-- [ ] Track 3: `feature/code-hygiene` (Dir: `.worktrees/code-hygiene`)
+- [x] Track 3: `feature/code-hygiene` (Dir: `.worktrees/code-hygiene`)
   - Scope: Code Hygiene, Utility Consolidation & Dead Code Pruning
     - NEW-ARCH-01: Prune 116 lines of dead commented-out Account & Sync stubs in `SettingsScreen.kt:238-353`.
     - CONS-03: Consolidate duplicated `findActivity()` in `WebViewPool.kt:37` and `JestkApp.kt:107` into `com.jestk.browser.util.ContextExtensions.kt`.
@@ -35,13 +35,14 @@
     - Verification via unit/Robolectric tests.
   - [x] Worktree provisioned
   - [x] Subagent dispatched
-  - [ ] Verification gate passed
-  - [ ] Rebased on main & merged
+  - [x] Verification gate passed
+  - [x] Rebased on main & merged
 
 ## Finalization
-- [ ] All feature branches merged sequentially into `main`
-- [ ] Full unit & UI test suite verified (`./gradlew testDebugUnitTest`)
-- [ ] Worktrees cleaned up & pruned
-- [ ] `docs/memory/MEMORY.md` updated
-- [ ] `docs/memory/LESSONS.md` updated
-- [ ] User summary delivered
+- [x] All feature branches merged sequentially into `main`
+- [x] Full unit & UI test suite verified (`./gradlew testDebugUnitTest` - 514 tests 100% green)
+- [x] Android Lint verified (`./gradlew :app:lintDebug` - 0 errors)
+- [x] Worktrees cleaned up & pruned
+- [x] `docs/memory/MEMORY.md` updated
+- [x] `docs/memory/LESSONS.md` updated
+- [x] User summary delivered
