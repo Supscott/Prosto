@@ -22,8 +22,8 @@
     - Verification via unit/Robolectric tests.
   - [x] Worktree provisioned
   - [x] Subagent dispatched
-  - [ ] Verification gate passed
-  - [ ] Rebased on main & merged
+  - [x] Verification gate passed
+  - [x] Rebased on main & merged
 
 - [ ] Track 3: `feature/code-hygiene` (Dir: `.worktrees/code-hygiene`)
   - Scope: Code Hygiene, Utility Consolidation & Dead Code Pruning
