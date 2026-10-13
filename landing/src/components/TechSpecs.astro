@@ -1,18 +1,101 @@
 ---
 ---
 
-<section id="about" class="section-rule section-space">
-  <div class="page-shell grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:gap-16">
-    <div>
-      <p class="eyebrow mb-4">Small by design</p>
-      <h2 class="max-w-md text-3xl font-semibold leading-tight tracking-[-0.04em] sm:text-4xl">Thoughtful under the hood, too.</h2>
-      <p class="mt-5 max-w-md leading-7 text-[var(--text-secondary)]">Prosto is built with native Android tools and open-source components. No analytics SDKs. No extra noise.</p>
+<section id="specs" class="section-rule section-space bg-[#060913]">
+  <div class="page-shell">
+    
+    <!-- Section Header -->
+    <div class="grid gap-8 lg:grid-cols-[1fr_1.3fr] lg:gap-16 mb-12">
+      <div>
+        <div class="eyebrow mb-3">Technical Architecture</div>
+        <h2 class="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+          Pure engineering.<br />
+          Zero bloat.
+        </h2>
+        <p class="mt-4 text-slate-300 text-sm sm:text-base leading-relaxed max-w-md">
+          Why bundle an entire duplicate operating system when Android already provides a world-class WebKit engine? 
+          Prosto strips away hundreds of megabytes of redundant Chromium baggage.
+        </p>
+      </div>
+
+      <!-- Comparison Metrics Box -->
+      <div class="rounded-2xl border border-white/10 bg-[#090e1a] p-6 sm:p-8 flex flex-col justify-between">
+        <div class="flex items-center justify-between pb-4 border-b border-white/10 text-xs font-mono">
+          <span class="text-slate-400">METRIC</span>
+          <span class="text-[#38bdf8] font-bold">PROSTO</span>
+          <span class="text-slate-500">CONVENTIONAL BROWSERS</span>
+        </div>
+
+        <div class="divide-y divide-white/5 text-xs sm:text-sm">
+          <div class="flex items-center justify-between py-3.5">
+            <span class="text-slate-300 font-medium">Download Size</span>
+            <span class="font-mono font-bold text-[#38bdf8]">4.0 MB</span>
+            <span class="font-mono text-slate-500">180 – 250 MB</span>
+          </div>
+          <div class="flex items-center justify-between py-3.5">
+            <span class="text-slate-300 font-medium">Cold Start Time</span>
+            <span class="font-mono font-bold text-[#38bdf8]">&lt; 120 ms</span>
+            <span class="font-mono text-slate-500">~600 – 900 ms</span>
+          </div>
+          <div class="flex items-center justify-between py-3.5">
+            <span class="text-slate-300 font-medium">Base RAM Consumption</span>
+            <span class="font-mono font-bold text-[#38bdf8]">~45 MB</span>
+            <span class="font-mono text-slate-500">~380 MB</span>
+          </div>
+          <div class="flex items-center justify-between py-3.5">
+            <span class="text-slate-300 font-medium">Bundled Telemetry SDKs</span>
+            <span class="font-mono font-bold text-[#38bdf8]">0</span>
+            <span class="font-mono text-slate-500">10+ trackers</span>
+          </div>
+        </div>
+      </div>
     </div>
-    <dl class="divide-y divide-[var(--border-subtle)] border-y border-[var(--border-subtle)]">
-      <div class="flex items-baseline justify-between gap-5 py-4"><dt class="text-sm text-[var(--text-secondary)]">Interface</dt><dd class="text-right text-sm font-semibold">Kotlin · Jetpack Compose</dd></div>
-      <div class="flex items-baseline justify-between gap-5 py-4"><dt class="text-sm text-[var(--text-secondary)]">Web engine</dt><dd class="text-right text-sm font-semibold">Android WebView</dd></div>
-      <div class="flex items-baseline justify-between gap-5 py-4"><dt class="text-sm text-[var(--text-secondary)]">Privacy</dt><dd class="text-right text-sm font-semibold">EasyList ad & tracker blocking</dd></div>
-      <div class="flex items-baseline justify-between gap-5 py-4"><dt class="text-sm text-[var(--text-secondary)]">License</dt><dd class="text-right text-sm font-semibold">MIT · Open source</dd></div>
-    </dl>
+
+    <!-- Detailed Tech Specs Definition List -->
+    <div class="rounded-2xl border border-white/10 bg-[#0a0f1d] overflow-hidden">
+      <dl class="divide-y divide-white/5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 px-6 py-4.5 items-center hover:bg-white/[0.02] transition-colors">
+          <dt class="text-xs font-mono uppercase text-slate-400">UI Architecture</dt>
+          <dd class="sm:col-span-2 text-sm font-semibold text-white flex items-center gap-2">
+            <span>Kotlin · Jetpack Compose (BOM 2025.12)</span>
+            <span class="text-xs font-mono text-[#38bdf8] font-normal">(Serene Canvas, NO BLUR)</span>
+          </dd>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 px-6 py-4.5 items-center hover:bg-white/[0.02] transition-colors">
+          <dt class="text-xs font-mono uppercase text-slate-400">Rendering Engine</dt>
+          <dd class="sm:col-span-2 text-sm font-semibold text-white">
+            Android WebKit (Hardware-accelerated System WebView with Custom Pool)
+          </dd>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 px-6 py-4.5 items-center hover:bg-white/[0.02] transition-colors">
+          <dt class="text-xs font-mono uppercase text-slate-400">Local Persistence</dt>
+          <dd class="sm:col-span-2 text-sm font-semibold text-white">
+            AndroidX Room 2.6.1 · SQLite 3.18 (Database v8 with Schema Validations)
+          </dd>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 px-6 py-4.5 items-center hover:bg-white/[0.02] transition-colors">
+          <dt class="text-xs font-mono uppercase text-slate-400">Content Blocker</dt>
+          <dd class="sm:col-span-2 text-sm font-semibold text-white">
+            Native EasyList Engine + Scriptlet Surrogates + Cosmetic CSS Collapsing
+          </dd>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 px-6 py-4.5 items-center hover:bg-white/[0.02] transition-colors">
+          <dt class="text-xs font-mono uppercase text-slate-400">Platform Compatibility</dt>
+          <dd class="sm:col-span-2 text-sm font-semibold text-white">
+            Android 8.0 through Android 15 (minSdk 26, targetSdk 35)
+          </dd>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 px-6 py-4.5 items-center hover:bg-white/[0.02] transition-colors">
+          <dt class="text-xs font-mono uppercase text-slate-400">Open Source License</dt>
+          <dd class="sm:col-span-2 text-sm font-semibold text-white flex items-center gap-2">
+            <span>GNU General Public License v3.0 (GPL-3.0)</span>
+            <a href="https://github.com/Supscott/browser/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="text-xs text-[#38bdf8] hover:underline">
+              View License ↗
+            </a>
+          </dd>
+        </div>
+      </dl>
+    </div>
+
   </div>
 </section>

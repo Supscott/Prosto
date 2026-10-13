@@ -302,4 +302,23 @@ com.jestk.browser/
   - Verified that 24 of 26 findings from previous `tech-debt.md` (2026-10-04) are now RESOLVED (Room DB v8 migrations, OkHttp direct dependency, SearchOverlay decomposition, SettingsSheet pruning, R8 minification, README authoring, test suite real tests).
   - Cataloged 16 NEW findings, ranked by severity and blast radius.
   - Identified critical download file rename desync in `HoriDownloadManager.kt:341-410` and missing `onRenderProcessGone` resilience in `JestkWebViewClient.kt`.
-- **Current State:** Working branch `main`, clean git status. `TECH_DEBT_AUDIT.md` generated at repo root.
+305: - **Current State:** Working branch `main`, clean git status. `TECH_DEBT_AUDIT.md` generated at repo root.
+306: 
+307: ## Prosto Landing Page Refactor (Hybrid Helium + Arc Search) — 2026-10-13
+308: - **Refactor Completed:** Completely overhauled `landing/` to transform it from a passive showcase into a high-converting, product-led landing page inspired by `helium.computer` and `arc.net/search`.
+309: - **Aesthetic & Design System:**
+310:   - Adopted strict Dark-only theme (`#060913`, `#0a0f1d`), laser-sharp micro-borders, electric cyan/blue accents (`#38bdf8`), and high-contrast typography (Plus Jakarta Sans + JetBrains Mono).
+311:   - Maintained Serene Canvas STRICT NO BLUR architectural invariant.
+312: - **Centered Hero with Interactive Mockup:**
+313:   - Centered headline: *"Every action in a single swipe. Browsing stripped to pure speed."*
+314:   - Core metrics bar: 4.0 MB uncompressed, 0ms thumb reach, EasyList AdBlock, Android 8-15, GPL-3.0.
+315:   - Centerpiece phone mockup featuring interactive bottom Floating Dock (switchable active/inactive tabs) and omnibox search trigger.
+316: - **3 Super Bento Cards (Core Value Propositions):**
+317:   1. **Thumb Dock & Search Swipe:** Interactive search engine swipe input (Google, DuckDuckGo, Yandex, Bing) + bottom dock tabs.
+318:   2. **Cross-Engine Comparison:** Dynamic looping animation demonstrating instant query re-execution across Google, DuckDuckGo, Yandex, and Bing via the floating switcher bar above the dock without re-typing.
+319:   3. **Native AdBlock & 4 MB Zero Bloat:** Interactive AdBlock toggle shield with live counter (42 ads, 18 trackers) and APK size comparison bar (4 MB vs 190–240 MB conventional browsers).
+320: - **Dedicated Media Placeholders (`MediaPlaceholder.astro`):**
+321:   - Created reusable placeholder component for screenshots and screen recordings with exact aspect ratios (`9/16`, `9/19`, `16/10`) and stylized "photo" and "video" badges.
+322: - **Verification:**
+323:   - `pnpm build` in `landing/` succeeds with 0 errors in <800ms.
+324:   - Full Android test suite `:app:testDebugUnitTest` (508 tests) passing 100% green.

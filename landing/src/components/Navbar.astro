@@ -1,33 +1,44 @@
 ---
 ---
 
-<header class="border-b border-[var(--border-subtle)]">
-  <div class="page-shell flex h-[72px] items-center justify-between gap-5">
-    <a href="/" class="flex items-center gap-3 text-[var(--text-primary)]" aria-label="Prosto home">
-      <span class="grid size-9 place-items-center rounded-xl bg-[var(--brand-primary)] text-sm font-extrabold text-white">P</span>
-      <span class="text-lg font-bold tracking-tight">Prosto</span>
-      <span class="hidden text-sm text-[var(--text-muted)] sm:inline">for Android</span>
+<header class="sticky top-0 z-50 border-b border-white/10 bg-[#060913]/90 backdrop-none">
+  <div class="page-shell flex h-16 items-center justify-between gap-4">
+    <!-- Brand Logo -->
+    <a href="/" class="flex items-center gap-3 text-white transition-opacity hover:opacity-90" aria-label="Prosto Browser Home">
+      <div class="grid size-9 place-items-center rounded-xl border border-[#38bdf8]/30 bg-[#0284c7] text-sm font-extrabold text-white shadow-[0_0_20px_rgba(2,132,199,0.4)]">
+        P
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="text-lg font-bold tracking-tight text-white">Prosto</span>
+        <span class="rounded-md border border-[#38bdf8]/20 bg-[#38bdf8]/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-[#38bdf8]">
+          4 MB
+        </span>
+      </div>
     </a>
 
-    <nav aria-label="Main navigation" class="hidden items-center gap-7 text-sm font-medium text-[var(--text-secondary)] md:flex">
-      <a href="#features" class="transition-colors hover:text-[var(--text-primary)]">Features</a>
-      <a href="#about" class="transition-colors hover:text-[var(--text-primary)]">About</a>
-      <a href="https://github.com/Supscott/browser" target="_blank" rel="noopener noreferrer" class="transition-colors hover:text-[var(--text-primary)]">Source</a>
+    <!-- Nav Links (Desktop) -->
+    <nav aria-label="Main navigation" class="hidden items-center gap-8 text-sm font-medium text-slate-300 md:flex">
+      <a href="#gestures" class="transition-colors hover:text-white">Gestures</a>
+      <a href="#cross-search" class="transition-colors hover:text-white">Cross-Search</a>
+      <a href="#adblock" class="transition-colors hover:text-white">AdBlock</a>
+      <a href="#specs" class="transition-colors hover:text-white">Specs</a>
+      <a href="https://github.com/Supscott/browser" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 transition-colors hover:text-white">
+        <span>GitHub</span>
+        <svg class="size-3.5 fill-none stroke-current" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3"/></svg>
+      </a>
     </nav>
 
-    <div class="flex items-center gap-2">
-      <button id="theme-toggle-btn" type="button" aria-label="Switch color theme" class="grid size-10 place-items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] transition-colors hover:bg-[var(--bg-card-elevated)]">
-        <svg class="size-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" stroke-width="1.8"/><path stroke-linecap="round" stroke-width="1.8" d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M6.34 17.66l-1.42 1.42m12.74-12.74 1.42-1.42"/></svg>
-      </button>
-      <a href="#download" class="button-primary min-h-10 px-4 text-sm">Get Prosto</a>
+    <!-- Download CTA Button -->
+    <div class="flex items-center gap-3">
+      <a 
+        href="#download" 
+        class="button-primary min-h-10 px-4 text-xs font-bold tracking-wide uppercase sm:text-sm"
+      >
+        <svg class="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v12m0 0 4-4m-4 4-4-4m-4 7v1a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-1"/>
+        </svg>
+        <span>Download APK</span>
+      </a>
     </div>
   </div>
 </header>
-
-<script>
-  const toggle = document.getElementById('theme-toggle-btn');
-  toggle?.addEventListener('click', () => {
-    const dark = document.documentElement.classList.toggle('dark');
-    localStorage.setItem('prosto-theme', dark ? 'dark' : 'light');
-  });
-</script>

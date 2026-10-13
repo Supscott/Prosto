@@ -7,13 +7,13 @@ interface Props {
 }
 
 const {
-  title = "Prosto — The Thumb-First Android Browser",
-  description = "A fast, ergonomic, gesture-driven Android browser built for one-handed browsing. Instant dock gestures, search provider switcher, power-user shortcuts, and built-in ad blocking."
+  title = "Prosto Browser — Browsing Stripped to Pure Speed",
+  description = "An ultra-fast, gesture-driven Android browser built for one hand. Floating dock at your thumb, swipe-to-switch search, and native adblocking — in just 4 MB."
 } = Astro.props;
 ---
 
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en" class="dark scroll-smooth">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -30,38 +30,19 @@ const {
       rel="stylesheet" 
     />
 
-    <!-- Theme Initialization Script (Prevents FOUC) -->
-    <script is:inline>
-      (function() {
-        const storedTheme = localStorage.getItem('prosto-theme');
-        if (storedTheme === 'light') {
-          document.documentElement.classList.remove('dark');
-        } else if (storedTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-          // If system explicitly prefers light, we can respect it or default to dark
-          // Defaulting to dark as standard for dev tools, but honor explicit system light if unset
-          document.documentElement.classList.remove('dark');
-        } else {
-          document.documentElement.classList.add('dark');
-        }
-      })();
-    </script>
-
     <!-- Open Graph / Social -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:site_name" content="Prosto Browser" />
-    <meta name="theme-color" content="#111b33" />
+    <meta name="theme-color" content="#060913" />
 
     <!-- Twitter -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
   </head>
-  <body class="relative min-h-screen bg-[var(--bg-canvas)] text-[var(--text-primary)] selection:bg-[#2271B3] selection:text-white transition-colors duration-200">
-    <!-- Ambient background mesh gradients (matching Color.kt sereneSkyBackground) -->
+  <body class="relative min-h-screen bg-[#060913] text-[#f8fafc] selection:bg-[#0284c7] selection:text-white">
     <div class="flex min-h-screen flex-col">
       <slot />
     </div>

@@ -304,6 +304,12 @@ This document tracks technical pitfalls, bugs, and verified solutions in Hori to
 - **Root Cause:** Apps often register intent filters strictly for subdomains (e.g. `www.reddit.com`, `m.vk.com`) or require path prefixes (e.g. `/r/...`, `/feed/...`). Querying `Intent(ACTION_VIEW, "https://reddit.com")` fails exact host and path matching.
 - **Resolution & Prevention:** In `ExternalAppResolver`, generate candidate host variations (`cleanHost`, `www.$cleanHost`, `m.$cleanHost`, and domain aliases). Furthermore, maintain a `KNOWN_DOMAIN_APPS` table with an installed package check fallback (`isPackageInstalled`), resolving the app's real label/icon and falling back to its launch intent if it cannot directly handle root URLs.
 
+### HTML comments inside Astro JSX expressions trigger compiler syntax errors
+- **Symptom:** `astro build` fails with `[CompilerError] Unexpected token` pointing to lines inside `{ condition ? (...) : (...) }`.
+- **Root Cause:** Standard HTML comments `<!-- ... -->` placed inside JSX JavaScript blocks `{ ... }` are parsed as JavaScript code rather than markup comments, causing token parsing errors.
+- **Resolution & Prevention:** Never use HTML comments `<!-- -->` inside JSX curly brace expressions in `.astro` files. Use standard JSX comments `{/* ... */}` or keep comments in standard HTML template scope outside curly braces.
+
+
 
 
 
