@@ -1,43 +1,47 @@
-# Orchestrator Task Board: 2026-10-06
+# Orchestrator Task Board: 2026-10-13 (Tech Debt Remediation)
 
-## Wave 1 (Parallel Independent Tracks) - COMPLETED
-- [x] Track 1: `fix/search-selector` (Merged into `main`)
-- [x] Track 2: `fix/tab-drag-spring` (Merged into `main`)
-- [x] Track 3: `fix/tab-loading-leak` (Merged into `main`)
+## Wave 1 (Parallel Independent Tracks)
 
-## Wave 2 (Sequential Track) - COMPLETED
-- [x] Track 4: `fix/favicon-cache` (Merged into `main`)
-
-## Wave 3 (Sequential Polish Tracks)
-
-- [x] Track 5: `fix/dock-spring-teleport` (Branch: `fix/dock-spring-teleport`, Dir: `.worktrees/dock-spring-teleport`)
-  - Scope: Tab Drag Spring Animation & Teleport Elimination (`TabStripRow.kt`, `ActiveTabPill.kt`)
-    - Disable `LazyRow` scroll during drag/settle (`userScrollEnabled = !dragState.isDragging && !dragState.isSettling`).
-    - Handle pointer input on `PointerEventPass.Initial`, preventing premature gesture cancellation by parent scroll.
-    - Add `Modifier.animateItem()` to `LazyRow` items for fluid physics-based placement of neighbor tabs.
-    - Accurate width-based swap thresholds (148dp active pill vs 38dp circle).
-    - Snappy spring drop settlement without teleporting.
+- [ ] Track 1: `feature/engine-fixes` (Dir: `.worktrees/engine-fixes`)
+  - Scope: Engine Reliability, Download Fixes & Lint Standards
+    - NEW-BUG-01: Fix download redirect renaming and MediaStore desync in `HoriDownloadManager.kt:341-410`.
+    - NEW-CRIT-01: Add `tools:targetApi="27"` to `android:windowLightNavigationBar` in `res/values/themes.xml` and `res/values-night/themes.xml`.
+    - NEW-RELIAB-01: Implement `onRenderProcessGone` crash recovery in `JestkWebViewClient.kt`.
+    - PERF-03: CoroutineScope hygiene for adblock increment telemetry in `JestkWebViewClient.kt`.
+    - Unit tests in `HoriDownloadManagerTest` and `JestkWebViewClientTest`.
   - [x] Worktree provisioned
   - [x] Subagent dispatched
   - [x] Verification gate passed
   - [x] Rebased on main & merged
 
-- [x] Track 6: `fix/tab-title-url-sync` (Branch: `fix/tab-title-url-sync`, Dir: `.worktrees/tab-title-url-sync`)
-  - Scope: Stale Title & URL Fix (`JestkWebViewClient.kt`, `JestkWebChromeClient.kt`, `JestkApp.kt`, `WebViewContainer.kt`, `BrowserUiEvent.kt`, `BrowserViewModel.kt`, `TabCoordinator.kt`)
-    - Wire `WebChromeClient.onReceivedTitle` to `BrowserUiEvent.OnTitleReceived` and `TabCoordinator.handleTitleReceived`.
-    - Implement `doUpdateVisitedHistory` in `JestkWebViewClient` for redirects, pushState, and SPA navigation.
-    - Reset lingering previous titles to "Loading..." / clean host in `handlePageStarted`.
-    - Fix `TabCoordinator.observeDatabaseFlows()` to prioritize `state.activeTabId` over stale Room flags.
-    - Sync live WebView URL/title on `selectTab`.
+- [ ] Track 2: `feature/ui-decomposition` (Dir: `.worktrees/ui-decomposition`)
+  - Scope: UI Monolith Decomposition & Scroll Performance
+    - NEW-ARCH-03: Decompose `SearchEngineCarousel.kt` monolith; extract `SearchEngineSwitcherRow` and `SearchEngineSwitcherEditPopup` into `com.jestk.browser.ui.navigation.SearchEngineSwitcherRow.kt`.
+    - NEW-ARCH-04: Decompose `TabStripRow.kt`; extract `TabStripDragState` into `com.jestk.browser.ui.navigation.TabStripDragState.kt`.
+    - NEW-PERF-01: Debounce `SearchOverlay.kt:182-198` pagination scroll with `snapshotFlow { scrollState.value }.filter { it <= 20 }`.
+    - Verification via unit/Robolectric tests.
   - [x] Worktree provisioned
   - [x] Subagent dispatched
-  - [x] Verification gate passed
-  - [x] Rebased on main & merged
+  - [ ] Verification gate passed
+  - [ ] Rebased on main & merged
+
+- [ ] Track 3: `feature/code-hygiene` (Dir: `.worktrees/code-hygiene`)
+  - Scope: Code Hygiene, Utility Consolidation & Dead Code Pruning
+    - NEW-ARCH-01: Prune 116 lines of dead commented-out Account & Sync stubs in `SettingsScreen.kt:238-353`.
+    - CONS-03: Consolidate duplicated `findActivity()` in `WebViewPool.kt:37` and `JestkApp.kt:107` into `com.jestk.browser.util.ContextExtensions.kt`.
+    - NEW-CONS-01: Consolidate fragmented clipboard copying into `com.jestk.browser.util.ClipboardHelper.kt` across `ActiveTabPill.kt`, `LinkContextMenuBottomSheet.kt`, `ImageContextMenuBottomSheet.kt`.
+    - NEW-LINT-01: Fix `context.getString()` in Compose lambdas in context menus.
+    - CONS-05 & NEW-CONS-03: Localize hardcoded English strings in `AddEditSearchEngineDialog.kt` and `HomeScreen.kt`.
+    - Verification via unit/Robolectric tests.
+  - [x] Worktree provisioned
+  - [x] Subagent dispatched
+  - [ ] Verification gate passed
+  - [ ] Rebased on main & merged
 
 ## Finalization
-- [x] All feature branches merged sequentially into `main`
-- [x] Full unit & UI test suite verified (`./gradlew testDebugUnitTest`)
-- [x] Worktrees cleaned up & pruned
-- [x] `docs/memory/MEMORY.md` updated
-- [x] `docs/memory/LESSONS.md` updated
-- [x] User summary delivered
+- [ ] All feature branches merged sequentially into `main`
+- [ ] Full unit & UI test suite verified (`./gradlew testDebugUnitTest`)
+- [ ] Worktrees cleaned up & pruned
+- [ ] `docs/memory/MEMORY.md` updated
+- [ ] `docs/memory/LESSONS.md` updated
+- [ ] User summary delivered
