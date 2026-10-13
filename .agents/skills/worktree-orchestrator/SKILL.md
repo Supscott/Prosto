@@ -127,9 +127,11 @@ For each task in the active wave:
      ```bash
      rtk git checkout main
      ```
-3. **Create Worktree:**
+3. **Create Worktree & Provision Environment:**
    ```bash
    rtk git worktree add -b feature/<task-slug> .worktrees/<task-slug> main
+   # Automatically copy local.properties so Gradle immediately knows the Android SDK path
+   if [ -f "local.properties" ]; then cp local.properties .worktrees/<task-slug>/local.properties; fi
    ```
    *(Note: `.worktrees/` is gitignored).*
 4. **Update `TASKS.md`:** Mark `[x] Worktree provisioned` for this task.
@@ -152,8 +154,8 @@ Spawn an implementation worker for each provisioned worktree using `invoke_subag
 Include the following in the worker's prompt:
 1. **Working Directory:**
    - State clearly: *"Your working directory is `/Users/ilya/CODING/browser/.worktrees/<task-slug>`. Run all edits and commands within this directory."*
-2. **Mandatory Step 0 — Create Local `TASKS.md`:**
-   - Instruct the worker: *"Before writing code, create `/Users/ilya/CODING/browser/.worktrees/<task-slug>/TASKS.md` detailing your step-by-step checklist. Update this file as you transition between steps (`[/]` for in-progress, `[x]` for verified done)."*
+2. **Mandatory Step 0 — Create Local `WORKER_TASKS.md`:**
+   - Instruct the worker: *"Before writing code, create `/Users/ilya/CODING/browser/.worktrees/<task-slug>/WORKER_TASKS.md` detailing your step-by-step checklist. Do NOT edit or overwrite the root `TASKS.md` (which is tracked by the Orchestrator). Update `WORKER_TASKS.md` as you transition between steps (`[/]` for in-progress, `[x]` for verified done)."*
 3. **Scope of Work:**
    - Precise objective and acceptance criteria.
    - Key architectural guidelines (`AGENTS.md`, Serene Canvas theme, Compose Material 3, Room, Kotlin coroutines).

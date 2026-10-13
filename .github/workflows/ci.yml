@@ -33,9 +33,19 @@ jobs:
       - name: Run Unit & Visual Tests
         run: ./gradlew testDebugUnitTest --no-daemon --stacktrace
 
+      - name: Run Android Lint
+        run: ./gradlew :app:lintDebug --no-daemon --stacktrace
+
       - name: Upload Test Reports (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: unit-test-reports
           path: app/build/reports/tests/testDebugUnitTest/
+
+      - name: Upload Lint Reports (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lint-reports
+          path: app/build/reports/lint-results-debug.html

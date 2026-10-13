@@ -113,17 +113,40 @@ Never skip this step — it ensures continuity across separate agent sessions an
 
 ---
 
-## 6. Testing Strategy: Logic & Visual Coverage
+---
+
+## 6. Critical Architectural Invariants & Quality Rules
+
+Every agent modifying code must strictly adhere to the following rules:
+
+1. **WebKit Crash Resilience (`onRenderProcessGone`):**
+   Any subclass of `WebViewClient` must override `onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean`. It must detach and destroy the crashed view and return `true` to prevent the OS from terminating the host process.
+2. **Compose Scroll & State Throttling (No Direct Key Thrashing):**
+   Never pass continuous scroll, drag, or layout state (e.g. `scrollState.value`, `dragOffsetPx`) as keys to `LaunchedEffect`. Doing so restarts the effect up to 120 times/second. Always pass stable keys and collect state changes inside the effect using `snapshotFlow { scrollState.value }.filter { ... }.collect { ... }`.
+3. **Engine Coroutine Hygiene (No Inline Scope Spawning):**
+   Never spawn ad-hoc `CoroutineScope(Dispatchers.IO).launch` inside WebKit callbacks or engine singletons. Use an injected or lifecycle-managed scope (`telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)`).
+4. **Clean Architecture Domain Layer Purity:**
+   The domain layer (`com.jestk.browser.domain`) must **never** import Android framework UI types (`android.view.*`, `android.widget.*`, `android.graphics.*`). Domain models must remain pure Kotlin / standard library.
+5. **UI Localization (Zero Hardcoded Strings):**
+   Never hardcode user-facing strings in composables or dialogs. Every string must exist in both `res/values/strings.xml` and `res/values-ru/strings.xml`, accessed via `stringResource(R.string.*)`.
+6. **Zero Dead Code Policy (No Commented-Out Blocks):**
+   Never leave blocks of commented-out code in source files. Delete dead code completely — Git preserves full commit history.
+7. **Modularity & Monolith Avoidance:**
+   Keep UI files focused (<400–500 LOC). Separate reusable state holders (e.g. `TabStripDragState`), popups, and auxiliary rows into dedicated files within the proper package.
+
+---
+
+## 7. Testing Strategy: Logic & Visual Coverage
 
 Every new feature or bugfix must be covered by tests. Both business logic and UI appearance must be tested.
 
-### 6.1 Logic Testing (JVM Unit Tests)
+### 7.1 Logic Testing (JVM Unit Tests)
 
 - **Scope:** ViewModels, Repositories, Room DAOs, Data Mappers, Browser Engine (`AdBlockerEngine`, `FaviconManager`, `ColorSchemeScript`, `JestkWebViewClient`, etc.).
 - **Tools:** JUnit 4, Google Truth (`assertThat`), `kotlinx-coroutines-test` (`runTest`, `StandardTestDispatcher`), AndroidX Core Testing (`InstantTaskExecutorRule`), Room in-memory DB (`Room.inMemoryDatabaseBuilder`).
 - **Requirement:** Ensure edge cases, state transitions, coroutine cancellation, and error cases are covered.
 
-### 6.2 Visual & UI Testing (Previews & Screenshots)
+### 7.2 Visual & UI Testing (Previews & Screenshots)
 
 - **Scope:** Composable layouts, bottom dock states, overlays, modals, responsive handling, and theme variations (Light / Dark).
 - **Tools:** Robolectric Native Graphics (`@GraphicsMode(GraphicsMode.Mode.NATIVE)` + `@Config(sdk = [34])`), Jetpack Compose Previews, and the Compose Preview rendering plugin.
@@ -133,9 +156,9 @@ Every new feature or bugfix must be covered by tests. Both business logic and UI
 
 ---
 
-## 7. Continuous Context Protocols
+## 8. Continuous Context Protocols
 
-### 7.1 Memory Log — [`docs/memory/MEMORY.md`](file:///Users/ilya/CODING/browser/docs/memory/MEMORY.md)
+### 8.1 Memory Log — [`docs/memory/MEMORY.md`](file:///Users/ilya/CODING/browser/docs/memory/MEMORY.md)
 
 At the conclusion of each task or work session, the agent **must** append a concise summary to `/Users/ilya/CODING/browser/docs/memory/MEMORY.md`:
 
@@ -143,7 +166,7 @@ At the conclusion of each task or work session, the agent **must** append a conc
 - **Current State:** Current working branch or commit state, open questions, and next steps.
 - **Key Architectural Decisions:** Any critical decisions that future agents need to know.
 
-### 7.2 Lessons Learned — [`docs/memory/LESSONS.md`](file:///Users/ilya/CODING/browser/docs/memory/LESSONS.md)
+### 8.2 Lessons Learned — [`docs/memory/LESSONS.md`](file:///Users/ilya/CODING/browser/docs/memory/LESSONS.md)
 
 Whenever a bug is encountered or fixed, the agent **must** log an entry into `/Users/ilya/CODING/browser/docs/memory/LESSONS.md`:
 
