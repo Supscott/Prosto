@@ -1,10 +1,8 @@
 package com.jestk.browser.ui.overlays
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
-import android.widget.Toast
+import com.jestk.browser.util.ClipboardHelper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -126,6 +124,8 @@ fun ImageContextMenuContent(
 ) {
     val context = LocalContext.current
     val isDark = LocalIsDarkTheme.current
+
+    val imageUrlCopiedMessage = stringResource(R.string.image_url_copied)
 
     val textColor = if (isDark) DarkOnSurface else SereneDarkText
     val headerBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
@@ -261,14 +261,12 @@ fun ImageContextMenuContent(
             title = stringResource(R.string.copy_image_url),
             titleColor = textColor,
             onClick = {
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("Image URL", imageUrl)
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.image_url_copied),
-                    Toast.LENGTH_SHORT,
-                ).show()
+                ClipboardHelper.copyToClipboard(
+                    context = context,
+                    text = imageUrl,
+                    label = "Image URL",
+                    toastMessage = imageUrlCopiedMessage,
+                )
                 onEvent(BrowserUiEvent.CopyImageUrl(imageUrl))
                 onEvent(BrowserUiEvent.DismissImageContextMenu)
             },

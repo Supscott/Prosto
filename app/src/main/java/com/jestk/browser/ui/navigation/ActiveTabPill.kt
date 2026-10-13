@@ -1,10 +1,9 @@
 package com.jestk.browser.ui.navigation
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
+import com.jestk.browser.util.ClipboardHelper
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -466,9 +465,7 @@ fun ActiveTabCenterCapsule(
 
 internal fun copyUrlToClipboard(context: Context, url: String) {
     if (url.isNotBlank() && !url.startsWith("about:")) {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("URL", url))
-        Toast.makeText(context, "URL copied to clipboard", Toast.LENGTH_SHORT).show()
+        ClipboardHelper.copyToClipboard(context, url)
     } else {
         Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
     }

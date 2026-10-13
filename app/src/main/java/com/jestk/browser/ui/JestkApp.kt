@@ -101,17 +101,9 @@ import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
+import com.jestk.browser.util.findActivity
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
-
-private fun android.content.Context.findActivity(): Activity? {
-    var ctx = this
-    while (ctx is android.content.ContextWrapper) {
-        if (ctx is Activity) return ctx
-        ctx = ctx.baseContext
-    }
-    return null
-}
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable

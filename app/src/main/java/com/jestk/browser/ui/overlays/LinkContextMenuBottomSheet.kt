@@ -1,10 +1,9 @@
 package com.jestk.browser.ui.overlays
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import com.jestk.browser.util.ClipboardHelper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -113,6 +112,9 @@ fun LinkContextMenuContent(
     val context = LocalContext.current
     val isDark = LocalIsDarkTheme.current
 
+    val tabOpenedInBackgroundMessage = stringResource(R.string.tab_opened_in_background)
+    val urlCopiedMessage = stringResource(R.string.url_copied)
+
     val textColor = if (isDark) DarkOnSurface else SereneDarkText
     val headerBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
     val dividerColor = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9)
@@ -219,7 +221,7 @@ fun LinkContextMenuContent(
                 onEvent(BrowserUiEvent.OpenTabInBackground(url))
                 Toast.makeText(
                     context,
-                    context.getString(R.string.tab_opened_in_background),
+                    tabOpenedInBackgroundMessage,
                     Toast.LENGTH_SHORT,
                 ).show()
             },
@@ -235,14 +237,11 @@ fun LinkContextMenuContent(
             title = stringResource(R.string.copy_link_url),
             titleColor = textColor,
             onClick = {
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                val clip = ClipData.newPlainText("URL", url)
-                clipboard.setPrimaryClip(clip)
-                Toast.makeText(
-                    context,
-                    context.getString(R.string.url_copied),
-                    Toast.LENGTH_SHORT,
-                ).show()
+                ClipboardHelper.copyToClipboard(
+                    context = context,
+                    text = url,
+                    toastMessage = urlCopiedMessage,
+                )
                 onEvent(BrowserUiEvent.DismissLinkContextMenu)
             },
         )

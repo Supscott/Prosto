@@ -3,8 +3,8 @@ package com.jestk.browser.engine
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
 import android.content.MutableContextWrapper
+import com.jestk.browser.util.findActivity
 import android.net.Uri
 import android.os.Environment
 import android.util.Base64
@@ -33,15 +33,6 @@ import java.io.File
 import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
-
-fun Context.findActivity(): Activity? {
-    var ctx = this
-    while (ctx is ContextWrapper) {
-        if (ctx is Activity) return ctx
-        ctx = ctx.baseContext
-    }
-    return null
-}
 
 class WebViewPool(
     private val applicationContext: Context,

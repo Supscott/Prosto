@@ -53,12 +53,14 @@ import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.engine.FaviconManager
@@ -223,7 +225,7 @@ fun AddEditSearchEngineDialogContent(
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                label = { Text("Title") },
+                label = { Text(stringResource(R.string.search_engine_title_label)) },
                 placeholder = { Text("e.g. YouTube, Wikipedia") },
                 leadingIcon = {
                     Icon(
@@ -270,7 +272,7 @@ fun AddEditSearchEngineDialogContent(
             OutlinedTextField(
                 value = shortcut,
                 onValueChange = { shortcut = it.filter { char -> !char.isWhitespace() } },
-                label = { Text("Shortcut (optional)") },
+                label = { Text(stringResource(R.string.search_engine_shortcut_label)) },
                 placeholder = { Text("e.g. y, yt, w") },
                 leadingIcon = {
                     Icon(
@@ -325,7 +327,7 @@ fun AddEditSearchEngineDialogContent(
             OutlinedTextField(
                 value = urlTemplate,
                 onValueChange = { urlTemplate = it },
-                label = { Text("URL Template") },
+                label = { Text(stringResource(R.string.search_engine_url_template_label)) },
                 placeholder = { Text("https://example.com/search?q=%s") },
                 leadingIcon = {
                     Icon(

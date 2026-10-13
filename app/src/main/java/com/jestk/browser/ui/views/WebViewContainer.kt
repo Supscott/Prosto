@@ -50,7 +50,7 @@ import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
-import com.jestk.browser.engine.findActivity
+import com.jestk.browser.util.findActivity
 import com.jestk.browser.ui.MainActivity
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkSurface

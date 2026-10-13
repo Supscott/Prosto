@@ -56,4 +56,10 @@
     <string name="add_favorite_url_hint">Website Address (e.g. example.com)</string>
     <string name="add_favorite_add_button">Add</string>
     <string name="cancel">Cancel</string>
+    <string name="search_engine_title_label">Title</string>
+    <string name="search_engine_shortcut_label">Shortcut (optional)</string>
+    <string name="search_engine_url_template_label">URL Template</string>
+    <string name="copy_url_action">Copy URL</string>
+    <string name="delete_bookmark_action">Delete Bookmark</string>
+    <string name="add_action">Add</string>
 </resources>

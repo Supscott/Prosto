@@ -623,7 +623,7 @@ private fun FavoriteSquircleCard(
             onDismissRequest = { showMenu = false }
         ) {
             DropdownMenuItem(
-                text = { Text("Copy URL") },
+                text = { Text(stringResource(R.string.copy_url_action)) },
                 leadingIcon = {
                     Icon(
                         Icons.Default.ContentCopy,
@@ -641,7 +641,7 @@ private fun FavoriteSquircleCard(
             )
             if (item.id != null && onDelete != null) {
                 DropdownMenuItem(
-                    text = { Text("Delete Bookmark", color = MaterialTheme.colorScheme.error) },
+                    text = { Text(stringResource(R.string.delete_bookmark_action), color = MaterialTheme.colorScheme.error) },
                     leadingIcon = {
                         Icon(
                             Icons.Default.Delete,
@@ -695,7 +695,7 @@ private fun AddFavoriteButton(
         }
 
         Text(
-            text = "Add",
+            text = stringResource(R.string.add_action),
             style = LocalSereneTypography.current.bodySm.copy(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium

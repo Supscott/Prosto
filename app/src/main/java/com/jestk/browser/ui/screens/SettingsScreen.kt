@@ -42,11 +42,9 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.DropdownMenu
@@ -234,123 +232,6 @@ fun SettingsContent(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
-
-        /*
-        // SECTION 2: ACCOUNT
-        SettingsSectionHeader(title = "ACCOUNT")
-        InsetGroupedCard(isDark = isDark) {
-            // Profile Hero Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        Toast.makeText(context, "Account: sync@jestk.com", Toast.LENGTH_SHORT).show()
-                    }
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = null,
-                        tint = SereneBrandPrimary,
-                        modifier = Modifier.size(26.dp)
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "User Account",
-                        style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Bold),
-                        color = if (isDark) DarkOnSurface else SereneDarkText
-                    )
-                    Text(
-                        text = "sync@jestk.com",
-                        style = LocalSereneTypography.current.bodySm,
-                        color = SereneMutedSlate
-                    )
-                }
-
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = SereneMutedSlate,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-
-            HorizontalDivider(
-                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 74.dp)
-            )
-
-            // Sync Row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable {
-                        Toast.makeText(context, "Sync is active across devices", Toast.LENGTH_SHORT).show()
-                    }
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(34.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Sync,
-                        contentDescription = null,
-                        tint = SereneBrandPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Sync Tabs & Bookmarks",
-                        style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                        color = if (isDark) DarkOnSurface else SereneDarkText
-                    )
-                    Text(
-                        text = "Active across connected devices",
-                        style = LocalSereneTypography.current.bodySm,
-                        color = SereneMutedSlate
-                    )
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "On",
-                        style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.SemiBold),
-                        color = SereneBrandPrimary
-                    )
-                    Icon(
-                        imageVector = Icons.Default.ChevronRight,
-                        contentDescription = null,
-                        tint = SereneMutedSlate,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-        */
 
         // SECTION: DEFAULT BROWSER (Only visible if not default)
         if (!uiState.isDefaultBrowser) {
