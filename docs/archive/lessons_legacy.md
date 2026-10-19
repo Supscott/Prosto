@@ -1,4 +1,9 @@
-# Lessons Learned & Bug Post-Mortems
+# Lessons Learned & Bug Post-Mortems (Legacy Archive)
+
+> **Read-only history.** This is the pre-Harness^2 lesson log, kept for reference only.
+> The active, bounded gotcha memory is [`LESSONS.md`](../../LESSONS.md) at the repository root;
+> lessons retired from there graduate to [`lessons_archive.md`](lessons_archive.md).
+> Do not append new lessons to this file.
 
 This document tracks technical pitfalls, bugs, and verified solutions in Hori to prevent regressions.
 

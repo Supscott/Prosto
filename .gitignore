@@ -13,3 +13,11 @@ captures
 *.aab
 .worktrees/
 .freebuff/
+__pycache__/
+
+# Harness iteration artifacts (telemetry and ledger stay tracked)
+runs/**/*.png
+runs/**/*.diff.png
+# Accepted visual baselines are reference truth and must be versioned
+!runs/baselines/
+!runs/baselines/*.png

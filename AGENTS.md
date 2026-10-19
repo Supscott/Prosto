@@ -36,7 +36,7 @@ Welcome to the **Hori** project. This file provides critical operating guideline
 - This includes:
   - Source code comments, KDoc docstrings, and commit messages.
   - Markdown documentation under `docs/` and root `.md` files.
-  - Entries in `docs/memory/MEMORY.md` and `docs/memory/LESSONS.md`.
+  - Entries in [`LESSONS.md`](file:///Users/ilya/CODING/browser/LESSONS.md) and [`docs/archive/lessons_archive.md`](file:///Users/ilya/CODING/browser/docs/archive/lessons_archive.md).
 
 ---
 
@@ -45,8 +45,8 @@ Welcome to the **Hori** project. This file provides critical operating guideline
 > [!IMPORTANT]
 > **BEFORE writing code or planning any implementation, every agent MUST:**
 >
-> 1. Read [`docs/memory/MEMORY.md`](file:///Users/ilya/CODING/browser/docs/memory/MEMORY.md) to understand current progress, active goals, and recent changes.
-> 2. Read [`docs/memory/LESSONS.md`](file:///Users/ilya/CODING/browser/docs/memory/LESSONS.md) to review past pitfalls, bugs, and verified solutions.
+> 1. Read [`LESSONS.md`](file:///Users/ilya/CODING/browser/LESSONS.md) to review active high-signal gotchas and pitfalls.
+> 2. Check [`HARNESS.md`](file:///Users/ilya/CODING/browser/HARNESS.md) for iteration loop guidelines and gate verification protocol.
 
 Never skip this step — it ensures continuity across separate agent sessions and prevents regressions.
 
@@ -104,10 +104,13 @@ Never skip this step — it ensures continuity across separate agent sessions an
 │           ├── engine/                         # AdBlocker, Favicon, Script, & Client tests
 │           ├── ui/                             # Visual preview tests & ViewModel tests
 │           └── util/                           # Utility tests
+├── LESSONS.md                                  # Bounded agent gotchas (Cause / Do / Don't)
+├── HARNESS.md                                  # Harness iteration loop & contract
+├── harness.config.json                         # Gate configuration
+├── tools/                                      # Harness gate, visual diff, and invariant checkers
 └── docs/
-    ├── memory/
-    │   ├── MEMORY.md                           # Continuous agent state & work log
-    │   └── LESSONS.md                          # Bug post-mortems and preventative lessons
+    ├── adr/                                    # Architectural Decision Records
+    ├── archive/                                # Graduated lessons archive
     └── plans/                                  # Task specifications and implementation plans
 ```
 
@@ -158,18 +161,33 @@ Every new feature or bugfix must be covered by tests. Both business logic and UI
 
 ## 8. Continuous Context Protocols
 
-### 8.1 Memory Log — [`docs/memory/MEMORY.md`](file:///Users/ilya/CODING/browser/docs/memory/MEMORY.md)
+Learning and improvement are routed directly into bounded, actionable artifacts per the Harness² protocol:
+- **Active Gotchas:** Document non-obvious traps in [`LESSONS.md`](file:///Users/ilya/CODING/browser/LESSONS.md) using `Cause` / `Do` / `Don't` format (enforced by `tools/harness_reflect.py`).
+- **Iteration Evidence & Verdicts:** Record hypothesis, probes, and verdicts in `runs/<feature>/iter-NN/ledger.md`.
+- **Living Architecture:** Maintain contracts in [`DESIGN.md`](file:///Users/ilya/CODING/browser/DESIGN.md) and record fundamental architectural decisions under [`docs/adr/`](file:///Users/ilya/CODING/browser/docs/adr/).
 
-At the conclusion of each task or work session, the agent **must** append a concise summary to `/Users/ilya/CODING/browser/docs/memory/MEMORY.md`:
+---
 
-- **What was completed:** High-level list of features, refactors, or fixes delivered.
-- **Current State:** Current working branch or commit state, open questions, and next steps.
-- **Key Architectural Decisions:** Any critical decisions that future agents need to know.
+## 9. Definition of Done (Harness² Gate)
 
-### 8.2 Lessons Learned — [`docs/memory/LESSONS.md`](file:///Users/ilya/CODING/browser/docs/memory/LESSONS.md)
+Every non-trivial feature or refactoring task must satisfy the 5-step Definition of Done before declaring complete:
 
-Whenever a bug is encountered or fixed, the agent **must** log an entry into `/Users/ilya/CODING/browser/docs/memory/LESSONS.md`:
+1. **Gate:** Execute machine checks:
+   `python3 tools/harness_gate.py --feature <feature> --hypothesis "what this iteration changes"`
+   (Validates invariants via `tools/check_invariants.py`, full test suite, visual preview diff, and lesson memory budget).
+2. **Visual Verification:** Inspect captured frames and `.diff.png` in `runs/shots/`. Accept new baseline via `--update-baseline` when the change is intentional.
+3. **Living Architecture:** Update [`DESIGN.md`](file:///Users/ilya/CODING/browser/DESIGN.md) if contracts change; create an ADR in `docs/adr/` for fundamental decisions.
+4. **Review:** Perform two-axis review (standards vs spec) for multi-part changes.
+5. **Reflection:** Run `python3 tools/harness_reflect.py audit`, fill `runs/<feature>/iter-NN/ledger.md`, and record newly learned gotchas in [`LESSONS.md`](file:///Users/ilya/CODING/browser/LESSONS.md) (or graduate resolved ones). See [`HARNESS.md`](file:///Users/ilya/CODING/browser/HARNESS.md).
 
-- **Bug Description:** What symptom or error occurred?
-- **Root Cause:** How and why did the issue arise?
-- **Fix & Prevention:** How was it fixed, and what pattern should future agents follow to avoid reintroducing it?
+### Memory Routing Table
+
+| Learning | Destination | Why |
+|---|---|---|
+| Non-obvious gotcha (budget: 10-12) | [`LESSONS.md`](file:///Users/ilya/CODING/browser/LESSONS.md) | Cause / Do / Don't format, checked by gate |
+| Operational agent rule | [`AGENTS.md`](file:///Users/ilya/CODING/browser/AGENTS.md) | Loaded into every session |
+| System contract / invariant | `tools/check_invariants.py` & [`DESIGN.md`](file:///Users/ilya/CODING/browser/DESIGN.md) | Mechanically enforced |
+| Architectural decision | `docs/adr/` | Permanent context record |
+| Repeatable procedure (3+ times) | Skill in `.agents/skills/` | On-demand context efficiency |
+| Accepted visual look | `runs/baselines/` | Reference image truth |
+| Iteration hypothesis & evidence | `runs/<feature>/iter-NN/ledger.md` | Per-iteration audit trail |
