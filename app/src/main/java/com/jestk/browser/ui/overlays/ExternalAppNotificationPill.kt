@@ -41,8 +41,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -70,11 +72,13 @@ fun ExternalAppNotificationPill(
     onOpen: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    autoDismissDurationMs: Long = 5000L
+    autoDismissDurationMs: Long = 5000L,
+    onTimeout: () -> Unit = onDismiss
 ) {
     val isDark = LocalIsDarkTheme.current
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     val currentOnOpen by rememberUpdatedState(onOpen)
+    val currentOnTimeout by rememberUpdatedState(onTimeout)
     val coroutineScope = rememberCoroutineScope()
 
     val offsetX = remember(prompt.id) { Animatable(0f, visibilityThreshold = 0.5f) }
@@ -89,7 +93,7 @@ fun ExternalAppNotificationPill(
                 if (!isInteracting) {
                     remainingTimeMs = (remainingTimeMs - 100L).coerceAtLeast(0L)
                     if (remainingTimeMs <= 0L) {
-                        currentOnDismiss()
+                        currentOnTimeout()
                         break
                     }
                 }
@@ -187,9 +191,9 @@ fun ExternalAppNotificationPill(
 
             // Descriptive text
             val titleText = if (prompt.appName.isNotBlank()) {
-                "Открыть в ${prompt.appName}"
+                stringResource(R.string.external_app_open_in, prompt.appName)
             } else {
-                "Открыть в приложении"
+                stringResource(R.string.external_app_open_generic)
             }
 
             Text(
@@ -203,7 +207,7 @@ fun ExternalAppNotificationPill(
 
             // Open Action Button
             Text(
-                text = "Открыть",
+                text = stringResource(R.string.external_app_open_action),
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
                     color = SereneBrandPrimary
@@ -216,7 +220,7 @@ fun ExternalAppNotificationPill(
             // Dismiss Button ("✕")
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Закрыть",
+                contentDescription = stringResource(R.string.dismiss),
                 tint = MaterialTheme.colorScheme.outline,
                 modifier = Modifier
                     .size(16.dp)

@@ -211,7 +211,7 @@ class JestkWebViewClientTest {
             onPageFinished = { _, _, _ -> },
             onNavigationStateChanged = { _, _, _ -> },
             onSnapshotReady = { _, _ -> },
-            onExternalAppOffered = { _, prompt -> offeredPrompt = prompt }
+            onExternalAppOffered = { _, prompt, _ -> offeredPrompt = prompt }
         )
 
         val webView = android.webkit.WebView(context)
@@ -247,7 +247,7 @@ class JestkWebViewClientTest {
             onPageFinished = { _, _, _ -> },
             onNavigationStateChanged = { _, _, _ -> },
             onSnapshotReady = { _, _ -> },
-            onExternalAppOffered = { _, prompt -> offeredPrompt = prompt }
+            onExternalAppOffered = { _, prompt, _ -> offeredPrompt = prompt }
         )
 
         val webView = android.webkit.WebView(context)
@@ -284,5 +284,201 @@ class JestkWebViewClientTest {
 
         assertThat(handled).isTrue()
         assertThat(webView.parent).isNull()
+    }
+
+    private fun webRequest(
+        url: String,
+        isForMainFrame: Boolean,
+        gesture: Boolean = true
+    ): android.webkit.WebResourceRequest =
+        object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse(url)
+            override fun isForMainFrame(): Boolean = isForMainFrame
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = gesture
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+    private fun registerTelegramApp(context: android.content.Context) {
+        val telegramIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse("tg://resolve?domain=test"))
+        val resolveInfo = ResolveInfo().apply {
+            activityInfo = ActivityInfo().apply {
+                packageName = "org.telegram.messenger"
+                name = "org.telegram.ui.LaunchActivity"
+                applicationInfo = ApplicationInfo().apply {
+                    packageName = "org.telegram.messenger"
+                }
+            }
+        }
+        shadowOf(context.packageManager).addResolveInfoForIntent(telegramIntent, resolveInfo)
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_subframeCustomScheme_offersAppAndBlocksNavigation() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        ExternalAppResolver.clearBrowserPackagesCache()
+        registerTelegramApp(context)
+
+        var offeredPrompt: ExternalAppPrompt? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onExternalAppOffered = { _, prompt, _ -> offeredPrompt = prompt }
+        )
+        val webView = android.webkit.WebView(context)
+
+        val handled = client.shouldOverrideUrlLoading(
+            webView,
+            webRequest("tg://resolve?domain=test", isForMainFrame = false)
+        )
+
+        assertThat(handled).isTrue()
+        assertThat(offeredPrompt?.appPackage).isEqualTo("org.telegram.messenger")
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_subframeHttps_loadsNormallyWithoutPrompt() {
+        var offeredPrompt: ExternalAppPrompt? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onExternalAppOffered = { _, prompt, _ -> offeredPrompt = prompt }
+        )
+
+        val handled = client.shouldOverrideUrlLoading(
+            null,
+            webRequest("https://ads.example.com/frame", isForMainFrame = false)
+        )
+
+        assertThat(handled).isFalse()
+        assertThat(offeredPrompt).isNull()
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_intentWithBrowserFallback_loadsFallbackPage() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        ExternalAppResolver.clearBrowserPackagesCache()
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> }
+        )
+        val webView = android.webkit.WebView(context)
+
+        val fallback = "https://example.com/download"
+        val intentUrl = "intent://open#Intent;scheme=myapp;S.browser_fallback_url=" +
+            android.net.Uri.encode(fallback) + ";end"
+
+        val handled = client.shouldOverrideUrlLoading(
+            webView,
+            webRequest(intentUrl, isForMainFrame = true)
+        )
+
+        assertThat(handled).isTrue()
+        assertThat(shadowOf(webView).lastLoadedUrl).isEqualTo(fallback)
+    }
+
+    @Test
+    fun handleExternalNavigation_withProgrammaticCustomScheme_offersApp() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        ExternalAppResolver.clearBrowserPackagesCache()
+        registerTelegramApp(context)
+
+        var offeredPrompt: ExternalAppPrompt? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onExternalAppOffered = { _, prompt, _ -> offeredPrompt = prompt }
+        )
+        val webView = android.webkit.WebView(context)
+
+        val handled = client.handleExternalNavigation(webView, "tg://resolve?domain=test")
+
+        assertThat(handled).isTrue()
+        assertThat(offeredPrompt?.appPackage).isEqualTo("org.telegram.messenger")
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_reportsUserGestureOriginOfTheOffer() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        ExternalAppResolver.clearBrowserPackagesCache()
+        registerTelegramApp(context)
+
+        val gestures = mutableListOf<Boolean>()
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onExternalAppOffered = { _, _, userInitiated -> gestures += userInitiated }
+        )
+        val webView = android.webkit.WebView(context)
+
+        // A scripted redirect (t.me fires tg:resolve on page load) has no gesture.
+        client.shouldOverrideUrlLoading(
+            webView,
+            webRequest("tg://resolve?domain=test", isForMainFrame = true, gesture = false)
+        )
+        // A tap on the site's "Open in app" button does.
+        client.shouldOverrideUrlLoading(
+            webView,
+            webRequest("tg://resolve?domain=test", isForMainFrame = true, gesture = true)
+        )
+
+        assertThat(gestures).containsExactly(false, true).inOrder()
+    }
+
+    @Test
+    fun onPageStarted_reportsPassiveOrigin() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        ExternalAppResolver.clearBrowserPackagesCache()
+        val tmeUrl = "https://t.me/animates"
+        val tmeIntent = Intent(Intent.ACTION_VIEW, android.net.Uri.parse(tmeUrl)).apply {
+            addCategory(Intent.CATEGORY_BROWSABLE)
+        }
+        val resolveInfo = ResolveInfo().apply {
+            activityInfo = ActivityInfo().apply {
+                packageName = "org.telegram.messenger"
+                name = "org.telegram.ui.LaunchActivity"
+                applicationInfo = ApplicationInfo().apply {
+                    packageName = "org.telegram.messenger"
+                }
+            }
+        }
+        shadowOf(context.packageManager).addResolveInfoForIntent(tmeIntent, resolveInfo)
+
+        val gestures = mutableListOf<Boolean>()
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onExternalAppOffered = { _, _, userInitiated -> gestures += userInitiated }
+        )
+        val webView = android.webkit.WebView(context)
+
+        client.onPageStarted(webView, tmeUrl, null)
+
+        assertThat(gestures).containsExactly(false)
     }
 }

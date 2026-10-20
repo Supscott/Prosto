@@ -622,4 +622,94 @@ class TabCoordinatorTest {
             advanceUntilIdle()
             assertThat(uiState.externalAppPrompt).isNull()
         }
+
+    @Test
+    fun handleExternalAppOffered_forBackgroundTab_isShownWhenTabBecomesActive() =
+        testScope.runTest {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            coordinator.openNewTab("https://foreground.com")
+            advanceUntilIdle()
+            coordinator.openTabInBackground("https://reddit.com/r/android")
+            advanceUntilIdle()
+
+            val backgroundTabId = uiState.tabs.first { !it.isActive }.id
+            val prompt = com.jestk.browser.domain.model.ExternalAppPrompt(
+                tabId = backgroundTabId,
+                appName = "Reddit",
+                appPackage = "com.reddit.frontpage",
+                intentUri = "https://reddit.com/r/android",
+                isInstalled = true,
+                domain = "reddit.com"
+            )
+
+            coordinator.handleExternalAppOffered(backgroundTabId, prompt)
+            assertThat(uiState.externalAppPrompt).isNull()
+
+            coordinator.selectTab(backgroundTabId)
+            advanceUntilIdle()
+
+            assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
+        }
+
+    @Test
+    fun dismissExternalAppPrompt_withoutRememberingDomain_allowsPromptAgain() =
+        testScope.runTest {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            val prompt = com.jestk.browser.domain.model.ExternalAppPrompt(
+                tabId = activeTabId,
+                appName = "Reddit",
+                appPackage = "com.reddit.frontpage",
+                intentUri = "https://reddit.com/r/android",
+                isInstalled = true,
+                domain = "reddit.com"
+            )
+
+            coordinator.handleExternalAppOffered(activeTabId, prompt)
+            assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
+
+            // The pill timed out instead of being dismissed by the user.
+            coordinator.dismissExternalAppPrompt(rememberDomain = false)
+            assertThat(uiState.externalAppPrompt).isNull()
+
+            val secondPrompt = prompt.copy(id = "prompt_timeout_retry")
+            coordinator.handleExternalAppOffered(activeTabId, secondPrompt)
+            assertThat(uiState.externalAppPrompt).isEqualTo(secondPrompt)
+        }
+
+    @Test
+    fun openNewTab_clearsDismissedDomainForReusedTab() =
+        testScope.runTest {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            coordinator.openNewTab("https://reddit.com/r/android")
+            advanceUntilIdle()
+            val tabId = uiState.activeTabId!!
+            val prompt = com.jestk.browser.domain.model.ExternalAppPrompt(
+                tabId = tabId,
+                appName = "Reddit",
+                appPackage = "com.reddit.frontpage",
+                intentUri = "https://reddit.com/r/android",
+                isInstalled = true,
+                domain = "reddit.com"
+            )
+
+            coordinator.handleExternalAppOffered(tabId, prompt)
+            coordinator.dismissExternalAppPrompt(rememberDomain = true)
+            assertThat(uiState.externalAppPrompt).isNull()
+
+            // Same URL opened again from another app: the tab is reused, but the notification
+            // must be offered for this new navigation.
+            coordinator.openNewTab("https://reddit.com/r/android")
+            advanceUntilIdle()
+
+            val secondPrompt = prompt.copy(id = "prompt_reopened")
+            coordinator.handleExternalAppOffered(uiState.activeTabId!!, secondPrompt)
+            assertThat(uiState.externalAppPrompt).isEqualTo(secondPrompt)
+        }
 }

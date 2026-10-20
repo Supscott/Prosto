@@ -62,4 +62,7 @@
     <string name="copy_url_action">Copy URL</string>
     <string name="delete_bookmark_action">Delete Bookmark</string>
     <string name="add_action">Add</string>
+    <string name="external_app_open_in">Open in %1$s</string>
+    <string name="external_app_open_generic">Open in app</string>
+    <string name="external_app_open_action">Open</string>
 </resources>

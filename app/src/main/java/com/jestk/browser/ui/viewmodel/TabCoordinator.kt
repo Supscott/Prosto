@@ -60,27 +60,79 @@ internal class TabCoordinator(
     private val ioDispatcher: CoroutineDispatcher,
     internal val tabLoadingProgress: MutableMap<String, Int> = ConcurrentHashMap(),
     internal val dismissedExternalAppDomains: MutableMap<String, MutableSet<String>> = ConcurrentHashMap(),
+    internal val pendingExternalAppPrompts: MutableMap<String, ExternalAppPrompt> = ConcurrentHashMap(),
+    internal val timedOutExternalAppDomains: MutableMap<String, MutableSet<String>> = ConcurrentHashMap(),
 ) {
-    fun handleExternalAppOffered(tabId: String, prompt: ExternalAppPrompt) {
+    fun handleExternalAppOffered(
+        tabId: String,
+        prompt: ExternalAppPrompt,
+        userInitiated: Boolean = false
+    ) {
         val current = getCurrentState()
-        if (current.activeTabId != tabId) return
-        val dismissedForTab = dismissedExternalAppDomains[tabId]
-        if (dismissedForTab != null && (dismissedForTab.contains(prompt.domain) || dismissedForTab.any { com.jestk.browser.engine.ExternalAppResolver.areDomainAliases(it, prompt.domain) })) {
+        if (current.tabs.none { it.id == tabId }) return
+
+        // Passive hints (page loads, script redirects) respect both suppression tiers so they never
+        // nag. A deliberate tap on the site's own "open in app" control bypasses them: the user is
+        // explicitly asking for the handoff, even if a hint already timed out or was dismissed.
+        if (!userInitiated) {
+            if (isDomainSuppressed(tabId, prompt.domain, dismissedExternalAppDomains)) {
+                return
+            }
+            if (isDomainSuppressed(tabId, prompt.domain, timedOutExternalAppDomains)) {
+                return
+            }
+        }
+
+        if (current.activeTabId != tabId) {
+            // Keep the offer for a background tab instead of dropping it: the user may switch
+            // to that tab right after the link was opened in the background.
+            pendingExternalAppPrompts.putIfAbsent(tabId, prompt)
             return
         }
+
         val existing = current.externalAppPrompt
-        if (existing != null && (existing.domain == prompt.domain || com.jestk.browser.engine.ExternalAppResolver.areDomainAliases(existing.domain, prompt.domain))) {
+        if (existing != null && areExternalAppDomainsEqual(existing.domain, prompt.domain)) {
             return
         }
         updateUiState { it.copy(externalAppPrompt = prompt) }
     }
 
-    fun dismissExternalAppPrompt(rememberDomain: Boolean = true) {
+    private fun areExternalAppDomainsEqual(domain1: String, domain2: String): Boolean =
+        domain1 == domain2 ||
+            com.jestk.browser.engine.ExternalAppResolver.areDomainAliases(domain1, domain2)
+
+    private fun isDomainSuppressed(
+        tabId: String,
+        domain: String,
+        suppression: MutableMap<String, MutableSet<String>>
+    ): Boolean {
+        val suppressed = suppression[tabId] ?: return false
+        return suppressed.contains(domain) ||
+            suppressed.any {
+                com.jestk.browser.engine.ExternalAppResolver.areDomainAliases(it, domain)
+            }
+    }
+
+    private fun publishPendingExternalAppPrompt(tabId: String) {
+        val prompt = pendingExternalAppPrompts.remove(tabId) ?: return
+        if (isDomainSuppressed(tabId, prompt.domain, dismissedExternalAppDomains)) return
+        if (isDomainSuppressed(tabId, prompt.domain, timedOutExternalAppDomains)) return
+        updateUiState { it.copy(externalAppPrompt = prompt) }
+    }
+
+    fun dismissExternalAppPrompt(rememberDomain: Boolean = true, timedOut: Boolean = false) {
         val current = getCurrentState()
         val prompt = current.externalAppPrompt
-        if (prompt != null && rememberDomain) {
-            val set = dismissedExternalAppDomains.getOrPut(prompt.tabId) { ConcurrentHashMap.newKeySet() }
-            set.add(prompt.domain)
+        if (prompt != null) {
+            when {
+                timedOut -> timedOutExternalAppDomains
+                    .getOrPut(prompt.tabId) { ConcurrentHashMap.newKeySet() }
+                    .add(prompt.domain)
+                rememberDomain -> dismissedExternalAppDomains
+                    .getOrPut(prompt.tabId) { ConcurrentHashMap.newKeySet() }
+                    .add(prompt.domain)
+            }
+            pendingExternalAppPrompts.remove(prompt.tabId)
         }
         updateUiState { it.copy(externalAppPrompt = null) }
     }
@@ -303,6 +355,11 @@ internal class TabCoordinator(
                 } else null
                 val created = tabRepository.createTab(url = url, title = title)
                 tabRepository.setActiveTab(created.id)
+                // A new external navigation is a fresh user intent: the tab may be reused when
+                // the same URL is already open, so per-tab suppression must not leak into it.
+                dismissedExternalAppDomains.remove(created.id)
+                pendingExternalAppPrompts.remove(created.id)
+                timedOutExternalAppDomains.remove(created.id)
                 if (cachedFavicon != null) {
                     tabRepository.updateFavicon(created.id, cachedFavicon)
                 }
@@ -333,6 +390,7 @@ internal class TabCoordinator(
                         activeThemeColor = null,
                         isMenuExpanded = false,
                         isSearchEngineSwitcherEditExpanded = false,
+                        externalAppPrompt = null,
                         activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
                         linkContextMenuUrl = null,
                         selectedImageUrl = null,
@@ -448,6 +506,7 @@ internal class TabCoordinator(
                     isBottomBarVisible = true,
                 )
             }
+            publishPendingExternalAppPrompt(tabId)
             if (liveUrl != null || liveTitle != null) {
                 scope.launch(ioDispatcher) {
                     tabRepository.updateTabDetails(
@@ -474,6 +533,8 @@ internal class TabCoordinator(
         tabThemeColors.remove(tabId)
         tabLoadingProgress.remove(tabId)
         dismissedExternalAppDomains.remove(tabId)
+        pendingExternalAppPrompts.remove(tabId)
+        timedOutExternalAppDomains.remove(tabId)
         webViewPool?.removeWebView(tabId)
         val closingTab = getCurrentState().tabs.find { it.id == tabId }
         scope.launch(ioDispatcher) {
@@ -631,6 +692,8 @@ internal class TabCoordinator(
         tabThemeColors.clear()
         tabLoadingProgress.clear()
         dismissedExternalAppDomains.clear()
+        pendingExternalAppPrompts.clear()
+        timedOutExternalAppDomains.clear()
         webViewPool?.clearAll()
         scope.launch(ioDispatcher) {
             SnapshotEngine.deleteAllSnapshots()
@@ -747,6 +810,8 @@ internal class TabCoordinator(
 
     fun handlePageStarted(tabId: String, url: String) {
         if (url.isEmpty() || url == "about:blank") return
+        // A new navigation supersedes any offer queued for a previous page of this tab.
+        pendingExternalAppPrompts.remove(tabId)
         tabLoadingProgress[tabId] = 15
         val currentTab = getCurrentState().tabs.find { it.id == tabId }
         val sameDomain = currentTab != null && isSameDomain(currentTab.url, url)
@@ -764,6 +829,7 @@ internal class TabCoordinator(
 
         if (!sameDomain) {
             dismissedExternalAppDomains[tabId]?.clear()
+            timedOutExternalAppDomains[tabId]?.clear()
         }
 
         updateUiState { state ->

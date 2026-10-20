@@ -142,8 +142,15 @@ sealed interface BrowserUiEvent {
     data class PreviewImageInNewTab(val imageUrl: String) : BrowserUiEvent
 
     // External App Prompts
-    data class OnExternalAppOffered(val tabId: String, val prompt: com.jestk.browser.domain.model.ExternalAppPrompt) : BrowserUiEvent
-    data class DismissExternalAppPrompt(val rememberDomain: Boolean = true) : BrowserUiEvent
+    data class OnExternalAppOffered(
+        val tabId: String,
+        val prompt: com.jestk.browser.domain.model.ExternalAppPrompt,
+        val userInitiated: Boolean = false,
+    ) : BrowserUiEvent
+    data class DismissExternalAppPrompt(
+        val rememberDomain: Boolean = true,
+        val timedOut: Boolean = false,
+    ) : BrowserUiEvent
     data class OpenExternalApp(val prompt: com.jestk.browser.domain.model.ExternalAppPrompt) : BrowserUiEvent
     data class SetOpenInAppsEnabled(val enabled: Boolean) : BrowserUiEvent
 }

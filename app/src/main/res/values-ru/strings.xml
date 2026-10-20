@@ -62,4 +62,7 @@
     <string name="copy_url_action">Скопировать ссылку</string>
     <string name="delete_bookmark_action">Удалить закладку</string>
     <string name="add_action">Добавить</string>
+    <string name="external_app_open_in">Открыть в %1$s</string>
+    <string name="external_app_open_generic">Открыть в приложении</string>
+    <string name="external_app_open_action">Открыть</string>
 </resources>

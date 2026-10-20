@@ -457,11 +457,11 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.OnExternalAppOffered -> {
-                tabCoordinator.handleExternalAppOffered(event.tabId, event.prompt)
+                tabCoordinator.handleExternalAppOffered(event.tabId, event.prompt, event.userInitiated)
             }
 
             is BrowserUiEvent.DismissExternalAppPrompt -> {
-                tabCoordinator.dismissExternalAppPrompt(event.rememberDomain)
+                tabCoordinator.dismissExternalAppPrompt(event.rememberDomain, event.timedOut)
             }
 
             is BrowserUiEvent.OpenExternalApp -> {

@@ -17,6 +17,12 @@ sealed interface ExternalAppResolution {
         val isCustomScheme: Boolean
     ) : ExternalAppResolution
 
+    /**
+     * The page declared `S.browser_fallback_url` for a URL we cannot hand off. The page itself
+     * must be loaded instead of leaving the WebView on a failed `intent://` navigation.
+     */
+    data class BrowserFallback(val url: String) : ExternalAppResolution
+
     data object NoApp : ExternalAppResolution
     data object UnresolvableScheme : ExternalAppResolution
 }
@@ -212,6 +218,23 @@ object ExternalAppResolver {
         )
     }
 
+    /**
+     * Queries activities for [intent], optionally allowing filters without `CATEGORY_DEFAULT`.
+     * Every `PackageManager` failure degrades to "no match" instead of crashing navigation.
+     */
+    private fun queryMatches(
+        packageManager: PackageManager,
+        intent: Intent,
+        excludedPackages: Set<String>,
+        matchDefaultOnly: Boolean = true
+    ): List<android.content.pm.ResolveInfo> = try {
+        val flags = if (matchDefaultOnly) PackageManager.MATCH_DEFAULT_ONLY else 0
+        packageManager.queryIntentActivities(intent, flags)
+            .filter { it.activityInfo.packageName !in excludedPackages }
+    } catch (t: Throwable) {
+        emptyList()
+    }
+
     private fun resolveIntentScheme(
         url: String,
         tabId: String,
@@ -220,30 +243,42 @@ object ExternalAppResolver {
         genericBrowserPackages: Set<String>
     ): ExternalAppResolution {
         val parsedIntent = try {
-            Intent.parseUri(url, Intent.URI_INTENT_SCHEME).apply {
-                addCategory(Intent.CATEGORY_BROWSABLE)
-                component = null
-                selector = null
-            }
+            Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
         } catch (e: Exception) {
             Log.w("ExternalAppResolver", "Failed to parse intent URI: $url", e)
             return ExternalAppResolution.UnresolvableScheme
         }
 
-        val matches = try {
-            packageManager.queryIntentActivities(parsedIntent, PackageManager.MATCH_DEFAULT_ONLY)
-                .filter { it.activityInfo.packageName !in genericBrowserPackages }
-        } catch (t: Throwable) {
-            emptyList()
-        }
+        // Capture the package before component/selector are cleared: an intent:// URL may name
+        // only a component, and that component is the only way to identify the target app.
+        val componentPackage = parsedIntent.component?.packageName
+        val targetPackages = listOfNotNull(parsedIntent.`package`, componentPackage)
+            .filter { it.isNotBlank() && it != selfPackageName && it !in genericBrowserPackages }
 
-        val domain = extractDomain(url).ifBlank { parsedIntent.`package`.orEmpty() }
+        parsedIntent.addCategory(Intent.CATEGORY_BROWSABLE)
+        parsedIntent.component = null
+        parsedIntent.selector = null
+
+        val excludedPackages = genericBrowserPackages + selfPackageName
+        val domain = extractDomain(url).ifBlank { targetPackages.firstOrNull().orEmpty() }
+
+        // Try the strict filter first, then relax the categories/flags. Many apps declare their
+        // deep-link filters without CATEGORY_BROWSABLE or CATEGORY_DEFAULT.
+        var matches = queryMatches(packageManager, parsedIntent, excludedPackages)
+        if (matches.isEmpty()) {
+            val withoutBrowsable = Intent(parsedIntent).apply {
+                removeCategory(Intent.CATEGORY_BROWSABLE)
+            }
+            matches = queryMatches(packageManager, withoutBrowsable, excludedPackages)
+        }
+        if (matches.isEmpty()) {
+            matches = queryMatches(packageManager, parsedIntent, excludedPackages, matchDefaultOnly = false)
+        }
 
         if (matches.isNotEmpty()) {
             val match = matches.first()
             val appName = match.loadLabel(packageManager).toString()
             val appIcon = match.loadIcon(packageManager)?.toBitmapSafe()
-            val intentUri = parsedIntent.toUri(Intent.URI_INTENT_SCHEME)
 
             return ExternalAppResolution.Offer(
                 prompt = ExternalAppPrompt(
@@ -251,7 +286,7 @@ object ExternalAppResolver {
                     appName = appName,
                     appPackage = match.activityInfo.packageName,
                     appIcon = appIcon,
-                    intentUri = intentUri,
+                    intentUri = parsedIntent.toUri(Intent.URI_INTENT_SCHEME),
                     isInstalled = true,
                     domain = domain
                 ),
@@ -259,28 +294,65 @@ object ExternalAppResolver {
             )
         }
 
-        // App not installed: Check target package
-        val targetPackage = parsedIntent.`package` ?: parsedIntent.component?.packageName
-        if (!targetPackage.isNullOrBlank() && targetPackage !in genericBrowserPackages) {
-            val marketUri = "market://details?id=$targetPackage"
+        // The target package is installed but did not match the filter: offer the app itself
+        // instead of sending an installed user to the Play Store.
+        for (targetPackage in targetPackages) {
+            if (!isPackageInstalled(packageManager, targetPackage)) continue
+            val appInfo = getApplicationInfoSafe(packageManager, targetPackage)
+            val appName = appInfo?.loadLabel(packageManager)?.toString()?.ifBlank { null } ?: targetPackage
+            val appIcon = appInfo?.loadIcon(packageManager)?.toBitmapSafe()
+            val directIntent = Intent(Intent.ACTION_VIEW, parsedIntent.data).apply {
+                setPackage(targetPackage)
+            }
+            val canHandleDirectly = queryMatches(
+                packageManager,
+                directIntent,
+                excludedPackages,
+                matchDefaultOnly = false
+            ).isNotEmpty()
+            val targetIntent = when {
+                canHandleDirectly -> directIntent
+                else -> packageManager.getLaunchIntentForPackage(targetPackage) ?: directIntent
+            }
+
             return ExternalAppResolution.Offer(
                 prompt = ExternalAppPrompt(
                     tabId = tabId,
-                    appName = "",
+                    appName = appName,
                     appPackage = targetPackage,
-                    appIcon = null,
-                    intentUri = marketUri,
-                    isInstalled = false,
+                    appIcon = appIcon,
+                    intentUri = targetIntent.toUri(Intent.URI_INTENT_SCHEME),
+                    isInstalled = true,
                     domain = domain.ifBlank { targetPackage }
                 ),
                 isCustomScheme = true
             )
         }
 
-        // If fallback URL is present, let WebView load it as regular page
+        // The site declared how to fall back (usually a store or download page): honour it before
+        // inventing our own market:// offer.
         val fallbackUrl = parsedIntent.getStringExtra("browser_fallback_url")
-        if (!fallbackUrl.isNullOrBlank() && (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))) {
-            return ExternalAppResolution.NoApp
+        if (!fallbackUrl.isNullOrBlank() &&
+            (fallbackUrl.startsWith("http://") || fallbackUrl.startsWith("https://"))
+        ) {
+            return ExternalAppResolution.BrowserFallback(fallbackUrl)
+        }
+
+        // App not installed and no site fallback: offer the market listing when the package is known.
+        val missingPackage = targetPackages.firstOrNull()
+        if (missingPackage != null) {
+            return ExternalAppResolution.Offer(
+                prompt = ExternalAppPrompt(
+                    tabId = tabId,
+                    appName = "",
+                    appPackage = missingPackage,
+                    appIcon = null,
+                    intentUri = "market://details?id=$missingPackage",
+                    isInstalled = false,
+                    domain = domain.ifBlank { missingPackage }
+                ),
+                isCustomScheme = true
+            )
         }
 
         return ExternalAppResolution.UnresolvableScheme
@@ -534,11 +606,11 @@ object ExternalAppResolver {
         selfPackageName: String
     ): ExternalAppResolution {
         val customIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        val matches = try {
-            packageManager.queryIntentActivities(customIntent, PackageManager.MATCH_DEFAULT_ONLY)
-                .filter { it.activityInfo.packageName != selfPackageName }
-        } catch (t: Throwable) {
-            emptyList()
+        val excludedPackages = setOf(selfPackageName)
+        var matches = queryMatches(packageManager, customIntent, excludedPackages)
+        if (matches.isEmpty()) {
+            // Some apps register their scheme without CATEGORY_DEFAULT; the OS can still start them.
+            matches = queryMatches(packageManager, customIntent, excludedPackages, matchDefaultOnly = false)
         }
 
         if (matches.isNotEmpty()) {

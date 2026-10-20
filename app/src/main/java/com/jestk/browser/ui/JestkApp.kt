@@ -164,7 +164,9 @@ fun JestkApp(
                     onFaviconReceived = handleFavicon,
                     onTitleReceived = { id, title -> viewModel.onEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
                     isOpenInAppsEnabled = { viewModel.uiState.value.settings.isOpenInAppsEnabled },
-                    onExternalAppOffered = { id, prompt -> viewModel.onEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt)) }
+                    onExternalAppOffered = { id, prompt, userInitiated ->
+                        viewModel.onEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
+                    }
                 )
                 wv.webChromeClient = JestkWebChromeClient(
                     tabId = tabId,
@@ -194,7 +196,15 @@ fun JestkApp(
             when (command) {
                 is NavigationCommand.LoadUrl -> {
                     val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context)
-                    webView.loadUrl(command.url)
+                    val client = webView.webViewClient as? JestkWebViewClient
+                    val handledAsExternal = client != null &&
+                        !JestkWebViewClient.isWebUrl(command.url) &&
+                        // App-initiated loadUrl() bypasses shouldOverrideUrlLoading, so custom
+                        // schemes and intent:// links must be resolved before handing them to WebKit.
+                        client.handleExternalNavigation(webView, command.url)
+                    if (!handledAsExternal) {
+                        webView.loadUrl(command.url)
+                    }
                 }
 
                 is NavigationCommand.GoBack -> {
@@ -706,6 +716,13 @@ fun JestkApp(
                         },
                         onDismiss = {
                             viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(rememberDomain = true))
+                        },
+                        onTimeout = {
+                            // A hint the user ignored must not block a later deliberate tap on the
+                            // site's own "open in app" control.
+                            viewModel.onEvent(
+                                BrowserUiEvent.DismissExternalAppPrompt(rememberDomain = false, timedOut = true)
+                            )
                         }
                     )
                 }

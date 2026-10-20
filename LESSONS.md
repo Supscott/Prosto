@@ -42,10 +42,10 @@ Active, non-obvious gotchas that cannot yet be prevented by static typing or lin
 - **Do:** Declare the parameter as nullable (`arg: Type? = null`) and resolve it inside the function body (`val effective = arg ?: mutableState`) after prerequisite mutations run.
 - **Don't:** Use mutable state properties directly as default function argument values when the function mutates that state.
 
-## 7. Direct webView.loadUrl() bypasses WebKit shouldOverrideUrlLoading for app links
-- **Cause:** WebKit only invokes `shouldOverrideUrlLoading` for user link clicks and HTTP redirects, never for programmatic `loadUrl()` (e.g. typing a URL into the omnibox).
-- **Do:** Proactively trigger native app resolution in `JestkWebViewClient.onPageStarted` and `doUpdateVisitedHistory` in addition to `shouldOverrideUrlLoading`.
-- **Don't:** Assume `shouldOverrideUrlLoading` intercepts all navigations or address bar URL entries.
+## 7. External-app handoffs bypass `shouldOverrideUrlLoading` for programmatic loads and subframes
+- **Cause:** WebKit calls the callback only for renderer-initiated navigations: it is skipped for app-initiated `loadUrl()` (address bar, incoming `ACTION_VIEW`) and subframe requests arrive with `isForMainFrame == false`. An early main-frame or http-only return silently swallows a site's `intent://` / `tg://` handoff.
+- **Do:** Route every entry point (main-frame clicks, subframe custom schemes, programmatic loads) through one resolver, resolve in `onPageStarted` / `doUpdateVisitedHistory` for direct loads, and load the site-declared `S.browser_fallback_url` when no app matches.
+- **Don't:** Gate external-app resolution on `request.isForMainFrame`, or expect custom-scheme URLs to reach `onPageStarted`.
 
 ## 8. Returning 0-byte text/plain for blocked web requests hangs host page scripts and video players
 - **Cause:** Returning 0-byte empty responses without expected global stubs prevents client scripts (`adsbygoogle`, `googletag`) from initializing, causing unresolved promises and infinite loading spinners.
@@ -61,3 +61,9 @@ Active, non-obvious gotchas that cannot yet be prevented by static typing or lin
 - **Cause:** When HTTP `Content-Disposition` changes the resolved filename during redirects, updating the database record without updating the active destination file path causes `partFile.renameTo()` and media scanning to reference stale file paths.
 - **Do:** Maintain a mutable `targetDestinationFile` in download tasks and update it immediately whenever `Content-Disposition` yields a new filename during redirects.
 - **Don't:** Rely on the pre-redirect destination path when renaming completed `.crdownload` temporary files.
+
+## 11. Auto-dismissed transient hints must not become permanent suppression
+- **Cause:** A 5 s auto-timeout that records the domain as "dismissed" makes a later deliberate tap on the site's own "Open in app" control a silent no-op (`tg:resolve`, `intent://applink.instagram.com`); the page stays unchanged, so it looks like a broken button.
+- **Do:** Keep separate suppression tiers for explicit dismissal and for timeouts, pass whether the navigation came from a user gesture (`WebResourceRequest.hasGesture()`), and let gesture-initiated offers bypass timeout suppression.
+- **Don't:** Treat `onTimeout` and the user pressing "✕" as the same state, or let a timeout block a subsequent explicit handoff.
+

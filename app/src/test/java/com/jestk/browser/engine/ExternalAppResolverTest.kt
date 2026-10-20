@@ -261,4 +261,51 @@ class ExternalAppResolverTest {
         val result = ExternalAppResolver.resolve(context, "unknownscheme://random/path", "tab_1")
         assertThat(result).isEqualTo(ExternalAppResolution.UnresolvableScheme)
     }
+
+    @Test
+    fun resolve_intentSchemeWithBrowserFallback_returnsFallbackPage() {
+        val fallback = "https://example.com/download"
+        val url = "intent://open#Intent;scheme=myapp;S.browser_fallback_url=" +
+            android.net.Uri.encode(fallback) + ";end"
+
+        val result = ExternalAppResolver.resolve(context, url, "tab_1")
+
+        assertThat(result).isInstanceOf(ExternalAppResolution.BrowserFallback::class.java)
+        assertThat((result as ExternalAppResolution.BrowserFallback).url).isEqualTo(fallback)
+    }
+
+    @Test
+    fun resolve_uninstalledIntentWithBrowserFallback_prefersFallbackOverPlayStore() {
+        val fallback = "https://example.com/download"
+        val url = "intent://open#Intent;scheme=myapp;package=com.missing.app;" +
+            "S.browser_fallback_url=" + android.net.Uri.encode(fallback) + ";end"
+
+        val result = ExternalAppResolver.resolve(context, url, "tab_1")
+
+        assertThat(result).isInstanceOf(ExternalAppResolution.BrowserFallback::class.java)
+        assertThat((result as ExternalAppResolution.BrowserFallback).url).isEqualTo(fallback)
+    }
+
+    @Test
+    fun resolve_intentSchemeForInstalledPackageWithoutMatchingFilter_offersInstalledApp() {
+        val pkg = "com.example.deepapp"
+        val packageInfo = android.content.pm.PackageInfo().apply {
+            packageName = pkg
+            applicationInfo = ApplicationInfo().apply {
+                packageName = pkg
+                name = "Deep App"
+            }
+        }
+        shadowOf(packageManager).installPackage(packageInfo)
+
+        // The app is installed but no activity advertises the scheme in the shadow registry.
+        val url = "intent://open#Intent;scheme=deepapp;package=$pkg;end"
+        val result = ExternalAppResolver.resolve(context, url, "tab_1")
+
+        assertThat(result).isInstanceOf(ExternalAppResolution.Offer::class.java)
+        val offer = result as ExternalAppResolution.Offer
+        assertThat(offer.prompt.appPackage).isEqualTo(pkg)
+        assertThat(offer.prompt.isInstalled).isTrue()
+        assertThat(offer.prompt.intentUri).doesNotContain("market://")
+    }
 }

@@ -28,7 +28,7 @@ class JestkWebViewClient(
     private val onBlockedResource: ((url: String, isTracker: Boolean) -> Unit)? = null,
     private val onTitleReceived: ((tabId: String, title: String) -> Unit)? = null,
     private val isOpenInAppsEnabled: (() -> Boolean)? = null,
-    private val onExternalAppOffered: ((tabId: String, prompt: ExternalAppPrompt) -> Unit)? = null
+    private val onExternalAppOffered: ((tabId: String, prompt: ExternalAppPrompt, userInitiated: Boolean) -> Unit)? = null
 ) : WebViewClient() {
 
     private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -45,35 +45,58 @@ class JestkWebViewClient(
         request: WebResourceRequest?
     ): Boolean {
         if (request == null) return false
-        if (!request.isForMainFrame) return false
         val url = request.url?.toString().orEmpty()
-        return handleUrlLoading(view, url)
+        if (url.isBlank()) return false
+        // Subframe web navigations must load normally; subframe custom schemes are the classic
+        // hidden-iframe "Open in app" technique and still need to reach the resolver.
+        if (!request.isForMainFrame && isWebUrl(url)) return false
+        return handleExternalNavigation(
+            view = view,
+            url = url,
+            allowFallbackNavigation = request.isForMainFrame,
+            userInitiated = request.hasGesture()
+        )
     }
 
     @Deprecated("Deprecated in Java")
     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
         val validUrl = url.orEmpty()
         if (validUrl.isBlank()) return false
-        return handleUrlLoading(view, validUrl)
+        return handleExternalNavigation(view, validUrl, userInitiated = true)
     }
 
-    private fun handleUrlLoading(view: WebView?, url: String): Boolean {
+    /**
+     * Resolves [url] and offers the native app when one can handle it.
+     *
+     * @param allowFallbackNavigation when `false` (e.g. a subframe request), the site-provided
+     *        `browser_fallback_url` is not loaded into the top-level WebView.
+     * @param userInitiated whether the navigation came from a user gesture (a tap on a link) as
+     *        opposed to a script redirect or a page load. A deliberate tap must be able to re-offer
+     *        the app even after an earlier hint timed out.
+     * @return `true` when the WebView must not navigate to [url] itself.
+     */
+    fun handleExternalNavigation(
+        view: WebView?,
+        url: String,
+        allowFallbackNavigation: Boolean = true,
+        userInitiated: Boolean = false
+    ): Boolean {
         val isEnabled = isOpenInAppsEnabled?.invoke() ?: true
         if (!isEnabled) {
-            val uri = try { android.net.Uri.parse(url) } catch (e: Exception) { null }
-            val scheme = uri?.scheme?.lowercase().orEmpty()
-            return if (scheme == "http" || scheme == "https") {
-                false
-            } else {
-                true
-            }
+            return if (isWebUrl(url)) false else true
         }
 
         val context = view?.context ?: return false
         return when (val resolution = ExternalAppResolver.resolve(context, url, tabId)) {
             is ExternalAppResolution.Offer -> {
-                onExternalAppOffered?.invoke(tabId, resolution.prompt)
+                onExternalAppOffered?.invoke(tabId, resolution.prompt, userInitiated)
                 resolution.isCustomScheme
+            }
+            is ExternalAppResolution.BrowserFallback -> {
+                if (allowFallbackNavigation) {
+                    view?.loadUrl(resolution.url)
+                }
+                true
             }
             is ExternalAppResolution.UnresolvableScheme -> {
                 true
@@ -119,8 +142,8 @@ class JestkWebViewClient(
         if (isOpenInAppsEnabled?.invoke() == false) return
         val context = view?.context ?: return
         val resolution = ExternalAppResolver.resolve(context, url, tabId)
-        if (resolution is ExternalAppResolution.Offer && !resolution.isCustomScheme) {
-            onExternalAppOffered?.invoke(tabId, resolution.prompt)
+        if (resolution is ExternalAppResolution.Offer) {
+            onExternalAppOffered?.invoke(tabId, resolution.prompt, false)
         }
     }
 
@@ -294,6 +317,15 @@ class JestkWebViewClient(
     }
 
     companion object {
+        fun isWebUrl(url: String): Boolean {
+            val scheme = try {
+                android.net.Uri.parse(url).scheme?.lowercase()
+            } catch (t: Throwable) {
+                null
+            }
+            return scheme == "http" || scheme == "https"
+        }
+
         fun parseCssColor(raw: String?): Int? {
             if (raw.isNullOrBlank()) return null
             val clean = raw.trim().removeSurrounding("\"").trim()
