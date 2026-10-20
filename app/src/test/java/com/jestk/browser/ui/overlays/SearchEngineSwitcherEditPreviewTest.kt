@@ -45,7 +45,7 @@ class SearchEngineSwitcherEditPreviewTest {
     private val sampleEngines = listOf(
         SearchEngine.GOOGLE,
         SearchEngine.DUCKDUCKGO,
-        SearchEngine.BING,
+        SearchEngine.BRAVE,
         SearchEngine(
             id = "yandex",
             displayName = "Yandex",
@@ -154,7 +154,7 @@ class SearchEngineSwitcherEditPreviewTest {
                         SearchEngineSwitcherEditPopup(
                             expanded = true,
                             engines = sampleEngines,
-                            hiddenEngineIds = setOf(SearchEngine.BING.id),
+                            hiddenEngineIds = setOf(SearchEngine.BRAVE.id),
                             isDark = false,
                             onToggleEngine = { _, _ -> },
                             onDismiss = {}
@@ -179,7 +179,7 @@ class SearchEngineSwitcherEditPreviewTest {
                         SearchEngineSwitcherEditPopup(
                             expanded = true,
                             engines = sampleEngines,
-                            hiddenEngineIds = setOf(SearchEngine.BING.id),
+                            hiddenEngineIds = setOf(SearchEngine.BRAVE.id),
                             isDark = true,
                             onToggleEngine = { _, _ -> },
                             onDismiss = {}

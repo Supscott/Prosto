@@ -100,7 +100,7 @@ class SearchOverlayPreviewTest {
                         JestkBrowserTheme(themeMode = ThemeMode.DARK) {
                             SearchOverlay(
                                 uiState = sampleState.copy(
-                                    settings = BrowserSettings(searchEngine = SearchEngine.BING)
+                                    settings = BrowserSettings(searchEngine = SearchEngine.BRAVE)
                                 ),
                                 onEvent = {}
                             )
@@ -163,7 +163,7 @@ val width = 440
                             isDark = false
                         )
 
-                        Text("Switcher Row Dark (Bing Active)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("Switcher Row Dark (Brave Active)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         JestkBrowserTheme(themeMode = ThemeMode.DARK) {
                             Box(
                                 modifier = Modifier
@@ -172,7 +172,7 @@ val width = 440
                                     .padding(12.dp)
                             ) {
                                 SearchEngineSwitcherRow(
-                                    selectedEngine = SearchEngine.BING,
+                                    selectedEngine = SearchEngine.BRAVE,
                                     onSelectEngine = {},
                                     isDark = true
                                 )
@@ -219,9 +219,9 @@ val width = 440
         }
 
         // Trigger selection of Bing
-        onEvent(BrowserUiEvent.SetSearchEngine(SearchEngine.BING))
-        assertEquals(BrowserUiEvent.SetSearchEngine(SearchEngine.BING), eventDispatched)
-        assertEquals(SearchEngine.BING, selectedEngine)
+        onEvent(BrowserUiEvent.SetSearchEngine(SearchEngine.BRAVE))
+        assertEquals(BrowserUiEvent.SetSearchEngine(SearchEngine.BRAVE), eventDispatched)
+        assertEquals(SearchEngine.BRAVE, selectedEngine)
 
         // Trigger selection of Google
         onEvent(BrowserUiEvent.SetSearchEngine(SearchEngine.GOOGLE))
@@ -540,30 +540,30 @@ val width = 440
     @Test
     fun testCircularEngineCyclingMath() {
         val engines = SearchEngine.entries
-        // Google is index 1
+        // Google is index 0
         val currentIndex = engines.indexOf(SearchEngine.GOOGLE)
 
-        // Cycle right (+1): Google -> Bing
+        // Cycle right (+1): Google -> DuckDuckGo
         val nextIndex = (currentIndex + 1).mod(engines.size)
-        assertEquals(SearchEngine.BING, engines[nextIndex])
+        assertEquals(SearchEngine.DUCKDUCKGO, engines[nextIndex])
 
-        // Cycle left (-1): Google -> DuckDuckGo
+        // Cycle left (-1): Google -> Startpage (wraps left)
         val prevIndex = (currentIndex - 1).mod(engines.size)
-        assertEquals(SearchEngine.DUCKDUCKGO, engines[prevIndex])
+        assertEquals(SearchEngine.STARTPAGE, engines[prevIndex])
 
-        // Cycle left from DuckDuckGo (0): wraps to Bing (2)
+        // Cycle left from DuckDuckGo (1): back to Google (0)
         val ddgIndex = engines.indexOf(SearchEngine.DUCKDUCKGO)
-        val wrapLeft = (ddgIndex - 1).mod(engines.size)
-        assertEquals(SearchEngine.BING, engines[wrapLeft])
+        val leftFromDdg = (ddgIndex - 1).mod(engines.size)
+        assertEquals(SearchEngine.GOOGLE, engines[leftFromDdg])
 
-        // Cycle right from Bing (2): wraps to DuckDuckGo (0)
-        val bingIndex = engines.indexOf(SearchEngine.BING)
-        val wrapRight = (bingIndex + 1).mod(engines.size)
-        assertEquals(SearchEngine.DUCKDUCKGO, engines[wrapRight])
+        // Cycle right from Startpage (5): wraps to Google (0)
+        val spIndex = engines.indexOf(SearchEngine.STARTPAGE)
+        val wrapRight = (spIndex + 1).mod(engines.size)
+        assertEquals(SearchEngine.GOOGLE, engines[wrapRight])
     }
 
     @Test
-    fun testSequentialSwipeCyclesAllThreeEnginesContinuously() {
+    fun testSequentialSwipeCyclesEnginesContinuously() {
         var currentEngine = SearchEngine.GOOGLE
         val history = mutableListOf<SearchEngine>()
 
@@ -584,28 +584,40 @@ val width = 440
             }
         }
 
-        // Sequential swipes to the right (+1): Google -> Bing -> DuckDuckGo -> Google -> Bing
-        cycleEngine(1)
-        assertEquals(SearchEngine.BING, currentEngine)
-
+        // Sequential swipes to the right (+1): Google -> DuckDuckGo -> Brave -> Kagi -> Ecosia -> Startpage -> Google
         cycleEngine(1)
         assertEquals(SearchEngine.DUCKDUCKGO, currentEngine)
 
         cycleEngine(1)
-        assertEquals(SearchEngine.GOOGLE, currentEngine)
+        assertEquals(SearchEngine.BRAVE, currentEngine)
 
         cycleEngine(1)
-        assertEquals(SearchEngine.BING, currentEngine)
+        assertEquals(SearchEngine.KAGI, currentEngine)
 
-        // Sequential swipes to the left (-1): Bing -> Google -> DuckDuckGo -> Bing
-        cycleEngine(-1)
+        cycleEngine(1)
+        assertEquals(SearchEngine.ECOSIA, currentEngine)
+
+        cycleEngine(1)
+        assertEquals(SearchEngine.STARTPAGE, currentEngine)
+
+        cycleEngine(1)
         assertEquals(SearchEngine.GOOGLE, currentEngine)
+
+        // Sequential swipes to the left (-1): Google -> Startpage -> Ecosia -> Kagi -> Brave -> DuckDuckGo
+        cycleEngine(-1)
+        assertEquals(SearchEngine.STARTPAGE, currentEngine)
+
+        cycleEngine(-1)
+        assertEquals(SearchEngine.ECOSIA, currentEngine)
+
+        cycleEngine(-1)
+        assertEquals(SearchEngine.KAGI, currentEngine)
+
+        cycleEngine(-1)
+        assertEquals(SearchEngine.BRAVE, currentEngine)
 
         cycleEngine(-1)
         assertEquals(SearchEngine.DUCKDUCKGO, currentEngine)
-
-        cycleEngine(-1)
-        assertEquals(SearchEngine.BING, currentEngine)
 
         cycleEngine(-1)
         assertEquals(SearchEngine.GOOGLE, currentEngine)
@@ -737,11 +749,13 @@ val width = 440
         }
         var selectedEngine = SearchEngine.GOOGLE
 
+        val testEngines = listOf(SearchEngine.DUCKDUCKGO, SearchEngine.GOOGLE, SearchEngine.BRAVE)
         val state = SearchEngineCarouselState(
             initialEngine = SearchEngine.GOOGLE,
             density = density,
             coroutineScope = this,
             haptic = dummyHaptic,
+            engines = testEngines,
             onEngineSelected = { selectedEngine = it }
         )
 
@@ -750,19 +764,19 @@ val width = 440
         assertTrue(state.isDragging)
         assertTrue(state.isScrolling)
 
-        // 2. Drag by -40f (1 full item spacing left => should cross to Bing)
+        // 2. Drag by -40f (1 full item spacing left => should cross to Brave)
         state.onDrag(-40f)
         testScheduler.advanceUntilIdle()
         assertEquals(-40f, state.animOffset.value, 0.1f)
         assertTrue(hapticTicks > 0)
 
-        // 3. Drag end with 0 velocity => snap to nearest slot (targetSlot = 1 -> Bing)
+        // 3. Drag end with 0 velocity => snap to nearest slot (targetSlot = 1 -> Brave)
         state.onDragEnd(velocity = 0f)
         testScheduler.advanceUntilIdle()
 
         // Settle & commit
-        assertEquals(SearchEngine.BING, selectedEngine)
-        assertEquals(SearchEngine.BING, state.currentEngine)
+        assertEquals(SearchEngine.BRAVE, selectedEngine)
+        assertEquals(SearchEngine.BRAVE, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
         assertTrue(!state.isDragging)
         assertTrue(!state.isFlinging)
@@ -779,15 +793,17 @@ val width = 440
         }
         var selectedEngine = SearchEngine.GOOGLE
 
+        val testEngines = listOf(SearchEngine.DUCKDUCKGO, SearchEngine.GOOGLE, SearchEngine.BRAVE)
         val state = SearchEngineCarouselState(
             initialEngine = SearchEngine.GOOGLE,
             density = density,
             coroutineScope = this,
             haptic = dummyHaptic,
+            engines = testEngines,
             onEngineSelected = { selectedEngine = it }
         )
 
-        // 1. Moderate fling left (velocity = -800 px/sec) => advances across 4 slots to Bing
+        // 1. Moderate fling left (velocity = -800 px/sec) => advances across 4 slots to Brave
         state.onDragStart()
         state.onDrag(-20f)
         testScheduler.advanceUntilIdle()
@@ -795,13 +811,13 @@ val width = 440
         state.onDragEnd(velocity = -800f)
         testScheduler.advanceUntilIdle()
 
-        assertEquals(SearchEngine.BING, selectedEngine)
-        assertEquals(SearchEngine.BING, state.currentEngine)
+        assertEquals(SearchEngine.BRAVE, selectedEngine)
+        assertEquals(SearchEngine.BRAVE, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
         assertTrue(hapticTicks >= 1)
         assertTrue(!state.isFlinging)
 
-        // 2. Strong fling left (velocity = -2500 px/sec) => carries momentum across 6 slots (2 full loops) to Bing
+        // 2. Strong fling left (velocity = -2500 px/sec) => carries momentum across 6 slots (2 full loops) to Brave
         val hapticBeforeStrongFling = hapticTicks
         state.onDragStart()
         state.onDrag(-20f)
@@ -889,26 +905,28 @@ val width = 440
         }
         var selectedEngine = SearchEngine.GOOGLE
 
+        val testEngines = listOf(SearchEngine.DUCKDUCKGO, SearchEngine.GOOGLE, SearchEngine.BRAVE)
         val state = SearchEngineCarouselState(
             initialEngine = SearchEngine.GOOGLE,
             density = density,
             coroutineScope = this,
             haptic = dummyHaptic,
+            engines = testEngines,
             onEngineSelected = { selectedEngine = it }
         )
 
-        // 1. Animate from Google to Bing (forward 1 slot)
-        state.animateToEngine(SearchEngine.BING)
+        // 1. Animate from Google to Brave (forward 1 slot)
+        state.animateToEngine(SearchEngine.BRAVE)
         assertTrue(state.isFlinging || state.isScrolling)
         testScheduler.advanceUntilIdle()
 
-        assertEquals(SearchEngine.BING, selectedEngine)
-        assertEquals(SearchEngine.BING, state.currentEngine)
+        assertEquals(SearchEngine.BRAVE, selectedEngine)
+        assertEquals(SearchEngine.BRAVE, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
         assertTrue(hapticTicks >= 1)
         assertTrue(!state.isFlinging)
 
-        // 2. Animate from Bing to DuckDuckGo (forward 1 slot circularly)
+        // 2. Animate from Brave to DuckDuckGo (forward 1 slot circularly)
         val hapticsBeforeDDG = hapticTicks
         state.animateToEngine(SearchEngine.DUCKDUCKGO)
         testScheduler.advanceUntilIdle()
@@ -918,19 +936,19 @@ val width = 440
         assertEquals(0f, state.animOffset.value, 0.1f)
         assertTrue(hapticTicks > hapticsBeforeDDG)
 
-        // 3. Animate from DuckDuckGo to Bing (backward 1 slot)
-        val hapticsBeforeBing = hapticTicks
-        state.animateToEngine(SearchEngine.BING)
+        // 3. Animate from DuckDuckGo to Brave (backward 1 slot)
+        val hapticsBeforeBrave = hapticTicks
+        state.animateToEngine(SearchEngine.BRAVE)
         testScheduler.advanceUntilIdle()
 
-        assertEquals(SearchEngine.BING, selectedEngine)
-        assertEquals(SearchEngine.BING, state.currentEngine)
+        assertEquals(SearchEngine.BRAVE, selectedEngine)
+        assertEquals(SearchEngine.BRAVE, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
-        assertTrue(hapticTicks > hapticsBeforeBing)
+        assertTrue(hapticTicks > hapticsBeforeBrave)
 
         // 4. Calling animateToEngine on already selected engine should not start animation
         val hapticBeforeSame = hapticTicks
-        state.animateToEngine(SearchEngine.BING)
+        state.animateToEngine(SearchEngine.BRAVE)
         assertTrue(!state.isFlinging)
         assertEquals(hapticBeforeSame, hapticTicks)
     }
@@ -952,7 +970,7 @@ val width = 440
             shortcut = "y",
             orderPosition = 3
         )
-        val engines = SearchEngine.DEFAULT_ENGINES + youtube // [DDG(0), Google(1), Bing(2), YouTube(3)]
+        val engines = listOf(SearchEngine.DUCKDUCKGO, SearchEngine.GOOGLE, SearchEngine.BRAVE, youtube)
         var selectedEngine = SearchEngine.GOOGLE
 
         val state = SearchEngineCarouselState(

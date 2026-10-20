@@ -33,9 +33,12 @@ data class SearchEngine(
     fun matchesUrl(url: String): Boolean {
         val lower = url.lowercase()
         return when (id.lowercase()) {
-            "duckduckgo" -> lower.contains("duckduckgo.com")
             "google" -> lower.contains("google.com") || lower.contains(".google.") || lower.contains("://google.")
-            "bing" -> lower.contains("bing.com")
+            "duckduckgo" -> lower.contains("duckduckgo.com")
+            "brave" -> lower.contains("search.brave.com") || lower.contains("brave.com")
+            "kagi" -> lower.contains("kagi.com")
+            "ecosia" -> lower.contains("ecosia.org")
+            "startpage" -> lower.contains("startpage.com")
             else -> {
                 try {
                     val cleanUrl = searchUrlTemplate.replace("%s", "placeholder")
@@ -55,16 +58,34 @@ data class SearchEngine(
         if (!matchesUrl(url)) return null
         val lower = url.lowercase()
         when (id.lowercase()) {
-            "duckduckgo" -> {
-                if (!(lower.contains("duckduckgo.com") && (lower.contains("?q=") || lower.contains("&q=")))) return null
-            }
             "google" -> {
                 if (!((lower.contains("google.") || lower.contains("google.com")) &&
                     lower.contains("/search") &&
                     (lower.contains("?q=") || lower.contains("&q=")))) return null
             }
-            "bing" -> {
-                if (!(lower.contains("bing.com") && lower.contains("/search") && (lower.contains("?q=") || lower.contains("&q=")))) return null
+            "duckduckgo" -> {
+                if (!(lower.contains("duckduckgo.com") && (lower.contains("?q=") || lower.contains("&q=")))) return null
+            }
+            "brave" -> {
+                if (!(lower.contains("search.brave.com") && (lower.contains("?q=") || lower.contains("&q=")))) return null
+            }
+            "kagi" -> {
+                if (!(lower.contains("kagi.com") && lower.contains("/search") && (lower.contains("?q=") || lower.contains("&q=")))) return null
+            }
+            "ecosia" -> {
+                if (!(lower.contains("ecosia.org") && (lower.contains("?q=") || lower.contains("&q=")))) return null
+            }
+            "startpage" -> {
+                if (!lower.contains("startpage.com")) return null
+                val regex = Regex("""[?&](?:query|q)=([^&#]*)""", RegexOption.IGNORE_CASE)
+                val match = regex.find(url) ?: return null
+                val rawQuery = match.groupValues[1]
+                if (rawQuery.isBlank()) return null
+                return try {
+                    java.net.URLDecoder.decode(rawQuery.replace("+", " "), "UTF-8").trim()
+                } catch (_: Exception) {
+                    rawQuery.replace("+", " ").trim()
+                }.takeIf { it.isNotBlank() }
             }
             else -> {
                 val param = extractQueryParameterName(searchUrlTemplate) ?: "q"
@@ -92,37 +113,67 @@ data class SearchEngine(
     }
 
     companion object {
-        val DUCKDUCKGO = SearchEngine(
-            id = "duckduckgo",
-            displayName = "DuckDuckGo",
-            searchUrlTemplate = "https://duckduckgo.com/?q=%s",
-            iconUrl = "file:///android_asset/icons/duckduckgo.svg",
-            shortcut = "d",
-            orderPosition = 0,
-            isBuiltIn = true
-        )
-
         val GOOGLE = SearchEngine(
             id = "google",
             displayName = "Google",
             searchUrlTemplate = "https://www.google.com/search?q=%s",
-            iconUrl = "file:///android_asset/icons/google.svg",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=google.com",
             shortcut = "g",
+            orderPosition = 0,
+            isBuiltIn = true
+        )
+
+        val DUCKDUCKGO = SearchEngine(
+            id = "duckduckgo",
+            displayName = "DuckDuckGo",
+            searchUrlTemplate = "https://duckduckgo.com/?q=%s",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=duckduckgo.com",
+            shortcut = "d",
             orderPosition = 1,
             isBuiltIn = true
         )
 
-        val BING = SearchEngine(
-            id = "bing",
-            displayName = "Bing",
-            searchUrlTemplate = "https://www.bing.com/search?q=%s",
-            iconUrl = "file:///android_asset/icons/bing.svg",
+        val BRAVE = SearchEngine(
+            id = "brave",
+            displayName = "Brave",
+            searchUrlTemplate = "https://search.brave.com/search?q=%s",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=brave.com",
             shortcut = "b",
             orderPosition = 2,
             isBuiltIn = true
         )
 
-        val DEFAULT_ENGINES = listOf(DUCKDUCKGO, GOOGLE, BING)
+        val KAGI = SearchEngine(
+            id = "kagi",
+            displayName = "Kagi",
+            searchUrlTemplate = "https://kagi.com/search?q=%s",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=kagi.com",
+            shortcut = "k",
+            orderPosition = 3,
+            isBuiltIn = true
+        )
+
+        val ECOSIA = SearchEngine(
+            id = "ecosia",
+            displayName = "Ecosia",
+            searchUrlTemplate = "https://www.ecosia.org/search?q=%s",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=ecosia.org",
+            shortcut = "e",
+            orderPosition = 4,
+            isBuiltIn = true
+        )
+
+        val STARTPAGE = SearchEngine(
+            id = "startpage",
+            displayName = "Startpage",
+            searchUrlTemplate = "https://www.startpage.com/sp/search?query=%s",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=startpage.com",
+            shortcut = "s",
+            orderPosition = 5,
+            isBuiltIn = true
+        )
+
+        val DEFAULT_ENGINES = listOf(GOOGLE, DUCKDUCKGO, BRAVE, KAGI, ECOSIA, STARTPAGE)
 
         val entries: List<SearchEngine>
             get() = DEFAULT_ENGINES
@@ -130,9 +181,13 @@ data class SearchEngine(
         fun valueOf(name: String): SearchEngine {
             val upper = name.uppercase()
             return when (upper) {
-                "DUCKDUCKGO" -> DUCKDUCKGO
                 "GOOGLE" -> GOOGLE
-                "BING" -> BING
+                "DUCKDUCKGO" -> DUCKDUCKGO
+                "BRAVE" -> BRAVE
+                "KAGI" -> KAGI
+                "ECOSIA" -> ECOSIA
+                "STARTPAGE" -> STARTPAGE
+                "BING" -> DUCKDUCKGO
                 else -> {
                     DEFAULT_ENGINES.firstOrNull { it.id.equals(name, ignoreCase = true) || it.displayName.equals(name, ignoreCase = true) }
                         ?: SearchEngine(

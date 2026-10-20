@@ -78,9 +78,13 @@ class SearchProviderViewModelTest {
         advanceUntilIdle()
 
         val engines = vm.uiState.value.searchEngines
-        assertThat(engines).hasSize(3)
-        assertThat(engines.map { it.id }).containsExactly("duckduckgo", "google", "bing").inOrder()
-        assertThat(engines.map { it.shortcut }).containsExactly("d", "g", "b").inOrder()
+        assertThat(engines).hasSize(6)
+        assertThat(engines.map { it.id }).containsExactly(
+            "google", "duckduckgo", "brave", "kagi", "ecosia", "startpage"
+        ).inOrder()
+        assertThat(engines.map { it.shortcut }).containsExactly(
+            "g", "d", "b", "k", "e", "s"
+        ).inOrder()
     }
 
     @Test
@@ -109,15 +113,51 @@ class SearchProviderViewModelTest {
     }
 
     @Test
-    fun submitSearch_withBingShortcut_loadsBingUrl() = runTest(testDispatcher) {
+    fun submitSearch_withBraveShortcut_loadsBraveUrl() = runTest(testDispatcher) {
         val vm = createViewModel()
         advanceUntilIdle()
 
         vm.onEvent(BrowserUiEvent.SubmitSearch("b compose ui"))
         advanceUntilIdle()
 
-        assertThat(vm.uiState.value.currentUrl).isEqualTo("https://www.bing.com/search?q=compose+ui")
-        assertThat(vm.uiState.value.settings.searchEngine.id).isEqualTo("bing")
+        assertThat(vm.uiState.value.currentUrl).isEqualTo("https://search.brave.com/search?q=compose+ui")
+        assertThat(vm.uiState.value.settings.searchEngine.id).isEqualTo("brave")
+    }
+
+    @Test
+    fun submitSearch_withKagiShortcut_loadsKagiUrl() = runTest(testDispatcher) {
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        vm.onEvent(BrowserUiEvent.SubmitSearch("k fast search"))
+        advanceUntilIdle()
+
+        assertThat(vm.uiState.value.currentUrl).isEqualTo("https://kagi.com/search?q=fast+search")
+        assertThat(vm.uiState.value.settings.searchEngine.id).isEqualTo("kagi")
+    }
+
+    @Test
+    fun submitSearch_withEcosiaShortcut_loadsEcosiaUrl() = runTest(testDispatcher) {
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        vm.onEvent(BrowserUiEvent.SubmitSearch("e tree planting"))
+        advanceUntilIdle()
+
+        assertThat(vm.uiState.value.currentUrl).isEqualTo("https://www.ecosia.org/search?q=tree+planting")
+        assertThat(vm.uiState.value.settings.searchEngine.id).isEqualTo("ecosia")
+    }
+
+    @Test
+    fun submitSearch_withStartpageShortcut_loadsStartpageUrl() = runTest(testDispatcher) {
+        val vm = createViewModel()
+        advanceUntilIdle()
+
+        vm.onEvent(BrowserUiEvent.SubmitSearch("s privacy"))
+        advanceUntilIdle()
+
+        assertThat(vm.uiState.value.currentUrl).isEqualTo("https://www.startpage.com/sp/search?query=privacy")
+        assertThat(vm.uiState.value.settings.searchEngine.id).isEqualTo("startpage")
     }
 
     @Test
@@ -137,7 +177,7 @@ class SearchProviderViewModelTest {
         advanceUntilIdle()
 
         val engines = vm.uiState.value.searchEngines
-        assertThat(engines).hasSize(4)
+        assertThat(engines).hasSize(7)
         val ytEngine = engines.find { it.displayName == "YouTube" }
         assertThat(ytEngine).isNotNull()
         assertThat(ytEngine?.shortcut).isEqualTo("y")
@@ -191,7 +231,7 @@ class SearchProviderViewModelTest {
         advanceUntilIdle()
 
         val engines = vm.uiState.value.searchEngines
-        assertThat(engines).hasSize(2)
+        assertThat(engines).hasSize(5)
         assertThat(engines.none { it.id == "duckduckgo" }).isTrue()
 
         // Active engine should fall back to google (the next first engine)
@@ -210,7 +250,9 @@ class SearchProviderViewModelTest {
         advanceUntilIdle()
 
         val updated = vm.uiState.value.searchEngines
-        assertThat(updated.map { it.id }).containsExactly("bing", "google", "duckduckgo").inOrder()
+        assertThat(updated.map { it.id }).containsExactly(
+            "startpage", "ecosia", "kagi", "brave", "duckduckgo", "google"
+        ).inOrder()
     }
 
     @Test

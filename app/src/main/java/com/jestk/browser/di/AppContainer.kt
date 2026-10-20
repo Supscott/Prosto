@@ -86,7 +86,7 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
     }
 
     override val searchEngineRepository: SearchEngineRepository by lazy {
-        SearchEngineRepositoryImpl(database.searchEngineDao())
+        SearchEngineRepositoryImpl(database.searchEngineDao(), context = context.applicationContext)
     }
 
     override val viewModelFactory: ViewModelProvider.Factory = viewModelFactory {

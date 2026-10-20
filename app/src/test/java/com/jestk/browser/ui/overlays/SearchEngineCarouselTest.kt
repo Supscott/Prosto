@@ -238,7 +238,7 @@ class SearchEngineCarouselTest {
 
                 val carouselStateScrollingDark = remember(density) {
                     SearchEngineCarouselState(
-                        initialEngine = SearchEngine.BING,
+                        initialEngine = SearchEngine.BRAVE,
                         density = density,
                         coroutineScope = coroutineScope,
                         haptic = dummyHaptic,
@@ -281,7 +281,7 @@ class SearchEngineCarouselTest {
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Scrolling Dark (Bing Active 1.15x)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
+                                Text("Scrolling Dark (Brave Active 1.15x)", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
                                 SearchEngineSelectorButton(
                                     carouselState = carouselStateScrollingDark,
                                     isMenuOpen = false,

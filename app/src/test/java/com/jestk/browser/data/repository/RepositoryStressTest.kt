@@ -163,12 +163,12 @@ class RepositoryStressTest {
             assertThat(initial.isAdBlockerEnabled).isTrue()
 
             settingsRepo.setThemeMode(ThemeMode.DARK)
-            settingsRepo.setSearchEngine(SearchEngine.BING)
+            settingsRepo.setSearchEngine(SearchEngine.BRAVE)
             settingsRepo.setAdBlockerEnabled(false)
 
             val updated = settingsRepo.getSettings().first()
             assertThat(updated.themeMode).isEqualTo(ThemeMode.DARK)
-            assertThat(updated.searchEngine).isEqualTo(SearchEngine.BING)
+            assertThat(updated.searchEngine).isEqualTo(SearchEngine.BRAVE)
             assertThat(updated.isAdBlockerEnabled).isFalse()
         }
 }

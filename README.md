@@ -40,12 +40,14 @@ Smartphones have grown to 6.7"+ displays, yet traditional mobile browsers still 
 - **Scroll-Driven Auto-Hide:** As you scroll down past the first viewport, the dock gracefully recedes off-screen to give you edge-to-edge reading space. A slight upward scroll brings it right back.
 
 ### 🔍 Dynamic Search Carousel & Power Shortcuts
-- **Instant Provider Switching:** Fling horizontally across search engines right in the omnibox container (DuckDuckGo, Google, Bing, Kagi, Yandex, Brave, Ecosia).
+- **Instant Provider Switching:** Fling horizontally across search engines right in the omnibox container (Google, DuckDuckGo, Brave, Kagi, Ecosia, Startpage).
 - **Power Prefixes:** Quick-switch search engines right as you type, inspired by Alfred and Raycast:
   - `g <query>` → Google
   - `d <query>` → DuckDuckGo
-  - `b <query>` → Bing
+  - `b <query>` → Brave
   - `k <query>` → Kagi
+  - `e <query>` → Ecosia
+  - `s <query>` → Startpage
 - **Custom Search Providers:** Add, edit, reorder, or toggle visible search providers via URL templates (`https://example.com/search?q=%s`).
 
 ### 🛡️ Built-in Ad & Tracker Blocker

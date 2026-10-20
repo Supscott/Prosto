@@ -41,11 +41,16 @@ class SearchEngineRepositoryTest {
     @Test
     fun getSearchEngines_returnsDefaultEnginesWhenEmpty() = runTest {
         val engines = repository.getSearchEngines().first()
-        assertThat(engines).hasSize(3)
-        assertThat(engines.map { it.id }).containsExactly("duckduckgo", "google", "bing").inOrder()
-        assertThat(engines[0].shortcut).isEqualTo("d")
-        assertThat(engines[1].shortcut).isEqualTo("g")
+        assertThat(engines).hasSize(6)
+        assertThat(engines.map { it.id }).containsExactly(
+            "google", "duckduckgo", "brave", "kagi", "ecosia", "startpage"
+        ).inOrder()
+        assertThat(engines[0].shortcut).isEqualTo("g")
+        assertThat(engines[1].shortcut).isEqualTo("d")
         assertThat(engines[2].shortcut).isEqualTo("b")
+        assertThat(engines[3].shortcut).isEqualTo("k")
+        assertThat(engines[4].shortcut).isEqualTo("e")
+        assertThat(engines[5].shortcut).isEqualTo("s")
     }
 
     @Test
@@ -56,13 +61,13 @@ class SearchEngineRepositoryTest {
             searchUrlTemplate = "https://youtube.com/results?search_query=%s",
             iconUrl = "https://youtube.com/favicon.ico",
             shortcut = "y",
-            orderPosition = 3,
+            orderPosition = 6,
             isBuiltIn = false
         )
         repository.saveSearchEngine(custom)
 
         val engines = repository.getSearchEngines().first()
-        assertThat(engines).hasSize(4)
+        assertThat(engines).hasSize(7)
         assertThat(engines.last().displayName).isEqualTo("YouTube")
         assertThat(engines.last().shortcut).isEqualTo("y")
 
@@ -79,15 +84,15 @@ class SearchEngineRepositoryTest {
             searchUrlTemplate = "https://reddit.com/search?q=%s",
             iconUrl = "https://reddit.com/favicon.ico",
             shortcut = "r",
-            orderPosition = 3,
+            orderPosition = 6,
             isBuiltIn = false
         )
         repository.saveSearchEngine(custom)
-        assertThat(repository.getSearchEngines().first()).hasSize(4)
+        assertThat(repository.getSearchEngines().first()).hasSize(7)
 
         repository.deleteSearchEngine("custom_reddit")
         val updated = repository.getSearchEngines().first()
-        assertThat(updated).hasSize(3)
+        assertThat(updated).hasSize(6)
         val hasDeleted = updated.any { it.id == "custom_reddit" }
         assertThat(hasDeleted).isFalse()
     }
@@ -95,16 +100,19 @@ class SearchEngineRepositoryTest {
     @Test
     fun reorderSearchEngines_updatesOrderPositions() = runTest {
         val initial = repository.getAllSearchEngines()
-        assertThat(initial[0].id).isEqualTo("duckduckgo")
-        assertThat(initial[1].id).isEqualTo("google")
+        assertThat(initial[0].id).isEqualTo("google")
+        assertThat(initial[1].id).isEqualTo("duckduckgo")
 
         // Invert order
         val reversed = initial.reversed()
         repository.reorderSearchEngines(reversed)
 
         val reordered = repository.getSearchEngines().first()
-        assertThat(reordered[0].id).isEqualTo("bing")
-        assertThat(reordered[1].id).isEqualTo("google")
-        assertThat(reordered[2].id).isEqualTo("duckduckgo")
+        assertThat(reordered[0].id).isEqualTo("startpage")
+        assertThat(reordered[1].id).isEqualTo("ecosia")
+        assertThat(reordered[2].id).isEqualTo("kagi")
+        assertThat(reordered[3].id).isEqualTo("brave")
+        assertThat(reordered[4].id).isEqualTo("duckduckgo")
+        assertThat(reordered[5].id).isEqualTo("google")
     }
 }

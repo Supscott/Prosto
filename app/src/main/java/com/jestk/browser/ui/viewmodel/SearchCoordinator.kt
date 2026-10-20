@@ -214,7 +214,7 @@ internal class SearchCoordinator(
         } else {
             FaviconManager.extractFallbackFaviconUrl(finalUrl)
                 ?: existing?.iconUrl
-                ?: "file:///android_asset/icons/google.svg"
+                ?: "https://www.google.com/s2/favicons?sz=128&domain=google.com"
         }
 
         val engineToSave = if (existing != null) {

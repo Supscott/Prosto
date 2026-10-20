@@ -36,7 +36,9 @@ object ExternalAppResolver {
         "bing.com",
         "search.yahoo.com", "yahoo.com",
         "ecosia.org",
-        "search.brave.com", "brave.com"
+        "search.brave.com", "brave.com",
+        "kagi.com",
+        "startpage.com"
     )
 
     val DOMAIN_ALIASES: Map<String, String> = mapOf(

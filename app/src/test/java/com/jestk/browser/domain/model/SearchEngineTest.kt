@@ -13,8 +13,17 @@ class SearchEngineTest {
         val ddgUrl = SearchEngine.DUCKDUCKGO.buildSearchUrl("apple pie")
         assertThat(ddgUrl).isEqualTo("https://duckduckgo.com/?q=apple+pie")
 
-        val bingUrl = SearchEngine.BING.buildSearchUrl("hori browser")
-        assertThat(bingUrl).isEqualTo("https://www.bing.com/search?q=hori+browser")
+        val braveUrl = SearchEngine.BRAVE.buildSearchUrl("hori browser")
+        assertThat(braveUrl).isEqualTo("https://search.brave.com/search?q=hori+browser")
+
+        val kagiUrl = SearchEngine.KAGI.buildSearchUrl("kotlin coroutines")
+        assertThat(kagiUrl).isEqualTo("https://kagi.com/search?q=kotlin+coroutines")
+
+        val ecosiaUrl = SearchEngine.ECOSIA.buildSearchUrl("tree planting")
+        assertThat(ecosiaUrl).isEqualTo("https://www.ecosia.org/search?q=tree+planting")
+
+        val startpageUrl = SearchEngine.STARTPAGE.buildSearchUrl("privacy search")
+        assertThat(startpageUrl).isEqualTo("https://www.startpage.com/sp/search?query=privacy+search")
     }
 
     @Test
@@ -28,9 +37,20 @@ class SearchEngineTest {
         assertThat(SearchEngine.DUCKDUCKGO.matchesUrl("https://html.duckduckgo.com/html/?q=test")).isTrue()
         assertThat(SearchEngine.DUCKDUCKGO.matchesUrl("https://google.com")).isFalse()
 
-        assertThat(SearchEngine.BING.matchesUrl("https://www.bing.com/search?q=test")).isTrue()
-        assertThat(SearchEngine.BING.matchesUrl("https://bing.com")).isTrue()
-        assertThat(SearchEngine.BING.matchesUrl("https://yahoo.com")).isFalse()
+        assertThat(SearchEngine.BRAVE.matchesUrl("https://search.brave.com/search?q=test")).isTrue()
+        assertThat(SearchEngine.BRAVE.matchesUrl("https://brave.com/search")).isTrue()
+        assertThat(SearchEngine.BRAVE.matchesUrl("https://yahoo.com")).isFalse()
+
+        assertThat(SearchEngine.KAGI.matchesUrl("https://kagi.com/search?q=test")).isTrue()
+        assertThat(SearchEngine.KAGI.matchesUrl("https://google.com")).isFalse()
+
+        assertThat(SearchEngine.ECOSIA.matchesUrl("https://www.ecosia.org/search?q=test")).isTrue()
+        assertThat(SearchEngine.ECOSIA.matchesUrl("https://ecosia.org")).isTrue()
+        assertThat(SearchEngine.ECOSIA.matchesUrl("https://bing.com")).isFalse()
+
+        assertThat(SearchEngine.STARTPAGE.matchesUrl("https://www.startpage.com/sp/search?query=test")).isTrue()
+        assertThat(SearchEngine.STARTPAGE.matchesUrl("https://startpage.com")).isTrue()
+        assertThat(SearchEngine.STARTPAGE.matchesUrl("https://google.com")).isFalse()
     }
 
     @Test
@@ -59,10 +79,32 @@ class SearchEngineTest {
     }
 
     @Test
-    fun extractQuery_bing() {
-        assertThat(SearchEngine.BING.extractQuery("https://www.bing.com/search?q=apple")).isEqualTo("apple")
-        assertThat(SearchEngine.BING.extractQuery("https://www.bing.com/search?form=QBLH&q=jetpack+compose")).isEqualTo("jetpack compose")
-        assertThat(SearchEngine.BING.extractQuery("https://www.bing.com/")).isNull()
+    fun extractQuery_brave() {
+        assertThat(SearchEngine.BRAVE.extractQuery("https://search.brave.com/search?q=apple")).isEqualTo("apple")
+        assertThat(SearchEngine.BRAVE.extractQuery("https://search.brave.com/search?source=web&q=jetpack+compose")).isEqualTo("jetpack compose")
+        assertThat(SearchEngine.BRAVE.extractQuery("https://search.brave.com/")).isNull()
+    }
+
+    @Test
+    fun extractQuery_kagi() {
+        assertThat(SearchEngine.KAGI.extractQuery("https://kagi.com/search?q=apple")).isEqualTo("apple")
+        assertThat(SearchEngine.KAGI.extractQuery("https://kagi.com/search?q=kotlin+coroutines")).isEqualTo("kotlin coroutines")
+        assertThat(SearchEngine.KAGI.extractQuery("https://kagi.com/")).isNull()
+    }
+
+    @Test
+    fun extractQuery_ecosia() {
+        assertThat(SearchEngine.ECOSIA.extractQuery("https://www.ecosia.org/search?q=trees")).isEqualTo("trees")
+        assertThat(SearchEngine.ECOSIA.extractQuery("https://www.ecosia.org/search?addon=chrome&q=green+energy")).isEqualTo("green energy")
+        assertThat(SearchEngine.ECOSIA.extractQuery("https://www.ecosia.org/")).isNull()
+    }
+
+    @Test
+    fun extractQuery_startpage() {
+        assertThat(SearchEngine.STARTPAGE.extractQuery("https://www.startpage.com/sp/search?query=privacy")).isEqualTo("privacy")
+        assertThat(SearchEngine.STARTPAGE.extractQuery("https://www.startpage.com/do/dsearch?query=secure+browsing")).isEqualTo("secure browsing")
+        assertThat(SearchEngine.STARTPAGE.extractQuery("https://www.startpage.com/sp/search?q=alt+param")).isEqualTo("alt param")
+        assertThat(SearchEngine.STARTPAGE.extractQuery("https://www.startpage.com/")).isNull()
     }
 
     @Test
@@ -77,10 +119,25 @@ class SearchEngineTest {
         assertThat(ddgMatch?.first).isEqualTo(SearchEngine.DUCKDUCKGO)
         assertThat(ddgMatch?.second).isEqualTo("apple")
 
-        val bingMatch = SearchEngine.findMatchingEngineAndQuery("https://www.bing.com/search?q=apple")
-        assertThat(bingMatch).isNotNull()
-        assertThat(bingMatch?.first).isEqualTo(SearchEngine.BING)
-        assertThat(bingMatch?.second).isEqualTo("apple")
+        val braveMatch = SearchEngine.findMatchingEngineAndQuery("https://search.brave.com/search?q=apple")
+        assertThat(braveMatch).isNotNull()
+        assertThat(braveMatch?.first).isEqualTo(SearchEngine.BRAVE)
+        assertThat(braveMatch?.second).isEqualTo("apple")
+
+        val kagiMatch = SearchEngine.findMatchingEngineAndQuery("https://kagi.com/search?q=apple")
+        assertThat(kagiMatch).isNotNull()
+        assertThat(kagiMatch?.first).isEqualTo(SearchEngine.KAGI)
+        assertThat(kagiMatch?.second).isEqualTo("apple")
+
+        val ecosiaMatch = SearchEngine.findMatchingEngineAndQuery("https://www.ecosia.org/search?q=apple")
+        assertThat(ecosiaMatch).isNotNull()
+        assertThat(ecosiaMatch?.first).isEqualTo(SearchEngine.ECOSIA)
+        assertThat(ecosiaMatch?.second).isEqualTo("apple")
+
+        val startpageMatch = SearchEngine.findMatchingEngineAndQuery("https://www.startpage.com/sp/search?query=apple")
+        assertThat(startpageMatch).isNotNull()
+        assertThat(startpageMatch?.first).isEqualTo(SearchEngine.STARTPAGE)
+        assertThat(startpageMatch?.second).isEqualTo("apple")
 
         assertThat(SearchEngine.findMatchingEngineAndQuery("https://example.com")).isNull()
         assertThat(SearchEngine.findMatchingEngineAndQuery("https://www.google.com/")).isNull()
@@ -96,7 +153,7 @@ class SearchEngineTest {
             searchUrlTemplate = "https://www.youtube.com/results?search_query=%s",
             iconUrl = "https://www.youtube.com/favicon.ico",
             shortcut = "y",
-            orderPosition = 3,
+            orderPosition = 6,
             isBuiltIn = false
         )
 
@@ -112,9 +169,23 @@ class SearchEngineTest {
     }
 
     @Test
-    fun defaultEngines_haveExpectedShortcuts() {
+    fun defaultEngines_haveExpectedShortcutsAndOrder() {
+        assertThat(SearchEngine.DEFAULT_ENGINES).hasSize(6)
+        assertThat(SearchEngine.DEFAULT_ENGINES.map { it.id }).containsExactly(
+            "google", "duckduckgo", "brave", "kagi", "ecosia", "startpage"
+        ).inOrder()
+
         assertThat(SearchEngine.GOOGLE.shortcut).isEqualTo("g")
         assertThat(SearchEngine.DUCKDUCKGO.shortcut).isEqualTo("d")
-        assertThat(SearchEngine.BING.shortcut).isEqualTo("b")
+        assertThat(SearchEngine.BRAVE.shortcut).isEqualTo("b")
+        assertThat(SearchEngine.KAGI.shortcut).isEqualTo("k")
+        assertThat(SearchEngine.ECOSIA.shortcut).isEqualTo("e")
+        assertThat(SearchEngine.STARTPAGE.shortcut).isEqualTo("s")
+    }
+
+    @Test
+    fun valueOf_bingFallsBackGracefully() {
+        val fallback = SearchEngine.valueOf("BING")
+        assertThat(fallback).isEqualTo(SearchEngine.DUCKDUCKGO)
     }
 }

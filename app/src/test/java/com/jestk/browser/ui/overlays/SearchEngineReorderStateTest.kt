@@ -55,7 +55,7 @@ class SearchEngineReorderStateTest {
             onReorder = {}
         )
 
-        val engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+        val engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
 
         // Start drag at index 0 (Google)
         state.onDragStart(0)
@@ -91,7 +91,7 @@ class SearchEngineReorderStateTest {
             onReorder = {}
         )
 
-        val engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+        val engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
 
         // Start drag at index 2 (Bing)
         state.onDragStart(2)
@@ -118,7 +118,7 @@ class SearchEngineReorderStateTest {
             onReorder = {}
         )
 
-        val engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+        val engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
 
         // Starting at index 0, cannot drag above 0
         state.onDragStart(0)
@@ -146,7 +146,7 @@ class SearchEngineReorderStateTest {
             onReorder = { persistedList = it }
         )
 
-        val initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+        val initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
         var currentList = initialList
 
         // Drag Google (index 0) down to slot 2
@@ -163,8 +163,8 @@ class SearchEngineReorderStateTest {
         testScheduler.advanceUntilIdle()
 
         // List must be reordered: DuckDuckGo, Bing, Google
-        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BING, SearchEngine.GOOGLE), currentList)
-        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BING, SearchEngine.GOOGLE), persistedList)
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE, SearchEngine.GOOGLE), currentList)
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE, SearchEngine.GOOGLE), persistedList)
 
         // State must reset cleanly
         assertNull(state.draggingIndex)
@@ -184,7 +184,7 @@ class SearchEngineReorderStateTest {
             onReorder = { persistedList = it }
         )
 
-        val initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+        val initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
 
         state.onDragStart(0)
         state.onDrag(40f, initialList.size)
@@ -210,7 +210,7 @@ class SearchEngineReorderStateTest {
             onReorder = { persistedList = it }
         )
 
-        var list = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+        var list = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
 
         // 1st drag: Move Google (index 0) to slot 2
         state.onDragStart(SearchEngine.GOOGLE.id, list)
@@ -224,7 +224,7 @@ class SearchEngineReorderStateTest {
         testScheduler.advanceUntilIdle()
 
         // List is now: [DUCKDUCKGO, BING, GOOGLE]
-        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BING, SearchEngine.GOOGLE), list)
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE, SearchEngine.GOOGLE), list)
         assertEquals(list, persistedList)
 
         // 2nd rapid drag: Move GOOGLE (now at index 2!) up to slot 0
@@ -239,11 +239,11 @@ class SearchEngineReorderStateTest {
         testScheduler.advanceUntilIdle()
 
         // List is back to: [GOOGLE, DUCKDUCKGO, BING]
-        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING), list)
+        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE), list)
         assertEquals(list, persistedList)
 
         // 3rd rapid drag: Move BING (index 2) to slot 1
-        state.onDragStart(SearchEngine.BING.id, list)
+        state.onDragStart(SearchEngine.BRAVE.id, list)
         assertEquals(2, state.draggingIndex)
         state.onDrag(-48f, list)
         assertEquals(1, state.targetIndex)
@@ -251,7 +251,7 @@ class SearchEngineReorderStateTest {
         state.onDragEnd(list) { updated -> list = updated }
         testScheduler.advanceUntilIdle()
 
-        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.BING, SearchEngine.DUCKDUCKGO), list)
+        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.BRAVE, SearchEngine.DUCKDUCKGO), list)
     }
 
     @Test
@@ -266,7 +266,7 @@ class SearchEngineReorderStateTest {
             onReorder = { onReorderCalled = true }
         )
 
-        val list = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+        val list = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
 
         // Start drag on DuckDuckGo (index 1)
         state.onDragStart(SearchEngine.DUCKDUCKGO.id, list)
@@ -298,7 +298,7 @@ class SearchEngineReorderStateTest {
             onReorder = {}
         )
 
-        val list = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING)
+        val list = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
 
         state.onDragStart(SearchEngine.GOOGLE.id, list)
         state.onDrag(50f, list) // target slot 1
@@ -307,7 +307,7 @@ class SearchEngineReorderStateTest {
         // DuckDuckGo should move UP into slot 0
         assertEquals(-48f, state.getSiblingTargetOffset(SearchEngine.DUCKDUCKGO.id, list), 0.001f)
         // Bing should stay at 0f
-        assertEquals(0f, state.getSiblingTargetOffset(SearchEngine.BING.id, list), 0.001f)
+        assertEquals(0f, state.getSiblingTargetOffset(SearchEngine.BRAVE.id, list), 0.001f)
         // Dragged item itself has 0 sibling offset
         assertEquals(0f, state.getSiblingTargetOffset(SearchEngine.GOOGLE.id, list), 0.001f)
     }
@@ -319,7 +319,7 @@ class SearchEngineReorderStateTest {
             slotHeightPx = 48f,
             coroutineScope = this,
             haptic = dummyHaptic,
-            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING),
+            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
             onReorder = { persistedList = it }
         )
 
@@ -337,7 +337,7 @@ class SearchEngineReorderStateTest {
 
         // Previous drop must have been committed instantly!
         assertFalse(state.isDropping)
-        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BING, SearchEngine.GOOGLE), state.currentList)
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE, SearchEngine.GOOGLE), state.currentList)
         assertEquals(state.currentList, persistedList)
 
         // And new drag must be active on DUCKDUCKGO at index 0
@@ -352,7 +352,7 @@ class SearchEngineReorderStateTest {
         testScheduler.advanceUntilIdle()
 
         // Final list: [BING, DUCKDUCKGO, GOOGLE]
-        assertEquals(listOf(SearchEngine.BING, SearchEngine.DUCKDUCKGO, SearchEngine.GOOGLE), state.currentList)
+        assertEquals(listOf(SearchEngine.BRAVE, SearchEngine.DUCKDUCKGO, SearchEngine.GOOGLE), state.currentList)
         assertEquals(state.currentList, persistedList)
     }
 
@@ -363,7 +363,7 @@ class SearchEngineReorderStateTest {
             slotHeightPx = 48f,
             coroutineScope = this,
             haptic = dummyHaptic,
-            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING),
+            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
             onReorder = { persistedList = it }
         )
 
@@ -372,7 +372,7 @@ class SearchEngineReorderStateTest {
         state.onDrag(100f)
         state.onDragEnd()
         testScheduler.advanceUntilIdle()
-        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BING, SearchEngine.GOOGLE), state.currentList)
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE, SearchEngine.GOOGLE), state.currentList)
 
         // 2. Move Google back to slot 0
         state.onDragStart(SearchEngine.GOOGLE.id)
@@ -381,16 +381,16 @@ class SearchEngineReorderStateTest {
         assertEquals(0, state.targetIndex)
         state.onDragEnd()
         testScheduler.advanceUntilIdle()
-        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING), state.currentList)
+        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE), state.currentList)
 
         // 3. Move Bing to slot 1
-        state.onDragStart(SearchEngine.BING.id)
+        state.onDragStart(SearchEngine.BRAVE.id)
         assertEquals(2, state.draggingIndex)
         state.onDrag(-48f)
         assertEquals(1, state.targetIndex)
         state.onDragEnd()
         testScheduler.advanceUntilIdle()
-        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.BING, SearchEngine.DUCKDUCKGO), state.currentList)
+        assertEquals(listOf(SearchEngine.GOOGLE, SearchEngine.BRAVE, SearchEngine.DUCKDUCKGO), state.currentList)
         assertEquals(state.currentList, persistedList)
     }
 
@@ -400,7 +400,7 @@ class SearchEngineReorderStateTest {
             slotHeightPx = 48f,
             coroutineScope = this,
             haptic = dummyHaptic,
-            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING),
+            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
             onReorder = {}
         )
 
@@ -414,7 +414,7 @@ class SearchEngineReorderStateTest {
         testScheduler.advanceUntilIdle()
 
         // Index 2: can only drag up, never down
-        state.onDragStart(SearchEngine.BING.id)
+        state.onDragStart(SearchEngine.BRAVE.id)
         state.onDrag(200f)
         assertEquals(0f, state.dragOffsetY, 0.001f)
         state.onDrag(-500f)
@@ -439,7 +439,7 @@ class SearchEngineReorderStateTest {
             slotHeightPx = 48f,
             coroutineScope = this,
             haptic = dummyHaptic,
-            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BING),
+            initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
             onReorder = { persistedList = it }
         )
 
@@ -461,7 +461,7 @@ class SearchEngineReorderStateTest {
         testScheduler.advanceTimeBy(250)
         assertFalse(state.isDropping)
         assertNull(state.draggingEngineId)
-        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.GOOGLE, SearchEngine.BING), state.currentList)
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO, SearchEngine.GOOGLE, SearchEngine.BRAVE), state.currentList)
         assertEquals(state.currentList, persistedList)
     }
 }
