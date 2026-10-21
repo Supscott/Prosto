@@ -255,7 +255,7 @@ class SearchEngineCarouselTest {
                     Row(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color(0xFFEAF1FF))
+                            .background(Color(0xFFDFF7F3))
                             .padding(24.dp),
                         horizontalArrangement = Arrangement.spacedBy(24.dp, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.CenterVertically
@@ -276,7 +276,7 @@ class SearchEngineCarouselTest {
                         JestkBrowserTheme(themeMode = ThemeMode.DARK) {
                             Column(
                                 modifier = Modifier
-                                    .background(Color(0xFF0F172A))
+                                    .background(Color(0xFF0E1513))
                                     .padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(12.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally

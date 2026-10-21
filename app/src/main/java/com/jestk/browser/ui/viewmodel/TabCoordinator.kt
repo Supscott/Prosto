@@ -71,16 +71,8 @@ internal class TabCoordinator(
         val current = getCurrentState()
         if (current.tabs.none { it.id == tabId }) return
 
-        // Passive hints (page loads, script redirects) respect both suppression tiers so they never
-        // nag. A deliberate tap on the site's own "open in app" control bypasses them: the user is
-        // explicitly asking for the handoff, even if a hint already timed out or was dismissed.
-        if (!userInitiated) {
-            if (isDomainSuppressed(tabId, prompt.domain, dismissedExternalAppDomains)) {
-                return
-            }
-            if (isDomainSuppressed(tabId, prompt.domain, timedOutExternalAppDomains)) {
-                return
-            }
+        if (isExternalAppDomainSuppressed(tabId, prompt.domain, userInitiated = userInitiated)) {
+            return
         }
 
         if (current.activeTabId != tabId) {
@@ -101,7 +93,23 @@ internal class TabCoordinator(
         domain1 == domain2 ||
             com.jestk.browser.engine.ExternalAppResolver.areDomainAliases(domain1, domain2)
 
-    private fun isDomainSuppressed(
+    private fun isExternalAppDomainSuppressed(
+        tabId: String,
+        domain: String,
+        userInitiated: Boolean
+    ): Boolean {
+        // Explicit dismissal suppresses regardless of whether the navigation was user-initiated.
+        if (isDomainInSuppressionMap(tabId, domain, dismissedExternalAppDomains)) {
+            return true
+        }
+        // Timeout suppression suppresses passive offers, but deliberate user gestures bypass it.
+        if (!userInitiated && isDomainInSuppressionMap(tabId, domain, timedOutExternalAppDomains)) {
+            return true
+        }
+        return false
+    }
+
+    private fun isDomainInSuppressionMap(
         tabId: String,
         domain: String,
         suppression: MutableMap<String, MutableSet<String>>
@@ -115,22 +123,22 @@ internal class TabCoordinator(
 
     private fun publishPendingExternalAppPrompt(tabId: String) {
         val prompt = pendingExternalAppPrompts.remove(tabId) ?: return
-        if (isDomainSuppressed(tabId, prompt.domain, dismissedExternalAppDomains)) return
-        if (isDomainSuppressed(tabId, prompt.domain, timedOutExternalAppDomains)) return
+        if (isExternalAppDomainSuppressed(tabId, prompt.domain, userInitiated = false)) return
         updateUiState { it.copy(externalAppPrompt = prompt) }
     }
 
-    fun dismissExternalAppPrompt(rememberDomain: Boolean = true, timedOut: Boolean = false) {
+    fun dismissExternalAppPrompt(reason: ExternalAppDismissReason = ExternalAppDismissReason.EXPLICIT) {
         val current = getCurrentState()
         val prompt = current.externalAppPrompt
         if (prompt != null) {
-            when {
-                timedOut -> timedOutExternalAppDomains
+            when (reason) {
+                ExternalAppDismissReason.TIMEOUT -> timedOutExternalAppDomains
                     .getOrPut(prompt.tabId) { ConcurrentHashMap.newKeySet() }
                     .add(prompt.domain)
-                rememberDomain -> dismissedExternalAppDomains
+                ExternalAppDismissReason.EXPLICIT -> dismissedExternalAppDomains
                     .getOrPut(prompt.tabId) { ConcurrentHashMap.newKeySet() }
                     .add(prompt.domain)
+                ExternalAppDismissReason.TRANSIENT -> Unit
             }
             pendingExternalAppPrompts.remove(prompt.tabId)
         }
@@ -1016,6 +1024,10 @@ internal class TabCoordinator(
     }
 
     fun handleUpdateFavicon(tabId: String, faviconUrl: String?) {
+        // Pages report their icon repeatedly. The favicon path is stable, so an unchanged value
+        // carries no new information and must not trigger another write and state update.
+        val current = getCurrentState().tabs.find { it.id == tabId }
+        if (current != null && current.faviconUrl == faviconUrl) return
         updateUiState { state ->
             state.copy(
                 tabs =

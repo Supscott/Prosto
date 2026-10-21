@@ -98,6 +98,7 @@ import com.jestk.browser.ui.theme.SereneDarkText
 import com.jestk.browser.ui.theme.SereneShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
+import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
@@ -196,15 +197,7 @@ fun JestkApp(
             when (command) {
                 is NavigationCommand.LoadUrl -> {
                     val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context)
-                    val client = webView.webViewClient as? JestkWebViewClient
-                    val handledAsExternal = client != null &&
-                        !JestkWebViewClient.isWebUrl(command.url) &&
-                        // App-initiated loadUrl() bypasses shouldOverrideUrlLoading, so custom
-                        // schemes and intent:// links must be resolved before handing them to WebKit.
-                        client.handleExternalNavigation(webView, command.url)
-                    if (!handledAsExternal) {
-                        webView.loadUrl(command.url)
-                    }
+                    com.jestk.browser.engine.JestkWebViewClient.loadUrlOrHandleExternal(webView, command.url)
                 }
 
                 is NavigationCommand.GoBack -> {
@@ -715,13 +708,13 @@ fun JestkApp(
                             }
                         },
                         onDismiss = {
-                            viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(rememberDomain = true))
+                            viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT))
                         },
                         onTimeout = {
                             // A hint the user ignored must not block a later deliberate tap on the
                             // site's own "open in app" control.
                             viewModel.onEvent(
-                                BrowserUiEvent.DismissExternalAppPrompt(rememberDomain = false, timedOut = true)
+                                BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.TIMEOUT)
                             )
                         }
                     )

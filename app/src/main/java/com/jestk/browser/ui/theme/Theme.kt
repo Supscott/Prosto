@@ -62,17 +62,17 @@ val LightColorScheme =
 val DarkColorScheme =
     darkColorScheme(
         primary = DarkPrimary,
-        onPrimary = Color(0xFF003258),
+        onPrimary = Color(0xFF003732),
         primaryContainer = DarkPrimaryContainer,
-        onPrimaryContainer = Color(0xFFD1E4FF),
-        secondary = Color(0xFFA4C9FF),
-        onSecondary = Color(0xFF00315B),
-        secondaryContainer = Color(0xFF004883),
-        onSecondaryContainer = Color(0xFFD4E3FF),
-        tertiary = Color(0xFFC1C7CC),
-        onTertiary = Color(0xFF2B3135),
-        tertiaryContainer = Color(0xFF41484C),
-        onTertiaryContainer = Color(0xFFDDE3E8),
+        onPrimaryContainer = Color(0xFFA5F2E9),
+        secondary = Color(0xFFB1CCC8),
+        onSecondary = Color(0xFF1D3532),
+        secondaryContainer = Color(0xFF334B48),
+        onSecondaryContainer = Color(0xFFCCE8E3),
+        tertiary = Color(0xFFA8CBE1),
+        onTertiary = Color(0xFF0D3449),
+        tertiaryContainer = Color(0xFF284A61),
+        onTertiaryContainer = Color(0xFFC4E8FF),
         surface = DarkSurface,
         onSurface = DarkOnSurface,
         surfaceVariant = DarkSurfaceVariant,
@@ -101,7 +101,8 @@ fun isAppDarkTheme(themeMode: ThemeMode = ThemeMode.SYSTEM): Boolean =
     }
 
 /**
- * Top-level application theme applying Serene Canvas color schemes and Plus Jakarta Sans typography.
+ * Top-level application theme applying Serene Canvas color schemes and the
+ * Manrope title / Inter body typography.
  */
 @Composable
 fun JestkBrowserTheme(
@@ -176,9 +177,9 @@ object SereneBorders {
     ): BorderStroke {
         val color =
             if (isDark) {
-                Color(0xFF334155).copy(alpha = 0.80f)
+                Color(0xFF33413E).copy(alpha = 0.80f)
             } else {
-                Color(0xFFE2E8F0).copy(alpha = 0.80f)
+                Color(0xFFDCE6E3).copy(alpha = 0.80f)
             }
         return BorderStroke(width, color)
     }
@@ -204,8 +205,8 @@ object SereneBorders {
                 Brush.verticalGradient(
                     colors =
                         listOf(
-                            Color(0xFF475569).copy(alpha = 0.70f),
-                            Color(0xFF334155).copy(alpha = 0.40f),
+                            Color(0xFF3E4D4A).copy(alpha = 0.70f),
+                            Color(0xFF2A3A37).copy(alpha = 0.40f),
                         ),
                 )
             } else {
@@ -258,8 +259,7 @@ fun Modifier.sereneCardSurface(
             clip = false,
             ambientColor = if (isDark) Color.Black.copy(alpha = 0.35f) else Color(0x0F0F172A),
             spotColor = if (isDark) Color.Black.copy(alpha = 0.25f) else Color(0x0A0F172A),
-        )
-        .background(color = bg, shape = shape)
+        ).background(color = bg, shape = shape)
         .border(border = border, shape = shape)
         .clip(shape)
 }
@@ -284,8 +284,7 @@ fun Modifier.sereneFloatingSurface(
             clip = false,
             ambientColor = if (isDark) Color.Black else Color.Black.copy(alpha = 0.85f),
             spotColor = Color.Black,
-        )
-        .background(color = bg, shape = shape)
+        ).background(color = bg, shape = shape)
         .border(border = border, shape = shape)
         .clip(shape)
 }
@@ -319,8 +318,7 @@ fun Modifier.liquidFrostedGlass(
             clip = false,
             ambientColor = if (isDark) Color.Black.copy(alpha = 0.35f) else Color(0x0F0F172A),
             spotColor = if (isDark) Color.Black.copy(alpha = 0.25f) else Color(0x0A0F172A),
-        )
-        .background(color = resolvedBg, shape = shape)
+        ).background(color = resolvedBg, shape = shape)
         .border(border = resolvedBorder, shape = shape)
         .clip(shape)
 }

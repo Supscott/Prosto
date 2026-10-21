@@ -377,7 +377,7 @@ fun SearchOverlay(
     }
 }
 
-@Preview(name = "SearchOverlay Light", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFFF1F7FC)
+@Preview(name = "SearchOverlay Light", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFFE9F6F2)
 @Composable
 fun SearchOverlayLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
@@ -404,7 +404,7 @@ fun SearchOverlayLightPreview() {
     }
 }
 
-@Preview(name = "SearchOverlay Dark", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFF0F172A)
+@Preview(name = "SearchOverlay Dark", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFF0E1513)
 @Composable
 fun SearchOverlayDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
@@ -428,7 +428,7 @@ fun SearchOverlayDarkPreview() {
     }
 }
 
-@Preview(name = "SearchOverlay Expanded Dark", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFF0F172A)
+@Preview(name = "SearchOverlay Expanded Dark", showBackground = true, widthDp = 412, heightDp = 892, backgroundColor = 0xFF0E1513)
 @Composable
 fun SearchOverlayExpandedDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {

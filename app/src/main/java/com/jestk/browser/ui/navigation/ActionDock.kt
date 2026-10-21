@@ -81,7 +81,7 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
  * - Level 2 elevation shadow and rim border.
  * - 48px touch targets for menu rows.
  * - Hairline dividers 1px solid #F1F5F9 (Dark: 1px solid #334155).
- * - Clean typography (body-md / label-md Plus Jakarta Sans).
+ * - Clean typography (body-md / label-md Inter).
  * - NO BLUR or Haze.
  */
 @Composable
@@ -90,7 +90,7 @@ fun ActionPopupMenu(
     uiState: BrowserUiState,
     isDark: Boolean,
     onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val isHome = uiState.isHome
     val menuBg = if (isDark) DarkSurface else SereneCardSurface
@@ -98,28 +98,31 @@ fun ActionPopupMenu(
 
     AnimatedVisibility(
         visible = expanded,
-        enter = fadeIn(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
+        enter =
+            fadeIn(animationSpec = tween(180, easing = FastOutSlowInEasing)) +
                 scaleIn(initialScale = 0.90f, animationSpec = tween(200, easing = FastOutSlowInEasing)) +
                 slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) { it / 3 },
-        exit = fadeOut(animationSpec = tween(150, easing = FastOutSlowInEasing)) +
+        exit =
+            fadeOut(animationSpec = tween(150, easing = FastOutSlowInEasing)) +
                 scaleOut(targetScale = 0.90f, animationSpec = tween(160, easing = FastOutSlowInEasing)) +
                 slideOutVertically(animationSpec = tween(180, easing = FastOutSlowInEasing)) { it / 3 },
-        modifier = modifier
+        modifier = modifier,
     ) {
         Box(
-            modifier = Modifier
-                .padding(bottom = 8.dp, end = 16.dp)
-                .width(172.dp)
-                .sereneFloatingSurface(
-                    shape = SereneShapes.Card,
-                    isDark = isDark,
-                    backgroundColor = menuBg,
-                    elevation = 12.dp
-                )
+            modifier =
+                Modifier
+                    .padding(bottom = 8.dp, end = 16.dp)
+                    .width(172.dp)
+                    .sereneFloatingSurface(
+                        shape = SereneShapes.Card,
+                        isDark = isDark,
+                        backgroundColor = menuBg,
+                        elevation = 12.dp,
+                    ),
         ) {
             Column(
                 modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
             ) {
                 // Home
                 PopupMenuItem(
@@ -130,7 +133,7 @@ fun ActionPopupMenu(
                     onClick = {
                         onEvent(BrowserUiEvent.OpenHome)
                         onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                    }
+                    },
                 )
 
                 HorizontalDivider(color = dividerColor, thickness = 1.dp)
@@ -144,7 +147,7 @@ fun ActionPopupMenu(
                     onClick = {
                         onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
                         onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                    }
+                    },
                 )
 
                 HorizontalDivider(color = dividerColor, thickness = 1.dp)
@@ -158,7 +161,7 @@ fun ActionPopupMenu(
                     onClick = {
                         onEvent(BrowserUiEvent.OpenTabGrid)
                         onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                    }
+                    },
                 )
 
                 HorizontalDivider(color = dividerColor, thickness = 1.dp)
@@ -172,7 +175,7 @@ fun ActionPopupMenu(
                     onClick = {
                         onEvent(BrowserUiEvent.OpenDownloads)
                         onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                    }
+                    },
                 )
 
                 HorizontalDivider(color = dividerColor, thickness = 1.dp)
@@ -186,7 +189,7 @@ fun ActionPopupMenu(
                     onClick = {
                         onEvent(BrowserUiEvent.OpenSettings)
                         onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                    }
+                    },
                 )
             }
         }
@@ -203,28 +206,28 @@ fun ActionDockMenuButton(
     isDark: Boolean,
     backgroundColor: Color = if (isDark) DarkSurface else SereneCardSurface,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val activeTint = if (isDark) SereneAccent else SereneBrandPrimary
     val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
 
     Box(
-        modifier = modifier
-            .size(width = 44.dp, height = 50.dp)
-            .sereneFloatingSurface(
-                shape = SereneShapes.Card,
-                isDark = isDark,
-                backgroundColor = backgroundColor,
-                elevation = 10.dp
-            )
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+        modifier =
+            modifier
+                .size(width = 44.dp, height = 50.dp)
+                .sereneFloatingSurface(
+                    shape = SereneShapes.Card,
+                    isDark = isDark,
+                    backgroundColor = backgroundColor,
+                    elevation = 10.dp,
+                ).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = Icons.Default.Menu,
             contentDescription = "Menu",
             tint = if (isExpanded) activeTint else normalTint,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp),
         )
     }
 }
@@ -238,31 +241,34 @@ fun ActionDockMenuButton(
 fun SwipeUpHint(
     isDark: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    val isRunningInTest = remember {
-        android.os.Build.FINGERPRINT == "robolectric" ||
-            try {
-                Class.forName("org.robolectric.Robolectric") != null
-            } catch (_: Throwable) {
-                false
-            }
-    }
-    val bounceOffset = if (isRunningInTest || LocalInspectionMode.current) {
-        0f
-    } else {
-        val infiniteTransition = rememberInfiniteTransition(label = "SwipeHintBounce")
-        val bounce by infiniteTransition.animateFloat(
-            initialValue = 0f,
-            targetValue = -3f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "SwipeHintBounceY"
-        )
-        bounce
-    }
+    val isRunningInTest =
+        remember {
+            android.os.Build.FINGERPRINT == "robolectric" ||
+                try {
+                    Class.forName("org.robolectric.Robolectric") != null
+                } catch (_: Throwable) {
+                    false
+                }
+        }
+    val bounceOffset =
+        if (isRunningInTest || LocalInspectionMode.current) {
+            0f
+        } else {
+            val infiniteTransition = rememberInfiniteTransition(label = "SwipeHintBounce")
+            val bounce by infiniteTransition.animateFloat(
+                initialValue = 0f,
+                targetValue = -3f,
+                animationSpec =
+                    infiniteRepeatable(
+                        animation = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse,
+                    ),
+                label = "SwipeHintBounceY",
+            )
+            bounce
+        }
 
     val typography = LocalSereneTypography.current
 
@@ -271,28 +277,30 @@ fun SwipeUpHint(
         color = if (isDark) DarkSurface else SereneCardSurface,
         border = SereneBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
-        modifier = modifier
-            .offset(y = bounceOffset.dp)
-            .clip(SereneShapes.Pill)
-            .clickable(onClick = onClick)
+        modifier =
+            modifier
+                .offset(y = bounceOffset.dp)
+                .clip(SereneShapes.Pill)
+                .clickable(onClick = onClick),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Icon(
                 imageVector = Icons.Default.KeyboardArrowUp,
                 contentDescription = "Swipe up to search",
                 tint = if (isDark) SereneAccent else SereneBrandPrimary,
-                modifier = Modifier.size(16.dp)
+                modifier = Modifier.size(16.dp),
             )
             Text(
                 text = "Swipe up to search",
-                style = typography.labelSm.copy(
-                    fontWeight = FontWeight.Medium
-                ),
-                color = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
+                style =
+                    typography.labelSm.copy(
+                        fontWeight = FontWeight.Medium,
+                    ),
+                color = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate,
             )
         }
     }
@@ -300,7 +308,7 @@ fun SwipeUpHint(
 
 /**
  * Reusable menu item row used in popup actions and context menus.
- * 48px touch targets, active press ripple, Plus Jakarta Sans typography.
+ * 48px touch targets, active press ripple, Manrope title and Inter body typography.
  */
 @Composable
 fun PopupMenuItem(
@@ -309,9 +317,9 @@ fun PopupMenuItem(
     isActive: Boolean,
     isDark: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    val activeBg = if (isDark) Color(0x2660A5FA) else SereneBrandPrimary.copy(alpha = 0.10f)
+    val activeBg = if (isDark) Color(0x2656DBCF) else SereneBrandPrimary.copy(alpha = 0.10f)
     val activeTint = if (isDark) SereneAccent else SereneBrandPrimary
     val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
     val typography = LocalSereneTypography.current
@@ -319,31 +327,41 @@ fun PopupMenuItem(
     Surface(
         shape = RoundedCornerShape(12.dp),
         color = if (isActive) activeBg else Color.Transparent,
-        modifier = modifier
-            .fillMaxWidth()
-            .height(48.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(onClick = onClick),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = label,
                 tint = if (isActive) activeTint else normalTint,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
             )
             Text(
                 text = label,
-                style = typography.bodyMd.copy(
-                    fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium
-                ),
-                color = if (isActive) activeTint else if (isDark) Color(0xFFF1F5F9) else SereneDarkText
+                style =
+                    typography.bodyMd.copy(
+                        fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
+                    ),
+                color =
+                    if (isActive) {
+                        activeTint
+                    } else if (isDark) {
+                        Color(0xFFF1F5F9)
+                    } else {
+                        SereneDarkText
+                    },
             )
         }
     }
@@ -354,39 +372,40 @@ fun PopupMenuItem(
  */
 fun Modifier.swipeUpToSearch(
     density: Density,
-    onSwipeUp: () -> Unit
-): Modifier = this.pointerInput(density) {
-    val swipeThresholdPx = with(density) { 30.dp.toPx() }
-    var totalDragY = 0f
-    var triggered = false
-    var velocityTracker = VelocityTracker()
+    onSwipeUp: () -> Unit,
+): Modifier =
+    this.pointerInput(density) {
+        val swipeThresholdPx = with(density) { 30.dp.toPx() }
+        var totalDragY = 0f
+        var triggered = false
+        var velocityTracker = VelocityTracker()
 
-    detectVerticalDragGestures(
-        onDragStart = {
-            totalDragY = 0f
-            triggered = false
-            velocityTracker = VelocityTracker()
-        },
-        onDragEnd = {
-            if (!triggered) {
-                val velocityY = velocityTracker.calculateVelocity().y
-                if (totalDragY < -swipeThresholdPx || (totalDragY < 0f && velocityY < -500f)) {
+        detectVerticalDragGestures(
+            onDragStart = {
+                totalDragY = 0f
+                triggered = false
+                velocityTracker = VelocityTracker()
+            },
+            onDragEnd = {
+                if (!triggered) {
+                    val velocityY = velocityTracker.calculateVelocity().y
+                    if (totalDragY < -swipeThresholdPx || (totalDragY < 0f && velocityY < -500f)) {
+                        triggered = true
+                        onSwipeUp()
+                    }
+                }
+            },
+            onDragCancel = {
+                totalDragY = 0f
+                triggered = false
+            },
+            onVerticalDrag = { change, dragAmount ->
+                velocityTracker.addPosition(change.uptimeMillis, change.position)
+                totalDragY += dragAmount
+                if (!triggered && totalDragY < -swipeThresholdPx) {
                     triggered = true
                     onSwipeUp()
                 }
-            }
-        },
-        onDragCancel = {
-            totalDragY = 0f
-            triggered = false
-        },
-        onVerticalDrag = { change, dragAmount ->
-            velocityTracker.addPosition(change.uptimeMillis, change.position)
-            totalDragY += dragAmount
-            if (!triggered && totalDragY < -swipeThresholdPx) {
-                triggered = true
-                onSwipeUp()
-            }
-        }
-    )
-}
+            },
+        )
+    }

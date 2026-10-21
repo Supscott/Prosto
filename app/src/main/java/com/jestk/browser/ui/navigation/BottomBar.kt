@@ -242,7 +242,7 @@ fun DualTierBottomBar(
     )
 }
 
-@Preview(name = "BottomBar Light", showBackground = true, backgroundColor = 0xFFF1F7FC)
+@Preview(name = "BottomBar Light", showBackground = true, backgroundColor = 0xFFE9F6F2)
 @Composable
 fun UnifiedBottomBarLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
@@ -269,7 +269,7 @@ fun UnifiedBottomBarLightPreview() {
     }
 }
 
-@Preview(name = "BottomBar Dark", showBackground = true, backgroundColor = 0xFF0F172A)
+@Preview(name = "BottomBar Dark", showBackground = true, backgroundColor = 0xFF0E1513)
 @Composable
 fun UnifiedBottomBarDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {

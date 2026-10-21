@@ -5,7 +5,9 @@ data class BrowserSettings(
     val searchEngine: SearchEngine = SearchEngine.DUCKDUCKGO,
     val isAdBlockerEnabled: Boolean = true,
     val hiddenSearchPageEngineIds: Set<String> = emptySet(),
-    val isOpenInAppsEnabled: Boolean = true
+    val isOpenInAppsEnabled: Boolean = true,
+    val isAutoUpdateEnabled: Boolean = true,
+    val skippedUpdateVersion: String? = null,
 ) {
     val adBlockerEnabled: Boolean
         get() = isAdBlockerEnabled

@@ -10,240 +10,263 @@ import kotlin.math.max
 
 // ==========================================
 // Serene Canvas Light Tokens (DESIGN.md)
+// Primary #087E78 on a calm mint canvas #E9F6F2
 // ==========================================
 
-val SerenePrimary = Color(0xFF005893)
-val SereneBrandPrimary = Color(0xFF2271B3)
+val SerenePrimary = Color(0xFF087E78)
+val SereneBrandPrimary = Color(0xFF087E78)
 val SereneOnPrimary = Color(0xFFFFFFFF)
-val SerenePrimaryContainer = Color(0xFF2271B3)
-val SereneOnPrimaryContainer = Color(0xFFEAF1FF)
-val SereneAccent = Color(0xFF60A5FA)
+val SerenePrimaryContainer = Color(0xFFA5F2E9)
+val SereneOnPrimaryContainer = Color(0xFF00201D)
+val SereneAccent = Color(0xFF14A79D)
 
-val SereneSurface = Color(0xFFFAF8FF)
-val SereneSurfaceDim = Color(0xFFD2D9F4)
-val SereneSurfaceBright = Color(0xFFFAF8FF)
+val SereneSurface = Color(0xFFFFFFFF)
+val SereneSurfaceDim = Color(0xFFD2DDDA)
+val SereneSurfaceBright = Color(0xFFFFFFFF)
 val SereneSurfaceContainerLowest = Color(0xFFFFFFFF)
-val SereneSurfaceContainerLow = Color(0xFFF2F3FF)
-val SereneSurfaceContainer = Color(0xFFEAEDFF)
-val SereneSurfaceContainerHigh = Color(0xFFE2E7FF)
-val SereneSurfaceContainerHighest = Color(0xFFDAE2FD)
+val SereneSurfaceContainerLow = Color(0xFFF2FAF7)
+val SereneSurfaceContainer = Color(0xFFECF5F2)
+val SereneSurfaceContainerHigh = Color(0xFFE6EFEC)
+val SereneSurfaceContainerHighest = Color(0xFFDEE9E6)
 
-val SereneOnSurface = Color(0xFF131B2E)
-val SereneOnSurfaceVariant = Color(0xFF414750)
-val SereneOutline = Color(0xFF717781)
-val SereneOutlineVariant = Color(0xFFC1C7D2)
-val SereneInverseSurface = Color(0xFF283044)
-val SereneInverseOnSurface = Color(0xFFEEF0FF)
-val SereneSurfaceTint = Color(0xFF0062A2)
-val SereneInversePrimary = Color(0xFF9DCAFF)
+val SereneOnSurface = Color(0xFF171D1B)
+val SereneOnSurfaceVariant = Color(0xFF3F4947)
+val SereneOutline = Color(0xFF6F7977)
+val SereneOutlineVariant = Color(0xFFBEC9C6)
+val SereneInverseSurface = Color(0xFF2B3230)
+val SereneInverseOnSurface = Color(0xFFEFF1F0)
+val SereneSurfaceTint = Color(0xFF087E78)
+val SereneInversePrimary = Color(0xFF56DBCF)
 
-val SereneSecondary = Color(0xFF0060AC)
+val SereneSecondary = Color(0xFF4A6360)
 val SereneOnSecondary = Color(0xFFFFFFFF)
-val SereneSecondaryContainer = Color(0xFF64A8FE)
-val SereneOnSecondaryContainer = Color(0xFF003C70)
+val SereneSecondaryContainer = Color(0xFFCCE8E3)
+val SereneOnSecondaryContainer = Color(0xFF06201D)
 
-val SereneTertiary = Color(0xFF4F565A)
+val SereneTertiary = Color(0xFF416277)
 val SereneOnTertiary = Color(0xFFFFFFFF)
-val SereneTertiaryContainer = Color(0xFF686E73)
-val SereneOnTertiaryContainer = Color(0xFFEBF1F6)
+val SereneTertiaryContainer = Color(0xFFC4E8FF)
+val SereneOnTertiaryContainer = Color(0xFF001E31)
 
 val SereneError = Color(0xFFBA1A1A)
 val SereneOnError = Color(0xFFFFFFFF)
 val SereneErrorContainer = Color(0xFFFFDAD6)
 val SereneOnErrorContainer = Color(0xFF93000A)
 
-val SerenePrimaryFixed = Color(0xFFD1E4FF)
-val SerenePrimaryFixedDim = Color(0xFF9DCAFF)
-val SereneOnPrimaryFixed = Color(0xFF001D35)
-val SereneOnPrimaryFixedVariant = Color(0xFF00497C)
+val SerenePrimaryFixed = Color(0xFFA5F2E9)
+val SerenePrimaryFixedDim = Color(0xFF83D5CB)
+val SereneOnPrimaryFixed = Color(0xFF00201D)
+val SereneOnPrimaryFixedVariant = Color(0xFF003732)
 
-val SereneSecondaryFixed = Color(0xFFD4E3FF)
-val SereneSecondaryFixedDim = Color(0xFFA4C9FF)
-val SereneOnSecondaryFixed = Color(0xFF001C39)
-val SereneOnSecondaryFixedVariant = Color(0xFF004883)
+val SereneSecondaryFixed = Color(0xFFCCE8E3)
+val SereneSecondaryFixedDim = Color(0xFFB1CCC8)
+val SereneOnSecondaryFixed = Color(0xFF06201D)
+val SereneOnSecondaryFixedVariant = Color(0xFF1D3532)
 
 // Architectural Layer Tokens
-val SereneCanvasFloor = Color(0xFFF1F7FC) // Level 0 Base layer
+val SereneCanvasFloor = Color(0xFFE9F6F2) // Level 0 Base layer
 val SereneCardSurface = Color(0xFFFFFFFF) // Level 1 Card surface
-val SereneDarkText = Color(0xFF0F172A)
-val SereneMutedSlate = Color(0xFF64748B)
+val SereneDarkText = Color(0xFF16201E)
+val SereneMutedSlate = Color(0xFF5F6E6C)
 
-// Atmospheric Cerulean Glows
-val SereneSkyGlow = Color(0xFFE0F2FE)
-val SerenePaleBlue = Color(0xFFEAF1FF)
+// Atmospheric Mint Glows
+val SereneSkyGlow = Color(0xFFCFF3EC)
+val SerenePaleBlue = Color(0xFFDFF7F3)
 
 // ==========================================
-// Serene Canvas Dark Tokens (Deep Midnight Navy & Slate)
+// Serene Canvas Dark Tokens (Deep Teal Night & Slate)
 // ==========================================
 
-val DarkBackground = Color(0xFF0F172A)
-val DarkSurface = Color(0xFF1E293B)
-val DarkSurfaceVariant = Color(0xFF334155)
-val DarkOnSurface = Color(0xFFF1F5F9)
-val DarkOnSurfaceVariant = Color(0xFF94A3B8)
-val DarkPrimary = Color(0xFF60A5FA)
-val DarkPrimaryContainer = Color(0xFF1E3A8A)
-val DarkOutline = Color(0xFF475569)
-val DarkOutlineVariant = Color(0xFF334155)
-val DarkInverseSurface = Color(0xFFF1F5F9)
-val DarkInverseOnSurface = Color(0xFF0F172A)
+val DarkBackground = Color(0xFF0E1513)
+val DarkSurface = Color(0xFF171D1C)
+val DarkSurfaceVariant = Color(0xFF3F4947)
+val DarkOnSurface = Color(0xFFDEE4E2)
+val DarkOnSurfaceVariant = Color(0xFFBEC9C6)
+val DarkPrimary = Color(0xFF56DBCF)
+val DarkPrimaryContainer = Color(0xFF00504A)
+val DarkOutline = Color(0xFF899391)
+val DarkOutlineVariant = Color(0xFF3F4947)
+val DarkInverseSurface = Color(0xFFDEE4E2)
+val DarkInverseOnSurface = Color(0xFF2B3230)
 val DarkError = Color(0xFFFFB4AB)
 val DarkOnError = Color(0xFF690005)
 val DarkErrorContainer = Color(0xFF93000A)
 val DarkOnErrorContainer = Color(0xFFFFDAD6)
 
-// Figma Dark Palette Tokens
-val DarkDockSurface = Color(0xFF0D1824)
-val DarkCanvasBase = Color(0xFF080F19)
+// Dark Palette Tokens
+val DarkDockSurface = Color(0xFF0C1A18)
+val DarkCanvasBase = Color(0xFF08100F)
 val DarkTextHighContrast = Color(0xFFF8FAFC)
 val DarkDockBackground = DarkDockSurface
-val DarkDockButton = Color(0xFF94A3B8)
+val DarkDockButton = Color(0xFF9FB0AD)
 
 // ==========================================
-// Serene Gradients & Brushes (Cool Sky Theme)
+// Serene Gradients & Brushes (Calm Mint Theme)
 // ==========================================
 
-val SereneActiveTabBorderBrush = Brush.linearGradient(
-    colors = listOf(
-        Color(0xFF60A5FA),
-        Color(0xFF2271B3),
-    ),
-)
+val SereneActiveTabBorderBrush =
+    Brush.linearGradient(
+        colors =
+            listOf(
+                Color(0xFF56DBCF),
+                Color(0xFF087E78),
+            ),
+    )
 
-val SereneAddTabGradientBrush = Brush.linearGradient(
-    colors = listOf(
-        Color(0xFF2271B3),
-        Color(0xFF60A5FA),
-    ),
-)
+val SereneAddTabGradientBrush =
+    Brush.linearGradient(
+        colors =
+            listOf(
+                Color(0xFF087E78),
+                Color(0xFF56DBCF),
+            ),
+    )
 
-val SereneSkySwitchBrush = Brush.horizontalGradient(
-    colors = listOf(
-        Color(0xFF2271B3),
-        Color(0xFF60A5FA),
-        Color(0xFF93C5FD),
-    ),
-)
+val SereneSkySwitchBrush =
+    Brush.horizontalGradient(
+        colors =
+            listOf(
+                Color(0xFF087E78),
+                Color(0xFF2BB3A8),
+                Color(0xFFA5F2E9),
+            ),
+    )
 
-val SereneCardBorderBrush = Brush.verticalGradient(
-    colors = listOf(
-        Color.White.copy(alpha = 0.85f),
-        Color(0xFFE2E8F0).copy(alpha = 0.80f),
-    ),
-)
+val SereneCardBorderBrush =
+    Brush.verticalGradient(
+        colors =
+            listOf(
+                Color.White.copy(alpha = 0.85f),
+                Color(0xFFDCE6E3).copy(alpha = 0.80f),
+            ),
+    )
 
 // Backward-compatible brush aliases
 val ActiveTabBorderBrush = SereneActiveTabBorderBrush
 val AddTabGradientBrush = SereneAddTabGradientBrush
 val SunsetSwitchBrush = SereneSkySwitchBrush
 
-val DuckDuckGoBadgeBrush = Brush.linearGradient(
-    colors = listOf(
-        Color(0xFFD1E4FF),
-        Color(0xFFEAF1FF),
-    ),
-)
+val DuckDuckGoBadgeBrush =
+    Brush.linearGradient(
+        colors =
+            listOf(
+                Color(0xFFA5F2E9),
+                Color(0xFFDFF7F3),
+            ),
+    )
 
-val CardPreviewRoseBrush = Brush.linearGradient(
-    colors = listOf(
-        Color(0xFFE0F2FE).copy(alpha = 0.80f),
-        Color(0xFFBAE6FD).copy(alpha = 0.50f),
-    ),
-)
+val CardPreviewRoseBrush =
+    Brush.linearGradient(
+        colors =
+            listOf(
+                Color(0xFFDFF7F3).copy(alpha = 0.80f),
+                Color(0xFFB9EDE6).copy(alpha = 0.50f),
+            ),
+    )
 
-val CardPreviewPeachBrush = Brush.linearGradient(
-    colors = listOf(
-        Color(0xFFD1E4FF).copy(alpha = 0.80f),
-        Color(0xFF93C5FD).copy(alpha = 0.50f),
-    ),
-)
+val CardPreviewPeachBrush =
+    Brush.linearGradient(
+        colors =
+            listOf(
+                Color(0xFFA5F2E9).copy(alpha = 0.80f),
+                Color(0xFF6FD9CE).copy(alpha = 0.50f),
+            ),
+    )
 
-val CardPreviewBlueBrush = Brush.linearGradient(
-    colors = listOf(
-        Color(0xFFBAE6FD).copy(alpha = 0.80f),
-        Color(0xFFFFFFFF).copy(alpha = 0.90f),
-    ),
-)
+val CardPreviewBlueBrush =
+    Brush.linearGradient(
+        colors =
+            listOf(
+                Color(0xFF6FD9CE).copy(alpha = 0.80f),
+                Color(0xFFFFFFFF).copy(alpha = 0.90f),
+            ),
+    )
 
 /**
- * Extension modifier that renders the ambient Serene Canvas sky-glow multi-point gradients.
- * Uses soft airy sky undertones, serene base (#F1F7FC / #FAF8FF) with delicate pale cerulean
- * ambient glows (#E0F2FE) at top, without warm peach/orange sunset circles.
+ * Extension modifier that renders the ambient Serene Canvas mint-glow multi-point gradients.
+ * Uses a soft mint base (#E9F6F2) with delicate teal ambient glows (#CFF3EC) at the top.
  */
-fun Modifier.sereneSkyBackground(isDark: Boolean = false): Modifier = this.drawBehind {
-    val canvasWidth = size.width
-    val canvasHeight = size.height
-    val maxDim = max(canvasWidth, canvasHeight)
-    if (maxDim <= 0f) return@drawBehind
+fun Modifier.sereneSkyBackground(isDark: Boolean = false): Modifier =
+    this.drawBehind {
+        val canvasWidth = size.width
+        val canvasHeight = size.height
+        val maxDim = max(canvasWidth, canvasHeight)
+        if (maxDim <= 0f) return@drawBehind
 
-    if (!isDark) {
-        // Base canvas: Serene pale blue-grey floor
-        drawRect(color = SereneCanvasFloor)
+        if (!isDark) {
+            // Base canvas: calm mint floor
+            drawRect(color = SereneCanvasFloor)
 
-        // Delicate pale cerulean ambient glow at top-left (20%, 10%)
-        drawRect(
-            brush = Brush.radialGradient(
-                colors = listOf(SereneSkyGlow.copy(alpha = 0.55f), Color.Transparent),
-                center = Offset(canvasWidth * 0.20f, canvasHeight * 0.10f),
-                radius = maxDim * 0.70f,
-                tileMode = TileMode.Clamp,
-            ),
-        )
+            // Delicate mint ambient glow at top-left (20%, 10%)
+            drawRect(
+                brush =
+                    Brush.radialGradient(
+                        colors = listOf(SereneSkyGlow.copy(alpha = 0.55f), Color.Transparent),
+                        center = Offset(canvasWidth * 0.20f, canvasHeight * 0.10f),
+                        radius = maxDim * 0.70f,
+                        tileMode = TileMode.Clamp,
+                    ),
+            )
 
-        // Soft sky-wash glow at top-right (85%, 18%)
-        drawRect(
-            brush = Brush.radialGradient(
-                colors = listOf(SerenePaleBlue.copy(alpha = 0.45f), Color.Transparent),
-                center = Offset(canvasWidth * 0.85f, canvasHeight * 0.18f),
-                radius = maxDim * 0.65f,
-                tileMode = TileMode.Clamp,
-            ),
-        )
+            // Soft glow at top-right (85%, 18%)
+            drawRect(
+                brush =
+                    Brush.radialGradient(
+                        colors = listOf(SerenePaleBlue.copy(alpha = 0.45f), Color.Transparent),
+                        center = Offset(canvasWidth * 0.85f, canvasHeight * 0.18f),
+                        radius = maxDim * 0.65f,
+                        tileMode = TileMode.Clamp,
+                    ),
+            )
 
-        // Subtle soft blue illumination at bottom-center (50%, 90%)
-        drawRect(
-            brush = Brush.radialGradient(
-                colors = listOf(Color(0xFFE2E7FF).copy(alpha = 0.30f), Color.Transparent),
-                center = Offset(canvasWidth * 0.50f, canvasHeight * 0.90f),
-                radius = maxDim * 0.70f,
-                tileMode = TileMode.Clamp,
-            ),
-        )
-    } else {
-        // Dark Base Canvas: Deep Midnight Navy
-        drawRect(color = DarkBackground)
+            // Subtle soft illumination at bottom-center (50%, 90%)
+            drawRect(
+                brush =
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFFDFF7F3).copy(alpha = 0.30f), Color.Transparent),
+                        center = Offset(canvasWidth * 0.50f, canvasHeight * 0.90f),
+                        radius = maxDim * 0.70f,
+                        tileMode = TileMode.Clamp,
+                    ),
+            )
+        } else {
+            // Dark Base Canvas: Deep Teal Night
+            drawRect(color = DarkBackground)
 
-        // Deep cerulean glow at top-left
-        drawRect(
-            brush = Brush.radialGradient(
-                colors = listOf(Color(0xFF1E3A8A).copy(alpha = 0.20f), Color.Transparent),
-                center = Offset(canvasWidth * 0.20f, canvasHeight * 0.10f),
-                radius = maxDim * 0.70f,
-                tileMode = TileMode.Clamp,
-            ),
-        )
+            // Deep teal glow at top-left
+            drawRect(
+                brush =
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFF00504A).copy(alpha = 0.25f), Color.Transparent),
+                        center = Offset(canvasWidth * 0.20f, canvasHeight * 0.10f),
+                        radius = maxDim * 0.70f,
+                        tileMode = TileMode.Clamp,
+                    ),
+            )
 
-        // Subtle deep slate-blue glow at top-right
-        drawRect(
-            brush = Brush.radialGradient(
-                colors = listOf(Color(0xFF1E293B).copy(alpha = 0.20f), Color.Transparent),
-                center = Offset(canvasWidth * 0.85f, canvasHeight * 0.18f),
-                radius = maxDim * 0.65f,
-                tileMode = TileMode.Clamp,
-            ),
-        )
+            // Subtle deep slate-teal glow at top-right
+            drawRect(
+                brush =
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFF1E2B29).copy(alpha = 0.30f), Color.Transparent),
+                        center = Offset(canvasWidth * 0.85f, canvasHeight * 0.18f),
+                        radius = maxDim * 0.65f,
+                        tileMode = TileMode.Clamp,
+                    ),
+            )
 
-        // Subtle bottom midnight illumination
-        drawRect(
-            brush = Brush.radialGradient(
-                colors = listOf(Color(0xFF172554).copy(alpha = 0.15f), Color.Transparent),
-                center = Offset(canvasWidth * 0.50f, canvasHeight * 0.90f),
-                radius = maxDim * 0.70f,
-                tileMode = TileMode.Clamp,
-            ),
-        )
+            // Subtle bottom illumination
+            drawRect(
+                brush =
+                    Brush.radialGradient(
+                        colors = listOf(Color(0xFF0A2B28).copy(alpha = 0.25f), Color.Transparent),
+                        center = Offset(canvasWidth * 0.50f, canvasHeight * 0.90f),
+                        radius = maxDim * 0.70f,
+                        tileMode = TileMode.Clamp,
+                    ),
+            )
+        }
     }
-}
 
 /**
  * Backward compatibility alias for [sereneSkyBackground].
@@ -303,14 +326,14 @@ val LiquidOnError = SereneOnError
 val LiquidErrorContainer = SereneErrorContainer
 val LiquidOnErrorContainer = SereneOnErrorContainer
 
-// Pastel accents mapped to cool serene sky palette
-val PastelPeach = Color(0xFFBAE6FD)
-val PastelWarmOrange = Color(0xFFBAE6FD)
-val PastelRose = Color(0xFFBFDBFE)
-val PastelBlue = Color(0xFF93C5FD)
-val PastelBlueContainer = Color(0xFF60A5FA)
-val PastelPink = Color(0xFFDBEAFE)
-val PastelRaspberry = Color(0xFF3B82F6)
+// Pastel accents mapped to the calm mint palette
+val PastelPeach = Color(0xFFB9EDE6)
+val PastelWarmOrange = Color(0xFFB9EDE6)
+val PastelRose = Color(0xFFA5F2E9)
+val PastelBlue = Color(0xFF6FD9CE)
+val PastelBlueContainer = Color(0xFF14A79D)
+val PastelPink = Color(0xFFDFF7F3)
+val PastelRaspberry = Color(0xFF087E78)
 
 // Old theme tokens backward-compatibility
 val JestkPrimary = SerenePrimary

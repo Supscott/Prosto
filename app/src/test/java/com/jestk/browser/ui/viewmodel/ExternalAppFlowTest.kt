@@ -169,8 +169,8 @@ class ExternalAppFlowTest {
             client.onPageStarted(webView, redditUrl, null)
             assertThat(viewModel.uiState.value.externalAppPrompt).isNotNull()
 
-            // The pill auto-dismissed and the user ignored it.
-            viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(rememberDomain = true))
+            // The pill was dismissed by the user.
+            viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT))
             assertThat(viewModel.uiState.value.externalAppPrompt).isNull()
 
             // Later the user taps the same link in Telegram again.
@@ -210,7 +210,7 @@ class ExternalAppFlowTest {
 
             // ...the hint times out while the user does nothing...
             viewModel.onEvent(
-                BrowserUiEvent.DismissExternalAppPrompt(rememberDomain = false, timedOut = true)
+                BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.TIMEOUT)
             )
             assertThat(viewModel.uiState.value.externalAppPrompt).isNull()
 
@@ -231,6 +231,39 @@ class ExternalAppFlowTest {
             assertThat(viewModel.uiState.value.externalAppPrompt).isNotNull()
             assertThat(viewModel.uiState.value.externalAppPrompt?.appPackage)
                 .isEqualTo("org.telegram.messenger")
+        }
+
+    @Test
+    fun explicitDismiss_suppressesSubsequentUserInitiatedHandoffOnSameTab() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://example.com"))
+            advanceUntilIdle()
+            val tabId = viewModel.uiState.value.activeTabId!!
+            val webView = WebView(context)
+            val client = createClient(viewModel, tabId)
+
+            client.handleExternalNavigation(
+                webView,
+                "tg://resolve?domain=durov",
+                userInitiated = true,
+            )
+            assertThat(viewModel.uiState.value.externalAppPrompt).isNotNull()
+
+            // User explicitly clicked "X" to dismiss the pill
+            viewModel.onEvent(
+                BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT)
+            )
+            assertThat(viewModel.uiState.value.externalAppPrompt).isNull()
+
+            // Subsequent user tap must remain suppressed because the user explicitly dismissed it
+            client.handleExternalNavigation(
+                webView,
+                "tg://resolve?domain=durov",
+                userInitiated = true,
+            )
+            assertThat(viewModel.uiState.value.externalAppPrompt).isNull()
         }
 
     @Test

@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VerifiedUser
 import androidx.compose.material3.DropdownMenu
@@ -74,7 +75,9 @@ import androidx.compose.ui.window.Dialog
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.domain.model.isVisible
 import com.jestk.browser.ui.overlays.SearchEngineBadge
+import com.jestk.browser.ui.overlays.UpdateNotificationCard
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -106,55 +109,58 @@ import com.jestk.browser.util.DefaultBrowserHelper
 fun SettingsScreen(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val isDark = LocalIsDarkTheme.current
     val scrollState = rememberScrollState()
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(if (isDark) DarkBackground else SereneCanvasFloor)
-            .statusBarsPadding()
-            .navigationBarsPadding()
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(if (isDark) DarkBackground else SereneCanvasFloor)
+                .statusBarsPadding()
+                .navigationBarsPadding(),
     ) {
         // Dedicated Top Bar
         SettingsTopBar(
             isDark = isDark,
             onBackClick = { onEvent(BrowserUiEvent.DismissOverlay) },
-            onCloseClick = { onEvent(BrowserUiEvent.DismissOverlay) }
+            onCloseClick = { onEvent(BrowserUiEvent.DismissOverlay) },
         )
 
         // Scrollable Settings Content
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 20.dp)
-                .padding(bottom = 36.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 36.dp),
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
             // Large Title Row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 20.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     text = "Settings",
                     style = LocalSereneTypography.current.headlineLg,
-                    color = if (isDark) DarkOnSurface else SereneDarkText
+                    color = if (isDark) DarkOnSurface else SereneDarkText,
                 )
             }
 
             SettingsContent(
                 uiState = uiState,
                 onEvent = onEvent,
-                isDark = isDark
+                isDark = isDark,
             )
         }
     }
@@ -165,42 +171,43 @@ fun SettingsTopBar(
     isDark: Boolean,
     onBackClick: () -> Unit,
     onCloseClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         IconButton(
             onClick = onBackClick,
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.size(40.dp),
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                 contentDescription = "Back",
                 tint = SereneBrandPrimary,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
             )
         }
 
         Text(
             text = "Settings",
             style = LocalSereneTypography.current.headlineSm,
-            color = if (isDark) DarkOnSurface else SereneDarkText
+            color = if (isDark) DarkOnSurface else SereneDarkText,
         )
 
         IconButton(
             onClick = onCloseClick,
-            modifier = Modifier.size(40.dp)
+            modifier = Modifier.size(40.dp),
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Close",
                 tint = SereneMutedSlate,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
             )
         }
     }
@@ -211,24 +218,37 @@ fun SettingsContent(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     isDark: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val defaultBrowserLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
-    ) {
-        onEvent(BrowserUiEvent.CheckDefaultBrowser(context))
-    }
+    val defaultBrowserLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.StartActivityForResult(),
+        ) {
+            onEvent(BrowserUiEvent.CheckDefaultBrowser(context))
+        }
     var isTrackingProtectionEnabled by remember { mutableStateOf(true) }
     var showProvidersDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
+        // Update notification (auto-update disabled or update ready)
+        if (uiState.updateState.isVisible) {
+            UpdateNotificationCard(
+                state = uiState.updateState,
+                onInstall = { onEvent(BrowserUiEvent.InstallUpdate) },
+                onInstallLater = { onEvent(BrowserUiEvent.InstallUpdateLater) },
+                onSkip = { onEvent(BrowserUiEvent.SkipUpdate) },
+                isDark = isDark,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+        }
+
         // SECTION 1: THEME PICKER (Segmented Control Container)
         SettingsSectionHeader(title = "APPEARANCE")
         SegmentedThemeControl(
             selectedMode = uiState.settings.themeMode,
             isDark = isDark,
-            onSelectMode = { onEvent(BrowserUiEvent.SetThemeMode(it)) }
+            onSelectMode = { onEvent(BrowserUiEvent.SetThemeMode(it)) },
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -241,44 +261,101 @@ fun SettingsContent(
                     isDark = isDark,
                     onClick = {
                         DefaultBrowserHelper.openDefaultBrowserSettings(context, defaultBrowserLauncher)
-                    }
+                    },
                 )
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
 
+        // SECTION: UPDATES
+        SettingsSectionHeader(title = stringResource(R.string.update_section_title))
+        InsetGroupedCard(isDark = isDark) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SystemUpdate,
+                            contentDescription = null,
+                            tint = SereneBrandPrimary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = stringResource(R.string.update_setting_title),
+                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                        )
+                        Text(
+                            text = stringResource(R.string.update_setting_summary),
+                            style = LocalSereneTypography.current.bodySm,
+                            color = SereneMutedSlate,
+                        )
+                    }
+                }
+
+                LiquidSunsetSwitch(
+                    checked = uiState.settings.isAutoUpdateEnabled,
+                    onCheckedChange = { onEvent(BrowserUiEvent.SetAutoUpdateEnabled(it)) },
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // SECTION 3: PRIVACY & SECURITY
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             SettingsSectionHeader(title = "PRIVACY & PROTECTION", modifier = Modifier.padding(bottom = 0.dp))
 
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (isDark) DarkSurfaceVariant else SerenePaleBlue
+                color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.VerifiedUser,
                         contentDescription = null,
                         tint = SereneBrandPrimary,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(13.dp),
                     )
                     Text(
                         text = "Protected",
-                        style = LocalSereneTypography.current.labelMd.copy(
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        color = SereneBrandPrimary
+                        style =
+                            LocalSereneTypography.current.labelMd.copy(
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                        color = SereneBrandPrimary,
                     )
                 }
             }
@@ -287,29 +364,31 @@ fun SettingsContent(
         InsetGroupedCard(isDark = isDark) {
             // Ad Blocker Row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Block,
                             contentDescription = null,
                             tint = SereneBrandPrimary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         )
                     }
 
@@ -317,52 +396,54 @@ fun SettingsContent(
                         Text(
                             text = "Ad Blocker",
                             style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText
+                            color = if (isDark) DarkOnSurface else SereneDarkText,
                         )
                         Text(
                             text = "Eliminates banners and popups",
                             style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate
+                            color = SereneMutedSlate,
                         )
                     }
                 }
 
                 LiquidSunsetSwitch(
                     checked = uiState.settings.isAdBlockerEnabled,
-                    onCheckedChange = { onEvent(BrowserUiEvent.SetAdBlockerEnabled(it)) }
+                    onCheckedChange = { onEvent(BrowserUiEvent.SetAdBlockerEnabled(it)) },
                 )
             }
 
             HorizontalDivider(
                 color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 64.dp)
+                modifier = Modifier.padding(start = 64.dp),
             )
 
             // Tracking Protection Row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Shield,
                             contentDescription = null,
                             tint = SereneBrandPrimary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         )
                     }
 
@@ -370,52 +451,54 @@ fun SettingsContent(
                         Text(
                             text = "Tracking Protection",
                             style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText
+                            color = if (isDark) DarkOnSurface else SereneDarkText,
                         )
                         Text(
                             text = "Prevents cross-site tracking",
                             style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate
+                            color = SereneMutedSlate,
                         )
                     }
                 }
 
                 LiquidSunsetSwitch(
                     checked = isTrackingProtectionEnabled,
-                    onCheckedChange = { isTrackingProtectionEnabled = it }
+                    onCheckedChange = { isTrackingProtectionEnabled = it },
                 )
             }
 
             HorizontalDivider(
                 color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 64.dp)
+                modifier = Modifier.padding(start = 64.dp),
             )
 
             // Open in Apps Row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                             contentDescription = null,
                             tint = SereneBrandPrimary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         )
                     }
 
@@ -423,54 +506,56 @@ fun SettingsContent(
                         Text(
                             text = "Open in apps",
                             style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText
+                            color = if (isDark) DarkOnSurface else SereneDarkText,
                         )
                         Text(
                             text = "Offer to open supported links in installed apps",
                             style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate
+                            color = SereneMutedSlate,
                         )
                     }
                 }
 
                 LiquidSunsetSwitch(
                     checked = uiState.settings.isOpenInAppsEnabled,
-                    onCheckedChange = { onEvent(BrowserUiEvent.SetOpenInAppsEnabled(it)) }
+                    onCheckedChange = { onEvent(BrowserUiEvent.SetOpenInAppsEnabled(it)) },
                 )
             }
 
             HorizontalDivider(
                 color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 64.dp)
+                modifier = Modifier.padding(start = 64.dp),
             )
 
             // Search Engine Row with Dropdown Menu
             var searchMenuExpanded by remember { mutableStateOf(false) }
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { searchMenuExpanded = true }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { searchMenuExpanded = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = null,
                             tint = SereneBrandPrimary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         )
                     }
 
@@ -478,12 +563,12 @@ fun SettingsContent(
                         Text(
                             text = "Search Engine",
                             style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText
+                            color = if (isDark) DarkOnSurface else SereneDarkText,
                         )
                         Text(
                             text = "Choose your preferred engine",
                             style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate
+                            color = SereneMutedSlate,
                         )
                     }
                 }
@@ -492,23 +577,23 @@ fun SettingsContent(
                     Surface(
                         shape = RoundedCornerShape(10.dp),
                         color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
-                        modifier = Modifier.clickable { searchMenuExpanded = true }
+                        modifier = Modifier.clickable { searchMenuExpanded = true },
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
                             Text(
                                 text = uiState.settings.searchEngine.displayName,
                                 style = LocalSereneTypography.current.labelSm.copy(fontWeight = FontWeight.SemiBold),
-                                color = SereneBrandPrimary
+                                color = SereneBrandPrimary,
                             )
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = null,
                                 tint = SereneBrandPrimary,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(16.dp),
                             )
                         }
                     }
@@ -516,7 +601,7 @@ fun SettingsContent(
                     DropdownMenu(
                         expanded = searchMenuExpanded,
                         onDismissRequest = { searchMenuExpanded = false },
-                        modifier = Modifier.background(if (isDark) DarkSurface else Color.White)
+                        modifier = Modifier.background(if (isDark) DarkSurface else Color.White),
                     ) {
                         uiState.searchEngines.forEach { engine ->
                             val isSelected = uiState.settings.searchEngine.id == engine.id
@@ -524,18 +609,18 @@ fun SettingsContent(
                                 text = {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
                                         Text(
                                             text = engine.displayName,
                                             style = LocalSereneTypography.current.bodyMd,
-                                            color = if (isDark) DarkOnSurface else SereneDarkText
+                                            color = if (isDark) DarkOnSurface else SereneDarkText,
                                         )
                                         if (engine.shortcut != null) {
                                             Text(
                                                 text = "(${engine.shortcut})",
                                                 style = LocalSereneTypography.current.labelSm,
-                                                color = SereneMutedSlate
+                                                color = SereneMutedSlate,
                                             )
                                         }
                                         if (isSelected) {
@@ -543,7 +628,7 @@ fun SettingsContent(
                                                 imageVector = Icons.Default.Check,
                                                 contentDescription = "Selected",
                                                 tint = SereneBrandPrimary,
-                                                modifier = Modifier.size(16.dp)
+                                                modifier = Modifier.size(16.dp),
                                             )
                                         }
                                     }
@@ -551,7 +636,7 @@ fun SettingsContent(
                                 onClick = {
                                     onEvent(BrowserUiEvent.SetSearchEngine(engine))
                                     searchMenuExpanded = false
-                                }
+                                },
                             )
                         }
                     }
@@ -560,35 +645,37 @@ fun SettingsContent(
 
             HorizontalDivider(
                 color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 64.dp)
+                modifier = Modifier.padding(start = 64.dp),
             )
 
             // Add Search Engine Row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { onEvent(BrowserUiEvent.ShowAddSearchEngineDialog()) }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onEvent(BrowserUiEvent.ShowAddSearchEngineDialog()) }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
                             tint = SereneBrandPrimary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         )
                     }
 
@@ -596,12 +683,12 @@ fun SettingsContent(
                         Text(
                             text = "Add Search Engine",
                             style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText
+                            color = if (isDark) DarkOnSurface else SereneDarkText,
                         )
                         Text(
                             text = "Add custom provider with shortcuts",
                             style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate
+                            color = SereneMutedSlate,
                         )
                     }
                 }
@@ -610,41 +697,43 @@ fun SettingsContent(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = SereneMutedSlate,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
 
             HorizontalDivider(
                 color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 64.dp)
+                modifier = Modifier.padding(start = 64.dp),
             )
 
             // Search Page Providers Row
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { showProvidersDialog = true }
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { showProvidersDialog = true }
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 ) {
                     Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
-                        contentAlignment = Alignment.Center
+                        modifier =
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Tune,
                             contentDescription = null,
                             tint = SereneBrandPrimary,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(20.dp),
                         )
                     }
 
@@ -652,12 +741,12 @@ fun SettingsContent(
                         Text(
                             text = "Search Page Providers",
                             style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText
+                            color = if (isDark) DarkOnSurface else SereneDarkText,
                         )
                         Text(
                             text = "Choose engines shown on search results",
                             style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate
+                            color = SereneMutedSlate,
                         )
                     }
                 }
@@ -666,7 +755,7 @@ fun SettingsContent(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = SereneMutedSlate,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
@@ -679,17 +768,17 @@ fun SettingsContent(
                 onToggleEngine = { engineId, isVisible ->
                     onEvent(BrowserUiEvent.ToggleSearchPageEngineVisibility(engineId, isVisible))
                 },
-                onDismiss = { showProvidersDialog = false }
+                onDismiss = { showProvidersDialog = false },
             )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // SECTION 4: ABOUT & HORI
-        SettingsSectionHeader(title = "ABOUT & HORI")
+        SettingsSectionHeader(title = "ABOUT & PROSTO")
         InsetGroupedCard(isDark = isDark) {
             HyperlinkRow(
-                title = "Hori Web Browser",
+                title = "Prosto Web Browser",
                 subtitle = "Fast, fluid, and gesture-driven",
                 onClick = {
                     try {
@@ -698,12 +787,12 @@ fun SettingsContent(
                     } catch (_: Exception) {
                         Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
                     }
-                }
+                },
             )
 
             HorizontalDivider(
                 color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 16.dp)
+                modifier = Modifier.padding(start = 16.dp),
             )
 
             HyperlinkRow(
@@ -716,7 +805,7 @@ fun SettingsContent(
                     } catch (_: Exception) {
                         Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
                     }
-                }
+                },
             )
         }
 
@@ -724,36 +813,38 @@ fun SettingsContent(
 
         // Footer Note
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(6.dp)
+            verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .size(30.dp)
+                        .clip(CircleShape)
+                        .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Favorite,
                     contentDescription = null,
                     tint = SereneBrandPrimary,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
             }
 
             Text(
                 text = "Crafted with love for a fast and private web",
                 style = LocalSereneTypography.current.bodySm,
-                color = SereneMutedSlate
+                color = SereneMutedSlate,
             )
             Text(
-                text = "Hori Browser v1.0 • Serene Canvas",
+                text = "Prosto Browser v1.0 • Prosto Canvas",
                 style = LocalSereneTypography.current.labelSm,
-                color = SereneMutedSlate.copy(alpha = 0.7f)
+                color = SereneMutedSlate.copy(alpha = 0.7f),
             )
         }
     }
@@ -762,16 +853,17 @@ fun SettingsContent(
 @Composable
 fun SettingsSectionHeader(
     title: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Text(
         text = title,
-        style = LocalSereneTypography.current.labelMd.copy(
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.5.sp
-        ),
+        style =
+            LocalSereneTypography.current.labelMd.copy(
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.5.sp,
+            ),
         color = SereneMutedSlate,
-        modifier = modifier.padding(bottom = 8.dp, start = 4.dp)
+        modifier = modifier.padding(bottom = 8.dp, start = 4.dp),
     )
 }
 
@@ -779,14 +871,14 @@ fun SettingsSectionHeader(
 fun InsetGroupedCard(
     isDark: Boolean,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     Surface(
         shape = SereneShapes.Card,
         color = if (isDark) DarkSurface else Color.White,
         border = SereneBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
     ) {
         Column {
             content()
@@ -798,30 +890,37 @@ fun InsetGroupedCard(
 fun SegmentedThemeControl(
     selectedMode: ThemeMode,
     isDark: Boolean,
-    onSelectMode: (ThemeMode) -> Unit
+    onSelectMode: (ThemeMode) -> Unit,
 ) {
     Surface(
         shape = SereneShapes.Card,
         color = if (isDark) DarkSurface else Color.White,
         border = SereneBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             ThemeMode.entries.forEach { mode ->
                 val isSelected = selectedMode == mode
-                val segmentBg = if (isSelected) {
-                    if (isDark) DarkSurfaceVariant else SerenePaleBlue
-                } else Color.Transparent
+                val segmentBg =
+                    if (isSelected) {
+                        if (isDark) DarkSurfaceVariant else SerenePaleBlue
+                    } else {
+                        Color.Transparent
+                    }
 
-                val segmentBorder = if (isSelected) {
-                    BorderStroke(1.5.dp, SereneBrandPrimary)
-                } else null
+                val segmentBorder =
+                    if (isSelected) {
+                        BorderStroke(1.5.dp, SereneBrandPrimary)
+                    } else {
+                        null
+                    }
 
                 val tint = if (isSelected) SereneBrandPrimary else SereneMutedSlate
 
@@ -830,40 +929,44 @@ fun SegmentedThemeControl(
                     color = segmentBg,
                     border = segmentBorder,
                     shadowElevation = 0.dp,
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .clickable { onSelectMode(mode) }
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .clickable { onSelectMode(mode) },
                 ) {
                     Column(
                         modifier = Modifier.fillMaxSize(),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        verticalArrangement = Arrangement.Center,
                     ) {
-                        val icon: ImageVector = when (mode) {
-                            ThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
-                            ThemeMode.LIGHT -> Icons.Default.LightMode
-                            ThemeMode.DARK -> Icons.Default.DarkMode
-                        }
-                        val label = when (mode) {
-                            ThemeMode.SYSTEM -> "System"
-                            ThemeMode.LIGHT -> "Light"
-                            ThemeMode.DARK -> "Dark"
-                        }
+                        val icon: ImageVector =
+                            when (mode) {
+                                ThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                                ThemeMode.LIGHT -> Icons.Default.LightMode
+                                ThemeMode.DARK -> Icons.Default.DarkMode
+                            }
+                        val label =
+                            when (mode) {
+                                ThemeMode.SYSTEM -> "System"
+                                ThemeMode.LIGHT -> "Light"
+                                ThemeMode.DARK -> "Dark"
+                            }
 
                         Icon(
                             imageVector = icon,
                             contentDescription = label,
                             tint = tint,
-                            modifier = Modifier.size(19.dp)
+                            modifier = Modifier.size(19.dp),
                         )
                         Text(
                             text = label,
-                            style = LocalSereneTypography.current.labelSm.copy(
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
-                            ),
-                            color = tint
+                            style =
+                                LocalSereneTypography.current.labelSm.copy(
+                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+                                ),
+                            color = tint,
                         )
                     }
                 }
@@ -876,35 +979,39 @@ fun SegmentedThemeControl(
 fun LiquidSunsetSwitch(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val isDark = LocalIsDarkTheme.current
     val thumbOffset by animateDpAsState(
         targetValue = if (checked) 22.dp else 2.dp,
         animationSpec = tween(durationMillis = 220),
-        label = "SwitchThumbTranslation"
+        label = "SwitchThumbTranslation",
     )
 
     Box(
-        modifier = modifier
-            .size(width = 51.dp, height = 31.dp)
-            .clip(CircleShape)
-            .background(
-                if (checked) SereneBrandPrimary
-                else (if (isDark) DarkSurfaceVariant else Color(0xFFE2E8F0))
-            )
-            .clickable { onCheckedChange(!checked) }
-            .padding(vertical = 2.dp),
-        contentAlignment = Alignment.CenterStart
+        modifier =
+            modifier
+                .size(width = 51.dp, height = 31.dp)
+                .clip(CircleShape)
+                .background(
+                    if (checked) {
+                        SereneBrandPrimary
+                    } else {
+                        (if (isDark) DarkSurfaceVariant else Color(0xFFE2E8F0))
+                    },
+                ).clickable { onCheckedChange(!checked) }
+                .padding(vertical = 2.dp),
+        contentAlignment = Alignment.CenterStart,
     ) {
         Surface(
             shape = CircleShape,
             color = Color.White,
             border = BorderStroke(0.5.dp, Color.Black.copy(alpha = 0.08f)),
             shadowElevation = 1.dp,
-            modifier = Modifier
-                .offset(x = thumbOffset)
-                .size(27.dp)
+            modifier =
+                Modifier
+                    .offset(x = thumbOffset)
+                    .size(27.dp),
         ) {}
     }
 }
@@ -913,27 +1020,28 @@ fun LiquidSunsetSwitch(
 fun HyperlinkRow(
     title: String,
     subtitle: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val isDark = LocalIsDarkTheme.current
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Column {
             Text(
                 text = title,
                 style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                color = if (isDark) DarkOnSurface else SereneDarkText
+                color = if (isDark) DarkOnSurface else SereneDarkText,
             )
             Text(
                 text = subtitle,
                 style = LocalSereneTypography.current.bodySm,
-                color = SereneMutedSlate
+                color = SereneMutedSlate,
             )
         }
 
@@ -941,7 +1049,7 @@ fun HyperlinkRow(
             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
             contentDescription = null,
             tint = SereneMutedSlate,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(18.dp),
         )
     }
 }
@@ -950,33 +1058,35 @@ fun HyperlinkRow(
 fun DefaultBrowserSettingTile(
     isDark: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(14.dp),
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         ) {
             Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
-                contentAlignment = Alignment.Center
+                modifier =
+                    Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Public,
                     contentDescription = null,
                     tint = SereneBrandPrimary,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
 
@@ -984,35 +1094,35 @@ fun DefaultBrowserSettingTile(
                 Text(
                     text = stringResource(R.string.default_browser_tile_title),
                     style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                    color = if (isDark) DarkOnSurface else SereneDarkText
+                    color = if (isDark) DarkOnSurface else SereneDarkText,
                 )
                 Text(
                     text = stringResource(R.string.default_browser_tile_desc),
                     style = LocalSereneTypography.current.bodySm,
-                    color = SereneMutedSlate
+                    color = SereneMutedSlate,
                 )
             }
         }
 
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = if (isDark) DarkSurfaceVariant else SerenePaleBlue
+            color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(
                     text = stringResource(R.string.default_browser_tile_action),
                     style = LocalSereneTypography.current.labelSm.copy(fontWeight = FontWeight.SemiBold),
-                    color = SereneBrandPrimary
+                    color = SereneBrandPrimary,
                 )
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
                     tint = SereneBrandPrimary,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(14.dp),
                 )
             }
         }
@@ -1025,7 +1135,7 @@ fun SearchPageProvidersDialog(
     hiddenEngineIds: Set<String>,
     isDark: Boolean,
     onToggleEngine: (String, Boolean) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -1033,32 +1143,33 @@ fun SearchPageProvidersDialog(
             color = if (isDark) DarkSurface else Color.White,
             border = SereneBorders.cardBorder(isDark),
             shadowElevation = 8.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
         ) {
             Column(
-                modifier = Modifier.padding(20.dp)
+                modifier = Modifier.padding(20.dp),
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = "Search Page Providers",
                         style = LocalSereneTypography.current.headlineSm.copy(fontWeight = FontWeight.Bold),
-                        color = if (isDark) DarkOnSurface else SereneDarkText
+                        color = if (isDark) DarkOnSurface else SereneDarkText,
                     )
                     IconButton(
                         onClick = onDismiss,
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier.size(32.dp),
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
                             tint = SereneMutedSlate,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
@@ -1067,50 +1178,52 @@ fun SearchPageProvidersDialog(
                     text = "Enable or disable providers that appear in the quick switcher on search results pages.",
                     style = LocalSereneTypography.current.bodySm,
                     color = SereneMutedSlate,
-                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp)
+                    modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
                 )
 
                 HorizontalDivider(
                     color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                    thickness = 1.dp
+                    thickness = 1.dp,
                 )
 
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 320.dp)
-                        .verticalScroll(rememberScrollState())
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 320.dp)
+                            .verticalScroll(rememberScrollState()),
                 ) {
                     engines.forEachIndexed { index, engine ->
                         val isChecked = engine.id !in hiddenEngineIds
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             ) {
                                 SearchEngineBadge(
                                     engine = engine,
                                     size = 28.dp,
-                                    isDark = isDark
+                                    isDark = isDark,
                                 )
                                 Column {
                                     Text(
                                         text = engine.displayName,
                                         style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                                        color = if (isDark) DarkOnSurface else SereneDarkText
+                                        color = if (isDark) DarkOnSurface else SereneDarkText,
                                     )
                                     if (engine.shortcut != null) {
                                         Text(
                                             text = "Shortcut: ${engine.shortcut}",
                                             style = LocalSereneTypography.current.labelSm,
-                                            color = SereneMutedSlate
+                                            color = SereneMutedSlate,
                                         )
                                     }
                                 }
@@ -1118,14 +1231,14 @@ fun SearchPageProvidersDialog(
 
                             LiquidSunsetSwitch(
                                 checked = isChecked,
-                                onCheckedChange = { onToggleEngine(engine.id, it) }
+                                onCheckedChange = { onToggleEngine(engine.id, it) },
                             )
                         }
 
                         if (index < engines.lastIndex) {
                             HorizontalDivider(
                                 color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                                thickness = 0.5.dp
+                                thickness = 0.5.dp,
                             )
                         }
                     }
@@ -1141,7 +1254,7 @@ fun SettingsScreenLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
         SettingsScreen(
             uiState = BrowserUiState(),
-            onEvent = {}
+            onEvent = {},
         )
     }
 }
@@ -1152,7 +1265,7 @@ fun SettingsScreenDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         SettingsScreen(
             uiState = BrowserUiState(),
-            onEvent = {}
+            onEvent = {},
         )
     }
 }

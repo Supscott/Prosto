@@ -87,7 +87,7 @@ class FaviconManagerTest {
     }
 
     @Test
-    fun saveFavicon_createsTimestampedFileAndCleansUpOlderTabFiles() = kotlinx.coroutines.test.runTest {
+    fun saveFavicon_keepsStablePathForTabAcrossRepeatedSaves() = kotlinx.coroutines.test.runTest {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
 
@@ -95,19 +95,66 @@ class FaviconManagerTest {
         assertThat(path1).isNotNull()
         val file1 = java.io.File(path1!!)
         assertThat(file1.exists()).isTrue()
-        assertThat(file1.name).matches("favicon_test_tab_1_\\d+\\.png")
+        assertThat(file1.name).isEqualTo("favicon_test_tab_1.png")
 
-        // Small delay to ensure timestamp advances
-        kotlinx.coroutines.delay(10)
-
+        // A page reports its icon repeatedly: the published path must not change, otherwise every
+        // consumer reloads the icon and the dock shows a flickering favicon.
         val path2 = FaviconManager.saveFavicon(context, "test_tab_1", bitmap)
-        assertThat(path2).isNotNull()
-        assertThat(path2).isNotEqualTo(path1)
+        assertThat(path2).isEqualTo(path1)
+        assertThat(java.io.File(path2!!).exists()).isTrue()
+    }
 
-        val file2 = java.io.File(path2!!)
-        assertThat(file2.exists()).isTrue()
-        // Prior tab icon was deleted to avoid stale caching and disk bloat
-        assertThat(file1.exists()).isFalse()
+    @Test
+    fun saveFavicon_keepsFileUntouchedWhenIconIsUnchanged() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
+
+        val path = FaviconManager.saveFavicon(context, "test_tab_mtime", bitmap)
+        val file = java.io.File(path!!)
+        val pinnedTimestamp = 1_000_000_000L
+        assertThat(file.setLastModified(pinnedTimestamp)).isTrue()
+
+        FaviconManager.saveFavicon(context, "test_tab_mtime", bitmap)
+
+        // The modification time is part of the image loader cache key: rewriting an identical icon
+        // would throw the cached bitmap away and force a reload.
+        assertThat(file.lastModified()).isEqualTo(pinnedTimestamp)
+    }
+
+    @Test
+    fun saveFavicon_replacesIconContentInPlaceWhenIconChanges() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val first = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888).apply {
+            eraseColor(android.graphics.Color.RED)
+        }
+        val second = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888).apply {
+            eraseColor(android.graphics.Color.BLUE)
+        }
+
+        val path = FaviconManager.saveFavicon(context, "test_tab_content", first)
+        val file = java.io.File(path!!)
+        val expectedSecond = java.io.ByteArrayOutputStream().use { out ->
+            second.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, out)
+            out.toByteArray()
+        }
+
+        val updatedPath = FaviconManager.saveFavicon(context, "test_tab_content", second)
+
+        assertThat(updatedPath).isEqualTo(path)
+        assertThat(file.exists()).isTrue()
+        assertThat(file.readBytes()).isEqualTo(expectedSecond)
+    }
+
+    @Test
+    fun saveFavicon_removesLegacyTimestampedFilesOfSameTab() = kotlinx.coroutines.test.runTest {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val bitmap = android.graphics.Bitmap.createBitmap(16, 16, android.graphics.Bitmap.Config.ARGB_8888)
+        val dir = java.io.File(context.filesDir, "favicons").apply { if (!exists()) mkdirs() }
+        val legacyFile = java.io.File(dir, "favicon_test_tab_legacy_123456.png").apply { writeBytes(byteArrayOf(1, 2, 3)) }
+
+        FaviconManager.saveFavicon(context, "test_tab_legacy", bitmap)
+
+        assertThat(legacyFile.exists()).isFalse()
     }
 
     @Test

@@ -64,7 +64,6 @@ import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.DownloadStatus
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.engine.download.DownloadProgressInfo
-import com.jestk.browser.util.FileSizeFormatter
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -80,6 +79,7 @@ import com.jestk.browser.ui.theme.SerenePaleBlue
 import com.jestk.browser.ui.theme.SereneShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.util.FileSizeFormatter
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -94,54 +94,56 @@ import java.util.Locale
 fun DownloadsScreen(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val isDark = uiState.settings.themeMode == ThemeMode.DARK
     val context = LocalContext.current
 
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(if (isDark) DarkBackground else SereneCanvasFloor)
-            .statusBarsPadding()
-            .navigationBarsPadding()
-            .padding(horizontal = 20.dp)
+        modifier =
+            modifier
+                .fillMaxSize()
+                .background(if (isDark) DarkBackground else SereneCanvasFloor)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp),
     ) {
         // Top Bar: Back Button, Screen Title, Close Button
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
                 onClick = { onEvent(BrowserUiEvent.HandleBackPress) },
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(44.dp),
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                     contentDescription = "Back",
                     tint = if (isDark) DarkOnSurface else SereneDarkText,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
 
             Text(
                 text = "Downloads",
                 style = LocalSereneTypography.current.headlineSm,
-                color = if (isDark) DarkOnSurface else SereneDarkText
+                color = if (isDark) DarkOnSurface else SereneDarkText,
             )
 
             IconButton(
                 onClick = { onEvent(BrowserUiEvent.HandleBackPress) },
-                modifier = Modifier.size(44.dp)
+                modifier = Modifier.size(44.dp),
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close",
                     tint = SereneMutedSlate,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(22.dp),
                 )
             }
         }
@@ -152,26 +154,27 @@ fun DownloadsScreen(
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = "Downloads",
                 style = LocalSereneTypography.current.headlineLg,
-                color = if (isDark) DarkOnSurface else SereneDarkText
+                color = if (isDark) DarkOnSurface else SereneDarkText,
             )
 
             if (uiState.downloads.isNotEmpty()) {
                 Surface(
                     shape = SereneShapes.Pill,
-                    color = if (isDark) DarkSurfaceVariant else SerenePaleBlue
+                    color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
                 ) {
                     Text(
                         text = "${uiState.downloads.size} ${if (uiState.downloads.size == 1) "file" else "files"}",
-                        style = LocalSereneTypography.current.labelSm.copy(
-                            fontWeight = FontWeight.SemiBold
-                        ),
+                        style =
+                            LocalSereneTypography.current.labelSm.copy(
+                                fontWeight = FontWeight.SemiBold,
+                            ),
                         color = SereneBrandPrimary,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
             }
@@ -184,15 +187,16 @@ fun DownloadsScreen(
             DownloadsEmptyState(isDark = isDark)
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false),
                 contentPadding = PaddingValues(bottom = 32.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(
                     items = uiState.downloads,
-                    key = { it.id }
+                    key = { it.id },
                 ) { item ->
                     val progressInfo = uiState.downloadProgressMap[item.id]
 
@@ -202,7 +206,9 @@ fun DownloadsScreen(
                         isDark = isDark,
                         onClick = {
                             val currentStatus = progressInfo?.status ?: item.status
-                            if (currentStatus == DownloadStatus.DOWNLOADING || currentStatus == DownloadStatus.PENDING || currentStatus == DownloadStatus.PAUSED) {
+                            if (currentStatus == DownloadStatus.DOWNLOADING || currentStatus == DownloadStatus.PENDING ||
+                                currentStatus == DownloadStatus.PAUSED
+                            ) {
                                 Toast.makeText(context, "Download in progress...", Toast.LENGTH_SHORT).show()
                             } else if (currentStatus == DownloadStatus.FAILED) {
                                 Toast.makeText(context, "Download failed. Tap retry to restart.", Toast.LENGTH_SHORT).show()
@@ -214,7 +220,7 @@ fun DownloadsScreen(
                         onResume = { onEvent(BrowserUiEvent.ResumeDownload(item.id)) },
                         onCancel = { onEvent(BrowserUiEvent.CancelDownload(item.id)) },
                         onRetry = { onEvent(BrowserUiEvent.RetryDownload(item.id)) },
-                        onDelete = { onEvent(BrowserUiEvent.DeleteDownload(item.id, deleteFile = true)) }
+                        onDelete = { onEvent(BrowserUiEvent.DeleteDownload(item.id, deleteFile = true)) },
                     )
                 }
             }
@@ -225,30 +231,35 @@ fun DownloadsScreen(
 @Composable
 private fun DownloadsEmptyState(
     isDark: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 56.dp),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(vertical = 56.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.Center,
     ) {
         Box(
-            modifier = Modifier
-                .size(76.dp)
-                .clip(CircleShape)
-                .background(
-                    if (isDark) DarkSurfaceVariant
-                    else SerenePaleBlue
-                ),
-            contentAlignment = Alignment.Center
+            modifier =
+                Modifier
+                    .size(76.dp)
+                    .clip(CircleShape)
+                    .background(
+                        if (isDark) {
+                            DarkSurfaceVariant
+                        } else {
+                            SerenePaleBlue
+                        },
+                    ),
+            contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Default.Download,
                 contentDescription = null,
                 tint = SereneBrandPrimary,
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             )
         }
 
@@ -257,7 +268,7 @@ private fun DownloadsEmptyState(
         Text(
             text = "No downloads yet",
             style = LocalSereneTypography.current.headlineSm,
-            color = if (isDark) DarkOnSurface else SereneDarkText
+            color = if (isDark) DarkOnSurface else SereneDarkText,
         )
 
         Spacer(modifier = Modifier.height(6.dp))
@@ -265,7 +276,7 @@ private fun DownloadsEmptyState(
         Text(
             text = "Files downloaded from websites will appear here",
             style = LocalSereneTypography.current.bodyMd,
-            color = SereneMutedSlate
+            color = SereneMutedSlate,
         )
     }
 }
@@ -281,7 +292,7 @@ private fun DownloadItemCard(
     onCancel: () -> Unit = {},
     onRetry: () -> Unit = {},
     onDelete: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val category = resolveFileCategory(item.fileName, item.mimeType)
 
@@ -297,16 +308,18 @@ private fun DownloadItemCard(
         color = if (isDark) DarkSurface else Color.White,
         border = SereneBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // Category Icon Badge
             CategoryIconBadge(category = category, isDark = isDark)
@@ -314,79 +327,89 @@ private fun DownloadItemCard(
             // File Info
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.Center
+                verticalArrangement = Arrangement.Center,
             ) {
                 Text(
                     text = item.fileName.ifEmpty { "download" },
-                    style = LocalSereneTypography.current.bodyMd.copy(
-                        fontWeight = FontWeight.SemiBold
-                    ),
+                    style =
+                        LocalSereneTypography.current.bodyMd.copy(
+                            fontWeight = FontWeight.SemiBold,
+                        ),
                     color = if (isDark) DarkOnSurface else SereneDarkText,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
 
                 Spacer(modifier = Modifier.height(3.dp))
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     when {
                         isDownloading -> {
                             val progressText = formatProgressText(bytesDownloaded, totalBytes)
                             Text(
                                 text = progressText,
-                                style = LocalSereneTypography.current.bodySm.copy(
-                                    fontWeight = FontWeight.SemiBold
-                                ),
-                                color = SereneBrandPrimary
+                                style =
+                                    LocalSereneTypography.current.bodySm.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                    ),
+                                color = SereneBrandPrimary,
                             )
                             if (progressInfo?.speedBytesPerSec != null && progressInfo.speedBytesPerSec > 0) {
                                 Text(
                                     text = "·",
-                                    style = LocalSereneTypography.current.bodySm.copy(
-                                        fontWeight = FontWeight.Bold
-                                    ),
-                                    color = SereneMutedSlate
+                                    style =
+                                        LocalSereneTypography.current.bodySm.copy(
+                                            fontWeight = FontWeight.Bold,
+                                        ),
+                                    color = SereneMutedSlate,
                                 )
                                 Text(
                                     text = "${formatFileSize(progressInfo.speedBytesPerSec)}/s",
-                                    style = LocalSereneTypography.current.bodySm.copy(
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    color = SereneMutedSlate
+                                    style =
+                                        LocalSereneTypography.current.bodySm.copy(
+                                            fontWeight = FontWeight.Medium,
+                                        ),
+                                    color = SereneMutedSlate,
                                 )
                             }
                         }
+
                         isPaused -> {
                             val progressText = formatProgressText(bytesDownloaded, totalBytes)
                             Text(
                                 text = "Paused · $progressText",
-                                style = LocalSereneTypography.current.bodySm.copy(
-                                    fontWeight = FontWeight.SemiBold
-                                ),
-                                color = Color(0xFFF59E0B)
+                                style =
+                                    LocalSereneTypography.current.bodySm.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                    ),
+                                color = Color(0xFFF59E0B),
                             )
                         }
+
                         isFailed -> {
                             Text(
                                 text = "Download failed",
-                                style = LocalSereneTypography.current.bodySm.copy(
-                                    fontWeight = FontWeight.SemiBold
-                                ),
-                                color = Color(0xFFEF4444)
+                                style =
+                                    LocalSereneTypography.current.bodySm.copy(
+                                        fontWeight = FontWeight.SemiBold,
+                                    ),
+                                color = Color(0xFFEF4444),
                             )
                         }
+
                         else -> {
                             val sizeStr = formatFileSize(if (totalBytes > 0L) totalBytes else item.contentLength)
                             if (sizeStr.isNotEmpty()) {
                                 Text(
                                     text = sizeStr,
-                                    style = LocalSereneTypography.current.bodySm.copy(
-                                        fontWeight = FontWeight.Medium
-                                    ),
-                                    color = SereneMutedSlate
+                                    style =
+                                        LocalSereneTypography.current.bodySm.copy(
+                                            fontWeight = FontWeight.Medium,
+                                        ),
+                                    color = SereneMutedSlate,
                                 )
                             }
 
@@ -394,16 +417,17 @@ private fun DownloadItemCard(
                                 if (sizeStr.isNotEmpty()) {
                                     Text(
                                         text = "·",
-                                        style = LocalSereneTypography.current.bodySm.copy(
-                                            fontWeight = FontWeight.Bold
-                                        ),
-                                        color = SereneMutedSlate
+                                        style =
+                                            LocalSereneTypography.current.bodySm.copy(
+                                                fontWeight = FontWeight.Bold,
+                                            ),
+                                        color = SereneMutedSlate,
                                     )
                                 }
                                 Text(
                                     text = formatTimestamp(item.timestamp),
                                     style = LocalSereneTypography.current.bodySm,
-                                    color = SereneMutedSlate
+                                    color = SereneMutedSlate,
                                 )
                             }
                         }
@@ -416,21 +440,23 @@ private fun DownloadItemCard(
                     if (fraction != null) {
                         LinearProgressIndicator(
                             progress = { fraction },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp)),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
                             color = if (isPaused) Color(0xFFF59E0B) else SereneBrandPrimary,
-                            trackColor = if (isDark) DarkSurfaceVariant else SerenePaleBlue
+                            trackColor = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
                         )
                     } else {
                         LinearProgressIndicator(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(4.dp)
-                                .clip(RoundedCornerShape(2.dp)),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(4.dp)
+                                    .clip(RoundedCornerShape(2.dp)),
                             color = if (isPaused) Color(0xFFF59E0B) else SereneBrandPrimary,
-                            trackColor = if (isDark) DarkSurfaceVariant else SerenePaleBlue
+                            trackColor = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
                         )
                     }
                 }
@@ -439,91 +465,94 @@ private fun DownloadItemCard(
             // Action Buttons
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 when {
                     isDownloading -> {
                         IconButton(
                             onClick = onPause,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(36.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Pause,
                                 contentDescription = "Pause download",
                                 tint = SereneBrandPrimary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                         IconButton(
                             onClick = onCancel,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(36.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Cancel download",
                                 tint = SereneMutedSlate,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
+
                     isPaused -> {
                         IconButton(
                             onClick = onResume,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(36.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = "Resume download",
                                 tint = SereneBrandPrimary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                         IconButton(
                             onClick = onCancel,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(36.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Cancel download",
                                 tint = SereneMutedSlate,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
+
                     isFailed -> {
                         IconButton(
                             onClick = onRetry,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(36.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Retry download",
                                 tint = SereneBrandPrimary,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                         IconButton(
                             onClick = onDelete,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(36.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.DeleteOutline,
                                 contentDescription = "Delete download",
                                 tint = SereneMutedSlate,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
+
                     else -> {
                         IconButton(
                             onClick = onDelete,
-                            modifier = Modifier.size(36.dp)
+                            modifier = Modifier.size(36.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.DeleteOutline,
                                 contentDescription = "Delete download",
                                 tint = SereneMutedSlate,
-                                modifier = Modifier.size(20.dp)
+                                modifier = Modifier.size(20.dp),
                             )
                         }
                     }
@@ -537,72 +566,94 @@ private fun DownloadItemCard(
 private fun CategoryIconBadge(
     category: FileCategory,
     isDark: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    val (icon, bgLight, bgDark, tintLight, tintDark) = when (category) {
-        FileCategory.IMAGE -> CategoryStyle(
-            Icons.Default.Image,
-            Color(0xFFE0F2FE),
-            Color(0xFF0C4A6E),
-            Color(0xFF0284C7),
-            Color(0xFF38BDF8)
-        )
-        FileCategory.VIDEO -> CategoryStyle(
-            Icons.Default.VideoFile,
-            SerenePaleBlue,
-            Color(0xFF1E3A8A),
-            SereneBrandPrimary,
-            Color(0xFF93C5FD)
-        )
-        FileCategory.AUDIO -> CategoryStyle(
-            Icons.Default.AudioFile,
-            Color(0xFFFCE7F3),
-            Color(0xFF831843),
-            Color(0xFFDB2777),
-            Color(0xFFF472B6)
-        )
-        FileCategory.DOCUMENT -> CategoryStyle(
-            Icons.Default.Description,
-            Color(0xFFFEF3C7),
-            Color(0xFF78350F),
-            Color(0xFFD97706),
-            Color(0xFFFBBF24)
-        )
-        FileCategory.ARCHIVE -> CategoryStyle(
-            Icons.Default.FolderZip,
-            Color(0xFFEDE9FE),
-            Color(0xFF4C1D95),
-            Color(0xFF7C3AED),
-            Color(0xFFA78BFA)
-        )
-        FileCategory.APK -> CategoryStyle(
-            Icons.Default.Android,
-            Color(0xFFDCFCE7),
-            Color(0xFF14532D),
-            Color(0xFF16A34A),
-            Color(0xFF4ADE80)
-        )
-        FileCategory.OTHER -> CategoryStyle(
-            Icons.AutoMirrored.Filled.InsertDriveFile,
-            SerenePaleBlue,
-            DarkSurfaceVariant,
-            SereneMutedSlate,
-            SereneMutedSlate
-        )
-    }
+    val (icon, bgLight, bgDark, tintLight, tintDark) =
+        when (category) {
+            FileCategory.IMAGE -> {
+                CategoryStyle(
+                    Icons.Default.Image,
+                    Color(0xFFE0F2FE),
+                    Color(0xFF0C4A6E),
+                    Color(0xFF0284C7),
+                    Color(0xFF38BDF8),
+                )
+            }
+
+            FileCategory.VIDEO -> {
+                CategoryStyle(
+                    Icons.Default.VideoFile,
+                    SerenePaleBlue,
+                    Color(0xFF00504A),
+                    SereneBrandPrimary,
+                    Color(0xFF6FD9CE),
+                )
+            }
+
+            FileCategory.AUDIO -> {
+                CategoryStyle(
+                    Icons.Default.AudioFile,
+                    Color(0xFFFCE7F3),
+                    Color(0xFF831843),
+                    Color(0xFFDB2777),
+                    Color(0xFFF472B6),
+                )
+            }
+
+            FileCategory.DOCUMENT -> {
+                CategoryStyle(
+                    Icons.Default.Description,
+                    Color(0xFFFEF3C7),
+                    Color(0xFF78350F),
+                    Color(0xFFD97706),
+                    Color(0xFFFBBF24),
+                )
+            }
+
+            FileCategory.ARCHIVE -> {
+                CategoryStyle(
+                    Icons.Default.FolderZip,
+                    Color(0xFFEDE9FE),
+                    Color(0xFF4C1D95),
+                    Color(0xFF7C3AED),
+                    Color(0xFFA78BFA),
+                )
+            }
+
+            FileCategory.APK -> {
+                CategoryStyle(
+                    Icons.Default.Android,
+                    Color(0xFFDCFCE7),
+                    Color(0xFF14532D),
+                    Color(0xFF16A34A),
+                    Color(0xFF4ADE80),
+                )
+            }
+
+            FileCategory.OTHER -> {
+                CategoryStyle(
+                    Icons.AutoMirrored.Filled.InsertDriveFile,
+                    SerenePaleBlue,
+                    DarkSurfaceVariant,
+                    SereneMutedSlate,
+                    SereneMutedSlate,
+                )
+            }
+        }
 
     Box(
-        modifier = modifier
-            .size(42.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isDark) bgDark else bgLight),
-        contentAlignment = Alignment.Center
+        modifier =
+            modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .background(if (isDark) bgDark else bgLight),
+        contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = if (isDark) tintDark else tintLight,
-            modifier = Modifier.size(22.dp)
+            modifier = Modifier.size(22.dp),
         )
     }
 }
@@ -612,45 +663,64 @@ private data class CategoryStyle(
     val bgLight: Color,
     val bgDark: Color,
     val tintLight: Color,
-    val tintDark: Color
+    val tintDark: Color,
 )
 
 private enum class FileCategory {
-    IMAGE, VIDEO, AUDIO, DOCUMENT, ARCHIVE, APK, OTHER
+    IMAGE,
+    VIDEO,
+    AUDIO,
+    DOCUMENT,
+    ARCHIVE,
+    APK,
+    OTHER,
 }
 
-private fun resolveFileCategory(fileName: String, mimeType: String?): FileCategory {
+private fun resolveFileCategory(
+    fileName: String,
+    mimeType: String?,
+): FileCategory {
     val ext = fileName.substringAfterLast('.', "").lowercase(Locale.ROOT)
     val mime = mimeType?.lowercase(Locale.ROOT) ?: ""
 
     return when {
-        mime.startsWith("image/") || ext in setOf("png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico") ->
+        mime.startsWith("image/") || ext in setOf("png", "jpg", "jpeg", "gif", "webp", "svg", "bmp", "ico") -> {
             FileCategory.IMAGE
+        }
 
-        mime.startsWith("video/") || ext in setOf("mp4", "mkv", "webm", "avi", "mov", "3gp", "flv") ->
+        mime.startsWith("video/") || ext in setOf("mp4", "mkv", "webm", "avi", "mov", "3gp", "flv") -> {
             FileCategory.VIDEO
+        }
 
-        mime.startsWith("audio/") || ext in setOf("mp3", "m4a", "wav", "ogg", "flac", "aac", "opus", "wma") ->
+        mime.startsWith("audio/") || ext in setOf("mp3", "m4a", "wav", "ogg", "flac", "aac", "opus", "wma") -> {
             FileCategory.AUDIO
+        }
 
-        mime.contains("pdf") || ext in setOf("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "csv") ->
+        mime.contains("pdf") || ext in setOf("pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "txt", "rtf", "csv") -> {
             FileCategory.DOCUMENT
+        }
 
         mime.contains("zip") || mime.contains("tar") || mime.contains("rar") ||
-                ext in setOf("zip", "rar", "7z", "tar", "gz", "bz2", "xz") ->
+            ext in setOf("zip", "rar", "7z", "tar", "gz", "bz2", "xz") -> {
             FileCategory.ARCHIVE
+        }
 
-        mime.contains("android.package-archive") || ext == "apk" ->
+        mime.contains("android.package-archive") || ext == "apk" -> {
             FileCategory.APK
+        }
 
-        else -> FileCategory.OTHER
+        else -> {
+            FileCategory.OTHER
+        }
     }
 }
 
 fun formatFileSize(bytes: Long): String = FileSizeFormatter.formatFileSize(bytes)
 
-fun formatProgressText(bytesDownloaded: Long, totalBytes: Long): String =
-    FileSizeFormatter.formatProgressText(bytesDownloaded, totalBytes)
+fun formatProgressText(
+    bytesDownloaded: Long,
+    totalBytes: Long,
+): String = FileSizeFormatter.formatProgressText(bytesDownloaded, totalBytes)
 
 fun formatTimestamp(timestamp: Long): String {
     if (timestamp <= 0L) return ""
@@ -658,7 +728,10 @@ fun formatTimestamp(timestamp: Long): String {
     return sdf.format(Date(timestamp))
 }
 
-private fun openDownloadedFile(context: Context, download: DownloadItem) {
+private fun openDownloadedFile(
+    context: Context,
+    download: DownloadItem,
+) {
     try {
         val file = File(download.filePath)
         if (!file.exists()) {
@@ -666,25 +739,28 @@ private fun openDownloadedFile(context: Context, download: DownloadItem) {
             return
         }
 
-        val uri: Uri = try {
-            FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file
-            )
-        } catch (_: Exception) {
-            Uri.fromFile(file)
-        }
+        val uri: Uri =
+            try {
+                FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file,
+                )
+            } catch (_: Exception) {
+                Uri.fromFile(file)
+            }
 
-        val mime = download.mimeType
-            ?: getMimeTypeFromExtension(download.fileName)
-            ?: "*/*"
+        val mime =
+            download.mimeType
+                ?: getMimeTypeFromExtension(download.fileName)
+                ?: "*/*"
 
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, mime)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
+        val intent =
+            Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, mime)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
 
         val chooser = Intent.createChooser(intent, "Open with")
         chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -708,7 +784,7 @@ fun DownloadsScreenLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
         DownloadsScreen(
             uiState = BrowserUiState(),
-            onEvent = {}
+            onEvent = {},
         )
     }
 }
@@ -719,7 +795,7 @@ fun DownloadsScreenDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         DownloadsScreen(
             uiState = BrowserUiState(),
-            onEvent = {}
+            onEvent = {},
         )
     }
 }

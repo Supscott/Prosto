@@ -134,7 +134,7 @@ class SearchEngineSwitcherEditPreviewTest {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFF0F172A))
+                    .background(Color(0xFF0E1513))
                     .padding(24.dp),
                 horizontalArrangement = Arrangement.spacedBy(24.dp)
             ) {

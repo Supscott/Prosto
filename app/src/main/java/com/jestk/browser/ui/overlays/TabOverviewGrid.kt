@@ -80,7 +80,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
-import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
@@ -489,39 +489,28 @@ private fun TwoColumnGridTabCard(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     // Favicon / Icon
-                    var isFaviconSuccess by remember(tab.faviconUrl) { mutableStateOf(false) }
-                    val imageModel = remember(tab.faviconUrl) {
-                        FaviconManager.toImageModel(tab.faviconUrl)
-                    }
-
-                    if (!isFaviconSuccess) {
-                        Box(
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Language,
-                                contentDescription = null,
-                                tint = SereneBrandPrimary,
-                                modifier = Modifier.size(12.dp)
-                            )
+                    SiteFavicon(
+                        faviconUrl = tab.faviconUrl,
+                        imageSize = 16.dp,
+                        containerSize = 18.dp,
+                        shape = CircleShape,
+                        placeholder = {
+                            Box(
+                                modifier = Modifier
+                                    .size(18.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Language,
+                                    contentDescription = null,
+                                    tint = SereneBrandPrimary,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                            }
                         }
-                    }
-
-                    if (imageModel != null) {
-                        AsyncImage(
-                            model = imageModel,
-                            contentDescription = null,
-                            modifier = Modifier
-                                .size(16.dp)
-                                .clip(CircleShape),
-                            onSuccess = { isFaviconSuccess = true },
-                            onError = { isFaviconSuccess = false }
-                        )
-                    }
+                    )
 
                     // Title
                     Text(

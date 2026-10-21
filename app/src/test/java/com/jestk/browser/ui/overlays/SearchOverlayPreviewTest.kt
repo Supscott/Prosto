@@ -353,7 +353,7 @@ val width = 440
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFFEAF1FF))
+                            .background(Color(0xFFDFF7F3))
                             .padding(24.dp),
                         horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.Top
@@ -396,7 +396,7 @@ val width = 440
                         JestkBrowserTheme(themeMode = ThemeMode.DARK) {
                             Column(
                                 modifier = Modifier
-                                    .background(Color(0xFF0F172A))
+                                    .background(Color(0xFF0E1513))
                                     .padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally
@@ -670,7 +670,7 @@ val width = 440
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(0xFFEAF1FF))
+                            .background(Color(0xFFDFF7F3))
                             .padding(24.dp),
                         horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
                         verticalAlignment = Alignment.Top
@@ -691,7 +691,7 @@ val width = 440
                         JestkBrowserTheme(themeMode = ThemeMode.DARK) {
                             Column(
                                 modifier = Modifier
-                                    .background(Color(0xFF0F172A))
+                                    .background(Color(0xFF0E1513))
                                     .padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(16.dp),
                                 horizontalAlignment = Alignment.CenterHorizontally

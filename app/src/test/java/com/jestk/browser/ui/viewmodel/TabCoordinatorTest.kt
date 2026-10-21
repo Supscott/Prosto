@@ -547,8 +547,8 @@ class TabCoordinatorTest {
             coordinator.handleExternalAppOffered(activeTabId, prompt)
             assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
 
-            // Dismiss with rememberDomain = true
-            coordinator.dismissExternalAppPrompt(rememberDomain = true)
+            // Dismiss explicitly with ExternalAppDismissReason.EXPLICIT
+            coordinator.dismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT)
             assertThat(uiState.externalAppPrompt).isNull()
 
             // Subsequent offer for same domain is suppressed
@@ -672,13 +672,76 @@ class TabCoordinatorTest {
             coordinator.handleExternalAppOffered(activeTabId, prompt)
             assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
 
-            // The pill timed out instead of being dismissed by the user.
-            coordinator.dismissExternalAppPrompt(rememberDomain = false)
+            // Transient dismissal (e.g. app opened or transient dismissal)
+            coordinator.dismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT)
             assertThat(uiState.externalAppPrompt).isNull()
 
             val secondPrompt = prompt.copy(id = "prompt_timeout_retry")
             coordinator.handleExternalAppOffered(activeTabId, secondPrompt)
             assertThat(uiState.externalAppPrompt).isEqualTo(secondPrompt)
+        }
+
+    @Test
+    fun handleExternalAppOffered_whenExplicitlyDismissed_suppressesEvenForUserInitiated() =
+        testScope.runTest {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            val prompt = com.jestk.browser.domain.model.ExternalAppPrompt(
+                tabId = activeTabId,
+                appName = "Reddit",
+                appPackage = "com.reddit.frontpage",
+                intentUri = "https://reddit.com/r/android",
+                isInstalled = true,
+                domain = "reddit.com"
+            )
+
+            coordinator.handleExternalAppOffered(activeTabId, prompt, userInitiated = true)
+            assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
+
+            // User explicitly clicked "X" to dismiss the pill
+            coordinator.dismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT)
+            assertThat(uiState.externalAppPrompt).isNull()
+
+            // Deliberate user tap must STILL be suppressed on this tab because user explicitly dismissed it
+            val secondPrompt = prompt.copy(id = "prompt_explicit_retry")
+            coordinator.handleExternalAppOffered(activeTabId, secondPrompt, userInitiated = true)
+            assertThat(uiState.externalAppPrompt).isNull()
+        }
+
+    @Test
+    fun handleExternalAppOffered_whenTimedOut_suppressesPassiveOffersButAllowsUserInitiated() =
+        testScope.runTest {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            val prompt = com.jestk.browser.domain.model.ExternalAppPrompt(
+                tabId = activeTabId,
+                appName = "Reddit",
+                appPackage = "com.reddit.frontpage",
+                intentUri = "https://reddit.com/r/android",
+                isInstalled = true,
+                domain = "reddit.com"
+            )
+
+            coordinator.handleExternalAppOffered(activeTabId, prompt, userInitiated = false)
+            assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
+
+            // Auto-timeout
+            coordinator.dismissExternalAppPrompt(ExternalAppDismissReason.TIMEOUT)
+            assertThat(uiState.externalAppPrompt).isNull()
+
+            // Passive offer remains suppressed (anti-nag)
+            val passiveRetry = prompt.copy(id = "prompt_passive_retry")
+            coordinator.handleExternalAppOffered(activeTabId, passiveRetry, userInitiated = false)
+            assertThat(uiState.externalAppPrompt).isNull()
+
+            // But deliberate user tap bypasses timeout suppression!
+            val userTap = prompt.copy(id = "prompt_user_tap")
+            coordinator.handleExternalAppOffered(activeTabId, userTap, userInitiated = true)
+            assertThat(uiState.externalAppPrompt).isEqualTo(userTap)
         }
 
     @Test
@@ -700,7 +763,7 @@ class TabCoordinatorTest {
             )
 
             coordinator.handleExternalAppOffered(tabId, prompt)
-            coordinator.dismissExternalAppPrompt(rememberDomain = true)
+            coordinator.dismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT)
             assertThat(uiState.externalAppPrompt).isNull()
 
             // Same URL opened again from another app: the tab is reused, but the notification

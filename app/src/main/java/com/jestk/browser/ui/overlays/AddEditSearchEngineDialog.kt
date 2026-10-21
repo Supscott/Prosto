@@ -505,7 +505,7 @@ internal fun AddEditSearchEngineDialogDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         Box(
             modifier = Modifier
-                .background(Color(0xFF0F172A))
+                .background(Color(0xFF0E1513))
                 .padding(16.dp),
         ) {
             AddEditSearchEngineDialogContent(

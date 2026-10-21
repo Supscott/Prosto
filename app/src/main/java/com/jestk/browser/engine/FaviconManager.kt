@@ -112,9 +112,7 @@ object FaviconManager {
             }
             val sanitized = sanitizeHost(host)
             val domainFile = File(dir, "domain_$sanitized.png")
-            FileOutputStream(domainFile).use { out ->
-                icon.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
+            writeIconAtomically(domainFile, icon)
             val path = domainFile.absolutePath
             domainFaviconCache[host] = path
             path
@@ -142,7 +140,10 @@ object FaviconManager {
                 val sanitized = sanitizeHost(host)
                 val targetFile = File(dir, "domain_$sanitized.png")
                 if (sourceFile.absolutePath != targetFile.absolutePath) {
-                    sourceFile.copyTo(targetFile, overwrite = true)
+                    val bytes = sourceFile.readBytes()
+                    if (!targetFile.exists() || targetFile.length() != bytes.size.toLong() || !targetFile.readBytes().contentEquals(bytes)) {
+                        writeBytesAtomically(targetFile, bytes)
+                    }
                 }
                 val path = targetFile.absolutePath
                 domainFaviconCache[host] = path
@@ -195,6 +196,17 @@ object FaviconManager {
         }
     }
 
+    /**
+     * Persists the favicon of a tab under a stable per-tab path (`favicon_<tabId>.png`).
+     *
+     * The path never changes for a given tab: pages report their icon repeatedly (every navigation
+     * and, for dynamic sites, several times per second), and a timestamped file would publish a new
+     * URL on every report. That forces every UI bound to the favicon to drop and reload the image,
+     * which shows up as a flickering icon in the dock.
+     *
+     * The file is replaced atomically and only when the bitmap actually changed, so the
+     * modification time stays stable and image loaders keep their cache entry valid.
+     */
     suspend fun saveFavicon(
         context: Context,
         tabId: String,
@@ -206,13 +218,12 @@ object FaviconManager {
             val dir = File(context.applicationContext.filesDir, "favicons").apply {
                 if (!exists()) mkdirs()
             }
-            val targetFile = File(dir, "favicon_${tabId}_${System.currentTimeMillis()}.png")
-            FileOutputStream(targetFile).use { out ->
-                icon.compress(Bitmap.CompressFormat.PNG, 100, out)
-            }
-            // Clean up previous tab favicon files for this tab
+            val targetFile = File(dir, "favicon_$tabId.png")
+            writeIconAtomically(targetFile, icon)
+
+            // Drop legacy timestamped files left by older versions of the app.
             dir.listFiles { _, name ->
-                (name.startsWith("favicon_${tabId}_") || name == "favicon_${tabId}.png") && name != targetFile.name
+                name.startsWith("favicon_${tabId}_")
             }?.forEach { it.delete() }
 
             if (!pageUrl.isNullOrBlank()) {
@@ -222,6 +233,41 @@ object FaviconManager {
             targetFile.absolutePath
         } catch (_: Exception) {
             null
+        }
+    }
+
+    /**
+     * Writes [icon] as PNG to [target], replacing the file atomically.
+     *
+     * The previous content is kept when the encoded bytes are identical, so the modification time
+     * of an unchanged icon stays untouched and image loaders do not discard their cache entry.
+     */
+    private fun writeIconAtomically(target: File, icon: Bitmap) {
+        val encoded = java.io.ByteArrayOutputStream().use { out ->
+            icon.compress(Bitmap.CompressFormat.PNG, 100, out)
+            out.toByteArray()
+        }
+        if (target.exists() && target.length() == encoded.size.toLong() && target.readBytes().contentEquals(encoded)) {
+            return
+        }
+        writeBytesAtomically(target, encoded)
+    }
+
+    /**
+     * Writes [bytes] to [target] through a temporary file so readers never observe a partial image.
+     */
+    private fun writeBytesAtomically(target: File, bytes: ByteArray) {
+        val temp = File(target.parentFile, "${target.name}.tmp")
+        try {
+            FileOutputStream(temp).use { out -> out.write(bytes) }
+            if (!temp.renameTo(target)) {
+                target.delete()
+                if (!temp.renameTo(target)) {
+                    FileOutputStream(target).use { out -> out.write(bytes) }
+                }
+            }
+        } finally {
+            if (temp.exists()) temp.delete()
         }
     }
 
@@ -237,7 +283,9 @@ object FaviconManager {
             val dir = File(context.applicationContext.filesDir, "favicons")
             if (dir.exists()) {
                 dir.listFiles { _, name ->
-                    name.startsWith("favicon_${tabId}_") || name == "favicon_${tabId}.png"
+                    name == "favicon_$tabId.png" ||
+                        name == "favicon_$tabId.png.tmp" ||
+                        name.startsWith("favicon_${tabId}_")
                 }?.forEach { it.delete() }
             }
         } catch (_: Throwable) {}

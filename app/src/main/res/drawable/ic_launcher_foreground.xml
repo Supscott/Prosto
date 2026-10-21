@@ -1,12 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Adaptive icon foreground: brand mark from app/src/main/assets/icon/app-icon.svg.
+     The mark is scaled to 57.1% of the visible 72dp launcher mask - the same
+     proportion it has on the mint tile - so the logo does not fill the icon. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#007AFF"
-        android:pathData="M54,20 C35.2,20 20,35.2 20,54 C20,72.8 35.2,88 54,88 C72.8,88 88,72.8 88,54 C88,35.2 72.8,20 54,20 Z M54,28 C68.4,28 80,39.6 80,54 C80,68.4 68.4,80 54,80 C39.6,80 28,68.4 28,54 C28,39.6 39.6,28 54,28 Z" />
-    <path
-        android:fillColor="#007AFF"
-        android:pathData="M54,34 L62,50 L46,58 Z" />
+    <group
+        android:scaleX="0.8993"
+        android:scaleY="0.8993"
+        android:translateX="18.63"
+        android:translateY="17.75">
+        <path
+            android:fillColor="#087E78"
+            android:pathData="M59.6874,25.125C51.3749,15.9375 36.2812,18.125 26.6562,26.2188C16.1562,34.9688 13.7499,47.2188 19.6562,55.3125C25.7812,63.8438 39.1249,63.1875 49.6249,56.4063C55.0937,52.9063 59.6874,47.6563 62.3124,41.9688L53.3437,37.5938C51.1562,41.9688 47.8749,45.6875 43.9374,48.3125C37.3749,52.6875 30.5937,53.125 27.9687,49.625C25.1249,45.9063 27.7499,39.5625 33.4374,34.75C39.5624,29.5 47.8749,27.9688 52.4687,32.5625L59.6874,25.125Z" />
+    </group>
 </vector>

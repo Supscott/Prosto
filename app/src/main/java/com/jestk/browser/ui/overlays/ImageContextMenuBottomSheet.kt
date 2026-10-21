@@ -278,7 +278,7 @@ fun ImageContextMenuContent(
         ContextMenuActionRow(
             icon = Icons.Default.Download,
             iconTint = SereneAccent,
-            iconBg = if (isDark) DarkSurfaceVariant else Color(0xFFEFF6FF),
+            iconBg = if (isDark) DarkSurfaceVariant else Color(0xFFDFF7F3),
             title = stringResource(R.string.download_image),
             titleColor = textColor,
             onClick = {
@@ -290,7 +290,7 @@ fun ImageContextMenuContent(
     }
 }
 
-@Preview(name = "Image Context Menu Light", showBackground = true, backgroundColor = 0xFFF1F7FC)
+@Preview(name = "Image Context Menu Light", showBackground = true, backgroundColor = 0xFFE9F6F2)
 @Composable
 fun ImageContextMenuLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
@@ -309,7 +309,7 @@ fun ImageContextMenuLightPreview() {
     }
 }
 
-@Preview(name = "Image Context Menu Dark", showBackground = true, backgroundColor = 0xFF0F172A)
+@Preview(name = "Image Context Menu Dark", showBackground = true, backgroundColor = 0xFF0E1513)
 @Composable
 fun ImageContextMenuDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {

@@ -19,7 +19,6 @@ import java.io.IOException
 
 @RunWith(RobolectricTestRunner::class)
 class SettingsRepositoryTest {
-
     private lateinit var db: AppDatabase
     private lateinit var repository: SettingsRepository
     private val testDispatcher = StandardTestDispatcher()
@@ -38,102 +37,145 @@ class SettingsRepositoryTest {
     }
 
     @Test
-    fun getSettings_returnsDefaultsInitially() = runTest(testDispatcher) {
-        val settings = repository.getCurrentSettings()
-        assertThat(settings.themeMode).isEqualTo(ThemeMode.SYSTEM)
-        assertThat(settings.searchEngine).isEqualTo(SearchEngine.DUCKDUCKGO)
-        assertThat(settings.isAdBlockerEnabled).isTrue()
-    }
+    fun getSettings_returnsDefaultsInitially() =
+        runTest(testDispatcher) {
+            val settings = repository.getCurrentSettings()
+            assertThat(settings.themeMode).isEqualTo(ThemeMode.SYSTEM)
+            assertThat(settings.searchEngine).isEqualTo(SearchEngine.DUCKDUCKGO)
+            assertThat(settings.isAdBlockerEnabled).isTrue()
+        }
 
     @Test
-    fun setThemeMode_persistsAndEmits() = runTest(testDispatcher) {
-        repository.setThemeMode(ThemeMode.DARK)
+    fun setThemeMode_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setThemeMode(ThemeMode.DARK)
 
-        val settings = repository.getSettings().first()
-        assertThat(settings.themeMode).isEqualTo(ThemeMode.DARK)
-    }
-
-    @Test
-    fun setSearchEngine_persistsAndEmits() = runTest(testDispatcher) {
-        repository.setSearchEngine(SearchEngine.GOOGLE)
-
-        val settings = repository.getSettings().first()
-        assertThat(settings.searchEngine).isEqualTo(SearchEngine.GOOGLE)
-    }
+            val settings = repository.getSettings().first()
+            assertThat(settings.themeMode).isEqualTo(ThemeMode.DARK)
+        }
 
     @Test
-    fun setAdBlockerEnabled_persistsAndEmits() = runTest(testDispatcher) {
-        repository.setAdBlockerEnabled(false)
+    fun setSearchEngine_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setSearchEngine(SearchEngine.GOOGLE)
 
-        val settings = repository.getSettings().first()
-        assertThat(settings.isAdBlockerEnabled).isFalse()
-    }
-
-    @Test
-    fun getBlockedCounts_returnsZeroInitially() = runTest(testDispatcher) {
-        val adsCount = repository.getBlockedAdsCount().first()
-        val trackersCount = repository.getBlockedTrackersCount().first()
-
-        assertThat(adsCount).isEqualTo(0L)
-        assertThat(trackersCount).isEqualTo(0L)
-    }
+            val settings = repository.getSettings().first()
+            assertThat(settings.searchEngine).isEqualTo(SearchEngine.GOOGLE)
+        }
 
     @Test
-    fun incrementBlockedAds_incrementsAndEmits() = runTest(testDispatcher) {
-        repository.incrementBlockedAds(1)
-        assertThat(repository.getBlockedAdsCount().first()).isEqualTo(1L)
+    fun setAdBlockerEnabled_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setAdBlockerEnabled(false)
 
-        repository.incrementBlockedAds(4)
-        assertThat(repository.getBlockedAdsCount().first()).isEqualTo(5L)
-    }
-
-    @Test
-    fun incrementBlockedTrackers_incrementsAndEmits() = runTest(testDispatcher) {
-        repository.incrementBlockedTrackers(1)
-        assertThat(repository.getBlockedTrackersCount().first()).isEqualTo(1L)
-
-        repository.incrementBlockedTrackers(7)
-        assertThat(repository.getBlockedTrackersCount().first()).isEqualTo(8L)
-    }
+            val settings = repository.getSettings().first()
+            assertThat(settings.isAdBlockerEnabled).isFalse()
+        }
 
     @Test
-    fun getSettings_hiddenSearchPageEngines_defaultsToEmptySet() = runTest(testDispatcher) {
-        val settings = repository.getCurrentSettings()
-        assertThat(settings.hiddenSearchPageEngineIds).isEmpty()
-    }
+    fun getBlockedCounts_returnsZeroInitially() =
+        runTest(testDispatcher) {
+            val adsCount = repository.getBlockedAdsCount().first()
+            val trackersCount = repository.getBlockedTrackersCount().first()
+
+            assertThat(adsCount).isEqualTo(0L)
+            assertThat(trackersCount).isEqualTo(0L)
+        }
 
     @Test
-    fun setHiddenSearchPageEngineIds_persistsAndEmits() = runTest(testDispatcher) {
-        val enginesToHide = setOf("bing", "yahoo", "ecosia")
-        repository.setHiddenSearchPageEngineIds(enginesToHide)
+    fun incrementBlockedAds_incrementsAndEmits() =
+        runTest(testDispatcher) {
+            repository.incrementBlockedAds(1)
+            assertThat(repository.getBlockedAdsCount().first()).isEqualTo(1L)
 
-        val settings = repository.getSettings().first()
-        assertThat(settings.hiddenSearchPageEngineIds).containsExactly("bing", "yahoo", "ecosia")
-
-        val current = repository.getCurrentSettings()
-        assertThat(current.hiddenSearchPageEngineIds).containsExactly("bing", "yahoo", "ecosia")
-
-        // Clearing hidden engines
-        repository.setHiddenSearchPageEngineIds(emptySet())
-        val cleared = repository.getCurrentSettings()
-        assertThat(cleared.hiddenSearchPageEngineIds).isEmpty()
-    }
+            repository.incrementBlockedAds(4)
+            assertThat(repository.getBlockedAdsCount().first()).isEqualTo(5L)
+        }
 
     @Test
-    fun setOpenInAppsEnabled_persistsAndEmits() = runTest(testDispatcher) {
-        val initial = repository.getCurrentSettings()
-        assertThat(initial.isOpenInAppsEnabled).isTrue()
+    fun incrementBlockedTrackers_incrementsAndEmits() =
+        runTest(testDispatcher) {
+            repository.incrementBlockedTrackers(1)
+            assertThat(repository.getBlockedTrackersCount().first()).isEqualTo(1L)
 
-        repository.setOpenInAppsEnabled(false)
+            repository.incrementBlockedTrackers(7)
+            assertThat(repository.getBlockedTrackersCount().first()).isEqualTo(8L)
+        }
 
-        val updated = repository.getSettings().first()
-        assertThat(updated.isOpenInAppsEnabled).isFalse()
+    @Test
+    fun getSettings_hiddenSearchPageEngines_defaultsToEmptySet() =
+        runTest(testDispatcher) {
+            val settings = repository.getCurrentSettings()
+            assertThat(settings.hiddenSearchPageEngineIds).isEmpty()
+        }
 
-        val current = repository.getCurrentSettings()
-        assertThat(current.isOpenInAppsEnabled).isFalse()
+    @Test
+    fun setHiddenSearchPageEngineIds_persistsAndEmits() =
+        runTest(testDispatcher) {
+            val enginesToHide = setOf("bing", "yahoo", "ecosia")
+            repository.setHiddenSearchPageEngineIds(enginesToHide)
 
-        repository.setOpenInAppsEnabled(true)
-        val reEnabled = repository.getCurrentSettings()
-        assertThat(reEnabled.isOpenInAppsEnabled).isTrue()
-    }
+            val settings = repository.getSettings().first()
+            assertThat(settings.hiddenSearchPageEngineIds).containsExactly("bing", "yahoo", "ecosia")
+
+            val current = repository.getCurrentSettings()
+            assertThat(current.hiddenSearchPageEngineIds).containsExactly("bing", "yahoo", "ecosia")
+
+            // Clearing hidden engines
+            repository.setHiddenSearchPageEngineIds(emptySet())
+            val cleared = repository.getCurrentSettings()
+            assertThat(cleared.hiddenSearchPageEngineIds).isEmpty()
+        }
+
+    @Test
+    fun setOpenInAppsEnabled_persistsAndEmits() =
+        runTest(testDispatcher) {
+            val initial = repository.getCurrentSettings()
+            assertThat(initial.isOpenInAppsEnabled).isTrue()
+
+            repository.setOpenInAppsEnabled(false)
+
+            val updated = repository.getSettings().first()
+            assertThat(updated.isOpenInAppsEnabled).isFalse()
+
+            val current = repository.getCurrentSettings()
+            assertThat(current.isOpenInAppsEnabled).isFalse()
+
+            repository.setOpenInAppsEnabled(true)
+            val reEnabled = repository.getCurrentSettings()
+            assertThat(reEnabled.isOpenInAppsEnabled).isTrue()
+        }
+
+    @Test
+    fun autoUpdateDefaultsToEnabled() =
+        runTest(testDispatcher) {
+            val settings = repository.getCurrentSettings()
+            assertThat(settings.isAutoUpdateEnabled).isTrue()
+            assertThat(settings.skippedUpdateVersion).isNull()
+        }
+
+    @Test
+    fun setAutoUpdateEnabled_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setAutoUpdateEnabled(false)
+
+            val updated = repository.getSettings().first()
+            assertThat(updated.isAutoUpdateEnabled).isFalse()
+            assertThat(repository.getCurrentSettings().isAutoUpdateEnabled).isFalse()
+
+            repository.setAutoUpdateEnabled(true)
+            assertThat(repository.getCurrentSettings().isAutoUpdateEnabled).isTrue()
+        }
+
+    @Test
+    fun setSkippedUpdateVersion_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setSkippedUpdateVersion("1.2.0")
+
+            assertThat(repository.getSettings().first().skippedUpdateVersion).isEqualTo("1.2.0")
+            assertThat(repository.getCurrentSettings().skippedUpdateVersion).isEqualTo("1.2.0")
+
+            repository.setSkippedUpdateVersion(null)
+            assertThat(repository.getCurrentSettings().skippedUpdateVersion).isNull()
+        }
 }

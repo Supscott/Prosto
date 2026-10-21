@@ -12,7 +12,6 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class AdBlockerEngineTest {
-
     private lateinit var context: Context
 
     @Before
@@ -145,73 +144,77 @@ class AdBlockerEngineTest {
     // --- 3. Full Asset Initialization & Rule Blocking Tests ---
 
     @Test
-    fun initialize_asynchronouslyLoadsEasyListAndEasyListCookie() = runBlocking {
-        assertThat(AdBlockerEngine.isReady()).isFalse()
+    fun initialize_asynchronouslyLoadsEasyListAndEasyListCookie() =
+        runBlocking {
+            assertThat(AdBlockerEngine.isReady()).isFalse()
 
-        val job = AdBlockerEngine.initialize(context)
-        job.join()
+            val job = AdBlockerEngine.initialize(context)
+            job.join()
 
-        assertThat(AdBlockerEngine.isReady()).isTrue()
-        assertThat(AdBlockerEngine.getRulesCount()).isGreaterThan(40000)
+            assertThat(AdBlockerEngine.isReady()).isTrue()
+            assertThat(AdBlockerEngine.getRulesCount()).isGreaterThan(40000)
 
-        // Verify known EasyList ad domains
-        assertThat(AdBlockerEngine.shouldBlock("https://000491b06a.com/ad.js")).isTrue()
-        assertThat(AdBlockerEngine.shouldBlock("https://0019x.com")).isTrue()
-        assertThat(AdBlockerEngine.shouldBlock("https://a-ads.com")).isTrue()
-        assertThat(AdBlockerEngine.shouldBlock("https://demand.supply/script.js")).isTrue()
-        assertThat(AdBlockerEngine.shouldBlock("https://0i0i0i0.com")).isTrue()
+            // Verify known EasyList ad domains
+            assertThat(AdBlockerEngine.shouldBlock("https://000491b06a.com/ad.js")).isTrue()
+            assertThat(AdBlockerEngine.shouldBlock("https://0019x.com")).isTrue()
+            assertThat(AdBlockerEngine.shouldBlock("https://a-ads.com")).isTrue()
+            assertThat(AdBlockerEngine.shouldBlock("https://demand.supply/script.js")).isTrue()
+            assertThat(AdBlockerEngine.shouldBlock("https://0i0i0i0.com")).isTrue()
 
-        // Verify known EasyListCookie domains
-        assertThat(AdBlockerEngine.shouldBlock("https://acconsento.click")).isTrue()
-        assertThat(AdBlockerEngine.shouldBlock("https://ccpa.sp-prod.net")).isTrue()
-        assertThat(AdBlockerEngine.shouldBlock("https://appconsent.io")).isTrue()
-        assertThat(AdBlockerEngine.shouldBlock("https://axept.io")).isTrue()
-        assertThat(AdBlockerEngine.shouldBlock("https://bigidcmp.cloud")).isTrue()
-    }
+            // Verify known EasyListCookie domains
+            assertThat(AdBlockerEngine.shouldBlock("https://acconsento.click")).isTrue()
+            assertThat(AdBlockerEngine.shouldBlock("https://ccpa.sp-prod.net")).isTrue()
+            assertThat(AdBlockerEngine.shouldBlock("https://appconsent.io")).isTrue()
+            assertThat(AdBlockerEngine.shouldBlock("https://axept.io")).isTrue()
+            assertThat(AdBlockerEngine.shouldBlock("https://bigidcmp.cloud")).isTrue()
+        }
 
     // --- 4. Subdomain Blocking Tests ---
 
     @Test
-    fun shouldBlock_subdomainBlockingWalksHierarchy() = runBlocking {
-        AdBlockerEngine.initialize(context).join()
+    fun shouldBlock_subdomainBlockingWalksHierarchy() =
+        runBlocking {
+            AdBlockerEngine.initialize(context).join()
 
-        // Direct host match
-        assertThat(AdBlockerEngine.shouldBlock("https://doubleclick.net")).isTrue()
-        // Single level subdomain
-        assertThat(AdBlockerEngine.shouldBlock("https://ad.doubleclick.net")).isTrue()
-        // Multi level subdomain
-        assertThat(AdBlockerEngine.shouldBlock("https://deeply.nested.sub.doubleclick.net/test.js")).isTrue()
-        // Scheme-relative URL
-        assertThat(AdBlockerEngine.shouldBlock("//stats.doubleclick.net/pixel")).isTrue()
-        // Raw host string without scheme
-        assertThat(AdBlockerEngine.shouldBlock("ad.doubleclick.net")).isTrue()
-        // Cookie subdomain
-        assertThat(AdBlockerEngine.shouldBlock("https://sdk.appconsent.io/embed.js")).isTrue()
-    }
+            // Direct host match
+            assertThat(AdBlockerEngine.shouldBlock("https://doubleclick.net")).isTrue()
+            // Single level subdomain
+            assertThat(AdBlockerEngine.shouldBlock("https://ad.doubleclick.net")).isTrue()
+            // Multi level subdomain
+            assertThat(AdBlockerEngine.shouldBlock("https://deeply.nested.sub.doubleclick.net/test.js")).isTrue()
+            // Scheme-relative URL
+            assertThat(AdBlockerEngine.shouldBlock("//stats.doubleclick.net/pixel")).isTrue()
+            // Raw host string without scheme
+            assertThat(AdBlockerEngine.shouldBlock("ad.doubleclick.net")).isTrue()
+            // Cookie subdomain
+            assertThat(AdBlockerEngine.shouldBlock("https://sdk.appconsent.io/embed.js")).isTrue()
+        }
 
     @Test
-    fun shouldBlock_subdomainOfLegitimateDomainIsNotBlocked() = runBlocking {
-        AdBlockerEngine.initialize(context).join()
+    fun shouldBlock_subdomainOfLegitimateDomainIsNotBlocked() =
+        runBlocking {
+            AdBlockerEngine.initialize(context).join()
 
-        // Legitimate domain containing blocked keyword as subdomain or vice versa
-        // doubleclick.net is blocked, but doubleclick.net.example.com has parent example.com
-        assertThat(AdBlockerEngine.shouldBlock("https://doubleclick.net.example.com")).isFalse()
-        assertThat(AdBlockerEngine.shouldBlock("https://notdoubleclick.net")).isFalse()
-    }
+            // Legitimate domain containing blocked keyword as subdomain or vice versa
+            // doubleclick.net is blocked, but doubleclick.net.example.com has parent example.com
+            assertThat(AdBlockerEngine.shouldBlock("https://doubleclick.net.example.com")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://notdoubleclick.net")).isFalse()
+        }
 
     // --- 5. Benign URLs Allowed Tests ---
 
     @Test
-    fun shouldBlock_allowsLegitimateSites() = runBlocking {
-        AdBlockerEngine.initialize(context).join()
+    fun shouldBlock_allowsLegitimateSites() =
+        runBlocking {
+            AdBlockerEngine.initialize(context).join()
 
-        assertThat(AdBlockerEngine.shouldBlock("https://google.com")).isFalse()
-        assertThat(AdBlockerEngine.shouldBlock("https://developer.android.com/reference")).isFalse()
-        assertThat(AdBlockerEngine.shouldBlock("https://github.com/kotlin/kotlinx.coroutines")).isFalse()
-        assertThat(AdBlockerEngine.shouldBlock("https://en.wikipedia.org/wiki/Main_Page")).isFalse()
-        assertThat(AdBlockerEngine.shouldBlock("https://jestk.com")).isFalse()
-        assertThat(AdBlockerEngine.shouldBlock("https://example.com/article?id=42")).isFalse()
-    }
+            assertThat(AdBlockerEngine.shouldBlock("https://google.com")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://developer.android.com/reference")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://github.com/kotlin/kotlinx.coroutines")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://en.wikipedia.org/wiki/Main_Page")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://jestk.com")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://example.com/article?id=42")).isFalse()
+        }
 
     @Test
     fun shouldBlock_handlesEdgeCasesAndSpecialSchemes() {
@@ -252,10 +255,11 @@ class AdBlockerEngineTest {
         val bytes = responseUrl.data.readBytes()
         assertThat(bytes).isEqualTo(AdBlockerEngine.TRANSPARENT_1X1_PNG)
 
-        val responseAccept = AdBlockerEngine.createSmartBlockedResponse(
-            "https://example.com/ad-image",
-            requestHeaders = mapOf("Accept" to "image/avif,image/webp,image/*")
-        )
+        val responseAccept =
+            AdBlockerEngine.createSmartBlockedResponse(
+                "https://example.com/ad-image",
+                requestHeaders = mapOf("Accept" to "image/avif,image/webp,image/*"),
+            )
         assertThat(responseAccept.mimeType).isEqualTo("image/png")
     }
 
@@ -266,7 +270,7 @@ class AdBlockerEngineTest {
         assertThat(genericJs.mimeType).isEqualTo("application/javascript")
         assertThat(genericJs.statusCode).isEqualTo(200)
         val genericBody = String(genericJs.data.readBytes())
-        assertThat(genericBody).contains("blocked by Hori")
+        assertThat(genericBody).contains("blocked by Prosto")
 
         // AdSense
         val adsenseJs = AdBlockerEngine.createSmartBlockedResponse("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js")
@@ -353,34 +357,55 @@ class AdBlockerEngineTest {
     }
 
     @Test
-    fun recordBlockedRequest_incrementsRepositoryCounts() = runBlocking {
-        var adsIncremented = 0L
-        var trackersIncremented = 0L
+    fun recordBlockedRequest_incrementsRepositoryCounts() =
+        runBlocking {
+            var adsIncremented = 0L
+            var trackersIncremented = 0L
 
-        val fakeRepo = object : com.jestk.browser.domain.repository.SettingsRepository {
-            override fun getSettings() = kotlinx.coroutines.flow.emptyFlow<com.jestk.browser.domain.model.BrowserSettings>()
-            override suspend fun getCurrentSettings() = com.jestk.browser.domain.model.BrowserSettings()
-            override suspend fun setThemeMode(mode: com.jestk.browser.domain.model.ThemeMode) {}
-            override suspend fun setSearchEngine(engine: com.jestk.browser.domain.model.SearchEngine) {}
-            override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
-            override fun getBlockedAdsCount() = kotlinx.coroutines.flow.flowOf(adsIncremented)
-            override fun getBlockedTrackersCount() = kotlinx.coroutines.flow.flowOf(trackersIncremented)
-            override suspend fun incrementBlockedAds(count: Long) { adsIncremented += count }
-            override suspend fun incrementBlockedTrackers(count: Long) { trackersIncremented += count }
-            override suspend fun setHiddenSearchPageEngineIds(ids: Set<String>) {}
-            override suspend fun setOpenInAppsEnabled(enabled: Boolean) {}
+            val fakeRepo =
+                object : com.jestk.browser.domain.repository.SettingsRepository {
+                    override fun getSettings() = kotlinx.coroutines.flow.emptyFlow<com.jestk.browser.domain.model.BrowserSettings>()
+
+                    override suspend fun getCurrentSettings() =
+                        com.jestk.browser.domain.model
+                            .BrowserSettings()
+
+                    override suspend fun setThemeMode(mode: com.jestk.browser.domain.model.ThemeMode) {}
+
+                    override suspend fun setSearchEngine(engine: com.jestk.browser.domain.model.SearchEngine) {}
+
+                    override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
+
+                    override fun getBlockedAdsCount() = kotlinx.coroutines.flow.flowOf(adsIncremented)
+
+                    override fun getBlockedTrackersCount() = kotlinx.coroutines.flow.flowOf(trackersIncremented)
+
+                    override suspend fun incrementBlockedAds(count: Long) {
+                        adsIncremented += count
+                    }
+
+                    override suspend fun incrementBlockedTrackers(count: Long) {
+                        trackersIncremented += count
+                    }
+
+                    override suspend fun setHiddenSearchPageEngineIds(ids: Set<String>) {}
+
+                    override suspend fun setOpenInAppsEnabled(enabled: Boolean) {}
+
+                    override suspend fun setAutoUpdateEnabled(enabled: Boolean) {}
+
+                    override suspend fun setSkippedUpdateVersion(version: String?) {}
+                }
+
+            AdBlockerEngine.settingsRepository = fakeRepo
+
+            AdBlockerEngine.recordBlockedRequest("https://doubleclick.net/ad.js")
+            AdBlockerEngine.recordBlockedRequest("https://google-analytics.com/analytics.js")
+
+            // Wait brief delay for coroutine launch
+            kotlinx.coroutines.delay(100)
+
+            assertThat(adsIncremented).isEqualTo(1L)
+            assertThat(trackersIncremented).isEqualTo(1L)
         }
-
-        AdBlockerEngine.settingsRepository = fakeRepo
-
-        AdBlockerEngine.recordBlockedRequest("https://doubleclick.net/ad.js")
-        AdBlockerEngine.recordBlockedRequest("https://google-analytics.com/analytics.js")
-
-        // Wait brief delay for coroutine launch
-        kotlinx.coroutines.delay(100)
-
-        assertThat(adsIncremented).isEqualTo(1L)
-        assertThat(trackersIncremented).isEqualTo(1L)
-    }
 }
-

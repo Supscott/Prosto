@@ -30,7 +30,6 @@ import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 class HoriDownloadService : Service() {
-
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private lateinit var notificationManager: NotificationManager
     private val activeDownloadIds = ConcurrentHashMap.newKeySet<Long>()
@@ -55,8 +54,10 @@ class HoriDownloadService : Service() {
 
         fun formatFileSize(bytes: Long): String = FileSizeFormatter.formatFileSize(bytes)
 
-        fun formatProgressText(bytesDownloaded: Long, totalBytes: Long): String =
-            FileSizeFormatter.formatProgressText(bytesDownloaded, totalBytes)
+        fun formatProgressText(
+            bytesDownloaded: Long,
+            totalBytes: Long,
+        ): String = FileSizeFormatter.formatProgressText(bytesDownloaded, totalBytes)
 
         fun formatSpeed(bytesPerSec: Long): String {
             if (bytesPerSec <= 0L) return ""
@@ -72,12 +73,17 @@ class HoriDownloadService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+    override fun onStartCommand(
+        intent: Intent?,
+        flags: Int,
+        startId: Int,
+    ): Int {
         ensureForegroundStarted()
 
-        val downloadManager = (applicationContext as? JestkApplication)?.container?.let {
-            HoriDownloadManager.getInstance(applicationContext, it.downloadRepository)
-        }
+        val downloadManager =
+            (applicationContext as? JestkApplication)?.container?.let {
+                HoriDownloadManager.getInstance(applicationContext, it.downloadRepository)
+            }
 
         if (downloadManager == null) {
             Log.e(TAG, "DownloadManager could not be initialized")
@@ -110,12 +116,13 @@ class HoriDownloadService : Service() {
                             activeDownloadIds.remove(id)
                             showFailedNotification(id, errorMsg)
                             checkFinishService()
-                        }
+                        },
                     )
                 } else {
                     checkFinishService()
                 }
             }
+
             ACTION_PAUSE -> {
                 if (downloadId != -1L) {
                     activeDownloadIds.remove(downloadId)
@@ -125,6 +132,7 @@ class HoriDownloadService : Service() {
                     checkFinishService()
                 }
             }
+
             ACTION_CANCEL -> {
                 if (downloadId != -1L) {
                     activeDownloadIds.remove(downloadId)
@@ -135,6 +143,7 @@ class HoriDownloadService : Service() {
                     checkFinishService()
                 }
             }
+
             ACTION_RETRY -> {
                 if (downloadId != -1L) {
                     notificationManager.cancel(downloadId.toInt())
@@ -143,9 +152,11 @@ class HoriDownloadService : Service() {
                     checkFinishService()
                 }
             }
+
             ACTION_UPDATE_NOTIFICATION -> {
                 checkFinishService()
             }
+
             else -> {
                 // If service was killed and restarted, check database for pending/interrupted downloads
                 resumeInterruptedDownloads(downloadManager)
@@ -174,7 +185,7 @@ class HoriDownloadService : Service() {
                             activeDownloadIds.remove(id)
                             showFailedNotification(id, errorMsg)
                             checkFinishService()
-                        }
+                        },
                     )
                 }
             }
@@ -185,22 +196,24 @@ class HoriDownloadService : Service() {
     }
 
     private fun ensureForegroundStarted() {
-        val initialNotif = NotificationCompat.Builder(this, CHANNEL_ID_DOWNLOADS)
-            .setSmallIcon(R.drawable.ic_download_notif)
-            .setContentTitle("Hori")
-            .setContentText("Downloading file...")
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setContentIntent(createAppPendingIntent())
-            .build()
+        val initialNotif =
+            NotificationCompat
+                .Builder(this, CHANNEL_ID_DOWNLOADS)
+                .setSmallIcon(R.drawable.ic_download_notif)
+                .setContentTitle("Prosto")
+                .setContentText("Downloading file...")
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setContentIntent(createAppPendingIntent())
+                .build()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ServiceCompat.startForeground(
                 this,
                 FOREGROUND_NOTIFICATION_ID,
                 initialNotif,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
             )
         } else {
             startForeground(FOREGROUND_NOTIFICATION_ID, initialNotif)
@@ -212,44 +225,49 @@ class HoriDownloadService : Service() {
         val speedText = if (progress.speedBytesPerSec > 0) " · ${formatSpeed(progress.speedBytesPerSec)}" else ""
         val fullText = "$progressText$speedText"
 
-        val pauseIntent = Intent(this, HoriDownloadService::class.java).apply {
-            action = ACTION_PAUSE
-            putExtra(EXTRA_DOWNLOAD_ID, progress.id)
-        }
-        val pausePendingIntent = PendingIntent.getService(
-            this,
-            (progress.id * 10 + 1).toInt(),
-            pauseIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val cancelIntent = Intent(this, HoriDownloadService::class.java).apply {
-            action = ACTION_CANCEL
-            putExtra(EXTRA_DOWNLOAD_ID, progress.id)
-        }
-        val cancelPendingIntent = PendingIntent.getService(
-            this,
-            (progress.id * 10 + 2).toInt(),
-            cancelIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID_DOWNLOADS)
-            .setSmallIcon(R.drawable.ic_download_notif)
-            .setContentTitle(progress.fileName)
-            .setContentText(fullText)
-            .setSubText("Hori")
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setContentIntent(createAppPendingIntent())
-            .setProgress(
-                100,
-                progress.progressPercentage ?: 0,
-                progress.isIndeterminate
+        val pauseIntent =
+            Intent(this, HoriDownloadService::class.java).apply {
+                action = ACTION_PAUSE
+                putExtra(EXTRA_DOWNLOAD_ID, progress.id)
+            }
+        val pausePendingIntent =
+            PendingIntent.getService(
+                this,
+                (progress.id * 10 + 1).toInt(),
+                pauseIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
-            .addAction(0, "Pause", pausePendingIntent)
-            .addAction(0, "Cancel", cancelPendingIntent)
+
+        val cancelIntent =
+            Intent(this, HoriDownloadService::class.java).apply {
+                action = ACTION_CANCEL
+                putExtra(EXTRA_DOWNLOAD_ID, progress.id)
+            }
+        val cancelPendingIntent =
+            PendingIntent.getService(
+                this,
+                (progress.id * 10 + 2).toInt(),
+                cancelIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+
+        val builder =
+            NotificationCompat
+                .Builder(this, CHANNEL_ID_DOWNLOADS)
+                .setSmallIcon(R.drawable.ic_download_notif)
+                .setContentTitle(progress.fileName)
+                .setContentText(fullText)
+                .setSubText("Prosto")
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setContentIntent(createAppPendingIntent())
+                .setProgress(
+                    100,
+                    progress.progressPercentage ?: 0,
+                    progress.isIndeterminate,
+                ).addAction(0, "Pause", pausePendingIntent)
+                .addAction(0, "Cancel", cancelPendingIntent)
 
         notificationManager.notify(FOREGROUND_NOTIFICATION_ID, builder.build())
     }
@@ -257,51 +275,61 @@ class HoriDownloadService : Service() {
     private fun showCompletedNotification(item: DownloadItem) {
         val file = File(item.filePath)
         val openIntent = createOpenFileIntent(file, item.mimeType)
-        val openPendingIntent = PendingIntent.getActivity(
-            this,
-            (item.id + 50000).toInt(),
-            openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        val openPendingIntent =
+            PendingIntent.getActivity(
+                this,
+                (item.id + 50000).toInt(),
+                openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
         val sizeStr = formatFileSize(item.totalBytes)
         val contentText = if (sizeStr.isNotEmpty()) "${item.fileName} · $sizeStr" else item.fileName
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID_COMPLETED)
-            .setSmallIcon(R.drawable.ic_download_notif)
-            .setContentTitle("Download complete")
-            .setContentText(contentText)
-            .setSubText("Hori")
-            .setAutoCancel(true)
-            .setOngoing(false)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(openPendingIntent)
+        val builder =
+            NotificationCompat
+                .Builder(this, CHANNEL_ID_COMPLETED)
+                .setSmallIcon(R.drawable.ic_download_notif)
+                .setContentTitle("Download complete")
+                .setContentText(contentText)
+                .setSubText("Prosto")
+                .setAutoCancel(true)
+                .setOngoing(false)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .setContentIntent(openPendingIntent)
 
         val notifId = (item.id + 10000).toInt()
         notificationManager.notify(notifId, builder.build())
     }
 
-    private fun showFailedNotification(id: Long, errorMsg: String) {
-        val retryIntent = Intent(this, HoriDownloadService::class.java).apply {
-            action = ACTION_RETRY
-            putExtra(EXTRA_DOWNLOAD_ID, id)
-        }
-        val retryPendingIntent = PendingIntent.getService(
-            this,
-            (id * 10 + 3).toInt(),
-            retryIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+    private fun showFailedNotification(
+        id: Long,
+        errorMsg: String,
+    ) {
+        val retryIntent =
+            Intent(this, HoriDownloadService::class.java).apply {
+                action = ACTION_RETRY
+                putExtra(EXTRA_DOWNLOAD_ID, id)
+            }
+        val retryPendingIntent =
+            PendingIntent.getService(
+                this,
+                (id * 10 + 3).toInt(),
+                retryIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
 
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID_DOWNLOADS)
-            .setSmallIcon(R.drawable.ic_download_notif)
-            .setContentTitle("Download failed")
-            .setContentText(errorMsg)
-            .setSubText("Hori")
-            .setAutoCancel(true)
-            .setOngoing(false)
-            .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .addAction(0, "Retry", retryPendingIntent)
+        val builder =
+            NotificationCompat
+                .Builder(this, CHANNEL_ID_DOWNLOADS)
+                .setSmallIcon(R.drawable.ic_download_notif)
+                .setContentTitle("Download failed")
+                .setContentText(errorMsg)
+                .setSubText("Prosto")
+                .setAutoCancel(true)
+                .setOngoing(false)
+                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                .addAction(0, "Retry", retryPendingIntent)
 
         notificationManager.notify((id + 20000).toInt(), builder.build())
     }
@@ -314,23 +342,28 @@ class HoriDownloadService : Service() {
     }
 
     private fun createAppPendingIntent(): PendingIntent {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
-        }
+        val intent =
+            Intent(this, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
         return PendingIntent.getActivity(
             this,
             0,
             intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
     }
 
-    private fun createOpenFileIntent(file: File, mimeType: String?): Intent {
-        val uri: Uri = try {
-            FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
-        } catch (_: Throwable) {
-            Uri.fromFile(file)
-        }
+    private fun createOpenFileIntent(
+        file: File,
+        mimeType: String?,
+    ): Intent {
+        val uri: Uri =
+            try {
+                FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
+            } catch (_: Throwable) {
+                Uri.fromFile(file)
+            }
         return Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, mimeType ?: "*/*")
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -339,23 +372,25 @@ class HoriDownloadService : Service() {
 
     private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val downloadChannel = NotificationChannel(
-                CHANNEL_ID_DOWNLOADS,
-                "Downloads",
-                NotificationManager.IMPORTANCE_LOW
-            ).apply {
-                description = "Ongoing browser download progress notifications"
-                setShowBadge(false)
-            }
+            val downloadChannel =
+                NotificationChannel(
+                    CHANNEL_ID_DOWNLOADS,
+                    "Downloads",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Ongoing browser download progress notifications"
+                    setShowBadge(false)
+                }
 
-            val completedChannel = NotificationChannel(
-                CHANNEL_ID_COMPLETED,
-                "Completed Downloads",
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = "Notifications for completed browser downloads"
-                setShowBadge(true)
-            }
+            val completedChannel =
+                NotificationChannel(
+                    CHANNEL_ID_COMPLETED,
+                    "Completed Downloads",
+                    NotificationManager.IMPORTANCE_DEFAULT,
+                ).apply {
+                    description = "Notifications for completed browser downloads"
+                    setShowBadge(true)
+                }
 
             notificationManager.createNotificationChannel(downloadChannel)
             notificationManager.createNotificationChannel(completedChannel)

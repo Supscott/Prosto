@@ -317,6 +317,20 @@ class JestkWebViewClient(
     }
 
     companion object {
+        /**
+         * Loads [url] into [webView], routing custom schemes and intent URLs through the
+         * configured [JestkWebViewClient] when applicable.
+         */
+        fun loadUrlOrHandleExternal(webView: WebView, url: String) {
+            val client = webView.webViewClient as? JestkWebViewClient
+            val handledAsExternal = client != null &&
+                !isWebUrl(url) &&
+                client.handleExternalNavigation(webView, url)
+            if (!handledAsExternal) {
+                webView.loadUrl(url)
+            }
+        }
+
         fun isWebUrl(url: String): Boolean {
             val scheme = try {
                 android.net.Uri.parse(url).scheme?.lowercase()

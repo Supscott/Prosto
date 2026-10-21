@@ -18,6 +18,7 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.download.HoriDownloadManager
+import com.jestk.browser.engine.update.AppUpdateManager
 import com.jestk.browser.util.DefaultBrowserHelper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -42,6 +43,7 @@ class BrowserViewModel(
     private val downloadManager: HoriDownloadManager? = null,
     private val searchEngineRepository: SearchEngineRepository? = null,
     private val webViewPool: WebViewPool? = null,
+    private val appUpdateManager: AppUpdateManager? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
     private val tabOperationMutex = Mutex()
@@ -53,40 +55,53 @@ class BrowserViewModel(
     private val _navigationCommands = MutableSharedFlow<NavigationCommand>(extraBufferCapacity = 16)
     val navigationCommands: SharedFlow<NavigationCommand> = _navigationCommands.asSharedFlow()
 
-    private val downloadCoordinator = DownloadCoordinator(
-        downloadRepository = downloadRepository,
-        downloadManager = downloadManager,
-        updateUiState = { transform -> _uiState.update(transform) },
-        scope = viewModelScope,
-        ioDispatcher = ioDispatcher,
-    )
+    private val downloadCoordinator =
+        DownloadCoordinator(
+            downloadRepository = downloadRepository,
+            downloadManager = downloadManager,
+            updateUiState = { transform -> _uiState.update(transform) },
+            scope = viewModelScope,
+            ioDispatcher = ioDispatcher,
+        )
 
-    private val searchCoordinator = SearchCoordinator(
-        historyRepository = historyRepository,
-        searchEngineRepository = searchEngineRepository,
-        settingsRepository = settingsRepository,
-        getCurrentState = { _uiState.value },
-        updateUiState = { transform -> _uiState.update(transform) },
-        onSelectTab = { tabId -> tabCoordinator.selectTab(tabId) },
-        onOpenNewTab = { url -> tabCoordinator.openNewTab(url) },
-        scope = viewModelScope,
-        ioDispatcher = ioDispatcher,
-    )
+    private val searchCoordinator =
+        SearchCoordinator(
+            historyRepository = historyRepository,
+            searchEngineRepository = searchEngineRepository,
+            settingsRepository = settingsRepository,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            onSelectTab = { tabId -> tabCoordinator.selectTab(tabId) },
+            onOpenNewTab = { url -> tabCoordinator.openNewTab(url) },
+            scope = viewModelScope,
+            ioDispatcher = ioDispatcher,
+        )
 
-    internal val tabCoordinator = TabCoordinator(
-        tabRepository = tabRepository,
-        recentTabRepository = recentTabRepository,
-        favoriteRepository = favoriteRepository,
-        historyRepository = historyRepository,
-        webViewPool = webViewPool,
-        tabOperationMutex = tabOperationMutex,
-        tabThemeColors = tabThemeColors,
-        getCurrentState = { _uiState.value },
-        updateUiState = { transform -> _uiState.update(transform) },
-        emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
-        scope = viewModelScope,
-        ioDispatcher = ioDispatcher,
-    )
+    private val updateCoordinator =
+        UpdateCoordinator(
+            appUpdateManager = appUpdateManager,
+            settingsRepository = settingsRepository,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            scope = viewModelScope,
+            ioDispatcher = ioDispatcher,
+        )
+
+    internal val tabCoordinator =
+        TabCoordinator(
+            tabRepository = tabRepository,
+            recentTabRepository = recentTabRepository,
+            favoriteRepository = favoriteRepository,
+            historyRepository = historyRepository,
+            webViewPool = webViewPool,
+            tabOperationMutex = tabOperationMutex,
+            tabThemeColors = tabThemeColors,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
+            scope = viewModelScope,
+            ioDispatcher = ioDispatcher,
+        )
 
     init {
         webViewPool?.onDownloadStarted = { item -> onDownloadStarted(item) }
@@ -94,6 +109,7 @@ class BrowserViewModel(
             restoreSession()
             observeDatabaseFlows()
         }
+        updateCoordinator.onAppStart()
     }
 
     override fun onCleared() {
@@ -103,13 +119,14 @@ class BrowserViewModel(
 
     private suspend fun restoreSession() {
         val initialSettings = settingsRepository.getCurrentSettings()
-        val currentEngines = if (searchEngineRepository != null) {
-            searchEngineRepository.ensureDefaultEnginesSeeded()
-            val engines = searchEngineRepository.getAllSearchEngines()
-            if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
-        } else {
-            SearchEngine.DEFAULT_ENGINES
-        }
+        val currentEngines =
+            if (searchEngineRepository != null) {
+                searchEngineRepository.ensureDefaultEnginesSeeded()
+                val engines = searchEngineRepository.getAllSearchEngines()
+                if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
+            } else {
+                SearchEngine.DEFAULT_ENGINES
+            }
         tabCoordinator.restoreSession(initialSettings, currentEngines)
     }
 
@@ -456,16 +473,36 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.SetAutoUpdateEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(isAutoUpdateEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setAutoUpdateEnabled(event.enabled)
+                }
+                if (event.enabled) updateCoordinator.onAutoUpdateEnabled()
+            }
+
+            is BrowserUiEvent.InstallUpdate -> {
+                updateCoordinator.onInstallRequested()
+            }
+
+            is BrowserUiEvent.InstallUpdateLater -> {
+                updateCoordinator.onInstallLater()
+            }
+
+            is BrowserUiEvent.SkipUpdate -> {
+                updateCoordinator.onSkip()
+            }
+
             is BrowserUiEvent.OnExternalAppOffered -> {
                 tabCoordinator.handleExternalAppOffered(event.tabId, event.prompt, event.userInitiated)
             }
 
             is BrowserUiEvent.DismissExternalAppPrompt -> {
-                tabCoordinator.dismissExternalAppPrompt(event.rememberDomain, event.timedOut)
+                tabCoordinator.dismissExternalAppPrompt(event.reason)
             }
 
             is BrowserUiEvent.OpenExternalApp -> {
-                tabCoordinator.dismissExternalAppPrompt(rememberDomain = false)
+                tabCoordinator.dismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT)
             }
 
             is BrowserUiEvent.ShowAddSearchEngineDialog -> {
@@ -505,11 +542,12 @@ class BrowserViewModel(
 
             is BrowserUiEvent.ToggleSearchPageEngineVisibility -> {
                 val currentHidden = _uiState.value.settings.hiddenSearchPageEngineIds
-                val updatedHidden = if (event.isVisible) {
-                    currentHidden - event.engineId
-                } else {
-                    currentHidden + event.engineId
-                }
+                val updatedHidden =
+                    if (event.isVisible) {
+                        currentHidden - event.engineId
+                    } else {
+                        currentHidden + event.engineId
+                    }
                 _uiState.update { state ->
                     state.copy(settings = state.settings.copy(hiddenSearchPageEngineIds = updatedHidden))
                 }
@@ -573,11 +611,12 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.ShowLinkContextMenu -> {
-                val anchor = if (event.anchorX != null && event.anchorY != null) {
-                    Offset(event.anchorX, event.anchorY)
-                } else {
-                    null
-                }
+                val anchor =
+                    if (event.anchorX != null && event.anchorY != null) {
+                        Offset(event.anchorX, event.anchorY)
+                    } else {
+                        null
+                    }
                 _uiState.update {
                     it.copy(
                         linkContextMenuUrl = event.url,
@@ -608,11 +647,12 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.ShowImageContextMenu -> {
-                val anchor = if (event.anchorX != null && event.anchorY != null) {
-                    Offset(event.anchorX, event.anchorY)
-                } else {
-                    null
-                }
+                val anchor =
+                    if (event.anchorX != null && event.anchorY != null) {
+                        Offset(event.anchorX, event.anchorY)
+                    } else {
+                        null
+                    }
                 _uiState.update {
                     it.copy(
                         selectedImageUrl = event.imageUrl,
@@ -670,9 +710,18 @@ class BrowserViewModel(
         var matchedShortcutEngine: SearchEngine? = null
         val finalUrl =
             when {
-                trimmed.isEmpty() -> ""
-                trimmed == "about:blank" -> ""
-                trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
+                trimmed.isEmpty() -> {
+                    ""
+                }
+
+                trimmed == "about:blank" -> {
+                    ""
+                }
+
+                trimmed.startsWith("http://") || trimmed.startsWith("https://") -> {
+                    trimmed
+                }
+
                 trimmed.startsWith("localhost") || (trimmed.contains(".") && !trimmed.contains(" ")) ||
                     (trimmed.contains(":") && !trimmed.contains(" ")) -> {
                     "https://$trimmed"
@@ -680,10 +729,13 @@ class BrowserViewModel(
 
                 else -> {
                     val shortcutMatch = Regex("""^([a-zA-Z0-9_-]+)\s+(.+)$""").find(trimmed)
-                    val shortcutEngine = if (shortcutMatch != null) {
-                        val prefix = shortcutMatch.groupValues[1]
-                        _uiState.value.searchEngines.firstOrNull { it.shortcut?.equals(prefix, ignoreCase = true) == true }
-                    } else null
+                    val shortcutEngine =
+                        if (shortcutMatch != null) {
+                            val prefix = shortcutMatch.groupValues[1]
+                            _uiState.value.searchEngines.firstOrNull { it.shortcut?.equals(prefix, ignoreCase = true) == true }
+                        } else {
+                            null
+                        }
 
                     if (shortcutEngine != null) {
                         matchedShortcutEngine = shortcutEngine
@@ -693,7 +745,8 @@ class BrowserViewModel(
                         val searchTargetQuery = shortcutMatch!!.groupValues[2].trim()
                         shortcutEngine.buildSearchUrl(searchTargetQuery)
                     } else {
-                        _uiState.value.settings.searchEngine.buildSearchUrl(trimmed)
+                        _uiState.value.settings.searchEngine
+                            .buildSearchUrl(trimmed)
                     }
                 }
             }
@@ -734,7 +787,13 @@ class BrowserViewModel(
             // Below h-screen: hide if scrolling down, show if scrolling up
             if (deltaY > 8f) {
                 if (current.isBottomBarVisible) {
-                    _uiState.update { it.copy(isBottomBarVisible = false, isMenuExpanded = false, isSearchEngineSwitcherEditExpanded = false) }
+                    _uiState.update {
+                        it.copy(
+                            isBottomBarVisible = false,
+                            isMenuExpanded = false,
+                            isSearchEngineSwitcherEditExpanded = false,
+                        )
+                    }
                 }
             } else if (deltaY < -8f) {
                 if (!current.isBottomBarVisible) {

@@ -5,13 +5,13 @@ import android.net.Uri
 import android.util.Base64
 import android.util.Log
 import android.webkit.WebResourceResponse
+import com.jestk.browser.domain.repository.SettingsRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import com.jestk.browser.domain.repository.SettingsRepository
 import java.io.BufferedReader
 import java.io.ByteArrayInputStream
 import java.io.InputStream
@@ -19,62 +19,63 @@ import java.io.InputStreamReader
 import java.util.concurrent.ConcurrentHashMap
 
 object AdBlockerEngine {
-
     private const val TAG = "AdBlockerEngine"
 
-    val DEFAULT_HOSTS: Set<String> = setOf(
-        "doubleclick.net",
-        "googleadservices.com",
-        "googlesyndication.com",
-        "google-analytics.com",
-        "criteo.com",
-        "criteo.net",
-        "taboola.com",
-        "taboola.net",
-        "outbrain.com",
-        "outbrainimg.com",
-        "adnxs.com",
-        "rubiconproject.com",
-        "scorecardresearch.com",
-        "quantserve.com",
-        "pubmatic.com",
-        "openx.net",
-        "moatads.com",
-        // Russian ad & tracking networks (Yandex, Mail.ru, MyTarget, ADFOX, X5 Media, Rambler, etc.)
-        "adfox.ru",
-        "adfox.yandex.ru",
-        "ad.mail.ru",
-        "ads.mail.ru",
-        "target.mail.ru",
-        "top-fwz1.mail.ru",
-        "my.target.com",
-        "target.my.com",
-        "ads.x5media.ru",
-        "x5media.ru",
-        "an.yandex.ru",
-        "yabs.yandex.ru",
-        "mc.yandex.ru",
-        "awaps.yandex.ru",
-        "adfstat.yandex.ru",
-        "bs.yandex.ru",
-        "ads.vk.com",
-        "ssp.rambler.ru",
-        "reklama.rambler.ru",
-        "relap.io",
-        "buzzoola.com",
-        "rutarget.ru",
-        "hybrid.ai",
-        "bidvol.com",
-        "adhigh.net",
-        "adriver.ru",
-        "otclick-adv.ru",
-        "videonow.ru",
-        "viqeo.tv"
-    )
+    val DEFAULT_HOSTS: Set<String> =
+        setOf(
+            "doubleclick.net",
+            "googleadservices.com",
+            "googlesyndication.com",
+            "google-analytics.com",
+            "criteo.com",
+            "criteo.net",
+            "taboola.com",
+            "taboola.net",
+            "outbrain.com",
+            "outbrainimg.com",
+            "adnxs.com",
+            "rubiconproject.com",
+            "scorecardresearch.com",
+            "quantserve.com",
+            "pubmatic.com",
+            "openx.net",
+            "moatads.com",
+            // Russian ad & tracking networks (Yandex, Mail.ru, MyTarget, ADFOX, X5 Media, Rambler, etc.)
+            "adfox.ru",
+            "adfox.yandex.ru",
+            "ad.mail.ru",
+            "ads.mail.ru",
+            "target.mail.ru",
+            "top-fwz1.mail.ru",
+            "my.target.com",
+            "target.my.com",
+            "ads.x5media.ru",
+            "x5media.ru",
+            "an.yandex.ru",
+            "yabs.yandex.ru",
+            "mc.yandex.ru",
+            "awaps.yandex.ru",
+            "adfstat.yandex.ru",
+            "bs.yandex.ru",
+            "ads.vk.com",
+            "ssp.rambler.ru",
+            "reklama.rambler.ru",
+            "relap.io",
+            "buzzoola.com",
+            "rutarget.ru",
+            "hybrid.ai",
+            "bidvol.com",
+            "adhigh.net",
+            "adriver.ru",
+            "otclick-adv.ru",
+            "videonow.ru",
+            "viqeo.tv",
+        )
 
-    private val blockedHosts = ConcurrentHashMap.newKeySet<String>().apply {
-        addAll(DEFAULT_HOSTS)
-    }
+    private val blockedHosts =
+        ConcurrentHashMap.newKeySet<String>().apply {
+            addAll(DEFAULT_HOSTS)
+        }
 
     @Volatile
     private var isInitialized = false
@@ -88,7 +89,7 @@ object AdBlockerEngine {
      */
     fun initialize(
         context: Context,
-        dispatcher: CoroutineDispatcher = Dispatchers.IO
+        dispatcher: CoroutineDispatcher = Dispatchers.IO,
     ): Job {
         val currentJob = initJob
         if (currentJob != null) return currentJob
@@ -96,9 +97,10 @@ object AdBlockerEngine {
         return synchronized(this) {
             initJob ?: run {
                 val appContext = runCatching { context.applicationContext }.getOrNull() ?: context
-                val job = CoroutineScope(dispatcher + SupervisorJob()).launch {
-                    loadRulesFromAssets(appContext)
-                }
+                val job =
+                    CoroutineScope(dispatcher + SupervisorJob()).launch {
+                        loadRulesFromAssets(appContext)
+                    }
                 initJob = job
                 job
             }
@@ -218,11 +220,12 @@ object AdBlockerEngine {
             return null
         }
         val parts = trimmed.split("\\s+".toRegex())
-        val hostCandidate = if (parts.size >= 2 && (parts[0] == "127.0.0.1" || parts[0] == "0.0.0.0")) {
-            parts[1].lowercase()
-        } else {
-            parts[0].lowercase()
-        }
+        val hostCandidate =
+            if (parts.size >= 2 && (parts[0] == "127.0.0.1" || parts[0] == "0.0.0.0")) {
+                parts[1].lowercase()
+            } else {
+                parts[0].lowercase()
+            }
 
         if (hostCandidate.contains('.') &&
             !hostCandidate.contains('/') &&
@@ -250,16 +253,18 @@ object AdBlockerEngine {
             return false
         }
 
-        val uri = try {
-            val normalizedUrl = when {
-                trimmedUrl.startsWith("//") -> "https:$trimmedUrl"
-                !trimmedUrl.contains("://") -> "https://$trimmedUrl"
-                else -> trimmedUrl
-            }
-            Uri.parse(normalizedUrl)
-        } catch (_: Exception) {
-            null
-        } ?: return false
+        val uri =
+            try {
+                val normalizedUrl =
+                    when {
+                        trimmedUrl.startsWith("//") -> "https:$trimmedUrl"
+                        !trimmedUrl.contains("://") -> "https://$trimmedUrl"
+                        else -> trimmedUrl
+                    }
+                Uri.parse(normalizedUrl)
+            } catch (_: Exception) {
+                null
+            } ?: return false
 
         val host = uri.host?.lowercase() ?: return false
         if (host.isEmpty()) return false
@@ -286,7 +291,10 @@ object AdBlockerEngine {
         return false
     }
 
-    fun isBlockedPath(host: String, path: String): Boolean {
+    fun isBlockedPath(
+        host: String,
+        path: String,
+    ): Boolean {
         if (host.contains("yandex.")) {
             if (path.startsWith("/ads/") ||
                 path.startsWith("/clck/") ||
@@ -328,17 +336,16 @@ object AdBlockerEngine {
     val TRANSPARENT_1X1_PNG: ByteArray by lazy {
         Base64.decode(
             "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-            Base64.DEFAULT
+            Base64.DEFAULT,
         )
     }
 
-    fun createBlockedResponse(): WebResourceResponse {
-        return WebResourceResponse(
+    fun createBlockedResponse(): WebResourceResponse =
+        WebResourceResponse(
             "text/plain",
             "UTF-8",
-            ByteArrayInputStream(ByteArray(0))
+            ByteArrayInputStream(ByteArray(0)),
         )
-    }
 
     /**
      * Creates a content-aware blocked response tailored to the resource type:
@@ -351,19 +358,21 @@ object AdBlockerEngine {
     fun createSmartBlockedResponse(
         url: String?,
         mimeTypeHint: String? = null,
-        requestHeaders: Map<String, String>? = null
+        requestHeaders: Map<String, String>? = null,
     ): WebResourceResponse {
         val cleanUrl = url?.lowercase()?.trim().orEmpty()
-        val acceptHeader = requestHeaders?.get("Accept")?.lowercase()
-            ?: requestHeaders?.get("accept")?.lowercase()
-            ?: ""
+        val acceptHeader =
+            requestHeaders?.get("Accept")?.lowercase()
+                ?: requestHeaders?.get("accept")?.lowercase()
+                ?: ""
 
-        val isImage = mimeTypeHint?.startsWith("image/") == true ||
-            acceptHeader.contains("image/") ||
-            cleanUrl.endsWith(".png") || cleanUrl.endsWith(".jpg") ||
-            cleanUrl.endsWith(".jpeg") || cleanUrl.endsWith(".gif") ||
-            cleanUrl.endsWith(".webp") || cleanUrl.endsWith(".svg") ||
-            cleanUrl.endsWith(".ico") || cleanUrl.contains("/pixel")
+        val isImage =
+            mimeTypeHint?.startsWith("image/") == true ||
+                acceptHeader.contains("image/") ||
+                cleanUrl.endsWith(".png") || cleanUrl.endsWith(".jpg") ||
+                cleanUrl.endsWith(".jpeg") || cleanUrl.endsWith(".gif") ||
+                cleanUrl.endsWith(".webp") || cleanUrl.endsWith(".svg") ||
+                cleanUrl.endsWith(".ico") || cleanUrl.contains("/pixel")
 
         if (isImage) {
             return WebResourceResponse(
@@ -372,52 +381,61 @@ object AdBlockerEngine {
                 200,
                 "OK",
                 mapOf("Access-Control-Allow-Origin" to "*"),
-                ByteArrayInputStream(TRANSPARENT_1X1_PNG)
+                ByteArrayInputStream(TRANSPARENT_1X1_PNG),
             )
         }
 
-        val isScript = mimeTypeHint?.contains("javascript") == true ||
-            acceptHeader.contains("javascript") ||
-            cleanUrl.endsWith(".js") ||
-            cleanUrl.contains(".js?") ||
-            cleanUrl.contains("/adsbygoogle") ||
-            cleanUrl.contains("/gpt.js") ||
-            cleanUrl.contains("context.js") ||
-            cleanUrl.contains("header-bidding") ||
-            cleanUrl.contains("ads-async.js") ||
-            cleanUrl.contains("sdk.standalone.js") ||
-            cleanUrl.contains("adfox")
+        val isScript =
+            mimeTypeHint?.contains("javascript") == true ||
+                acceptHeader.contains("javascript") ||
+                cleanUrl.endsWith(".js") ||
+                cleanUrl.contains(".js?") ||
+                cleanUrl.contains("/adsbygoogle") ||
+                cleanUrl.contains("/gpt.js") ||
+                cleanUrl.contains("context.js") ||
+                cleanUrl.contains("header-bidding") ||
+                cleanUrl.contains("ads-async.js") ||
+                cleanUrl.contains("sdk.standalone.js") ||
+                cleanUrl.contains("adfox")
 
         if (isScript) {
-            val stubContent = when {
-                cleanUrl.contains("adsbygoogle") -> {
-                    "window.adsbygoogle = window.adsbygoogle || []; window.adsbygoogle.loaded = true; window.adsbygoogle.push = function(o){return 0;};"
+            val stubContent =
+                when {
+                    cleanUrl.contains("adsbygoogle") -> {
+                        "window.adsbygoogle = window.adsbygoogle || []; window.adsbygoogle.loaded = true; window.adsbygoogle.push = function(o){return 0;};"
+                    }
+
+                    cleanUrl.contains("gpt.js") || cleanUrl.contains("pubads") -> {
+                        "window.googletag = window.googletag || {cmd:[]}; window.googletag.cmd.push = function(f){if(typeof f==='function'){try{f();}catch(e){}}};"
+                    }
+
+                    cleanUrl.contains("context.js") || cleanUrl.contains("header-bidding") || cleanUrl.contains("adfox") -> {
+                        "window.yaContextCb = window.yaContextCb || []; window.Ya = window.Ya || {}; window.Ya.adfoxCode = window.Ya.adfoxCode || {create:function(c){if(c&&c.containerId){var e=document.getElementById(c.containerId);if(e){e.style.setProperty('display','none','important');e.style.setProperty('height','0','important');}}},createScroll:function(c){if(c&&c.containerId){var e=document.getElementById(c.containerId);if(e){e.style.setProperty('display','none','important');e.style.setProperty('height','0','important');}}},destroy:function(){},clearSession:function(){},reload:function(){},hbCallbacks:[]};"
+                    }
+
+                    cleanUrl.contains("sdk.standalone.js") || cleanUrl.contains("x5media") -> {
+                        "window.x5media = window.x5media || {init:function(){return Promise.resolve();},render:function(){}};"
+                    }
+
+                    else -> {
+                        "/* blocked by Prosto */"
+                    }
                 }
-                cleanUrl.contains("gpt.js") || cleanUrl.contains("pubads") -> {
-                    "window.googletag = window.googletag || {cmd:[]}; window.googletag.cmd.push = function(f){if(typeof f==='function'){try{f();}catch(e){}}};"
-                }
-                cleanUrl.contains("context.js") || cleanUrl.contains("header-bidding") || cleanUrl.contains("adfox") -> {
-                    "window.yaContextCb = window.yaContextCb || []; window.Ya = window.Ya || {}; window.Ya.adfoxCode = window.Ya.adfoxCode || {create:function(c){if(c&&c.containerId){var e=document.getElementById(c.containerId);if(e){e.style.setProperty('display','none','important');e.style.setProperty('height','0','important');}}},createScroll:function(c){if(c&&c.containerId){var e=document.getElementById(c.containerId);if(e){e.style.setProperty('display','none','important');e.style.setProperty('height','0','important');}}},destroy:function(){},clearSession:function(){},reload:function(){},hbCallbacks:[]};"
-                }
-                cleanUrl.contains("sdk.standalone.js") || cleanUrl.contains("x5media") -> {
-                    "window.x5media = window.x5media || {init:function(){return Promise.resolve();},render:function(){}};"
-                }
-                else -> "/* blocked by Hori */"
-            }
             return WebResourceResponse(
                 "application/javascript",
                 "UTF-8",
                 200,
                 "OK",
                 mapOf("Access-Control-Allow-Origin" to "*"),
-                ByteArrayInputStream(stubContent.toByteArray(Charsets.UTF_8))
+                ByteArrayInputStream(stubContent.toByteArray(Charsets.UTF_8)),
             )
         }
 
-        val isBeaconOrAnalytics = cleanUrl.contains("/collect") ||
-            cleanUrl.contains("/beacon") ||
-            cleanUrl.contains("/analytics") ||
-            cleanUrl.contains("/telemetry")
+        val isBeaconOrAnalytics =
+            cleanUrl.contains("/collect") ||
+                cleanUrl.contains("/beacon") ||
+                cleanUrl.contains("/analytics") ||
+                cleanUrl.contains("/telemetry")
 
         if (isBeaconOrAnalytics) {
             return WebResourceResponse(
@@ -426,12 +444,13 @@ object AdBlockerEngine {
                 204,
                 "No Content",
                 mapOf("Access-Control-Allow-Origin" to "*"),
-                ByteArrayInputStream(ByteArray(0))
+                ByteArrayInputStream(ByteArray(0)),
             )
         }
 
-        val isHtml = mimeTypeHint?.contains("html") == true ||
-            cleanUrl.endsWith(".html") || cleanUrl.endsWith(".htm")
+        val isHtml =
+            mimeTypeHint?.contains("html") == true ||
+                cleanUrl.endsWith(".html") || cleanUrl.endsWith(".htm")
 
         if (isHtml) {
             return WebResourceResponse(
@@ -440,7 +459,7 @@ object AdBlockerEngine {
                 200,
                 "OK",
                 mapOf("Access-Control-Allow-Origin" to "*"),
-                ByteArrayInputStream("<!DOCTYPE html><html><body></body></html>".toByteArray(Charsets.UTF_8))
+                ByteArrayInputStream("<!DOCTYPE html><html><body></body></html>".toByteArray(Charsets.UTF_8)),
             )
         }
 
@@ -465,35 +484,38 @@ object AdBlockerEngine {
     fun isTracker(url: String): Boolean {
         if (url.isBlank()) return false
         val cleanUrl = url.lowercase().trim()
-        val uri = try {
-            val normalized = when {
-                cleanUrl.startsWith("//") -> "https:$cleanUrl"
-                !cleanUrl.contains("://") -> "https://$cleanUrl"
-                else -> cleanUrl
+        val uri =
+            try {
+                val normalized =
+                    when {
+                        cleanUrl.startsWith("//") -> "https:$cleanUrl"
+                        !cleanUrl.contains("://") -> "https://$cleanUrl"
+                        else -> cleanUrl
+                    }
+                Uri.parse(normalized)
+            } catch (_: Exception) {
+                null
             }
-            Uri.parse(normalized)
-        } catch (_: Exception) {
-            null
-        }
 
         val host = uri?.host?.lowercase().orEmpty()
         val path = uri?.path?.lowercase().orEmpty()
 
         // Known tracker & analytics domains
-        val trackerDomains = listOf(
-            "google-analytics.com",
-            "scorecardresearch.com",
-            "quantserve.com",
-            "hotjar.com",
-            "clarity.ms",
-            "segment.io",
-            "segment.com",
-            "mixpanel.com",
-            "amplitude.com",
-            "statcounter.com",
-            "counter.yadro.ru",
-            "top-fwz1.mail.ru"
-        )
+        val trackerDomains =
+            listOf(
+                "google-analytics.com",
+                "scorecardresearch.com",
+                "quantserve.com",
+                "hotjar.com",
+                "clarity.ms",
+                "segment.io",
+                "segment.com",
+                "mixpanel.com",
+                "amplitude.com",
+                "statcounter.com",
+                "counter.yadro.ru",
+                "top-fwz1.mail.ru",
+            )
         if (trackerDomains.any { host == it || host.endsWith(".$it") }) {
             return true
         }

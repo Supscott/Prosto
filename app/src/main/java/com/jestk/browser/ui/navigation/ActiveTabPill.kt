@@ -3,7 +3,6 @@ package com.jestk.browser.ui.navigation
 import android.content.Context
 import android.content.Intent
 import android.widget.Toast
-import com.jestk.browser.util.ClipboardHelper
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -52,7 +51,6 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -60,15 +58,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
-import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkTextHighContrast
 import com.jestk.browser.ui.theme.LocalSereneTypography
 import com.jestk.browser.ui.theme.SereneAccent
 import com.jestk.browser.ui.theme.SereneBrandPrimary
 import com.jestk.browser.ui.theme.SereneDarkText
 import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.util.ClipboardHelper
 import kotlin.math.abs
 
 /**
@@ -132,7 +130,7 @@ fun ActiveTabPill(
     val animatedProgress by animateFloatAsState(
         targetValue = if (isLoading) loadingProgress.coerceIn(0f, 1f) else 0f,
         animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing),
-        label = "TabLoadingProgress"
+        label = "TabLoadingProgress",
     )
 
     Surface(
@@ -140,183 +138,175 @@ fun ActiveTabPill(
         color = resolvedBg,
         border = resolvedBorder,
         shadowElevation = 0.dp,
-        modifier = modifier
-            .height(42.dp)
-            .shadow(
-                elevation = 2.dp,
-                shape = RoundedCornerShape(21.dp),
-                clip = false,
-                ambientColor = if (isDark) Color.Black else Color.Black.copy(alpha = 0.60f),
-                spotColor = Color.Black
-            )
+        modifier =
+            modifier
+                .height(42.dp)
+                .shadow(
+                    elevation = 2.dp,
+                    shape = RoundedCornerShape(21.dp),
+                    clip = false,
+                    ambientColor = if (isDark) Color.Black else Color.Black.copy(alpha = 0.60f),
+                    spotColor = Color.Black,
+                ),
     ) {
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(RoundedCornerShape(21.dp))
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(21.dp)),
         ) {
             // Page Loading Progress Fill (height: 100%, 20% opacity SereneBrandPrimary)
             AnimatedVisibility(
                 visible = isLoading && animatedProgress > 0f,
                 enter = fadeIn(animationSpec = tween(150)),
                 exit = fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)),
-                modifier = Modifier.matchParentSize()
+                modifier = Modifier.matchParentSize(),
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.CenterStart
+                    contentAlignment = Alignment.CenterStart,
                 ) {
                     Box(
-                        modifier = Modifier
-                            .fillMaxHeight()
-                            .fillMaxWidth(fraction = animatedProgress)
-                            .background(SereneBrandPrimary.copy(alpha = 0.20f))
+                        modifier =
+                            Modifier
+                                .fillMaxHeight()
+                                .fillMaxWidth(fraction = animatedProgress)
+                                .background(SereneBrandPrimary.copy(alpha = 0.20f)),
                     )
                 }
             }
 
             // Pill Content Row
             Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(tabId ?: url) {
-                        awaitEachGesture {
-                            val down = awaitFirstDown(requireUnconsumed = false)
-                            val longPress = awaitLongPressOrCancellation(down.id)
-                            if (longPress != null) {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                var totalDragX = 0f
-                                var isDraggingInternal = false
-                                val currentPointerId = longPress.id
-                                var cancelled = false
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .pointerInput(tabId ?: url) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                val longPress = awaitLongPressOrCancellation(down.id)
+                                if (longPress != null) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    var totalDragX = 0f
+                                    var isDraggingInternal = false
+                                    val currentPointerId = longPress.id
+                                    var cancelled = false
 
-                                while (true) {
-                                    val event = awaitPointerEvent(PointerEventPass.Initial)
-                                    val dragChange = event.changes.firstOrNull { it.id == currentPointerId }
-                                    if (dragChange == null) {
-                                        cancelled = true
-                                        break
-                                    }
-                                    if (dragChange.changedToUp()) {
+                                    while (true) {
+                                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                                        val dragChange = event.changes.firstOrNull { it.id == currentPointerId }
+                                        if (dragChange == null) {
+                                            cancelled = true
+                                            break
+                                        }
+                                        if (dragChange.changedToUp()) {
+                                            dragChange.consume()
+                                            break
+                                        }
+
+                                        val dragAmount = dragChange.positionChange()
+                                        totalDragX += dragAmount.x
                                         dragChange.consume()
-                                        break
-                                    }
 
-                                    val dragAmount = dragChange.positionChange()
-                                    totalDragX += dragAmount.x
-                                    dragChange.consume()
+                                        if (!isDraggingInternal && abs(totalDragX) > touchSlop) {
+                                            isDraggingInternal = true
+                                            currentOnDragStart?.invoke()
+                                        }
 
-                                    if (!isDraggingInternal && abs(totalDragX) > touchSlop) {
-                                        isDraggingInternal = true
-                                        currentOnDragStart?.invoke()
+                                        if (isDraggingInternal) {
+                                            currentOnDrag?.invoke(dragAmount.x)
+                                        }
                                     }
 
                                     if (isDraggingInternal) {
-                                        currentOnDrag?.invoke(dragAmount.x)
+                                        if (cancelled) {
+                                            currentOnDragCancel?.invoke()
+                                        } else {
+                                            currentOnDragEnd?.invoke()
+                                        }
+                                    } else if (!cancelled) {
+                                        showMenu = true
                                     }
-                                }
-
-                                if (isDraggingInternal) {
-                                    if (cancelled) {
-                                        currentOnDragCancel?.invoke()
-                                    } else {
-                                        currentOnDragEnd?.invoke()
-                                    }
-                                } else if (!cancelled) {
-                                    showMenu = true
                                 }
                             }
-                        }
-                    }
-                    .clickable(onClick = onOpenSearch)
-                    .padding(start = 10.dp, end = 6.dp),
+                        }.clickable(onClick = onOpenSearch)
+                        .padding(start = 10.dp, end = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 // Bare favicon container (no background box)
-                Box(
-                    modifier = Modifier.size(18.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    if (isHome) {
+                if (isHome) {
+                    Box(
+                        modifier = Modifier.size(18.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Home,
                             contentDescription = "Home",
                             tint = iconTint,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(17.dp),
                         )
-                    } else {
-                        val hasLocalFavicon = remember(faviconUrl) {
-                            FaviconManager.isValidLocalFavicon(faviconUrl)
-                        }
-                        var isFaviconSuccess by remember(faviconUrl) { mutableStateOf(hasLocalFavicon) }
-                        val imageModel = remember(faviconUrl) {
-                            FaviconManager.toImageModel(faviconUrl)
-                        }
-
-                        if (!isFaviconSuccess) {
+                    }
+                } else {
+                    SiteFavicon(
+                        faviconUrl = faviconUrl,
+                        imageSize = 18.dp,
+                        placeholder = {
                             val initial = title.trim().firstOrNull()?.uppercaseChar()
-                            if (initial != null && initial.isLetterOrDigit() && title != "Hori Browser" && title != "Hori" && title != "New Tab") {
+                            if (initial != null && initial.isLetterOrDigit() && title != "Prosto Browser" && title != "Prosto" &&
+                                title != "New Tab"
+                            ) {
                                 Text(
                                     text = initial.toString(),
-                                    style = typography.labelMd.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp
-                                    ),
-                                    color = iconTint
+                                    style =
+                                        typography.labelMd.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 12.sp,
+                                        ),
+                                    color = iconTint,
                                 )
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.Lock,
                                     contentDescription = "Secure Connection",
                                     tint = iconTint,
-                                    modifier = Modifier.size(15.dp)
+                                    modifier = Modifier.size(15.dp),
                                 )
                             }
-                        }
-
-                        if (imageModel != null) {
-                            AsyncImage(
-                                model = imageModel,
-                                contentDescription = title,
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clip(RoundedCornerShape(4.dp)),
-                                contentScale = ContentScale.Fit,
-                                onSuccess = { isFaviconSuccess = true },
-                                onError = { isFaviconSuccess = false }
-                            )
-                        }
-                    }
+                        },
+                    )
                 }
 
                 // Truncated Title (Bold) & Domain (if not Home)
                 Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(vertical = 2.dp),
-                    verticalArrangement = Arrangement.Center
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .padding(vertical = 2.dp),
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
                         text = title,
-                        style = typography.labelMd.copy(
-                            fontSize = if (domain.isEmpty()) 12.5.sp else 11.5.sp,
-                            fontWeight = FontWeight.Bold
-                        ),
+                        style =
+                            typography.labelMd.copy(
+                                fontSize = if (domain.isEmpty()) 12.5.sp else 11.5.sp,
+                                fontWeight = FontWeight.Bold,
+                            ),
                         color = titleColor,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     if (domain.isNotEmpty()) {
                         Text(
                             text = domain,
-                            style = typography.bodySm.copy(
-                                fontSize = 9.5.sp,
-                                fontWeight = FontWeight.Normal
-                            ),
+                            style =
+                                typography.bodySm.copy(
+                                    fontSize = 9.5.sp,
+                                    fontWeight = FontWeight.Normal,
+                                ),
                             color = domainColor,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -324,13 +314,13 @@ fun ActiveTabPill(
                 // Close Tab Action Glyph
                 IconButton(
                     onClick = onClose,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(22.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close tab",
                         tint = closeTint,
-                        modifier = Modifier.size(13.dp)
+                        modifier = Modifier.size(13.dp),
                     )
                 }
             }
@@ -351,7 +341,7 @@ fun ActiveTabPill(
                         Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
                     }
                 },
-                onShareLink = { onShare(url) }
+                onShareLink = { onShare(url) },
             )
         }
     }
@@ -463,7 +453,10 @@ fun ActiveTabCenterCapsule(
     )
 }
 
-internal fun copyUrlToClipboard(context: Context, url: String) {
+internal fun copyUrlToClipboard(
+    context: Context,
+    url: String,
+) {
     if (url.isNotBlank() && !url.startsWith("about:")) {
         ClipboardHelper.copyToClipboard(context, url)
     } else {
@@ -471,14 +464,18 @@ internal fun copyUrlToClipboard(context: Context, url: String) {
     }
 }
 
-internal fun shareWebpageUrl(context: Context, urlToShare: String) {
+internal fun shareWebpageUrl(
+    context: Context,
+    urlToShare: String,
+) {
     if (urlToShare.isNotBlank() && !urlToShare.startsWith("about:")) {
         try {
-            val sendIntent = Intent().apply {
-                action = Intent.ACTION_SEND
-                putExtra(Intent.EXTRA_TEXT, urlToShare)
-                type = "text/plain"
-            }
+            val sendIntent =
+                Intent().apply {
+                    action = Intent.ACTION_SEND
+                    putExtra(Intent.EXTRA_TEXT, urlToShare)
+                    type = "text/plain"
+                }
             val shareIntent = Intent.createChooser(sendIntent, "Share Webpage")
             context.startActivity(shareIntent)
         } catch (_: Exception) {

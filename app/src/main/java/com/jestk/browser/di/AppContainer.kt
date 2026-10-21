@@ -9,21 +9,22 @@ import com.jestk.browser.data.repository.DownloadRepositoryImpl
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
 import com.jestk.browser.data.repository.RecentTabRepositoryImpl
+import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
+import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
-import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
-import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.engine.AdBlockerEngine
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.download.HoriDownloadManager
+import com.jestk.browser.engine.update.AppUpdateManager
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 
 interface AppContainer {
@@ -37,11 +38,13 @@ interface AppContainer {
     val downloadManager: HoriDownloadManager
     val searchEngineRepository: SearchEngineRepository
     val webViewPool: WebViewPool
+    val appUpdateManager: AppUpdateManager
     val viewModelFactory: ViewModelProvider.Factory
 }
 
-class DefaultAppContainer(private val context: Context) : AppContainer {
-
+class DefaultAppContainer(
+    private val context: Context,
+) : AppContainer {
     init {
         SnapshotEngine.init(context.applicationContext)
         FaviconManager.init(context.applicationContext)
@@ -89,19 +92,25 @@ class DefaultAppContainer(private val context: Context) : AppContainer {
         SearchEngineRepositoryImpl(database.searchEngineDao(), context = context.applicationContext)
     }
 
-    override val viewModelFactory: ViewModelProvider.Factory = viewModelFactory {
-        initializer {
-            BrowserViewModel(
-                tabRepository = tabRepository,
-                historyRepository = historyRepository,
-                favoriteRepository = favoriteRepository,
-                settingsRepository = settingsRepository,
-                recentTabRepository = recentTabRepository,
-                downloadRepository = downloadRepository,
-                downloadManager = downloadManager,
-                searchEngineRepository = searchEngineRepository,
-                webViewPool = webViewPool
-            )
-        }
+    override val appUpdateManager: AppUpdateManager by lazy {
+        AppUpdateManager(context.applicationContext)
     }
+
+    override val viewModelFactory: ViewModelProvider.Factory =
+        viewModelFactory {
+            initializer {
+                BrowserViewModel(
+                    tabRepository = tabRepository,
+                    historyRepository = historyRepository,
+                    favoriteRepository = favoriteRepository,
+                    settingsRepository = settingsRepository,
+                    recentTabRepository = recentTabRepository,
+                    downloadRepository = downloadRepository,
+                    downloadManager = downloadManager,
+                    searchEngineRepository = searchEngineRepository,
+                    webViewPool = webViewPool,
+                    appUpdateManager = appUpdateManager,
+                )
+            }
+        }
 }

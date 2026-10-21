@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Hori</string>
+    <string name="app_name">Prosto</string>
     <string name="search_placeholder">Search or enter website name</string>
     <string name="search_with_engine">Search with %1$s</string>
     <string name="new_tab">New Tab</string>
@@ -40,11 +40,11 @@
     <string name="url_copied">URL copied</string>
     <string name="tab_closed">Tab closed</string>
     <string name="undo">Undo</string>
-    <string name="default_browser_prompt_title">Set Hori as default browser</string>
-    <string name="default_browser_prompt_desc">Enjoy fast and secure web browsing with Hori</string>
+    <string name="default_browser_prompt_title">Set Prosto as default browser</string>
+    <string name="default_browser_prompt_desc">Enjoy fast and secure web browsing with Prosto</string>
     <string name="default_browser_prompt_button">Set as Default</string>
     <string name="default_browser_tile_title">Default Browser</string>
-    <string name="default_browser_tile_desc">Set Hori as your default browser</string>
+    <string name="default_browser_tile_desc">Set Prosto as your default browser</string>
     <string name="default_browser_tile_action">Set</string>
     <string name="dismiss">Dismiss</string>
     <string name="copy_image_url">Copy image address</string>
@@ -65,4 +65,19 @@
     <string name="external_app_open_in">Open in %1$s</string>
     <string name="external_app_open_generic">Open in app</string>
     <string name="external_app_open_action">Open</string>
+    <string name="update_section_title">UPDATES</string>
+    <string name="update_setting_title">Auto-update</string>
+    <string name="update_setting_summary">Download new releases from GitHub automatically</string>
+    <string name="update_card_title">Update available</string>
+    <string name="update_card_title_ready">Update ready</string>
+    <string name="update_card_body">Prosto %1$s is ready to install</string>
+    <string name="update_card_downloading">Downloading update… %1$d%%</string>
+    <string name="update_card_ready_body">Prosto %1$s is downloaded. Reopen Prosto to install it.</string>
+    <string name="update_action_install">Install</string>
+    <string name="update_action_install_later">Install Later</string>
+    <string name="update_action_skip">Skip</string>
+    <string name="update_notification_channel">Updates</string>
+    <string name="update_notification_title">Update ready</string>
+    <string name="update_notification_body">Prosto %1$s is ready to install</string>
+    <string name="update_permission_required">Allow Prosto to install updates from unknown sources</string>
 </resources>
