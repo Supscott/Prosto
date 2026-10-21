@@ -1,14 +1,14 @@
-# AGENTS.md — Agent Guidelines for Hori
+# AGENTS.md — Agent Guidelines for Prosto
 
-Welcome to the **Hori** project. This file provides critical operating guidelines, architectural standards, and workflow requirements for all AI agents working on this codebase.
+Welcome to the **Prosto** project. This file provides critical operating guidelines, architectural standards, and workflow requirements for all AI agents working on this codebase.
 
 ---
 
 ## 1. Project Overview
 
-- **Project Name:** Hori (package: `com.jestk.browser`)
+- **Project Name:** Prosto (package: `com.jestk.browser`)
 - **Platform:** Android (minSdk: 26, targetSdk: 35, compileSdk: 35)
-- **Description:** Hori is a fast, fluid, and gesture-driven Android web browser. Key features include:
+- **Description:** Prosto is a fast, fluid, and gesture-driven Android web browser. Key features include:
   - Custom gesture-oriented bottom navigation bar and action dock.
   - Serene Canvas design system (NO BLUR).
   - Built-in ad-blocking engine utilizing EasyList rulesets.

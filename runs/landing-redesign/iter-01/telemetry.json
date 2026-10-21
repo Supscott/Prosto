@@ -1,0 +1,46 @@
+{
+  "feature": "landing-redesign",
+  "iteration": 1,
+  "timestamp": "2026-10-20T10:43:16+00:00",
+  "base_ref": "n/a",
+  "hypothesis": "Replace the Astro landing page with an interactive React/Three.js site and add a browser smoke test",
+  "checks": [
+    {
+      "check": "invariants",
+      "status": "PASS",
+      "detail": "`python3 tools/check_invariants.py` -> exit 0",
+      "command": [
+        "python3",
+        "tools/check_invariants.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "tests",
+      "status": "SKIP",
+      "detail": "not selected"
+    },
+    {
+      "check": "capture",
+      "status": "SKIP",
+      "detail": "not selected"
+    },
+    {
+      "check": "visual",
+      "status": "SKIP",
+      "detail": "not selected"
+    },
+    {
+      "check": "memory",
+      "status": "PASS",
+      "detail": "`python3 tools/harness_reflect.py audit` -> exit 0",
+      "command": [
+        "python3",
+        "tools/harness_reflect.py",
+        "audit"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "verdict": "PASS"
+}

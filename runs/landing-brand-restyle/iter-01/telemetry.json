@@ -1,0 +1,61 @@
+{
+  "feature": "landing-brand-restyle",
+  "iteration": 1,
+  "timestamp": "2026-10-20T18:32:53+00:00",
+  "base_ref": "n/a",
+  "hypothesis": "Re-tint the landing site to the Prosto teal brand, swap Manrope/Inter fonts and use the app icon",
+  "checks": [
+    {
+      "check": "invariants",
+      "status": "PASS",
+      "detail": "`python3 tools/check_invariants.py` -> exit 0",
+      "command": [
+        "python3",
+        "tools/check_invariants.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "tests",
+      "status": "PASS",
+      "detail": "`./gradlew :app:testDebugUnitTest` -> exit 0",
+      "command": [
+        "./gradlew",
+        ":app:testDebugUnitTest"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "capture",
+      "status": "PASS",
+      "detail": "`python3 tools/capture.py` -> exit 0",
+      "command": [
+        "python3",
+        "tools/capture.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "visual",
+      "status": "PASS",
+      "detail": "largest changed cluster 0.00% of the frame, 0.00% blocks differ, mean delta 0.0 (stable)",
+      "changed_ratio": 0.0,
+      "largest_cluster_ratio": 0.0,
+      "cluster_count": 0,
+      "mean_abs_delta": 0.0,
+      "diff_image": "runs/shots/bottom_bar.diff.png"
+    },
+    {
+      "check": "memory",
+      "status": "PASS",
+      "detail": "`python3 tools/harness_reflect.py audit` -> exit 0",
+      "command": [
+        "python3",
+        "tools/harness_reflect.py",
+        "audit"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "verdict": "PASS"
+}

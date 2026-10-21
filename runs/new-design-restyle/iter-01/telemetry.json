@@ -1,0 +1,61 @@
+{
+  "feature": "new-design-restyle",
+  "iteration": 1,
+  "timestamp": "2026-10-20T17:25:03+00:00",
+  "base_ref": "n/a",
+  "hypothesis": "Restyle to new-design.md: teal #087E78 primary on #E9F6F2 canvas, Manrope titles + Inter body, new launcher icon",
+  "checks": [
+    {
+      "check": "invariants",
+      "status": "PASS",
+      "detail": "`python3 tools/check_invariants.py` -> exit 0",
+      "command": [
+        "python3",
+        "tools/check_invariants.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "tests",
+      "status": "PASS",
+      "detail": "`./gradlew :app:testDebugUnitTest` -> exit 0",
+      "command": [
+        "./gradlew",
+        ":app:testDebugUnitTest"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "capture",
+      "status": "PASS",
+      "detail": "`python3 tools/capture.py` -> exit 0",
+      "command": [
+        "python3",
+        "tools/capture.py"
+      ],
+      "exit_code": 0
+    },
+    {
+      "check": "visual",
+      "status": "PASS",
+      "detail": "largest changed cluster 3.96% of the frame, 5.68% blocks differ, mean delta 1.2 (stable)",
+      "changed_ratio": 0.056818181818181816,
+      "largest_cluster_ratio": 0.03956827691137314,
+      "cluster_count": 46,
+      "mean_abs_delta": 1.2124001521491061,
+      "diff_image": "runs/shots/bottom_bar.diff.png"
+    },
+    {
+      "check": "memory",
+      "status": "PASS",
+      "detail": "`python3 tools/harness_reflect.py audit` -> exit 0",
+      "command": [
+        "python3",
+        "tools/harness_reflect.py",
+        "audit"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "verdict": "PASS"
+}

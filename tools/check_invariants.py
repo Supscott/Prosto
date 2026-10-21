@@ -17,6 +17,9 @@ WEB_CLIENT = (
     / "engine"
     / "JestkWebViewClient.kt"
 )
+FAVICON_MANAGER = (
+    MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "FaviconManager.kt"
+)
 
 
 def check_no_blur():
@@ -56,11 +59,44 @@ def check_domain_layer_purity():
     return errors
 
 
+def check_stable_favicon_paths():
+    """Verify favicon file paths stay stable across icon reports.
+
+    Pages report their icon on every navigation and, for dynamic sites, several times per second.
+    A path that embeds a timestamp publishes a new URL on every report and makes every consumer
+    reload the icon, which shows up as a flickering favicon in the dock.
+    """
+    if not FAVICON_MANAGER.exists():
+        return [f"{FAVICON_MANAGER.relative_to(ROOT)} not found"]
+    content = FAVICON_MANAGER.read_text(encoding="utf-8")
+    if "currentTimeMillis" in content:
+        return [
+            f"{FAVICON_MANAGER.relative_to(ROOT)}: favicon file names must not embed a timestamp"
+        ]
+    return []
+
+
+def check_no_continuous_effect_keys():
+    """Verify LaunchedEffect is never keyed by a continuous scroll/drag value."""
+    errors = []
+    pattern = re.compile(r"LaunchedEffect\(\s*[^)]*?(\.value|OffsetPx|ScrollY|scrollY)")
+    for file in MAIN_DIR.rglob("*.kt"):
+        content = file.read_text(encoding="utf-8")
+        for match in pattern.finditer(content):
+            errors.append(
+                f"{file.relative_to(ROOT)}: LaunchedEffect keyed by a continuous value "
+                f"({match.group(0).strip()[:60]})"
+            )
+    return errors
+
+
 def main():
     all_errors = []
     all_errors.extend(check_no_blur())
     all_errors.extend(check_webkit_crash_resilience())
     all_errors.extend(check_domain_layer_purity())
+    all_errors.extend(check_stable_favicon_paths())
+    all_errors.extend(check_no_continuous_effect_keys())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
