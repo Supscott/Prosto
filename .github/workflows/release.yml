@@ -38,7 +38,8 @@ jobs:
 
       - name: Locate Android apksigner
         run: |
-          APKSIGNER_BIN=$(find "${ANDROID_HOME}/build-tools" -name apksigner | sort -V | tail -n 1)
+          APKSIGNER_BIN=$(find "${ANDROID_HOME}/build-tools" -name apksigner \
+            | sort -V | tail -n 1)
           if [ -z "$APKSIGNER_BIN" ]; then
             echo "Error: apksigner not found under ${ANDROID_HOME}/build-tools"
             exit 1
@@ -53,7 +54,7 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          RAW_APK=$(find app/build/outputs/apk/release -name "*.apk" | head -n 1)
+          RAW_APK=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
           if [ -z "$RAW_APK" ]; then
             echo "Error: Release APK not found!"
             exit 1
@@ -63,31 +64,24 @@ jobs:
           TAG_NAME="${{ github.ref_name }}"
           RELEASE_APK="prosto-${TAG_NAME}.apk"
 
-          if [ -n "$KEYSTORE_BASE64" ]; then
-            echo "Signing with repository secret keystore..."
-            echo "$KEYSTORE_BASE64" | base64 -d > release.jks
-            "$APKSIGNER_BIN" sign --ks release.jks \
-              --ks-key-alias "$KEY_ALIAS" \
-              --ks-pass "pass:$KEYSTORE_PASSWORD" \
-              --key-pass "pass:$KEY_PASSWORD" \
-              --out "$RELEASE_APK" \
-              "$RAW_APK"
-            rm -f release.jks
-          else
-            echo "Repository secret KEYSTORE_BASE64 not configured."
-            echo "Generating automated CI release signing key for direct installation..."
-            keytool -genkey -v -keystore ci-release.jks -alias prosto -keyalg RSA -keysize 2048 -validity 10000 \
-              -storepass "prostobrowser" -keypass "prostobrowser" \
-              -dname "CN=Prosto Browser, OU=Release, O=OpenSource, L=World, S=Global, C=XX"
-            
-            "$APKSIGNER_BIN" sign --ks ci-release.jks \
-              --ks-key-alias prosto \
-              --ks-pass "pass:prostobrowser" \
-              --key-pass "pass:prostobrowser" \
-              --out "$RELEASE_APK" \
-              "$RAW_APK"
-            rm -f ci-release.jks
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::KEYSTORE_BASE64 is not configured."
+            echo "::error::Refusing to sign with a throwaway key."
+            echo "::error::Every release must use the same key, otherwise"
+            echo "::error::Android refuses the in-place update and the"
+            echo "::error::in-app self-update breaks for every user."
+            exit 1
           fi
+
+          echo "Signing with repository secret keystore..."
+          echo "$KEYSTORE_BASE64" | base64 -d > release.jks
+          "$APKSIGNER_BIN" sign --ks release.jks \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass "pass:$KEYSTORE_PASSWORD" \
+            --key-pass "pass:$KEY_PASSWORD" \
+            --out "$RELEASE_APK" \
+            "$RAW_APK"
+          rm -f release.jks
 
           echo "Verifying APK signature..."
           "$APKSIGNER_BIN" verify --verbose "$RELEASE_APK"
@@ -111,12 +105,13 @@ jobs:
             checksums.txt
           body: |
             ### 🚀 Prosto Browser ${{ github.ref_name }}
-            
+
             **Browsing made simple. Tabs at your thumb.**
 
             #### 📦 Downloads
-            - **Installable APK:** [`${{ env.RELEASE_APK }}`](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/${{ env.RELEASE_APK }})
-            - **Checksums:** Verify your download using `checksums.txt` (`sha256sum -c checksums.txt`)
+            - **Installable APK:** `${{ env.RELEASE_APK }}`
+              (see the Assets section below)
+            - **Checksums:** `sha256sum -c checksums.txt`
 
             #### 📱 Requirements
             - Android 8.0+ (Oreo, API 26+)

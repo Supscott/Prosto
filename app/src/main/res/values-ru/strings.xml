@@ -80,4 +80,5 @@
     <string name="update_notification_title">Обновление готово</string>
     <string name="update_notification_body">Prosto %1$s готово к установке</string>
     <string name="update_permission_required">Разрешите Prosto устанавливать обновления из неизвестных источников</string>
+    <string name="about_version">Prosto Browser %1$s • Prosto Canvas</string>
 </resources>

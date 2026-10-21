@@ -221,6 +221,12 @@ fun SettingsContent(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val appVersion = remember(context) {
+        runCatching {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull() ?: ""
+    }
     val defaultBrowserLauncher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult(),
@@ -842,7 +848,7 @@ fun SettingsContent(
                 color = SereneMutedSlate,
             )
             Text(
-                text = "Prosto Browser v1.0 • Prosto Canvas",
+                text = stringResource(R.string.about_version, appVersion),
                 style = LocalSereneTypography.current.labelSm,
                 color = SereneMutedSlate.copy(alpha = 0.7f),
             )
