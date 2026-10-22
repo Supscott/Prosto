@@ -37,37 +37,37 @@ Active, non-obvious gotchas that cannot yet be prevented by static typing or lin
 - **Do:** Route every entry point (main-frame clicks, subframe custom schemes, programmatic loads) through one resolver, resolve in `onPageStarted` / `doUpdateVisitedHistory` for direct loads, and load the site-declared `S.browser_fallback_url` when no app matches.
 - **Don't:** Gate external-app resolution on `request.isForMainFrame`, or expect custom-scheme URLs to reach `onPageStarted`.
 
-## 6. Returning 0-byte text/plain for blocked web requests hangs host page scripts and video players
-- **Cause:** Returning 0-byte empty responses without expected global stubs prevents client scripts (`adsbygoogle`, `googletag`) from initializing, causing unresolved promises and infinite loading spinners.
-- **Do:** Use content-aware responses in `AdBlockerEngine.createSmartBlockedResponse`: transparent 1x1 PNG for images, benign surrogate scripts for scriptlets, 204 No Content for beacons, and clean empty HTML for subframes.
-- **Don't:** Intercept and respond to blocked ad or tracker requests with raw 0-byte `text/plain` responses.
-
-## 7. SQLite identical timestamp ties in rapid insertions cause non-deterministic query ordering
+## 6. SQLite identical timestamp ties in rapid insertions cause non-deterministic query ordering
 - **Cause:** `System.currentTimeMillis()` has millisecond resolution. High-speed insertions in automated tests or rapid actions yield identical timestamps, producing unpredictable row order with `ORDER BY timestamp DESC`.
 - **Do:** Always specify a secondary deterministic tie-breaker in SQL queries: `ORDER BY timestamp DESC, id DESC`.
 - **Don't:** Order SQLite queries or pagination solely by timestamp without an auto-incrementing secondary tie-breaker.
 
-## 8. Download redirect filename desync between database item and filesystem rename
+## 7. Download redirect filename desync between database item and filesystem rename
 - **Cause:** When HTTP `Content-Disposition` changes the resolved filename during redirects, updating the database record without updating the active destination file path causes `partFile.renameTo()` and media scanning to reference stale file paths.
 - **Do:** Maintain a mutable `targetDestinationFile` in download tasks and update it immediately whenever `Content-Disposition` yields a new filename during redirects.
 - **Don't:** Rely on the pre-redirect destination path when renaming completed `.crdownload` temporary files.
 
-## 9. Auto-dismissed transient hints must not become permanent suppression
+## 8. Auto-dismissed transient hints must not become permanent suppression
 - **Cause:** A 5 s auto-timeout that records the domain as "dismissed" makes a later deliberate tap on the site's own "Open in app" control a silent no-op (`tg:resolve`, `intent://applink.instagram.com`); the page stays unchanged, so it looks like a broken button.
 - **Do:** Keep separate suppression tiers for explicit dismissal and for timeouts, pass whether the navigation came from a user gesture (`WebResourceRequest.hasGesture()`), and let gesture-initiated offers bypass timeout suppression.
 - **Don't:** Treat `onTimeout` and the user pressing "✕" as the same state, or let a timeout block a subsequent explicit handoff.
 
-## 10. Programmatic smooth scroll can override the selected carousel item
+## 9. Programmatic smooth scroll can override the selected carousel item
 - **Cause:** Calling scrollTo({ behavior: 'smooth' }) to reveal an explicitly selected item fires intermediate scroll events. A scroll-position handler that infers the active item can then overwrite the selection, especially when the target is clamped at the rail edge.
 - **Do:** Set the active item explicitly before starting the animation and hold a short guard that ignores scroll-driven selection until the programmatic scroll settles.
 - **Don't:** Let a scroll listener infer the active item while a programmatic smooth-scroll animation is still running.
 
-## 11. Regex color replacement in the landing stylesheet silently corrupts CSS
+## 10. Regex color replacement in the landing stylesheet silently corrupts CSS
 - **Cause:** A regex that consumes the closing parenthesis of rgba() while rewriting colors drops it, and a follow-up repair that matches across newlines relocates that parenthesis into an unrelated declaration. The stylesheet still parses, so the breakage only surfaces as mis-rendered CSS.
 - **Do:** Rewrite colors with a pattern that preserves the closing parenthesis (or re-emit it in the same replacement), then diff the compiled rule set of the previous and new build - comparing the property list of every selector exposes the damage immediately.
 - **Don't:** Don't repair a corrupted stylesheet with a newline-capable regex; restore the original file and redo the transform with a parser or a non-consuming pattern.
 
-## 12. Kotlin LSP serves stale module snapshots, so its diagnostics on edited files are false positives
+## 11. Kotlin LSP serves stale module snapshots, so its diagnostics on edited files are false positives
 - **Cause:** The pi-lens Kotlin analysis server (fwcd kotlin-language-server 1.3.13) caches the project module snapshot (source file list, R class, Gradle classpath) at startup. After new source files, new string resources or a new Gradle dependency are added, it keeps analysing edited files against the old snapshot and reports phantom 'Unresolved reference' errors for brand-new symbols, new R fields and even the whole test classpath (junit/truth/robolectric).
 - **Do:** Verify with the real compiler first (./gradlew :app:compileDebugKotlin and :app:testDebugUnitTest) and, when the LSP still disagrees, restart the analysis server (kill the kotlin-language-server java process) so it re-imports the project; only then trust its diagnostics.
 - **Don't:** Do not chase LSP 'Unresolved reference' errors on freshly added files or resources, and do not rewrite correct code to satisfy them - a green Gradle compile plus a green test suite is the authority.
+
+## 12. A data class that carries a ByteArray compares by reference, so equal domain states look different
+- **Cause:** Kotlin generates equals/hashCode for a data class by comparing each property with ==. For a ByteArray that is reference equality, so two domain objects built from identical bytes are not equal and hash differently. Anything that compares such an object - a UI state equality check, a distinctUntilChanged on a flow, a recomposition key - then reads an unchanged value as a change (or misses a real one). The same trap applies to Bitmap and to every other array-like type that does not implement structural equality.
+- **Do:** Wrap binary payloads in a small value class that compares with contentEquals and contentHashCode (see domain/model/AppIcon.kt, which carries the app icon as PNG bytes so that the domain layer stays free of android.graphics.Bitmap), and keep the raw array out of the data class property list.
+- **Don't:** Do not put a ByteArray - or a Bitmap, or any other type without structural equality - directly into a data class that participates in equality, and do not rely on the generated equals/hashCode for arrays.

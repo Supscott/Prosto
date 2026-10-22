@@ -107,7 +107,7 @@ Write the orchestrator tracking file to `TASKS.md` (root repository):
 
 ## Finalization
 - [ ] Worktrees cleaned up & pruned
-- [ ] docs/memory/MEMORY.md updated
+- [ ] LESSONS.md updated
 - [ ] User summary delivered
 ```
 
@@ -242,8 +242,8 @@ Clean up worktrees immediately after merging to prevent resource leaks and stale
 ## Phase 7: Memory & Reporting
 
 1. **Update Memory Protocol:**
-   - Per project guidelines (`AGENTS.md`), append a summary of completed features to [`docs/memory/MEMORY.md`](file:///Users/ilya/CODING/browser/docs/memory/MEMORY.md).
-   - If a bug was investigated and fixed, record root cause and prevention in [`docs/memory/LESSONS.md`](file:///Users/ilya/CODING/browser/docs/memory/LESSONS.md).
+   - Per project guidelines (`AGENTS.md`), append a summary of completed features to [`TASKS.md`](file:///Users/ilya/CODING/browser/TASKS.md).
+   - If a bug was investigated and fixed, record root cause and prevention in [`LESSONS.md`](file:///Users/ilya/CODING/browser/LESSONS.md).
 2. **Close GitHub Issues (if applicable):**
    ```bash
    rtk gh issue close <issue-number> --comment "Implemented and merged via worktree-orchestrator in commit <hash>."

@@ -87,7 +87,7 @@
   - "Set as Default Browser" setting row only when `!isDefaultBrowser`. If `isDefaultBrowser == true`, hide completely.
 
 #### 4. Image Long-Press Context Menu Modal (`6aa463aa17fc4c9f41f35414`)
-- **`ImageContextMenuBottomSheet.kt`** [NEW]:
+- **`ImageContextMenuModal.kt`** [NEW]:
   - Liquid frosted glass bottom sheet (`LiquidShapes`, `liquidFrostedGlass`).
   - Thumbnail preview of the image.
   - Three action rows:
@@ -105,7 +105,7 @@
 - **`BrowserViewModel.kt`**:
   - Handle `ShowImageContextMenu`, `DismissImageContextMenu`, `CopyImageUrl`, `PreviewImageInNewTab`.
 - **`JestkApp.kt`**:
-  - Render `ImageContextMenuBottomSheet` when `uiState.selectedImageUrl != null`.
+  - Render `ImageContextMenuModal` when `uiState.selectedImageUrl != null`.
 
 ---
 

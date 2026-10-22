@@ -10,7 +10,7 @@ Welcome to the **Prosto** project. This file provides critical operating guideli
 - **Platform:** Android (minSdk: 26, targetSdk: 35, compileSdk: 35)
 - **Description:** Prosto is a fast, fluid, and gesture-driven Android web browser. Key features include:
   - Custom gesture-oriented bottom navigation bar and action dock.
-  - Serene Canvas design system (NO BLUR).
+  - Prosto Canvas design system (NO BLUR).
   - Built-in ad-blocking engine utilizing EasyList rulesets.
   - Multi-tab management (visual grid, swipe-to-dismiss, persistent recent tabs).
   - Fullscreen video playback with Picture-in-Picture (PiP) support.
@@ -22,7 +22,7 @@ Welcome to the **Prosto** project. This file provides critical operating guideli
 
 - **Language:** Kotlin (JVM Target 17).
 - **UI Framework:** Jetpack Compose (Material 3, Compose BOM `2025.12.00`).
-- **Styling & Effects:** Compose Material 3 (Serene Canvas, NO BLUR) with precision micro-borders and elevation shadows.
+- **Styling & Effects:** Compose Material 3 (Prosto Canvas, NO BLUR) with precision micro-borders and elevation shadows.
 - **Asynchronous / Concurrency:** Kotlin Coroutines (`kotlinx.coroutines`) & `StateFlow` / `SharedFlow`.
 - **Database & Persistence:** AndroidX Room (`2.6.1`) with KSP annotation processing.
 - **Web Engine:** Android WebKit (`WebView`, `WebChromeClient`, `WebViewClient`) with custom pooling and lifecycle management.
@@ -92,11 +92,13 @@ Never skip this step — it ensures continuity across separate agent sessions an
 │       │       ├── ui/                         # Presentation layer (Jetpack Compose)
 │       │       │   ├── MainActivity.kt         # Single activity host
 │       │       │   ├── JestkApp.kt             # Top-level composable & navigation coordinator
+│       │       │   ├── components/             # Shared Prosto Canvas components (ProstoToggleSwitch, ProstoRecentTabCard)
 │       │       │   ├── navigation/             # UnifiedBottomBar, ActionDock, ActiveTabPill, TabStrip
 │       │       │   ├── overlays/               # Search overlay, sheets, context menus
 │       │       │   ├── pip/                    # Picture-in-Picture lifecycle handling
 │       │       │   ├── screens/                # Full-screen composables (Tabs, Downloads, Settings)
 │       │       │   ├── theme/                  # Colors, Typography, Shapes, Themes
+│       │       │   ├── views/                  # Home screen and WebView host
 │       │       │   └── viewmodel/              # BrowserViewModel, UiState, UiEvents
 │       │       └── util/                       # Helpers (DefaultBrowserHelper, etc.)
 │       └── test/java/com/jestk/browser/        # Test suites (Unit & Visual)
@@ -154,7 +156,7 @@ Every new feature or bugfix must be covered by tests. Both business logic and UI
 - **Scope:** Composable layouts, bottom dock states, overlays, modals, responsive handling, and theme variations (Light / Dark).
 - **Tools:** Robolectric Native Graphics (`@GraphicsMode(GraphicsMode.Mode.NATIVE)` + `@Config(sdk = [34])`), Jetpack Compose Previews, and the Compose Preview rendering plugin.
 - **Requirement:**
-  - Verify that visual layouts adhere to [`DESIGN.md`](file:///Users/ilya/CODING/browser/DESIGN.md) (e.g. Serene Canvas color tokens and dimensions).
+  - Verify that visual layouts adhere to [`DESIGN.md`](file:///Users/ilya/CODING/browser/DESIGN.md) (e.g. Prosto Canvas color tokens and dimensions).
   - Use Robolectric to render composables to PNG bitmaps when verifying complex UI states or visual regressions (see existing tests in `app/src/test/java/com/jestk/browser/ui/navigation/BottomBarPreviewTest.kt`).
 
 ---

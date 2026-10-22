@@ -12,11 +12,14 @@
   [![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-3B82F6.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
   [![Android Min SDK](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-34D399.svg?style=flat-square)](https://developer.android.com/about/versions/oreo)
   [![APK Size](https://img.shields.io/badge/APK%20Size-~4.0%20MB-10B981.svg?style=flat-square)](https://github.com/Supscott/browser/releases)
-  [![Kotlin](https://img.shields.io/badge/Kotlin-2.1-7C3AED.svg?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+  [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7C3AED.svg?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
   [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202025.12-4285F4.svg?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
   [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
 
 </div>
+
+> **Naming:** the app ships to users as **Prosto**. "Hori" is the internal project and package
+> name (`com.jestk.browser`) used by `AGENTS.md` and the release tooling.
 
 ---
 
@@ -26,7 +29,7 @@ Smartphones have grown to 6.7"+ displays, yet traditional mobile browsers still 
 
 **Prosto re-architects mobile web navigation around the natural pivot arc of the thumb:**
 - **100% thumb-reachable:** All primary navigation, tab switching, and search controls reside in the bottom third of the display.
-- **Serene Canvas design system:** Solid, tactile surfaces with precision micro-borders and elevation shadows — strictly **NO BLUR** shaders that waste CPU cycles and battery.
+- **Prosto Canvas design system:** Solid, tactile surfaces with precision micro-borders and elevation shadows — strictly **NO BLUR** shaders that waste CPU cycles and battery.
 - **Ultra-lean footprint:** Less than ~4.0 MB APK, optimized with R8 minification, starting instantaneously without bloat.
 - **Zero telemetry:** Completely private by design. No trackers, no analytics, no phoning home.
 
@@ -92,7 +95,7 @@ You can download the latest production-ready APK directly from [GitHub Releases]
 
 | Version | Download Link | Requirements |
 | :--- | :--- | :--- |
-| **Latest (v0.1.0)** | [📥 Download prosto-v0.1.0.apk](https://github.com/Supscott/browser/releases/download/v0.1.0/prosto-v0.1.0.apk) | Android 8.0+ (Oreo, API 26+) |
+| **Latest (v0.2.0)** | [📥 Download prosto-v0.2.0.apk](https://github.com/Supscott/browser/releases/download/v0.2.0/prosto-v0.2.0.apk) | Android 8.0+ (Oreo, API 26+) |
 
 ### F-Droid / IzzyOnDroid
 > [!NOTE]
@@ -124,13 +127,19 @@ cd browser
 # app/build/outputs/apk/release/app-release-unsigned.apk
 ```
 
+Local release builds are unsigned. CI signs release artifacts with the repository secret
+keystore — see `.github/workflows/release.yml`.
+
 ### Running Tests
 
-Prosto maintains comprehensive automated test coverage (400+ unit and Robolectric tests):
+Prosto maintains comprehensive automated test coverage (600+ unit and Robolectric tests):
 
 ```bash
 # Run all JVM unit and Robolectric Native Graphics visual tests
-./gradlew testDebugUnitTest
+./gradlew :app:testDebugUnitTest
+
+# Check the architectural invariants (no blur, domain purity, crash resilience)
+python3 tools/check_invariants.py
 ```
 
 ---
@@ -159,7 +168,7 @@ com.jestk.browser/
     ├── navigation/            # Floating Dock, ActionDock, ActiveTabPill, TabStrip
     ├── overlays/              # SearchOverlay, ProviderCarousel, ContextMenus
     ├── screens/               # TabOverviewGrid, SettingsScreen, DownloadsScreen
-    ├── theme/                 # Serene Canvas design system (Strictly NO BLUR)
+    ├── theme/                 # Prosto Canvas design system (Strictly NO BLUR)
     └── viewmodel/             # BrowserViewModel with specialized Coordinators
 ```
 
@@ -169,12 +178,15 @@ com.jestk.browser/
 - **Networking & Images:** OkHttp 4.12.0, Coil Compose 2.7.0.
 - **Concurrency:** Kotlin Coroutines & `StateFlow` / `SharedFlow`.
 
+The `domain/` layer is framework-free: it must not import anything from `android.*`, and both
+`tools/check_invariants.py` and `DomainArchitectureTest` enforce that on every build.
+
 ---
 
 ## 🗺️ Roadmap
 
 - [x] Floating bottom gesture dock with 1-swipe search and spring drag-and-drop tab reordering.
-- [x] Serene Canvas design system with solid tactile surfaces.
+- [x] Prosto Canvas design system with solid tactile surfaces.
 - [x] Integrated ad and tracker blocking with live statistics.
 - [x] In-app resumable background download manager.
 - [x] Dynamic search engine carousel and prefix shortcuts.
@@ -191,7 +203,7 @@ Contributions are welcome! Whether it's reporting a bug, proposing a new feature
 
 1. Check existing [Issues](https://github.com/Supscott/browser/issues) or create a new one.
 2. Read our [Contributing Guidelines](CONTRIBUTING.md).
-3. Ensure all tests pass before submitting (`./gradlew testDebugUnitTest`).
+3. Ensure all tests pass before submitting (`./gradlew :app:testDebugUnitTest`).
 4. Follow the existing Kotlin and Compose code style.
 
 ---

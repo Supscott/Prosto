@@ -263,6 +263,6 @@ The launcher identity is the brand swirl from `app/src/main/assets/icon`:
 
 ### 7. Settings Row (INTERACTION section)
 
-- Icon tile (34px, 10px radius) + title/summary pair + `LiquidSunsetSwitch`, inside an `InsetGroupedCard`.
+- Icon tile (34px, 10px radius) + title/summary pair + `ProstoToggleSwitch`, inside an `InsetGroupedCard`.
 - The *Vibration* row is the only switch that controls the app's tactile feedback: it drives the platform vibrator, not the system touch-feedback setting (see `docs/adr/0002-platform-vibration-feedback.md`).
 - Section headers are localized resources (`settings_section_*`), never hardcoded labels.

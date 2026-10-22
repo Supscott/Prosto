@@ -22,3 +22,10 @@ Retired lessons that are permanently guarded by automated tests, assertions, or 
 - **Cause:** Pages report their icon on every navigation and several times per second for dynamic sites. Saving every report under a new file name publishes a new URL each time, so every bound image (dock pill, tab strip, tab grid) drops its bitmap, reloads and renders empty for a frame; the deleted predecessor also fails to load, which flipped the UI to the text-initial fallback.
 - **Do:** Store a tab favicon under a stable per-tab path (`favicon_<tabId>.png`), replace it atomically, and skip the write when the encoded bytes are unchanged so the modification time - part of the image loader cache key - stays stable.
 - **Don't:** Don't embed a timestamp or any other changing value in a favicon file name, and don't delete the file that a still-visible consumer points to.
+
+## Retired Lesson: Returning 0-byte text/plain for blocked web requests hangs host page scripts and video players
+- **Graduated On:** 2026-10-22
+- **Graduation Reason:** Fully enforced by four dedicated automated tests in AdBlockerEngineTest (createSmartBlockedResponse_returnsTransparentPngForImages, _returnsJavascriptWithSurrogatesForScripts, _returns204NoContentForBeaconsAndAnalytics, _returnsEmptyHtmlForFrames).
+- **Cause:** Returning 0-byte empty responses without expected global stubs prevents client scripts (`adsbygoogle`, `googletag`) from initializing, causing unresolved promises and infinite loading spinners.
+- **Do:** Use content-aware responses in `AdBlockerEngine.createSmartBlockedResponse`: transparent 1x1 PNG for images, benign surrogate scripts for scriptlets, 204 No Content for beacons, and clean empty HTML for subframes.
+- **Don't:** Intercept and respond to blocked ad or tracker requests with raw 0-byte `text/plain` responses.

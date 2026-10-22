@@ -28,7 +28,7 @@ Before opening a pull request, ensure all tests pass:
 If you add new features or fix bugs:
 - Add JVM unit tests under `app/src/test/java/com/jestk/browser/`.
 - If modifying UI composables, update or add visual preview tests (using Robolectric Native Graphics).
-- Adhere to the **Serene Canvas** design system:
+- Adhere to the **Prosto Canvas** design system:
   - **Strictly NO BLUR**: never use backdrop blur shaders or frosted glass effects.
   - Respect bottom gesture safe areas and Android system bars.
   - Keep APK footprint minimal and performant.
