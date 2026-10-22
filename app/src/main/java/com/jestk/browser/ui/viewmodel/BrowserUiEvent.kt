@@ -210,6 +210,10 @@ sealed interface BrowserUiEvent {
         val enabled: Boolean,
     ) : BrowserUiEvent
 
+    data class SetVibrationEnabled(
+        val enabled: Boolean,
+    ) : BrowserUiEvent
+
     // Self-update
     data class SetAutoUpdateEnabled(
         val enabled: Boolean,

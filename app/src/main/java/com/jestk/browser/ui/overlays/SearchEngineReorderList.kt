@@ -47,12 +47,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -70,6 +67,8 @@ import com.jestk.browser.ui.theme.SereneBrandPrimary
 import com.jestk.browser.ui.theme.SereneDarkText
 import com.jestk.browser.ui.theme.SereneMutedSlate
 import com.jestk.browser.ui.theme.SerenePaleBlue
+import com.jestk.browser.util.LocalVibrationFeedback
+import com.jestk.browser.util.VibrationFeedback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -84,7 +83,7 @@ import kotlin.math.roundToInt
 internal class SearchEngineReorderState(
     val slotHeightPx: Float,
     val coroutineScope: CoroutineScope,
-    val haptic: HapticFeedback,
+    val vibration: VibrationFeedback,
     initialList: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     val onReorder: (List<SearchEngine>) -> Unit
 ) {
@@ -156,7 +155,7 @@ internal class SearchEngineReorderState(
         draggingIndex = startIndex
         targetIndex = startIndex
         dragOffsetY = 0f
-        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        vibration.tick()
     }
 
     fun onDragStart(index: Int, list: List<SearchEngine>? = null) {
@@ -172,7 +171,7 @@ internal class SearchEngineReorderState(
         draggingIndex = index
         targetIndex = index
         dragOffsetY = 0f
-        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        vibration.tick()
     }
 
     fun onDrag(deltaY: Float, list: List<SearchEngine>? = null) {
@@ -196,7 +195,7 @@ internal class SearchEngineReorderState(
         val newTarget = currentSlotFloat.roundToInt().coerceIn(0, currentList.size - 1)
         if (newTarget != targetIndex) {
             targetIndex = newTarget
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            vibration.tick()
         }
     }
 
@@ -213,7 +212,7 @@ internal class SearchEngineReorderState(
         val newTarget = currentSlotFloat.roundToInt().coerceIn(0, listSize - 1)
         if (newTarget != targetIndex) {
             targetIndex = newTarget
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            vibration.tick()
         }
     }
 
@@ -266,7 +265,7 @@ internal class SearchEngineReorderState(
                     stiffness = Spring.StiffnessMedium
                 )
             )
-            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            vibration.tick()
 
             if (finalTarget != startIndex && startIndex in baseList.indices && finalTarget in baseList.indices) {
                 val mutable = baseList.toMutableList()
@@ -359,7 +358,7 @@ internal fun SearchEngineDropdownCard(
     reorderState: SearchEngineReorderState? = null,
 ) {
     var isEditMode by remember { mutableStateOf(initialEditMode) }
-    val haptic = LocalHapticFeedback.current
+    val vibration = LocalVibrationFeedback.current
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
     val currentOnReorderEngines by rememberUpdatedState(onReorderEngines)
@@ -372,7 +371,7 @@ internal fun SearchEngineDropdownCard(
         SearchEngineReorderState(
             slotHeightPx = slotHeightPx,
             coroutineScope = coroutineScope,
-            haptic = haptic,
+            vibration = vibration,
             initialList = engines,
             onReorder = { reordered -> currentOnReorderEngines(reordered) }
         )

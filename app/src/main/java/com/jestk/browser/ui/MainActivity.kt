@@ -15,52 +15,69 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModelProvider
 import com.jestk.browser.JestkApplication
 import com.jestk.browser.engine.AdBlockerEngine
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
+import com.jestk.browser.util.LocalVibrationFeedback
+import com.jestk.browser.util.VibratorVibrationFeedback
 
 class MainActivity : ComponentActivity() {
-
     private lateinit var viewModel: BrowserViewModel
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
-    private val fileChooserLauncher: ActivityResultLauncher<Intent> = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val uris: Array<Uri>? = if (result.resultCode == RESULT_OK && result.data != null) {
-            val data = result.data!!
-            val clipData = data.clipData
-            when {
-                clipData != null && clipData.itemCount > 0 -> {
-                    val list = ArrayList<Uri>()
-                    for (i in 0 until clipData.itemCount) {
-                        clipData.getItemAt(i)?.uri?.let { list.add(it) }
-                    }
-                    if (list.isNotEmpty()) list.toTypedArray() else WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
-                }
-                data.data != null -> {
-                    arrayOf(data.data!!)
-                }
-                else -> {
-                    WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
-                }
-            }
-        } else {
-            null
-        }
-        filePathCallback?.onReceiveValue(uris)
-        filePathCallback = null
-    }
+    private val fileChooserLauncher: ActivityResultLauncher<Intent> =
+        registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult(),
+        ) { result ->
+            val uris: Array<Uri>? =
+                if (result.resultCode == RESULT_OK && result.data != null) {
+                    val data = result.data!!
+                    val clipData = data.clipData
+                    when {
+                        clipData != null && clipData.itemCount > 0 -> {
+                            val list = ArrayList<Uri>()
+                            for (i in 0 until clipData.itemCount) {
+                                clipData.getItemAt(i)?.uri?.let { list.add(it) }
+                            }
+                            if (list.isNotEmpty()) {
+                                list.toTypedArray()
+                            } else {
+                                WebChromeClient.FileChooserParams.parseResult(
+                                    result.resultCode,
+                                    data,
+                                )
+                            }
+                        }
 
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { _ -> }
+                        data.data != null -> {
+                            arrayOf(data.data!!)
+                        }
+
+                        else -> {
+                            WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
+                        }
+                    }
+                } else {
+                    null
+                }
+            filePathCallback?.onReceiveValue(uris)
+            filePathCallback = null
+        }
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestPermission(),
+        ) { _ -> }
 
     private fun checkNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) !=
+                android.content.pm.PackageManager.PERMISSION_GRANTED
+            ) {
                 notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
             }
         }
@@ -68,24 +85,25 @@ class MainActivity : ComponentActivity() {
 
     fun openFileChooser(
         callback: ValueCallback<Array<Uri>>?,
-        params: WebChromeClient.FileChooserParams?
+        params: WebChromeClient.FileChooserParams?,
     ): Boolean {
         filePathCallback?.onReceiveValue(null)
         filePathCallback = callback
 
         if (callback == null) return false
 
-        val intent = try {
-            params?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "*/*"
-                addCategory(Intent.CATEGORY_OPENABLE)
+        val intent =
+            try {
+                params?.createIntent() ?: Intent(Intent.ACTION_GET_CONTENT).apply {
+                    type = "*/*"
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                }
+            } catch (_: Exception) {
+                Intent(Intent.ACTION_GET_CONTENT).apply {
+                    type = "*/*"
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                }
             }
-        } catch (_: Exception) {
-            Intent(Intent.ACTION_GET_CONTENT).apply {
-                type = "*/*"
-                addCategory(Intent.CATEGORY_OPENABLE)
-            }
-        }
 
         return try {
             fileChooserLauncher.launch(intent)
@@ -99,14 +117,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.auto(
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT
-            ),
-            navigationBarStyle = SystemBarStyle.auto(
-                android.graphics.Color.TRANSPARENT,
-                android.graphics.Color.TRANSPARENT
-            )
+            statusBarStyle =
+                SystemBarStyle.auto(
+                    android.graphics.Color.TRANSPARENT,
+                    android.graphics.Color.TRANSPARENT,
+                ),
+            navigationBarStyle =
+                SystemBarStyle.auto(
+                    android.graphics.Color.TRANSPARENT,
+                    android.graphics.Color.TRANSPARENT,
+                ),
         )
         super.onCreate(savedInstanceState)
 
@@ -122,10 +142,18 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
 
         setContent {
-            JestkApp(
-                viewModel = viewModel,
-                webViewPool = container.webViewPool
-            )
+            val vibration =
+                remember {
+                    VibratorVibrationFeedback(applicationContext) {
+                        viewModel.isVibrationEnabled
+                    }
+                }
+            CompositionLocalProvider(LocalVibrationFeedback provides vibration) {
+                JestkApp(
+                    viewModel = viewModel,
+                    webViewPool = container.webViewPool,
+                )
+            }
         }
     }
 
@@ -157,22 +185,25 @@ class MainActivity : ComponentActivity() {
     private fun enterPipMode() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
-                val params = PictureInPictureParams.Builder()
-                    .setAspectRatio(Rational(16, 9))
-                    .build()
+                val params =
+                    PictureInPictureParams
+                        .Builder()
+                        .setAspectRatio(Rational(16, 9))
+                        .build()
                 enterPictureInPictureMode(params)
             } catch (e: Exception) {
                 try {
                     @Suppress("DEPRECATION")
                     enterPictureInPictureMode()
-                } catch (_: Exception) {}
+                } catch (_: Exception) {
+                }
             }
         }
     }
 
     override fun onPictureInPictureModeChanged(
         isInPictureInPictureMode: Boolean,
-        newConfig: Configuration
+        newConfig: Configuration,
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
         if (isInPictureInPictureMode) {

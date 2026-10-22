@@ -56,14 +56,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -82,6 +80,7 @@ import com.jestk.browser.ui.theme.SereneMutedSlate
 import com.jestk.browser.ui.theme.SereneShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.util.LocalVibrationFeedback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.net.URI
@@ -110,7 +109,7 @@ fun TabStripRow(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val haptic = LocalHapticFeedback.current
+    val vibration = LocalVibrationFeedback.current
 
     val isHome = uiState.isHome
     val activeTab = uiState.activeTab
@@ -302,7 +301,7 @@ fun TabStripRow(
                                 inactiveTabWidthPx = inactiveTabWidthPx,
                                 spacingPx = tabSpacingPx,
                                 activeTabId = uiState.activeTabId,
-                                onSwapHaptic = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
+                                onSwapVibration = { vibration.tick() },
                             )
                         },
                         onDragEnd = { dragState.onDragEnd(isReleasedActive = true, originalTabs = displayTabs) },
@@ -341,7 +340,7 @@ fun TabStripRow(
                                 inactiveTabWidthPx = inactiveTabWidthPx,
                                 spacingPx = tabSpacingPx,
                                 activeTabId = uiState.activeTabId,
-                                onSwapHaptic = { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) },
+                                onSwapVibration = { vibration.tick() },
                             )
                         },
                         onDragEnd = { dragState.onDragEnd(isReleasedActive = false, originalTabs = displayTabs) },
@@ -430,7 +429,7 @@ fun InactiveTabButton(
     var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val density = LocalDensity.current
-    val haptic = LocalHapticFeedback.current
+    val vibration = LocalVibrationFeedback.current
     val touchSlop = with(density) { 8.dp.toPx() }
     val typography = LocalSereneTypography.current
     val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
@@ -454,7 +453,7 @@ fun InactiveTabButton(
                         val down = awaitFirstDown(requireUnconsumed = false)
                         val longPress = awaitLongPressOrCancellation(down.id)
                         if (longPress != null) {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            vibration.confirm()
                             var totalDragX = 0f
                             var isDraggingInternal = false
                             val currentPointerId = longPress.id

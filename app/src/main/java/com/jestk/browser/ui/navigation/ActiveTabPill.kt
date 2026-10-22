@@ -46,14 +46,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -67,6 +65,7 @@ import com.jestk.browser.ui.theme.SereneBrandPrimary
 import com.jestk.browser.ui.theme.SereneDarkText
 import com.jestk.browser.ui.theme.SereneMutedSlate
 import com.jestk.browser.util.ClipboardHelper
+import com.jestk.browser.util.LocalVibrationFeedback
 import kotlin.math.abs
 
 /**
@@ -109,7 +108,7 @@ fun ActiveTabPill(
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
-    val haptic = LocalHapticFeedback.current
+    val vibration = LocalVibrationFeedback.current
     val touchSlop = with(density) { 8.dp.toPx() }
 
     val currentOnDragStart by rememberUpdatedState(onDragStart)
@@ -186,7 +185,7 @@ fun ActiveTabPill(
                                 val down = awaitFirstDown(requireUnconsumed = false)
                                 val longPress = awaitLongPressOrCancellation(down.id)
                                 if (longPress != null) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    vibration.confirm()
                                     var totalDragX = 0f
                                     var isDraggingInternal = false
                                     val currentPointerId = longPress.id

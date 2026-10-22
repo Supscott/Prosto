@@ -66,6 +66,13 @@
     <string name="external_app_open_generic">Open in app</string>
     <string name="external_app_open_action">Open</string>
     <string name="update_section_title">UPDATES</string>
+    <string name="settings_section_interaction">INTERACTION</string>
+    <string name="settings_section_appearance">APPEARANCE</string>
+    <string name="settings_section_general">GENERAL</string>
+    <string name="settings_section_privacy">PRIVACY &amp; PROTECTION</string>
+    <string name="settings_section_about">ABOUT &amp; PROSTO</string>
+    <string name="vibration_setting_title">Vibration</string>
+    <string name="vibration_setting_summary">Vibrate on gestures and long press</string>
     <string name="update_setting_title">Auto-update</string>
     <string name="update_setting_summary">Download new releases from GitHub automatically</string>
     <string name="update_card_title">Update available</string>

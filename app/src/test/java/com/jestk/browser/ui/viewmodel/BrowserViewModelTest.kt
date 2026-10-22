@@ -353,12 +353,14 @@ class BrowserViewModelTest {
             viewModel.onEvent(BrowserUiEvent.SetThemeMode(ThemeMode.DARK))
             viewModel.onEvent(BrowserUiEvent.SetSearchEngine(SearchEngine.GOOGLE))
             viewModel.onEvent(BrowserUiEvent.SetAdBlockerEnabled(false))
+            viewModel.onEvent(BrowserUiEvent.SetVibrationEnabled(false))
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
             assertThat(state.settings.themeMode).isEqualTo(ThemeMode.DARK)
             assertThat(state.settings.searchEngine).isEqualTo(SearchEngine.GOOGLE)
             assertThat(state.settings.isAdBlockerEnabled).isFalse()
+            assertThat(state.settings.isVibrationEnabled).isFalse()
         }
 
     @Test

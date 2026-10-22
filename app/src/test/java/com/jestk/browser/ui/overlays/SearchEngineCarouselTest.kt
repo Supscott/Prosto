@@ -17,8 +17,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
@@ -27,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.util.VibrationFeedback
 import kotlinx.coroutines.launch
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -212,8 +211,9 @@ class SearchEngineCarouselTest {
         val activity = controller.get()
         val density = Density(1f)
 
-        val dummyHaptic = object : HapticFeedback {
-            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {}
+        val dummyVibration = object : VibrationFeedback {
+            override fun tick() {}
+            override fun confirm() {}
         }
 
         val composeView = ComposeView(activity).apply {
@@ -226,7 +226,7 @@ class SearchEngineCarouselTest {
                         initialEngine = SearchEngine.GOOGLE,
                         density = density,
                         coroutineScope = coroutineScope,
-                        haptic = dummyHaptic,
+                        vibration = dummyVibration,
                         onEngineSelected = {}
                     ).apply {
                         isDragging = true
@@ -241,7 +241,7 @@ class SearchEngineCarouselTest {
                         initialEngine = SearchEngine.BRAVE,
                         density = density,
                         coroutineScope = coroutineScope,
-                        haptic = dummyHaptic,
+                        vibration = dummyVibration,
                         onEngineSelected = {}
                     ).apply {
                         isDragging = true

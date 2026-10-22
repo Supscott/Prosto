@@ -52,6 +52,13 @@ class BrowserViewModel(
     private val _uiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = _uiState.asStateFlow()
 
+    /**
+     * Current vibration preference, read on demand so a toggle takes effect without restarting
+     * the gesture that captured this view model.
+     */
+    val isVibrationEnabled: Boolean
+        get() = _uiState.value.settings.isVibrationEnabled
+
     private val _navigationCommands = MutableSharedFlow<NavigationCommand>(extraBufferCapacity = 16)
     val navigationCommands: SharedFlow<NavigationCommand> = _navigationCommands.asSharedFlow()
 
@@ -479,6 +486,13 @@ class BrowserViewModel(
                     settingsRepository.setAutoUpdateEnabled(event.enabled)
                 }
                 if (event.enabled) updateCoordinator.onAutoUpdateEnabled()
+            }
+
+            is BrowserUiEvent.SetVibrationEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(isVibrationEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setVibrationEnabled(event.enabled)
+                }
             }
 
             is BrowserUiEvent.InstallUpdate -> {

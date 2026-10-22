@@ -394,6 +394,8 @@ class AdBlockerEngineTest {
 
                     override suspend fun setAutoUpdateEnabled(enabled: Boolean) {}
 
+                    override suspend fun setVibrationEnabled(enabled: Boolean) {}
+
                     override suspend fun setSkippedUpdateVersion(version: String?) {}
                 }
 

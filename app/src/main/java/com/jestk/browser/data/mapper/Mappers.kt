@@ -99,6 +99,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
     val isAdBlockerEnabled = map[SettingKeys.AD_BLOCKER_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isOpenInAppsEnabled = map[SettingKeys.OPEN_IN_APPS_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isAutoUpdateEnabled = map[SettingKeys.AUTO_UPDATE_ENABLED]?.toBooleanStrictOrNull() ?: true
+    val isVibrationEnabled = map[SettingKeys.VIBRATION_ENABLED]?.toBooleanStrictOrNull() ?: true
     val skippedUpdateVersion = map[SettingKeys.SKIPPED_UPDATE_VERSION]?.takeIf { it.isNotBlank() }
 
     val hiddenEngines =
@@ -116,6 +117,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
         hiddenSearchPageEngineIds = hiddenEngines,
         isOpenInAppsEnabled = isOpenInAppsEnabled,
         isAutoUpdateEnabled = isAutoUpdateEnabled,
+        isVibrationEnabled = isVibrationEnabled,
         skippedUpdateVersion = skippedUpdateVersion,
     )
 }

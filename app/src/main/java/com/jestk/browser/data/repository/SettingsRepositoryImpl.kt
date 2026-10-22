@@ -33,6 +33,7 @@ class SettingsRepositoryImpl(
             val hiddenStr = settingDao.getSetting(SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES)
             val openInAppsStr = settingDao.getSetting(SettingKeys.OPEN_IN_APPS_ENABLED)
             val autoUpdateStr = settingDao.getSetting(SettingKeys.AUTO_UPDATE_ENABLED)
+            val vibrationStr = settingDao.getSetting(SettingKeys.VIBRATION_ENABLED)
             val skippedUpdateStr = settingDao.getSetting(SettingKeys.SKIPPED_UPDATE_VERSION)
 
             val theme = themeStr?.let { runCatching { ThemeMode.valueOf(it) }.getOrDefault(ThemeMode.SYSTEM) } ?: ThemeMode.SYSTEM
@@ -41,6 +42,7 @@ class SettingsRepositoryImpl(
             val adBlocker = adBlockerStr?.toBooleanStrictOrNull() ?: true
             val openInApps = openInAppsStr?.toBooleanStrictOrNull() ?: true
             val autoUpdate = autoUpdateStr?.toBooleanStrictOrNull() ?: true
+            val vibration = vibrationStr?.toBooleanStrictOrNull() ?: true
             val skippedUpdate = skippedUpdateStr?.takeIf { it.isNotBlank() }
             val hiddenEngines =
                 hiddenStr
@@ -57,6 +59,7 @@ class SettingsRepositoryImpl(
                 hiddenSearchPageEngineIds = hiddenEngines,
                 isOpenInAppsEnabled = openInApps,
                 isAutoUpdateEnabled = autoUpdate,
+                isVibrationEnabled = vibration,
                 skippedUpdateVersion = skippedUpdate,
             )
         }
@@ -90,6 +93,11 @@ class SettingsRepositoryImpl(
     override suspend fun setAutoUpdateEnabled(enabled: Boolean) =
         withContext(ioDispatcher) {
             settingDao.setSetting(SettingEntity(SettingKeys.AUTO_UPDATE_ENABLED, enabled.toString()))
+        }
+
+    override suspend fun setVibrationEnabled(enabled: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.VIBRATION_ENABLED, enabled.toString()))
         }
 
     override suspend fun setSkippedUpdateVersion(version: String?) =

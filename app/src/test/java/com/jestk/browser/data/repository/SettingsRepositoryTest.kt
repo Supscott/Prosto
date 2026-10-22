@@ -147,6 +147,24 @@ class SettingsRepositoryTest {
         }
 
     @Test
+    fun vibrationDefaultsToEnabled() =
+        runTest(testDispatcher) {
+            assertThat(repository.getCurrentSettings().isVibrationEnabled).isTrue()
+        }
+
+    @Test
+    fun setVibrationEnabled_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setVibrationEnabled(false)
+
+            assertThat(repository.getSettings().first().isVibrationEnabled).isFalse()
+            assertThat(repository.getCurrentSettings().isVibrationEnabled).isFalse()
+
+            repository.setVibrationEnabled(true)
+            assertThat(repository.getCurrentSettings().isVibrationEnabled).isTrue()
+        }
+
+    @Test
     fun autoUpdateDefaultsToEnabled() =
         runTest(testDispatcher) {
             val settings = repository.getCurrentSettings()

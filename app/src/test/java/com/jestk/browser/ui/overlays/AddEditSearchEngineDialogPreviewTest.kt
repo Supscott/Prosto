@@ -19,6 +19,7 @@ import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.util.VibrationFeedback
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -199,15 +200,16 @@ class AddEditSearchEngineDialogPreviewTest {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()
 
-        val dummyHaptic = object : androidx.compose.ui.hapticfeedback.HapticFeedback {
-            override fun performHapticFeedback(feedbackConstant: androidx.compose.ui.hapticfeedback.HapticFeedbackType) {}
+        val dummyVibration = object : VibrationFeedback {
+            override fun tick() {}
+            override fun confirm() {}
         }
         val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main)
 
         val lightDragState = SearchEngineReorderState(
             slotHeightPx = 48f * activity.resources.displayMetrics.density,
             coroutineScope = scope,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = {}
         ).apply {
             onDragStart(0)
@@ -217,7 +219,7 @@ class AddEditSearchEngineDialogPreviewTest {
         val darkDragState = SearchEngineReorderState(
             slotHeightPx = 48f * activity.resources.displayMetrics.density,
             coroutineScope = scope,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = {}
         ).apply {
             onDragStart(0)

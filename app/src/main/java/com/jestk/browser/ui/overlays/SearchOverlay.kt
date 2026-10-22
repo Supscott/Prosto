@@ -37,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
@@ -53,7 +52,21 @@ import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.sereneSkyBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.util.LocalVibrationFeedback
 import kotlinx.coroutines.flow.filter
+
+/**
+ * Extracts the `q` parameter from a search-engine history URL.
+ * Falls back to the item title (or URL) when the query is missing or the URL cannot be parsed.
+ */
+private fun historyItemQuery(item: HistoryItem): String {
+    val fallback = item.title.ifEmpty { item.url }
+    return try {
+        Uri.parse(item.url).getQueryParameter("q") ?: fallback
+    } catch (_: Exception) {
+        fallback
+    }
+}
 
 /**
  * Search & History Overlay - Serene Canvas design system (NO BLUR).
@@ -70,26 +83,27 @@ fun SearchOverlay(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
-    initialDropdownOpen: Boolean = false
+    initialDropdownOpen: Boolean = false,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
     val isDark = LocalIsDarkTheme.current
-    val haptic = LocalHapticFeedback.current
+    val vibration = LocalVibrationFeedback.current
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
     var isDropdownOpen by remember { mutableStateOf(initialDropdownOpen) }
 
-    val carouselState = rememberSearchEngineCarouselState(
-        initialEngine = uiState.settings.searchEngine,
-        engines = uiState.searchEngines,
-        density = density,
-        coroutineScope = coroutineScope,
-        haptic = haptic,
-        onEngineSelected = { target ->
-            onEvent(BrowserUiEvent.SetSearchEngine(target))
-        }
-    )
+    val carouselState =
+        rememberSearchEngineCarouselState(
+            initialEngine = uiState.settings.searchEngine,
+            engines = uiState.searchEngines,
+            density = density,
+            coroutineScope = coroutineScope,
+            vibration = vibration,
+            onEngineSelected = { target ->
+                onEvent(BrowserUiEvent.SetSearchEngine(target))
+            },
+        )
 
     LaunchedEffect(uiState.settings.searchEngine) {
         if (carouselState.currentEngine != uiState.settings.searchEngine && !carouselState.isScrolling) {
@@ -105,12 +119,13 @@ fun SearchOverlay(
         mutableStateOf(
             TextFieldValue(
                 text = uiState.searchQuery,
-                selection = if (uiState.searchQuery.isNotEmpty()) {
-                    TextRange(0, uiState.searchQuery.length)
-                } else {
-                    TextRange.Zero
-                }
-            )
+                selection =
+                    if (uiState.searchQuery.isNotEmpty()) {
+                        TextRange(0, uiState.searchQuery.length)
+                    } else {
+                        TextRange.Zero
+                    },
+            ),
         )
     }
 
@@ -120,36 +135,39 @@ fun SearchOverlay(
     }
 
     Box(
-        modifier = modifier
-            .fillMaxSize()
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-                onClick = {
-                    if (isDropdownOpen) {
-                        isDropdownOpen = false
-                    } else {
-                        onEvent(BrowserUiEvent.DismissOverlay)
-                    }
-                }
-            )
+        modifier =
+            modifier
+                .fillMaxSize()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {
+                        if (isDropdownOpen) {
+                            isDropdownOpen = false
+                        } else {
+                            onEvent(BrowserUiEvent.DismissOverlay)
+                        }
+                    },
+                ),
     ) {
         // Layer 1: Ambient background
         Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .sereneSkyBackground(isDark = isDark)
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .sereneSkyBackground(isDark = isDark),
         )
 
         // Layer 2: Foreground content containing solid cards & input
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             val scrollState = rememberScrollState()
 
@@ -185,7 +203,7 @@ fun SearchOverlay(
             LaunchedEffect(
                 uiState.isSearchHistoryExpanded,
                 uiState.hasMoreHistory,
-                uiState.isLoadingMoreHistory
+                uiState.isLoadingMoreHistory,
             ) {
                 snapshotFlow { scrollState.value }
                     .filter { it <= 20 }
@@ -202,12 +220,13 @@ fun SearchOverlay(
 
             // Top Area: Scrollable column containing history suggestions
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(scrollState)
-                    .padding(bottom = 8.dp),
-                verticalArrangement = Arrangement.Bottom
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(scrollState)
+                        .padding(bottom = 8.dp),
+                verticalArrangement = Arrangement.Bottom,
             ) {
                 // Search History Suggestions starting from the bottom
                 val suggestions = uiState.searchHistorySuggestions
@@ -226,30 +245,33 @@ fun SearchOverlay(
                             onEvent(BrowserUiEvent.DismissOverlay)
                         },
                         onInsertQuery = { item ->
-                            val queryText = when {
-                                item.url.contains("duckduckgo.com/?q=") -> {
-                                    try { Uri.parse(item.url).getQueryParameter("q") ?: item.title.ifEmpty { item.url } } catch (_: Exception) { item.title.ifEmpty { item.url } }
+                            val queryText =
+                                when {
+                                    item.url.contains("duckduckgo.com/?q=") -> historyItemQuery(item)
+
+                                    item.url.contains("google.com/search?q=") -> historyItemQuery(item)
+
+                                    item.url.contains("bing.com/search?q=") -> historyItemQuery(item)
+
+                                    item.title.isNotEmpty() &&
+                                        !item.title.startsWith(
+                                            "http://",
+                                        ) && !item.title.startsWith("https://") -> item.title
+
+                                    else -> item.url
                                 }
-                                item.url.contains("google.com/search?q=") -> {
-                                    try { Uri.parse(item.url).getQueryParameter("q") ?: item.title.ifEmpty { item.url } } catch (_: Exception) { item.title.ifEmpty { item.url } }
-                                }
-                                item.url.contains("bing.com/search?q=") -> {
-                                    try { Uri.parse(item.url).getQueryParameter("q") ?: item.title.ifEmpty { item.url } } catch (_: Exception) { item.title.ifEmpty { item.url } }
-                                }
-                                item.title.isNotEmpty() && !item.title.startsWith("http://") && !item.title.startsWith("https://") -> item.title
-                                else -> item.url
-                            }
-                            textFieldValue = TextFieldValue(
-                                text = queryText,
-                                selection = TextRange(queryText.length)
-                            )
+                            textFieldValue =
+                                TextFieldValue(
+                                    text = queryText,
+                                    selection = TextRange(queryText.length),
+                                )
                             onEvent(BrowserUiEvent.UpdateSearchQuery(queryText))
                             focusRequester.requestFocus()
                             keyboardController?.show()
                         },
                         onClearHistory = {
                             onEvent(BrowserUiEvent.ClearAllHistory)
-                        }
+                        },
                     )
                 } else {
                     HistoryEmptyCard(isDark = isDark)
@@ -267,36 +289,39 @@ fun SearchOverlay(
                         onEvent(BrowserUiEvent.LoadUrl(url))
                         onEvent(BrowserUiEvent.DismissOverlay)
                     },
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
             }
 
             // Bottom Input Bar
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null,
-                        onClick = {} // Intercept dismiss clicks
-                    ),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = {}, // Intercept dismiss clicks
+                        ),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 HeroSearchInputField(
                     textFieldValue = textFieldValue,
                     onValueChange = { newValue ->
-                        val matchedEngine = uiState.searchEngines.firstOrNull { engine ->
-                            !engine.shortcut.isNullOrBlank() &&
-                                newValue.text.startsWith("${engine.shortcut} ", ignoreCase = true)
-                        }
+                        val matchedEngine =
+                            uiState.searchEngines.firstOrNull { engine ->
+                                !engine.shortcut.isNullOrBlank() &&
+                                    newValue.text.startsWith("${engine.shortcut} ", ignoreCase = true)
+                            }
                         if (matchedEngine != null) {
                             carouselState.animateToEngine(matchedEngine)
                             val remaining = newValue.text.substring(matchedEngine.shortcut!!.length + 1)
-                            textFieldValue = TextFieldValue(
-                                text = remaining,
-                                selection = TextRange(remaining.length)
-                            )
+                            textFieldValue =
+                                TextFieldValue(
+                                    text = remaining,
+                                    selection = TextRange(remaining.length),
+                                )
                             onEvent(BrowserUiEvent.UpdateSearchQuery(remaining))
                         } else {
                             textFieldValue = newValue
@@ -315,24 +340,25 @@ fun SearchOverlay(
                         onEvent(BrowserUiEvent.UpdateSearchQuery(""))
                     },
                     onVoiceResult = { spokenText ->
-                        textFieldValue = TextFieldValue(
-                            text = spokenText,
-                            selection = TextRange(spokenText.length)
-                        )
+                        textFieldValue =
+                            TextFieldValue(
+                                text = spokenText,
+                                selection = TextRange(spokenText.length),
+                            )
                         onEvent(BrowserUiEvent.UpdateSearchQuery(spokenText))
                         focusRequester.requestFocus()
                         keyboardController?.show()
                     },
                     carouselState = carouselState,
                     density = density,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
                 )
 
                 SearchEngineSelectorButton(
                     carouselState = carouselState,
                     isMenuOpen = isDropdownOpen,
                     isDark = isDark,
-                    onClick = { isDropdownOpen = !isDropdownOpen }
+                    onClick = { isDropdownOpen = !isDropdownOpen },
                 )
             }
         }
@@ -342,13 +368,14 @@ fun SearchOverlay(
             visible = isDropdownOpen,
             enter = fadeIn(tween(180)) + slideInVertically(tween(180)) { it / 3 },
             exit = fadeOut(tween(120)) + slideOutVertically(tween(120)) { it / 3 },
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .imePadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .padding(bottom = 60.dp)
+            modifier =
+                Modifier
+                    .align(Alignment.BottomEnd)
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .imePadding()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .padding(bottom = 60.dp),
         ) {
             SearchEngineDropdownCard(
                 selectedEngine = carouselState.currentEngine,
@@ -371,7 +398,7 @@ fun SearchOverlay(
                 onReorderEngines = { reordered ->
                     onEvent(BrowserUiEvent.ReorderSearchEngines(reordered))
                 },
-                isDark = isDark
+                isDark = isDark,
             )
         }
     }
@@ -382,24 +409,45 @@ fun SearchOverlay(
 fun SearchOverlayLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
         SearchOverlay(
-            uiState = BrowserUiState(
-                searchQuery = "",
-                searchHistorySuggestions = listOf(
-                    HistoryItem(id = 1, title = "Kotlin Backdrop Blur Jetpack Compose", url = "https://duckduckgo.com/?q=kotlin+backdrop+blur", timestamp = System.currentTimeMillis()),
-                    HistoryItem(id = 2, title = "Material 3 Liquid Glass Design System", url = "https://duckduckgo.com/?q=material+3+liquid+glass", timestamp = System.currentTimeMillis() - 60000),
-                    HistoryItem(id = 3, title = "Android Developer Documentation", url = "https://developer.android.com", timestamp = System.currentTimeMillis() - 120000)
+            uiState =
+                BrowserUiState(
+                    searchQuery = "",
+                    searchHistorySuggestions =
+                        listOf(
+                            HistoryItem(
+                                id = 1,
+                                title = "Kotlin Backdrop Blur Jetpack Compose",
+                                url = "https://duckduckgo.com/?q=kotlin+backdrop+blur",
+                                timestamp = System.currentTimeMillis(),
+                            ),
+                            HistoryItem(
+                                id = 2,
+                                title = "Material 3 Liquid Glass Design System",
+                                url = "https://duckduckgo.com/?q=material+3+liquid+glass",
+                                timestamp =
+                                    System.currentTimeMillis() - 60000,
+                            ),
+                            HistoryItem(
+                                id = 3,
+                                title = "Android Developer Documentation",
+                                url = "https://developer.android.com",
+                                timestamp =
+                                    System.currentTimeMillis() - 120000,
+                            ),
+                        ),
+                    favorites =
+                        listOf(
+                            FavoriteItem(id = 1, title = "Google", url = "https://google.com"),
+                            FavoriteItem(id = 2, title = "GitHub", url = "https://github.com"),
+                            FavoriteItem(id = 3, title = "Reddit", url = "https://reddit.com"),
+                            FavoriteItem(id = 4, title = "Wikipedia", url = "https://wikipedia.org"),
+                        ),
+                    settings =
+                        BrowserSettings(
+                            searchEngine = SearchEngine.DUCKDUCKGO,
+                        ),
                 ),
-                favorites = listOf(
-                    FavoriteItem(id = 1, title = "Google", url = "https://google.com"),
-                    FavoriteItem(id = 2, title = "GitHub", url = "https://github.com"),
-                    FavoriteItem(id = 3, title = "Reddit", url = "https://reddit.com"),
-                    FavoriteItem(id = 4, title = "Wikipedia", url = "https://wikipedia.org")
-                ),
-                settings = BrowserSettings(
-                    searchEngine = SearchEngine.DUCKDUCKGO
-                )
-            ),
-            onEvent = {}
+            onEvent = {},
         )
     }
 }
@@ -409,21 +457,36 @@ fun SearchOverlayLightPreview() {
 fun SearchOverlayDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         SearchOverlay(
-            uiState = BrowserUiState(
-                searchQuery = "",
-                searchHistorySuggestions = listOf(
-                    HistoryItem(id = 1, title = "Kotlin Backdrop Blur Jetpack Compose", url = "https://duckduckgo.com/?q=kotlin+backdrop+blur", timestamp = System.currentTimeMillis()),
-                    HistoryItem(id = 2, title = "Material 3 Liquid Glass Design System", url = "https://duckduckgo.com/?q=material+3+liquid+glass", timestamp = System.currentTimeMillis() - 60000)
+            uiState =
+                BrowserUiState(
+                    searchQuery = "",
+                    searchHistorySuggestions =
+                        listOf(
+                            HistoryItem(
+                                id = 1,
+                                title = "Kotlin Backdrop Blur Jetpack Compose",
+                                url = "https://duckduckgo.com/?q=kotlin+backdrop+blur",
+                                timestamp = System.currentTimeMillis(),
+                            ),
+                            HistoryItem(
+                                id = 2,
+                                title = "Material 3 Liquid Glass Design System",
+                                url = "https://duckduckgo.com/?q=material+3+liquid+glass",
+                                timestamp =
+                                    System.currentTimeMillis() - 60000,
+                            ),
+                        ),
+                    favorites =
+                        listOf(
+                            FavoriteItem(id = 1, title = "Google", url = "https://google.com"),
+                            FavoriteItem(id = 2, title = "GitHub", url = "https://github.com"),
+                        ),
+                    settings =
+                        BrowserSettings(
+                            searchEngine = SearchEngine.GOOGLE,
+                        ),
                 ),
-                favorites = listOf(
-                    FavoriteItem(id = 1, title = "Google", url = "https://google.com"),
-                    FavoriteItem(id = 2, title = "GitHub", url = "https://github.com")
-                ),
-                settings = BrowserSettings(
-                    searchEngine = SearchEngine.GOOGLE
-                )
-            ),
-            onEvent = {}
+            onEvent = {},
         )
     }
 }
@@ -433,22 +496,43 @@ fun SearchOverlayDarkPreview() {
 fun SearchOverlayExpandedDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         SearchOverlay(
-            uiState = BrowserUiState(
-                searchQuery = "",
-                isSearchHistoryExpanded = true,
-                searchHistorySuggestions = listOf(
-                    HistoryItem(id = 1, title = "Kotlin Backdrop Blur Jetpack Compose", url = "https://duckduckgo.com/?q=kotlin+backdrop+blur", timestamp = System.currentTimeMillis()),
-                    HistoryItem(id = 2, title = "Material 3 Liquid Glass Design System", url = "https://duckduckgo.com/?q=material+3+liquid+glass", timestamp = System.currentTimeMillis() - 60000),
-                    HistoryItem(id = 3, title = "Android Developer Documentation", url = "https://developer.android.com", timestamp = System.currentTimeMillis() - 120000)
+            uiState =
+                BrowserUiState(
+                    searchQuery = "",
+                    isSearchHistoryExpanded = true,
+                    searchHistorySuggestions =
+                        listOf(
+                            HistoryItem(
+                                id = 1,
+                                title = "Kotlin Backdrop Blur Jetpack Compose",
+                                url = "https://duckduckgo.com/?q=kotlin+backdrop+blur",
+                                timestamp = System.currentTimeMillis(),
+                            ),
+                            HistoryItem(
+                                id = 2,
+                                title = "Material 3 Liquid Glass Design System",
+                                url = "https://duckduckgo.com/?q=material+3+liquid+glass",
+                                timestamp =
+                                    System.currentTimeMillis() - 60000,
+                            ),
+                            HistoryItem(
+                                id = 3,
+                                title = "Android Developer Documentation",
+                                url = "https://developer.android.com",
+                                timestamp =
+                                    System.currentTimeMillis() - 120000,
+                            ),
+                        ),
+                    favorites =
+                        listOf(
+                            FavoriteItem(id = 1, title = "Google", url = "https://google.com"),
+                        ),
+                    settings =
+                        BrowserSettings(
+                            searchEngine = SearchEngine.DUCKDUCKGO,
+                        ),
                 ),
-                favorites = listOf(
-                    FavoriteItem(id = 1, title = "Google", url = "https://google.com")
-                ),
-                settings = BrowserSettings(
-                    searchEngine = SearchEngine.DUCKDUCKGO
-                )
-            ),
-            onEvent = {}
+            onEvent = {},
         )
     }
 }

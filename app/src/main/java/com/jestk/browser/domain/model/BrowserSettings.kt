@@ -7,6 +7,7 @@ data class BrowserSettings(
     val hiddenSearchPageEngineIds: Set<String> = emptySet(),
     val isOpenInAppsEnabled: Boolean = true,
     val isAutoUpdateEnabled: Boolean = true,
+    val isVibrationEnabled: Boolean = true,
     val skippedUpdateVersion: String? = null,
 ) {
     val adBlockerEnabled: Boolean

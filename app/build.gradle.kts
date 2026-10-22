@@ -136,6 +136,10 @@ dependencies {
     testImplementation("androidx.arch.core:core-testing:2.2.0")
     testImplementation("com.google.truth:truth:1.4.4")
 
+    // Robolectric (JVM) composable testing
+    testImplementation(composeBom)
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+
     // Instrumented Testing
     androidTestImplementation(composeBom)
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

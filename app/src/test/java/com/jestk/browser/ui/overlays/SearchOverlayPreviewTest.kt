@@ -20,8 +20,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.runtime.remember
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -34,6 +32,7 @@ import com.jestk.browser.ui.navigation.SearchEngineSwitcherRow
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.util.VibrationFeedback
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -629,8 +628,9 @@ val width = 440
         val activity = controller.get()
         val density = Density(1f)
 
-        val dummyHaptic = object : HapticFeedback {
-            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {}
+        val dummyVibration = object : VibrationFeedback {
+            override fun tick() {}
+            override fun confirm() {}
         }
 
         val composeView = ComposeView(activity).apply {
@@ -641,7 +641,7 @@ val width = 440
                         initialEngine = SearchEngine.GOOGLE,
                         density = density,
                         coroutineScope = coroutineScope,
-                        haptic = dummyHaptic,
+                        vibration = dummyVibration,
                         onEngineSelected = {}
                     ).apply {
                         isDragging = true
@@ -656,7 +656,7 @@ val width = 440
                         initialEngine = SearchEngine.DUCKDUCKGO,
                         density = density,
                         coroutineScope = coroutineScope,
-                        haptic = dummyHaptic,
+                        vibration = dummyVibration,
                         onEngineSelected = {}
                     ).apply {
                         isDragging = true
@@ -739,13 +739,14 @@ val width = 440
     }
 
     @Test
-    fun testCarouselDragSnapAndHapticFeedback() = runTest(testFrameClock) {
+    fun testCarouselDragSnapAndVibrationFeedback() = runTest(testFrameClock) {
         val density = Density(1f)
-        var hapticTicks = 0
-        val dummyHaptic = object : HapticFeedback {
-            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {
-                hapticTicks++
+        var vibrationTicks = 0
+        val dummyVibration = object : VibrationFeedback {
+            override fun tick() {
+                vibrationTicks++
             }
+            override fun confirm() {}
         }
         var selectedEngine = SearchEngine.GOOGLE
 
@@ -754,7 +755,7 @@ val width = 440
             initialEngine = SearchEngine.GOOGLE,
             density = density,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             engines = testEngines,
             onEngineSelected = { selectedEngine = it }
         )
@@ -768,7 +769,7 @@ val width = 440
         state.onDrag(-40f)
         testScheduler.advanceUntilIdle()
         assertEquals(-40f, state.animOffset.value, 0.1f)
-        assertTrue(hapticTicks > 0)
+        assertTrue(vibrationTicks > 0)
 
         // 3. Drag end with 0 velocity => snap to nearest slot (targetSlot = 1 -> Brave)
         state.onDragEnd(velocity = 0f)
@@ -785,11 +786,12 @@ val width = 440
     @Test
     fun testCarouselFlingMomentumInertia() = runTest(testFrameClock) {
         val density = Density(1f)
-        var hapticTicks = 0
-        val dummyHaptic = object : HapticFeedback {
-            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {
-                hapticTicks++
+        var vibrationTicks = 0
+        val dummyVibration = object : VibrationFeedback {
+            override fun tick() {
+                vibrationTicks++
             }
+            override fun confirm() {}
         }
         var selectedEngine = SearchEngine.GOOGLE
 
@@ -798,7 +800,7 @@ val width = 440
             initialEngine = SearchEngine.GOOGLE,
             density = density,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             engines = testEngines,
             onEngineSelected = { selectedEngine = it }
         )
@@ -814,11 +816,11 @@ val width = 440
         assertEquals(SearchEngine.BRAVE, selectedEngine)
         assertEquals(SearchEngine.BRAVE, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
-        assertTrue(hapticTicks >= 1)
+        assertTrue(vibrationTicks >= 1)
         assertTrue(!state.isFlinging)
 
         // 2. Strong fling left (velocity = -2500 px/sec) => carries momentum across 6 slots (2 full loops) to Brave
-        val hapticBeforeStrongFling = hapticTicks
+        val vibrationBeforeStrongFling = vibrationTicks
         state.onDragStart()
         state.onDrag(-20f)
         testScheduler.advanceUntilIdle()
@@ -830,7 +832,7 @@ val width = 440
         assertEquals(SearchEngine.DUCKDUCKGO, selectedEngine)
         assertEquals(SearchEngine.DUCKDUCKGO, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
-        assertTrue(hapticTicks - hapticBeforeStrongFling >= 5)
+        assertTrue(vibrationTicks - vibrationBeforeStrongFling >= 5)
         assertTrue(!state.isFlinging)
     }
 
@@ -897,11 +899,12 @@ val width = 440
     @Test
     fun testAnimateToEngineForwardAndBackward() = runTest(testFrameClock) {
         val density = Density(1f)
-        var hapticTicks = 0
-        val dummyHaptic = object : HapticFeedback {
-            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {
-                hapticTicks++
+        var vibrationTicks = 0
+        val dummyVibration = object : VibrationFeedback {
+            override fun tick() {
+                vibrationTicks++
             }
+            override fun confirm() {}
         }
         var selectedEngine = SearchEngine.GOOGLE
 
@@ -910,7 +913,7 @@ val width = 440
             initialEngine = SearchEngine.GOOGLE,
             density = density,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             engines = testEngines,
             onEngineSelected = { selectedEngine = it }
         )
@@ -923,44 +926,45 @@ val width = 440
         assertEquals(SearchEngine.BRAVE, selectedEngine)
         assertEquals(SearchEngine.BRAVE, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
-        assertTrue(hapticTicks >= 1)
+        assertTrue(vibrationTicks >= 1)
         assertTrue(!state.isFlinging)
 
         // 2. Animate from Brave to DuckDuckGo (forward 1 slot circularly)
-        val hapticsBeforeDDG = hapticTicks
+        val vibrationsBeforeDDG = vibrationTicks
         state.animateToEngine(SearchEngine.DUCKDUCKGO)
         testScheduler.advanceUntilIdle()
 
         assertEquals(SearchEngine.DUCKDUCKGO, selectedEngine)
         assertEquals(SearchEngine.DUCKDUCKGO, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
-        assertTrue(hapticTicks > hapticsBeforeDDG)
+        assertTrue(vibrationTicks > vibrationsBeforeDDG)
 
         // 3. Animate from DuckDuckGo to Brave (backward 1 slot)
-        val hapticsBeforeBrave = hapticTicks
+        val vibrationsBeforeBrave = vibrationTicks
         state.animateToEngine(SearchEngine.BRAVE)
         testScheduler.advanceUntilIdle()
 
         assertEquals(SearchEngine.BRAVE, selectedEngine)
         assertEquals(SearchEngine.BRAVE, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
-        assertTrue(hapticTicks > hapticsBeforeBrave)
+        assertTrue(vibrationTicks > vibrationsBeforeBrave)
 
         // 4. Calling animateToEngine on already selected engine should not start animation
-        val hapticBeforeSame = hapticTicks
+        val vibrationBeforeSame = vibrationTicks
         state.animateToEngine(SearchEngine.BRAVE)
         assertTrue(!state.isFlinging)
-        assertEquals(hapticBeforeSame, hapticTicks)
+        assertEquals(vibrationBeforeSame, vibrationTicks)
     }
 
     @Test
     fun testAnimateToEngineWithCustomEngines() = runTest(testFrameClock) {
         val density = Density(1f)
-        var hapticTicks = 0
-        val dummyHaptic = object : HapticFeedback {
-            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {
-                hapticTicks++
+        var vibrationTicks = 0
+        val dummyVibration = object : VibrationFeedback {
+            override fun tick() {
+                vibrationTicks++
             }
+            override fun confirm() {}
         }
         val youtube = SearchEngine(
             id = "youtube",
@@ -977,7 +981,7 @@ val width = 440
             initialEngine = SearchEngine.GOOGLE,
             density = density,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             engines = engines,
             onEngineSelected = { selectedEngine = it }
         )
@@ -989,21 +993,22 @@ val width = 440
         assertEquals(youtube, selectedEngine)
         assertEquals(youtube, state.currentEngine)
         assertEquals(0f, state.animOffset.value, 0.1f)
-        assertTrue(hapticTicks >= 2)
+        assertTrue(vibrationTicks >= 2)
     }
 
     @Test
     fun testSearchEngineCarouselConfiguration() {
         val density = Density(2f)
-        val dummyHaptic = object : HapticFeedback {
-            override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {}
+        val dummyVibration = object : VibrationFeedback {
+            override fun tick() {}
+            override fun confirm() {}
         }
         val coroutineScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
         val state = SearchEngineCarouselState(
             initialEngine = SearchEngine.GOOGLE,
             density = density,
             coroutineScope = coroutineScope,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onEngineSelected = {}
         )
 

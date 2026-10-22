@@ -1,9 +1,8 @@
 package com.jestk.browser.ui.overlays
 
 import androidx.compose.runtime.MonotonicFrameClock
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.jestk.browser.domain.model.SearchEngine
+import com.jestk.browser.util.VibrationFeedback
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -23,11 +22,12 @@ class SearchEngineReorderStateTest {
         }
     }
 
-    private val dummyHaptic = object : HapticFeedback {
+    private val dummyVibration = object : VibrationFeedback {
         var tickCount = 0
-        override fun performHapticFeedback(feedbackConstant: HapticFeedbackType) {
+        override fun tick() {
             tickCount++
         }
+        override fun confirm() {}
     }
 
     @Test
@@ -35,7 +35,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = {}
         )
 
@@ -51,7 +51,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = {}
         )
 
@@ -87,7 +87,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = {}
         )
 
@@ -114,7 +114,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = {}
         )
 
@@ -142,7 +142,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = { persistedList = it }
         )
 
@@ -180,7 +180,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = { persistedList = it }
         )
 
@@ -206,7 +206,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = { persistedList = it }
         )
 
@@ -262,7 +262,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = { onReorderCalled = true }
         )
 
@@ -294,7 +294,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             onReorder = {}
         )
 
@@ -318,7 +318,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
             onReorder = { persistedList = it }
         )
@@ -362,7 +362,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
             onReorder = { persistedList = it }
         )
@@ -399,7 +399,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
             onReorder = {}
         )
@@ -438,7 +438,7 @@ class SearchEngineReorderStateTest {
         val state = SearchEngineReorderState(
             slotHeightPx = 48f,
             coroutineScope = this,
-            haptic = dummyHaptic,
+            vibration = dummyVibration,
             initialList = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
             onReorder = { persistedList = it }
         )

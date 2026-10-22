@@ -22,7 +22,7 @@ import java.util.Collections
  * State controller managing drag & drop tab reordering and tactile spring release physics
  * in [TabStripRow].
  *
- * Provides smooth dragging, immediate slot swapping with haptic feedback,
+ * Provides smooth dragging, immediate slot swapping with vibration feedback,
  * and spring-driven release settlement back to translation 0f and scale 1.0f.
  */
 internal class TabStripDragState(
@@ -115,7 +115,7 @@ internal class TabStripDragState(
         inactiveTabWidthPx: Float,
         spacingPx: Float,
         activeTabId: String? = null,
-        onSwapHaptic: () -> Unit = {}
+        onSwapVibration: () -> Unit = {}
     ) {
         if (!isDragging || draggingTabId != tabId) return
         dragOffsetPx += deltaX
@@ -136,7 +136,7 @@ internal class TabStripDragState(
                     Collections.swap(mutable, currentIndex, targetIndex)
                     currentTabs = mutable
                     dragOffsetPx -= distance
-                    onSwapHaptic()
+                    onSwapVibration()
                     return
                 }
             }
@@ -155,7 +155,7 @@ internal class TabStripDragState(
                     Collections.swap(mutable, currentIndex, targetIndex)
                     currentTabs = mutable
                     dragOffsetPx += distance
-                    onSwapHaptic()
+                    onSwapVibration()
                     return
                 }
             }
@@ -166,7 +166,7 @@ internal class TabStripDragState(
         tabId: String,
         deltaX: Float,
         swapThreshold: Float,
-        onSwapHaptic: () -> Unit = {}
+        onSwapVibration: () -> Unit = {}
     ) {
         onDrag(
             tabId = tabId,
@@ -175,7 +175,7 @@ internal class TabStripDragState(
             inactiveTabWidthPx = swapThreshold,
             spacingPx = 0f,
             activeTabId = null,
-            onSwapHaptic = onSwapHaptic
+            onSwapVibration = onSwapVibration
         )
     }
 

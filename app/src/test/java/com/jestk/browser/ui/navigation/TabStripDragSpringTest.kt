@@ -66,7 +66,7 @@ class TabStripDragSpringTest {
 
     @Test
     fun onDrag_movesOffsetAndSwapsTabs() = runTest(testFrameClock) {
-        var hapticCount = 0
+        var vibrationCount = 0
         val state = TabStripDragState(
             initialTabs = sampleTabs,
             coroutineScope = this,
@@ -80,26 +80,26 @@ class TabStripDragSpringTest {
             tabId = "tab1",
             deltaX = 50f,
             swapThreshold = 44f,
-            onSwapHaptic = { hapticCount++ }
+            onSwapVibration = { vibrationCount++ }
         )
 
         // tab1 and tab2 should be swapped
         assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
         // dragOffsetPx should have 44px subtracted (50 - 44 = 6)
         assertEquals(6f, state.dragOffsetPx, 0.001f)
-        assertEquals(1, hapticCount)
+        assertEquals(1, vibrationCount)
 
         // Drag left by -50px (total offset = 6 - 50 = -44 -> triggers swap left)
         state.onDrag(
             tabId = "tab1",
             deltaX = -52f,
             swapThreshold = 44f,
-            onSwapHaptic = { hapticCount++ }
+            onSwapVibration = { vibrationCount++ }
         )
 
         // tab1 swaps back to index 0
         assertEquals(listOf("tab1", "tab2", "tab3"), state.currentTabs.map { it.id })
-        assertEquals(2, hapticCount)
+        assertEquals(2, vibrationCount)
     }
 
     @Test
@@ -331,7 +331,7 @@ class TabStripDragSpringTest {
 
     @Test
     fun onDrag_dynamicActiveAndInactiveSlotDistance_adjustsOffsetByActualDistance() = runTest(testFrameClock) {
-        var hapticCount = 0
+        var vibrationCount = 0
         val state = TabStripDragState(
             initialTabs = sampleTabs, // tab1: active, tab2: inactive, tab3: inactive
             coroutineScope = this,
@@ -348,7 +348,7 @@ class TabStripDragSpringTest {
             activeTabWidthPx = 148f,
             inactiveTabWidthPx = 38f,
             spacingPx = 5f,
-            onSwapHaptic = { hapticCount++ }
+            onSwapVibration = { vibrationCount++ }
         )
 
         // tab1 and tab2 should be swapped
@@ -356,7 +356,7 @@ class TabStripDragSpringTest {
         // dragOffsetPx should have exact slot distance (98px) subtracted: 105 - 98 = 7px
         // Rock-solid: no visual jump under finger!
         assertEquals(7f, state.dragOffsetPx, 0.001f)
-        assertEquals(1, hapticCount)
+        assertEquals(1, vibrationCount)
 
         // Drag tab1 left by -109px (total = 7 - 109 = -102px, past -98px distance)
         state.onDrag(
@@ -365,13 +365,13 @@ class TabStripDragSpringTest {
             activeTabWidthPx = 148f,
             inactiveTabWidthPx = 38f,
             spacingPx = 5f,
-            onSwapHaptic = { hapticCount++ }
+            onSwapVibration = { vibrationCount++ }
         )
 
         // tab1 swaps back to index 0
         assertEquals(listOf("tab1", "tab2", "tab3"), state.currentTabs.map { it.id })
         // dragOffsetPx should have exact slot distance (98px) added: -102 + 98 = -4px
         assertEquals(-4f, state.dragOffsetPx, 0.001f)
-        assertEquals(2, hapticCount)
+        assertEquals(2, vibrationCount)
     }
 }

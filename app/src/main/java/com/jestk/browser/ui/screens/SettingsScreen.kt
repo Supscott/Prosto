@@ -250,7 +250,7 @@ fun SettingsContent(
         }
 
         // SECTION 1: THEME PICKER (Segmented Control Container)
-        SettingsSectionHeader(title = "APPEARANCE")
+        SettingsSectionHeader(title = stringResource(R.string.settings_section_appearance))
         SegmentedThemeControl(
             selectedMode = uiState.settings.themeMode,
             isDark = isDark,
@@ -259,9 +259,18 @@ fun SettingsContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // SECTION: INTERACTION (vibration)
+        SettingsInteractionSection(
+            isDark = isDark,
+            isVibrationEnabled = uiState.settings.isVibrationEnabled,
+            onVibrationEnabledChange = { onEvent(BrowserUiEvent.SetVibrationEnabled(it)) },
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // SECTION: DEFAULT BROWSER (Only visible if not default)
         if (!uiState.isDefaultBrowser) {
-            SettingsSectionHeader(title = "GENERAL")
+            SettingsSectionHeader(title = stringResource(R.string.settings_section_general))
             InsetGroupedCard(isDark = isDark) {
                 DefaultBrowserSettingTile(
                     isDark = isDark,
@@ -337,7 +346,10 @@ fun SettingsContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SettingsSectionHeader(title = "PRIVACY & PROTECTION", modifier = Modifier.padding(bottom = 0.dp))
+            SettingsSectionHeader(
+                title = stringResource(R.string.settings_section_privacy),
+                modifier = Modifier.padding(bottom = 0.dp),
+            )
 
             Surface(
                 shape = RoundedCornerShape(12.dp),
@@ -781,7 +793,7 @@ fun SettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // SECTION 4: ABOUT & HORI
-        SettingsSectionHeader(title = "ABOUT & PROSTO")
+        SettingsSectionHeader(title = stringResource(R.string.settings_section_about))
         InsetGroupedCard(isDark = isDark) {
             HyperlinkRow(
                 title = "Prosto Web Browser",

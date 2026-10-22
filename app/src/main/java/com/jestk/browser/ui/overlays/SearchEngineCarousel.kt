@@ -49,14 +49,11 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
@@ -82,6 +79,8 @@ import com.jestk.browser.ui.theme.SereneBrandPrimary
 import com.jestk.browser.ui.theme.SereneDarkText
 import com.jestk.browser.ui.theme.SereneMutedSlate
 import com.jestk.browser.ui.theme.SerenePaleBlue
+import com.jestk.browser.util.LocalVibrationFeedback
+import com.jestk.browser.util.VibrationFeedback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -103,7 +102,11 @@ internal object SearchEngineCarouselInterpolation {
      * Calculates scale for an item at [slotIndex] given the continuous [centerSlotFloat].
      * Interpolates smoothly from [ACTIVE_SCALE] (dist = 0) down to [INACTIVE_SCALE] (dist >= 1).
      */
-    fun calculateScale(slotIndex: Int, centerSlotFloat: Float, scrollProgress: Float = 1f): Float {
+    fun calculateScale(
+        slotIndex: Int,
+        centerSlotFloat: Float,
+        scrollProgress: Float = 1f,
+    ): Float {
         val dist = abs(slotIndex - centerSlotFloat)
         val focusFraction = (1f - dist).coerceIn(0f, 1f)
         return INACTIVE_SCALE + (ACTIVE_SCALE - INACTIVE_SCALE) * focusFraction * scrollProgress
@@ -114,7 +117,11 @@ internal object SearchEngineCarouselInterpolation {
      * During scroll, interpolates smoothly from [ACTIVE_ALPHA] (dist = 0) down to [INACTIVE_ALPHA] (dist >= 1).
      * When resting (scrollProgress = 0), returns 1f for slot 0, and 0f for other slots.
      */
-    fun calculateAlpha(slotIndex: Int, centerSlotFloat: Float, scrollProgress: Float = 1f): Float {
+    fun calculateAlpha(
+        slotIndex: Int,
+        centerSlotFloat: Float,
+        scrollProgress: Float = 1f,
+    ): Float {
         val dist = abs(slotIndex - centerSlotFloat)
         val focusFraction = (1f - dist).coerceIn(0f, 1f)
         val scrollAlpha = INACTIVE_ALPHA + (ACTIVE_ALPHA - INACTIVE_ALPHA) * focusFraction
@@ -130,7 +137,11 @@ internal object SearchEngineCarouselInterpolation {
      * The indicator is only visible for the item within 0.5 slots of center (dist < 0.5f),
      * and fades out to 0f at dist >= 0.5f.
      */
-    fun calculateIndicatorAlpha(slotIndex: Int, centerSlotFloat: Float, scrollProgress: Float = 1f): Float {
+    fun calculateIndicatorAlpha(
+        slotIndex: Int,
+        centerSlotFloat: Float,
+        scrollProgress: Float = 1f,
+    ): Float {
         val dist = abs(slotIndex - centerSlotFloat)
         if (dist >= 0.5f) return 0f
         val focus = (1f - dist * 2f).coerceIn(0f, 1f)
@@ -141,15 +152,15 @@ internal object SearchEngineCarouselInterpolation {
 /**
  * State and gesture controller for the search engine logo carousel in SearchOverlay.
  * Provides synchronized dragging, spline-based fling decay with inertia,
- * spring snapping to the nearest engine slot, and haptic feedback on slot crossing.
+ * spring snapping to the nearest engine slot, and vibration feedback on slot crossing.
  */
 internal class SearchEngineCarouselState(
     initialEngine: SearchEngine,
     val density: Density,
     val coroutineScope: CoroutineScope,
-    val haptic: HapticFeedback,
+    val vibration: VibrationFeedback,
     var engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
-    val onEngineSelected: (SearchEngine) -> Unit
+    val onEngineSelected: (SearchEngine) -> Unit,
 ) {
     var currentEngine by mutableStateOf(initialEngine)
     val animOffset = Animatable(0f, visibilityThreshold = 0.5f)
@@ -160,14 +171,22 @@ internal class SearchEngineCarouselState(
     val itemSpacingDp: Dp = 40.dp
     val itemSpacingPx: Float = with(density) { itemSpacingDp.toPx() }
 
-    private var lastHapticSlot: Int = 0
+    private var lastVibrationSlot: Int = 0
     private var activeJob: Job? = null
+
+    private fun vibrateOnSlotChange(offset: Float) {
+        val slot = (-offset / itemSpacingPx).roundToInt()
+        if (slot != lastVibrationSlot) {
+            lastVibrationSlot = slot
+            vibration.tick()
+        }
+    }
 
     fun onDragStart() {
         activeJob?.cancel()
         isDragging = true
         isFlinging = false
-        lastHapticSlot = (-animOffset.value / itemSpacingPx).roundToInt()
+        lastVibrationSlot = (-animOffset.value / itemSpacingPx).roundToInt()
     }
 
     fun onDrag(dragAmount: Float) {
@@ -175,96 +194,87 @@ internal class SearchEngineCarouselState(
         coroutineScope.launch {
             val newOffset = animOffset.value + dragAmount
             animOffset.snapTo(newOffset)
-            val currentSlot = (-newOffset / itemSpacingPx).roundToInt()
-            if (currentSlot != lastHapticSlot) {
-                lastHapticSlot = currentSlot
-                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-            }
+            vibrateOnSlotChange(newOffset)
         }
     }
 
     fun onDragEnd(velocity: Float) {
         isDragging = false
         val minFlingVelocity = 400f // px/sec
-        activeJob = coroutineScope.launch {
-            isFlinging = true
-            val currentOffset = animOffset.value
-            val targetSlot: Int
+        activeJob =
+            coroutineScope.launch {
+                isFlinging = true
+                val currentOffset = animOffset.value
+                val targetSlot: Int
 
-            if (abs(velocity) >= minFlingVelocity) {
-                val decay = splineBasedDecay<Float>(density)
-                val predictedDelta = decay.calculateTargetValue(0f, velocity)
-                val maxSlots = 6
-                val maxDistance = maxSlots * itemSpacingPx
-                val clampedDelta = predictedDelta.coerceIn(-maxDistance, maxDistance)
-                val predictedTarget = currentOffset + clampedDelta
-
-                var slot = (-predictedTarget / itemSpacingPx).roundToInt()
-                val currentBaseSlot = (-currentOffset / itemSpacingPx).toInt()
-                if (velocity < -minFlingVelocity && slot <= currentBaseSlot) {
-                    slot = currentBaseSlot + 1
-                } else if (velocity > minFlingVelocity && slot >= currentBaseSlot) {
-                    slot = currentBaseSlot - 1
-                }
-                targetSlot = slot
-            } else {
-                targetSlot = (-currentOffset / itemSpacingPx).roundToInt()
-            }
-
-            val targetX = -targetSlot * itemSpacingPx
-
-            try {
                 if (abs(velocity) >= minFlingVelocity) {
-                    animOffset.animateTo(
-                        targetValue = targetX,
-                        animationSpec = spring(
-                            dampingRatio = 0.85f,
-                            stiffness = Spring.StiffnessMedium
-                        ),
-                        initialVelocity = velocity
-                    ) {
-                        val currentSlot = (-value / itemSpacingPx).roundToInt()
-                        if (currentSlot != lastHapticSlot) {
-                            lastHapticSlot = currentSlot
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        }
+                    val decay = splineBasedDecay<Float>(density)
+                    val predictedDelta = decay.calculateTargetValue(0f, velocity)
+                    val maxSlots = 6
+                    val maxDistance = maxSlots * itemSpacingPx
+                    val clampedDelta = predictedDelta.coerceIn(-maxDistance, maxDistance)
+                    val predictedTarget = currentOffset + clampedDelta
+
+                    var slot = (-predictedTarget / itemSpacingPx).roundToInt()
+                    val currentBaseSlot = (-currentOffset / itemSpacingPx).toInt()
+                    if (velocity < -minFlingVelocity && slot <= currentBaseSlot) {
+                        slot = currentBaseSlot + 1
+                    } else if (velocity > minFlingVelocity && slot >= currentBaseSlot) {
+                        slot = currentBaseSlot - 1
                     }
+                    targetSlot = slot
                 } else {
-                    animOffset.animateTo(
-                        targetValue = targetX,
-                        animationSpec = spring(
-                            dampingRatio = 0.85f,
-                            stiffness = Spring.StiffnessMedium
-                        )
-                    ) {
-                        val currentSlot = (-value / itemSpacingPx).roundToInt()
-                        if (currentSlot != lastHapticSlot) {
-                            lastHapticSlot = currentSlot
-                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                        }
-                    }
+                    targetSlot = (-currentOffset / itemSpacingPx).roundToInt()
                 }
 
-                // Settle and commit
-                val list = if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
-                val currentIndex = list.indexOfFirst { it.id == currentEngine.id }.let { if (it == -1) 0 else it }
-                val finalIndex = (currentIndex + targetSlot).mod(list.size)
-                val newEngine = list[finalIndex]
+                val targetX = -targetSlot * itemSpacingPx
 
-                currentEngine = newEngine
-                animOffset.snapTo(0f)
-                lastHapticSlot = 0
-                isFlinging = false
-                isDragging = false
-                onEngineSelected(newEngine)
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) {
+                try {
+                    if (abs(velocity) >= minFlingVelocity) {
+                        animOffset.animateTo(
+                            targetValue = targetX,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = 0.85f,
+                                    stiffness = Spring.StiffnessMedium,
+                                ),
+                            initialVelocity = velocity,
+                        ) {
+                            vibrateOnSlotChange(value)
+                        }
+                    } else {
+                        animOffset.animateTo(
+                            targetValue = targetX,
+                            animationSpec =
+                                spring(
+                                    dampingRatio = 0.85f,
+                                    stiffness = Spring.StiffnessMedium,
+                                ),
+                        ) {
+                            vibrateOnSlotChange(value)
+                        }
+                    }
+
+                    // Settle and commit
+                    val list = if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
+                    val currentIndex = list.indexOfFirst { it.id == currentEngine.id }.let { if (it == -1) 0 else it }
+                    val finalIndex = (currentIndex + targetSlot).mod(list.size)
+                    val newEngine = list[finalIndex]
+
+                    currentEngine = newEngine
+                    animOffset.snapTo(0f)
+                    lastVibrationSlot = 0
                     isFlinging = false
-                } else {
-                    throw e
+                    isDragging = false
+                    onEngineSelected(newEngine)
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) {
+                        isFlinging = false
+                    } else {
+                        throw e
+                    }
                 }
             }
-        }
     }
 
     fun setEngineDirectly(engine: SearchEngine) {
@@ -272,7 +282,7 @@ internal class SearchEngineCarouselState(
         currentEngine = engine
         coroutineScope.launch {
             animOffset.snapTo(0f)
-            lastHapticSlot = 0
+            lastVibrationSlot = 0
             isDragging = false
             isFlinging = false
             onEngineSelected(engine)
@@ -300,24 +310,26 @@ internal class SearchEngineCarouselState(
         if (targetSlot == 0) {
             if (animOffset.value != 0f) {
                 activeJob?.cancel()
-                activeJob = coroutineScope.launch {
-                    isFlinging = true
-                    try {
-                        animOffset.animateTo(
-                            targetValue = 0f,
-                            animationSpec = spring(
-                                dampingRatio = 0.85f,
-                                stiffness = Spring.StiffnessMedium
+                activeJob =
+                    coroutineScope.launch {
+                        isFlinging = true
+                        try {
+                            animOffset.animateTo(
+                                targetValue = 0f,
+                                animationSpec =
+                                    spring(
+                                        dampingRatio = 0.85f,
+                                        stiffness = Spring.StiffnessMedium,
+                                    ),
                             )
-                        )
-                        animOffset.snapTo(0f)
-                        lastHapticSlot = 0
-                        isFlinging = false
-                        isDragging = false
-                    } catch (_: kotlinx.coroutines.CancellationException) {
-                        isFlinging = false
+                            animOffset.snapTo(0f)
+                            lastVibrationSlot = 0
+                            isFlinging = false
+                            isDragging = false
+                        } catch (_: kotlinx.coroutines.CancellationException) {
+                            isFlinging = false
+                        }
                     }
-                }
             }
             onEngineSelected(targetEngine)
             return
@@ -327,38 +339,36 @@ internal class SearchEngineCarouselState(
         onEngineSelected(targetEngine)
         isFlinging = true
         val targetX = -targetSlot * itemSpacingPx
-        lastHapticSlot = (-animOffset.value / itemSpacingPx).roundToInt()
+        lastVibrationSlot = (-animOffset.value / itemSpacingPx).roundToInt()
 
-        activeJob = coroutineScope.launch {
-            try {
-                animOffset.animateTo(
-                    targetValue = targetX,
-                    animationSpec = spring(
-                        dampingRatio = 0.85f,
-                        stiffness = Spring.StiffnessMedium
-                    )
-                ) {
-                    val currentSlot = (-value / itemSpacingPx).roundToInt()
-                    if (currentSlot != lastHapticSlot) {
-                        lastHapticSlot = currentSlot
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        activeJob =
+            coroutineScope.launch {
+                try {
+                    animOffset.animateTo(
+                        targetValue = targetX,
+                        animationSpec =
+                            spring(
+                                dampingRatio = 0.85f,
+                                stiffness = Spring.StiffnessMedium,
+                            ),
+                    ) {
+                        vibrateOnSlotChange(value)
+                    }
+
+                    currentEngine = targetEngine
+                    animOffset.snapTo(0f)
+                    lastVibrationSlot = 0
+                    isFlinging = false
+                    isDragging = false
+                    onEngineSelected(targetEngine)
+                } catch (e: Exception) {
+                    if (e is kotlinx.coroutines.CancellationException) {
+                        isFlinging = false
+                    } else {
+                        throw e
                     }
                 }
-
-                currentEngine = targetEngine
-                animOffset.snapTo(0f)
-                lastHapticSlot = 0
-                isFlinging = false
-                isDragging = false
-                onEngineSelected(targetEngine)
-            } catch (e: Exception) {
-                if (e is kotlinx.coroutines.CancellationException) {
-                    isFlinging = false
-                } else {
-                    throw e
-                }
             }
-        }
     }
 }
 
@@ -371,20 +381,21 @@ internal fun rememberSearchEngineCarouselState(
     engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     density: Density = LocalDensity.current,
     coroutineScope: CoroutineScope = rememberCoroutineScope(),
-    haptic: HapticFeedback = LocalHapticFeedback.current,
-    onEngineSelected: (SearchEngine) -> Unit
+    vibration: VibrationFeedback = LocalVibrationFeedback.current,
+    onEngineSelected: (SearchEngine) -> Unit,
 ): SearchEngineCarouselState {
     val currentOnEngineSelected by rememberUpdatedState(onEngineSelected)
-    val state = remember(density) {
-        SearchEngineCarouselState(
-            initialEngine = initialEngine,
-            density = density,
-            coroutineScope = coroutineScope,
-            haptic = haptic,
-            engines = engines,
-            onEngineSelected = { currentOnEngineSelected(it) }
-        )
-    }
+    val state =
+        remember(density) {
+            SearchEngineCarouselState(
+                initialEngine = initialEngine,
+                density = density,
+                coroutineScope = coroutineScope,
+                vibration = vibration,
+                engines = engines,
+                onEngineSelected = { currentOnEngineSelected(it) },
+            )
+        }
     state.engines = engines
     return state
 }
@@ -395,7 +406,7 @@ internal fun SearchEngineSelectorButton(
     isMenuOpen: Boolean,
     isDark: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val bg = if (isDark) DarkSurface else Color.White
     val border = SereneBorders.cardBorder(isDark)
@@ -403,29 +414,30 @@ internal fun SearchEngineSelectorButton(
 
     val containerWidth by animateDpAsState(
         targetValue = if (carouselState.isScrolling) 160.dp else 68.dp,
-        animationSpec = spring(
-            dampingRatio = 0.85f,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "containerWidth"
+        animationSpec =
+            spring(
+                dampingRatio = 0.85f,
+                stiffness = Spring.StiffnessMedium,
+            ),
+        label = "containerWidth",
     )
 
     val arrowRotation by animateFloatAsState(
         targetValue = if (isMenuOpen) 180f else 0f,
         animationSpec = tween(durationMillis = 200),
-        label = "arrowRotation"
+        label = "arrowRotation",
     )
 
     val arrowAlpha by animateFloatAsState(
         targetValue = if (carouselState.isScrolling) 0f else 1f,
         animationSpec = tween(durationMillis = 150),
-        label = "arrowAlpha"
+        label = "arrowAlpha",
     )
 
     val fadeAlpha by animateFloatAsState(
         targetValue = if (carouselState.isScrolling) 1f else 0f,
         animationSpec = tween(durationMillis = 150),
-        label = "fadeAlpha"
+        label = "fadeAlpha",
     )
 
     val restingShiftPx = with(density) { (-11).dp.toPx() } * arrowAlpha
@@ -435,52 +447,53 @@ internal fun SearchEngineSelectorButton(
         color = bg,
         border = border,
         shadowElevation = 4.dp,
-        modifier = modifier
-            .width(containerWidth)
-            .height(52.dp)
-            .semantics {
-                role = Role.Button
-                onClick {
-                    onClick()
-                    true
-                }
-            }
-            .searchEngineButtonGestures(
-                carouselState = carouselState,
-                onClick = onClick
-            )
+        modifier =
+            modifier
+                .width(containerWidth)
+                .height(52.dp)
+                .semantics {
+                    role = Role.Button
+                    onClick {
+                        onClick()
+                        true
+                    }
+                }.searchEngineButtonGestures(
+                    carouselState = carouselState,
+                    onClick = onClick,
+                ),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             // Badges Carousel with Edge Fade Mask
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(CircleShape)
-                    .graphicsLayer {
-                        compositingStrategy = CompositingStrategy.Offscreen
-                    }
-                    .drawWithContent {
-                        drawContent()
-                        if (fadeAlpha > 0.01f) {
-                            val fadeWidth = 24.dp.toPx() * fadeAlpha
-                            val w = size.width
-                            if (fadeWidth > 0f && w > 0f) {
-                                drawRect(
-                                    brush = Brush.horizontalGradient(
-                                        0f to Color.Transparent,
-                                        (fadeWidth / w) to Color.Black,
-                                        ((w - fadeWidth) / w) to Color.Black,
-                                        1f to Color.Transparent
-                                    ),
-                                    blendMode = BlendMode.DstIn
-                                )
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .clip(CircleShape)
+                        .graphicsLayer {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        }.drawWithContent {
+                            drawContent()
+                            if (fadeAlpha > 0.01f) {
+                                val fadeWidth = 24.dp.toPx() * fadeAlpha
+                                val w = size.width
+                                if (fadeWidth > 0f && w > 0f) {
+                                    drawRect(
+                                        brush =
+                                            Brush.horizontalGradient(
+                                                0f to Color.Transparent,
+                                                (fadeWidth / w) to Color.Black,
+                                                ((w - fadeWidth) / w) to Color.Black,
+                                                1f to Color.Transparent,
+                                            ),
+                                        blendMode = BlendMode.DstIn,
+                                    )
+                                }
                             }
-                        }
-                    },
-                contentAlignment = Alignment.Center
+                        },
+                contentAlignment = Alignment.Center,
             ) {
                 val list = if (carouselState.engines.isNotEmpty()) carouselState.engines else SearchEngine.DEFAULT_ENGINES
                 val baseIndex = list.indexOfFirst { it.id == carouselState.currentEngine.id }.let { if (it == -1) 0 else it }
@@ -495,63 +508,69 @@ internal fun SearchEngineSelectorButton(
                         val engine = list[engineIndex]
                         val xPos = k * carouselState.itemSpacingPx + carouselState.animOffset.value + restingShiftPx
 
-                        val itemScale = SearchEngineCarouselInterpolation.calculateScale(
-                            slotIndex = k,
-                            centerSlotFloat = centerSlotFloat,
-                            scrollProgress = scrollProgress
-                        )
-                        val itemAlpha = SearchEngineCarouselInterpolation.calculateAlpha(
-                            slotIndex = k,
-                            centerSlotFloat = centerSlotFloat,
-                            scrollProgress = scrollProgress
-                        )
-                        val indicatorAlpha = SearchEngineCarouselInterpolation.calculateIndicatorAlpha(
-                            slotIndex = k,
-                            centerSlotFloat = centerSlotFloat,
-                            scrollProgress = scrollProgress
-                        )
+                        val itemScale =
+                            SearchEngineCarouselInterpolation.calculateScale(
+                                slotIndex = k,
+                                centerSlotFloat = centerSlotFloat,
+                                scrollProgress = scrollProgress,
+                            )
+                        val itemAlpha =
+                            SearchEngineCarouselInterpolation.calculateAlpha(
+                                slotIndex = k,
+                                centerSlotFloat = centerSlotFloat,
+                                scrollProgress = scrollProgress,
+                            )
+                        val indicatorAlpha =
+                            SearchEngineCarouselInterpolation.calculateIndicatorAlpha(
+                                slotIndex = k,
+                                centerSlotFloat = centerSlotFloat,
+                                scrollProgress = scrollProgress,
+                            )
 
                         Box(
-                            modifier = Modifier
-                                .graphicsLayer {
-                                    translationX = xPos
-                                    scaleX = itemScale
-                                    scaleY = itemScale
-                                    alpha = itemAlpha
-                                },
-                            contentAlignment = Alignment.Center
+                            modifier =
+                                Modifier
+                                    .graphicsLayer {
+                                        translationX = xPos
+                                        scaleX = itemScale
+                                        scaleY = itemScale
+                                        alpha = itemAlpha
+                                    },
+                            contentAlignment = Alignment.Center,
                         ) {
                             // Serene Canvas active accent ring around badge
                             if (indicatorAlpha > 0.01f) {
                                 Box(
-                                    modifier = Modifier
-                                        .size(32.dp)
-                                        .graphicsLayer { alpha = indicatorAlpha }
-                                        .border(
-                                            width = 1.5.dp,
-                                            color = accentColor,
-                                            shape = CircleShape
-                                        )
+                                    modifier =
+                                        Modifier
+                                            .size(32.dp)
+                                            .graphicsLayer { alpha = indicatorAlpha }
+                                            .border(
+                                                width = 1.5.dp,
+                                                color = accentColor,
+                                                shape = CircleShape,
+                                            ),
                                 )
                             }
 
                             SearchEngineBadge(
                                 engine = engine,
                                 size = 26.dp,
-                                isDark = isDark
+                                isDark = isDark,
                             )
 
                             // Serene Canvas active accent indicator pill below badge
                             if (indicatorAlpha > 0.01f) {
                                 Box(
-                                    modifier = Modifier
-                                        .offset(y = 18.dp)
-                                        .size(width = 8.dp, height = 3.dp)
-                                        .graphicsLayer { alpha = indicatorAlpha }
-                                        .background(
-                                            color = accentColor,
-                                            shape = CircleShape
-                                        )
+                                    modifier =
+                                        Modifier
+                                            .offset(y = 18.dp)
+                                            .size(width = 8.dp, height = 3.dp)
+                                            .graphicsLayer { alpha = indicatorAlpha }
+                                            .background(
+                                                color = accentColor,
+                                                shape = CircleShape,
+                                            ),
                                 )
                             }
                         }
@@ -564,14 +583,15 @@ internal fun SearchEngineSelectorButton(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = "Search engine selector",
                 tint = if (isDark) DarkOnSurfaceVariant else SereneMutedSlate,
-                modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 10.dp)
-                    .size(18.dp)
-                    .graphicsLayer {
-                        rotationZ = arrowRotation
-                        alpha = arrowAlpha
-                    }
+                modifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 10.dp)
+                        .size(18.dp)
+                        .graphicsLayer {
+                            rotationZ = arrowRotation
+                            alpha = arrowAlpha
+                        },
             )
         }
     }
@@ -587,47 +607,48 @@ internal fun SearchEngineSelectorButton(
     onSwipeLeft: () -> Unit,
     onSwipeRight: () -> Unit,
     modifier: Modifier = Modifier,
-    engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES
+    engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
 ) {
     val coroutineScope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
+    val vibration = LocalVibrationFeedback.current
     val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
     val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
 
-    val carouselState = remember(selectedEngine, density, engines) {
-        SearchEngineCarouselState(
-            initialEngine = selectedEngine,
-            density = density,
-            coroutineScope = coroutineScope,
-            haptic = haptic,
-            engines = engines,
-            onEngineSelected = { target ->
-                val list = if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
-                val oldIdx = list.indexOfFirst { it.id == selectedEngine.id }.let { if (it == -1) 0 else it }
-                val newIdx = list.indexOfFirst { it.id == target.id }.let { if (it == -1) 0 else it }
-                val diff = (newIdx - oldIdx).mod(list.size)
-                if (diff == 1) {
-                    currentOnSwipeLeft()
-                } else if (diff == list.size - 1) {
-                    currentOnSwipeRight()
-                }
-            }
-        )
-    }
+    val carouselState =
+        remember(selectedEngine, density, engines) {
+            SearchEngineCarouselState(
+                initialEngine = selectedEngine,
+                density = density,
+                coroutineScope = coroutineScope,
+                vibration = vibration,
+                engines = engines,
+                onEngineSelected = { target ->
+                    val list = if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
+                    val oldIdx = list.indexOfFirst { it.id == selectedEngine.id }.let { if (it == -1) 0 else it }
+                    val newIdx = list.indexOfFirst { it.id == target.id }.let { if (it == -1) 0 else it }
+                    val diff = (newIdx - oldIdx).mod(list.size)
+                    if (diff == 1) {
+                        currentOnSwipeLeft()
+                    } else if (diff == list.size - 1) {
+                        currentOnSwipeRight()
+                    }
+                },
+            )
+        }
 
     SearchEngineSelectorButton(
         carouselState = carouselState,
         isMenuOpen = isMenuOpen,
         isDark = isDark,
         onClick = onClick,
-        modifier = modifier
+        modifier = modifier,
     )
 }
 
 @Composable
 internal fun Modifier.searchEngineButtonGestures(
     carouselState: SearchEngineCarouselState,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ): Modifier {
     val currentOnClick by rememberUpdatedState(onClick)
     val viewConfig = LocalViewConfiguration.current
@@ -672,7 +693,7 @@ internal fun Modifier.searchEngineButtonGestures(
 @Composable
 internal fun Modifier.searchEngineInputGestures(
     carouselState: SearchEngineCarouselState,
-    enabled: Boolean = true
+    enabled: Boolean = true,
 ): Modifier {
     if (!enabled) return this
     val viewConfig = LocalViewConfiguration.current
@@ -718,7 +739,7 @@ internal fun Modifier.horizontalSwipeCycler(
     enabled: Boolean = true,
     thresholdDp: Dp = 64.dp,
     onSwipeLeft: () -> Unit,
-    onSwipeRight: () -> Unit
+    onSwipeRight: () -> Unit,
 ): Modifier {
     if (!enabled) return this
     val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
@@ -762,29 +783,33 @@ internal fun SearchEngineBadge(
     engine: SearchEngine,
     modifier: Modifier = Modifier,
     size: Dp = 32.dp,
-    isDark: Boolean = false
+    isDark: Boolean = false,
 ) {
     val context = LocalContext.current
     var isImageError by remember(engine.iconUrl) { mutableStateOf(false) }
 
-    val imageModel = remember(engine.iconUrl) {
-        FaviconManager.toImageModel(engine.iconUrl)
-    }
+    val imageModel =
+        remember(engine.iconUrl) {
+            FaviconManager.toImageModel(engine.iconUrl)
+        }
 
-    val imageRequest = remember(imageModel, context) {
-        ImageRequest.Builder(context)
-            .data(imageModel)
-            .decoderFactory(SvgDecoder.Factory())
-            .crossfade(false)
-            .build()
-    }
+    val imageRequest =
+        remember(imageModel, context) {
+            ImageRequest
+                .Builder(context)
+                .data(imageModel)
+                .decoderFactory(SvgDecoder.Factory())
+                .crossfade(false)
+                .build()
+        }
 
     Box(
-        modifier = modifier
-            .size(size)
-            .clip(CircleShape)
-            .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
-        contentAlignment = Alignment.Center
+        modifier =
+            modifier
+                .size(size)
+                .clip(CircleShape)
+                .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+        contentAlignment = Alignment.Center,
     ) {
         if (!isImageError && imageModel != null) {
             AsyncImage(
@@ -793,19 +818,18 @@ internal fun SearchEngineBadge(
                 contentScale = ContentScale.Fit,
                 onError = { isImageError = true },
                 onSuccess = { isImageError = false },
-                modifier = Modifier.size(size)
+                modifier = Modifier.size(size),
             )
         } else {
             Text(
                 text = engine.displayName.take(1).uppercase(),
-                style = LocalSereneTypography.current.labelSm.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = (size.value * 0.45f).sp
-                ),
-                color = if (isDark) DarkPrimary else SereneBrandPrimary
+                style =
+                    LocalSereneTypography.current.labelSm.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = (size.value * 0.45f).sp,
+                    ),
+                color = if (isDark) DarkPrimary else SereneBrandPrimary,
             )
         }
     }
 }
-
-

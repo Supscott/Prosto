@@ -22,6 +22,8 @@ interface SettingsRepository {
 
     suspend fun setAutoUpdateEnabled(enabled: Boolean)
 
+    suspend fun setVibrationEnabled(enabled: Boolean)
+
     suspend fun setSkippedUpdateVersion(version: String?)
 
     fun getBlockedAdsCount(): Flow<Long>
