@@ -178,6 +178,18 @@ fun TabStripRow(
         val totalChipWidthPx = with(density) { totalChipWidth.toPx() }
         val inactiveTabWidthPx = with(density) { 38.dp.toPx() }
         val tabSpacingPx = with(density) { 5.dp.toPx() }
+        val hysteresisPx = with(density) { 4.dp.toPx() }
+
+        val layoutMetrics =
+            remember(activeTabWidthPx, inactiveTabWidthPx, tabSpacingPx, uiState.activeTabId, hysteresisPx) {
+                TabStripLayoutMetrics(
+                    activeTabWidthPx = activeTabWidthPx,
+                    inactiveTabWidthPx = inactiveTabWidthPx,
+                    spacingPx = tabSpacingPx,
+                    activeTabId = uiState.activeTabId,
+                    hysteresisPx = hysteresisPx,
+                )
+            }
 
         LaunchedEffect(uiState.activeTabId, activeIndex, dragState.isDragging, dragState.isSettling) {
             if (!dragState.isDragging && !dragState.isSettling && activeIndex in dragState.currentTabs.indices) {
@@ -222,6 +234,7 @@ fun TabStripRow(
                         isSettlingThis -> dragState.settleScaleAnim.value
                         else -> 1.0f
                     }
+                val effectiveScale = itemScale + if (isDraggingThis) dragState.swapScaleBump.value else 0f
 
                 val itemPlacementModifier =
                     if (isDraggingThis) {
@@ -282,18 +295,15 @@ fun TabStripRow(
                                 .zIndex(if (isElevated) 10f else 0f)
                                 .graphicsLayer {
                                     translationX = itemTranslationX
-                                    scaleX = itemScale
-                                    scaleY = itemScale
+                                    scaleX = effectiveScale
+                                    scaleY = effectiveScale
                                 },
                         onDragStart = { dragState.onDragStart(tab.id) },
                         onDrag = { deltaX ->
                             dragState.onDrag(
                                 tabId = tab.id,
                                 deltaX = deltaX,
-                                activeTabWidthPx = activeTabWidthPx,
-                                inactiveTabWidthPx = inactiveTabWidthPx,
-                                spacingPx = tabSpacingPx,
-                                activeTabId = uiState.activeTabId,
+                                metrics = layoutMetrics,
                                 onSwapVibration = { vibration.tick() },
                             )
                         },
@@ -321,18 +331,15 @@ fun TabStripRow(
                                 .zIndex(if (isElevated) 10f else 0f)
                                 .graphicsLayer {
                                     translationX = itemTranslationX
-                                    scaleX = itemScale
-                                    scaleY = itemScale
+                                    scaleX = effectiveScale
+                                    scaleY = effectiveScale
                                 },
                         onDragStart = { dragState.onDragStart(tab.id) },
                         onDrag = { deltaX ->
                             dragState.onDrag(
                                 tabId = tab.id,
                                 deltaX = deltaX,
-                                activeTabWidthPx = activeTabWidthPx,
-                                inactiveTabWidthPx = inactiveTabWidthPx,
-                                spacingPx = tabSpacingPx,
-                                activeTabId = uiState.activeTabId,
+                                metrics = layoutMetrics,
                                 onSwapVibration = { vibration.tick() },
                             )
                         },

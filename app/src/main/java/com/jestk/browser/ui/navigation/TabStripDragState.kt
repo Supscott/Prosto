@@ -19,6 +19,17 @@ import kotlinx.coroutines.launch
 import java.util.Collections
 
 /**
+ * Encapsulates dimension metrics and hysteresis configuration for tab strip drag & drop reordering.
+ */
+internal data class TabStripLayoutMetrics(
+    val activeTabWidthPx: Float,
+    val inactiveTabWidthPx: Float,
+    val spacingPx: Float,
+    val activeTabId: String? = null,
+    val hysteresisPx: Float = 10f,
+)
+
+/**
  * State controller managing drag & drop tab reordering and tactile spring release physics
  * in [TabStripRow].
  *
@@ -50,6 +61,12 @@ internal class TabStripDragState(
 
     val settleOffsetAnim = Animatable(0f, visibilityThreshold = 0.5f)
     val settleScaleAnim = Animatable(1.0f)
+    val swapScaleBump = Animatable(0f)
+
+    private enum class SwapDirection { LEFT, RIGHT }
+    private var lastSwapDirection: SwapDirection? = null
+    private var lastSwapReverseTargetIndex: Int = -1
+    private var swapBumpJob: Job? = null
 
     private var settleJob: Job? = null
     private var pendingTabs: List<Tab>? = null
@@ -63,11 +80,24 @@ internal class TabStripDragState(
         }
     }
 
+    private fun resetSwapState() {
+        lastSwapDirection = null
+        lastSwapReverseTargetIndex = -1
+        swapBumpJob?.cancel()
+        swapBumpJob = null
+        if (swapScaleBump.value != 0f) {
+            coroutineScope.launch {
+                swapScaleBump.snapTo(0f)
+            }
+        }
+    }
+
     fun cancelSettlingImmediately() {
         if (isSettling) {
             settleJob?.cancel()
             settleJob = null
             settlingTabId = null
+            resetSwapState()
             coroutineScope.launch {
                 settleOffsetAnim.snapTo(0f)
                 settleScaleAnim.snapTo(1.0f)
@@ -86,26 +116,116 @@ internal class TabStripDragState(
         draggingTabId = tabId
         dragOffsetPx = 0f
         isDragging = true
+        resetSwapState()
     }
 
-    fun computeSlotDistance(
-        currentIndex: Int,
-        targetIndex: Int,
-        activeTabWidthPx: Float,
-        inactiveTabWidthPx: Float,
-        spacingPx: Float,
-        activeTabId: String? = null
+    internal fun getTabWidth(
+        tab: Tab,
+        metrics: TabStripLayoutMetrics,
     ): Float {
-        if (currentIndex !in currentTabs.indices || targetIndex !in currentTabs.indices) {
-            return inactiveTabWidthPx + spacingPx
+        val isActive = tab.isActive || (metrics.activeTabId != null && tab.id == metrics.activeTabId)
+        return if (isActive) metrics.activeTabWidthPx else metrics.inactiveTabWidthPx
+    }
+
+    internal fun getSlotStart(
+        index: Int,
+        tabs: List<Tab>,
+        metrics: TabStripLayoutMetrics,
+    ): Float {
+        var start = 0f
+        for (i in 0 until index.coerceIn(0, tabs.size)) {
+            start += getTabWidth(tabs[i], metrics) + metrics.spacingPx
         }
-        val currentTab = currentTabs[currentIndex]
-        val targetTab = currentTabs[targetIndex]
-        val isCurrentActive = currentTab.isActive || (activeTabId != null && currentTab.id == activeTabId)
-        val isTargetActive = targetTab.isActive || (activeTabId != null && targetTab.id == activeTabId)
-        val currentWidth = if (isCurrentActive) activeTabWidthPx else inactiveTabWidthPx
-        val targetWidth = if (isTargetActive) activeTabWidthPx else inactiveTabWidthPx
-        return (currentWidth + targetWidth) / 2f + spacingPx
+        return start
+    }
+
+    fun onDrag(
+        tabId: String,
+        deltaX: Float,
+        metrics: TabStripLayoutMetrics,
+        onSwapVibration: () -> Unit = {}
+    ) {
+        if (!isDragging || draggingTabId != tabId) return
+        dragOffsetPx += deltaX
+        val currentIndex = currentTabs.indexOfFirst { it.id == tabId }
+        if (currentIndex == -1) return
+
+        val draggedTab = currentTabs[currentIndex]
+        val draggedWidth = getTabWidth(draggedTab, metrics)
+        val currentSlotStart = getSlotStart(currentIndex, currentTabs, metrics)
+        val visualStart = currentSlotStart + dragOffsetPx
+        val visualEnd = visualStart + draggedWidth
+
+        // Check swap right
+        if (currentIndex < currentTabs.lastIndex) {
+            val targetIndex = currentIndex + 1
+            val targetTab = currentTabs[targetIndex]
+            val targetWidth = getTabWidth(targetTab, metrics)
+            val targetSlotStart = currentSlotStart + draggedWidth + metrics.spacingPx
+            val overlapThreshold = 0.5f * minOf(draggedWidth, targetWidth)
+            val isReverseSwap = lastSwapDirection == SwapDirection.LEFT && targetIndex == lastSwapReverseTargetIndex
+            val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
+            val targetTriggerX = targetSlotStart + overlapThreshold + hysteresisMargin
+
+            if (visualEnd > targetTriggerX) {
+                val mutable = currentTabs.toMutableList()
+                Collections.swap(mutable, currentIndex, targetIndex)
+                currentTabs = mutable
+
+                val newSlotStart = currentSlotStart + targetWidth + metrics.spacingPx
+                dragOffsetPx = visualStart - newSlotStart
+
+                lastSwapDirection = SwapDirection.RIGHT
+                lastSwapReverseTargetIndex = currentIndex
+
+                triggerSwapFeedback(onSwapVibration)
+                return
+            }
+        }
+
+        // Check swap left
+        if (currentIndex > 0) {
+            val targetIndex = currentIndex - 1
+            val targetTab = currentTabs[targetIndex]
+            val targetWidth = getTabWidth(targetTab, metrics)
+            val targetSlotStart = currentSlotStart - (targetWidth + metrics.spacingPx)
+            val targetSlotEnd = targetSlotStart + targetWidth
+            val overlapThreshold = 0.5f * minOf(draggedWidth, targetWidth)
+            val isReverseSwap = lastSwapDirection == SwapDirection.RIGHT && targetIndex == lastSwapReverseTargetIndex
+            val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
+            val targetTriggerX = targetSlotEnd - overlapThreshold - hysteresisMargin
+
+            if (visualStart < targetTriggerX) {
+                val mutable = currentTabs.toMutableList()
+                Collections.swap(mutable, currentIndex, targetIndex)
+                currentTabs = mutable
+
+                val newSlotStart = targetSlotStart
+                dragOffsetPx = visualStart - newSlotStart
+
+                lastSwapDirection = SwapDirection.LEFT
+                lastSwapReverseTargetIndex = currentIndex
+
+                triggerSwapFeedback(onSwapVibration)
+                return
+            }
+        }
+    }
+
+    private fun triggerSwapFeedback(onSwapVibration: () -> Unit) {
+        onSwapVibration()
+        swapBumpJob?.cancel()
+        swapBumpJob = coroutineScope.launch {
+            swapScaleBump.snapTo(0.06f)
+            swapScaleBump.animateTo(
+                targetValue = 0f,
+                animationSpec = spring(
+                    stiffness = Spring.StiffnessMedium,
+                    dampingRatio = Spring.DampingRatioMediumBouncy
+                )
+            )
+            swapBumpJob = null
+        }
     }
 
     fun onDrag(
@@ -115,51 +235,21 @@ internal class TabStripDragState(
         inactiveTabWidthPx: Float,
         spacingPx: Float,
         activeTabId: String? = null,
+        hysteresisPx: Float = 10f,
         onSwapVibration: () -> Unit = {}
     ) {
-        if (!isDragging || draggingTabId != tabId) return
-        dragOffsetPx += deltaX
-        val currentIndex = currentTabs.indexOfFirst { it.id == tabId }
-        if (currentIndex != -1) {
-            if (currentIndex < currentTabs.lastIndex) {
-                val targetIndex = currentIndex + 1
-                val distance = computeSlotDistance(
-                    currentIndex = currentIndex,
-                    targetIndex = targetIndex,
-                    activeTabWidthPx = activeTabWidthPx,
-                    inactiveTabWidthPx = inactiveTabWidthPx,
-                    spacingPx = spacingPx,
-                    activeTabId = activeTabId
-                )
-                if (dragOffsetPx > distance) {
-                    val mutable = currentTabs.toMutableList()
-                    Collections.swap(mutable, currentIndex, targetIndex)
-                    currentTabs = mutable
-                    dragOffsetPx -= distance
-                    onSwapVibration()
-                    return
-                }
-            }
-            if (currentIndex > 0) {
-                val targetIndex = currentIndex - 1
-                val distance = computeSlotDistance(
-                    currentIndex = currentIndex,
-                    targetIndex = targetIndex,
-                    activeTabWidthPx = activeTabWidthPx,
-                    inactiveTabWidthPx = inactiveTabWidthPx,
-                    spacingPx = spacingPx,
-                    activeTabId = activeTabId
-                )
-                if (dragOffsetPx < -distance) {
-                    val mutable = currentTabs.toMutableList()
-                    Collections.swap(mutable, currentIndex, targetIndex)
-                    currentTabs = mutable
-                    dragOffsetPx += distance
-                    onSwapVibration()
-                    return
-                }
-            }
-        }
+        onDrag(
+            tabId = tabId,
+            deltaX = deltaX,
+            metrics = TabStripLayoutMetrics(
+                activeTabWidthPx = activeTabWidthPx,
+                inactiveTabWidthPx = inactiveTabWidthPx,
+                spacingPx = spacingPx,
+                activeTabId = activeTabId,
+                hysteresisPx = hysteresisPx
+            ),
+            onSwapVibration = onSwapVibration
+        )
     }
 
     fun onDrag(
@@ -175,6 +265,7 @@ internal class TabStripDragState(
             inactiveTabWidthPx = swapThreshold,
             spacingPx = 0f,
             activeTabId = null,
+            hysteresisPx = 0f,
             onSwapVibration = onSwapVibration
         )
     }
@@ -193,6 +284,7 @@ internal class TabStripDragState(
         isDragging = false
         draggingTabId = null
         dragOffsetPx = 0f
+        resetSwapState()
 
         settlingTabId = tabId
         settleJob?.cancel()
@@ -244,6 +336,7 @@ internal class TabStripDragState(
         isDragging = false
         draggingTabId = null
         dragOffsetPx = 0f
+        resetSwapState()
 
         settlingTabId = tabId
         settleJob?.cancel()

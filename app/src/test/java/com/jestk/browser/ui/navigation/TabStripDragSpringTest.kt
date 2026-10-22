@@ -196,7 +196,7 @@ class TabStripDragSpringTest {
         state.onDragStart("tab1")
         state.onDrag(
             tabId = "tab1",
-            deltaX = 25f,
+            deltaX = 15f,
             swapThreshold = 44f
         )
 
@@ -205,7 +205,7 @@ class TabStripDragSpringTest {
         assertFalse(state.isDragging)
         assertTrue(state.isSettling)
         assertFalse(reorderDispatched)
-        assertEquals(25f, state.settleOffsetAnim.value, 0.001f)
+        assertEquals(15f, state.settleOffsetAnim.value, 0.001f)
 
         testScheduler.advanceUntilIdle()
 
@@ -301,77 +301,155 @@ class TabStripDragSpringTest {
     }
 
     @Test
-    fun computeSlotDistance_calculatesCorrectDistanceForActiveAndInactive() = runTest(testFrameClock) {
+    fun getSlotStart_calculatesCorrectOriginsForMixedWidthTabs() = runTest(testFrameClock) {
         val state = TabStripDragState(
-            initialTabs = sampleTabs, // tab1: active, tab2: inactive, tab3: inactive
+            initialTabs = sampleTabs, // tab1: active (148px), tab2: inactive (38px), tab3: inactive (38px)
             coroutineScope = this,
             onReorder = {}
         )
 
-        // Active (148px) <-> Inactive (38px) with 5px spacing -> (148 + 38) / 2 + 5 = 98px
-        val activeToInactive = state.computeSlotDistance(
-            currentIndex = 0,
-            targetIndex = 1,
+        val metrics = TabStripLayoutMetrics(
             activeTabWidthPx = 148f,
             inactiveTabWidthPx = 38f,
-            spacingPx = 5f
+            spacingPx = 5f,
+            activeTabId = "tab1"
         )
-        assertEquals(98f, activeToInactive, 0.001f)
 
-        // Inactive (38px) <-> Inactive (38px) with 5px spacing -> (38 + 38) / 2 + 5 = 43px
-        val inactiveToInactive = state.computeSlotDistance(
-            currentIndex = 1,
-            targetIndex = 2,
-            activeTabWidthPx = 148f,
-            inactiveTabWidthPx = 38f,
-            spacingPx = 5f
-        )
-        assertEquals(43f, inactiveToInactive, 0.001f)
+        // Index 0 starts at 0px
+        assertEquals(0f, state.getSlotStart(0, sampleTabs, metrics), 0.001f)
+        // Index 1 starts after active tab (148px + 5px = 153px)
+        assertEquals(153f, state.getSlotStart(1, sampleTabs, metrics), 0.001f)
+        // Index 2 starts after inactive tab (153px + 38px + 5px = 196px)
+        assertEquals(196f, state.getSlotStart(2, sampleTabs, metrics), 0.001f)
     }
 
     @Test
     fun onDrag_dynamicActiveAndInactiveSlotDistance_adjustsOffsetByActualDistance() = runTest(testFrameClock) {
         var vibrationCount = 0
         val state = TabStripDragState(
-            initialTabs = sampleTabs, // tab1: active, tab2: inactive, tab3: inactive
+            initialTabs = sampleTabs, // tab1: active (148px), tab2: inactive (38px), tab3: inactive (38px)
             coroutineScope = this,
             onReorder = {}
         )
 
-        state.onDragStart("tab1")
-
-        // Slot distance between tab1 (148px) and tab2 (38px) is 98px
-        // Drag right by 105px (past 98px distance)
-        state.onDrag(
-            tabId = "tab1",
-            deltaX = 105f,
+        val metrics = TabStripLayoutMetrics(
             activeTabWidthPx = 148f,
             inactiveTabWidthPx = 38f,
             spacingPx = 5f,
+            activeTabId = "tab1",
+            hysteresisPx = 4f
+        )
+
+        state.onDragStart("tab1")
+
+        // Spacing = 5px. Inactive tab = 38px.
+        // Leading edge of active tab reaches 50% overlap of tab2 at: 153px + 19px = 172px.
+        // Drag right by 25px (visualEnd = 148 + 25 = 173px > 172px -> triggers immediate swap).
+        state.onDrag(
+            tabId = "tab1",
+            deltaX = 25f,
+            metrics = metrics,
             onSwapVibration = { vibrationCount++ }
         )
 
         // tab1 and tab2 should be swapped
         assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
-        // dragOffsetPx should have exact slot distance (98px) subtracted: 105 - 98 = 7px
-        // Rock-solid: no visual jump under finger!
-        assertEquals(7f, state.dragOffsetPx, 0.001f)
+        // New slot of tab1 is index 1 (starts at 38 + 5 = 43px). Visual position was 25px.
+        // dragOffsetPx = 25 - 43 = -18px. Visual position preserved under finger with zero jump!
+        assertEquals(-18f, state.dragOffsetPx, 0.001f)
         assertEquals(1, vibrationCount)
 
-        // Drag tab1 left by -109px (total = 7 - 109 = -102px, past -98px distance)
+        // Drag tab1 left slightly (-5px -> offset = -23px, visualStart = 20px).
+        // Reverse trigger requires visualStart < 38 - 19 - 4 = 15px. So 20px does NOT trigger reverse swap (hysteresis protection).
         state.onDrag(
             tabId = "tab1",
-            deltaX = -109f,
-            activeTabWidthPx = 148f,
-            inactiveTabWidthPx = 38f,
-            spacingPx = 5f,
+            deltaX = -5f,
+            metrics = metrics,
+            onSwapVibration = { vibrationCount++ }
+        )
+        assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
+        assertEquals(1, vibrationCount)
+
+        // Drag tab1 left further past the hysteresis boundary (-7f -> offset = -30f, visualStart = 13px < 15px -> triggers reverse swap).
+        state.onDrag(
+            tabId = "tab1",
+            deltaX = -7f,
+            metrics = metrics,
             onSwapVibration = { vibrationCount++ }
         )
 
         // tab1 swaps back to index 0
         assertEquals(listOf("tab1", "tab2", "tab3"), state.currentTabs.map { it.id })
-        // dragOffsetPx should have exact slot distance (98px) added: -102 + 98 = -4px
-        assertEquals(-4f, state.dragOffsetPx, 0.001f)
+        // New slot of tab1 is index 0 (starts at 0px). Visual position was 43 + (-30) = 13px.
+        // dragOffsetPx = 13 - 0 = 13px.
+        assertEquals(13f, state.dragOffsetPx, 0.001f)
         assertEquals(2, vibrationCount)
+    }
+
+    @Test
+    fun onDrag_inactiveTabEnteringActiveTab_swapsAtHalfInactiveWidth() = runTest(testFrameClock) {
+        var vibrationCount = 0
+        val state = TabStripDragState(
+            initialTabs = sampleTabs, // tab1: active (148px), tab2: inactive (38px), tab3: inactive (38px)
+            coroutineScope = this,
+            onReorder = {}
+        )
+
+        // Drag inactive tab2 (at index 1) left towards active tab1 (at index 0)
+        state.onDragStart("tab2")
+
+        // Spacing = 5px, inactiveTabWidth = 38px. Threshold = -(5 + 19) = -24px.
+        // Dragging left by -20px does not swap yet (only 15px into active tab).
+        state.onDrag(
+            tabId = "tab2",
+            deltaX = -20f,
+            activeTabWidthPx = 148f,
+            inactiveTabWidthPx = 38f,
+            spacingPx = 5f,
+            onSwapVibration = { vibrationCount++ }
+        )
+        assertEquals(listOf("tab1", "tab2", "tab3"), state.currentTabs.map { it.id })
+        assertEquals(0, vibrationCount)
+
+        // Dragging left by another -5px (total -25px < -24px threshold) -> triggers swap!
+        state.onDrag(
+            tabId = "tab2",
+            deltaX = -5f,
+            activeTabWidthPx = 148f,
+            inactiveTabWidthPx = 38f,
+            spacingPx = 5f,
+            onSwapVibration = { vibrationCount++ }
+        )
+        assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
+        assertEquals(1, vibrationCount)
+    }
+
+    @Test
+    fun onDrag_triggersSwapScaleBumpAnimation() = runTest(testFrameClock) {
+        val state = TabStripDragState(
+            initialTabs = sampleTabs,
+            coroutineScope = this,
+            onReorder = {}
+        )
+
+        state.onDragStart("tab1")
+        assertEquals(0f, state.swapScaleBump.value, 0.001f)
+
+        // Drag to trigger swap
+        state.onDrag(
+            tabId = "tab1",
+            deltaX = 25f,
+            activeTabWidthPx = 148f,
+            inactiveTabWidthPx = 38f,
+            spacingPx = 5f
+        )
+
+        // Advance 1 frame (16ms) to let coroutine execute
+        advanceTimeBy(16)
+        assertThat(state.swapScaleBump.value).isGreaterThan(0f)
+
+        // Advance to idle — bump settles back to 0f
+        testScheduler.advanceUntilIdle()
+        assertEquals(0f, state.swapScaleBump.value, 0.001f)
     }
 }
