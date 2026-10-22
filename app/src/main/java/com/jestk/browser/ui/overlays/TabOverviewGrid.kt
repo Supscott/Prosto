@@ -79,7 +79,7 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
  * Features:
  * - Top navigation bar with back button, "Tabs Overview", and accent orb icon
  * - Sub-header with tab count, search in tabs, and gradient "+" add button
- * - 3-column grid with aspect-[4/5] previews
+ * - 3-column grid with 9:16 preview cards
  * - Active tab highlighted with multi-color gradient border (#7BA7D7 -> #F6B99D -> #D391A5)
  * - Floating bottom frosted "Done" pill button
  */
@@ -331,7 +331,7 @@ fun TabOverviewGrid(
                 }
             }
 
-            // 3. 3-Column Vertical Grid with aspect-[4/5] preview cards
+            // 3. 3-Column Vertical Grid with 9:16 preview cards
             LazyVerticalGrid(
                 columns = GridCells.Fixed(3),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),

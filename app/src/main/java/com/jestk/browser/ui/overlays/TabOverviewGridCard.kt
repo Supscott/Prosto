@@ -107,7 +107,7 @@ internal fun GridTabCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .aspectRatio(4f / 5f)
+                    .aspectRatio(9f / 16f)
                     .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
                     .clip(ProstoShapes.Card)
                     .clickable(onClick = onSelect)
@@ -214,6 +214,7 @@ internal fun GridTabCard(
                             model = file,
                             contentDescription = tab.title,
                             contentScale = ContentScale.Crop,
+                            alignment = Alignment.TopCenter,
                             modifier = Modifier.fillMaxSize(),
                         )
                     } else {

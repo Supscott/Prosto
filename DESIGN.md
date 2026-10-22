@@ -184,7 +184,7 @@ Mobile layouts follow a relaxed fluid column structure bounded by safe zones:
 - **Vertical Rhythm**:
   - Sections are spaced 32px (`space-xl`) apart to maintain the calm, expansive feel seen on desktop.
   - Interactive grid elements (e.g., Favorite Spaces tiles) utilize a 2-column or 4-column layout with 12px (`gutter`) gaps.
-  - The tab overview grid uses a 3-column layout with 10px (`gutter`) gaps; preview cards keep the 4:5 aspect ratio.
+  - The tab overview grid uses a 3-column layout with 10px (`gutter`) gaps; tab preview cards keep the 9:16 aspect ratio, starting from the top.
 - **Floating Dock Clearance**: Bottom page content always reserves 96px of inset scrolling padding (`space-xl` + dock clearance) to avoid obstruction by the bottom navigation bar and home gesture bar.
 
 ## Elevation & Depth

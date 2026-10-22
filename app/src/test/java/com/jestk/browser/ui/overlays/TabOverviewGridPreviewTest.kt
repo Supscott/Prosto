@@ -5,6 +5,8 @@ import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.test.getBoundsInRoot
+import androidx.compose.ui.test.hasAnyChild
+import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -85,6 +87,61 @@ class TabOverviewGridPreviewTest {
         composeRule.onNodeWithText("Tab 1").assertExists()
         composeRule.onNodeWithText("Tab 2").assertExists()
         composeRule.onNodeWithText("Tab 3").assertExists()
+    }
+
+    @Test
+    fun gridTabCard_hasNineToSixteenAspectRatio() {
+        setGridContent(tabCount = 1)
+
+        val cardBounds =
+            composeRule
+                .onNode(
+                    hasClickAction() and androidx.compose.ui.test.hasText("Tab 1"),
+                )
+                .getBoundsInRoot()
+
+        val width = (cardBounds.right - cardBounds.left).value
+        val height = (cardBounds.bottom - cardBounds.top).value
+        val ratio = (height / width).toDouble()
+        assertThat(ratio).isWithin(0.05).of(16.0 / 9.0)
+    }
+
+    @Test
+    fun gridTabCard_rendersSnapshot() {
+        val tempFile = File.createTempFile("tab_test_snapshot", ".jpg").apply { deleteOnExit() }
+        val snapshotBitmap =
+            Bitmap.createBitmap(360, 640, Bitmap.Config.ARGB_8888).apply {
+                val canvas = android.graphics.Canvas(this)
+                val paint = android.graphics.Paint().apply { color = android.graphics.Color.RED }
+                canvas.drawRect(0f, 0f, 360f, 50f, paint)
+            }
+        FileOutputStream(tempFile).use { out ->
+            snapshotBitmap.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        }
+
+        composeRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                TabOverviewGrid(
+                    uiState =
+                        BrowserUiState(
+                            tabs =
+                                listOf(
+                                    Tab(
+                                        id = "1",
+                                        url = "https://example.com",
+                                        title = "Snapshot Tab",
+                                        snapshotPath = tempFile.absolutePath,
+                                        isActive = true,
+                                    ),
+                                ),
+                            activeTabId = "1",
+                        ),
+                    onEvent = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Snapshot Tab").assertExists()
     }
 
     @Test
