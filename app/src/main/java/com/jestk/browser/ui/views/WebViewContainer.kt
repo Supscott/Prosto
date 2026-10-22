@@ -41,6 +41,7 @@ import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.findActivity
 import com.jestk.browser.ui.FileChooserHandler
 import com.jestk.browser.ui.theme.DarkBackground
@@ -63,6 +64,7 @@ fun WebViewContainer(
     modifier: Modifier = Modifier
 ) {
     val isDark = LocalIsDarkTheme.current
+    val vibration = LocalVibrationFeedback.current
     val currentUiState by rememberUpdatedState(uiState)
     val currentOnEvent by rememberUpdatedState(onEvent)
     val currentTab = remember(tabId, uiState.tabs) {
@@ -410,6 +412,7 @@ fun WebViewContainer(
                     }
 
                     val currentNested = currentWebView as? NestedWebView
+                    currentNested?.onPullThresholdReached = { vibration.confirm() }
                     val currentLoadedUrl = currentNested?.loadedUrl
                     val isCurrentUnloaded = currentLoadedUrl.isNullOrEmpty() || currentLoadedUrl == "about:blank"
                     if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
@@ -419,6 +422,7 @@ fun WebViewContainer(
                     }
                 },
                 onReset = { swipeRefresh ->
+                    (swipeRefresh.getChildAt(0) as? NestedWebView)?.onPullThresholdReached = null
                     swipeRefresh.removeAllViews()
                 },
                 modifier = Modifier.fillMaxSize()

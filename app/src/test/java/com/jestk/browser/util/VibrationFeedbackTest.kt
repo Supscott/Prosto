@@ -26,16 +26,11 @@ class VibrationFeedbackTest {
     }
 
     @Test
-    fun tick_vibratesWhenEnabled() {
+    fun tick_and_confirm_vibrateWhenEnabled() {
         VibratorVibrationFeedback(vibrator) { true }.tick()
-
         assertThat(shadow.isVibrating).isTrue()
-    }
 
-    @Test
-    fun confirm_vibratesWhenEnabled() {
         VibratorVibrationFeedback(vibrator) { true }.confirm()
-
         assertThat(shadow.isVibrating).isTrue()
     }
 
@@ -59,17 +54,25 @@ class VibrationFeedbackTest {
     }
 
     @Test
-    fun tick_pulsesFor20ms() {
-        VibratorVibrationFeedback(vibrator) { true }.tick()
-
-        assertThat(shadow.getMilliseconds()).isEqualTo(20L)
+    fun fallbackDuration_constantsAreHealthy() {
+        assertThat(VibratorVibrationFeedback.TICK_DURATION_MS).isEqualTo(35L)
+        assertThat(VibratorVibrationFeedback.CONFIRM_DURATION_MS).isEqualTo(60L)
     }
 
     @Test
-    fun confirm_pulsesFor50ms() {
-        VibratorVibrationFeedback(vibrator) { true }.confirm()
+    fun vibration_usesHardwareFeedbackAttributes() {
+        VibratorVibrationFeedback(vibrator) { true }.tick()
 
-        assertThat(shadow.getMilliseconds()).isEqualTo(50L)
+        val attrs = shadow.vibrationAttributesFromLastVibration as? android.os.VibrationAttributes
+        assertThat(attrs?.usage).isEqualTo(android.os.VibrationAttributes.USAGE_HARDWARE_FEEDBACK)
+    }
+
+    @Test
+    @Config(sdk = [32])
+    fun vibration_belowApi33_vibratesWithoutThrowing() {
+        VibratorVibrationFeedback(vibrator) { true }.tick()
+
+        assertThat(shadow.isVibrating).isTrue()
     }
 
     @Test
@@ -93,12 +96,14 @@ class VibrationFeedbackTest {
         val feedback = VibratorVibrationFeedback(vibrator) { enabled }
 
         feedback.tick()
-        assertThat(shadow.getMilliseconds()).isEqualTo(20L)
+        assertThat(shadow.isVibrating).isTrue()
 
         enabled = false
+        org.robolectric.shadows.ShadowVibrator.reset()
+        shadow.setHasVibrator(true)
         feedback.confirm()
 
         // The second pulse observes the flipped preference and stays silent.
-        assertThat(shadow.getMilliseconds()).isEqualTo(20L)
+        assertThat(shadow.isVibrating).isFalse()
     }
 }

@@ -20,15 +20,25 @@ for the user to turn the behaviour off.
 
 ## Decision
 
-**The app drives `android.os.Vibrator` directly.**
+**The app drives `android.os.Vibrator` directly with hardware feedback attributes.**
 
-- `util/VibrationFeedback.kt` defines a two-method contract - `tick()` (light pulse, 20 ms)
-  and `confirm()` (heavier pulse, 50 ms) - plus a `LocalVibrationFeedback` composition local.
+- `util/VibrationFeedback.kt` defines a two-method contract - `tick()` (light pulse for discrete
+  steps like drag swap, carousel slot changes, and tab swipe dismissal) and `confirm()` (heavier
+  pulse for long-press, pull-to-refresh activation threshold, and settings toggle confirmation) - plus
+  a `LocalVibrationFeedback` composition local.
 - `VibratorVibrationFeedback` resolves the vibrator through `VibratorManager` on API 31+ and
-  `Context.VIBRATOR_SERVICE` below it, and emits one-shot `VibrationEffect`s. One-shot
-  effects are used instead of `VibrationEffect.createPredefined()` because predefined
-  effects are not supported on every device and would throw `IllegalArgumentException`.
-  The app therefore needs the `VIBRATE` permission.
+  `Context.VIBRATOR_SERVICE` below it.
+- **Hardware Feedback & OS Setting Independence:** On API 33+, calls pass `VibrationAttributes`
+  configured with `USAGE_HARDWARE_FEEDBACK`. On API 26-32 (including Android 12/12L), `AudioAttributes` with
+  `USAGE_ASSISTANCE_SONIFICATION` is passed, avoiding runtime `NoSuchMethodError` while preventing the system
+  "touch feedback" / "vibrate on tap" toggle from silencing vibrations initiated in the app. This makes Prosto's
+  in-app Vibration setting the authoritative switch.
+- **Predefined Waveforms with Resilient Fallback:** On API 29+, the engine attempts
+  `VibrationEffect.createPredefined(EFFECT_TICK)` for `tick()` and
+  `VibrationEffect.createPredefined(EFFECT_CLICK)` for `confirm()`. If the device ROM or hardware
+  driver does not support predefined primitives or throws an exception, it safely falls back to
+  `VibrationEffect.createOneShot()` with robust dwell durations (`TICK_DURATION_MS = 35L`,
+  `CONFIRM_DURATION_MS = 60L`) ensuring physical actuator activation across all hardware classes.
 - The user preference (`settings.isVibrationEnabled`, persisted in the settings table like
   every other toggle) is passed to the feedback as a **predicate that is read on every pulse**
   (`{ viewModel.isVibrationEnabled }`), not as cached state. The
@@ -39,11 +49,16 @@ for the user to turn the behaviour off.
 - `MainActivity` provides the composition local.
 
 **Every call site now speaks `VibrationFeedback` instead of `HapticFeedback`.** The
-search-engine carousel and reorder state objects take the new type as an injected
-parameter, exactly as they took `HapticFeedback` before, which keeps them unit-testable
-with a plain fake.
+actions covered by tactile feedback include:
+1. Long-press on a tab in the bottom bar to initiate dragging (`confirm()`).
+2. Swapping adjacent tab slots during drag-and-drop (`tick()`).
+3. Snapping/selecting search engines in the search carousel (`tick()`).
+4. Reordering search engines in the search engine management list (`tick()`).
+5. Swiping to dismiss a tab in the tab overview grid (`tick()`).
+6. Crossing the pull-to-refresh threshold in `NestedWebView` (`confirm()`).
+7. Toggling the Vibration switch from OFF to ON in Settings (`confirm()`).
 
-Two supporting pieces exist for that testability and are not part of the public contract:
+Two supporting pieces exist for testability and are not part of the public contract:
 `NoVibrationFeedback` is the no-op fallback installed by `LocalVibrationFeedback` when no
 provider is present (previews, isolated tests), and `VibratorVibrationFeedback` has an
 `internal` constructor that accepts a `Vibrator?` directly so a test can inject
@@ -51,14 +66,11 @@ provider is present (previews, isolated tests), and `VibratorVibrationFeedback` 
 
 ## Consequences
 
-- The app now needs the `VIBRATE` permission (a normal permission, granted at install).
-- The app's own gesture feedback no longer depends on the system touch-feedback setting, so
-  the *Vibration* toggle in Settings is the single source of truth for it.
-- One View-level haptic pulse is deliberately **outside** that switch: the pull-to-refresh
-  pulse in `engine/NestedWebView.kt` still calls
-  `performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)`. It is a WebView-internal
-  mechanism and pulling it into the switch would mean threading the preference into the
-  WebView setup. It is therefore still subject to the system touch-feedback setting.
+- The app needs the `VIBRATE` permission (a normal permission, granted at install).
+- The app's gesture feedback is decoupled from the Android system touch-feedback toggle via
+  `VibrationAttributes.USAGE_HARDWARE_FEEDBACK`, making the *Vibration* toggle in Settings the single source of truth.
+- Pull-to-refresh now routes through `NestedWebView.onPullThresholdReached` to `VibrationFeedback.confirm()`,
+  honoring the in-app preference and modern vibration attributes.
 - A device without a vibrator (`hasVibrator() == false`) is a no-op, not a crash.
 - The Compose `HapticFeedback` API is no longer used anywhere in the app.
 

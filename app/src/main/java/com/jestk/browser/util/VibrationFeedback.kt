@@ -1,7 +1,9 @@
 package com.jestk.browser.util
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.os.Build
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -12,13 +14,14 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * App-wide vibration feedback.
  *
  * Compose's `HapticFeedback` is routed through the system "touch feedback" setting and silently
- * does nothing on many devices, so the app drives the platform vibrator directly.
+ * does nothing on many devices, so the app drives the platform vibrator directly with hardware
+ * feedback attributes.
  */
 interface VibrationFeedback {
-    /** Light pulse for discrete gestures (drag swap, carousel slot change). */
+    /** Light pulse for discrete gestures (drag swap, carousel slot change, tab close swipe). */
     fun tick()
 
-    /** Stronger pulse for confirmations (long press). */
+    /** Stronger pulse for confirmations (long press, pull-to-refresh threshold, settings toggle). */
     fun confirm()
 }
 
@@ -47,19 +50,60 @@ class VibratorVibrationFeedback internal constructor(
 
     private val canVibrate: Boolean = vibrator?.hasVibrator() == true
 
-    override fun tick() = vibrate(TICK_DURATION_MS)
+    override fun tick() =
+        vibrate(
+            predefinedEffect = VibrationEffect.EFFECT_TICK,
+            fallbackDurationMs = TICK_DURATION_MS,
+        )
 
-    override fun confirm() = vibrate(CONFIRM_DURATION_MS)
+    override fun confirm() =
+        vibrate(
+            predefinedEffect = VibrationEffect.EFFECT_CLICK,
+            fallbackDurationMs = CONFIRM_DURATION_MS,
+        )
 
-    private fun vibrate(durationMs: Long) {
+    private fun vibrate(predefinedEffect: Int?, fallbackDurationMs: Long) {
         if (!isEnabled() || !canVibrate) return
-        // One-shot effects are supported on every device; predefined effects are not.
-        vibrator?.vibrate(VibrationEffect.createOneShot(durationMs, VibrationEffect.DEFAULT_AMPLITUDE))
+        val effect =
+            try {
+                if (predefinedEffect != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    VibrationEffect.createPredefined(predefinedEffect)
+                } else {
+                    VibrationEffect.createOneShot(fallbackDurationMs, VibrationEffect.DEFAULT_AMPLITUDE)
+                }
+            } catch (_: Throwable) {
+                VibrationEffect.createOneShot(fallbackDurationMs, VibrationEffect.DEFAULT_AMPLITUDE)
+            }
+
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                val attributes =
+                    VibrationAttributes.Builder()
+                        .setUsage(VibrationAttributes.USAGE_HARDWARE_FEEDBACK)
+                        .build()
+                vibrator?.vibrate(effect, attributes)
+            } else {
+                val attributes =
+                    AudioAttributes.Builder()
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                        .setUsage(AudioAttributes.USAGE_ASSISTANCE_SONIFICATION)
+                        .build()
+                @Suppress("DEPRECATION")
+                vibrator?.vibrate(effect, attributes)
+            }
+        } catch (_: Throwable) {
+            try {
+                val fallbackEffect = VibrationEffect.createOneShot(fallbackDurationMs, VibrationEffect.DEFAULT_AMPLITUDE)
+                vibrator?.vibrate(fallbackEffect)
+            } catch (_: Throwable) {
+                // Ignore device-specific vibrator exceptions
+            }
+        }
     }
 
-    private companion object {
-        const val TICK_DURATION_MS = 20L
-        const val CONFIRM_DURATION_MS = 50L
+    internal companion object {
+        const val TICK_DURATION_MS = 35L
+        const val CONFIRM_DURATION_MS = 60L
 
         fun resolveVibrator(context: Context): Vibrator? =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {

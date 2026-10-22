@@ -64,6 +64,9 @@ class NestedWebView @JvmOverloads constructor(
     private var isInitialAtTop: Boolean = true
     private var hasTriggeredHaptic: Boolean = false
 
+    /** Optional callback invoked when the pull-to-refresh pull threshold is crossed. */
+    var onPullThresholdReached: (() -> Unit)? = null
+
     private val touchSlop: Int by lazy {
         ViewConfiguration.get(context).scaledTouchSlop
     }
@@ -195,7 +198,7 @@ class NestedWebView @JvmOverloads constructor(
                         accumulatedPullDistance += pullDelta
                         if (accumulatedPullDistance >= pullThresholdPx) {
                             if (!hasTriggeredHaptic) {
-                                performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
+                                onPullThresholdReached?.invoke() ?: performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
                                 hasTriggeredHaptic = true
                             }
                             if (!isPullToRefreshActive) {

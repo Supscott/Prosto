@@ -154,4 +154,18 @@ class PullToRefreshGestureTest {
         webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_UP, 100f, 100f, downTime, downTime + 100))
         assertThat(webView.isPullToRefreshEligible()).isTrue()
     }
+
+    @Test
+    fun nestedWebView_onPullThresholdReached_invokedWhenThresholdExceeded() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webView = NestedWebView(context)
+        var called = false
+        webView.onPullThresholdReached = { called = true }
+
+        val downTime = SystemClock.uptimeMillis()
+        webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_DOWN, 100f, 100f, downTime, downTime))
+        webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_MOVE, 100f, 600f, downTime, downTime + 50))
+
+        assertThat(called).isTrue()
+    }
 }

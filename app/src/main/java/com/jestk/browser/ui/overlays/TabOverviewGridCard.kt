@@ -58,6 +58,7 @@ import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
+import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
@@ -90,6 +91,7 @@ internal fun GridTabCard(
         label = "TabDismissDrag",
     )
     val density = LocalDensity.current
+    val vibration = LocalVibrationFeedback.current
     val dismissThresholdPx = remember(density) { with(density) { 90.dp.toPx() } }
 
     val baseCardBg = if (isDark) DarkSurface else Color.White
@@ -115,6 +117,7 @@ internal fun GridTabCard(
                         detectHorizontalDragGestures(
                             onDragEnd = {
                                 if (rawOffsetX > dismissThresholdPx || rawOffsetX < -dismissThresholdPx) {
+                                    vibration.tick()
                                     isDismissed = true
                                     onClose()
                                 } else {

@@ -29,6 +29,7 @@ import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.util.LocalVibrationFeedback
 
 /**
  * INTERACTION section of the settings screen.
@@ -42,6 +43,7 @@ fun SettingsInteractionSection(
     isVibrationEnabled: Boolean,
     onVibrationEnabledChange: (Boolean) -> Unit,
 ) {
+    val vibration = LocalVibrationFeedback.current
     SettingsSectionHeader(title = stringResource(R.string.settings_section_interaction))
     InsetGroupedCard(isDark = isDark) {
         Row(
@@ -89,7 +91,12 @@ fun SettingsInteractionSection(
 
             ProstoToggleSwitch(
                 checked = isVibrationEnabled,
-                onCheckedChange = onVibrationEnabledChange,
+                onCheckedChange = { enabled ->
+                    onVibrationEnabledChange(enabled)
+                    if (enabled) {
+                        vibration.confirm()
+                    }
+                },
             )
         }
     }
