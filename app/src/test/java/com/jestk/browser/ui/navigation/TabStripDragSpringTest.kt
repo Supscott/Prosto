@@ -387,7 +387,7 @@ class TabStripDragSpringTest {
     }
 
     @Test
-    fun onDrag_inactiveTabEnteringActiveTab_swapsAtHalfInactiveWidth() = runTest(testFrameClock) {
+    fun onDrag_inactiveTabEnteringActiveTab_swapsWhenCrossingActiveTabCenter() = runTest(testFrameClock) {
         var vibrationCount = 0
         val state = TabStripDragState(
             initialTabs = sampleTabs, // tab1: active (148px), tab2: inactive (38px), tab3: inactive (38px)
@@ -395,33 +395,49 @@ class TabStripDragSpringTest {
             onReorder = {}
         )
 
-        // Drag inactive tab2 (at index 1) left towards active tab1 (at index 0)
-        state.onDragStart("tab2")
-
-        // Spacing = 5px, inactiveTabWidth = 38px. Threshold = -(5 + 19) = -24px.
-        // Dragging left by -20px does not swap yet (only 15px into active tab).
-        state.onDrag(
-            tabId = "tab2",
-            deltaX = -20f,
+        val metrics = TabStripLayoutMetrics(
             activeTabWidthPx = 148f,
             inactiveTabWidthPx = 38f,
             spacingPx = 5f,
+            activeTabId = "tab1",
+            hysteresisPx = 4f
+        )
+
+        // Drag inactive tab2 (at index 1) left towards active tab1 (at index 0)
+        state.onDragStart("tab2")
+
+        // Slot 0 (active) center is 74px. Tab 2 center starts at 153 + 19 = 172px.
+        // Dragging left by -60px puts center at 112px > 74px: floats over right half of active tab without swapping.
+        state.onDrag(
+            tabId = "tab2",
+            deltaX = -60f,
+            metrics = metrics,
             onSwapVibration = { vibrationCount++ }
         )
         assertEquals(listOf("tab1", "tab2", "tab3"), state.currentTabs.map { it.id })
         assertEquals(0, vibrationCount)
 
-        // Dragging left by another -5px (total -25px < -24px threshold) -> triggers swap!
+        // Dragging left further by -40px (total delta = -100px, visualCenter = 172 - 100 = 72px < 74px) crosses center -> triggers swap!
         state.onDrag(
             tabId = "tab2",
-            deltaX = -5f,
-            activeTabWidthPx = 148f,
-            inactiveTabWidthPx = 38f,
-            spacingPx = 5f,
+            deltaX = -40f,
+            metrics = metrics,
             onSwapVibration = { vibrationCount++ }
         )
         assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
         assertEquals(1, vibrationCount)
+        // Visual position preserved: visualStart = 153 - 100 = 53px. New slot 0 is at 0px -> dragOffsetPx = 53px.
+        assertEquals(53f, state.dragOffsetPx, 0.001f)
+
+        // Subsequent drag events while hovering in slot 0 must NOT trigger oscillation / infinite vibration!
+        state.onDrag(
+            tabId = "tab2",
+            deltaX = -1f,
+            metrics = metrics,
+            onSwapVibration = { vibrationCount++ }
+        )
+        assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
+        assertEquals(1, vibrationCount) // Vibration count must stay 1, no machine gun tick!
     }
 
     @Test

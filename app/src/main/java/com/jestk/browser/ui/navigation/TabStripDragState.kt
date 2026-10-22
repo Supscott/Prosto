@@ -155,6 +155,7 @@ internal class TabStripDragState(
         val currentSlotStart = getSlotStart(currentIndex, currentTabs, metrics)
         val visualStart = currentSlotStart + dragOffsetPx
         val visualEnd = visualStart + draggedWidth
+        val visualCenter = visualStart + 0.5f * draggedWidth
 
         // Check swap right
         if (currentIndex < currentTabs.lastIndex) {
@@ -162,12 +163,21 @@ internal class TabStripDragState(
             val targetTab = currentTabs[targetIndex]
             val targetWidth = getTabWidth(targetTab, metrics)
             val targetSlotStart = currentSlotStart + draggedWidth + metrics.spacingPx
-            val overlapThreshold = 0.5f * minOf(draggedWidth, targetWidth)
             val isReverseSwap = lastSwapDirection == SwapDirection.LEFT && targetIndex == lastSwapReverseTargetIndex
             val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
-            val targetTriggerX = targetSlotStart + overlapThreshold + hysteresisMargin
 
-            if (visualEnd > targetTriggerX) {
+            val canSwapRight = if (draggedWidth > targetWidth) {
+                // Wide active tab moving right: triggers as soon as its leading edge enters 50% of target slot
+                val targetTriggerX = targetSlotStart + 0.5f * targetWidth + hysteresisMargin
+                visualEnd > targetTriggerX
+            } else {
+                // Inactive tab moving right onto active tab (or same size): triggers when its center crosses target center
+                val targetCenter = targetSlotStart + 0.5f * targetWidth
+                val targetTriggerX = targetCenter + hysteresisMargin
+                visualCenter > targetTriggerX
+            }
+
+            if (canSwapRight) {
                 val mutable = currentTabs.toMutableList()
                 Collections.swap(mutable, currentIndex, targetIndex)
                 currentTabs = mutable
@@ -190,12 +200,21 @@ internal class TabStripDragState(
             val targetWidth = getTabWidth(targetTab, metrics)
             val targetSlotStart = currentSlotStart - (targetWidth + metrics.spacingPx)
             val targetSlotEnd = targetSlotStart + targetWidth
-            val overlapThreshold = 0.5f * minOf(draggedWidth, targetWidth)
             val isReverseSwap = lastSwapDirection == SwapDirection.RIGHT && targetIndex == lastSwapReverseTargetIndex
             val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
-            val targetTriggerX = targetSlotEnd - overlapThreshold - hysteresisMargin
 
-            if (visualStart < targetTriggerX) {
+            val canSwapLeft = if (draggedWidth > targetWidth) {
+                // Wide active tab moving left: triggers as soon as its leading edge enters 50% of target slot
+                val targetTriggerX = targetSlotEnd - 0.5f * targetWidth - hysteresisMargin
+                visualStart < targetTriggerX
+            } else {
+                // Inactive tab moving left onto active tab (or same size): triggers when its center crosses target center
+                val targetCenter = targetSlotStart + 0.5f * targetWidth
+                val targetTriggerX = targetCenter - hysteresisMargin
+                visualCenter < targetTriggerX
+            }
+
+            if (canSwapLeft) {
                 val mutable = currentTabs.toMutableList()
                 Collections.swap(mutable, currentIndex, targetIndex)
                 currentTabs = mutable
