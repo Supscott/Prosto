@@ -30,6 +30,35 @@ internal data class TabStripLayoutMetrics(
 )
 
 /**
+ * Computes proportional auto-scroll step when a tab is dragged near dock boundaries.
+ * Returns negative delta to scroll left (backward), positive delta to scroll right (forward),
+ * or 0f when the item is within comfortable bounds or the list cannot scroll further.
+ */
+internal fun computeAutoScrollDelta(
+    itemStartInViewport: Float,
+    itemEndInViewport: Float,
+    viewportWidthPx: Float,
+    rightPinnedOffsetPx: Float,
+    edgeTriggerThresholdPx: Float,
+    maxScrollStepPx: Float,
+    canScrollBackward: Boolean,
+    canScrollForward: Boolean,
+): Float {
+    val rightLimit = viewportWidthPx - rightPinnedOffsetPx
+    return when {
+        itemStartInViewport < edgeTriggerThresholdPx && canScrollBackward -> {
+            val fraction = ((edgeTriggerThresholdPx - itemStartInViewport) / edgeTriggerThresholdPx).coerceIn(0.2f, 1f)
+            -maxScrollStepPx * fraction
+        }
+        itemEndInViewport > (rightLimit - edgeTriggerThresholdPx) && canScrollForward -> {
+            val fraction = ((itemEndInViewport - (rightLimit - edgeTriggerThresholdPx)) / edgeTriggerThresholdPx).coerceIn(0.2f, 1f)
+            maxScrollStepPx * fraction
+        }
+        else -> 0f
+    }
+}
+
+/**
  * State controller managing drag & drop tab reordering and tactile spring release physics
  * in [TabStripRow].
  *

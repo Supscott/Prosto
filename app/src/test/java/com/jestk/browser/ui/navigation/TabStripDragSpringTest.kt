@@ -468,4 +468,112 @@ class TabStripDragSpringTest {
         testScheduler.advanceUntilIdle()
         assertEquals(0f, state.swapScaleBump.value, 0.001f)
     }
+
+    @Test
+    fun computeAutoScrollDelta_inComfortableCenter_returnsZero() {
+        val delta = computeAutoScrollDelta(
+            itemStartInViewport = 100f,
+            itemEndInViewport = 180f,
+            viewportWidthPx = 400f,
+            rightPinnedOffsetPx = 46f,
+            edgeTriggerThresholdPx = 24f,
+            maxScrollStepPx = 8f,
+            canScrollBackward = true,
+            canScrollForward = true
+        )
+        assertEquals(0f, delta, 0.001f)
+    }
+
+    @Test
+    fun computeAutoScrollDelta_nearLeftEdge_whenCanScrollBackward_returnsNegativeDelta() {
+        // Left trigger zone is < 24f. Item starts at 12f (halfway into zone).
+        val delta = computeAutoScrollDelta(
+            itemStartInViewport = 12f,
+            itemEndInViewport = 160f,
+            viewportWidthPx = 400f,
+            rightPinnedOffsetPx = 46f,
+            edgeTriggerThresholdPx = 24f,
+            maxScrollStepPx = 8f,
+            canScrollBackward = true,
+            canScrollForward = true
+        )
+        // fraction = (24 - 12) / 24 = 0.5. Expected: -8 * 0.5 = -4f
+        assertEquals(-4f, delta, 0.001f)
+    }
+
+    @Test
+    fun computeAutoScrollDelta_nearLeftEdge_whenCannotScrollBackward_returnsZero() {
+        val delta = computeAutoScrollDelta(
+            itemStartInViewport = 5f,
+            itemEndInViewport = 150f,
+            viewportWidthPx = 400f,
+            rightPinnedOffsetPx = 46f,
+            edgeTriggerThresholdPx = 24f,
+            maxScrollStepPx = 8f,
+            canScrollBackward = false,
+            canScrollForward = true
+        )
+        assertEquals(0f, delta, 0.001f)
+    }
+
+    @Test
+    fun computeAutoScrollDelta_nearRightEdge_whenCanScrollForward_returnsPositiveDelta() {
+        // rightLimit = 400 - 46 = 354. Trigger zone starts at 354 - 24 = 330.
+        // Item ends at 342 (halfway into zone: fraction = 12 / 24 = 0.5). Expected: +8 * 0.5 = +4f
+        val delta = computeAutoScrollDelta(
+            itemStartInViewport = 200f,
+            itemEndInViewport = 342f,
+            viewportWidthPx = 400f,
+            rightPinnedOffsetPx = 46f,
+            edgeTriggerThresholdPx = 24f,
+            maxScrollStepPx = 8f,
+            canScrollBackward = true,
+            canScrollForward = true
+        )
+        assertEquals(4f, delta, 0.001f)
+    }
+
+    @Test
+    fun computeAutoScrollDelta_nearRightEdge_whenCannotScrollForward_returnsZero() {
+        val delta = computeAutoScrollDelta(
+            itemStartInViewport = 250f,
+            itemEndInViewport = 350f,
+            viewportWidthPx = 400f,
+            rightPinnedOffsetPx = 46f,
+            edgeTriggerThresholdPx = 24f,
+            maxScrollStepPx = 8f,
+            canScrollBackward = true,
+            canScrollForward = false
+        )
+        assertEquals(0f, delta, 0.001f)
+    }
+
+    @Test
+    fun computeAutoScrollDelta_pastEdge_clampsToMaxSpeed() {
+        // Item pushed past the left edge (itemStart = -10f) -> fraction capped at 1.0f -> -8f
+        val deltaLeft = computeAutoScrollDelta(
+            itemStartInViewport = -10f,
+            itemEndInViewport = 140f,
+            viewportWidthPx = 400f,
+            rightPinnedOffsetPx = 46f,
+            edgeTriggerThresholdPx = 24f,
+            maxScrollStepPx = 8f,
+            canScrollBackward = true,
+            canScrollForward = true
+        )
+        assertEquals(-8f, deltaLeft, 0.001f)
+
+        // Item pushed past the right edge (itemEnd = 380f > 354f) -> fraction capped at 1.0f -> +8f
+        val deltaRight = computeAutoScrollDelta(
+            itemStartInViewport = 230f,
+            itemEndInViewport = 380f,
+            viewportWidthPx = 400f,
+            rightPinnedOffsetPx = 46f,
+            edgeTriggerThresholdPx = 24f,
+            maxScrollStepPx = 8f,
+            canScrollBackward = true,
+            canScrollForward = true
+        )
+        assertEquals(8f, deltaRight, 0.001f)
+    }
 }

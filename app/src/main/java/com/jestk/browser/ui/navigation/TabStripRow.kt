@@ -9,6 +9,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -76,6 +77,8 @@ import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.LocalVibrationFeedback
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import java.net.URI
 import kotlin.math.abs
 
@@ -201,6 +204,51 @@ fun TabStripRow(
                 val centeringOffsetPx = ((viewportWidthPx - activeTabWidthPx) / 2f).coerceAtLeast(0f)
                 val scrollOffset = -centeringOffsetPx.toInt()
                 lazyListState.animateScrollToItem(activeIndex, scrollOffset)
+            }
+        }
+
+        val edgeTriggerThresholdPx = with(density) { 24.dp.toPx() }
+        val rightPinnedOffsetPx = with(density) { 46.dp.toPx() }
+        val maxScrollStepPx = with(density) { 8.dp.toPx() }
+
+        // Continuous edge auto-scroll when a tab is dragged near dock boundaries
+        LaunchedEffect(dragState.isDragging, dragState.draggingTabId) {
+            val draggingTabId = dragState.draggingTabId
+            if (!dragState.isDragging || draggingTabId == null) return@LaunchedEffect
+
+            while (isActive && dragState.isDragging && dragState.draggingTabId == draggingTabId) {
+                val layoutInfo = lazyListState.layoutInfo
+                val visibleItem = layoutInfo.visibleItemsInfo.firstOrNull { it.key == draggingTabId }
+                if (visibleItem != null) {
+                    val itemStartInViewport = visibleItem.offset + dragState.dragOffsetPx
+                    val itemEndInViewport = itemStartInViewport + visibleItem.size
+                    val viewportWidthPx =
+                        layoutInfo.viewportSize.width.takeIf { it > 0 }?.toFloat() ?: totalChipWidthPx
+
+                    val scrollDelta = computeAutoScrollDelta(
+                        itemStartInViewport = itemStartInViewport,
+                        itemEndInViewport = itemEndInViewport,
+                        viewportWidthPx = viewportWidthPx,
+                        rightPinnedOffsetPx = rightPinnedOffsetPx,
+                        edgeTriggerThresholdPx = edgeTriggerThresholdPx,
+                        maxScrollStepPx = maxScrollStepPx,
+                        canScrollBackward = lazyListState.canScrollBackward,
+                        canScrollForward = lazyListState.canScrollForward,
+                    )
+
+                    if (scrollDelta != 0f) {
+                        val consumed = lazyListState.scrollBy(scrollDelta)
+                        if (consumed != 0f) {
+                            dragState.onDrag(
+                                tabId = draggingTabId,
+                                deltaX = consumed,
+                                metrics = layoutMetrics,
+                                onSwapVibration = { vibration.tick() },
+                            )
+                        }
+                    }
+                }
+                delay(16)
             }
         }
 
