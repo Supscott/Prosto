@@ -1,6 +1,5 @@
 package com.jestk.browser.ui
 
-import android.app.Activity
 import android.content.pm.ActivityInfo
 import android.os.Build
 import android.view.ViewGroup
@@ -15,7 +14,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -32,7 +30,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
@@ -70,7 +67,6 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
-import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
@@ -91,11 +87,11 @@ import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
@@ -260,7 +256,7 @@ fun JestkApp(
                 uiState.currentUrl.isEmpty() ||
                 uiState.currentUrl == "about:blank"
 
-        val defaultBg = if (isDark) DarkBackground else SereneCanvasFloor
+        val defaultBg = if (isDark) DarkBackground else ProstoCanvasFloor
         val targetAppBg =
             if (showHomeScreen || siteColor == null || uiState.isSettingsVisible || uiState.isDownloadsVisible) {
                 defaultBg
@@ -524,9 +520,9 @@ fun JestkApp(
                 }
 
                 Surface(
-                    shape = SereneShapes.Pill,
+                    shape = ProstoShapes.Pill,
                     color = if (isDark) DarkSurface else Color.White,
-                    border = SereneBorders.floatingBorder(isDark),
+                    border = ProstoBorders.floatingBorder(isDark),
                     shadowElevation = 8.dp,
                     modifier = Modifier.wrapContentSize(),
                 ) {
@@ -538,14 +534,14 @@ fun JestkApp(
                         Text(
                             text = "$closedText: $tabTitle",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
                         )
                         Text(
                             text = undoText,
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = SereneBrandPrimary),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = ProstoBrandPrimary),
                             modifier =
                                 Modifier
                                     .clickable {
@@ -599,9 +595,9 @@ fun JestkApp(
                 }
 
                 Surface(
-                    shape = SereneShapes.Pill,
+                    shape = ProstoShapes.Pill,
                     color = if (isDark) DarkSurface else Color.White,
-                    border = SereneBorders.floatingBorder(isDark),
+                    border = ProstoBorders.floatingBorder(isDark),
                     shadowElevation = 8.dp,
                     modifier = Modifier.wrapContentSize(),
                 ) {
@@ -613,21 +609,21 @@ fun JestkApp(
                         Icon(
                             imageVector = Icons.Default.Download,
                             contentDescription = "Download",
-                            tint = SereneBrandPrimary,
+                            tint = ProstoBrandPrimary,
                             modifier = Modifier.size(18.dp),
                         )
                         val isCompleted = download?.status == com.jestk.browser.domain.model.DownloadStatus.COMPLETED
                         Text(
                             text = if (isCompleted) "Downloaded $fileName" else "Downloading $fileName",
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
                         )
                         Text(
                             text = if (isCompleted) "Open" else "Details",
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = SereneBrandPrimary),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = ProstoBrandPrimary),
                             modifier =
                                 Modifier
                                     .clickable {

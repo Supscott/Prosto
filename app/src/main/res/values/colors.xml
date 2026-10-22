@@ -1,11 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="primary">#087E78</color>
-    <color name="background_light">#E9F6F2</color>
-    <color name="background_dark">#0E1513</color>
-    <color name="surface_light">#FFFFFF</color>
-    <color name="surface_dark">#171D1C</color>
-    <color name="text_primary_light">#171D1B</color>
-    <color name="text_primary_dark">#DEE4E2</color>
     <color name="ic_launcher_background">#E9F6F2</color>
 </resources>

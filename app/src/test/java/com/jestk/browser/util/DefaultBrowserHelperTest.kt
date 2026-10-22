@@ -198,35 +198,41 @@ class DefaultBrowserHelperTest {
 
     @Test
     @Config(sdk = [Build.VERSION_CODES.Q])
-    fun browserViewModel_checkDefaultBrowser_api29_updatesState() = runTest(testDispatcher) {
+    fun defaultBrowserStatus_api29_followsTheHeldRole() = runTest(testDispatcher) {
         advanceUntilIdle()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val roleManager = context.getSystemService(RoleManager::class.java)
         val shadowRoleManager = shadowOf(roleManager)
 
         // Case 1: Role not held
-        viewModel.checkDefaultBrowser(context)
+        assertThat(DefaultBrowserHelper.isDefaultBrowser(context)).isFalse()
+        viewModel.updateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(context))
         assertThat(viewModel.uiState.value.isDefaultBrowser).isFalse()
 
         // Case 2: Role held
         shadowRoleManager.addHeldRole(RoleManager.ROLE_BROWSER)
-        viewModel.checkDefaultBrowser(context)
+        assertThat(DefaultBrowserHelper.isDefaultBrowser(context)).isTrue()
+        viewModel.updateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(context))
         assertThat(viewModel.uiState.value.isDefaultBrowser).isTrue()
     }
 
     @Test
     @Config(sdk = [Build.VERSION_CODES.Q])
-    fun browserViewModel_onEventCheckDefaultBrowser_updatesState() = runTest(testDispatcher) {
+    fun browserViewModel_onEventUpdateDefaultBrowserStatus_updatesState() = runTest(testDispatcher) {
         advanceUntilIdle()
         val context = ApplicationProvider.getApplicationContext<Context>()
         val roleManager = context.getSystemService(RoleManager::class.java)
         val shadowRoleManager = shadowOf(roleManager)
 
-        viewModel.onEvent(BrowserUiEvent.CheckDefaultBrowser(context))
+        viewModel.onEvent(
+            BrowserUiEvent.UpdateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(context))
+        )
         assertThat(viewModel.uiState.value.isDefaultBrowser).isFalse()
 
         shadowRoleManager.addHeldRole(RoleManager.ROLE_BROWSER)
-        viewModel.onEvent(BrowserUiEvent.CheckDefaultBrowser(context))
+        viewModel.onEvent(
+            BrowserUiEvent.UpdateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(context))
+        )
         assertThat(viewModel.uiState.value.isDefaultBrowser).isTrue()
     }
 

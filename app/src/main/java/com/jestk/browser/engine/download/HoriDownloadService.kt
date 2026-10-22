@@ -98,6 +98,7 @@ class HoriDownloadService : Service() {
 
         when (action) {
             ACTION_START_DOWNLOAD, ACTION_RESUME -> {
+                Log.d(TAG, "Starting download $downloadId (action=$action)")
                 if (downloadId != -1L) {
                     activeDownloadIds.add(downloadId)
                     downloadManager.performDownload(
@@ -124,6 +125,7 @@ class HoriDownloadService : Service() {
             }
 
             ACTION_PAUSE -> {
+                Log.d(TAG, "Pausing download $downloadId")
                 if (downloadId != -1L) {
                     activeDownloadIds.remove(downloadId)
                     downloadManager.pauseDownload(downloadId)
@@ -134,6 +136,7 @@ class HoriDownloadService : Service() {
             }
 
             ACTION_CANCEL -> {
+                Log.d(TAG, "Cancelling download $downloadId")
                 if (downloadId != -1L) {
                     activeDownloadIds.remove(downloadId)
                     downloadManager.cancelDownload(downloadId)
@@ -145,6 +148,7 @@ class HoriDownloadService : Service() {
             }
 
             ACTION_RETRY -> {
+                Log.d(TAG, "Retrying download $downloadId")
                 if (downloadId != -1L) {
                     notificationManager.cancel(downloadId.toInt())
                     downloadManager.retryDownload(downloadId)
@@ -273,6 +277,7 @@ class HoriDownloadService : Service() {
     }
 
     private fun showCompletedNotification(item: DownloadItem) {
+        Log.d(TAG, "Download ${item.id} completed: ${item.fileName}")
         val file = File(item.filePath)
         val openIntent = createOpenFileIntent(file, item.mimeType)
         val openPendingIntent =
@@ -306,6 +311,7 @@ class HoriDownloadService : Service() {
         id: Long,
         errorMsg: String,
     ) {
+        Log.e(TAG, "Download $id failed: $errorMsg")
         val retryIntent =
             Intent(this, HoriDownloadService::class.java).apply {
                 action = ACTION_RETRY
@@ -361,7 +367,8 @@ class HoriDownloadService : Service() {
         val uri: Uri =
             try {
                 FileProvider.getUriForFile(this, "$packageName.fileprovider", file)
-            } catch (_: Throwable) {
+            } catch (e: Throwable) {
+                Log.w(TAG, "FileProvider URI unavailable for downloaded file, falling back to file URI", e)
                 Uri.fromFile(file)
             }
         return Intent(Intent.ACTION_VIEW).apply {

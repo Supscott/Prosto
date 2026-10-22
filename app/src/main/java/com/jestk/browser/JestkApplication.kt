@@ -16,4 +16,16 @@ class JestkApplication : Application() {
         FaviconManager.init(applicationContext)
         container = DefaultAppContainer(applicationContext)
     }
+
+    /**
+     * Releases the container resources when the process is torn down.
+     *
+     * Android only calls this hook on emulators, so it is a best-effort teardown: the container
+     * shutdown is idempotent and the engine singletons recreate their scope lazily, therefore
+     * leaving it to the process is safe.
+     */
+    override fun onTerminate() {
+        container.shutdown()
+        super.onTerminate()
+    }
 }

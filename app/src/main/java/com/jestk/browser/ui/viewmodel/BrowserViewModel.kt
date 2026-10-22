@@ -1,7 +1,7 @@
 package com.jestk.browser.ui.viewmodel
 
-import android.content.Context
 import android.content.pm.ActivityInfo
+import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -19,7 +19,6 @@ import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.download.HoriDownloadManager
 import com.jestk.browser.engine.update.AppUpdateManager
-import com.jestk.browser.util.DefaultBrowserHelper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -32,6 +31,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.ConcurrentHashMap
+
+private const val TAG = "BrowserViewModel"
 
 class BrowserViewModel(
     private val tabRepository: TabRepository,
@@ -125,6 +126,7 @@ class BrowserViewModel(
     }
 
     private suspend fun restoreSession() {
+        Log.d(TAG, "Restoring session")
         val initialSettings = settingsRepository.getCurrentSettings()
         val currentEngines =
             if (searchEngineRepository != null) {
@@ -179,30 +181,30 @@ class BrowserViewModel(
         }
     }
 
-    fun checkDefaultBrowser(context: Context) {
-        val isDefault = DefaultBrowserHelper.isDefaultBrowser(context)
-        updateDefaultBrowserStatus(isDefault)
-    }
-
     fun onEvent(event: BrowserUiEvent) {
         when (event) {
             is BrowserUiEvent.OpenNewTab -> {
+                Log.d(TAG, "Navigation command: open new tab for ${event.url}")
                 tabCoordinator.openNewTab(event.url)
             }
 
             is BrowserUiEvent.OpenRecentTab -> {
+                Log.d(TAG, "Navigation command: open recent tab ${event.item.url}")
                 tabCoordinator.openRecentTab(event.item) { loadUrl(it) }
             }
 
             is BrowserUiEvent.SelectTab -> {
+                Log.d(TAG, "Navigation command: select tab ${event.tabId}")
                 tabCoordinator.selectTab(event.tabId)
             }
 
             is BrowserUiEvent.CloseTab -> {
+                Log.d(TAG, "Navigation command: close tab ${event.tabId}")
                 tabCoordinator.closeTab(event.tabId)
             }
 
             is BrowserUiEvent.CloseAllTabs -> {
+                Log.d(TAG, "Navigation command: close all tabs")
                 tabCoordinator.closeAllTabs()
             }
 
@@ -219,6 +221,7 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.UndoCloseTab -> {
+                Log.d(TAG, "Navigation command: undo close tab")
                 tabCoordinator.undoCloseTab()
             }
 
@@ -297,30 +300,37 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.PauseDownload -> {
+                Log.d(TAG, "Download command: pause ${event.id}")
                 downloadCoordinator.pauseDownload(event.id)
             }
 
             is BrowserUiEvent.ResumeDownload -> {
+                Log.d(TAG, "Download command: resume ${event.id}")
                 downloadCoordinator.resumeDownload(event.id)
             }
 
             is BrowserUiEvent.CancelDownload -> {
+                Log.d(TAG, "Download command: cancel ${event.id}")
                 downloadCoordinator.cancelDownload(event.id)
             }
 
             is BrowserUiEvent.RetryDownload -> {
+                Log.d(TAG, "Download command: retry ${event.id}")
                 downloadCoordinator.retryDownload(event.id)
             }
 
             is BrowserUiEvent.DeleteDownload -> {
+                Log.d(TAG, "Download command: delete ${event.id}")
                 downloadCoordinator.deleteDownload(event.id, event.deleteFile)
             }
 
             is BrowserUiEvent.LoadUrl -> {
+                Log.d(TAG, "Navigation command: load url ${event.url}")
                 loadUrl(event.url)
             }
 
             is BrowserUiEvent.SubmitSearch -> {
+                Log.d(TAG, "Navigation command: submit search \"${event.query}\"")
                 submitSearch(event.query)
             }
 
@@ -330,23 +340,28 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.GoBack -> {
+                Log.d(TAG, "Navigation command: go back")
                 handleGoBack()
             }
 
             is BrowserUiEvent.GoForward -> {
+                Log.d(TAG, "Navigation command: go forward")
                 _navigationCommands.tryEmit(NavigationCommand.GoForward)
             }
 
             is BrowserUiEvent.Reload -> {
+                Log.d(TAG, "Navigation command: reload")
                 _navigationCommands.tryEmit(NavigationCommand.Reload)
             }
 
             is BrowserUiEvent.StopLoading -> {
+                Log.d(TAG, "Navigation command: stop loading")
                 _navigationCommands.tryEmit(NavigationCommand.StopLoading)
                 tabCoordinator.handleStopLoading()
             }
 
             is BrowserUiEvent.SwitchSearchEngineForQuery -> {
+                Log.d(TAG, "Navigation command: switch search engine to ${event.targetEngine.id}")
                 searchCoordinator.switchSearchEngineForQuery(event.targetEngine, event.query)
             }
 
@@ -463,6 +478,7 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.SetSearchEngine -> {
+                Log.d(TAG, "Navigation command: set search engine ${event.engine.id}")
                 searchCoordinator.setSearchEngine(event.engine)
             }
 
@@ -649,15 +665,12 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.OpenTabInBackground -> {
+                Log.d(TAG, "Navigation command: open tab in background for ${event.url}")
                 tabCoordinator.openTabInBackground(event.url)
             }
 
             is BrowserUiEvent.UpdateDefaultBrowserStatus -> {
                 updateDefaultBrowserStatus(event.isDefault)
-            }
-
-            is BrowserUiEvent.CheckDefaultBrowser -> {
-                checkDefaultBrowser(event.context)
             }
 
             is BrowserUiEvent.ShowImageContextMenu -> {

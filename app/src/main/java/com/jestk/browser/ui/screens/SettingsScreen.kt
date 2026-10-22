@@ -5,8 +5,6 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,11 +18,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -76,6 +72,7 @@ import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.domain.model.isVisible
+import com.jestk.browser.ui.components.ProstoToggleSwitch
 import com.jestk.browser.ui.overlays.SearchEngineBadge
 import com.jestk.browser.ui.overlays.UpdateNotificationCard
 import com.jestk.browser.ui.theme.DarkBackground
@@ -84,26 +81,26 @@ import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.DefaultBrowserHelper
 
 /**
- * Settings Screen - Dedicated full-screen settings destination in Serene Canvas design system.
+ * Settings Screen - Dedicated full-screen settings destination in Prosto Canvas design system.
  * Features:
  * - Full-screen layout with status and navigation bar padding (edge-to-edge).
- * - Serene top bar with back navigation and close buttons.
+ * - Prosto top bar with back navigation and close buttons.
  * - Segmented theme selector (System, Light, Dark).
  * - Inset grouped cards for Account, Default Browser, Privacy & Protection, and About.
- * - Serene tactile switches and badges with zero blur.
+ * - Prosto tactile switches and badges with zero blur.
  */
 @Composable
 fun SettingsScreen(
@@ -118,7 +115,7 @@ fun SettingsScreen(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(if (isDark) DarkBackground else SereneCanvasFloor)
+                .background(if (isDark) DarkBackground else ProstoCanvasFloor)
                 .statusBarsPadding()
                 .navigationBarsPadding(),
     ) {
@@ -151,9 +148,9 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = "Settings",
-                    style = LocalSereneTypography.current.headlineLg,
-                    color = if (isDark) DarkOnSurface else SereneDarkText,
+                    text = stringResource(R.string.settings),
+                    style = LocalProstoTypography.current.headlineLg,
+                    color = if (isDark) DarkOnSurface else ProstoDarkText,
                 )
             }
 
@@ -188,15 +185,15 @@ fun SettingsTopBar(
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                 contentDescription = "Back",
-                tint = SereneBrandPrimary,
+                tint = ProstoBrandPrimary,
                 modifier = Modifier.size(20.dp),
             )
         }
 
         Text(
-            text = "Settings",
-            style = LocalSereneTypography.current.headlineSm,
-            color = if (isDark) DarkOnSurface else SereneDarkText,
+            text = stringResource(R.string.settings),
+            style = LocalProstoTypography.current.headlineSm,
+            color = if (isDark) DarkOnSurface else ProstoDarkText,
         )
 
         IconButton(
@@ -206,7 +203,7 @@ fun SettingsTopBar(
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Close",
-                tint = SereneMutedSlate,
+                tint = ProstoMutedSlate,
                 modifier = Modifier.size(20.dp),
             )
         }
@@ -231,7 +228,7 @@ fun SettingsContent(
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.StartActivityForResult(),
         ) {
-            onEvent(BrowserUiEvent.CheckDefaultBrowser(context))
+            onEvent(BrowserUiEvent.UpdateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(context)))
         }
     var isTrackingProtectionEnabled by remember { mutableStateOf(true) }
     var showProvidersDialog by remember { mutableStateOf(false) }
@@ -303,13 +300,13 @@ fun SettingsContent(
                             Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.SystemUpdate,
                             contentDescription = null,
-                            tint = SereneBrandPrimary,
+                            tint = ProstoBrandPrimary,
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -317,18 +314,18 @@ fun SettingsContent(
                     Column {
                         Text(
                             text = stringResource(R.string.update_setting_title),
-                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                         )
                         Text(
                             text = stringResource(R.string.update_setting_summary),
-                            style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate,
+                            style = LocalProstoTypography.current.bodySm,
+                            color = ProstoMutedSlate,
                         )
                     }
                 }
 
-                LiquidSunsetSwitch(
+                ProstoToggleSwitch(
                     checked = uiState.settings.isAutoUpdateEnabled,
                     onCheckedChange = { onEvent(BrowserUiEvent.SetAutoUpdateEnabled(it)) },
                 )
@@ -353,7 +350,7 @@ fun SettingsContent(
 
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+                color = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -363,17 +360,17 @@ fun SettingsContent(
                     Icon(
                         imageVector = Icons.Default.VerifiedUser,
                         contentDescription = null,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(13.dp),
                     )
                     Text(
                         text = "Protected",
                         style =
-                            LocalSereneTypography.current.labelMd.copy(
+                            LocalProstoTypography.current.labelMd.copy(
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.SemiBold,
                             ),
-                        color = SereneBrandPrimary,
+                        color = ProstoBrandPrimary,
                     )
                 }
             }
@@ -399,13 +396,13 @@ fun SettingsContent(
                             Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Block,
                             contentDescription = null,
-                            tint = SereneBrandPrimary,
+                            tint = ProstoBrandPrimary,
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -413,18 +410,18 @@ fun SettingsContent(
                     Column {
                         Text(
                             text = "Ad Blocker",
-                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                         )
                         Text(
                             text = "Eliminates banners and popups",
-                            style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate,
+                            style = LocalProstoTypography.current.bodySm,
+                            color = ProstoMutedSlate,
                         )
                     }
                 }
 
-                LiquidSunsetSwitch(
+                ProstoToggleSwitch(
                     checked = uiState.settings.isAdBlockerEnabled,
                     onCheckedChange = { onEvent(BrowserUiEvent.SetAdBlockerEnabled(it)) },
                 )
@@ -454,13 +451,13 @@ fun SettingsContent(
                             Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Shield,
                             contentDescription = null,
-                            tint = SereneBrandPrimary,
+                            tint = ProstoBrandPrimary,
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -468,18 +465,18 @@ fun SettingsContent(
                     Column {
                         Text(
                             text = "Tracking Protection",
-                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                         )
                         Text(
                             text = "Prevents cross-site tracking",
-                            style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate,
+                            style = LocalProstoTypography.current.bodySm,
+                            color = ProstoMutedSlate,
                         )
                     }
                 }
 
-                LiquidSunsetSwitch(
+                ProstoToggleSwitch(
                     checked = isTrackingProtectionEnabled,
                     onCheckedChange = { isTrackingProtectionEnabled = it },
                 )
@@ -509,13 +506,13 @@ fun SettingsContent(
                             Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                             contentDescription = null,
-                            tint = SereneBrandPrimary,
+                            tint = ProstoBrandPrimary,
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -523,18 +520,18 @@ fun SettingsContent(
                     Column {
                         Text(
                             text = "Open in apps",
-                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                         )
                         Text(
                             text = "Offer to open supported links in installed apps",
-                            style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate,
+                            style = LocalProstoTypography.current.bodySm,
+                            color = ProstoMutedSlate,
                         )
                     }
                 }
 
-                LiquidSunsetSwitch(
+                ProstoToggleSwitch(
                     checked = uiState.settings.isOpenInAppsEnabled,
                     onCheckedChange = { onEvent(BrowserUiEvent.SetOpenInAppsEnabled(it)) },
                 )
@@ -566,27 +563,27 @@ fun SettingsContent(
                             Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = null,
-                            tint = SereneBrandPrimary,
+                            tint = ProstoBrandPrimary,
                             modifier = Modifier.size(20.dp),
                         )
                     }
 
                     Column {
                         Text(
-                            text = "Search Engine",
-                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                            text = stringResource(R.string.search_engine_title),
+                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                         )
                         Text(
                             text = "Choose your preferred engine",
-                            style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate,
+                            style = LocalProstoTypography.current.bodySm,
+                            color = ProstoMutedSlate,
                         )
                     }
                 }
@@ -594,7 +591,7 @@ fun SettingsContent(
                 Box {
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+                        color = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
                         modifier = Modifier.clickable { searchMenuExpanded = true },
                     ) {
                         Row(
@@ -604,13 +601,13 @@ fun SettingsContent(
                         ) {
                             Text(
                                 text = uiState.settings.searchEngine.displayName,
-                                style = LocalSereneTypography.current.labelSm.copy(fontWeight = FontWeight.SemiBold),
-                                color = SereneBrandPrimary,
+                                style = LocalProstoTypography.current.labelSm.copy(fontWeight = FontWeight.SemiBold),
+                                color = ProstoBrandPrimary,
                             )
                             Icon(
                                 imageVector = Icons.Default.ArrowDropDown,
                                 contentDescription = null,
-                                tint = SereneBrandPrimary,
+                                tint = ProstoBrandPrimary,
                                 modifier = Modifier.size(16.dp),
                             )
                         }
@@ -631,21 +628,21 @@ fun SettingsContent(
                                     ) {
                                         Text(
                                             text = engine.displayName,
-                                            style = LocalSereneTypography.current.bodyMd,
-                                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                                            style = LocalProstoTypography.current.bodyMd,
+                                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                                         )
                                         if (engine.shortcut != null) {
                                             Text(
                                                 text = "(${engine.shortcut})",
-                                                style = LocalSereneTypography.current.labelSm,
-                                                color = SereneMutedSlate,
+                                                style = LocalProstoTypography.current.labelSm,
+                                                color = ProstoMutedSlate,
                                             )
                                         }
                                         if (isSelected) {
                                             Icon(
                                                 imageVector = Icons.Default.Check,
                                                 contentDescription = "Selected",
-                                                tint = SereneBrandPrimary,
+                                                tint = ProstoBrandPrimary,
                                                 modifier = Modifier.size(16.dp),
                                             )
                                         }
@@ -686,13 +683,13 @@ fun SettingsContent(
                             Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
-                            tint = SereneBrandPrimary,
+                            tint = ProstoBrandPrimary,
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -700,13 +697,13 @@ fun SettingsContent(
                     Column {
                         Text(
                             text = "Add Search Engine",
-                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                         )
                         Text(
                             text = "Add custom provider with shortcuts",
-                            style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate,
+                            style = LocalProstoTypography.current.bodySm,
+                            color = ProstoMutedSlate,
                         )
                     }
                 }
@@ -714,7 +711,7 @@ fun SettingsContent(
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = SereneMutedSlate,
+                    tint = ProstoMutedSlate,
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -744,13 +741,13 @@ fun SettingsContent(
                             Modifier
                                 .size(34.dp)
                                 .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Tune,
                             contentDescription = null,
-                            tint = SereneBrandPrimary,
+                            tint = ProstoBrandPrimary,
                             modifier = Modifier.size(20.dp),
                         )
                     }
@@ -758,13 +755,13 @@ fun SettingsContent(
                     Column {
                         Text(
                             text = "Search Page Providers",
-                            style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                         )
                         Text(
                             text = "Choose engines shown on search results",
-                            style = LocalSereneTypography.current.bodySm,
-                            color = SereneMutedSlate,
+                            style = LocalProstoTypography.current.bodySm,
+                            color = ProstoMutedSlate,
                         )
                     }
                 }
@@ -772,7 +769,7 @@ fun SettingsContent(
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = SereneMutedSlate,
+                    tint = ProstoMutedSlate,
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -843,26 +840,26 @@ fun SettingsContent(
                     Modifier
                         .size(30.dp)
                         .clip(CircleShape)
-                        .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                        .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Favorite,
                     contentDescription = null,
-                    tint = SereneBrandPrimary,
+                    tint = ProstoBrandPrimary,
                     modifier = Modifier.size(16.dp),
                 )
             }
 
             Text(
                 text = "Crafted with love for a fast and private web",
-                style = LocalSereneTypography.current.bodySm,
-                color = SereneMutedSlate,
+                style = LocalProstoTypography.current.bodySm,
+                color = ProstoMutedSlate,
             )
             Text(
                 text = stringResource(R.string.about_version, appVersion),
-                style = LocalSereneTypography.current.labelSm,
-                color = SereneMutedSlate.copy(alpha = 0.7f),
+                style = LocalProstoTypography.current.labelSm,
+                color = ProstoMutedSlate.copy(alpha = 0.7f),
             )
         }
     }
@@ -876,11 +873,11 @@ fun SettingsSectionHeader(
     Text(
         text = title,
         style =
-            LocalSereneTypography.current.labelMd.copy(
+            LocalProstoTypography.current.labelMd.copy(
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 0.5.sp,
             ),
-        color = SereneMutedSlate,
+        color = ProstoMutedSlate,
         modifier = modifier.padding(bottom = 8.dp, start = 4.dp),
     )
 }
@@ -892,9 +889,9 @@ fun InsetGroupedCard(
     content: @Composable () -> Unit,
 ) {
     Surface(
-        shape = SereneShapes.Card,
+        shape = ProstoShapes.Card,
         color = if (isDark) DarkSurface else Color.White,
-        border = SereneBorders.cardBorder(isDark),
+        border = ProstoBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
         modifier = modifier.fillMaxWidth(),
     ) {
@@ -911,9 +908,9 @@ fun SegmentedThemeControl(
     onSelectMode: (ThemeMode) -> Unit,
 ) {
     Surface(
-        shape = SereneShapes.Card,
+        shape = ProstoShapes.Card,
         color = if (isDark) DarkSurface else Color.White,
-        border = SereneBorders.cardBorder(isDark),
+        border = ProstoBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
         modifier = Modifier.fillMaxWidth(),
     ) {
@@ -928,19 +925,19 @@ fun SegmentedThemeControl(
                 val isSelected = selectedMode == mode
                 val segmentBg =
                     if (isSelected) {
-                        if (isDark) DarkSurfaceVariant else SerenePaleBlue
+                        if (isDark) DarkSurfaceVariant else ProstoPaleBlue
                     } else {
                         Color.Transparent
                     }
 
                 val segmentBorder =
                     if (isSelected) {
-                        BorderStroke(1.5.dp, SereneBrandPrimary)
+                        BorderStroke(1.5.dp, ProstoBrandPrimary)
                     } else {
                         null
                     }
 
-                val tint = if (isSelected) SereneBrandPrimary else SereneMutedSlate
+                val tint = if (isSelected) ProstoBrandPrimary else ProstoMutedSlate
 
                 Surface(
                     shape = RoundedCornerShape(14.dp),
@@ -981,7 +978,7 @@ fun SegmentedThemeControl(
                         Text(
                             text = label,
                             style =
-                                LocalSereneTypography.current.labelSm.copy(
+                                LocalProstoTypography.current.labelSm.copy(
                                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
                                 ),
                             color = tint,
@@ -990,47 +987,6 @@ fun SegmentedThemeControl(
                 }
             }
         }
-    }
-}
-
-@Composable
-fun LiquidSunsetSwitch(
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val isDark = LocalIsDarkTheme.current
-    val thumbOffset by animateDpAsState(
-        targetValue = if (checked) 22.dp else 2.dp,
-        animationSpec = tween(durationMillis = 220),
-        label = "SwitchThumbTranslation",
-    )
-
-    Box(
-        modifier =
-            modifier
-                .size(width = 51.dp, height = 31.dp)
-                .clip(CircleShape)
-                .background(
-                    if (checked) {
-                        SereneBrandPrimary
-                    } else {
-                        (if (isDark) DarkSurfaceVariant else Color(0xFFE2E8F0))
-                    },
-                ).clickable { onCheckedChange(!checked) }
-                .padding(vertical = 2.dp),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        Surface(
-            shape = CircleShape,
-            color = Color.White,
-            border = BorderStroke(0.5.dp, Color.Black.copy(alpha = 0.08f)),
-            shadowElevation = 1.dp,
-            modifier =
-                Modifier
-                    .offset(x = thumbOffset)
-                    .size(27.dp),
-        ) {}
     }
 }
 
@@ -1053,20 +1009,20 @@ fun HyperlinkRow(
         Column {
             Text(
                 text = title,
-                style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                color = if (isDark) DarkOnSurface else SereneDarkText,
+                style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                color = if (isDark) DarkOnSurface else ProstoDarkText,
             )
             Text(
                 text = subtitle,
-                style = LocalSereneTypography.current.bodySm,
-                color = SereneMutedSlate,
+                style = LocalProstoTypography.current.bodySm,
+                color = ProstoMutedSlate,
             )
         }
 
         Icon(
             imageVector = Icons.AutoMirrored.Filled.OpenInNew,
             contentDescription = null,
-            tint = SereneMutedSlate,
+            tint = ProstoMutedSlate,
             modifier = Modifier.size(18.dp),
         )
     }
@@ -1097,13 +1053,13 @@ fun DefaultBrowserSettingTile(
                     Modifier
                         .size(36.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                        .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Default.Public,
                     contentDescription = null,
-                    tint = SereneBrandPrimary,
+                    tint = ProstoBrandPrimary,
                     modifier = Modifier.size(20.dp),
                 )
             }
@@ -1111,20 +1067,20 @@ fun DefaultBrowserSettingTile(
             Column {
                 Text(
                     text = stringResource(R.string.default_browser_tile_title),
-                    style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                    color = if (isDark) DarkOnSurface else SereneDarkText,
+                    style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                    color = if (isDark) DarkOnSurface else ProstoDarkText,
                 )
                 Text(
                     text = stringResource(R.string.default_browser_tile_desc),
-                    style = LocalSereneTypography.current.bodySm,
-                    color = SereneMutedSlate,
+                    style = LocalProstoTypography.current.bodySm,
+                    color = ProstoMutedSlate,
                 )
             }
         }
 
         Surface(
             shape = RoundedCornerShape(12.dp),
-            color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+            color = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
@@ -1133,13 +1089,13 @@ fun DefaultBrowserSettingTile(
             ) {
                 Text(
                     text = stringResource(R.string.default_browser_tile_action),
-                    style = LocalSereneTypography.current.labelSm.copy(fontWeight = FontWeight.SemiBold),
-                    color = SereneBrandPrimary,
+                    style = LocalProstoTypography.current.labelSm.copy(fontWeight = FontWeight.SemiBold),
+                    color = ProstoBrandPrimary,
                 )
                 Icon(
                     imageVector = Icons.Default.ChevronRight,
                     contentDescription = null,
-                    tint = SereneBrandPrimary,
+                    tint = ProstoBrandPrimary,
                     modifier = Modifier.size(14.dp),
                 )
             }
@@ -1157,9 +1113,9 @@ fun SearchPageProvidersDialog(
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Surface(
-            shape = SereneShapes.Card,
+            shape = ProstoShapes.Card,
             color = if (isDark) DarkSurface else Color.White,
-            border = SereneBorders.cardBorder(isDark),
+            border = ProstoBorders.cardBorder(isDark),
             shadowElevation = 8.dp,
             modifier =
                 Modifier
@@ -1176,8 +1132,8 @@ fun SearchPageProvidersDialog(
                 ) {
                     Text(
                         text = "Search Page Providers",
-                        style = LocalSereneTypography.current.headlineSm.copy(fontWeight = FontWeight.Bold),
-                        color = if (isDark) DarkOnSurface else SereneDarkText,
+                        style = LocalProstoTypography.current.headlineSm.copy(fontWeight = FontWeight.Bold),
+                        color = if (isDark) DarkOnSurface else ProstoDarkText,
                     )
                     IconButton(
                         onClick = onDismiss,
@@ -1186,7 +1142,7 @@ fun SearchPageProvidersDialog(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = SereneMutedSlate,
+                            tint = ProstoMutedSlate,
                             modifier = Modifier.size(18.dp),
                         )
                     }
@@ -1194,8 +1150,8 @@ fun SearchPageProvidersDialog(
 
                 Text(
                     text = "Enable or disable providers that appear in the quick switcher on search results pages.",
-                    style = LocalSereneTypography.current.bodySm,
-                    color = SereneMutedSlate,
+                    style = LocalProstoTypography.current.bodySm,
+                    color = ProstoMutedSlate,
                     modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),
                 )
 
@@ -1234,20 +1190,20 @@ fun SearchPageProvidersDialog(
                                 Column {
                                     Text(
                                         text = engine.displayName,
-                                        style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                                        color = if (isDark) DarkOnSurface else SereneDarkText,
+                                        style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                                        color = if (isDark) DarkOnSurface else ProstoDarkText,
                                     )
                                     if (engine.shortcut != null) {
                                         Text(
                                             text = "Shortcut: ${engine.shortcut}",
-                                            style = LocalSereneTypography.current.labelSm,
-                                            color = SereneMutedSlate,
+                                            style = LocalProstoTypography.current.labelSm,
+                                            color = ProstoMutedSlate,
                                         )
                                     }
                                 }
                             }
 
-                            LiquidSunsetSwitch(
+                            ProstoToggleSwitch(
                                 checked = isChecked,
                                 onCheckedChange = { onToggleEngine(engine.id, it) },
                             )

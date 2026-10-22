@@ -61,7 +61,9 @@ class HoriDownloadManager(
                     for (cookie in cookies) {
                         cookieManager.setCookie(urlStr, cookie.toString())
                     }
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Failed to sync cookies from response for ${url.host}", e)
+                }
             }
 
             override fun loadForRequest(url: HttpUrl): List<Cookie> {
@@ -71,7 +73,8 @@ class HoriDownloadManager(
                     cookieString.split(";").mapNotNull {
                         Cookie.parse(url, it.trim())
                     }
-                } catch (_: Throwable) {
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Failed to read cookies for request, continuing without cookies", e)
                     emptyList()
                 }
             }
@@ -146,6 +149,7 @@ class HoriDownloadManager(
         }
 
         startServiceWithAction(HoriDownloadService.ACTION_START_DOWNLOAD, id, referer, userAgent)
+        Log.d(TAG, "Enqueued download $id for $url")
         id
     }
 
@@ -174,6 +178,7 @@ class HoriDownloadManager(
             }
 
             startServiceWithAction(HoriDownloadService.ACTION_UPDATE_NOTIFICATION, id)
+            Log.d(TAG, "Paused download $id at $bytes/$total bytes")
         }
     }
 
@@ -181,6 +186,7 @@ class HoriDownloadManager(
      * Resumes a paused or interrupted download.
      */
     fun resumeDownload(id: Long) {
+        Log.d(TAG, "Resuming download $id")
         startServiceWithAction(HoriDownloadService.ACTION_RESUME, id)
     }
 
@@ -200,7 +206,9 @@ class HoriDownloadManager(
                     if (crdownload.exists()) {
                         crdownload.delete()
                     }
-                } catch (_: Throwable) {}
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Failed to delete partial file for download $id", e)
+                }
             }
 
             downloadRepository.updateStatus(id, DownloadStatus.CANCELLED)
@@ -209,6 +217,7 @@ class HoriDownloadManager(
             if (wasActive) {
                 startServiceWithAction(HoriDownloadService.ACTION_CANCEL, id)
             }
+            Log.d(TAG, "Cancelled download $id")
         }
     }
 
@@ -223,9 +232,12 @@ class HoriDownloadManager(
                 if (crdownload.exists()) {
                     crdownload.delete()
                 }
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) {
+                Log.w(TAG, "Failed to delete partial file before retrying download $id", e)
+            }
 
             downloadRepository.updateProgress(id, 0L, item.totalBytes, DownloadStatus.PENDING)
+            Log.d(TAG, "Retrying download $id")
             startServiceWithAction(HoriDownloadService.ACTION_RESUME, id)
         }
     }
@@ -257,6 +269,7 @@ class HoriDownloadManager(
         val job = coroutineScope.launch {
             var item = downloadRepository.getDownloadById(id)
             if (item == null) {
+                Log.e(TAG, "Download $id has no database record, cannot start")
                 onError(id, "Download record not found")
                 return@launch
             }
@@ -395,9 +408,15 @@ class HoriDownloadManager(
 
                     outputStream.flush()
                 } finally {
-                    try { outputStream.close() } catch (_: Throwable) {}
-                    try { inputStream.close() } catch (_: Throwable) {}
-                    try { response.close() } catch (_: Throwable) {}
+                    try { outputStream.close() } catch (e: Throwable) {
+                        Log.d(TAG, "Best-effort close of output stream failed for download $id", e)
+                    }
+                    try { inputStream.close() } catch (e: Throwable) {
+                        Log.d(TAG, "Best-effort close of input stream failed for download $id", e)
+                    }
+                    try { response.close() } catch (e: Throwable) {
+                        Log.d(TAG, "Best-effort close of response failed for download $id", e)
+                    }
                 }
 
                 // Atomic rename from .crdownload to final destination
@@ -422,6 +441,7 @@ class HoriDownloadManager(
 
                 _activeDownloads.update { it - id }
                 _completedDownloads.emit(completedItem)
+                Log.d(TAG, "Completed download $id (${completedTotal} bytes)")
 
                 // Index in Android MediaStore so file managers & players detect it immediately
                 try {
@@ -507,7 +527,9 @@ class HoriDownloadManager(
                     arrayOf(resolvedMime),
                     null
                 )
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) {
+                Log.w(TAG, "MediaStore indexing failed for data URL download", e)
+            }
         }
 
         id
@@ -527,7 +549,8 @@ class HoriDownloadManager(
                 } else {
                     try {
                         context.startService(intent)
-                    } catch (_: Throwable) {
+                    } catch (e: Throwable) {
+                        Log.d(TAG, "startService rejected action $action, falling back to startForegroundService", e)
                         context.startForegroundService(intent)
                     }
                 }

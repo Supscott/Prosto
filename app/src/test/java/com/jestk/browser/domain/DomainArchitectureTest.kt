@@ -16,10 +16,10 @@ class DomainArchitectureTest {
         assertThat(domainDir.exists()).isTrue()
 
         val forbiddenImportPrefixes = listOf(
-            "import android.view.",
-            "import android.widget.",
-            "import android.app.",
-            "import androidx.compose."
+            // The domain layer is plain Kotlin: no Android framework type may leak into it.
+            "import android.",
+            "import androidx.compose.",
+            "import androidx.lifecycle."
         )
 
         val violations = mutableListOf<String>()

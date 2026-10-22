@@ -1,6 +1,5 @@
 package com.jestk.browser.domain.model
 
-import android.graphics.Bitmap
 import java.util.UUID
 
 /**
@@ -11,7 +10,7 @@ data class ExternalAppPrompt(
     val tabId: String,
     val appName: String,
     val appPackage: String? = null,
-    val appIcon: Bitmap? = null,
+    val appIcon: AppIcon? = null,
     val intentUri: String,
     val isInstalled: Boolean = true,
     val domain: String

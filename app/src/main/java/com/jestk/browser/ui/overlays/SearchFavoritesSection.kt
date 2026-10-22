@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,16 +35,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.FavoriteItem
+import com.jestk.browser.R
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoShapes
 
 @Composable
 internal fun SearchFavoritesSection(
@@ -65,20 +67,20 @@ internal fun SearchFavoritesSection(
             Icon(
                 imageVector = Icons.Default.Star,
                 contentDescription = null,
-                tint = SereneBrandPrimary,
+                tint = ProstoBrandPrimary,
                 modifier = Modifier.size(18.dp)
             )
             Text(
-                text = "Favorites",
-                style = LocalSereneTypography.current.headlineSm.copy(fontSize = 13.sp),
-                color = if (isDark) DarkOnSurface else SereneDarkText
+                text = stringResource(R.string.favorites_title),
+                style = LocalProstoTypography.current.headlineSm.copy(fontSize = 13.sp),
+                color = if (isDark) DarkOnSurface else ProstoDarkText
             )
         }
 
         Surface(
-            shape = SereneShapes.Card,
+            shape = ProstoShapes.Card,
             color = if (isDark) DarkSurface else Color.White,
-            border = SereneBorders.cardBorder(isDark),
+            border = ProstoBorders.cardBorder(isDark),
             shadowElevation = 2.dp,
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -122,7 +124,7 @@ internal fun SearchFavoriteSquircleCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val squircleBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
+    val squircleBg = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor
     val faviconUrl = item.iconUrl ?: FaviconManager.extractFallbackFaviconUrl(item.url)
 
     Column(
@@ -149,7 +151,7 @@ internal fun SearchFavoriteSquircleCard(
                     Icon(
                         imageVector = Icons.Default.Public,
                         contentDescription = item.title,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -173,11 +175,11 @@ internal fun SearchFavoriteSquircleCard(
 
         Text(
             text = item.title.ifEmpty { item.url },
-            style = LocalSereneTypography.current.bodySm.copy(
+            style = LocalProstoTypography.current.bodySm.copy(
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold
             ),
-            color = if (isDark) DarkOnSurface else SereneDarkText,
+            color = if (isDark) DarkOnSurface else ProstoDarkText,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             textAlign = TextAlign.Center,

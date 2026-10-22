@@ -27,21 +27,18 @@ import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.DarkDockSurface
-import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCardSurface
-import com.jestk.browser.ui.theme.SereneShapes
-import com.jestk.browser.ui.theme.sereneFloatingSurface
-import com.jestk.browser.ui.theme.sereneSkyBackground
+import com.jestk.browser.ui.theme.ProstoShapes
+import com.jestk.browser.ui.theme.prostoFloatingSurface
+import com.jestk.browser.ui.theme.prostoSkyBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
 /**
  * Top-level orchestrator composable for bottom navigation bar.
- * Adheres to Serene Canvas design system:
- * - Level 2 floating capsule ([SereneShapes.Dock] = 32.dp).
+ * Adheres to Prosto Canvas design system:
+ * - Level 2 floating capsule ([ProstoShapes.Dock] = 32.dp).
  * - Dock surface: #FFFFFF 80% opacity in Light mode, #0D1824 80% opacity in Dark mode.
  * - Active tab capsule: solid 100% #FFFFFF in Light mode, #0D1824 in Dark mode with light elevation shadow (2.dp).
  * - Elevation & Depth: Level 2 ambient elevation shadow (10.dp cerulean-tinted shadow) and crisp rim border. NO BLUR.
@@ -174,8 +171,8 @@ fun UnifiedBottomBar(
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp)
-                            .sereneFloatingSurface(
-                                shape = SereneShapes.Dock,
+                            .prostoFloatingSurface(
+                                shape = ProstoShapes.Dock,
                                 isDark = isDark,
                                 backgroundColor = dockBg,
                                 elevation = 10.dp
@@ -250,7 +247,7 @@ fun UnifiedBottomBarLightPreview() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(180.dp)
-                .sereneSkyBackground(isDark = false),
+                .prostoSkyBackground(isDark = false),
             contentAlignment = Alignment.BottomCenter
         ) {
             UnifiedBottomBar(
@@ -277,7 +274,7 @@ fun UnifiedBottomBarDarkPreview() {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(180.dp)
-                .sereneSkyBackground(isDark = true),
+                .prostoSkyBackground(isDark = true),
             contentAlignment = Alignment.BottomCenter
         ) {
             UnifiedBottomBar(

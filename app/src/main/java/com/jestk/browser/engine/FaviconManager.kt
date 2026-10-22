@@ -3,13 +3,35 @@ package com.jestk.browser.engine
 import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
 import java.util.concurrent.ConcurrentHashMap
 
+/**
+ * Typed description of where a favicon image comes from.
+ *
+ * The variants mirror the three sources the app can render: a packaged asset, a file in the
+ * app-private storage, or a remote URL that has to be fetched over the network. Using a sealed
+ * type instead of a bare `Any?` keeps the call sites exhaustive and documents the contract of
+ * every conversion.
+ */
+sealed interface FaviconImageModel {
+    /** A resource packaged with the application, e.g. `file:///android_asset/icons/google.svg`. */
+    data class Asset(val uri: Uri) : FaviconImageModel
+
+    /** A file stored on the local filesystem, e.g. a cached favicon in the app-private files dir. */
+    data class LocalFile(val file: File) : FaviconImageModel
+
+    /** A remote image that has to be downloaded before it can be displayed. */
+    data class Remote(val url: String) : FaviconImageModel
+}
+
 object FaviconManager {
+
+    private const val TAG = "FaviconManager"
 
     private var applicationContext: Context? = null
     private val domainFaviconCache = ConcurrentHashMap<String, String>()
@@ -71,7 +93,8 @@ object FaviconManager {
                 return null
             }
             host.removePrefix("www.")
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            Log.w(TAG, "Failed to extract host from URL", e)
             null
         }
     }
@@ -116,7 +139,8 @@ object FaviconManager {
             val path = domainFile.absolutePath
             domainFaviconCache[host] = path
             path
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to cache favicon bitmap for domain $host", e)
             null
         }
     }
@@ -148,7 +172,9 @@ object FaviconManager {
                 val path = targetFile.absolutePath
                 domainFaviconCache[host] = path
                 return path
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to copy favicon into app storage for domain $host, using source path", e)
+            }
         }
         domainFaviconCache[host] = sourceFile.absolutePath
         return sourceFile.absolutePath
@@ -162,7 +188,8 @@ object FaviconManager {
             try {
                 val file = File(cleanPath)
                 file.exists() && file.isFile && file.length() > 0
-            } catch (_: Throwable) {
+            } catch (e: Throwable) {
+                Log.w(TAG, "Failed to validate local favicon path", e)
                 false
             }
         } else false
@@ -191,7 +218,8 @@ object FaviconManager {
                 return null
             }
             "https://www.google.com/s2/favicons?sz=128&domain=${host.removePrefix("www.")}"
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            Log.w(TAG, "Failed to build fallback favicon URL", e)
             null
         }
     }
@@ -231,7 +259,8 @@ object FaviconManager {
             }
 
             targetFile.absolutePath
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to save favicon for tab $tabId", e)
             null
         }
     }
@@ -288,7 +317,9 @@ object FaviconManager {
                         name.startsWith("favicon_${tabId}_")
                 }?.forEach { it.delete() }
             }
-        } catch (_: Throwable) {}
+        } catch (e: Throwable) {
+            Log.w(TAG, "Failed to delete favicons for tab $tabId", e)
+        }
     }
 
     fun deleteAllFavicons(context: Context? = applicationContext) {
@@ -299,23 +330,62 @@ object FaviconManager {
                 if (dir.exists()) {
                     dir.listFiles()?.forEach { it.delete() }
                 }
-            } catch (_: Throwable) {}
+            } catch (e: Throwable) {
+                Log.w(TAG, "Failed to delete all cached favicons", e)
+            }
         }
     }
 
-    fun toImageModel(urlOrPath: String?): Any? {
+    /**
+     * Converts a favicon location into a typed [FaviconImageModel].
+     *
+     * The mapping is:
+     * - `null` or a blank string -> `null`
+     * - `file:///android_asset/...` or `file:/android_asset/...` -> [FaviconImageModel.Asset]
+     * - `/android_asset/...` -> [FaviconImageModel.Asset] carrying a `file://` URI
+     * - a path starting with `/` or `file://` -> [FaviconImageModel.LocalFile]
+     * - anything else -> [FaviconImageModel.Remote]
+     */
+    fun toFaviconImageModel(urlOrPath: String?): FaviconImageModel? {
         if (urlOrPath.isNullOrBlank()) return null
         if (urlOrPath.startsWith("file:///android_asset/") || urlOrPath.startsWith("file:/android_asset/")) {
-            return Uri.parse(urlOrPath)
+            return FaviconImageModel.Asset(Uri.parse(urlOrPath))
         }
         if (urlOrPath.startsWith("/android_asset/")) {
-            return Uri.parse("file://$urlOrPath")
+            return FaviconImageModel.Asset(Uri.parse("file://$urlOrPath"))
         }
         return if (urlOrPath.startsWith("/") || urlOrPath.startsWith("file://")) {
-            File(urlOrPath.removePrefix("file://"))
+            FaviconImageModel.LocalFile(File(urlOrPath.removePrefix("file://")))
         } else {
-            urlOrPath
+            FaviconImageModel.Remote(urlOrPath)
         }
+    }
+
+    /**
+     * Maps a favicon location to the runtime value Coil accepts as an image model.
+     *
+     * This is the bridge for the call sites that hand the value straight to `AsyncImage`.
+     */
+    fun toImageModelForCoil(urlOrPath: String?): Any? = toFaviconImageModel(urlOrPath)?.toCoilModel()
+
+    /**
+     * Legacy entry point kept for the existing UI call sites, which pass the result straight to
+     * Coil. It returns exactly the same runtime values as before (a `Uri`, a `File`, a `String`
+     * or `null`).
+     *
+     * New code should prefer [toFaviconImageModel], which is type safe and exhaustive.
+     */
+    fun toImageModel(urlOrPath: String?): Any? = toImageModelForCoil(urlOrPath)
+
+    /**
+     * Releases the in-memory state of the manager.
+     *
+     * The manager owns no coroutine scope of its own: every write runs inside the scope of its
+     * caller (`withContext(Dispatchers.IO)`), so there is nothing to cancel here. The method
+     * exists to give the app a single, explicit teardown hook for the favicon subsystem.
+     */
+    fun shutdown() {
+        clearMemoryCache()
     }
 
     suspend fun persistFaviconForFavorite(sourcePath: String): String? {
@@ -336,8 +406,20 @@ object FaviconManager {
                 val targetFile = File(dir, "fav_${java.util.UUID.randomUUID()}.png")
                 sourceFile.copyTo(targetFile, overwrite = true)
                 targetFile.absolutePath
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to persist favicon for favorite", e)
                 null
             }
         }
 }
+
+/**
+ * Maps the typed favicon model to the runtime value Coil accepts as an image model:
+ * a `Uri` for packaged assets, a `File` for local files and the URL string for remote images.
+ */
+fun FaviconImageModel.toCoilModel(): Any =
+    when (this) {
+        is FaviconImageModel.Asset -> uri
+        is FaviconImageModel.LocalFile -> file
+        is FaviconImageModel.Remote -> url
+    }

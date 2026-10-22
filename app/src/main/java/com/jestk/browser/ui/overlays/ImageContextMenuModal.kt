@@ -47,19 +47,19 @@ import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneAccent
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoAccent
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 
 /**
- * Image Context Menu Floating Modal - Serene Canvas design system.
+ * Image Context Menu Floating Modal - Prosto Canvas design system.
  * Anchored directly under/near the user's finger touch position on images.
  * Crisp Level 2 solid surface with NO BLUR.
  *
@@ -92,26 +92,6 @@ fun ImageContextMenuModal(
 }
 
 /**
- * Backwards-compatible alias for [ImageContextMenuModal].
- */
-@Composable
-fun ImageContextMenuBottomSheet(
-    imageUrl: String,
-    onEvent: (BrowserUiEvent) -> Unit,
-    onDownloadImage: ((String) -> Unit)? = null,
-    linkUrl: String? = null,
-    anchor: Offset? = null,
-    modifier: Modifier = Modifier,
-) = ImageContextMenuModal(
-    imageUrl = imageUrl,
-    linkUrl = linkUrl,
-    anchor = anchor,
-    onEvent = onEvent,
-    onDownloadImage = onDownloadImage,
-    modifier = modifier,
-)
-
-/**
  * Content of Image Context Menu, separated for clean composable reuse and Robolectric preview tests.
  */
 @Composable
@@ -127,8 +107,8 @@ fun ImageContextMenuContent(
 
     val imageUrlCopiedMessage = stringResource(R.string.image_url_copied)
 
-    val textColor = if (isDark) DarkOnSurface else SereneDarkText
-    val headerBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
+    val textColor = if (isDark) DarkOnSurface else ProstoDarkText
+    val headerBg = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor
     val dividerColor = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9)
 
     val displayHost =
@@ -149,7 +129,7 @@ fun ImageContextMenuContent(
         Surface(
             shape = RoundedCornerShape(14.dp),
             color = headerBg,
-            border = SereneBorders.cardBorder(isDark),
+            border = ProstoBorders.cardBorder(isDark),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
@@ -162,13 +142,13 @@ fun ImageContextMenuContent(
                         Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDark) DarkSurface else SerenePaleBlue),
+                            .background(if (isDark) DarkSurface else ProstoPaleBlue),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Image,
                         contentDescription = null,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(20.dp),
                     )
 
@@ -196,7 +176,7 @@ fun ImageContextMenuContent(
                         text = displayHost,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        style = LocalSereneTypography.current.bodyMd.copy(
+                        style = LocalProstoTypography.current.bodyMd.copy(
                             fontWeight = FontWeight.SemiBold,
                         ),
                         color = textColor,
@@ -205,8 +185,8 @@ fun ImageContextMenuContent(
                         text = imageUrl,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        style = LocalSereneTypography.current.bodySm,
-                        color = SereneMutedSlate,
+                        style = LocalProstoTypography.current.bodySm,
+                        color = ProstoMutedSlate,
                     )
                 }
             }
@@ -225,8 +205,8 @@ fun ImageContextMenuContent(
         if (!linkUrl.isNullOrBlank()) {
             ContextMenuActionRow(
                 icon = Icons.AutoMirrored.Filled.OpenInNew,
-                iconTint = SereneBrandPrimary,
-                iconBg = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+                iconTint = ProstoBrandPrimary,
+                iconBg = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
                 title = stringResource(R.string.open_in_new_tab),
                 titleColor = textColor,
                 onClick = {
@@ -241,8 +221,8 @@ fun ImageContextMenuContent(
         // Action 1: "Превью (открыть в новой вкладке)"
         ContextMenuActionRow(
             icon = Icons.Default.Image,
-            iconTint = SereneBrandPrimary,
-            iconBg = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+            iconTint = ProstoBrandPrimary,
+            iconBg = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
             title = stringResource(R.string.preview_image),
             titleColor = textColor,
             onClick = {
@@ -256,7 +236,7 @@ fun ImageContextMenuContent(
         // Action 2: "Скопировать ссылку на изображение"
         ContextMenuActionRow(
             icon = Icons.Default.ContentCopy,
-            iconTint = SereneMutedSlate,
+            iconTint = ProstoMutedSlate,
             iconBg = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
             title = stringResource(R.string.copy_image_url),
             titleColor = textColor,
@@ -277,7 +257,7 @@ fun ImageContextMenuContent(
         // Action 3: "Скачать изображение"
         ContextMenuActionRow(
             icon = Icons.Default.Download,
-            iconTint = SereneAccent,
+            iconTint = ProstoAccent,
             iconBg = if (isDark) DarkSurfaceVariant else Color(0xFFDFF7F3),
             title = stringResource(R.string.download_image),
             titleColor = textColor,
@@ -295,9 +275,9 @@ fun ImageContextMenuContent(
 fun ImageContextMenuLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
         Surface(
-            shape = SereneShapes.Card,
+            shape = ProstoShapes.Card,
             color = Color.White,
-            border = SereneBorders.floatingBorder(isDark = false),
+            border = ProstoBorders.floatingBorder(isDark = false),
             shadowElevation = 8.dp,
             modifier = Modifier.width(310.dp),
         ) {
@@ -314,9 +294,9 @@ fun ImageContextMenuLightPreview() {
 fun ImageContextMenuDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         Surface(
-            shape = SereneShapes.Card,
+            shape = ProstoShapes.Card,
             color = DarkSurface,
-            border = SereneBorders.floatingBorder(isDark = true),
+            border = ProstoBorders.floatingBorder(isDark = true),
             shadowElevation = 8.dp,
             modifier = Modifier.width(310.dp),
         ) {

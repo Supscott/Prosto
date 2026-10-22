@@ -3,9 +3,6 @@ package com.jestk.browser.ui.screens
 import android.graphics.Bitmap
 import android.view.View
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Surface
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.ScreenType

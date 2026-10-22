@@ -1,38 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Prosto</string>
-    <string name="search_placeholder">Поиск или адрес сайта</string>
     <string name="search_with_engine">Поиск в %1$s</string>
-    <string name="new_tab">Новая вкладка</string>
-    <string name="home">Главная</string>
-    <string name="search">Поиск</string>
-    <string name="tab_overview">Все вкладки</string>
     <string name="settings">Настройки</string>
     <string name="close_tab">Закрыть вкладку</string>
-    <string name="close_all_tabs">Закрыть все вкладки</string>
-    <string name="copy_url">Скопировать URL</string>
-    <string name="add_to_favorites">В избранное</string>
-    <string name="remove_favorite">Удалить из избранного</string>
     <string name="clear_history">Очистить историю</string>
     <string name="search_history_title">История поиска</string>
     <string name="expand_history">Вся история</string>
     <string name="collapse_history">Свернуть</string>
     <string name="loading_more_history">Загрузка…</string>
-    <string name="recent_tabs_title">Недавние вкладки</string>
     <string name="favorites_title">Избранное</string>
-    <string name="show_all_favorites">Показать все закладки</string>
-    <string name="theme_title">Внешний вид</string>
-    <string name="theme_system">Системная</string>
-    <string name="theme_light">Светлая</string>
-    <string name="theme_dark">Тёмная</string>
     <string name="search_engine_title">Поисковая система</string>
-    <string name="search_engine_duckduckgo">DuckDuckGo</string>
-    <string name="search_engine_google">Google</string>
-    <string name="search_engine_bing">Bing</string>
-    <string name="ad_blocker_title">Блокировщик рекламы</string>
-    <string name="ad_blocker_summary">Блокировка рекламы и трекеров</string>
-    <string name="github_link">Репозиторий GitHub</string>
-    <string name="jestk_link">Jestk.com</string>
+    <string name="search_engine_design_system_label">Система дизайна Prosto Canvas</string>
     <string name="open_in_new_tab">Открыть в новой вкладке</string>
     <string name="open_in_background">Открыть в фоне</string>
     <string name="copy_link_url">Скопировать URL</string>
@@ -59,6 +38,18 @@
     <string name="search_engine_title_label">Название</string>
     <string name="search_engine_shortcut_label">Сокращение (необязательно)</string>
     <string name="search_engine_url_template_label">Шаблон URL</string>
+    <string name="search_engine_dialog_add_title">Добавить поисковую систему</string>
+    <string name="search_engine_dialog_edit_title">Изменить поисковую систему</string>
+    <string name="search_engine_title_hint">например, YouTube, Wikipedia</string>
+    <string name="search_engine_shortcut_hint">например, y, yt, w</string>
+    <string name="search_engine_url_template_hint" formatted="false">https://example.com/search?q=%s</string>
+    <string name="search_engine_shortcut_in_use">Сокращение \'%1$s\' уже используется</string>
+    <string name="search_engine_url_template_placeholder_missing" formatted="false">URL должен содержать %s для подстановки поискового запроса</string>
+    <string name="search_engine_template_hint" formatted="false">Укажите адрес поиска и замените запрос на %s.\n\nНапример: https://youtube.com/search?q=%s</string>
+    <string name="search_engine_save_action">Сохранить</string>
+    <string name="clear_action">Очистить</string>
+    <string name="paste_action">Вставить</string>
+    <string name="favicon_content_description">Иконка сайта</string>
     <string name="copy_url_action">Скопировать ссылку</string>
     <string name="delete_bookmark_action">Удалить закладку</string>
     <string name="add_action">Добавить</string>
@@ -86,6 +77,5 @@
     <string name="update_notification_channel">Обновления</string>
     <string name="update_notification_title">Обновление готово</string>
     <string name="update_notification_body">Prosto %1$s готово к установке</string>
-    <string name="update_permission_required">Разрешите Prosto устанавливать обновления из неизвестных источников</string>
     <string name="about_version">Prosto Browser %1$s • Prosto Canvas</string>
 </resources>

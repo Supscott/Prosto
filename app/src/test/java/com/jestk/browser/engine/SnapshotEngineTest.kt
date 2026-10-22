@@ -58,4 +58,48 @@ class SnapshotEngineTest {
         assertThat(snapshot1.exists()).isFalse()
         assertThat(snapshot2.exists()).isFalse()
     }
+
+    @Test
+    fun shutdown_cancelsTheBackgroundScope() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        SnapshotEngine.init(context)
+
+        // Make sure the engine owns a running scope, whatever a previous teardown did.
+        assertThat(SnapshotEngine.ensureScope()).isTrue()
+        assertThat(SnapshotEngine.isScopeActive()).isTrue()
+
+        SnapshotEngine.shutdown()
+        assertThat(SnapshotEngine.isScopeActive()).isFalse()
+
+        // The call is idempotent.
+        SnapshotEngine.shutdown()
+        assertThat(SnapshotEngine.isScopeActive()).isFalse()
+    }
+
+    @Test
+    fun ensureScope_recreatesTheScopeAfterShutdown() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        SnapshotEngine.init(context)
+
+        SnapshotEngine.shutdown()
+        assertThat(SnapshotEngine.isScopeActive()).isFalse()
+
+        // The engine is an app scoped singleton: it must stay usable after a shutdown.
+        assertThat(SnapshotEngine.ensureScope()).isTrue()
+        assertThat(SnapshotEngine.isScopeActive()).isTrue()
+    }
+
+    @Test
+    fun init_doesNotCancelTheRunningScope() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+
+        SnapshotEngine.init(context)
+        assertThat(SnapshotEngine.ensureScope()).isTrue()
+
+        // The engine is initialised on every capture: re-initialising must not cancel the scope.
+        SnapshotEngine.init(context)
+        SnapshotEngine.init(context.applicationContext)
+
+        assertThat(SnapshotEngine.isScopeActive()).isTrue()
+    }
 }

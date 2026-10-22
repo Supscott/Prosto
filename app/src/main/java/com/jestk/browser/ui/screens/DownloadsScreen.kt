@@ -40,14 +40,11 @@ import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.VideoFile
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,14 +66,14 @@ import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.FileSizeFormatter
@@ -87,7 +84,7 @@ import java.util.Locale
 
 /**
  * DownloadsScreen — Dedicated, separate full screen for managing file downloads.
- * Conforms strictly to Serene Canvas design tokens with solid surfaces,
+ * Conforms strictly to Prosto Canvas design tokens with solid surfaces,
  * elevation shadows, rim borders, and ZERO BLUR.
  */
 @Composable
@@ -103,7 +100,7 @@ fun DownloadsScreen(
         modifier =
             modifier
                 .fillMaxSize()
-                .background(if (isDark) DarkBackground else SereneCanvasFloor)
+                .background(if (isDark) DarkBackground else ProstoCanvasFloor)
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp),
@@ -124,15 +121,15 @@ fun DownloadsScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                     contentDescription = "Back",
-                    tint = if (isDark) DarkOnSurface else SereneDarkText,
+                    tint = if (isDark) DarkOnSurface else ProstoDarkText,
                     modifier = Modifier.size(20.dp),
                 )
             }
 
             Text(
                 text = "Downloads",
-                style = LocalSereneTypography.current.headlineSm,
-                color = if (isDark) DarkOnSurface else SereneDarkText,
+                style = LocalProstoTypography.current.headlineSm,
+                color = if (isDark) DarkOnSurface else ProstoDarkText,
             )
 
             IconButton(
@@ -142,7 +139,7 @@ fun DownloadsScreen(
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = "Close",
-                    tint = SereneMutedSlate,
+                    tint = ProstoMutedSlate,
                     modifier = Modifier.size(22.dp),
                 )
             }
@@ -158,22 +155,22 @@ fun DownloadsScreen(
         ) {
             Text(
                 text = "Downloads",
-                style = LocalSereneTypography.current.headlineLg,
-                color = if (isDark) DarkOnSurface else SereneDarkText,
+                style = LocalProstoTypography.current.headlineLg,
+                color = if (isDark) DarkOnSurface else ProstoDarkText,
             )
 
             if (uiState.downloads.isNotEmpty()) {
                 Surface(
-                    shape = SereneShapes.Pill,
-                    color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+                    shape = ProstoShapes.Pill,
+                    color = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
                 ) {
                     Text(
                         text = "${uiState.downloads.size} ${if (uiState.downloads.size == 1) "file" else "files"}",
                         style =
-                            LocalSereneTypography.current.labelSm.copy(
+                            LocalProstoTypography.current.labelSm.copy(
                                 fontWeight = FontWeight.SemiBold,
                             ),
-                        color = SereneBrandPrimary,
+                        color = ProstoBrandPrimary,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
@@ -250,7 +247,7 @@ private fun DownloadsEmptyState(
                         if (isDark) {
                             DarkSurfaceVariant
                         } else {
-                            SerenePaleBlue
+                            ProstoPaleBlue
                         },
                     ),
             contentAlignment = Alignment.Center,
@@ -258,7 +255,7 @@ private fun DownloadsEmptyState(
             Icon(
                 imageVector = Icons.Default.Download,
                 contentDescription = null,
-                tint = SereneBrandPrimary,
+                tint = ProstoBrandPrimary,
                 modifier = Modifier.size(36.dp),
             )
         }
@@ -267,16 +264,16 @@ private fun DownloadsEmptyState(
 
         Text(
             text = "No downloads yet",
-            style = LocalSereneTypography.current.headlineSm,
-            color = if (isDark) DarkOnSurface else SereneDarkText,
+            style = LocalProstoTypography.current.headlineSm,
+            color = if (isDark) DarkOnSurface else ProstoDarkText,
         )
 
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
             text = "Files downloaded from websites will appear here",
-            style = LocalSereneTypography.current.bodyMd,
-            color = SereneMutedSlate,
+            style = LocalProstoTypography.current.bodyMd,
+            color = ProstoMutedSlate,
         )
     }
 }
@@ -304,9 +301,9 @@ private fun DownloadItemCard(
     val totalBytes = progressInfo?.totalBytes ?: item.totalBytes
 
     Surface(
-        shape = SereneShapes.Card,
+        shape = ProstoShapes.Card,
         color = if (isDark) DarkSurface else Color.White,
-        border = SereneBorders.cardBorder(isDark),
+        border = ProstoBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
         modifier =
             modifier
@@ -332,10 +329,10 @@ private fun DownloadItemCard(
                 Text(
                     text = item.fileName.ifEmpty { "download" },
                     style =
-                        LocalSereneTypography.current.bodyMd.copy(
+                        LocalProstoTypography.current.bodyMd.copy(
                             fontWeight = FontWeight.SemiBold,
                         ),
-                    color = if (isDark) DarkOnSurface else SereneDarkText,
+                    color = if (isDark) DarkOnSurface else ProstoDarkText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -352,27 +349,27 @@ private fun DownloadItemCard(
                             Text(
                                 text = progressText,
                                 style =
-                                    LocalSereneTypography.current.bodySm.copy(
+                                    LocalProstoTypography.current.bodySm.copy(
                                         fontWeight = FontWeight.SemiBold,
                                     ),
-                                color = SereneBrandPrimary,
+                                color = ProstoBrandPrimary,
                             )
                             if (progressInfo?.speedBytesPerSec != null && progressInfo.speedBytesPerSec > 0) {
                                 Text(
                                     text = "·",
                                     style =
-                                        LocalSereneTypography.current.bodySm.copy(
+                                        LocalProstoTypography.current.bodySm.copy(
                                             fontWeight = FontWeight.Bold,
                                         ),
-                                    color = SereneMutedSlate,
+                                    color = ProstoMutedSlate,
                                 )
                                 Text(
                                     text = "${formatFileSize(progressInfo.speedBytesPerSec)}/s",
                                     style =
-                                        LocalSereneTypography.current.bodySm.copy(
+                                        LocalProstoTypography.current.bodySm.copy(
                                             fontWeight = FontWeight.Medium,
                                         ),
-                                    color = SereneMutedSlate,
+                                    color = ProstoMutedSlate,
                                 )
                             }
                         }
@@ -382,7 +379,7 @@ private fun DownloadItemCard(
                             Text(
                                 text = "Paused · $progressText",
                                 style =
-                                    LocalSereneTypography.current.bodySm.copy(
+                                    LocalProstoTypography.current.bodySm.copy(
                                         fontWeight = FontWeight.SemiBold,
                                     ),
                                 color = Color(0xFFF59E0B),
@@ -393,7 +390,7 @@ private fun DownloadItemCard(
                             Text(
                                 text = "Download failed",
                                 style =
-                                    LocalSereneTypography.current.bodySm.copy(
+                                    LocalProstoTypography.current.bodySm.copy(
                                         fontWeight = FontWeight.SemiBold,
                                     ),
                                 color = Color(0xFFEF4444),
@@ -406,10 +403,10 @@ private fun DownloadItemCard(
                                 Text(
                                     text = sizeStr,
                                     style =
-                                        LocalSereneTypography.current.bodySm.copy(
+                                        LocalProstoTypography.current.bodySm.copy(
                                             fontWeight = FontWeight.Medium,
                                         ),
-                                    color = SereneMutedSlate,
+                                    color = ProstoMutedSlate,
                                 )
                             }
 
@@ -418,16 +415,16 @@ private fun DownloadItemCard(
                                     Text(
                                         text = "·",
                                         style =
-                                            LocalSereneTypography.current.bodySm.copy(
+                                            LocalProstoTypography.current.bodySm.copy(
                                                 fontWeight = FontWeight.Bold,
                                             ),
-                                        color = SereneMutedSlate,
+                                        color = ProstoMutedSlate,
                                     )
                                 }
                                 Text(
                                     text = formatTimestamp(item.timestamp),
-                                    style = LocalSereneTypography.current.bodySm,
-                                    color = SereneMutedSlate,
+                                    style = LocalProstoTypography.current.bodySm,
+                                    color = ProstoMutedSlate,
                                 )
                             }
                         }
@@ -445,8 +442,8 @@ private fun DownloadItemCard(
                                     .fillMaxWidth()
                                     .height(4.dp)
                                     .clip(RoundedCornerShape(2.dp)),
-                            color = if (isPaused) Color(0xFFF59E0B) else SereneBrandPrimary,
-                            trackColor = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+                            color = if (isPaused) Color(0xFFF59E0B) else ProstoBrandPrimary,
+                            trackColor = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
                         )
                     } else {
                         LinearProgressIndicator(
@@ -455,8 +452,8 @@ private fun DownloadItemCard(
                                     .fillMaxWidth()
                                     .height(4.dp)
                                     .clip(RoundedCornerShape(2.dp)),
-                            color = if (isPaused) Color(0xFFF59E0B) else SereneBrandPrimary,
-                            trackColor = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+                            color = if (isPaused) Color(0xFFF59E0B) else ProstoBrandPrimary,
+                            trackColor = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
                         )
                     }
                 }
@@ -476,7 +473,7 @@ private fun DownloadItemCard(
                             Icon(
                                 imageVector = Icons.Default.Pause,
                                 contentDescription = "Pause download",
-                                tint = SereneBrandPrimary,
+                                tint = ProstoBrandPrimary,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -487,7 +484,7 @@ private fun DownloadItemCard(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Cancel download",
-                                tint = SereneMutedSlate,
+                                tint = ProstoMutedSlate,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -501,7 +498,7 @@ private fun DownloadItemCard(
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = "Resume download",
-                                tint = SereneBrandPrimary,
+                                tint = ProstoBrandPrimary,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -512,7 +509,7 @@ private fun DownloadItemCard(
                             Icon(
                                 imageVector = Icons.Default.Close,
                                 contentDescription = "Cancel download",
-                                tint = SereneMutedSlate,
+                                tint = ProstoMutedSlate,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -526,7 +523,7 @@ private fun DownloadItemCard(
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = "Retry download",
-                                tint = SereneBrandPrimary,
+                                tint = ProstoBrandPrimary,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -537,7 +534,7 @@ private fun DownloadItemCard(
                             Icon(
                                 imageVector = Icons.Default.DeleteOutline,
                                 contentDescription = "Delete download",
-                                tint = SereneMutedSlate,
+                                tint = ProstoMutedSlate,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -551,7 +548,7 @@ private fun DownloadItemCard(
                             Icon(
                                 imageVector = Icons.Default.DeleteOutline,
                                 contentDescription = "Delete download",
-                                tint = SereneMutedSlate,
+                                tint = ProstoMutedSlate,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -583,9 +580,9 @@ private fun CategoryIconBadge(
             FileCategory.VIDEO -> {
                 CategoryStyle(
                     Icons.Default.VideoFile,
-                    SerenePaleBlue,
+                    ProstoPaleBlue,
                     Color(0xFF00504A),
-                    SereneBrandPrimary,
+                    ProstoBrandPrimary,
                     Color(0xFF6FD9CE),
                 )
             }
@@ -633,10 +630,10 @@ private fun CategoryIconBadge(
             FileCategory.OTHER -> {
                 CategoryStyle(
                     Icons.AutoMirrored.Filled.InsertDriveFile,
-                    SerenePaleBlue,
+                    ProstoPaleBlue,
                     DarkSurfaceVariant,
-                    SereneMutedSlate,
-                    SereneMutedSlate,
+                    ProstoMutedSlate,
+                    ProstoMutedSlate,
                 )
             }
         }

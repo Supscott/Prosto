@@ -1,38 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Prosto</string>
-    <string name="search_placeholder">Search or enter website name</string>
     <string name="search_with_engine">Search with %1$s</string>
-    <string name="new_tab">New Tab</string>
-    <string name="home">Home</string>
-    <string name="search">Search</string>
-    <string name="tab_overview">All Tabs</string>
     <string name="settings">Settings</string>
     <string name="close_tab">Close Tab</string>
-    <string name="close_all_tabs">Close All Tabs</string>
-    <string name="copy_url">Copy URL</string>
-    <string name="add_to_favorites">Add to Favorites</string>
-    <string name="remove_favorite">Remove Favorite</string>
     <string name="clear_history">Clear History</string>
     <string name="search_history_title">Search History</string>
     <string name="expand_history">All History</string>
     <string name="collapse_history">Collapse</string>
     <string name="loading_more_history">Loading more…</string>
-    <string name="recent_tabs_title">Recent Tabs</string>
     <string name="favorites_title">Favorites</string>
-    <string name="show_all_favorites">Show All Favorites</string>
-    <string name="theme_title">Appearance</string>
-    <string name="theme_system">System Default</string>
-    <string name="theme_light">Light</string>
-    <string name="theme_dark">Dark</string>
     <string name="search_engine_title">Search Engine</string>
-    <string name="search_engine_duckduckgo">DuckDuckGo</string>
-    <string name="search_engine_google">Google</string>
-    <string name="search_engine_bing">Bing</string>
-    <string name="ad_blocker_title">Ad &amp; Tracker Blocker</string>
-    <string name="ad_blocker_summary">Block known advertising and tracking domains</string>
-    <string name="github_link">GitHub Repository</string>
-    <string name="jestk_link">Jestk.com</string>
+    <string name="search_engine_design_system_label">Prosto Canvas Design System</string>
     <string name="open_in_new_tab">Open in New Tab</string>
     <string name="open_in_background">Open in Background</string>
     <string name="copy_link_url">Copy URL</string>
@@ -59,6 +38,18 @@
     <string name="search_engine_title_label">Title</string>
     <string name="search_engine_shortcut_label">Shortcut (optional)</string>
     <string name="search_engine_url_template_label">URL Template</string>
+    <string name="search_engine_dialog_add_title">Add Search Provider</string>
+    <string name="search_engine_dialog_edit_title">Edit Search Provider</string>
+    <string name="search_engine_title_hint">e.g. YouTube, Wikipedia</string>
+    <string name="search_engine_shortcut_hint">e.g. y, yt, w</string>
+    <string name="search_engine_url_template_hint" formatted="false">https://example.com/search?q=%s</string>
+    <string name="search_engine_shortcut_in_use">Shortcut \'%1$s\' is already in use</string>
+    <string name="search_engine_url_template_placeholder_missing" formatted="false">URL must contain %s to replace with the search query</string>
+    <string name="search_engine_template_hint" formatted="false">Write the search url and replace the query with %s.\n\nFor example: https://youtube.com/search?q=%s</string>
+    <string name="search_engine_save_action">Save</string>
+    <string name="clear_action">Clear</string>
+    <string name="paste_action">Paste</string>
+    <string name="favicon_content_description">Favicon</string>
     <string name="copy_url_action">Copy URL</string>
     <string name="delete_bookmark_action">Delete Bookmark</string>
     <string name="add_action">Add</string>
@@ -86,6 +77,5 @@
     <string name="update_notification_channel">Updates</string>
     <string name="update_notification_title">Update ready</string>
     <string name="update_notification_body">Prosto %1$s is ready to install</string>
-    <string name="update_permission_required">Allow Prosto to install updates from unknown sources</string>
     <string name="about_version">Prosto Browser %1$s • Prosto Canvas</string>
 </resources>

@@ -13,7 +13,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -38,22 +37,18 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
@@ -61,28 +56,27 @@ import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.ui.theme.DarkSurface
-import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneAccent
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCardSurface
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SereneShapes
-import com.jestk.browser.ui.theme.sereneFloatingSurface
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoAccent
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCardSurface
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoShapes
+import com.jestk.browser.ui.theme.prostoFloatingSurface
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
 /**
  * Animated popup actions card anchored above the Menu button.
- * Adheres to Serene Canvas design system:
- * - Floating card with 24px radius (SereneShapes.Card), pure solid #FFFFFF (Dark: #1E293B).
+ * Adheres to Prosto Canvas design system:
+ * - Floating card with 24px radius (ProstoShapes.Card), pure solid #FFFFFF (Dark: #1E293B).
  * - Level 2 elevation shadow and rim border.
  * - 48px touch targets for menu rows.
  * - Hairline dividers 1px solid #F1F5F9 (Dark: 1px solid #334155).
  * - Clean typography (body-md / label-md Inter).
- * - NO BLUR or Haze.
+ * - NO BLUR or backdrop haze.
  */
 @Composable
 fun ActionPopupMenu(
@@ -93,7 +87,7 @@ fun ActionPopupMenu(
     modifier: Modifier = Modifier,
 ) {
     val isHome = uiState.isHome
-    val menuBg = if (isDark) DarkSurface else SereneCardSurface
+    val menuBg = if (isDark) DarkSurface else ProstoCardSurface
     val dividerColor = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)
 
     AnimatedVisibility(
@@ -113,8 +107,8 @@ fun ActionPopupMenu(
                 Modifier
                     .padding(bottom = 8.dp, end = 16.dp)
                     .width(172.dp)
-                    .sereneFloatingSurface(
-                        shape = SereneShapes.Card,
+                    .prostoFloatingSurface(
+                        shape = ProstoShapes.Card,
                         isDark = isDark,
                         backgroundColor = menuBg,
                         elevation = 12.dp,
@@ -204,19 +198,19 @@ fun ActionPopupMenu(
 fun ActionDockMenuButton(
     isExpanded: Boolean,
     isDark: Boolean,
-    backgroundColor: Color = if (isDark) DarkSurface else SereneCardSurface,
+    backgroundColor: Color = if (isDark) DarkSurface else ProstoCardSurface,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val activeTint = if (isDark) SereneAccent else SereneBrandPrimary
-    val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
+    val activeTint = if (isDark) ProstoAccent else ProstoBrandPrimary
+    val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
 
     Box(
         modifier =
             modifier
                 .size(width = 44.dp, height = 50.dp)
-                .sereneFloatingSurface(
-                    shape = SereneShapes.Card,
+                .prostoFloatingSurface(
+                    shape = ProstoShapes.Card,
                     isDark = isDark,
                     backgroundColor = backgroundColor,
                     elevation = 10.dp,
@@ -270,17 +264,17 @@ fun SwipeUpHint(
             bounce
         }
 
-    val typography = LocalSereneTypography.current
+    val typography = LocalProstoTypography.current
 
     Surface(
-        shape = SereneShapes.Pill,
-        color = if (isDark) DarkSurface else SereneCardSurface,
-        border = SereneBorders.cardBorder(isDark),
+        shape = ProstoShapes.Pill,
+        color = if (isDark) DarkSurface else ProstoCardSurface,
+        border = ProstoBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
         modifier =
             modifier
                 .offset(y = bounceOffset.dp)
-                .clip(SereneShapes.Pill)
+                .clip(ProstoShapes.Pill)
                 .clickable(onClick = onClick),
     ) {
         Row(
@@ -291,7 +285,7 @@ fun SwipeUpHint(
             Icon(
                 imageVector = Icons.Default.KeyboardArrowUp,
                 contentDescription = "Swipe up to search",
-                tint = if (isDark) SereneAccent else SereneBrandPrimary,
+                tint = if (isDark) ProstoAccent else ProstoBrandPrimary,
                 modifier = Modifier.size(16.dp),
             )
             Text(
@@ -300,7 +294,7 @@ fun SwipeUpHint(
                     typography.labelSm.copy(
                         fontWeight = FontWeight.Medium,
                     ),
-                color = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate,
+                color = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate,
             )
         }
     }
@@ -319,10 +313,10 @@ fun PopupMenuItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val activeBg = if (isDark) Color(0x2656DBCF) else SereneBrandPrimary.copy(alpha = 0.10f)
-    val activeTint = if (isDark) SereneAccent else SereneBrandPrimary
-    val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
-    val typography = LocalSereneTypography.current
+    val activeBg = if (isDark) Color(0x2656DBCF) else ProstoBrandPrimary.copy(alpha = 0.10f)
+    val activeTint = if (isDark) ProstoAccent else ProstoBrandPrimary
+    val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
+    val typography = LocalProstoTypography.current
 
     Surface(
         shape = RoundedCornerShape(12.dp),
@@ -360,7 +354,7 @@ fun PopupMenuItem(
                     } else if (isDark) {
                         Color(0xFFF1F5F9)
                     } else {
-                        SereneDarkText
+                        ProstoDarkText
                     },
             )
         }

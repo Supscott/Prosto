@@ -1,5 +1,6 @@
 package com.jestk.browser.ui.overlays
 
+import android.graphics.BitmapFactory
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.Spring
@@ -49,17 +50,17 @@ import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoShapes
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
- * Floating Serene Canvas notification pill offering to open a web link or intent in a native app.
+ * Floating Prosto Canvas notification pill offering to open a web link or intent in a native app.
  * Features:
  * - Auto-dismiss after 5 seconds, paused while interacting/touching.
  * - Horizontal swipe-to-dismiss gesture with spring physics.
@@ -105,9 +106,9 @@ fun ExternalAppNotificationPill(
     val dismissThresholdPx = with(density) { 90.dp.toPx() }
 
     Surface(
-        shape = SereneShapes.Pill,
+        shape = ProstoShapes.Pill,
         color = if (isDark) DarkSurface else Color.White,
-        border = SereneBorders.floatingBorder(isDark),
+        border = ProstoBorders.floatingBorder(isDark),
         shadowElevation = 8.dp,
         modifier = modifier
             .wrapContentSize()
@@ -172,9 +173,14 @@ fun ExternalAppNotificationPill(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             // App Icon or generic open-in-new icon
-            if (prompt.appIcon != null) {
+            val appIconBitmap = remember(prompt.appIcon) {
+                prompt.appIcon?.let { icon ->
+                    BitmapFactory.decodeByteArray(icon.pngBytes, 0, icon.pngBytes.size)?.asImageBitmap()
+                }
+            }
+            if (appIconBitmap != null) {
                 Image(
-                    bitmap = prompt.appIcon.asImageBitmap(),
+                    bitmap = appIconBitmap,
                     contentDescription = null,
                     modifier = Modifier
                         .size(20.dp)
@@ -184,7 +190,7 @@ fun ExternalAppNotificationPill(
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
                     contentDescription = null,
-                    tint = SereneBrandPrimary,
+                    tint = ProstoBrandPrimary,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -199,7 +205,7 @@ fun ExternalAppNotificationPill(
             Text(
                 text = titleText,
                 style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
-                color = if (isDark) DarkOnSurface else SereneDarkText,
+                color = if (isDark) DarkOnSurface else ProstoDarkText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f, fill = false),
@@ -210,7 +216,7 @@ fun ExternalAppNotificationPill(
                 text = stringResource(R.string.external_app_open_action),
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = SereneBrandPrimary
+                    color = ProstoBrandPrimary
                 ),
                 modifier = Modifier
                     .clickable { currentOnOpen() }

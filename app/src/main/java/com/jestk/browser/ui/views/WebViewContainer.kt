@@ -17,31 +17,22 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -51,13 +42,13 @@ import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.util.findActivity
-import com.jestk.browser.ui.MainActivity
+import com.jestk.browser.ui.FileChooserHandler
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.SereneAccent
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
+import com.jestk.browser.ui.theme.ProstoAccent
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import kotlinx.coroutines.launch
@@ -80,7 +71,7 @@ fun WebViewContainer(
     val targetUrl = currentTab?.url ?: (if (uiState.activeTabId == tabId) uiState.currentUrl else "")
 
     val scope = rememberCoroutineScope()
-    val primaryColor = SereneBrandPrimary.toArgb()
+    val primaryColor = ProstoBrandPrimary.toArgb()
     val surfaceColor = (if (isDark) DarkSurface else Color.White).toArgb()
 
     val isImeVisible = WindowInsets.isImeVisible
@@ -218,7 +209,7 @@ fun WebViewContainer(
     val isHome = uiState.activeOverlay == OverlayType.HOME ||
             uiState.currentUrl.isEmpty() ||
             uiState.currentUrl == "about:blank"
-    val defaultBg = if (isDark) DarkBackground else SereneCanvasFloor
+    val defaultBg = if (isDark) DarkBackground else ProstoCanvasFloor
     val targetSiteBg = if (isHome) defaultBg else (resolvedThemeColor?.let { Color(it) } ?: defaultBg)
     val animatedSiteBg by animateColorAsState(
         targetValue = targetSiteBg,
@@ -325,9 +316,9 @@ fun WebViewContainer(
                         },
                         onFaviconReceived = handleFavicon,
                         onShowFileChooser = { callback, params ->
-                            val activity = context.findActivity() as? MainActivity
-                                ?: webView.context.findActivity() as? MainActivity
-                            activity?.openFileChooser(callback, params) ?: false
+                            val handler = context.findActivity() as? FileChooserHandler
+                                ?: webView.context.findActivity() as? FileChooserHandler
+                            handler?.openFileChooser(callback, params) ?: false
                         }
                     )
 
@@ -344,7 +335,7 @@ fun WebViewContainer(
 
                     val brandColors = intArrayOf(
                         primaryColor,
-                        SereneAccent.toArgb(),
+                        ProstoAccent.toArgb(),
                         android.graphics.Color.parseColor("#93C5FD"),
                         android.graphics.Color.parseColor("#38BDF8")
                     )
@@ -392,7 +383,7 @@ fun WebViewContainer(
 
                     val brandColors = intArrayOf(
                         primaryColor,
-                        SereneAccent.toArgb(),
+                        ProstoAccent.toArgb(),
                         android.graphics.Color.parseColor("#93C5FD"),
                         android.graphics.Color.parseColor("#38BDF8")
                     )

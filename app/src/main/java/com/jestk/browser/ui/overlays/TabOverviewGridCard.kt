@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -51,19 +52,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.R
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
 import java.io.File
 import kotlin.math.roundToInt
 
@@ -91,14 +93,14 @@ internal fun GridTabCard(
     val dismissThresholdPx = remember(density) { with(density) { 90.dp.toPx() } }
 
     val baseCardBg = if (isDark) DarkSurface else Color.White
-    val borderStroke = if (isActive) BorderStroke(2.dp, SereneBrandPrimary) else SereneBorders.cardBorder(isDark)
+    val borderStroke = if (isActive) BorderStroke(2.dp, ProstoBrandPrimary) else ProstoBorders.cardBorder(isDark)
 
     AnimatedVisibility(
         visible = !isDismissed,
         exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(),
     ) {
         Surface(
-            shape = SereneShapes.Card,
+            shape = ProstoShapes.Card,
             color = baseCardBg,
             border = borderStroke,
             shadowElevation = if (isActive) 6.dp else 2.dp,
@@ -107,7 +109,7 @@ internal fun GridTabCard(
                     .fillMaxWidth()
                     .aspectRatio(4f / 5f)
                     .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
-                    .clip(SereneShapes.Card)
+                    .clip(ProstoShapes.Card)
                     .clickable(onClick = onSelect)
                     .pointerInput(tab.id) {
                         detectHorizontalDragGestures(
@@ -130,9 +132,9 @@ internal fun GridTabCard(
                 // Header Strip (Favicon + Truncated Title + Close X)
                 val headerBg =
                     if (isActive) {
-                        if (isDark) SereneBrandPrimary.copy(alpha = 0.20f) else SerenePaleBlue
+                        if (isDark) ProstoBrandPrimary.copy(alpha = 0.20f) else ProstoPaleBlue
                     } else {
-                        if (isDark) DarkSurfaceVariant.copy(alpha = 0.50f) else SereneCanvasFloor
+                        if (isDark) DarkSurfaceVariant.copy(alpha = 0.50f) else ProstoCanvasFloor
                     }
 
                 Row(
@@ -157,13 +159,13 @@ internal fun GridTabCard(
                                     Modifier
                                         .size(18.dp)
                                         .clip(CircleShape)
-                                        .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                                        .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Language,
                                     contentDescription = null,
-                                    tint = SereneBrandPrimary,
+                                    tint = ProstoBrandPrimary,
                                     modifier = Modifier.size(12.dp),
                                 )
                             }
@@ -174,11 +176,11 @@ internal fun GridTabCard(
                     Text(
                         text = tab.title.ifEmpty { "New Tab" },
                         style =
-                            LocalSereneTypography.current.labelMd.copy(
+                            LocalProstoTypography.current.labelMd.copy(
                                 fontSize = 12.sp,
                                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
                             ),
-                        color = if (isActive) SereneBrandPrimary else (if (isDark) DarkOnSurface else SereneDarkText),
+                        color = if (isActive) ProstoBrandPrimary else (if (isDark) DarkOnSurface else ProstoDarkText),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
@@ -191,8 +193,8 @@ internal fun GridTabCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close tab",
-                            tint = if (isActive) SereneBrandPrimary else SereneMutedSlate,
+                            contentDescription = stringResource(R.string.close_tab),
+                            tint = if (isActive) ProstoBrandPrimary else ProstoMutedSlate,
                             modifier = Modifier.size(14.dp),
                         )
                     }
@@ -204,7 +206,7 @@ internal fun GridTabCard(
                         Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .background(if (isDark) DarkBackground else SereneCanvasFloor),
+                            .background(if (isDark) DarkBackground else ProstoCanvasFloor),
                 ) {
                     val file = tab.snapshotPath?.let { File(it) }
                     if (file != null && file.exists()) {
@@ -223,7 +225,7 @@ internal fun GridTabCard(
                             Icon(
                                 imageVector = Icons.Default.Public,
                                 contentDescription = null,
-                                tint = SereneMutedSlate.copy(alpha = 0.40f),
+                                tint = ProstoMutedSlate.copy(alpha = 0.40f),
                                 modifier = Modifier.size(36.dp),
                             )
                         }

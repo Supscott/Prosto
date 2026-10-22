@@ -36,14 +36,14 @@ import com.jestk.browser.domain.model.AppUpdateUiState
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
 
 /**
  * In-app notification about a pending app update. Rendered on the home and the
@@ -59,9 +59,9 @@ fun UpdateNotificationCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        shape = SereneShapes.Card,
+        shape = ProstoShapes.Card,
         color = if (isDark) DarkSurface else Color.White,
-        border = SereneBorders.cardBorder(isDark),
+        border = ProstoBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
         modifier = modifier.fillMaxWidth(),
     ) {
@@ -81,13 +81,13 @@ fun UpdateNotificationCard(
                         Modifier
                             .size(40.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                            .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Default.SystemUpdate,
                         contentDescription = null,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -102,21 +102,21 @@ fun UpdateNotificationCard(
                                 },
                             ),
                         style =
-                            LocalSereneTypography.current.headlineSm.copy(
+                            LocalProstoTypography.current.headlineSm.copy(
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
                             ),
-                        color = if (isDark) DarkOnSurface else SereneDarkText,
+                        color = if (isDark) DarkOnSurface else ProstoDarkText,
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = updateBody(state),
                         style =
-                            LocalSereneTypography.current.bodySm.copy(
+                            LocalProstoTypography.current.bodySm.copy(
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp,
                             ),
-                        color = SereneMutedSlate,
+                        color = ProstoMutedSlate,
                     )
                 }
             }
@@ -125,8 +125,8 @@ fun UpdateNotificationCard(
                 Spacer(modifier = Modifier.height(12.dp))
                 LinearProgressIndicator(
                     progress = { state.progress / 100f },
-                    color = SereneBrandPrimary,
-                    trackColor = if (isDark) DarkSurfaceVariant else SereneCanvasFloor,
+                    color = ProstoBrandPrimary,
+                    trackColor = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor,
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -140,44 +140,44 @@ fun UpdateNotificationCard(
                 ) {
                     Button(
                         onClick = onInstall,
-                        shape = SereneShapes.Pill,
+                        shape = ProstoShapes.Pill,
                         colors =
                             ButtonDefaults.buttonColors(
-                                containerColor = SereneBrandPrimary,
+                                containerColor = ProstoBrandPrimary,
                                 contentColor = Color.White,
                             ),
                         modifier = Modifier.height(38.dp),
                     ) {
                         Text(
                             text = stringResource(R.string.update_action_install),
-                            style = LocalSereneTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
+                            style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
                         )
                     }
 
                     if (state is AppUpdateUiState.Available) {
                         OutlinedButton(
                             onClick = onInstallLater,
-                            shape = SereneShapes.Pill,
-                            border = BorderStroke(1.dp, SereneBrandPrimary.copy(alpha = 0.35f)),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = SereneBrandPrimary),
+                            shape = ProstoShapes.Pill,
+                            border = BorderStroke(1.dp, ProstoBrandPrimary.copy(alpha = 0.35f)),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ProstoBrandPrimary),
                             modifier = Modifier.height(38.dp),
                         ) {
                             Text(
                                 text = stringResource(R.string.update_action_install_later),
-                                style = LocalSereneTypography.current.labelMd,
+                                style = LocalProstoTypography.current.labelMd,
                             )
                         }
                     }
 
                     TextButton(
                         onClick = onSkip,
-                        shape = SereneShapes.Pill,
+                        shape = ProstoShapes.Pill,
                         modifier = Modifier.height(38.dp),
                     ) {
                         Text(
                             text = stringResource(R.string.update_action_skip),
-                            style = LocalSereneTypography.current.labelMd,
-                            color = SereneMutedSlate,
+                            style = LocalProstoTypography.current.labelMd,
+                            color = ProstoMutedSlate,
                         )
                     }
                 }

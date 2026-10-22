@@ -10,6 +10,7 @@ import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
 import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
+import com.jestk.browser.data.repository.SettingsBlockedRequestStats
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.repository.DownloadRepository
@@ -40,6 +41,15 @@ interface AppContainer {
     val webViewPool: WebViewPool
     val appUpdateManager: AppUpdateManager
     val viewModelFactory: ViewModelProvider.Factory
+
+    /**
+     * Releases the resources owned by the container: the pooled WebViews are destroyed and the
+     * background scopes of the engine singletons are cancelled.
+     *
+     * The call is idempotent and safe: every engine recreates its scope lazily, so the app keeps
+     * working if the container is used again after a shutdown.
+     */
+    fun shutdown()
 }
 
 class DefaultAppContainer(
@@ -62,9 +72,12 @@ class DefaultAppContainer(
         HoriDownloadManager.getInstance(context, downloadRepository)
     }
 
-    override val webViewPool: WebViewPool by lazy {
-        WebViewPool(context.applicationContext, downloadRepository, downloadManager)
-    }
+    private val webViewPoolDelegate =
+        lazy {
+            WebViewPool(context.applicationContext, downloadRepository, downloadManager)
+        }
+
+    override val webViewPool: WebViewPool by webViewPoolDelegate
 
     override val tabRepository: TabRepository by lazy {
         TabRepositoryImpl(database.tabDao())
@@ -80,7 +93,7 @@ class DefaultAppContainer(
 
     override val settingsRepository: SettingsRepository by lazy {
         SettingsRepositoryImpl(database.settingDao()).also {
-            AdBlockerEngine.settingsRepository = it
+            AdBlockerEngine.setBlockedRequestStats(SettingsBlockedRequestStats(it))
         }
     }
 
@@ -113,4 +126,14 @@ class DefaultAppContainer(
                 )
             }
         }
+
+    override fun shutdown() {
+        // The pool is created lazily: only tear it down when it was actually instantiated.
+        if (webViewPoolDelegate.isInitialized()) {
+            webViewPoolDelegate.value.shutdown()
+        }
+        SnapshotEngine.shutdown()
+        FaviconManager.shutdown()
+        AdBlockerEngine.shutdown()
+    }
 }

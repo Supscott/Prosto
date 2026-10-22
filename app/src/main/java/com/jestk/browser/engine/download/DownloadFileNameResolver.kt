@@ -1,6 +1,7 @@
 package com.jestk.browser.engine.download
 
 import android.net.Uri
+import android.util.Log
 import android.webkit.MimeTypeMap
 import java.io.File
 import java.net.URLDecoder
@@ -8,6 +9,8 @@ import java.nio.charset.StandardCharsets
 import java.util.regex.Pattern
 
 object DownloadFileNameResolver {
+
+    private const val TAG = "DownloadFileNameResolver"
 
     private val ILLEGAL_CHARS = Regex("[\\\\/:*?\"<>|\\r\\n\\t\\u0000-\\u001f]")
     private val RFC5987_PATTERN = Pattern.compile("filename\\*\\s*=\\s*([^']*)'([^']*)'([^\";\\s]*)", Pattern.CASE_INSENSITIVE)
@@ -147,13 +150,16 @@ object DownloadFileNameResolver {
                     if (decoded.isNotBlank()) {
                         return File(decoded).name
                     }
-                } catch (_: Throwable) {
+                } catch (e: Throwable) {
+                    Log.w(TAG, "Failed to decode RFC 5987 filename with charset $charsetName", e)
                     try {
                         val fallback = URLDecoder.decode(rawValue, StandardCharsets.UTF_8.name())
                         if (fallback.isNotBlank()) {
                             return File(fallback).name
                         }
-                    } catch (_: Throwable) {}
+                    } catch (fallbackError: Throwable) {
+                        Log.w(TAG, "Failed to decode RFC 5987 filename with the UTF-8 fallback", fallbackError)
+                    }
                 }
             }
         }
@@ -191,7 +197,8 @@ object DownloadFileNameResolver {
             } else {
                 null
             }
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            Log.w(TAG, "Failed to parse file name from URL, falling back to the last path segment", e)
             val afterSlash = url.substringBefore('#').substringBefore('?').substringAfterLast('/')
             if (afterSlash.isNotBlank()) afterSlash else null
         }

@@ -26,7 +26,9 @@ import com.jestk.browser.engine.download.DownloadFileNameResolver
 import com.jestk.browser.engine.download.HoriDownloadManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -41,6 +43,7 @@ class WebViewPool(
 ) {
 
     companion object {
+        private const val TAG = "WebViewPool"
         const val MAX_CONCURRENT_WEBVIEWS = 5
     }
 
@@ -68,8 +71,59 @@ class WebViewPool(
     private val lruOrder = ConcurrentLinkedDeque<String>()
     private val mediaPlayingTabs = ConcurrentHashMap.newKeySet<String>()
     private var activeTabId: String? = null
-    private val coroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private var currentIsDark: Boolean? = null
+
+    private val scopeLock = Any()
+
+    @Volatile
+    private var coroutineScope: CoroutineScope = createScope()
+
+    private fun createScope(): CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    /**
+     * Returns the scope that runs the background work of the pool, recreating it when it was
+     * cancelled by [shutdown].
+     *
+     * The pool outlives the activities it renders into, so a shutdown must never leave it unable
+     * to handle downloads: the scope is recreated lazily instead of staying dead.
+     */
+    private fun activeScope(): CoroutineScope =
+        synchronized(scopeLock) {
+            val current = coroutineScope
+            if (current.coroutineContext[Job]?.isActive == true) {
+                current
+            } else {
+                createScope().also { coroutineScope = it }
+            }
+        }
+
+    /**
+     * Reports whether the background scope of the pool is running.
+     * Used by the tests to verify the teardown contract of [shutdown].
+     */
+    internal fun isScopeActive(): Boolean = coroutineScope.coroutineContext[Job]?.isActive == true
+
+    /**
+     * Makes sure the pool owns a running scope, recreating it after a [shutdown].
+     * Used by the tests to verify the teardown contract of [shutdown].
+     */
+    internal fun ensureScope(): Boolean = activeScope().coroutineContext[Job]?.isActive == true
+
+    /**
+     * Destroys the pool: every pooled WebView is released and the background scope is cancelled.
+     *
+     * The WebViews hold their Activity through a [MutableContextWrapper]; destroying them resets
+     * the base context to the application context, so no Activity is leaked.
+     *
+     * The call is idempotent and safe for a live app: the scope is recreated lazily on the next
+     * use, so the pool keeps working after a shutdown.
+     */
+    fun shutdown() {
+        synchronized(scopeLock) {
+            coroutineScope.cancel()
+        }
+        clearAll()
+    }
 
     private fun touchLru(tabId: String) {
         lruOrder.remove(tabId)
@@ -110,7 +164,7 @@ class WebViewPool(
             mediaPlayingTabs.add(tabId)
             pool[tabId]?.let { wv ->
                 try { wv.onResume() } catch (t: Throwable) {
-                    Log.w("HoriEngine", "Failed to resume WebView for tab $tabId", t)
+                    Log.w(TAG, "Failed to resume WebView for tab $tabId", t)
                 }
             }
         } else {
@@ -118,7 +172,7 @@ class WebViewPool(
             if (tabId != activeTabId) {
                 pool[tabId]?.let { wv ->
                     try { wv.onPause() } catch (t: Throwable) {
-                        Log.w("HoriEngine", "Failed to pause WebView for tab $tabId", t)
+                        Log.w(TAG, "Failed to pause WebView for tab $tabId", t)
                     }
                 }
             }
@@ -128,6 +182,7 @@ class WebViewPool(
     fun onTabActivated(tabId: String, isMediaPlaying: Boolean = false) {
         activeTabId = tabId
         touchLru(tabId)
+        Log.d(TAG, "Activated tab $tabId (mediaPlaying=$isMediaPlaying, poolSize=${pool.size})")
         if (isMediaPlaying) {
             mediaPlayingTabs.add(tabId)
         }
@@ -136,7 +191,7 @@ class WebViewPool(
                 try {
                     webView.onResume()
                 } catch (t: Throwable) {
-                    Log.w("HoriEngine", "Failed to resume WebView for active tab $tabId", t)
+                    Log.w(TAG, "Failed to resume WebView for active tab $tabId", t)
                 }
             } else {
                 val isPlaying = mediaPlayingTabs.contains(id)
@@ -144,7 +199,7 @@ class WebViewPool(
                     try {
                         webView.onPause()
                     } catch (t: Throwable) {
-                        Log.w("HoriEngine", "Failed to pause WebView for background tab $id", t)
+                        Log.w(TAG, "Failed to pause WebView for background tab $id", t)
                     }
                 }
             }
@@ -172,7 +227,7 @@ class WebViewPool(
                 }
                 return existing
             } catch (t: Throwable) {
-                Log.w("HoriEngine", "Failed to reuse existing WebView for tab $tabId, recreating", t)
+                Log.w(TAG, "Failed to reuse existing WebView for tab $tabId, recreating", t)
                 removeWebView(tabId)
             }
         }
@@ -192,20 +247,19 @@ class WebViewPool(
                     displayZoomControls = false
                     loadWithOverviewMode = true
                     useWideViewPort = true
-                    databaseEnabled = true
                     cacheMode = WebSettings.LOAD_DEFAULT
                     mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                     setSupportZoom(true)
                 }
                 try {
                     val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->
-                        coroutineScope.launch(Dispatchers.Main) {
+                        activeScope().launch(Dispatchers.Main) {
                             handleDataUrlDownload(dataUrl, contentDisposition, mimeType, this@apply.context)
                         }
                     }
                     addJavascriptInterface(blobBridge, "JestkBlobBridge")
                 } catch (t: Throwable) {
-                    Log.w("HoriEngine", "Failed to add BlobDownloadBridge interface", t)
+                    Log.w(TAG, "Failed to add BlobDownloadBridge interface", t)
                 }
                 setupDownloadListener(this)
                 setupAdBlocker(this)
@@ -215,10 +269,11 @@ class WebViewPool(
 
             pool[tabId] = webView
             trimPool(tabId)
+            Log.d(TAG, "Created WebView for tab $tabId")
             onWebViewCreated?.invoke(tabId, webView)
             return webView
         } catch (t: Throwable) {
-            Log.w("HoriEngine", "Failed to initialize WebView with Activity context, falling back to Application context", t)
+            Log.w(TAG, "Failed to initialize WebView with Activity context, falling back to Application context", t)
             contextWrapper.baseContext = applicationContext
             val fallbackWebView = NestedWebView(contextWrapper).apply {
                 isFocusable = true
@@ -231,20 +286,19 @@ class WebViewPool(
                     displayZoomControls = false
                     loadWithOverviewMode = true
                     useWideViewPort = true
-                    databaseEnabled = true
                     cacheMode = WebSettings.LOAD_DEFAULT
                     mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                     setSupportZoom(true)
                 }
                 try {
                     val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->
-                        coroutineScope.launch(Dispatchers.Main) {
+                        activeScope().launch(Dispatchers.Main) {
                             handleDataUrlDownload(dataUrl, contentDisposition, mimeType, this@apply.context)
                         }
                     }
                     addJavascriptInterface(blobBridge, "JestkBlobBridge")
                 } catch (t2: Throwable) {
-                    Log.w("HoriEngine", "Failed to add BlobDownloadBridge to fallback WebView", t2)
+                    Log.w(TAG, "Failed to add BlobDownloadBridge to fallback WebView", t2)
                 }
                 setupDownloadListener(this)
                 setupAdBlocker(this)
@@ -252,6 +306,7 @@ class WebViewPool(
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
             pool[tabId] = fallbackWebView
             trimPool(tabId)
+            Log.d(TAG, "Created fallback WebView for tab $tabId")
             onWebViewCreated?.invoke(tabId, fallbackWebView)
             return fallbackWebView
         }
@@ -262,7 +317,7 @@ class WebViewPool(
             val bridge = AdBlockBridge { isAdBlockerEnabled?.invoke() ?: true }
             webView.addJavascriptInterface(bridge, "HoriAdBlockBridge")
         } catch (t: Throwable) {
-            Log.w("HoriEngine", "Failed to add HoriAdBlockBridge interface", t)
+            Log.w(TAG, "Failed to add HoriAdBlockBridge interface", t)
         }
 
         if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
@@ -273,7 +328,7 @@ class WebViewPool(
                     setOf("*")
                 )
             } catch (t: Throwable) {
-                Log.w("HoriEngine", "Failed to add document start script for ad blocking", t)
+                Log.w(TAG, "Failed to add document start script for ad blocking", t)
             }
         }
     }
@@ -309,10 +364,16 @@ class WebViewPool(
 
         try {
             val fileName = DownloadFileNameResolver.resolveFileName(url, contentDisposition, mimeType)
+            Log.d(TAG, "Download requested: $fileName from $url")
             val downloadMgr = downloadManager ?: downloadRepository?.let {
                 HoriDownloadManager.getInstance(applicationContext, it)
             }
-            val refererUrl = try { webView?.url } catch (_: Throwable) { null }
+            val refererUrl = try {
+                webView?.url
+            } catch (t: Throwable) {
+                Log.d(TAG, "Best-effort read of referer URL failed, continuing without referer", t)
+                null
+            }
 
             Toast.makeText(targetContext, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
 
@@ -335,17 +396,17 @@ class WebViewPool(
                             }
                         }
                     } catch (t: Throwable) {
-                        Log.e("HoriEngine", "Failed to enqueue download", t)
+                        Log.e(TAG, "Failed to enqueue download", t)
                     }
                 }
             }
         } catch (e: Throwable) {
-            Log.e("HoriEngine", "Download failed for $url", e)
+            Log.e(TAG, "Download failed for $url", e)
             val targetContext = context.findActivity() ?: applicationContext
             try {
                 Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
             } catch (t: Throwable) {
-                Log.w("HoriEngine", "Failed to show download error toast", t)
+                Log.w(TAG, "Failed to show download error toast", t)
             }
         }
     }
@@ -373,7 +434,7 @@ class WebViewPool(
                         }
                     }
                 } catch (e: Throwable) {
-                    Log.e("HoriEngine", "Data URL download failed", e)
+                    Log.e(TAG, "Data URL download failed", e)
                     withContext(Dispatchers.Main) {
                         Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
@@ -397,6 +458,7 @@ class WebViewPool(
         }
 
         Toast.makeText(targetContext, "Preparing download...", Toast.LENGTH_SHORT).show()
+        Log.d(TAG, "Preparing blob download: $blobUrl")
 
         val safeDisposition = contentDisposition?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
         val safeMime = mimeType?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
@@ -443,7 +505,7 @@ class WebViewPool(
                 targetWebView.evaluateJavascript(js, null)
             }
         } catch (t: Throwable) {
-            Log.e("HoriEngine", "Failed to evaluate blob download script", t)
+            Log.e(TAG, "Failed to evaluate blob download script", t)
             Toast.makeText(targetContext, "Download failed: ${t.message}", Toast.LENGTH_SHORT).show()
         }
     }
@@ -455,23 +517,9 @@ class WebViewPool(
                 WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isDark)
             }
 
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK_STRATEGY)) {
-                WebSettingsCompat.setForceDarkStrategy(
-                    settings,
-                    WebSettingsCompat.DARK_STRATEGY_PREFER_WEB_THEME_OVER_USER_AGENT_DARKENING
-                )
-            }
-
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.FORCE_DARK)) {
-                WebSettingsCompat.setForceDark(
-                    settings,
-                    if (isDark) WebSettingsCompat.FORCE_DARK_ON else WebSettingsCompat.FORCE_DARK_OFF
-                )
-            }
-
             injectColorSchemeScript(webView, isDark)
         } catch (t: Throwable) {
-            Log.w("HoriEngine", "Failed to apply theme mode", t)
+            Log.w(TAG, "Failed to apply theme mode", t)
         }
     }
 
@@ -480,7 +528,7 @@ class WebViewPool(
         try {
             webView.evaluateJavascript(js, null)
         } catch (t: Throwable) {
-            Log.w("HoriEngine", "Failed to evaluate color scheme script", t)
+            Log.w(TAG, "Failed to evaluate color scheme script", t)
         }
     }
 
@@ -499,7 +547,7 @@ class WebViewPool(
         try {
             (webView.parent as? ViewGroup)?.removeView(webView)
         } catch (t: Throwable) {
-            Log.w("HoriEngine", "Failed to detach WebView from parent", t)
+            Log.w(TAG, "Failed to detach WebView from parent", t)
         }
     }
 
@@ -512,6 +560,7 @@ class WebViewPool(
             activeTabId = null
         }
         val webView = pool.remove(tabId) ?: return
+        Log.d(TAG, "Removing WebView for tab $tabId")
         detachFromParent(webView)
         try {
             webView.stopLoading()
@@ -524,11 +573,11 @@ class WebViewPool(
             (webView.context as? MutableContextWrapper)?.baseContext = applicationContext
             webView.destroy()
         } catch (t: Throwable) {
-            Log.w("HoriEngine", "Failed to destroy WebView for tab $tabId", t)
+            Log.w(TAG, "Failed to destroy WebView for tab $tabId", t)
             try {
                 (webView.context as? MutableContextWrapper)?.baseContext = applicationContext
             } catch (t2: Throwable) {
-                Log.w("HoriEngine", "Failed to reset baseContext for tab $tabId", t2)
+                Log.w(TAG, "Failed to reset baseContext for tab $tabId", t2)
             }
         }
     }

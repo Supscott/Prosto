@@ -1,6 +1,7 @@
 package com.jestk.browser.ui.viewmodel
 
 import android.net.Uri
+import android.util.Log
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.model.OverlayType
@@ -22,6 +23,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.ConcurrentHashMap
 
+private const val TAG = "TabCoordinator"
+
 /**
  * Checks whether two URLs belong to the same top-level domain / host.
  */
@@ -36,7 +39,8 @@ internal fun isSameDomain(url1: String?, url2: String?): Boolean {
         val host1 = uri1.host?.lowercase()?.removePrefix("www.")
         val host2 = uri2.host?.lowercase()?.removePrefix("www.")
         !host1.isNullOrBlank() && host1 == host2
-    } catch (_: Throwable) {
+    } catch (e: Throwable) {
+        Log.w(TAG, "Failed to compare URL hosts", e)
         false
     }
 }
@@ -205,6 +209,7 @@ internal class TabCoordinator(
             }
 
             webViewPool?.onTabActivated(activeTab.id, false)
+            Log.d(TAG, "Restored session with active tab ${activeTab.id} (${tabsWithActive.size} tabs)")
             val hasWebUrl = activeTab.url.isNotEmpty() && activeTab.url != "about:blank"
             val initialThemeColor = if (hasWebUrl) (tabThemeColors[activeTab.id] ?: activeTab.themeColor) else null
             if (hasWebUrl) {
@@ -322,6 +327,7 @@ internal class TabCoordinator(
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 val created = tabRepository.createTab(url = "", title = "Search")
+                Log.d(TAG, "Created search tab ${created.id}")
                 tabRepository.setActiveTab(created.id)
                 webViewPool?.onTabActivated(created.id, false)
                 val baseTabs =
@@ -362,6 +368,7 @@ internal class TabCoordinator(
                     FaviconManager.getCachedFaviconForUrl(url)
                 } else null
                 val created = tabRepository.createTab(url = url, title = title)
+                Log.d(TAG, "Created tab ${created.id} for $url")
                 tabRepository.setActiveTab(created.id)
                 // A new external navigation is a fresh user intent: the tab may be reused when
                 // the same URL is already open, so per-tab suppression must not leak into it.
@@ -420,6 +427,7 @@ internal class TabCoordinator(
                     FaviconManager.getCachedFaviconForUrl(url)
                 } else null
                 val created = tabRepository.createTab(url = url, title = title)
+                Log.d(TAG, "Created background tab ${created.id} for $url")
                 if (cachedFavicon != null) {
                     tabRepository.updateFavicon(created.id, cachedFavicon)
                 }
@@ -442,6 +450,7 @@ internal class TabCoordinator(
     }
 
     fun openRecentTab(item: RecentTabItem, onNavigateUrl: (String) -> Unit) {
+        Log.d(TAG, "Opening recent tab: ${item.url}")
         val existingOpenTab = getCurrentState().tabs.firstOrNull { it.url == item.url }
         if (existingOpenTab != null) {
             selectTab(existingOpenTab.id)
@@ -461,6 +470,9 @@ internal class TabCoordinator(
     fun selectTab(tabId: String) {
         webViewPool?.onTabActivated(tabId, getCurrentState().isVideoPlaying)
         val selected = getCurrentState().tabs.find { it.id == tabId }
+        if (selected == null) {
+            Log.w(TAG, "Select tab $tabId requested but the tab is not in the current state")
+        }
         if (selected != null) {
             val liveWebView = webViewPool?.getWebView(tabId)
             val liveUrl = liveWebView?.url?.takeIf { it.isNotBlank() && it != "about:blank" }
@@ -515,6 +527,7 @@ internal class TabCoordinator(
                 )
             }
             publishPendingExternalAppPrompt(tabId)
+            Log.d(TAG, "Selected tab $tabId (url=$effectiveUrl)")
             if (liveUrl != null || liveTitle != null) {
                 scope.launch(ioDispatcher) {
                     tabRepository.updateTabDetails(
@@ -538,6 +551,7 @@ internal class TabCoordinator(
     }
 
     fun closeTab(tabId: String) {
+        Log.d(TAG, "Closing tab $tabId")
         tabThemeColors.remove(tabId)
         tabLoadingProgress.remove(tabId)
         dismissedExternalAppDomains.remove(tabId)
@@ -626,6 +640,7 @@ internal class TabCoordinator(
 
     fun undoCloseTab() {
         val tabToRestore = getCurrentState().recentlyClosedTab ?: return
+        Log.d(TAG, "Undo close tab requested for ${tabToRestore.id}")
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 val created =
@@ -634,6 +649,7 @@ internal class TabCoordinator(
                         title = tabToRestore.title,
                         isIncognito = tabToRestore.isIncognito,
                     )
+                Log.d(TAG, "Restored closed tab as ${created.id} (url=${tabToRestore.url})")
                 tabToRestore.snapshotPath?.let { tabRepository.updateSnapshot(created.id, it) }
                 tabToRestore.faviconUrl?.let { tabRepository.updateFavicon(created.id, it) }
                 tabToRestore.themeColor?.let {
@@ -697,6 +713,7 @@ internal class TabCoordinator(
     }
 
     fun closeAllTabs() {
+        Log.d(TAG, "Closing all tabs")
         tabThemeColors.clear()
         tabLoadingProgress.clear()
         dismissedExternalAppDomains.clear()
@@ -737,11 +754,13 @@ internal class TabCoordinator(
         if (maxIndex < 0) return
         val targetIndex = (currentIndex + delta).coerceIn(0, maxIndex)
         if (targetIndex in currentTabs.indices && targetIndex != currentIndex) {
+            Log.d(TAG, "Switching to adjacent tab ${currentTabs[targetIndex].id} (delta=$delta)")
             selectTab(currentTabs[targetIndex].id)
         }
     }
 
     fun reorderTabs(orderedTabs: List<Tab>) {
+        Log.d(TAG, "Reordering ${orderedTabs.size} tabs")
         updateUiState { it.copy(tabs = orderedTabs) }
         scope.launch(ioDispatcher) {
             tabRepository.reorderTabs(orderedTabs)
@@ -749,7 +768,11 @@ internal class TabCoordinator(
     }
 
     fun navigateToUrl(finalUrl: String, matchedShortcutEngine: SearchEngine? = null) {
-        val activeId = getCurrentState().activeTabId ?: return
+        val activeId = getCurrentState().activeTabId ?: run {
+            Log.w(TAG, "Navigation to $finalUrl ignored: no active tab")
+            return
+        }
+        Log.d(TAG, "Navigating tab $activeId to $finalUrl (engine=${matchedShortcutEngine?.id ?: "default"})")
         webViewPool?.onTabActivated(activeId, false)
         if (finalUrl.isEmpty()) {
             tabLoadingProgress[activeId] = 100
@@ -818,6 +841,7 @@ internal class TabCoordinator(
 
     fun handlePageStarted(tabId: String, url: String) {
         if (url.isEmpty() || url == "about:blank") return
+        Log.d(TAG, "Page started in tab $tabId: $url")
         // A new navigation supersedes any offer queued for a previous page of this tab.
         pendingExternalAppPrompts.remove(tabId)
         tabLoadingProgress[tabId] = 15
@@ -893,6 +917,7 @@ internal class TabCoordinator(
 
     fun handlePageFinished(tabId: String, url: String, title: String) {
         if (url.isEmpty() || url == "about:blank") return
+        Log.d(TAG, "Page finished in tab $tabId: $url")
         tabLoadingProgress[tabId] = 100
         val displayTitle = title.ifEmpty { url }
         updateUiState { state ->

@@ -45,13 +45,13 @@ import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
 
 @Composable
 internal fun InsetGroupedHistoryCard(
@@ -82,13 +82,13 @@ internal fun InsetGroupedHistoryCard(
                 Icon(
                     imageVector = Icons.Default.History,
                     contentDescription = null,
-                    tint = SereneBrandPrimary,
+                    tint = ProstoBrandPrimary,
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
                     text = stringResource(R.string.search_history_title),
-                    style = LocalSereneTypography.current.headlineSm.copy(fontSize = 13.sp),
-                    color = if (isDark) DarkOnSurface else SereneDarkText
+                    style = LocalProstoTypography.current.headlineSm.copy(fontSize = 13.sp),
+                    color = if (isDark) DarkOnSurface else ProstoDarkText
                 )
             }
 
@@ -103,14 +103,14 @@ internal fun InsetGroupedHistoryCard(
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.CloseFullscreen else Icons.Default.OpenInFull,
                         contentDescription = if (isExpanded) stringResource(R.string.collapse_history) else stringResource(R.string.expand_history),
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = if (isExpanded) stringResource(R.string.collapse_history) else stringResource(R.string.expand_history),
-                        style = LocalSereneTypography.current.labelMd.copy(fontSize = 11.sp),
-                        color = SereneBrandPrimary
+                        style = LocalProstoTypography.current.labelMd.copy(fontSize = 11.sp),
+                        color = ProstoBrandPrimary
                     )
                 }
 
@@ -120,17 +120,17 @@ internal fun InsetGroupedHistoryCard(
                 ) {
                     Text(
                         text = stringResource(R.string.clear_history),
-                        style = LocalSereneTypography.current.labelMd.copy(fontSize = 11.sp),
-                        color = SereneBrandPrimary
+                        style = LocalProstoTypography.current.labelMd.copy(fontSize = 11.sp),
+                        color = ProstoBrandPrimary
                     )
                 }
             }
         }
 
         Surface(
-            shape = SereneShapes.Card,
+            shape = ProstoShapes.Card,
             color = if (isDark) DarkSurface else Color.White,
-            border = SereneBorders.cardBorder(isDark),
+            border = ProstoBorders.cardBorder(isDark),
             shadowElevation = 2.dp,
             modifier = Modifier
                 .fillMaxWidth()
@@ -157,13 +157,13 @@ internal fun InsetGroupedHistoryCard(
                         ) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
-                                color = SereneBrandPrimary,
+                                color = ProstoBrandPrimary,
                                 strokeWidth = 2.dp
                             )
                             Text(
                                 text = stringResource(R.string.loading_more_history),
-                                style = LocalSereneTypography.current.labelMd,
-                                color = if (isDark) DarkOnSurfaceVariant else SereneMutedSlate
+                                style = LocalProstoTypography.current.labelMd,
+                                color = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
                             )
                         }
                     }
@@ -186,14 +186,14 @@ internal fun InsetGroupedHistoryCard(
                         Icon(
                             imageVector = Icons.Default.History,
                             contentDescription = null,
-                            tint = SereneMutedSlate,
+                            tint = ProstoMutedSlate,
                             modifier = Modifier.size(18.dp)
                         )
 
                         Text(
                             text = item.title.ifEmpty { item.url },
-                            style = LocalSereneTypography.current.bodyMd,
-                            color = if (isDark) DarkOnSurface else SereneDarkText,
+                            style = LocalProstoTypography.current.bodyMd,
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f)
@@ -207,7 +207,7 @@ internal fun InsetGroupedHistoryCard(
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                 contentDescription = "Insert in search",
-                                tint = SereneMutedSlate,
+                                tint = ProstoMutedSlate,
                                 modifier = Modifier
                                     .size(16.dp)
                                     .rotate(45f)
@@ -230,9 +230,9 @@ internal fun InsetGroupedHistoryCard(
 @Composable
 internal fun HistoryEmptyCard(isDark: Boolean) {
     Surface(
-        shape = SereneShapes.Card,
+        shape = ProstoShapes.Card,
         color = if (isDark) DarkSurface else Color.White,
-        border = SereneBorders.cardBorder(isDark),
+        border = ProstoBorders.cardBorder(isDark),
         shadowElevation = 2.dp,
         modifier = Modifier
             .fillMaxWidth()
@@ -247,13 +247,13 @@ internal fun HistoryEmptyCard(isDark: Boolean) {
                 modifier = Modifier
                     .size(44.dp)
                     .clip(CircleShape)
-                    .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                    .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ManageSearch,
                     contentDescription = null,
-                    tint = SereneBrandPrimary,
+                    tint = ProstoBrandPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -261,14 +261,14 @@ internal fun HistoryEmptyCard(isDark: Boolean) {
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Search History",
-                style = LocalSereneTypography.current.headlineSm.copy(fontSize = 13.sp),
-                color = if (isDark) DarkOnSurface else SereneDarkText
+                text = stringResource(R.string.search_history_title),
+                style = LocalProstoTypography.current.headlineSm.copy(fontSize = 13.sp),
+                color = if (isDark) DarkOnSurface else ProstoDarkText
             )
             Text(
                 text = "Recent queries will appear here",
-                style = LocalSereneTypography.current.bodySm.copy(fontSize = 11.sp),
-                color = SereneMutedSlate
+                style = LocalProstoTypography.current.bodySm.copy(fontSize = 11.sp),
+                color = ProstoMutedSlate
             )
         }
     }

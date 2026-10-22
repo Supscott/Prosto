@@ -5,12 +5,13 @@ import android.net.Uri
 import android.util.Base64
 import android.util.Log
 import android.webkit.WebResourceResponse
-import com.jestk.browser.domain.repository.SettingsRepository
+import com.jestk.browser.domain.repository.BlockedRequestStats
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
 import java.io.ByteArrayInputStream
@@ -72,10 +73,7 @@ object AdBlockerEngine {
             "viqeo.tv",
         )
 
-    private val blockedHosts =
-        ConcurrentHashMap.newKeySet<String>().apply {
-            addAll(DEFAULT_HOSTS)
-        }
+    private val blockedHosts = HostBlocklist().apply { addAll(DEFAULT_HOSTS) }
 
     @Volatile
     private var isInitialized = false
@@ -97,8 +95,10 @@ object AdBlockerEngine {
         return synchronized(this) {
             initJob ?: run {
                 val appContext = runCatching { context.applicationContext }.getOrNull() ?: context
+                // The rule loading runs on the engine's own scope so that shutdown() cancels it
+                // together with the rest of the engine's background work.
                 val job =
-                    CoroutineScope(dispatcher + SupervisorJob()).launch {
+                    activeScope().launch(dispatcher) {
                         loadRulesFromAssets(appContext)
                     }
                 initJob = job
@@ -271,13 +271,17 @@ object AdBlockerEngine {
 
         if (blockedHosts.contains(host)) return true
 
-        // Check subdomain chains: e.g. "ads.sub.example.com" -> "sub.example.com" -> "example.com"
-        var currentHost = host
-        while (currentHost.contains('.')) {
-            val nextDotIndex = currentHost.indexOf('.')
-            if (nextDotIndex == -1 || nextDotIndex == currentHost.lastIndex) break
-            currentHost = currentHost.substring(nextDotIndex + 1)
-            if (blockedHosts.contains(currentHost)) {
+        // Check subdomain chains: e.g. "ads.sub.example.com" -> "sub.example.com" -> "example.com".
+        // The chain is walked with a moving index instead of a moving substring: every candidate
+        // suffix is compared in place inside the blocklist, so no intermediate string is allocated
+        // for the (overwhelmingly common) non-matching case.
+        var suffixStart = 0
+        while (true) {
+            val dotIndex = host.indexOf('.', suffixStart)
+            // A trailing dot terminates the chain: there is no further suffix left to test.
+            if (dotIndex == -1 || dotIndex == host.length - 1) break
+            suffixStart = dotIndex + 1
+            if (blockedHosts.containsSuffix(host, suffixStart)) {
                 return true
             }
         }
@@ -473,9 +477,67 @@ object AdBlockerEngine {
     fun containsHost(host: String): Boolean = blockedHosts.contains(host.lowercase())
 
     @Volatile
-    var settingsRepository: SettingsRepository? = null
+    private var blockedRequestStats: BlockedRequestStats? = null
 
-    private val engineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    /**
+     * Installs the sink that collects the blocked-request statistics.
+     *
+     * The engine depends on the narrow [BlockedRequestStats] contract instead of a settings
+     * repository, which keeps the Room-backed data layer out of the engine.
+     */
+    fun setBlockedRequestStats(stats: BlockedRequestStats?) {
+        blockedRequestStats = stats
+    }
+
+    private val scopeLock = Any()
+
+    @Volatile
+    private var engineScope: CoroutineScope = createEngineScope()
+
+    private fun createEngineScope(): CoroutineScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+
+    /**
+     * Returns the scope used for background bookkeeping, recreating it when it was cancelled by
+     * [shutdown]. The engine is an app-scoped singleton, so a shutdown must never leave it unable
+     * to record blocked requests.
+     */
+    private fun activeScope(): CoroutineScope =
+        synchronized(scopeLock) {
+            val current = engineScope
+            if (current.coroutineContext[Job]?.isActive == true) {
+                current
+            } else {
+                createEngineScope().also { engineScope = it }
+            }
+        }
+
+    /**
+     * Reports whether the background scope of the engine is running.
+     * Used by the tests to verify the teardown contract of [shutdown].
+     */
+    internal fun isScopeActive(): Boolean = engineScope.coroutineContext[Job]?.isActive == true
+
+    /**
+     * Makes sure the engine owns a running scope, recreating it after a [shutdown].
+     * Used by the tests to verify the teardown contract of [shutdown].
+     */
+    internal fun ensureScope(): Boolean = activeScope().coroutineContext[Job]?.isActive == true
+
+    /**
+     * Cancels the background work of the engine and the pending rule loading job.
+     *
+     * The call is idempotent and safe for a live app: the scope is recreated lazily on the next
+     * use, so the engine keeps working after a shutdown.
+     */
+    fun shutdown() {
+        synchronized(scopeLock) {
+            engineScope.cancel()
+        }
+        synchronized(this) {
+            initJob?.cancel()
+            initJob = null
+        }
+    }
 
     /**
      * Determines whether a given URL belongs to an analytics, tracker, telemetry, or beacon service.
@@ -561,14 +623,10 @@ object AdBlockerEngine {
     }
 
     fun recordBlockedRequest(url: String) {
-        val repo = settingsRepository ?: return
+        val stats = blockedRequestStats ?: return
         val tracker = isTracker(url)
-        engineScope.launch {
-            if (tracker) {
-                repo.incrementBlockedTrackers()
-            } else {
-                repo.incrementBlockedAds()
-            }
+        activeScope().launch {
+            stats.recordBlockedRequest(tracker)
         }
     }
 
@@ -579,7 +637,81 @@ object AdBlockerEngine {
             blockedHosts.clear()
             blockedHosts.addAll(DEFAULT_HOSTS)
             isInitialized = false
-            settingsRepository = null
+            blockedRequestStats = null
         }
+    }
+}
+
+/**
+ * Blocklist of hostnames that supports allocation-free suffix matching.
+ *
+ * Exact lookups use a plain hash set. Matching a subdomain ("ads.example.com" against the blocked
+ * host "example.com") needs to test every suffix of a host, which used to allocate one substring
+ * per candidate. To avoid that, the hosts are additionally bucketed by their own
+ * [String.hashCode]: a candidate suffix is hashed over its character range with the very same
+ * algorithm [String.hashCode] uses, so the bucket can be found without allocating a string, and
+ * the few candidates of that bucket are then compared in place with [String.regionMatches].
+ *
+ * The instance is safe for concurrent use: rules are loaded on a background thread while the
+ * matching runs on the main thread.
+ */
+private class HostBlocklist {
+    private val exactHosts = ConcurrentHashMap.newKeySet<String>()
+    private val hashBuckets = ConcurrentHashMap<Int, List<String>>()
+
+    val size: Int get() = exactHosts.size
+
+    fun add(host: String) {
+        if (!exactHosts.add(host)) return
+        hashBuckets.merge(host.hashCode(), listOf(host)) { existing, added -> existing + added }
+    }
+
+    fun addAll(hosts: Collection<String>) {
+        for (host in hosts) {
+            add(host)
+        }
+    }
+
+    fun clear() {
+        exactHosts.clear()
+        hashBuckets.clear()
+    }
+
+    /** Returns true when [host] itself is blocked. */
+    fun contains(host: String): Boolean = exactHosts.contains(host)
+
+    /**
+     * Returns true when the region of [host] that starts at [fromIndex] is a blocked host.
+     * The region is compared in place, so no substring is allocated.
+     */
+    fun containsSuffix(
+        host: String,
+        fromIndex: Int,
+    ): Boolean {
+        if (fromIndex < 0 || fromIndex >= host.length) return false
+        val candidates = hashBuckets[hashRegion(host, fromIndex)] ?: return false
+        val length = host.length - fromIndex
+        for (candidate in candidates) {
+            if (candidate.length == length && host.regionMatches(fromIndex, candidate, 0, length)) {
+                return true
+            }
+        }
+        return false
+    }
+
+    /**
+     * Hash of the region of [host] that starts at [fromIndex], computed exactly like
+     * [String.hashCode] of that substring, so a region hash always matches the hash of the equal
+     * string stored in the blocklist.
+     */
+    private fun hashRegion(
+        host: String,
+        fromIndex: Int,
+    ): Int {
+        var hash = 0
+        for (index in fromIndex until host.length) {
+            hash = 31 * hash + host[index].code
+        }
+        return hash
     }
 }

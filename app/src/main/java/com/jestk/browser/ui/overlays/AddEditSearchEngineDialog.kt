@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -68,14 +67,14 @@ import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
 
 @Composable
 fun AddEditSearchEngineDialog(
@@ -119,8 +118,8 @@ fun AddEditSearchEngineDialogContent(
     val coroutineScope = rememberCoroutineScope()
 
     val dialogBg = if (isDark) DarkSurface else Color.White
-    val inputBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
-    val textColor = if (isDark) DarkOnSurface else SereneDarkText
+    val inputBg = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor
+    val textColor = if (isDark) DarkOnSurface else ProstoDarkText
     val fieldBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
     val errorColor = Color(0xFFEF4444)
 
@@ -169,9 +168,9 @@ fun AddEditSearchEngineDialogContent(
         modifier = modifier
             .fillMaxWidth(0.92f)
             .padding(vertical = 24.dp),
-        shape = SereneShapes.Card,
+        shape = ProstoShapes.Card,
         color = dialogBg,
-        border = SereneBorders.floatingBorder(isDark),
+        border = ProstoBorders.floatingBorder(isDark),
         shadowElevation = 8.dp,
     ) {
         Column(
@@ -186,13 +185,13 @@ fun AddEditSearchEngineDialogContent(
                 modifier = Modifier
                     .size(52.dp)
                     .clip(CircleShape)
-                    .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                    .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
                 contentAlignment = Alignment.Center,
             ) {
                 if (!previewFaviconUrl.isNullOrBlank()) {
                     AsyncImage(
                         model = previewFaviconUrl,
-                        contentDescription = "Favicon",
+                        contentDescription = stringResource(R.string.favicon_content_description),
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape),
@@ -201,7 +200,7 @@ fun AddEditSearchEngineDialogContent(
                     Icon(
                         imageVector = if (engineToEdit != null) Icons.Default.Search else Icons.Default.Public,
                         contentDescription = null,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(26.dp),
                     )
                 }
@@ -211,8 +210,13 @@ fun AddEditSearchEngineDialogContent(
 
             // Title
             Text(
-                text = if (engineToEdit != null) "Edit Search Provider" else "Add Search Provider",
-                style = LocalSereneTypography.current.headlineMd.copy(
+                text =
+                    if (engineToEdit != null) {
+                        stringResource(R.string.search_engine_dialog_edit_title)
+                    } else {
+                        stringResource(R.string.search_engine_dialog_add_title)
+                    },
+                style = LocalProstoTypography.current.headlineMd.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 20.sp,
                 ),
@@ -226,12 +230,12 @@ fun AddEditSearchEngineDialogContent(
                 value = title,
                 onValueChange = { title = it },
                 label = { Text(stringResource(R.string.search_engine_title_label)) },
-                placeholder = { Text("e.g. YouTube, Wikipedia") },
+                placeholder = { Text(stringResource(R.string.search_engine_title_hint)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Title,
                         contentDescription = null,
-                        tint = SereneMutedSlate,
+                        tint = ProstoMutedSlate,
                         modifier = Modifier.size(20.dp),
                     )
                 },
@@ -240,8 +244,8 @@ fun AddEditSearchEngineDialogContent(
                         IconButton(onClick = { title = "" }, modifier = Modifier.size(24.dp)) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear",
-                                tint = SereneMutedSlate,
+                                contentDescription = stringResource(R.string.clear_action),
+                                tint = ProstoMutedSlate,
                                 modifier = Modifier.size(16.dp),
                             )
                         }
@@ -252,7 +256,7 @@ fun AddEditSearchEngineDialogContent(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = inputBg,
                     unfocusedContainerColor = inputBg,
-                    focusedBorderColor = SereneBrandPrimary,
+                    focusedBorderColor = ProstoBrandPrimary,
                     unfocusedBorderColor = fieldBorderColor,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
@@ -273,12 +277,12 @@ fun AddEditSearchEngineDialogContent(
                 value = shortcut,
                 onValueChange = { shortcut = it.filter { char -> !char.isWhitespace() } },
                 label = { Text(stringResource(R.string.search_engine_shortcut_label)) },
-                placeholder = { Text("e.g. y, yt, w") },
+                placeholder = { Text(stringResource(R.string.search_engine_shortcut_hint)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ShortText,
                         contentDescription = null,
-                        tint = SereneMutedSlate,
+                        tint = ProstoMutedSlate,
                         modifier = Modifier.size(20.dp),
                     )
                 },
@@ -287,8 +291,8 @@ fun AddEditSearchEngineDialogContent(
                         IconButton(onClick = { shortcut = "" }, modifier = Modifier.size(24.dp)) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear",
-                                tint = SereneMutedSlate,
+                                contentDescription = stringResource(R.string.clear_action),
+                                tint = ProstoMutedSlate,
                                 modifier = Modifier.size(16.dp),
                             )
                         }
@@ -298,9 +302,9 @@ fun AddEditSearchEngineDialogContent(
                 supportingText = {
                     if (isShortcutDuplicate) {
                         Text(
-                            text = "Shortcut '$trimmedShortcut' is already in use",
+                            text = stringResource(R.string.search_engine_shortcut_in_use, trimmedShortcut),
                             color = errorColor,
-                            style = LocalSereneTypography.current.labelSm,
+                            style = LocalProstoTypography.current.labelSm,
                         )
                     }
                 },
@@ -309,7 +313,7 @@ fun AddEditSearchEngineDialogContent(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = inputBg,
                     unfocusedContainerColor = inputBg,
-                    focusedBorderColor = SereneBrandPrimary,
+                    focusedBorderColor = ProstoBrandPrimary,
                     unfocusedBorderColor = fieldBorderColor,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
@@ -328,12 +332,12 @@ fun AddEditSearchEngineDialogContent(
                 value = urlTemplate,
                 onValueChange = { urlTemplate = it },
                 label = { Text(stringResource(R.string.search_engine_url_template_label)) },
-                placeholder = { Text("https://example.com/search?q=%s") },
+                placeholder = { Text(stringResource(R.string.search_engine_url_template_hint)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Link,
                         contentDescription = null,
-                        tint = SereneMutedSlate,
+                        tint = ProstoMutedSlate,
                         modifier = Modifier.size(20.dp),
                     )
                 },
@@ -346,8 +350,8 @@ fun AddEditSearchEngineDialogContent(
                             IconButton(onClick = { urlTemplate = "https://" }, modifier = Modifier.size(24.dp)) {
                                 Icon(
                                     imageVector = Icons.Default.Clear,
-                                    contentDescription = "Clear",
-                                    tint = SereneMutedSlate,
+                                    contentDescription = stringResource(R.string.clear_action),
+                                    tint = ProstoMutedSlate,
                                     modifier = Modifier.size(16.dp),
                                 )
                             }
@@ -368,8 +372,8 @@ fun AddEditSearchEngineDialogContent(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ContentPaste,
-                                contentDescription = "Paste",
-                                tint = SereneBrandPrimary,
+                                contentDescription = stringResource(R.string.paste_action),
+                                tint = ProstoBrandPrimary,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -379,9 +383,9 @@ fun AddEditSearchEngineDialogContent(
                 supportingText = {
                     if (trimmedUrl.isNotBlank() && !trimmedUrl.contains("%s")) {
                         Text(
-                            text = "URL must contain %s to replace with the search query",
+                            text = stringResource(R.string.search_engine_url_template_placeholder_missing),
                             color = errorColor,
-                            style = LocalSereneTypography.current.labelSm,
+                            style = LocalProstoTypography.current.labelSm,
                         )
                     }
                 },
@@ -390,7 +394,7 @@ fun AddEditSearchEngineDialogContent(
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = inputBg,
                     unfocusedContainerColor = inputBg,
-                    focusedBorderColor = SereneBrandPrimary,
+                    focusedBorderColor = ProstoBrandPrimary,
                     unfocusedBorderColor = fieldBorderColor,
                     focusedTextColor = textColor,
                     unfocusedTextColor = textColor,
@@ -408,7 +412,7 @@ fun AddEditSearchEngineDialogContent(
             // Hint Text Card
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = if (isDark) DarkSurfaceVariant.copy(alpha = 0.5f) else SerenePaleBlue.copy(alpha = 0.5f),
+                color = if (isDark) DarkSurfaceVariant.copy(alpha = 0.5f) else ProstoPaleBlue.copy(alpha = 0.5f),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
@@ -419,15 +423,15 @@ fun AddEditSearchEngineDialogContent(
                     Icon(
                         imageVector = Icons.Default.Info,
                         contentDescription = null,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier
                             .size(18.dp)
                             .padding(top = 2.dp),
                     )
                     Text(
-                        text = "Write the search url and replace the query with %s.\n\nFor example: https://youtube.com/search?q=%s",
-                        style = LocalSereneTypography.current.bodySm.copy(fontSize = 12.sp, lineHeight = 16.sp),
-                        color = if (isDark) DarkOnSurface.copy(alpha = 0.85f) else SereneDarkText.copy(alpha = 0.85f),
+                        text = stringResource(R.string.search_engine_template_hint),
+                        style = LocalProstoTypography.current.bodySm.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                        color = if (isDark) DarkOnSurface.copy(alpha = 0.85f) else ProstoDarkText.copy(alpha = 0.85f),
                     )
                 }
             }
@@ -443,7 +447,7 @@ fun AddEditSearchEngineDialogContent(
                     onClick = onDismiss,
                     shape = RoundedCornerShape(22.dp),
                     colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = if (isDark) DarkOnSurface else SereneDarkText,
+                        contentColor = if (isDark) DarkOnSurface else ProstoDarkText,
                     ),
                     border = androidx.compose.foundation.BorderStroke(1.dp, fieldBorderColor),
                     modifier = Modifier
@@ -451,8 +455,8 @@ fun AddEditSearchEngineDialogContent(
                         .height(44.dp),
                 ) {
                     Text(
-                        text = "Cancel",
-                        style = LocalSereneTypography.current.labelMd.copy(fontWeight = FontWeight.SemiBold),
+                        text = stringResource(R.string.cancel),
+                        style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.SemiBold),
                     )
                 }
 
@@ -461,7 +465,7 @@ fun AddEditSearchEngineDialogContent(
                     enabled = isFormValid,
                     shape = RoundedCornerShape(22.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SereneBrandPrimary,
+                        containerColor = ProstoBrandPrimary,
                         contentColor = Color.White,
                         disabledContainerColor = if (isDark) Color(0xFF334155) else Color(0xFFCBD5E1),
                         disabledContentColor = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8),
@@ -471,8 +475,13 @@ fun AddEditSearchEngineDialogContent(
                         .height(44.dp),
                 ) {
                     Text(
-                        text = if (engineToEdit != null) "Save" else "Add",
-                        style = LocalSereneTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
+                        text =
+                            if (engineToEdit != null) {
+                                stringResource(R.string.search_engine_save_action)
+                            } else {
+                                stringResource(R.string.add_action)
+                            },
+                        style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
                     )
                 }
             }

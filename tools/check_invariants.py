@@ -23,7 +23,7 @@ FAVICON_MANAGER = (
 
 
 def check_no_blur():
-    """Verify Serene Canvas (STRICT NO BLUR) invariant."""
+    """Verify Prosto Canvas (STRICT NO BLUR) invariant."""
     errors = []
     for file in MAIN_DIR.rglob("*.kt"):
         content = file.read_text(encoding="utf-8")
@@ -47,14 +47,19 @@ def check_webkit_crash_resilience():
 
 
 def check_domain_layer_purity():
-    """Verify domain layer does not import Android view or widget packages."""
+    """Verify the domain layer stays free of Android framework and Compose types.
+
+    The domain is plain Kotlin: it must not reach for views, widgets, bitmaps or any other
+    framework type. Platform data has to travel as plain values instead.
+    """
     errors = []
-    disallowed = re.compile(r"^import\s+android\.(view|widget)\.", re.MULTILINE)
+    disallowed = re.compile(r"^import\s+(android\.|androidx\.compose\.)", re.MULTILINE)
     for file in DOMAIN_DIR.rglob("*.kt"):
         content = file.read_text(encoding="utf-8")
-        if disallowed.search(content):
+        for match in disallowed.finditer(content):
             errors.append(
-                f"{file.relative_to(ROOT)}: imports disallowed android.view/widget package"
+                f"{file.relative_to(ROOT)}: imports disallowed package "
+                f"({match.group(0).strip()})"
             )
     return errors
 

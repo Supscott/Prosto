@@ -43,19 +43,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.ui.overlays.SearchEngineBadge
-import com.jestk.browser.ui.screens.LiquidSunsetSwitch
+import com.jestk.browser.ui.components.ProstoToggleSwitch
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCardSurface
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
-import com.jestk.browser.ui.theme.sereneFloatingSurface
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCardSurface
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
+import com.jestk.browser.ui.theme.prostoFloatingSurface
 
 @Composable
 internal fun SearchEngineSwitcherRow(
@@ -114,20 +114,20 @@ internal fun SearchEngineSwitcherEditButton(
     modifier: Modifier = Modifier
 ) {
     val containerColor = if (isEditActive) {
-        if (isDark) DarkSurfaceVariant else SerenePaleBlue
+        if (isDark) DarkSurfaceVariant else ProstoPaleBlue
     } else {
         if (isDark) DarkSurface else Color.White
     }
     val border = if (isEditActive) {
-        BorderStroke(1.5.dp, SereneBrandPrimary)
+        BorderStroke(1.5.dp, ProstoBrandPrimary)
     } else {
         if (isDark) BorderStroke(1.dp, DarkSurfaceVariant)
         else BorderStroke(1.dp, Color(0x2664748B))
     }
     val iconTint = if (isEditActive) {
-        SereneBrandPrimary
+        ProstoBrandPrimary
     } else {
-        if (isDark) DarkOnSurfaceVariant else SereneDarkText
+        if (isDark) DarkOnSurfaceVariant else ProstoDarkText
     }
 
     Surface(
@@ -162,7 +162,7 @@ internal fun SearchEngineSwitcherEditPopup(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val menuBg = if (isDark) DarkSurface else SereneCardSurface
+    val menuBg = if (isDark) DarkSurface else ProstoCardSurface
     val dividerColor = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)
 
     AnimatedVisibility(
@@ -178,8 +178,8 @@ internal fun SearchEngineSwitcherEditPopup(
         Box(
             modifier = Modifier
                 .width(250.dp)
-                .sereneFloatingSurface(
-                    shape = SereneShapes.Card,
+                .prostoFloatingSurface(
+                    shape = ProstoShapes.Card,
                     isDark = isDark,
                     backgroundColor = menuBg,
                     elevation = 12.dp
@@ -198,11 +198,11 @@ internal fun SearchEngineSwitcherEditPopup(
                 ) {
                     Text(
                         text = "Search Providers",
-                        style = LocalSereneTypography.current.labelMd.copy(
+                        style = LocalProstoTypography.current.labelMd.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
                         ),
-                        color = if (isDark) DarkOnSurface else SereneDarkText
+                        color = if (isDark) DarkOnSurface else ProstoDarkText
                     )
                     IconButton(
                         onClick = onDismiss,
@@ -211,7 +211,7 @@ internal fun SearchEngineSwitcherEditPopup(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = "Close",
-                            tint = SereneMutedSlate,
+                            tint = ProstoMutedSlate,
                             modifier = Modifier.size(16.dp)
                         )
                     }
@@ -247,16 +247,16 @@ internal fun SearchEngineSwitcherEditPopup(
                                 )
                                 Text(
                                     text = engine.displayName,
-                                    style = LocalSereneTypography.current.bodyMd.copy(
+                                    style = LocalProstoTypography.current.bodyMd.copy(
                                         fontWeight = FontWeight.Medium,
                                         fontSize = 13.sp
                                     ),
-                                    color = if (isDark) DarkOnSurface else SereneDarkText,
+                                    color = if (isDark) DarkOnSurface else ProstoDarkText,
                                     maxLines = 1
                                 )
                             }
 
-                            LiquidSunsetSwitch(
+                            ProstoToggleSwitch(
                                 checked = isVisible,
                                 onCheckedChange = { onToggleEngine(engine.id, it) }
                             )
@@ -283,22 +283,22 @@ internal fun SearchEngineChip(
 ) {
     val containerColor = when {
         isSelected && isDark -> DarkSurfaceVariant
-        isSelected && !isDark -> SerenePaleBlue
+        isSelected && !isDark -> ProstoPaleBlue
         !isSelected && isDark -> DarkSurface
         else -> Color.White
     }
 
     val border = when {
-        isSelected -> BorderStroke(1.5.dp, SereneBrandPrimary)
+        isSelected -> BorderStroke(1.5.dp, ProstoBrandPrimary)
         isDark -> BorderStroke(1.dp, DarkSurfaceVariant)
         else -> BorderStroke(1.dp, Color(0x2664748B))
     }
 
     val contentColor = when {
         isSelected && isDark -> DarkOnSurface
-        isSelected && !isDark -> SereneBrandPrimary
+        isSelected && !isDark -> ProstoBrandPrimary
         isDark -> DarkOnSurfaceVariant
-        else -> SereneDarkText
+        else -> ProstoDarkText
     }
 
     Surface(
@@ -322,7 +322,7 @@ internal fun SearchEngineChip(
 
             Text(
                 text = engine.displayName,
-                style = LocalSereneTypography.current.labelMd.copy(
+                style = LocalProstoTypography.current.labelMd.copy(
                     fontSize = 12.sp,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                 ),

@@ -38,10 +38,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
@@ -49,7 +51,7 @@ import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.sereneSkyBackground
+import com.jestk.browser.ui.theme.prostoSkyBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.LocalVibrationFeedback
@@ -69,9 +71,9 @@ private fun historyItemQuery(item: HistoryItem): String {
 }
 
 /**
- * Search & History Overlay - Serene Canvas design system (NO BLUR).
+ * Search & History Overlay - Prosto Canvas design system (NO BLUR).
  * Orchestrator composable assembling:
- * - Serene sky canvas background
+ * - Prosto sky canvas background
  * - Upward-expanding paginated history stack ([InsetGroupedHistoryCard])
  * - Quick favorites section ([SearchFavoritesSection])
  * - Capsule search input bar ([HeroSearchInputField])
@@ -155,7 +157,7 @@ fun SearchOverlay(
             modifier =
                 Modifier
                     .fillMaxSize()
-                    .sereneSkyBackground(isDark = isDark),
+                    .prostoSkyBackground(isDark = isDark),
         )
 
         // Layer 2: Foreground content containing solid cards & input
@@ -422,8 +424,8 @@ fun SearchOverlayLightPreview() {
                             ),
                             HistoryItem(
                                 id = 2,
-                                title = "Material 3 Liquid Glass Design System",
-                                url = "https://duckduckgo.com/?q=material+3+liquid+glass",
+                                title = stringResource(R.string.search_engine_design_system_label),
+                                url = "https://duckduckgo.com/?q=prosto+canvas+design",
                                 timestamp =
                                     System.currentTimeMillis() - 60000,
                             ),
@@ -470,8 +472,8 @@ fun SearchOverlayDarkPreview() {
                             ),
                             HistoryItem(
                                 id = 2,
-                                title = "Material 3 Liquid Glass Design System",
-                                url = "https://duckduckgo.com/?q=material+3+liquid+glass",
+                                title = stringResource(R.string.search_engine_design_system_label),
+                                url = "https://duckduckgo.com/?q=prosto+canvas+design",
                                 timestamp =
                                     System.currentTimeMillis() - 60000,
                             ),
@@ -510,8 +512,8 @@ fun SearchOverlayExpandedDarkPreview() {
                             ),
                             HistoryItem(
                                 id = 2,
-                                title = "Material 3 Liquid Glass Design System",
-                                url = "https://duckduckgo.com/?q=material+3+liquid+glass",
+                                title = stringResource(R.string.search_engine_design_system_label),
+                                url = "https://duckduckgo.com/?q=prosto+canvas+design",
                                 timestamp =
                                     System.currentTimeMillis() - 60000,
                             ),

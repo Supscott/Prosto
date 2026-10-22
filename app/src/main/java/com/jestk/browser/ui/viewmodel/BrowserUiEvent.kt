@@ -1,6 +1,5 @@
 package com.jestk.browser.ui.viewmodel
 
-import android.content.Context
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.OverlayType
@@ -307,10 +306,6 @@ sealed interface BrowserUiEvent {
     // Default Browser
     data class UpdateDefaultBrowserStatus(
         val isDefault: Boolean,
-    ) : BrowserUiEvent
-
-    data class CheckDefaultBrowser(
-        val context: Context,
     ) : BrowserUiEvent
 
     // Image Context Menu

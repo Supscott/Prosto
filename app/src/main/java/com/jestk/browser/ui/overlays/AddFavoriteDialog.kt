@@ -57,19 +57,19 @@ import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
 
 /**
  * Modal dialog for adding a new site to Favorites.
- * Follows the Serene Canvas design system:
- * - Level 2 floating card container (SereneShapes.Card = 24dp)
+ * Follows the Prosto Canvas design system:
+ * - Level 2 floating card container (ProstoShapes.Card = 24dp)
  * - Quick-paste action for website URL
  * - Automatic protocol normalization (prepends https:// when missing)
  * - Crisp solid surfaces with NO BLUR.
@@ -114,8 +114,8 @@ fun AddFavoriteDialogContent(
     val coroutineScope = rememberCoroutineScope()
 
     val dialogBg = if (isDark) DarkSurface else Color.White
-    val inputBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
-    val textColor = if (isDark) DarkOnSurface else SereneDarkText
+    val inputBg = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor
+    val textColor = if (isDark) DarkOnSurface else ProstoDarkText
     val fieldBorderColor = if (isDark) Color(0xFF334155) else Color(0xFFE2E8F0)
 
     fun submit() {
@@ -140,9 +140,9 @@ fun AddFavoriteDialogContent(
         modifier = modifier
             .fillMaxWidth(0.92f)
             .padding(vertical = 24.dp),
-        shape = SereneShapes.Card,
+        shape = ProstoShapes.Card,
         color = dialogBg,
-        border = SereneBorders.floatingBorder(isDark),
+        border = ProstoBorders.floatingBorder(isDark),
         shadowElevation = 8.dp,
     ) {
         Column(
@@ -161,7 +161,7 @@ fun AddFavoriteDialogContent(
                     modifier = Modifier
                         .size(40.dp)
                         .background(
-                            color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+                            color = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
                             shape = RoundedCornerShape(12.dp)
                         ),
                     contentAlignment = Alignment.Center,
@@ -169,7 +169,7 @@ fun AddFavoriteDialogContent(
                     Icon(
                         imageVector = Icons.Default.Star,
                         contentDescription = null,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(20.dp),
                     )
                 }
@@ -177,7 +177,7 @@ fun AddFavoriteDialogContent(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.add_favorite_dialog_title),
-                        style = LocalSereneTypography.current.headlineSm,
+                        style = LocalProstoTypography.current.headlineSm,
                         color = textColor,
                     )
                 }
@@ -189,19 +189,19 @@ fun AddFavoriteDialogContent(
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
-                textStyle = LocalSereneTypography.current.bodyMd,
+                textStyle = LocalProstoTypography.current.bodyMd,
                 placeholder = {
                     Text(
                         text = stringResource(R.string.add_favorite_name_hint),
-                        style = LocalSereneTypography.current.bodyMd,
-                        color = SereneMutedSlate,
+                        style = LocalProstoTypography.current.bodyMd,
+                        color = ProstoMutedSlate,
                     )
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.BookmarkBorder,
                         contentDescription = null,
-                        tint = SereneMutedSlate,
+                        tint = ProstoMutedSlate,
                         modifier = Modifier.size(20.dp),
                     )
                 },
@@ -210,8 +210,8 @@ fun AddFavoriteDialogContent(
                         IconButton(onClick = { title = "" }) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear",
-                                tint = SereneMutedSlate,
+                                contentDescription = stringResource(R.string.clear_action),
+                                tint = ProstoMutedSlate,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -237,19 +237,19 @@ fun AddFavoriteDialogContent(
             OutlinedTextField(
                 value = url,
                 onValueChange = { url = it },
-                textStyle = LocalSereneTypography.current.bodyMd,
+                textStyle = LocalProstoTypography.current.bodyMd,
                 placeholder = {
                     Text(
                         text = stringResource(R.string.add_favorite_url_hint),
-                        style = LocalSereneTypography.current.bodyMd,
-                        color = SereneMutedSlate,
+                        style = LocalProstoTypography.current.bodyMd,
+                        color = ProstoMutedSlate,
                     )
                 },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Default.Language,
                         contentDescription = null,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(20.dp),
                     )
                 },
@@ -258,8 +258,8 @@ fun AddFavoriteDialogContent(
                         IconButton(onClick = { url = "" }) {
                             Icon(
                                 imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear",
-                                tint = SereneMutedSlate,
+                                contentDescription = stringResource(R.string.clear_action),
+                                tint = ProstoMutedSlate,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -279,8 +279,8 @@ fun AddFavoriteDialogContent(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.ContentPaste,
-                                contentDescription = "Paste",
-                                tint = SereneBrandPrimary,
+                                contentDescription = stringResource(R.string.paste_action),
+                                tint = ProstoBrandPrimary,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -318,37 +318,37 @@ fun AddFavoriteDialogContent(
             ) {
                 OutlinedButton(
                     onClick = onDismiss,
-                    shape = SereneShapes.Pill,
+                    shape = ProstoShapes.Pill,
                     border = BorderStroke(1.dp, fieldBorderColor),
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(
                         text = stringResource(R.string.cancel),
-                        style = LocalSereneTypography.current.labelMd.copy(
+                        style = LocalProstoTypography.current.labelMd.copy(
                             fontWeight = FontWeight.SemiBold
                         ),
-                        color = SereneMutedSlate,
+                        color = ProstoMutedSlate,
                     )
                 }
 
                 Button(
                     onClick = { submit() },
                     enabled = url.isNotBlank(),
-                    shape = SereneShapes.Pill,
+                    shape = ProstoShapes.Pill,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = SereneBrandPrimary,
+                        containerColor = ProstoBrandPrimary,
                         contentColor = Color.White,
                         disabledContainerColor = if (isDark) DarkSurfaceVariant else Color(0xFFE2E8F0),
-                        disabledContentColor = SereneMutedSlate,
+                        disabledContentColor = ProstoMutedSlate,
                     ),
                     modifier = Modifier.weight(1f),
                 ) {
                     Text(
                         text = stringResource(R.string.add_favorite_add_button),
-                        style = LocalSereneTypography.current.labelMd.copy(
+                        style = LocalProstoTypography.current.labelMd.copy(
                             fontWeight = FontWeight.Bold
                         ),
-                        color = if (url.isNotBlank()) Color.White else SereneMutedSlate,
+                        color = if (url.isNotBlank()) Color.White else ProstoMutedSlate,
                     )
                 }
             }

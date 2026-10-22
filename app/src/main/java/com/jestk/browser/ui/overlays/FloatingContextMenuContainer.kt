@@ -46,15 +46,15 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoShapes
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
 /**
  * Floating contextual modal container that anchors near/under the user's touch location,
- * matching standard modern mobile browser interactions with Serene Canvas design.
+ * matching standard modern mobile browser interactions with Prosto Canvas design.
  *
  * Positioning rules:
  * - Below the finger if vertical space allows, with smooth scale-down from touch anchor.
@@ -173,9 +173,9 @@ fun FloatingContextMenuContainer(
 
         // 2. Floating Context Menu Card (Level 2 solid surface)
         Surface(
-            shape = SereneShapes.Card,
+            shape = ProstoShapes.Card,
             color = cardBg,
-            border = SereneBorders.floatingBorder(isDark),
+            border = ProstoBorders.floatingBorder(isDark),
             shadowElevation = 8.dp,
             modifier =
                 Modifier
@@ -200,7 +200,7 @@ fun FloatingContextMenuContainer(
 }
 
 /**
- * Reusable compact action row for context menus with Serene Canvas styling.
+ * Reusable compact action row for context menus with Prosto Canvas styling.
  */
 @Composable
 fun ContextMenuActionRow(
@@ -242,7 +242,7 @@ fun ContextMenuActionRow(
 
         Text(
             text = title,
-            style = LocalSereneTypography.current.bodyMd.copy(
+            style = LocalProstoTypography.current.bodyMd.copy(
                 fontWeight = FontWeight.Medium,
             ),
             color = titleColor,

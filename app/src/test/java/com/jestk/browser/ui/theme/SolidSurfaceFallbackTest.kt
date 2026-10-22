@@ -23,15 +23,14 @@ import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
- * Guards the frosted-glass fallback used when a [HazeState] has no registered source,
- * which is the case for the WebView viewport (Haze must not capture a live WebView into
- * its per-frame GraphicsLayer, see JestkApp). The tile must stay semi-transparent so the
- * content behind it shows through, instead of Haze's opaque scrim boost.
+ * Guards the solid-surface fallback used over the WebView viewport, where no captured
+ * backdrop is available. The tile must stay semi-transparent so the content behind it
+ * shows through, instead of collapsing into an opaque scrim.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-class FrostedGlassFallbackTest {
+class SolidSurfaceFallbackTest {
     @Composable
     private fun TileOverBackground(backgroundColor: Color) {
         Box(
@@ -45,7 +44,7 @@ class FrostedGlassFallbackTest {
                     Modifier
                         .align(Alignment.Center)
                         .size(120.dp)
-                        .liquidFrostedGlass(
+                        .prostoSolidSurface(
                             isDark = false,
                             alpha = 0.50f,
                         ),
@@ -77,12 +76,12 @@ class FrostedGlassFallbackTest {
     }
 
     @Test
-    fun tileStaysTranslucentWhenHazeHasNoSource() {
+    fun tileStaysTranslucentWithoutCapturedBackdrop() {
         val overWhite = renderTileOver(Color.White).getPixel(100, 100)
         val overBlack = renderTileOver(Color.Black).getPixel(100, 100)
 
         assertTrue(
-            "Frosted glass without a haze source must let the background show through, " +
+            "A solid surface without a captured backdrop must let the background show through, " +
                 "but rendered ${Integer.toHexString(overWhite)} over white and " +
                 "${Integer.toHexString(overBlack)} over black",
             overWhite != overBlack,

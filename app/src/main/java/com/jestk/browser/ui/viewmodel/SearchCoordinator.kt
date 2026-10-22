@@ -1,5 +1,6 @@
 package com.jestk.browser.ui.viewmodel
 
+import android.util.Log
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.SearchEngineRepository
@@ -10,6 +11,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+
+private const val TAG = "SearchCoordinator"
 
 /**
  * Coordinator for managing search engines, search history queries, and suggestions pagination.
@@ -126,7 +129,8 @@ internal class SearchCoordinator(
                         hasMoreHistory = nextPage.size >= HISTORY_PAGE_SIZE,
                     )
                 }
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to load more search history", e)
                 updateUiState { it.copy(isLoadingMoreHistory = false) }
             }
         }
@@ -166,6 +170,7 @@ internal class SearchCoordinator(
 
         if (currentMatch?.first?.id == targetEngine.id) return
 
+        Log.d(TAG, "Switching search engine to ${targetEngine.id} for query \"$query\"")
         val activeId = current.activeTabId
         val matchingTab = current.tabs
             .filter { tab ->
@@ -178,9 +183,11 @@ internal class SearchCoordinator(
             .maxByOrNull { it.lastActiveTimestamp }
 
         if (matchingTab != null) {
+            Log.d(TAG, "Reusing existing tab ${matchingTab.id} for engine ${targetEngine.id}")
             onSelectTab(matchingTab.id)
         } else {
             val targetUrl = targetEngine.buildSearchUrl(query)
+            Log.d(TAG, "Opening new tab for engine ${targetEngine.id}")
             onOpenNewTab(targetUrl)
         }
     }
@@ -257,6 +264,7 @@ internal class SearchCoordinator(
         }
 
         scope.launch(ioDispatcher) {
+            Log.d(TAG, "Saving search engine ${engineToSave.id} (${engineToSave.displayName})")
             searchEngineRepository?.saveSearchEngine(engineToSave)
             if (getCurrentState().settings.searchEngine.id == engineToSave.id) {
                 settingsRepository.setSearchEngine(engineToSave)
@@ -280,6 +288,7 @@ internal class SearchCoordinator(
         }
 
         scope.launch(ioDispatcher) {
+            Log.d(TAG, "Deleting search engine $id")
             searchEngineRepository?.deleteSearchEngine(id)
             if (wasSelected) {
                 settingsRepository.setSearchEngine(fallbackEngine)
@@ -296,6 +305,7 @@ internal class SearchCoordinator(
     }
 
     fun setSearchEngine(engine: SearchEngine) {
+        Log.d(TAG, "Selected search engine ${engine.id} (${engine.displayName})")
         updateUiState { it.copy(settings = it.settings.copy(searchEngine = engine)) }
         scope.launch(ioDispatcher) {
             settingsRepository.setSearchEngine(engine)

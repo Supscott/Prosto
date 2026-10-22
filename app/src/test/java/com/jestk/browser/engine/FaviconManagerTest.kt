@@ -312,5 +312,96 @@ class FaviconManagerTest {
         assertThat(FaviconManager.isValidLocalFavicon(null)).isFalse()
         assertThat(FaviconManager.isValidLocalFavicon("")).isFalse()
     }
+
+    // --- Typed favicon model (TYPE-03) ---
+
+    @Test
+    fun toFaviconImageModel_mapsEverySourceToATypedVariant() {
+        assertThat(FaviconManager.toFaviconImageModel(null)).isNull()
+        assertThat(FaviconManager.toFaviconImageModel("")).isNull()
+        assertThat(FaviconManager.toFaviconImageModel("   ")).isNull()
+
+        val asset = FaviconManager.toFaviconImageModel("file:///android_asset/icons/duckduckgo.svg")
+        assertThat(asset).isInstanceOf(FaviconImageModel.Asset::class.java)
+        assertThat((asset as FaviconImageModel.Asset).uri.toString())
+            .isEqualTo("file:///android_asset/icons/duckduckgo.svg")
+
+        val singleSlashAsset = FaviconManager.toFaviconImageModel("file:/android_asset/icons/duckduckgo.svg")
+        assertThat(singleSlashAsset).isInstanceOf(FaviconImageModel.Asset::class.java)
+        assertThat((singleSlashAsset as FaviconImageModel.Asset).uri.toString())
+            .isEqualTo("file:/android_asset/icons/duckduckgo.svg")
+
+        val assetFromPath = FaviconManager.toFaviconImageModel("/android_asset/icons/google.svg")
+        assertThat(assetFromPath).isInstanceOf(FaviconImageModel.Asset::class.java)
+        assertThat((assetFromPath as FaviconImageModel.Asset).uri.toString())
+            .isEqualTo("file:///android_asset/icons/google.svg")
+
+        val localFile = FaviconManager.toFaviconImageModel("/data/user/0/favicons/fav.png")
+        assertThat(localFile).isInstanceOf(FaviconImageModel.LocalFile::class.java)
+        assertThat((localFile as FaviconImageModel.LocalFile).file.absolutePath)
+            .isEqualTo("/data/user/0/favicons/fav.png")
+
+        val localFileFromUri = FaviconManager.toFaviconImageModel("file:///data/user/0/favicons/fav.png")
+        assertThat(localFileFromUri).isInstanceOf(FaviconImageModel.LocalFile::class.java)
+        assertThat((localFileFromUri as FaviconImageModel.LocalFile).file.absolutePath)
+            .isEqualTo("/data/user/0/favicons/fav.png")
+
+        val remote = FaviconManager.toFaviconImageModel("https://example.com/icon.png")
+        assertThat(remote).isInstanceOf(FaviconImageModel.Remote::class.java)
+        assertThat((remote as FaviconImageModel.Remote).url).isEqualTo("https://example.com/icon.png")
+    }
+
+    @Test
+    fun toImageModelForCoil_keepsTheRuntimeTypesExpectedByTheImageLoader() {
+        assertThat(FaviconManager.toImageModelForCoil(null)).isNull()
+        assertThat(FaviconManager.toImageModelForCoil("   ")).isNull()
+
+        assertThat(FaviconManager.toImageModelForCoil("https://example.com/icon.png"))
+            .isEqualTo("https://example.com/icon.png")
+
+        val fileModel = FaviconManager.toImageModelForCoil("/data/user/0/favicons/fav.png")
+        assertThat(fileModel).isInstanceOf(java.io.File::class.java)
+        assertThat((fileModel as java.io.File).absolutePath).isEqualTo("/data/user/0/favicons/fav.png")
+
+        val uriModel = FaviconManager.toImageModelForCoil("file:///android_asset/icons/google.svg")
+        assertThat(uriModel).isInstanceOf(android.net.Uri::class.java)
+        assertThat((uriModel as android.net.Uri).toString())
+            .isEqualTo("file:///android_asset/icons/google.svg")
+    }
+
+    @Test
+    fun toImageModel_staysCompatibleWithTheLegacyCallSites() {
+        // The legacy entry point must keep returning exactly what it returned before, so the
+        // existing UI call sites keep working unchanged.
+        assertThat(FaviconManager.toImageModel(null)).isNull()
+        assertThat(FaviconManager.toImageModel("   ")).isNull()
+        assertThat(FaviconManager.toImageModel("https://example.com/icon.png"))
+            .isEqualTo("https://example.com/icon.png")
+
+        val legacyFile = FaviconManager.toImageModel("/data/user/0/favicons/fav.png")
+        assertThat(legacyFile).isInstanceOf(java.io.File::class.java)
+        assertThat((legacyFile as java.io.File).absolutePath).isEqualTo("/data/user/0/favicons/fav.png")
+
+        val legacyAsset = FaviconManager.toImageModel("/android_asset/icons/google.svg")
+        assertThat(legacyAsset).isInstanceOf(android.net.Uri::class.java)
+        assertThat((legacyAsset as android.net.Uri).toString())
+            .isEqualTo("file:///android_asset/icons/google.svg")
+    }
+
+    @Test
+    fun toCoilModel_mapsTheTypedVariantsBackToTheLoaderValues() {
+        val asset = FaviconManager.toFaviconImageModel("file:///android_asset/icons/google.svg")
+        assertThat(asset!!.toCoilModel()).isInstanceOf(android.net.Uri::class.java)
+        assertThat((asset.toCoilModel() as android.net.Uri).toString())
+            .isEqualTo("file:///android_asset/icons/google.svg")
+
+        val localFile = FaviconManager.toFaviconImageModel("/data/user/0/favicons/fav.png")
+        assertThat(localFile!!.toCoilModel()).isInstanceOf(java.io.File::class.java)
+        assertThat((localFile.toCoilModel() as java.io.File).absolutePath)
+            .isEqualTo("/data/user/0/favicons/fav.png")
+
+        val remote = FaviconManager.toFaviconImageModel("https://example.com/icon.png")
+        assertThat(remote!!.toCoilModel()).isEqualTo("https://example.com/icon.png")
+    }
 }
 

@@ -44,19 +44,19 @@ import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneAccent
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoAccent
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 
 /**
- * Link Context Menu Floating Modal - Serene Canvas design system.
+ * Link Context Menu Floating Modal - Prosto Canvas design system.
  * Anchored directly under/near the user's finger touch position on hyperlinks.
  * Crisp Level 2 solid surface with NO BLUR.
  *
@@ -85,22 +85,6 @@ fun LinkContextMenuModal(
 }
 
 /**
- * Backwards-compatible alias for [LinkContextMenuModal].
- */
-@Composable
-fun LinkContextMenuBottomSheet(
-    url: String,
-    onEvent: (BrowserUiEvent) -> Unit,
-    anchor: Offset? = null,
-    modifier: Modifier = Modifier,
-) = LinkContextMenuModal(
-    url = url,
-    onEvent = onEvent,
-    anchor = anchor,
-    modifier = modifier,
-)
-
-/**
  * Visual content of Link Context Menu, extracted for reuse and Robolectric preview testing.
  */
 @Composable
@@ -115,8 +99,8 @@ fun LinkContextMenuContent(
     val tabOpenedInBackgroundMessage = stringResource(R.string.tab_opened_in_background)
     val urlCopiedMessage = stringResource(R.string.url_copied)
 
-    val textColor = if (isDark) DarkOnSurface else SereneDarkText
-    val headerBg = if (isDark) DarkSurfaceVariant else SereneCanvasFloor
+    val textColor = if (isDark) DarkOnSurface else ProstoDarkText
+    val headerBg = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor
     val dividerColor = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9)
 
     val displayHost =
@@ -137,7 +121,7 @@ fun LinkContextMenuContent(
         Surface(
             shape = RoundedCornerShape(14.dp),
             color = headerBg,
-            border = SereneBorders.cardBorder(isDark),
+            border = ProstoBorders.cardBorder(isDark),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
@@ -149,13 +133,13 @@ fun LinkContextMenuContent(
                         Modifier
                             .size(32.dp)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(if (isDark) DarkSurface else SerenePaleBlue),
+                            .background(if (isDark) DarkSurface else ProstoPaleBlue),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Language,
                         contentDescription = null,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -168,7 +152,7 @@ fun LinkContextMenuContent(
                             text = displayHost,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            style = LocalSereneTypography.current.bodyMd.copy(
+                            style = LocalProstoTypography.current.bodyMd.copy(
                                 fontWeight = FontWeight.SemiBold,
                             ),
                             color = textColor,
@@ -178,8 +162,8 @@ fun LinkContextMenuContent(
                         text = url,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        style = LocalSereneTypography.current.bodySm,
-                        color = SereneMutedSlate,
+                        style = LocalProstoTypography.current.bodySm,
+                        color = ProstoMutedSlate,
                     )
                 }
             }
@@ -197,8 +181,8 @@ fun LinkContextMenuContent(
         // Action 1: Open in new tab (foreground)
         ContextMenuActionRow(
             icon = Icons.AutoMirrored.Filled.OpenInNew,
-            iconTint = SereneBrandPrimary,
-            iconBg = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+            iconTint = ProstoBrandPrimary,
+            iconBg = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
             title = stringResource(R.string.open_in_new_tab),
             titleColor = textColor,
             onClick = {
@@ -212,7 +196,7 @@ fun LinkContextMenuContent(
         // Action 2: Open in background
         ContextMenuActionRow(
             icon = Icons.Default.Layers,
-            iconTint = SereneAccent,
+            iconTint = ProstoAccent,
             iconBg = if (isDark) DarkSurfaceVariant else Color(0xFFDFF7F3),
             title = stringResource(R.string.open_in_background),
             titleColor = textColor,
@@ -232,7 +216,7 @@ fun LinkContextMenuContent(
         // Action 3: Copy URL
         ContextMenuActionRow(
             icon = Icons.Default.ContentCopy,
-            iconTint = SereneMutedSlate,
+            iconTint = ProstoMutedSlate,
             iconBg = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
             title = stringResource(R.string.copy_link_url),
             titleColor = textColor,
@@ -253,14 +237,14 @@ fun LinkContextMenuContent(
 fun LinkContextMenuLightPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
         Surface(
-            shape = SereneShapes.Card,
+            shape = ProstoShapes.Card,
             color = Color.White,
-            border = SereneBorders.floatingBorder(isDark = false),
+            border = ProstoBorders.floatingBorder(isDark = false),
             shadowElevation = 8.dp,
             modifier = Modifier.width(310.dp),
         ) {
             LinkContextMenuContent(
-                url = "https://example.com/articles/serene-canvas-design",
+                url = "https://example.com/articles/prosto-canvas-design",
                 onEvent = {},
             )
         }
@@ -272,14 +256,14 @@ fun LinkContextMenuLightPreview() {
 fun LinkContextMenuDarkPreview() {
     JestkBrowserTheme(themeMode = ThemeMode.DARK) {
         Surface(
-            shape = SereneShapes.Card,
+            shape = ProstoShapes.Card,
             color = DarkSurface,
-            border = SereneBorders.floatingBorder(isDark = true),
+            border = ProstoBorders.floatingBorder(isDark = true),
             shadowElevation = 8.dp,
             modifier = Modifier.width(310.dp),
         ) {
             LinkContextMenuContent(
-                url = "https://example.com/articles/serene-canvas-design",
+                url = "https://example.com/articles/prosto-canvas-design",
                 onEvent = {},
             )
         }

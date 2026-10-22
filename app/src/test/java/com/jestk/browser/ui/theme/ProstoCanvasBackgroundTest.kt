@@ -19,7 +19,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
-class LiquidBackgroundTest {
+class ProstoCanvasBackgroundTest {
 
     private fun renderModifier(modifier: Modifier, width: Float, height: Float) {
         val bitmap = if (width > 0 && height > 0) {
@@ -73,9 +73,9 @@ class LiquidBackgroundTest {
     }
 
     @Test
-    fun liquidSunsetBackground_zeroDimension_doesNotCrash() {
-        val lightModifier = Modifier.liquidSunsetBackground(isDark = false)
-        val darkModifier = Modifier.liquidSunsetBackground(isDark = true)
+    fun prostoSkyBackground_zeroDimension_doesNotCrash() {
+        val lightModifier = Modifier.prostoSkyBackground(isDark = false)
+        val darkModifier = Modifier.prostoSkyBackground(isDark = true)
 
         // Must not throw IllegalArgumentException: radius must be > 0
         renderModifier(lightModifier, 0f, 0f)
@@ -83,18 +83,18 @@ class LiquidBackgroundTest {
     }
 
     @Test
-    fun liquidSunsetBackground_phonePortraitDimensions_rendersSuccessfully() {
-        val lightModifier = Modifier.liquidSunsetBackground(isDark = false)
-        val darkModifier = Modifier.liquidSunsetBackground(isDark = true)
+    fun prostoSkyBackground_phonePortraitDimensions_rendersSuccessfully() {
+        val lightModifier = Modifier.prostoSkyBackground(isDark = false)
+        val darkModifier = Modifier.prostoSkyBackground(isDark = true)
 
         renderModifier(lightModifier, 1080f, 2400f)
         renderModifier(darkModifier, 1080f, 2400f)
     }
 
     @Test
-    fun liquidSunsetBackground_tabletLandscapeDimensions_rendersSuccessfully() {
-        val lightModifier = Modifier.liquidSunsetBackground(isDark = false)
-        val darkModifier = Modifier.liquidSunsetBackground(isDark = true)
+    fun prostoSkyBackground_tabletLandscapeDimensions_rendersSuccessfully() {
+        val lightModifier = Modifier.prostoSkyBackground(isDark = false)
+        val darkModifier = Modifier.prostoSkyBackground(isDark = true)
 
         renderModifier(lightModifier, 2560f, 1600f)
         renderModifier(darkModifier, 2560f, 1600f)
@@ -136,30 +136,33 @@ class LiquidBackgroundTest {
     }
 
     @Test
-    fun liquidShapes_standardCornerRadii_areCorrect() {
+    fun prostoShapes_standardCornerRadii_areCorrect() {
         val testSize = Size(200f, 200f)
         val testDensity = Density(1f)
-        assertEquals(18f, LiquidShapes.Card.topStart.toPx(testSize, testDensity), 0.01f)
-        assertEquals(22f, LiquidShapes.ButtonPill.topStart.toPx(testSize, testDensity), 0.01f)
-        assertEquals(24f, LiquidShapes.Capsule.topStart.toPx(testSize, testDensity), 0.01f)
-        assertEquals(28f, LiquidShapes.BottomSheet.topStart.toPx(testSize, testDensity), 0.01f)
-        assertEquals(28f, LiquidShapes.BottomSheet.topEnd.toPx(testSize, testDensity), 0.01f)
-        assertEquals(0f, LiquidShapes.BottomSheet.bottomStart.toPx(testSize, testDensity), 0.01f)
-        assertEquals(29f, LiquidShapes.Dock.topStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(8f, ProstoShapes.Sm.topStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(16f, ProstoShapes.Md.topStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(24f, ProstoShapes.Card.topStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(28f, ProstoShapes.BottomSheet.topStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(28f, ProstoShapes.BottomSheet.topEnd.toPx(testSize, testDensity), 0.01f)
+        assertEquals(0f, ProstoShapes.BottomSheet.bottomStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(32f, ProstoShapes.Dock.topStart.toPx(testSize, testDensity), 0.01f)
+        // Continuous pill shapes resolve to 50% of the smaller dimension.
+        assertEquals(100f, ProstoShapes.ButtonPill.topStart.toPx(testSize, testDensity), 0.01f)
+        assertEquals(100f, ProstoShapes.Capsule.topStart.toPx(testSize, testDensity), 0.01f)
     }
 
     @Test
-    fun liquidBorders_lightAndDark_produceCorrectStrokes() {
-        val lightBorder = LiquidBorders.frostedBorder(isDark = false)
-        val darkBorder = LiquidBorders.frostedBorder(isDark = true)
+    fun prostoBorders_lightAndDark_produceCorrectStrokes() {
+        val lightBorder = ProstoBorders.frostedBorder(isDark = false)
+        val darkBorder = ProstoBorders.frostedBorder(isDark = true)
         assertEquals(1.dp, lightBorder.width)
         assertEquals(1.dp, darkBorder.width)
     }
 
     @Test
-    fun liquidFrostedGlass_createsNonNullModifiers() {
-        val lightGlass = Modifier.liquidFrostedGlass(shape = LiquidShapes.Card, isDark = false)
-        val darkGlass = Modifier.liquidFrostedGlass(shape = LiquidShapes.Dock, isDark = true)
+    fun prostoSolidSurface_createsNonNullModifiers() {
+        val lightGlass = Modifier.prostoSolidSurface(shape = ProstoShapes.Card, isDark = false)
+        val darkGlass = Modifier.prostoSolidSurface(shape = ProstoShapes.Dock, isDark = true)
         assertNotNull(lightGlass)
         assertNotNull(darkGlass)
     }

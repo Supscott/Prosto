@@ -21,13 +21,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
+import com.jestk.browser.ui.components.ProstoToggleSwitch
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCanvasFloor
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
 
 /**
  * INTERACTION section of the settings screen.
@@ -61,13 +62,13 @@ fun SettingsInteractionSection(
                         Modifier
                             .size(34.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (isDark) DarkSurfaceVariant else SereneCanvasFloor),
+                            .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Vibration,
                         contentDescription = null,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(20.dp),
                     )
                 }
@@ -75,18 +76,18 @@ fun SettingsInteractionSection(
                 Column {
                     Text(
                         text = stringResource(R.string.vibration_setting_title),
-                        style = LocalSereneTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                        color = if (isDark) DarkOnSurface else SereneDarkText,
+                        style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                        color = if (isDark) DarkOnSurface else ProstoDarkText,
                     )
                     Text(
                         text = stringResource(R.string.vibration_setting_summary),
-                        style = LocalSereneTypography.current.bodySm,
-                        color = SereneMutedSlate,
+                        style = LocalProstoTypography.current.bodySm,
+                        color = ProstoMutedSlate,
                     )
                 }
             }
 
-            LiquidSunsetSwitch(
+            ProstoToggleSwitch(
                 checked = isVibrationEnabled,
                 onCheckedChange = onVibrationEnabledChange,
             )

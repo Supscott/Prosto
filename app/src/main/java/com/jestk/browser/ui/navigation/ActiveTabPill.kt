@@ -59,20 +59,20 @@ import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkTextHighContrast
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneAccent
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoAccent
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.util.ClipboardHelper
 import com.jestk.browser.util.LocalVibrationFeedback
 import kotlin.math.abs
 
 /**
  * Active tab capsule composable representing the currently focused tab.
- * Adheres to Serene Canvas design system:
+ * Adheres to Prosto Canvas design system:
  * - Solid crisp surface (#FFFFFF in light, #0D1824 in dark) with light elevation shadow (2.dp) and no outline.
- * - In-capsule loading progress fill (100% height, animatedProgress width, 20% opacity SereneBrandPrimary).
+ * - In-capsule loading progress fill (100% height, animatedProgress width, 20% opacity ProstoBrandPrimary).
  * - Bare favicon without background box.
  * - Bold title typography in high-contrast text color (#0F172A in light, #F8FAFC in dark).
  * - Secondary domain subtitle (#64748B in light, #94A3B8 in dark).
@@ -117,12 +117,12 @@ fun ActiveTabPill(
     val currentOnDragCancel by rememberUpdatedState(onDragCancel)
 
     var showMenu by remember { mutableStateOf(false) }
-    val typography = LocalSereneTypography.current
+    val typography = LocalProstoTypography.current
 
-    val titleColor = if (isDark) DarkTextHighContrast else SereneDarkText
-    val domainColor = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
-    val iconTint = if (isDark) SereneAccent else SereneBrandPrimary
-    val closeTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
+    val titleColor = if (isDark) DarkTextHighContrast else ProstoDarkText
+    val domainColor = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
+    val iconTint = if (isDark) ProstoAccent else ProstoBrandPrimary
+    val closeTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
     val resolvedBg = backgroundColor
     val resolvedBorder = border
 
@@ -154,7 +154,7 @@ fun ActiveTabPill(
                     .fillMaxSize()
                     .clip(RoundedCornerShape(21.dp)),
         ) {
-            // Page Loading Progress Fill (height: 100%, 20% opacity SereneBrandPrimary)
+            // Page Loading Progress Fill (height: 100%, 20% opacity ProstoBrandPrimary)
             AnimatedVisibility(
                 visible = isLoading && animatedProgress > 0f,
                 enter = fadeIn(animationSpec = tween(150)),
@@ -170,7 +170,7 @@ fun ActiveTabPill(
                             Modifier
                                 .fillMaxHeight()
                                 .fillMaxWidth(fraction = animatedProgress)
-                                .background(SereneBrandPrimary.copy(alpha = 0.20f)),
+                                .background(ProstoBrandPrimary.copy(alpha = 0.20f)),
                     )
                 }
             }

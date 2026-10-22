@@ -8,20 +8,13 @@ import androidx.compose.animation.core.calculateTargetValue
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.splineBasedDecay
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -73,12 +66,11 @@ import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkPrimary
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.VibrationFeedback
 import kotlinx.coroutines.CoroutineScope
@@ -409,7 +401,7 @@ internal fun SearchEngineSelectorButton(
     modifier: Modifier = Modifier,
 ) {
     val bg = if (isDark) DarkSurface else Color.White
-    val border = SereneBorders.cardBorder(isDark)
+    val border = ProstoBorders.cardBorder(isDark)
     val density = carouselState.density
 
     val containerWidth by animateDpAsState(
@@ -500,7 +492,7 @@ internal fun SearchEngineSelectorButton(
                 val centerSlotFloat = -carouselState.animOffset.value / carouselState.itemSpacingPx
                 val centerSlotInt = centerSlotFloat.roundToInt()
                 val scrollProgress = if (carouselState.isScrolling) 1f else fadeAlpha
-                val accentColor = if (isDark) DarkPrimary else SereneBrandPrimary
+                val accentColor = if (isDark) DarkPrimary else ProstoBrandPrimary
 
                 for (k in (centerSlotInt - 3)..(centerSlotInt + 3)) {
                     key(k) {
@@ -538,7 +530,7 @@ internal fun SearchEngineSelectorButton(
                                     },
                             contentAlignment = Alignment.Center,
                         ) {
-                            // Serene Canvas active accent ring around badge
+                            // Prosto Canvas active accent ring around badge
                             if (indicatorAlpha > 0.01f) {
                                 Box(
                                     modifier =
@@ -559,7 +551,7 @@ internal fun SearchEngineSelectorButton(
                                 isDark = isDark,
                             )
 
-                            // Serene Canvas active accent indicator pill below badge
+                            // Prosto Canvas active accent indicator pill below badge
                             if (indicatorAlpha > 0.01f) {
                                 Box(
                                     modifier =
@@ -582,7 +574,7 @@ internal fun SearchEngineSelectorButton(
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = "Search engine selector",
-                tint = if (isDark) DarkOnSurfaceVariant else SereneMutedSlate,
+                tint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
                 modifier =
                     Modifier
                         .align(Alignment.CenterEnd)
@@ -808,7 +800,7 @@ internal fun SearchEngineBadge(
             modifier
                 .size(size)
                 .clip(CircleShape)
-                .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
         contentAlignment = Alignment.Center,
     ) {
         if (!isImageError && imageModel != null) {
@@ -824,11 +816,11 @@ internal fun SearchEngineBadge(
             Text(
                 text = engine.displayName.take(1).uppercase(),
                 style =
-                    LocalSereneTypography.current.labelSm.copy(
+                    LocalProstoTypography.current.labelSm.copy(
                         fontWeight = FontWeight.Bold,
                         fontSize = (size.value * 0.45f).sp,
                     ),
-                color = if (isDark) DarkPrimary else SereneBrandPrimary,
+                color = if (isDark) DarkPrimary else ProstoBrandPrimary,
             )
         }
     }

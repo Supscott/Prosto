@@ -51,31 +51,33 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.R
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
-import com.jestk.browser.ui.theme.SereneShapes
-import com.jestk.browser.ui.theme.sereneSkyBackground
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.theme.ProstoShapes
+import com.jestk.browser.ui.theme.prostoSkyBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
 /**
- * Tab Overview Grid - Liquid Pastel Sunset design system.
+ * Tab Overview Grid - Prosto Canvas design system.
  * Features:
- * - Top navigation bar with back button, "Tabs Overview", and sunset orb icon
+ * - Top navigation bar with back button, "Tabs Overview", and accent orb icon
  * - Sub-header with tab count, search in tabs, and gradient "+" add button
  * - 3-column grid with aspect-[4/5] previews
  * - Active tab highlighted with multi-color gradient border (#7BA7D7 -> #F6B99D -> #D391A5)
@@ -123,7 +125,7 @@ fun TabOverviewGrid(
         modifier =
             modifier
                 .fillMaxSize()
-                .sereneSkyBackground(isDark = isDark)
+                .prostoSkyBackground(isDark = isDark)
                 .statusBarsPadding()
                 .navigationBarsPadding(),
     ) {
@@ -144,15 +146,15 @@ fun TabOverviewGrid(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
                         contentDescription = "Back",
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(20.dp),
                     )
                 }
 
                 Text(
                     text = "Tabs Overview",
-                    style = LocalSereneTypography.current.headlineSm,
-                    color = if (isDark) DarkOnSurface else SereneDarkText,
+                    style = LocalProstoTypography.current.headlineSm,
+                    color = if (isDark) DarkOnSurface else ProstoDarkText,
                 )
 
                 // Clean Badge
@@ -161,13 +163,13 @@ fun TabOverviewGrid(
                         Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(if (isDark) DarkSurfaceVariant else SerenePaleBlue),
+                            .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Public,
                         contentDescription = null,
-                        tint = SereneBrandPrimary,
+                        tint = ProstoBrandPrimary,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -192,8 +194,8 @@ fun TabOverviewGrid(
                     }
                 Text(
                     text = tabCountText,
-                    style = LocalSereneTypography.current.headlineMd,
-                    color = if (isDark) DarkOnSurface else SereneDarkText,
+                    style = LocalProstoTypography.current.headlineMd,
+                    color = if (isDark) DarkOnSurface else ProstoDarkText,
                 )
 
                 Row(
@@ -214,7 +216,7 @@ fun TabOverviewGrid(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "Search in tabs",
-                            tint = if (isSearchVisible) SereneBrandPrimary else SereneMutedSlate,
+                            tint = if (isSearchVisible) ProstoBrandPrimary else ProstoMutedSlate,
                             modifier = Modifier.size(22.dp),
                         )
                     }
@@ -225,7 +227,7 @@ fun TabOverviewGrid(
                             Modifier
                                 .size(40.dp)
                                 .clip(CircleShape)
-                                .background(SereneBrandPrimary)
+                                .background(ProstoBrandPrimary)
                                 .clickable {
                                     onEvent(BrowserUiEvent.OpenNewTab(""))
                                     onEvent(BrowserUiEvent.DismissOverlay)
@@ -245,9 +247,9 @@ fun TabOverviewGrid(
             // Expandable in-place tab search filter bar
             AnimatedVisibility(visible = isSearchVisible) {
                 Surface(
-                    shape = SereneShapes.Pill,
+                    shape = ProstoShapes.Pill,
                     color = if (isDark) DarkSurface else Color.White,
-                    border = SereneBorders.cardBorder(isDark),
+                    border = ProstoBorders.cardBorder(isDark),
                     shadowElevation = 2.dp,
                     modifier =
                         Modifier
@@ -266,7 +268,7 @@ fun TabOverviewGrid(
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = null,
-                            tint = SereneMutedSlate,
+                            tint = ProstoMutedSlate,
                             modifier = Modifier.size(18.dp),
                         )
                         BasicTextField(
@@ -279,10 +281,10 @@ fun TabOverviewGrid(
                                     .focusRequester(searchFocusRequester),
                             singleLine = true,
                             textStyle =
-                                LocalSereneTypography.current.bodyMd.copy(
-                                    color = if (isDark) DarkOnSurface else SereneDarkText,
+                                LocalProstoTypography.current.bodyMd.copy(
+                                    color = if (isDark) DarkOnSurface else ProstoDarkText,
                                 ),
-                            cursorBrush = SolidColor(SereneBrandPrimary),
+                            cursorBrush = SolidColor(ProstoBrandPrimary),
                             keyboardOptions =
                                 KeyboardOptions(
                                     imeAction = ImeAction.Search,
@@ -299,8 +301,8 @@ fun TabOverviewGrid(
                                     if (tabSearchQuery.isEmpty()) {
                                         Text(
                                             text = "Filter tabs by title or URL...",
-                                            style = LocalSereneTypography.current.bodyMd,
-                                            color = SereneMutedSlate,
+                                            style = LocalProstoTypography.current.bodyMd,
+                                            color = ProstoMutedSlate,
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
                                         )
@@ -319,8 +321,8 @@ fun TabOverviewGrid(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Close,
-                                    contentDescription = "Clear",
-                                    tint = SereneMutedSlate,
+                                    contentDescription = stringResource(R.string.clear_action),
+                                    tint = ProstoMutedSlate,
                                     modifier = Modifier.size(14.dp),
                                 )
                             }
@@ -374,15 +376,15 @@ fun TabOverviewGrid(
                 Text(
                     text = "Close All",
                     color = MaterialTheme.colorScheme.error,
-                    style = LocalSereneTypography.current.labelMd.copy(fontWeight = FontWeight.SemiBold),
+                    style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.SemiBold),
                 )
             }
 
             // Floating Centered "Done" Pill Button
             Surface(
-                shape = SereneShapes.Pill,
+                shape = ProstoShapes.Pill,
                 color = if (isDark) DarkSurface else Color.White,
-                border = SereneBorders.floatingBorder(isDark),
+                border = ProstoBorders.floatingBorder(isDark),
                 shadowElevation = 4.dp,
                 modifier =
                     Modifier
@@ -395,9 +397,9 @@ fun TabOverviewGrid(
                 ) {
                     Text(
                         text = "Done",
-                        color = SereneBrandPrimary,
+                        color = ProstoBrandPrimary,
                         style =
-                            LocalSereneTypography.current.labelMd.copy(
+                            LocalProstoTypography.current.labelMd.copy(
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold,
                             ),

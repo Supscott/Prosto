@@ -6,7 +6,6 @@ import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -30,7 +29,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
@@ -49,11 +47,11 @@ import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
 
 @Composable
 internal fun HeroSearchInputField(
@@ -85,7 +83,7 @@ internal fun HeroSearchInputField(
     }
 
     val bg = if (isDark) DarkSurface else Color.White
-    val border = SereneBorders.cardBorder(isDark)
+    val border = ProstoBorders.cardBorder(isDark)
 
     val gestureModifier = if (carouselState != null) {
         Modifier.searchEngineInputGestures(
@@ -122,7 +120,7 @@ internal fun HeroSearchInputField(
             Icon(
                 imageVector = Icons.Default.Search,
                 contentDescription = null,
-                tint = SereneMutedSlate,
+                tint = ProstoMutedSlate,
                 modifier = Modifier.size(20.dp)
             )
 
@@ -131,10 +129,10 @@ internal fun HeroSearchInputField(
                 value = textFieldValue,
                 onValueChange = onValueChange,
                 singleLine = true,
-                textStyle = LocalSereneTypography.current.bodyMd.copy(
-                    color = if (isDark) DarkOnSurface else SereneDarkText
+                textStyle = LocalProstoTypography.current.bodyMd.copy(
+                    color = if (isDark) DarkOnSurface else ProstoDarkText
                 ),
-                cursorBrush = SolidColor(SereneBrandPrimary),
+                cursorBrush = SolidColor(ProstoBrandPrimary),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
                     imeAction = ImeAction.Go
@@ -152,8 +150,8 @@ internal fun HeroSearchInputField(
                         if (textFieldValue.text.isEmpty()) {
                             Text(
                                 text = stringResource(R.string.search_with_engine, searchEngine.displayName),
-                                style = LocalSereneTypography.current.bodyMd,
-                                color = SereneMutedSlate,
+                                style = LocalProstoTypography.current.bodyMd,
+                                color = ProstoMutedSlate,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )
@@ -175,8 +173,8 @@ internal fun HeroSearchInputField(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Clear,
-                        contentDescription = "Clear",
-                        tint = SereneMutedSlate,
+                        contentDescription = stringResource(R.string.clear_action),
+                        tint = ProstoMutedSlate,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -197,7 +195,7 @@ internal fun HeroSearchInputField(
                     Icon(
                         imageVector = Icons.Default.Mic,
                         contentDescription = "Voice Input",
-                        tint = SereneMutedSlate,
+                        tint = ProstoMutedSlate,
                         modifier = Modifier.size(20.dp)
                     )
                 }

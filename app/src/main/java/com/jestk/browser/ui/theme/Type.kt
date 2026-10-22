@@ -45,7 +45,7 @@ val Inter: FontFamily =
  * Dedicated typography tokens matching the new-design.md type scale.
  */
 @Immutable
-data class SereneTypographyTokens(
+data class ProstoTypographyTokens(
     val headlineXl: TextStyle =
         TextStyle(
             fontFamily = Manrope,
@@ -115,27 +115,27 @@ data class SereneTypographyTokens(
         ),
 )
 
-val SereneTextStyles = SereneTypographyTokens()
-val LocalSereneTypography = staticCompositionLocalOf { SereneTextStyles }
+val ProstoTextStyles = ProstoTypographyTokens()
+val LocalProstoTypography = staticCompositionLocalOf { ProstoTextStyles }
 
 /**
  * Material 3 Typography configured with Manrope titles and Inter body text.
  */
-val SereneTypography =
+val ProstoTypography =
     Typography(
-        displayLarge = SereneTextStyles.headlineXl,
-        displayMedium = SereneTextStyles.headlineLg,
-        displaySmall = SereneTextStyles.headlineMd,
-        headlineLarge = SereneTextStyles.headlineXl,
-        headlineMedium = SereneTextStyles.headlineLg,
-        headlineSmall = SereneTextStyles.headlineMd,
-        titleLarge = SereneTextStyles.headlineSm,
-        titleMedium = SereneTextStyles.headlineSm,
-        titleSmall = SereneTextStyles.bodyLg,
-        bodyLarge = SereneTextStyles.bodyLg,
-        bodyMedium = SereneTextStyles.bodyMd,
-        bodySmall = SereneTextStyles.bodySm,
-        labelLarge = SereneTextStyles.labelMd,
-        labelMedium = SereneTextStyles.labelMd,
-        labelSmall = SereneTextStyles.labelSm,
+        displayLarge = ProstoTextStyles.headlineXl,
+        displayMedium = ProstoTextStyles.headlineLg,
+        displaySmall = ProstoTextStyles.headlineMd,
+        headlineLarge = ProstoTextStyles.headlineXl,
+        headlineMedium = ProstoTextStyles.headlineLg,
+        headlineSmall = ProstoTextStyles.headlineMd,
+        titleLarge = ProstoTextStyles.headlineSm,
+        titleMedium = ProstoTextStyles.headlineSm,
+        titleSmall = ProstoTextStyles.bodyLg,
+        bodyLarge = ProstoTextStyles.bodyLg,
+        bodyMedium = ProstoTextStyles.bodyMd,
+        bodySmall = ProstoTextStyles.bodySm,
+        labelLarge = ProstoTextStyles.labelMd,
+        labelMedium = ProstoTextStyles.labelMd,
+        labelSmall = ProstoTextStyles.labelSm,
     )

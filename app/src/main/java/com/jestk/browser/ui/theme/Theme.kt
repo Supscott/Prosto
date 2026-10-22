@@ -4,8 +4,6 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -25,38 +23,38 @@ import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.ThemeMode
 
 // ==========================================
-// Serene Canvas Color Schemes
+// Prosto Canvas Color Schemes
 // ==========================================
 
 val LightColorScheme =
     lightColorScheme(
-        primary = SerenePrimary,
-        onPrimary = SereneOnPrimary,
-        primaryContainer = SerenePrimaryContainer,
-        onPrimaryContainer = SereneOnPrimaryContainer,
-        secondary = SereneSecondary,
-        onSecondary = SereneOnSecondary,
-        secondaryContainer = SereneSecondaryContainer,
-        onSecondaryContainer = SereneOnSecondaryContainer,
-        tertiary = SereneTertiary,
-        onTertiary = SereneOnTertiary,
-        tertiaryContainer = SereneTertiaryContainer,
-        onTertiaryContainer = SereneOnTertiaryContainer,
-        surface = SereneSurface,
-        onSurface = SereneOnSurface,
-        surfaceVariant = SereneSurfaceContainerHighest,
-        onSurfaceVariant = SereneOnSurfaceVariant,
-        background = SereneCanvasFloor,
-        onBackground = SereneOnSurface,
-        outline = SereneOutline,
-        outlineVariant = SereneOutlineVariant,
-        error = SereneError,
-        onError = SereneOnError,
-        errorContainer = SereneErrorContainer,
-        onErrorContainer = SereneOnErrorContainer,
-        inverseSurface = SereneInverseSurface,
-        inverseOnSurface = SereneInverseOnSurface,
-        inversePrimary = SereneInversePrimary,
+        primary = ProstoPrimary,
+        onPrimary = ProstoOnPrimary,
+        primaryContainer = ProstoPrimaryContainer,
+        onPrimaryContainer = ProstoOnPrimaryContainer,
+        secondary = ProstoSecondary,
+        onSecondary = ProstoOnSecondary,
+        secondaryContainer = ProstoSecondaryContainer,
+        onSecondaryContainer = ProstoOnSecondaryContainer,
+        tertiary = ProstoTertiary,
+        onTertiary = ProstoOnTertiary,
+        tertiaryContainer = ProstoTertiaryContainer,
+        onTertiaryContainer = ProstoOnTertiaryContainer,
+        surface = ProstoSurface,
+        onSurface = ProstoOnSurface,
+        surfaceVariant = ProstoSurfaceContainerHighest,
+        onSurfaceVariant = ProstoOnSurfaceVariant,
+        background = ProstoCanvasFloor,
+        onBackground = ProstoOnSurface,
+        outline = ProstoOutline,
+        outlineVariant = ProstoOutlineVariant,
+        error = ProstoError,
+        onError = ProstoOnError,
+        errorContainer = ProstoErrorContainer,
+        onErrorContainer = ProstoOnErrorContainer,
+        inverseSurface = ProstoInverseSurface,
+        inverseOnSurface = ProstoInverseOnSurface,
+        inversePrimary = ProstoInversePrimary,
     )
 
 val DarkColorScheme =
@@ -87,7 +85,7 @@ val DarkColorScheme =
         onErrorContainer = DarkOnErrorContainer,
         inverseSurface = DarkInverseSurface,
         inverseOnSurface = DarkInverseOnSurface,
-        inversePrimary = SerenePrimary,
+        inversePrimary = ProstoPrimary,
     )
 
 val LocalIsDarkTheme = compositionLocalOf { false }
@@ -101,7 +99,7 @@ fun isAppDarkTheme(themeMode: ThemeMode = ThemeMode.SYSTEM): Boolean =
     }
 
 /**
- * Top-level application theme applying Serene Canvas color schemes and the
+ * Top-level application theme applying Prosto Canvas color schemes and the
  * Manrope title / Inter body typography.
  */
 @Composable
@@ -114,21 +112,21 @@ fun JestkBrowserTheme(
 
     CompositionLocalProvider(
         LocalIsDarkTheme provides darkTheme,
-        LocalSereneTypography provides SereneTextStyles,
+        LocalProstoTypography provides ProstoTextStyles,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
-            typography = SereneTypography,
+            typography = ProstoTypography,
             content = content,
         )
     }
 }
 
 // ==========================================
-// Serene Shapes Hierarchy (DESIGN.md)
+// Prosto Shapes Hierarchy (DESIGN.md)
 // ==========================================
 
-object SereneShapes {
+object ProstoShapes {
     /** 8dp for small chips, badges, and tags */
     val Sm = RoundedCornerShape(8.dp)
 
@@ -151,22 +149,11 @@ object SereneShapes {
     val Capsule = CircleShape
 }
 
-/**
- * Backward compatibility alias for LiquidShapes.
- */
-object LiquidShapes {
-    val Card = RoundedCornerShape(18.dp)
-    val ButtonPill = RoundedCornerShape(22.dp)
-    val Capsule = RoundedCornerShape(24.dp)
-    val BottomSheet = SereneShapes.BottomSheet
-    val Dock = RoundedCornerShape(29.dp)
-}
-
 // ==========================================
-// Serene Borders & Rim Highlights
+// Prosto Borders & Rim Highlights
 // ==========================================
 
-object SereneBorders {
+object ProstoBorders {
     /**
      * Level 1 micro-border: 1px solid rgba(226, 232, 240, 0.8) in light mode,
      * subtle slate border in dark mode.
@@ -185,7 +172,7 @@ object SereneBorders {
     }
 
     /**
-     * Hairline micro-border: 1px subtle boundary for Serene Canvas surfaces and stat chips.
+     * Hairline micro-border: 1px subtle boundary for Prosto Canvas surfaces and stat chips.
      */
     fun hairlineBorder(
         isDark: Boolean = false,
@@ -233,25 +220,23 @@ object SereneBorders {
     ): BorderStroke = floatingBorder(isDark = isDark, width = width)
 }
 
-val LiquidBorders = SereneBorders
-
 // ==========================================
-// Serene Surfaces (Crisp Solid Surfaces, No Blur)
+// Prosto Surfaces (Crisp Solid Surfaces, No Blur)
 // ==========================================
 
 /**
  * Surface Layer (Level 1 - Cards & Lists): Pure white #FFFFFF (or dark slate) with an
  * ambient diffused dispersion shadow and subtle micro-border. NO BLUR.
  */
-fun Modifier.sereneCardSurface(
-    shape: Shape = SereneShapes.Card,
+fun Modifier.prostoCardSurface(
+    shape: Shape = ProstoShapes.Card,
     isDark: Boolean = false,
     backgroundColor: Color? = null,
     borderWidth: Dp = 1.dp,
     elevation: Dp = 2.dp,
 ): Modifier {
-    val bg = backgroundColor ?: if (isDark) DarkSurface else SereneCardSurface
-    val border = SereneBorders.cardBorder(isDark = isDark, width = borderWidth)
+    val bg = backgroundColor ?: if (isDark) DarkSurface else ProstoCardSurface
+    val border = ProstoBorders.cardBorder(isDark = isDark, width = borderWidth)
     return this
         .shadow(
             elevation = elevation,
@@ -268,15 +253,15 @@ fun Modifier.sereneCardSurface(
  * Floating Controls (Level 2 - Omnibox, Modals, Action Dock): Solid crisp surface
  * with deep cerulean-tinted atmospheric shadow and rim highlight border. NO BLUR.
  */
-fun Modifier.sereneFloatingSurface(
-    shape: Shape = SereneShapes.Dock,
+fun Modifier.prostoFloatingSurface(
+    shape: Shape = ProstoShapes.Dock,
     isDark: Boolean = false,
     backgroundColor: Color? = null,
     borderWidth: Dp = 1.dp,
     elevation: Dp = 10.dp,
 ): Modifier {
     val bg = backgroundColor ?: if (isDark) DarkSurface else Color.White
-    val border = SereneBorders.floatingBorder(isDark = isDark, width = borderWidth)
+    val border = ProstoBorders.floatingBorder(isDark = isDark, width = borderWidth)
     return this
         .shadow(
             elevation = elevation,
@@ -290,26 +275,25 @@ fun Modifier.sereneFloatingSurface(
 }
 
 /**
- * Backward compatibility alias for [liquidFrostedGlass].
- * Implemented as a solid Level 1 / Level 2 surface with zero blur and no Haze dependencies.
+ * Solid surface modifier with zero blur and no haze dependencies.
+ * Used for translucent tiles that must let the content behind them show through.
  */
-fun Modifier.liquidFrostedGlass(
-    shape: Shape = SereneShapes.Card,
+fun Modifier.prostoSolidSurface(
+    shape: Shape = ProstoShapes.Card,
     isDark: Boolean = false,
-    blurRadius: Dp = 0.dp,
     tintColor: Color? = null,
     alpha: Float? = null,
     borderColor: Color? = null,
     borderBrush: Brush? = null,
     borderWidth: Dp = 1.dp,
 ): Modifier {
-    val bg = tintColor ?: if (isDark) DarkSurface else SereneCardSurface
+    val bg = tintColor ?: if (isDark) DarkSurface else ProstoCardSurface
     val resolvedBg = if (alpha != null) bg.copy(alpha = alpha) else bg
     val resolvedBorder =
         when {
             borderBrush != null -> BorderStroke(borderWidth, borderBrush)
             borderColor != null -> BorderStroke(borderWidth, borderColor)
-            else -> SereneBorders.cardBorder(isDark = isDark, width = borderWidth)
+            else -> ProstoBorders.cardBorder(isDark = isDark, width = borderWidth)
         }
     return this
         .shadow(
@@ -321,37 +305,4 @@ fun Modifier.liquidFrostedGlass(
         ).background(color = resolvedBg, shape = shape)
         .border(border = resolvedBorder, shape = shape)
         .clip(shape)
-}
-
-/**
- * Solid container composable replacing frosted glass box with clean, solid Serene styling.
- */
-@Composable
-fun LiquidFrostedGlassBox(
-    modifier: Modifier = Modifier,
-    shape: Shape = SereneShapes.Card,
-    isDark: Boolean = LocalIsDarkTheme.current,
-    blurRadius: Dp = 0.dp,
-    tintColor: Color? = null,
-    alpha: Float? = null,
-    borderColor: Color? = null,
-    borderBrush: Brush? = null,
-    borderWidth: Dp = 1.dp,
-    content: @Composable BoxScope.() -> Unit,
-) {
-    Box(
-        modifier =
-            modifier.liquidFrostedGlass(
-                shape = shape,
-                isDark = isDark,
-                blurRadius = blurRadius,
-                tintColor = tintColor,
-                alpha = alpha,
-                borderColor = borderColor,
-                borderBrush = borderBrush,
-                borderWidth = borderWidth,
-            ),
-    ) {
-        content()
-    }
 }

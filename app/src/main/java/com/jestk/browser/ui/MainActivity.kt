@@ -22,10 +22,11 @@ import com.jestk.browser.JestkApplication
 import com.jestk.browser.engine.AdBlockerEngine
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
+import com.jestk.browser.util.DefaultBrowserHelper
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.VibratorVibrationFeedback
 
-class MainActivity : ComponentActivity() {
+class MainActivity : ComponentActivity(), FileChooserHandler {
     private lateinit var viewModel: BrowserViewModel
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -83,7 +84,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    fun openFileChooser(
+    override fun openFileChooser(
         callback: ValueCallback<Array<Uri>>?,
         params: WebChromeClient.FileChooserParams?,
     ): Boolean {
@@ -136,7 +137,7 @@ class MainActivity : ComponentActivity() {
         AdBlockerEngine.initialize(applicationContext)
 
         viewModel = ViewModelProvider(this, container.viewModelFactory)[BrowserViewModel::class.java]
-        viewModel.checkDefaultBrowser(this)
+        viewModel.updateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(this))
         checkNotificationPermission()
 
         handleIntent(intent)
@@ -159,7 +160,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        viewModel.checkDefaultBrowser(this)
+        viewModel.updateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(this))
     }
 
     override fun onNewIntent(intent: Intent) {

@@ -9,7 +9,9 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.util.Log
+import com.jestk.browser.domain.model.AppIcon
 import com.jestk.browser.domain.model.ExternalAppPrompt
+import java.io.ByteArrayOutputStream
 
 sealed interface ExternalAppResolution {
     data class Offer(
@@ -280,7 +282,7 @@ object ExternalAppResolver {
         if (matches.isNotEmpty()) {
             val match = matches.first()
             val appName = match.loadLabel(packageManager).toString()
-            val appIcon = match.loadIcon(packageManager)?.toBitmapSafe()
+            val appIcon = match.loadIcon(packageManager)?.toAppIcon()
 
             return ExternalAppResolution.Offer(
                 prompt = ExternalAppPrompt(
@@ -302,7 +304,7 @@ object ExternalAppResolver {
             if (!isPackageInstalled(packageManager, targetPackage)) continue
             val appInfo = getApplicationInfoSafe(packageManager, targetPackage)
             val appName = appInfo?.loadLabel(packageManager)?.toString()?.ifBlank { null } ?: targetPackage
-            val appIcon = appInfo?.loadIcon(packageManager)?.toBitmapSafe()
+            val appIcon = appInfo?.loadIcon(packageManager)?.toAppIcon()
             val directIntent = Intent(Intent.ACTION_VIEW, parsedIntent.data).apply {
                 setPackage(targetPackage)
             }
@@ -378,7 +380,7 @@ object ExternalAppResolver {
         val targetPackage = uri.getQueryParameter("id")
         val match = matches.firstOrNull()
         val appName = match?.loadLabel(packageManager)?.toString() ?: "Google Play"
-        val appIcon = match?.loadIcon(packageManager)?.toBitmapSafe()
+        val appIcon = match?.loadIcon(packageManager)?.toAppIcon()
 
         return ExternalAppResolution.Offer(
             prompt = ExternalAppPrompt(
@@ -418,7 +420,7 @@ object ExternalAppResolver {
         if (matches.isNotEmpty()) {
             val match = matches.first()
             val appName = match.loadLabel(packageManager).toString()
-            val appIcon = match.loadIcon(packageManager)?.toBitmapSafe()
+            val appIcon = match.loadIcon(packageManager)?.toAppIcon()
 
             return ExternalAppResolution.Offer(
                 prompt = ExternalAppPrompt(
@@ -507,7 +509,7 @@ object ExternalAppResolver {
         if (matches.isNotEmpty()) {
             val chosen = matches.first()
             val appName = chosen.loadLabel(packageManager).toString()
-            val appIcon = chosen.loadIcon(packageManager)?.toBitmapSafe()
+            val appIcon = chosen.loadIcon(packageManager)?.toAppIcon()
             val targetIntent = Intent(Intent.ACTION_VIEW, effectiveUri).apply {
                 setPackage(chosen.activityInfo.packageName)
             }
@@ -536,7 +538,7 @@ object ExternalAppResolver {
                     val appInfo = getApplicationInfoSafe(packageManager, pkg)
                     val appName = appInfo?.loadLabel(packageManager)?.toString()?.ifBlank { null }
                         ?: known.displayName
-                    val appIcon = appInfo?.loadIcon(packageManager)?.toBitmapSafe()
+                    val appIcon = appInfo?.loadIcon(packageManager)?.toAppIcon()
 
                     val directIntent = Intent(Intent.ACTION_VIEW, effectiveUri).apply {
                         setPackage(pkg)
@@ -618,7 +620,7 @@ object ExternalAppResolver {
         if (matches.isNotEmpty()) {
             val match = matches.first()
             val appName = match.loadLabel(packageManager).toString()
-            val appIcon = match.loadIcon(packageManager)?.toBitmapSafe()
+            val appIcon = match.loadIcon(packageManager)?.toAppIcon()
 
             return ExternalAppResolution.Offer(
                 prompt = ExternalAppPrompt(
@@ -638,7 +640,7 @@ object ExternalAppResolver {
     }
 }
 
-fun Drawable.toBitmapSafe(targetWidth: Int = 96, targetHeight: Int = 96): Bitmap? {
+private fun Drawable.toBitmapSafe(targetWidth: Int = 96, targetHeight: Int = 96): Bitmap? {
     return try {
         if (this is BitmapDrawable && bitmap != null) {
             return bitmap
@@ -651,6 +653,24 @@ fun Drawable.toBitmapSafe(targetWidth: Int = 96, targetHeight: Int = 96): Bitmap
         draw(canvas)
         bmp
     } catch (e: Throwable) {
+        null
+    }
+}
+
+/**
+ * Encodes a drawable as an [AppIcon] so that the domain layer never has to carry a bitmap.
+ *
+ * The icon is stored as PNG bytes and decoded again by the presentation layer. A drawable that
+ * cannot be rasterised or encoded yields no icon, which the UI renders as the generic glyph.
+ */
+fun Drawable.toAppIcon(targetWidth: Int = 96, targetHeight: Int = 96): AppIcon? {
+    val bitmap = toBitmapSafe(targetWidth, targetHeight) ?: return null
+    return try {
+        val stream = ByteArrayOutputStream()
+        if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)) return null
+        AppIcon(stream.toByteArray())
+    } catch (e: Throwable) {
+        Log.w("ExternalAppResolver", "Failed to encode the application icon as PNG", e)
         null
     }
 }

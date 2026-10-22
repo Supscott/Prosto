@@ -1,14 +1,11 @@
 package com.jestk.browser.ui.navigation
 
-import android.content.Context
 import android.widget.Toast
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
@@ -39,7 +36,6 @@ import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -72,25 +68,22 @@ import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneCardSurface
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SereneShapes
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoCardSurface
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.LocalVibrationFeedback
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
 import java.net.URI
 import kotlin.math.abs
 
 /**
  * Horizontal scrollable strip of tabs (`LazyRow`).
- * Adheres to Serene Canvas design system:
+ * Adheres to Prosto Canvas design system:
  * - 50% width active tab capsule ([ActiveTabPill]) with solid surface and light elevation shadow.
- * - Inactive tabs: transparent background, [SereneMutedSlate] icons and text, label-md typography.
+ * - Inactive tabs: transparent background, [ProstoMutedSlate] icons and text, label-md typography.
  * - Long-press contextual menus ([TabContextMenu]) with solid card surface and hairline dividers.
  * - Persistent '+' new tab button pinned on the right edge ([AddTabDockButton]).
  * - Interactive tab drag reordering.
@@ -409,7 +402,7 @@ fun TabStripRow(
 
 /**
  * Circular inactive tab button with favicon or site initial glyph.
- * Transparent background, SereneMutedSlate icons and text, label-md typography.
+ * Transparent background, ProstoMutedSlate icons and text, label-md typography.
  */
 @Composable
 fun InactiveTabButton(
@@ -431,8 +424,8 @@ fun InactiveTabButton(
     val density = LocalDensity.current
     val vibration = LocalVibrationFeedback.current
     val touchSlop = with(density) { 8.dp.toPx() }
-    val typography = LocalSereneTypography.current
-    val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
+    val typography = LocalProstoTypography.current
+    val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
 
     val currentOnDragStart by rememberUpdatedState(onDragStart)
     val currentOnDrag by rememberUpdatedState(onDrag)
@@ -577,7 +570,7 @@ fun AddTabDockButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val normalTint = if (isDark) Color(0xFF94A3B8) else SereneMutedSlate
+    val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
 
     Surface(
         shape = CircleShape,
@@ -606,8 +599,8 @@ fun AddTabDockButton(
 
 /**
  * Contextual dropdown menu on tabs (active or inactive).
- * Adheres to Serene Canvas:
- * - Floating card with 24px radius (SereneShapes.Card), pure solid surface.
+ * Adheres to Prosto Canvas:
+ * - Floating card with 24px radius (ProstoShapes.Card), pure solid surface.
  * - Rim border and Level 2 elevation shadow.
  * - 48px touch targets for menu rows.
  * - Hairline dividers 1px solid #F1F5F9 (Dark: 1px solid #334155).
@@ -624,14 +617,14 @@ fun TabContextMenu(
     onAddFavorite: () -> Unit,
     onShareLink: (() -> Unit)? = null,
 ) {
-    val menuBg = if (isDark) DarkSurface else SereneCardSurface
-    val menuBorder = SereneBorders.floatingBorder(isDark)
+    val menuBg = if (isDark) DarkSurface else ProstoCardSurface
+    val menuBorder = ProstoBorders.floatingBorder(isDark)
     val dividerColor = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)
 
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismissRequest,
-        shape = SereneShapes.Card,
+        shape = ProstoShapes.Card,
         containerColor = menuBg,
         shadowElevation = 12.dp,
         border = menuBorder,

@@ -1,5 +1,6 @@
 package com.jestk.browser.ui.viewmodel
 
+import android.util.Log
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.engine.download.HoriDownloadManager
@@ -7,6 +8,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+
+private const val TAG = "DownloadCoordinator"
 
 /**
  * Coordinator for managing file downloads, notifications, snackbars, and progress updates.
@@ -66,6 +69,7 @@ internal class DownloadCoordinator(
 
             scope.launch(ioDispatcher) {
                 downloadManager.completedDownloads.collectLatest { completedItem ->
+                    Log.d(TAG, "Download completed: id=${completedItem.id} file=${completedItem.fileName}")
                     updateUiState { current ->
                         current.copy(
                             lastDownloadNotification = completedItem,
@@ -78,6 +82,7 @@ internal class DownloadCoordinator(
     }
 
     fun onDownloadStarted(item: DownloadItem) {
+        Log.d(TAG, "Download started: id=${item.id} file=${item.fileName}")
         updateUiState {
             it.copy(
                 lastDownloadNotification = item,
@@ -94,14 +99,17 @@ internal class DownloadCoordinator(
     }
 
     fun pauseDownload(id: Long) {
+        Log.d(TAG, "Pausing download $id")
         downloadManager?.pauseDownload(id)
     }
 
     fun resumeDownload(id: Long) {
+        Log.d(TAG, "Resuming download $id")
         downloadManager?.resumeDownload(id)
     }
 
     fun cancelDownload(id: Long) {
+        Log.d(TAG, "Cancelling download $id")
         downloadManager?.cancelDownload(id)
         updateUiState { current ->
             val shouldDismissSnackbar = current.lastDownloadNotification?.id == id
@@ -115,10 +123,12 @@ internal class DownloadCoordinator(
     }
 
     fun retryDownload(id: Long) {
+        Log.d(TAG, "Retrying download $id")
         downloadManager?.retryDownload(id)
     }
 
     fun deleteDownload(id: Long, deleteFile: Boolean) {
+        Log.d(TAG, "Deleting download $id (deleteFile=$deleteFile)")
         scope.launch(ioDispatcher) {
             if (downloadManager != null) {
                 downloadManager.deleteDownload(id, deleteFile)

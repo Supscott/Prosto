@@ -357,6 +357,27 @@ class AdBlockerEngineTest {
     }
 
     @Test
+    fun recordBlockedRequest_reportsTheTrackerFlagThroughTheStatsContract() =
+        runBlocking {
+            val recorded = mutableListOf<Boolean>()
+
+            AdBlockerEngine.setBlockedRequestStats(
+                object : com.jestk.browser.domain.repository.BlockedRequestStats {
+                    override suspend fun recordBlockedRequest(isTracker: Boolean) {
+                        recorded += isTracker
+                    }
+                }
+            )
+
+            AdBlockerEngine.recordBlockedRequest("https://doubleclick.net/ad.js")
+            AdBlockerEngine.recordBlockedRequest("https://google-analytics.com/analytics.js")
+
+            kotlinx.coroutines.delay(100)
+
+            assertThat(recorded).containsExactly(false, true).inOrder()
+        }
+
+    @Test
     fun recordBlockedRequest_incrementsRepositoryCounts() =
         runBlocking {
             var adsIncremented = 0L
@@ -399,7 +420,9 @@ class AdBlockerEngineTest {
                     override suspend fun setSkippedUpdateVersion(version: String?) {}
                 }
 
-            AdBlockerEngine.settingsRepository = fakeRepo
+            AdBlockerEngine.setBlockedRequestStats(
+                com.jestk.browser.data.repository.SettingsBlockedRequestStats(fakeRepo)
+            )
 
             AdBlockerEngine.recordBlockedRequest("https://doubleclick.net/ad.js")
             AdBlockerEngine.recordBlockedRequest("https://google-analytics.com/analytics.js")
@@ -410,4 +433,198 @@ class AdBlockerEngineTest {
             assertThat(adsIncremented).isEqualTo(1L)
             assertThat(trackersIncremented).isEqualTo(1L)
         }
+
+    // --- 8. Subdomain Matching Without Substring Allocations ---
+
+    @Test
+    fun shouldBlock_matchesSubdomainsOfBlockedDomains() {
+        // A blocked domain itself.
+        assertThat(AdBlockerEngine.shouldBlock("https://doubleclick.net")).isTrue()
+
+        // A subdomain of a blocked domain is blocked as well.
+        assertThat(AdBlockerEngine.shouldBlock("https://ads.doubleclick.net")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://sub.deep.doubleclick.net")).isTrue()
+
+        // A blocked domain with several labels is reached through its suffixes.
+        assertThat(AdBlockerEngine.shouldBlock("https://ads.adfox.yandex.ru")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://deep.sub.my.target.com")).isTrue()
+
+        // Regular domains and their subdomains stay reachable.
+        assertThat(AdBlockerEngine.shouldBlock("https://example.com")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://ads.example.com")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://sub.deep.example.com")).isFalse()
+
+        // A host without any dot has no suffix to match.
+        assertThat(AdBlockerEngine.shouldBlock("https://localhost")).isFalse()
+
+        // A blocked domain used as a prefix of another domain is not a match.
+        assertThat(AdBlockerEngine.shouldBlock("https://doubleclick.net.example.com")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://notdoubleclick.net")).isFalse()
+    }
+
+    @Test
+    fun shouldBlock_matchesTheReferenceSubdomainAlgorithm() {
+        // The suffix walk is compared against the straightforward substring based implementation:
+        // both must agree on every host, including the malformed ones.
+        val hosts =
+            listOf(
+                "doubleclick.net",
+                "ads.doubleclick.net",
+                "sub.deep.doubleclick.net",
+                "example.com",
+                "ads.example.com",
+                "sub.deep.example.com",
+                "localhost",
+                "doubleclick.net.example.com",
+                "notdoubleclick.net",
+                "adfox.yandex.ru",
+                "ads.adfox.yandex.ru",
+                "my.target.com",
+                "sub.my.target.com",
+                "target.my.com",
+                "ads.com",
+                "com",
+                "a..b",
+                ".doubleclick.net",
+                "doubleclick.net.",
+                "ad.doubleclick.net.",
+                "192.168.1.1",
+            )
+
+        for (host in hosts) {
+            val url = "https://$host"
+            assertThat(AdBlockerEngine.shouldBlock(url)).isEqualTo(referenceShouldBlock(url))
+        }
+    }
+
+    @Test
+    fun shouldBlock_matchesTheReferenceSubdomainAlgorithmWithTheFullRuleset() =
+        runBlocking {
+            AdBlockerEngine.initialize(context).join()
+
+            val hosts =
+                listOf(
+                    "doubleclick.net",
+                    "ads.doubleclick.net",
+                    "sub.deep.doubleclick.net",
+                    "example.com",
+                    "ads.example.com",
+                    "localhost",
+                    "a..b",
+                    ".doubleclick.net",
+                    "doubleclick.net.",
+                    "acconsento.click",
+                    "sdk.appconsent.io",
+                    "axept.io",
+                    "bigidcmp.cloud",
+                )
+
+            for (host in hosts) {
+                val url = "https://$host"
+                assertThat(AdBlockerEngine.shouldBlock(url)).isEqualTo(referenceShouldBlock(url))
+            }
+        }
+
+    // --- 9. Engine Teardown ---
+
+    @Test
+    fun shutdown_cancelsTheBackgroundScope() {
+        // Make sure the engine owns a running scope, whatever a previous teardown did.
+        assertThat(AdBlockerEngine.ensureScope()).isTrue()
+        assertThat(AdBlockerEngine.isScopeActive()).isTrue()
+
+        AdBlockerEngine.shutdown()
+        assertThat(AdBlockerEngine.isScopeActive()).isFalse()
+
+        // The call is idempotent.
+        AdBlockerEngine.shutdown()
+        assertThat(AdBlockerEngine.isScopeActive()).isFalse()
+    }
+
+    @Test
+    fun recordBlockedRequest_keepsWorkingAfterShutdown() =
+        runBlocking {
+            val repo = RecordingSettingsRepository()
+            AdBlockerEngine.setBlockedRequestStats(
+                com.jestk.browser.data.repository.SettingsBlockedRequestStats(repo)
+            )
+
+            AdBlockerEngine.shutdown()
+            assertThat(AdBlockerEngine.isScopeActive()).isFalse()
+
+            AdBlockerEngine.recordBlockedRequest("https://doubleclick.net/ad.js")
+            kotlinx.coroutines.delay(200)
+
+            // The scope is recreated lazily, so the engine keeps counting after a shutdown.
+            assertThat(repo.adsIncremented).isEqualTo(1L)
+            assertThat(AdBlockerEngine.isScopeActive()).isTrue()
+        }
+
+    /**
+     * Reference implementation of the host matching, using the straightforward substring based
+     * subdomain walk. It mirrors the behaviour the engine had before the suffix walk was rewritten
+     * to work on indices, and is used to prove that both implementations agree.
+     */
+    private fun referenceShouldBlock(url: String): Boolean {
+        val trimmedUrl = url.trim()
+        val normalizedUrl =
+            when {
+                trimmedUrl.startsWith("//") -> "https:$trimmedUrl"
+                !trimmedUrl.contains("://") -> "https://$trimmedUrl"
+                else -> trimmedUrl
+            }
+        val uri = android.net.Uri.parse(normalizedUrl) ?: return false
+        val host = uri.host?.lowercase() ?: return false
+        if (host.isEmpty()) return false
+
+        if (AdBlockerEngine.containsHost(host)) return true
+
+        var currentHost = host
+        while (currentHost.contains('.')) {
+            val nextDotIndex = currentHost.indexOf('.')
+            if (nextDotIndex == -1 || nextDotIndex == currentHost.lastIndex) break
+            currentHost = currentHost.substring(nextDotIndex + 1)
+            if (AdBlockerEngine.containsHost(currentHost)) return true
+        }
+
+        val path = uri.path?.lowercase().orEmpty()
+        return AdBlockerEngine.isBlockedPath(host, path)
+    }
+
+    private class RecordingSettingsRepository : com.jestk.browser.domain.repository.SettingsRepository {
+        var adsIncremented = 0L
+        var trackersIncremented = 0L
+
+        override fun getSettings() = kotlinx.coroutines.flow.emptyFlow<com.jestk.browser.domain.model.BrowserSettings>()
+
+        override suspend fun getCurrentSettings() = com.jestk.browser.domain.model.BrowserSettings()
+
+        override suspend fun setThemeMode(mode: com.jestk.browser.domain.model.ThemeMode) {}
+
+        override suspend fun setSearchEngine(engine: com.jestk.browser.domain.model.SearchEngine) {}
+
+        override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
+
+        override fun getBlockedAdsCount() = kotlinx.coroutines.flow.flowOf(adsIncremented)
+
+        override fun getBlockedTrackersCount() = kotlinx.coroutines.flow.flowOf(trackersIncremented)
+
+        override suspend fun incrementBlockedAds(count: Long) {
+            adsIncremented += count
+        }
+
+        override suspend fun incrementBlockedTrackers(count: Long) {
+            trackersIncremented += count
+        }
+
+        override suspend fun setHiddenSearchPageEngineIds(ids: Set<String>) {}
+
+        override suspend fun setOpenInAppsEnabled(enabled: Boolean) {}
+
+        override suspend fun setAutoUpdateEnabled(enabled: Boolean) {}
+
+        override suspend fun setVibrationEnabled(enabled: Boolean) {}
+
+        override suspend fun setSkippedUpdateVersion(version: String?) {}
+    }
 }

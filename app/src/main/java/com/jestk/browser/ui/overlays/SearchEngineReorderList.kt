@@ -61,12 +61,12 @@ import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkPrimary
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
-import com.jestk.browser.ui.theme.LocalSereneTypography
-import com.jestk.browser.ui.theme.SereneBorders
-import com.jestk.browser.ui.theme.SereneBrandPrimary
-import com.jestk.browser.ui.theme.SereneDarkText
-import com.jestk.browser.ui.theme.SereneMutedSlate
-import com.jestk.browser.ui.theme.SerenePaleBlue
+import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
+import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoMutedSlate
+import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.VibrationFeedback
 import kotlinx.coroutines.CoroutineScope
@@ -382,7 +382,7 @@ internal fun SearchEngineDropdownCard(
     }
 
     val bg = if (isDark) DarkSurface else Color.White
-    val border = SereneBorders.cardBorder(isDark)
+    val border = ProstoBorders.cardBorder(isDark)
 
     Surface(
         shape = RoundedCornerShape(20.dp),
@@ -437,7 +437,7 @@ internal fun SearchEngineDropdownCard(
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = "Edit Search Engines",
-                            tint = if (isDark) DarkOnSurfaceVariant else SereneMutedSlate,
+                            tint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -449,7 +449,7 @@ internal fun SearchEngineDropdownCard(
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = "Add Search Engine",
-                            tint = if (isDark) DarkPrimary else SereneBrandPrimary,
+                            tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -457,7 +457,7 @@ internal fun SearchEngineDropdownCard(
             } else {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = if (isDark) DarkSurfaceVariant else SerenePaleBlue,
+                    color = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(36.dp)
@@ -470,8 +470,8 @@ internal fun SearchEngineDropdownCard(
                     Box(contentAlignment = Alignment.Center) {
                         Text(
                             text = "Done",
-                            style = LocalSereneTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
-                            color = if (isDark) DarkPrimary else SereneBrandPrimary
+                            style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
+                            color = if (isDark) DarkPrimary else ProstoBrandPrimary
                         )
                     }
                 }
@@ -561,21 +561,21 @@ internal fun ReorderableSearchEngineRow(
         isLifted && isDark -> DarkSurfaceVariant
         isLifted && !isDark -> Color.White
         !isEditMode && isSelected && isDark -> DarkSurfaceVariant
-        !isEditMode && isSelected && !isDark -> SerenePaleBlue
+        !isEditMode && isSelected && !isDark -> ProstoPaleBlue
         else -> Color.Transparent
     }
 
     val itemBorder = when {
-        isLifted -> BorderStroke(1.5.dp, if (isDark) DarkPrimary else SereneBrandPrimary)
-        !isEditMode && isSelected -> BorderStroke(1.dp, if (isDark) DarkPrimary.copy(alpha = 0.5f) else SereneBrandPrimary.copy(alpha = 0.5f))
+        isLifted -> BorderStroke(1.5.dp, if (isDark) DarkPrimary else ProstoBrandPrimary)
+        !isEditMode && isSelected -> BorderStroke(1.dp, if (isDark) DarkPrimary.copy(alpha = 0.5f) else ProstoBrandPrimary.copy(alpha = 0.5f))
         else -> null
     }
 
     val textColor = when {
         !isEditMode && isSelected && isDark -> DarkOnSurface
-        !isEditMode && isSelected && !isDark -> SereneBrandPrimary
+        !isEditMode && isSelected && !isDark -> ProstoBrandPrimary
         isDark -> DarkOnSurfaceVariant
-        else -> SereneDarkText
+        else -> ProstoDarkText
     }
 
     Surface(
@@ -698,9 +698,9 @@ internal fun ReorderableSearchEngineRow(
                         imageVector = Icons.Default.DragHandle,
                         contentDescription = "Reorder",
                         tint = if (isLifted) {
-                            if (isDark) DarkPrimary else SereneBrandPrimary
+                            if (isDark) DarkPrimary else ProstoBrandPrimary
                         } else {
-                            if (isDark) DarkOnSurfaceVariant else SereneMutedSlate
+                            if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
                         },
                         modifier = Modifier.size(18.dp)
                     )
@@ -714,7 +714,7 @@ internal fun ReorderableSearchEngineRow(
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = "Edit Provider",
-                        tint = if (isDark) DarkPrimary else SereneBrandPrimary,
+                        tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                         modifier = Modifier.size(16.dp)
                     )
                 }
@@ -728,7 +728,7 @@ internal fun ReorderableSearchEngineRow(
 
             Text(
                 text = engine.displayName,
-                style = LocalSereneTypography.current.bodyMd.copy(
+                style = LocalProstoTypography.current.bodyMd.copy(
                     fontWeight = if (!isEditMode && isSelected) FontWeight.Bold else FontWeight.Medium
                 ),
                 color = textColor,
@@ -745,8 +745,8 @@ internal fun ReorderableSearchEngineRow(
                 ) {
                     Text(
                         text = engine.shortcut,
-                        style = LocalSereneTypography.current.labelSm.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
-                        color = SereneMutedSlate,
+                        style = LocalProstoTypography.current.labelSm.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
+                        color = ProstoMutedSlate,
                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                     )
                 }
@@ -757,7 +757,7 @@ internal fun ReorderableSearchEngineRow(
                     Icon(
                         imageVector = Icons.Default.Check,
                         contentDescription = "Selected",
-                        tint = if (isDark) DarkPrimary else SereneBrandPrimary,
+                        tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
