@@ -349,6 +349,9 @@ fun WebViewContainer(
                         setOnRefreshListener {
                             currentOnEvent(BrowserUiEvent.Reload)
                         }
+                        onRefreshTriggerReached = {
+                            vibration.confirm()
+                        }
                         setOnChildScrollUpCallback { _, _ ->
                             val currentChild = (getChildAt(0) as? android.webkit.WebView) ?: webView
                             val nested = currentChild as? NestedWebView
@@ -411,8 +414,9 @@ fun WebViewContainer(
                         )
                     }
 
+                    (swipeRefresh as? JestkSwipeRefreshLayout)?.onRefreshTriggerReached = { vibration.confirm() }
+
                     val currentNested = currentWebView as? NestedWebView
-                    currentNested?.onPullThresholdReached = { vibration.confirm() }
                     val currentLoadedUrl = currentNested?.loadedUrl
                     val isCurrentUnloaded = currentLoadedUrl.isNullOrEmpty() || currentLoadedUrl == "about:blank"
                     if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
@@ -422,7 +426,7 @@ fun WebViewContainer(
                     }
                 },
                 onReset = { swipeRefresh ->
-                    (swipeRefresh.getChildAt(0) as? NestedWebView)?.onPullThresholdReached = null
+                    (swipeRefresh as? JestkSwipeRefreshLayout)?.onRefreshTriggerReached = null
                     swipeRefresh.removeAllViews()
                 },
                 modifier = Modifier.fillMaxSize()

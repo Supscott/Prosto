@@ -3,7 +3,6 @@ package com.jestk.browser.engine
 import android.annotation.SuppressLint
 import android.content.Context
 import android.util.AttributeSet
-import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.webkit.WebView
@@ -62,10 +61,6 @@ class NestedWebView @JvmOverloads constructor(
     private var accumulatedPullDistance: Float = 0f
     private var isGestureActive: Boolean = false
     private var isInitialAtTop: Boolean = true
-    private var hasTriggeredHaptic: Boolean = false
-
-    /** Optional callback invoked when the pull-to-refresh pull threshold is crossed. */
-    var onPullThresholdReached: (() -> Unit)? = null
 
     private val touchSlop: Int by lazy {
         ViewConfiguration.get(context).scaledTouchSlop
@@ -116,7 +111,6 @@ class NestedWebView @JvmOverloads constructor(
                 isLockedHorizontal = false
                 isPullToRefreshActive = false
                 accumulatedPullDistance = 0f
-                hasTriggeredHaptic = false
                 startNestedScroll(ViewCompat.SCROLL_AXIS_VERTICAL, ViewCompat.TYPE_TOUCH)
                 return super.onTouchEvent(event)
             }
@@ -166,7 +160,6 @@ class NestedWebView @JvmOverloads constructor(
                     accumulatedPullDistance = max(0f, accumulatedPullDistance - scrollConsumed[1])
                     if (accumulatedPullDistance < pullThresholdPx) {
                         isPullToRefreshActive = false
-                        hasTriggeredHaptic = false
                     }
                 }
 
@@ -182,7 +175,6 @@ class NestedWebView @JvmOverloads constructor(
                 if (canScrollUp || scrollY > 0) {
                     accumulatedPullDistance = 0f
                     isPullToRefreshActive = false
-                    hasTriggeredHaptic = false
                     isInitialAtTop = false
                 }
 
@@ -197,10 +189,6 @@ class NestedWebView @JvmOverloads constructor(
                         val pullDelta = -dyUnconsumed.toFloat() * PULL_RESISTANCE_FACTOR
                         accumulatedPullDistance += pullDelta
                         if (accumulatedPullDistance >= pullThresholdPx) {
-                            if (!hasTriggeredHaptic) {
-                                onPullThresholdReached?.invoke() ?: performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
-                                hasTriggeredHaptic = true
-                            }
                             if (!isPullToRefreshActive) {
                                 isPullToRefreshActive = true
                                 val excess = accumulatedPullDistance - pullThresholdPx
@@ -216,7 +204,6 @@ class NestedWebView @JvmOverloads constructor(
                     accumulatedPullDistance = max(0f, accumulatedPullDistance - dyUnconsumed)
                     if (accumulatedPullDistance < pullThresholdPx) {
                         isPullToRefreshActive = false
-                        hasTriggeredHaptic = false
                     }
                 }
 
@@ -237,7 +224,6 @@ class NestedWebView @JvmOverloads constructor(
                 isLockedHorizontal = false
                 isPullToRefreshActive = false
                 accumulatedPullDistance = 0f
-                hasTriggeredHaptic = false
                 stopNestedScroll(ViewCompat.TYPE_TOUCH)
                 return handled
             }

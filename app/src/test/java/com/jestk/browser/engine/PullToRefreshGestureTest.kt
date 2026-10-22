@@ -3,6 +3,7 @@ package com.jestk.browser.engine
 import android.content.Context
 import android.os.SystemClock
 import android.view.MotionEvent
+import androidx.core.view.ViewCompat
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.ui.views.JestkSwipeRefreshLayout
@@ -156,16 +157,34 @@ class PullToRefreshGestureTest {
     }
 
     @Test
-    fun nestedWebView_onPullThresholdReached_invokedWhenThresholdExceeded() {
+    fun jestkSwipeRefreshLayout_onRefreshTriggerReached_invokedOnlyWhenRefreshThresholdReached() {
         val context = ApplicationProvider.getApplicationContext<Context>()
-        val webView = NestedWebView(context)
-        var called = false
-        webView.onPullThresholdReached = { called = true }
+        val swipeRefresh = JestkSwipeRefreshLayout(context)
+        val child = NestedWebView(context)
+        swipeRefresh.addView(child)
 
-        val downTime = SystemClock.uptimeMillis()
-        webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_DOWN, 100f, 100f, downTime, downTime))
-        webView.onTouchEvent(obtainMotionEvent(MotionEvent.ACTION_MOVE, 100f, 600f, downTime, downTime + 50))
+        var triggerCount = 0
+        swipeRefresh.onRefreshTriggerReached = { triggerCount++ }
 
-        assertThat(called).isTrue()
+        val threshold = swipeRefresh.progressViewEndOffset
+
+        // Small downward scroll: below refresh trigger threshold
+        swipeRefresh.onNestedScroll(child, 0, 0, 0, -20, ViewCompat.TYPE_TOUCH, IntArray(2))
+        assertThat(triggerCount).isEqualTo(0)
+
+        // Reach and exceed refresh trigger threshold
+        swipeRefresh.onNestedScroll(child, 0, 0, 0, -threshold, ViewCompat.TYPE_TOUCH, IntArray(2))
+        assertThat(triggerCount).isEqualTo(1)
+
+        // Further downward scroll in the same gesture does not fire again
+        swipeRefresh.onNestedScroll(child, 0, 0, 0, -50, ViewCompat.TYPE_TOUCH, IntArray(2))
+        assertThat(triggerCount).isEqualTo(1)
+
+        // Ending nested scroll resets state
+        swipeRefresh.onStopNestedScroll(child, ViewCompat.TYPE_TOUCH)
+
+        // Next gesture exceeding threshold triggers again
+        swipeRefresh.onNestedScroll(child, 0, 0, 0, -threshold - 10, ViewCompat.TYPE_TOUCH, IntArray(2))
+        assertThat(triggerCount).isEqualTo(2)
     }
 }

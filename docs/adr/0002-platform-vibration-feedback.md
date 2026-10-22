@@ -55,7 +55,7 @@ actions covered by tactile feedback include:
 3. Snapping/selecting search engines in the search carousel (`tick()`).
 4. Reordering search engines in the search engine management list (`tick()`).
 5. Swiping to dismiss a tab in the tab overview grid (`tick()`).
-6. Crossing the pull-to-refresh threshold in `NestedWebView` (`confirm()`).
+6. Crossing the page reload trigger distance in `JestkSwipeRefreshLayout` (`confirm()`).
 7. Toggling the Vibration switch from OFF to ON in Settings (`confirm()`).
 
 Two supporting pieces exist for testability and are not part of the public contract:
@@ -69,8 +69,8 @@ provider is present (previews, isolated tests), and `VibratorVibrationFeedback` 
 - The app needs the `VIBRATE` permission (a normal permission, granted at install).
 - The app's gesture feedback is decoupled from the Android system touch-feedback toggle via
   `VibrationAttributes.USAGE_HARDWARE_FEEDBACK`, making the *Vibration* toggle in Settings the single source of truth.
-- Pull-to-refresh now routes through `NestedWebView.onPullThresholdReached` to `VibrationFeedback.confirm()`,
-  honoring the in-app preference and modern vibration attributes.
+- Pull-to-refresh routes through `JestkSwipeRefreshLayout.onRefreshTriggerReached` to `VibrationFeedback.confirm()`
+  at the exact point where releasing the spinner activates page reload, avoiding false-positive pulses at gesture start.
 - A device without a vibrator (`hasVibrator() == false`) is a no-op, not a crash.
 - The Compose `HapticFeedback` API is no longer used anywhere in the app.
 
