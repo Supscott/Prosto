@@ -13,6 +13,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -152,6 +153,7 @@ fun ActionPopupMenu(
                     label = "Tabs",
                     isActive = uiState.activeOverlay == OverlayType.TAB_GRID,
                     isDark = isDark,
+                    trailingLabel = uiState.tabs.size.toString(),
                     onClick = {
                         onEvent(BrowserUiEvent.OpenTabGrid)
                         onEvent(BrowserUiEvent.SetMenuExpanded(false))
@@ -310,6 +312,7 @@ fun PopupMenuItem(
     label: String,
     isActive: Boolean,
     isDark: Boolean,
+    trailingLabel: String? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -344,6 +347,7 @@ fun PopupMenuItem(
             )
             Text(
                 text = label,
+                modifier = if (trailingLabel != null) Modifier.weight(1f) else Modifier,
                 style =
                     typography.bodyMd.copy(
                         fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,
@@ -357,6 +361,18 @@ fun PopupMenuItem(
                         ProstoDarkText
                     },
             )
+            trailingLabel?.let { trailingText ->
+                Text(
+                    text = trailingText,
+                    modifier =
+                        Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9))
+                            .padding(horizontal = 6.dp, vertical = 3.dp),
+                    style = typography.labelSm.copy(fontWeight = FontWeight.SemiBold),
+                    color = if (isDark) Color(0xFFCBD5E1) else ProstoMutedSlate,
+                )
+            }
         }
     }
 }
