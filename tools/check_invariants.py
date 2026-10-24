@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Mechanical invariant checks for Hori (Harness^2 gate step)."""
+"""Mechanical invariant checks for Prosto Browser."""
 
 import re
 import sys

@@ -19,7 +19,7 @@
 </div>
 
 > **Naming:** the app ships to users as **Prosto**. "Hori" is the internal project and package
-> name (`com.jestk.browser`) used by `AGENTS.md` and the release tooling.
+> name (`com.jestk.browser`) used by the package namespace and release tooling.
 
 ---
 

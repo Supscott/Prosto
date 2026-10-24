@@ -6,7 +6,7 @@
 
 ## Context
 
-`docs/plans/plan-tech-debt-subagents.md` asks for "strict forward-compatibility for the target
+An initial tech debt roadmap asked for "strict forward-compatibility for the target
 2026 latest stable ecosystem" and names a target matrix: AGP `9.4+`, Gradle `9.1+`, Kotlin
 `2.4.10`, Room `3.0.2`, Coil `3.6.0`, Compose BOM `2026.x`, compileSdk `36/37`.
 
@@ -103,10 +103,10 @@ The compatibility-shaped work is done and does not need to be redone:
   2.0.21 / compileSdk 35). Nothing about this pass depends on the upgrade.
 - The 2026 upgrade is now a known-good change rather than an open question: the exact versions,
   the two blockers and their fixes, and the CI implication are all written down.
-- The next agent does not have to re-derive the KSP/`kotlin.sourceSets` incompatibility, which is
-  the single most likely thing to burn a day on.
-- If the upgrade is later performed, it should be its own branch and its own commit, gated by the
-  same harness pass, so that a behavioural regression in the new toolchain is distinguishable from
+- A future developer does not have to re-derive the KSP/`kotlin.sourceSets` incompatibility, which is
+  the single most likely thing to burn time on.
+- If the upgrade is later performed, it should be its own branch and its own commit, with verification
+  tests passing, so that a behavioural regression in the new toolchain is distinguishable from
   a regression in the code.
 
 ## Alternatives considered

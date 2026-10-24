@@ -68,5 +68,5 @@ from the pointer position.**
   state are gone. New item visuals do not need to be aware of dragging.
 - The gesture performs a hit test against the current layout each time a press starts, so it
   depends on `LazyListState` being laid out; presses before first layout are ignored.
-- This pattern is recorded in `LESSONS.md` lesson 3 and must be reused for any future
+- This pattern must be reused for any future
   reorderable list with drag interactions.
