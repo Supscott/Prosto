@@ -38,12 +38,17 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -228,7 +233,7 @@ fun ActiveTabPill(
                             .padding(vertical = 2.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    Text(
+                    FadingSingleLineText(
                         text = title,
                         style =
                             typography.labelMd.copy(
@@ -236,11 +241,9 @@ fun ActiveTabPill(
                                 fontWeight = FontWeight.Bold,
                             ),
                         color = titleColor,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                     )
                     if (domain.isNotEmpty()) {
-                        Text(
+                        FadingSingleLineText(
                             text = domain,
                             style =
                                 typography.bodySm.copy(
@@ -248,8 +251,6 @@ fun ActiveTabPill(
                                     fontWeight = FontWeight.Normal,
                                 ),
                             color = domainColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -318,6 +319,39 @@ fun ActiveTabPill(
             )
         }
     }
+}
+
+@Composable
+private fun FadingSingleLineText(
+    text: String,
+    style: TextStyle,
+    color: Color,
+) {
+    var overflows by remember(text) { mutableStateOf(false) }
+    val textStyle =
+        if (overflows) {
+            style.copy(
+                brush =
+                    Brush.horizontalGradient(
+                        colorStops =
+                            arrayOf(
+                                0f to color,
+                                0.8f to color,
+                                1f to color.copy(alpha = 0f),
+                            ),
+                    ),
+            )
+        } else {
+            style.copy(color = color)
+        }
+
+    Text(
+        text = text,
+        style = textStyle,
+        maxLines = 1,
+        overflow = TextOverflow.Clip,
+        onTextLayout = { overflows = it.hasVisualOverflow },
+    )
 }
 
 /**

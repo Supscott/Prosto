@@ -124,7 +124,7 @@ fun TabStripRow(
         contentAlignment = Alignment.CenterStart,
     ) {
         val totalChipWidth = maxWidth
-        val activeTabWidth = totalChipWidth * 0.5f
+        val activeTabWidth = totalChipWidth * 0.45f
         val lazyListState = rememberLazyListState()
 
         val displayTabs =
