@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.channels.Channel
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -359,12 +361,12 @@ class AdBlockerEngineTest {
     @Test
     fun recordBlockedRequest_reportsTheTrackerFlagThroughTheStatsContract() =
         runBlocking {
-            val recorded = mutableListOf<Boolean>()
+            val recorded = Channel<Boolean>(Channel.UNLIMITED)
 
             AdBlockerEngine.setBlockedRequestStats(
                 object : com.jestk.browser.domain.repository.BlockedRequestStats {
                     override suspend fun recordBlockedRequest(isTracker: Boolean) {
-                        recorded += isTracker
+                        recorded.send(isTracker)
                     }
                 }
             )
@@ -372,16 +374,16 @@ class AdBlockerEngineTest {
             AdBlockerEngine.recordBlockedRequest("https://doubleclick.net/ad.js")
             AdBlockerEngine.recordBlockedRequest("https://google-analytics.com/analytics.js")
 
-            kotlinx.coroutines.delay(100)
-
-            assertThat(recorded).containsExactly(false, true).inOrder()
+            val results = withTimeout(5_000) { listOf(recorded.receive(), recorded.receive()) }
+            assertThat(results).containsExactly(false, true).inOrder()
         }
 
     @Test
     fun recordBlockedRequest_incrementsRepositoryCounts() =
         runBlocking {
-            var adsIncremented = 0L
-            var trackersIncremented = 0L
+            val adsIncremented = java.util.concurrent.atomic.AtomicLong()
+            val trackersIncremented = java.util.concurrent.atomic.AtomicLong()
+            val incremented = Channel<Unit>(Channel.UNLIMITED)
 
             val fakeRepo =
                 object : com.jestk.browser.domain.repository.SettingsRepository {
@@ -397,16 +399,18 @@ class AdBlockerEngineTest {
 
                     override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
 
-                    override fun getBlockedAdsCount() = kotlinx.coroutines.flow.flowOf(adsIncremented)
+                    override fun getBlockedAdsCount() = kotlinx.coroutines.flow.flowOf(adsIncremented.get())
 
-                    override fun getBlockedTrackersCount() = kotlinx.coroutines.flow.flowOf(trackersIncremented)
+                    override fun getBlockedTrackersCount() = kotlinx.coroutines.flow.flowOf(trackersIncremented.get())
 
                     override suspend fun incrementBlockedAds(count: Long) {
-                        adsIncremented += count
+                        adsIncremented.addAndGet(count)
+                        incremented.send(Unit)
                     }
 
                     override suspend fun incrementBlockedTrackers(count: Long) {
-                        trackersIncremented += count
+                        trackersIncremented.addAndGet(count)
+                        incremented.send(Unit)
                     }
 
                     override suspend fun setHiddenSearchPageEngineIds(ids: Set<String>) {}
@@ -427,11 +431,10 @@ class AdBlockerEngineTest {
             AdBlockerEngine.recordBlockedRequest("https://doubleclick.net/ad.js")
             AdBlockerEngine.recordBlockedRequest("https://google-analytics.com/analytics.js")
 
-            // Wait brief delay for coroutine launch
-            kotlinx.coroutines.delay(100)
+            withTimeout(5_000) { repeat(2) { incremented.receive() } }
 
-            assertThat(adsIncremented).isEqualTo(1L)
-            assertThat(trackersIncremented).isEqualTo(1L)
+            assertThat(adsIncremented.get()).isEqualTo(1L)
+            assertThat(trackersIncremented.get()).isEqualTo(1L)
         }
 
     // --- 8. Subdomain Matching Without Substring Allocations ---
