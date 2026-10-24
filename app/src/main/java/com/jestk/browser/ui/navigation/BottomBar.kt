@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -162,7 +163,8 @@ fun UnifiedBottomBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(54.dp)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 16.dp)
+                        .systemGestureExclusion(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {

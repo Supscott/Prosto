@@ -27,6 +27,7 @@ internal data class TabStripLayoutMetrics(
     val spacingPx: Float,
     val activeTabId: String? = null,
     val hysteresisPx: Float = 10f,
+    val draggingTabId: String? = null,
 )
 
 /**
@@ -148,10 +149,17 @@ internal class TabStripDragState(
         resetSwapState()
     }
 
+    fun updateDragOffset(offsetPx: Float) {
+        if (isDragging) {
+            dragOffsetPx = offsetPx
+        }
+    }
+
     internal fun getTabWidth(
         tab: Tab,
         metrics: TabStripLayoutMetrics,
     ): Float {
+        if (tab.id == metrics.draggingTabId) return metrics.inactiveTabWidthPx
         val isActive = tab.isActive || (metrics.activeTabId != null && tab.id == metrics.activeTabId)
         return if (isActive) metrics.activeTabWidthPx else metrics.inactiveTabWidthPx
     }

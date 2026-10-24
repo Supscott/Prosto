@@ -2,13 +2,11 @@ package com.jestk.browser.ui.navigation
 
 import android.widget.Toast
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,12 +38,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,12 +51,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -80,7 +75,6 @@ import com.jestk.browser.util.LocalVibrationFeedback
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.net.URI
-import kotlin.math.abs
 
 /**
  * Horizontal scrollable strip of tabs (`LazyRow`).
@@ -163,6 +157,8 @@ fun TabStripRow(
             dragState.updateTabs(displayTabs)
         }
 
+        var contextMenuTabId by remember { mutableStateOf<String?>(null) }
+
         val activeIndex =
             remember(dragState.currentTabs, uiState.activeTabId, uiState.activeTabIndex) {
                 val idx = dragState.currentTabs.indexOfFirst { it.id == uiState.activeTabId }
@@ -184,12 +180,13 @@ fun TabStripRow(
         val hysteresisPx = with(density) { 4.dp.toPx() }
 
         val layoutMetrics =
-            remember(activeTabWidthPx, inactiveTabWidthPx, tabSpacingPx, uiState.activeTabId, hysteresisPx) {
+            remember(activeTabWidthPx, inactiveTabWidthPx, tabSpacingPx, uiState.activeTabId, dragState.draggingTabId, hysteresisPx) {
                 TabStripLayoutMetrics(
                     activeTabWidthPx = activeTabWidthPx,
                     inactiveTabWidthPx = inactiveTabWidthPx,
                     spacingPx = tabSpacingPx,
                     activeTabId = uiState.activeTabId,
+                    draggingTabId = dragState.draggingTabId,
                     hysteresisPx = hysteresisPx,
                 )
             }
@@ -210,6 +207,31 @@ fun TabStripRow(
         val edgeTriggerThresholdPx = with(density) { 24.dp.toPx() }
         val rightPinnedOffsetPx = with(density) { 46.dp.toPx() }
         val maxScrollStepPx = with(density) { 8.dp.toPx() }
+        val edgeSlackPx = with(density) { 8.dp.toPx() }
+
+        val dragReorderModifier =
+            rememberTabStripDragReorderModifier(
+                lazyListState = lazyListState,
+                dragState = dragState,
+                layoutMetrics = layoutMetrics,
+                displayTabs = displayTabs,
+                activeTabId = uiState.activeTabId,
+                tabSpacingPx = tabSpacingPx,
+                totalChipWidthPx = totalChipWidthPx,
+                rightPinnedOffsetPx = rightPinnedOffsetPx,
+                edgeSlackPx = edgeSlackPx,
+                onLongPress = { tabId -> contextMenuTabId = tabId },
+            )
+
+        // Fail-safe drag cancellation on unmount or tab disposal during drag
+        DisposableEffect(dragState.draggingTabId) {
+            val currentDraggingTabId = dragState.draggingTabId
+            onDispose {
+                if (currentDraggingTabId != null && dragState.isDragging && dragState.draggingTabId == currentDraggingTabId) {
+                    dragState.onDragCancel(isReleasedActive = (currentDraggingTabId == uiState.activeTabId))
+                }
+            }
+        }
 
         // Continuous edge auto-scroll when a tab is dragged near dock boundaries
         LaunchedEffect(dragState.isDragging, dragState.draggingTabId) {
@@ -219,33 +241,56 @@ fun TabStripRow(
             while (isActive && dragState.isDragging && dragState.draggingTabId == draggingTabId) {
                 val layoutInfo = lazyListState.layoutInfo
                 val visibleItem = layoutInfo.visibleItemsInfo.firstOrNull { it.key == draggingTabId }
-                if (visibleItem != null) {
-                    val itemStartInViewport = visibleItem.offset + dragState.dragOffsetPx
-                    val itemEndInViewport = itemStartInViewport + visibleItem.size
-                    val viewportWidthPx =
-                        layoutInfo.viewportSize.width.takeIf { it > 0 }?.toFloat() ?: totalChipWidthPx
+                if (visibleItem == null) {
+                    delay(16)
+                    continue
+                }
 
-                    val scrollDelta = computeAutoScrollDelta(
-                        itemStartInViewport = itemStartInViewport,
-                        itemEndInViewport = itemEndInViewport,
-                        viewportWidthPx = viewportWidthPx,
-                        rightPinnedOffsetPx = rightPinnedOffsetPx,
-                        edgeTriggerThresholdPx = edgeTriggerThresholdPx,
-                        maxScrollStepPx = maxScrollStepPx,
-                        canScrollBackward = lazyListState.canScrollBackward,
-                        canScrollForward = lazyListState.canScrollForward,
-                    )
+                val itemStartInViewport = visibleItem.offset + dragState.dragOffsetPx
+                val itemEndInViewport = itemStartInViewport + visibleItem.size
+                val viewportWidthPx =
+                    layoutInfo.viewportSize.width.takeIf { it > 0 }?.toFloat() ?: totalChipWidthPx
 
-                    if (scrollDelta != 0f) {
-                        val consumed = lazyListState.scrollBy(scrollDelta)
-                        if (consumed != 0f) {
-                            dragState.onDrag(
-                                tabId = draggingTabId,
-                                deltaX = consumed,
-                                metrics = layoutMetrics,
-                                onSwapVibration = { vibration.tick() },
-                            )
-                        }
+                val currentDragIndex = dragState.currentTabs.indexOfFirst { it.id == draggingTabId }
+                val canScrollBackward =
+                    lazyListState.canScrollBackward &&
+                        (currentDragIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 0)
+                val canScrollForward =
+                    lazyListState.canScrollForward &&
+                        currentDragIndex in 0 until dragState.currentTabs.lastIndex
+
+                val scrollDelta = computeAutoScrollDelta(
+                    itemStartInViewport = itemStartInViewport,
+                    itemEndInViewport = itemEndInViewport,
+                    viewportWidthPx = viewportWidthPx,
+                    rightPinnedOffsetPx = rightPinnedOffsetPx,
+                    edgeTriggerThresholdPx = edgeTriggerThresholdPx,
+                    maxScrollStepPx = maxScrollStepPx,
+                    canScrollBackward = canScrollBackward,
+                    canScrollForward = canScrollForward,
+                )
+
+                if (scrollDelta != 0f) {
+                    val consumed = lazyListState.scrollBy(scrollDelta)
+                    if (consumed != 0f) {
+                        val itemLayoutOffsetAfterScroll =
+                            lazyListState.layoutInfo.visibleItemsInfo
+                                .firstOrNull { it.key == draggingTabId }
+                                ?.offset
+                                ?.toFloat()
+                                ?: visibleItem.offset - consumed
+                        dragTabToViewportPosition(
+                            lazyListState = lazyListState,
+                            dragState = dragState,
+                            tabId = draggingTabId,
+                            metrics = layoutMetrics,
+                            visualStartPx = itemStartInViewport,
+                            itemLayoutOffsetPx = itemLayoutOffsetAfterScroll,
+                            totalChipWidthPx = totalChipWidthPx,
+                            rightPinnedOffsetPx = rightPinnedOffsetPx,
+                            edgeSlackPx = edgeSlackPx,
+                            onSwapVibration = { vibration.tick() },
+                        )
                     }
                 }
                 delay(16)
@@ -254,7 +299,10 @@ fun TabStripRow(
 
         LazyRow(
             state = lazyListState,
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(dragReorderModifier),
             userScrollEnabled = !dragState.isDragging && !dragState.isSettling,
             contentPadding = PaddingValues(start = 5.dp, end = 46.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -269,6 +317,14 @@ fun TabStripRow(
                 val isDraggingThis = dragState.draggingTabId == tab.id
                 val isSettlingThis = dragState.settlingTabId == tab.id
                 val isElevated = isDraggingThis || isSettlingThis
+                val renderedActiveWidth by animateDpAsState(
+                    targetValue = if (isDraggingThis) 38.dp else activeTabWidth,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium,
+                    ),
+                    label = "ActiveTabDragWidth",
+                )
 
                 val itemTranslationX =
                     when {
@@ -312,7 +368,6 @@ fun TabStripRow(
                     val currentDomain = if (tabIsHome) "" else extractDomain(currentUrl)
 
                     ActiveTabPill(
-                        tabId = tab.id,
                         title = currentTitle,
                         domain = currentDomain,
                         url = currentUrl,
@@ -338,25 +393,18 @@ fun TabStripRow(
                         },
                         modifier =
                             Modifier
-                                .width(activeTabWidth)
+                                .width(renderedActiveWidth)
                                 .then(itemPlacementModifier)
                                 .zIndex(if (isElevated) 10f else 0f)
+                                .testTag("tab_${tab.id}")
                                 .graphicsLayer {
                                     translationX = itemTranslationX
                                     scaleX = effectiveScale
                                     scaleY = effectiveScale
                                 },
-                        onDragStart = { dragState.onDragStart(tab.id) },
-                        onDrag = { deltaX ->
-                            dragState.onDrag(
-                                tabId = tab.id,
-                                deltaX = deltaX,
-                                metrics = layoutMetrics,
-                                onSwapVibration = { vibration.tick() },
-                            )
-                        },
-                        onDragEnd = { dragState.onDragEnd(isReleasedActive = true, originalTabs = displayTabs) },
-                        onDragCancel = { dragState.onDragCancel(isReleasedActive = true) },
+                        menuExpanded = contextMenuTabId == tab.id,
+                        onMenuDismiss = { contextMenuTabId = null },
+                        isCompact = isDraggingThis,
                     )
                 } else {
                     InactiveTabButton(
@@ -377,22 +425,15 @@ fun TabStripRow(
                             Modifier
                                 .then(itemPlacementModifier)
                                 .zIndex(if (isElevated) 10f else 0f)
+                                .testTag("tab_${tab.id}")
                                 .graphicsLayer {
                                     translationX = itemTranslationX
                                     scaleX = effectiveScale
                                     scaleY = effectiveScale
+                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
                                 },
-                        onDragStart = { dragState.onDragStart(tab.id) },
-                        onDrag = { deltaX ->
-                            dragState.onDrag(
-                                tabId = tab.id,
-                                deltaX = deltaX,
-                                metrics = layoutMetrics,
-                                onSwapVibration = { vibration.tick() },
-                            )
-                        },
-                        onDragEnd = { dragState.onDragEnd(isReleasedActive = false, originalTabs = displayTabs) },
-                        onDragCancel = { dragState.onDragCancel(isReleasedActive = false) },
+                        menuExpanded = contextMenuTabId == tab.id,
+                        onMenuDismiss = { contextMenuTabId = null },
                     )
                 }
             }
@@ -469,23 +510,12 @@ fun InactiveTabButton(
     onClose: () -> Unit,
     onAddFavorite: (String, String) -> Unit,
     modifier: Modifier = Modifier,
-    onDragStart: (() -> Unit)? = null,
-    onDrag: ((Float) -> Unit)? = null,
-    onDragEnd: (() -> Unit)? = null,
-    onDragCancel: (() -> Unit)? = null,
+    menuExpanded: Boolean = false,
+    onMenuDismiss: () -> Unit = {},
 ) {
-    var showMenu by remember { mutableStateOf(false) }
     val context = LocalContext.current
-    val density = LocalDensity.current
-    val vibration = LocalVibrationFeedback.current
-    val touchSlop = with(density) { 8.dp.toPx() }
     val typography = LocalProstoTypography.current
     val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
-
-    val currentOnDragStart by rememberUpdatedState(onDragStart)
-    val currentOnDrag by rememberUpdatedState(onDrag)
-    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
-    val currentOnDragCancel by rememberUpdatedState(onDragCancel)
 
     Surface(
         shape = CircleShape,
@@ -496,55 +526,7 @@ fun InactiveTabButton(
             modifier
                 .size(38.dp)
                 .clip(CircleShape)
-                .pointerInput(tab.id) {
-                    awaitEachGesture {
-                        val down = awaitFirstDown(requireUnconsumed = false)
-                        val longPress = awaitLongPressOrCancellation(down.id)
-                        if (longPress != null) {
-                            vibration.confirm()
-                            var totalDragX = 0f
-                            var isDraggingInternal = false
-                            val currentPointerId = longPress.id
-                            var cancelled = false
-
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                val dragChange = event.changes.firstOrNull { it.id == currentPointerId }
-                                if (dragChange == null) {
-                                    cancelled = true
-                                    break
-                                }
-                                if (dragChange.changedToUp()) {
-                                    dragChange.consume()
-                                    break
-                                }
-
-                                val dragAmount = dragChange.positionChange()
-                                totalDragX += dragAmount.x
-                                dragChange.consume()
-
-                                if (!isDraggingInternal && abs(totalDragX) > touchSlop) {
-                                    isDraggingInternal = true
-                                    currentOnDragStart?.invoke()
-                                }
-
-                                if (isDraggingInternal) {
-                                    currentOnDrag?.invoke(dragAmount.x)
-                                }
-                            }
-
-                            if (isDraggingInternal) {
-                                if (cancelled) {
-                                    currentOnDragCancel?.invoke()
-                                } else {
-                                    currentOnDragEnd?.invoke()
-                                }
-                            } else if (!cancelled) {
-                                showMenu = true
-                            }
-                        }
-                    }
-                }.clickable(onClick = onClick),
+                .clickable(onClick = onClick),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -591,8 +573,8 @@ fun InactiveTabButton(
             }
 
             TabContextMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false },
+                expanded = menuExpanded,
+                onDismissRequest = onMenuDismiss,
                 isDark = isDark,
                 onCloseTab = onClose,
                 onCopyUrl = {

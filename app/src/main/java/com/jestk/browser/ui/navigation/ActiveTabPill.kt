@@ -6,16 +6,16 @@ import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,27 +31,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -65,8 +57,6 @@ import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.util.ClipboardHelper
-import com.jestk.browser.util.LocalVibrationFeedback
-import kotlin.math.abs
 
 /**
  * Active tab capsule composable representing the currently focused tab.
@@ -83,7 +73,6 @@ import kotlin.math.abs
  */
 @Composable
 fun ActiveTabPill(
-    tabId: String? = null,
     title: String,
     domain: String,
     url: String,
@@ -101,22 +90,11 @@ fun ActiveTabPill(
     modifier: Modifier = Modifier,
     onSwipeNext: () -> Unit = {},
     onSwipePrev: () -> Unit = {},
-    onDragStart: (() -> Unit)? = null,
-    onDrag: ((Float) -> Unit)? = null,
-    onDragEnd: (() -> Unit)? = null,
-    onDragCancel: (() -> Unit)? = null,
+    menuExpanded: Boolean = false,
+    onMenuDismiss: () -> Unit = {},
+    isCompact: Boolean = false,
 ) {
     val context = LocalContext.current
-    val density = LocalDensity.current
-    val vibration = LocalVibrationFeedback.current
-    val touchSlop = with(density) { 8.dp.toPx() }
-
-    val currentOnDragStart by rememberUpdatedState(onDragStart)
-    val currentOnDrag by rememberUpdatedState(onDrag)
-    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
-    val currentOnDragCancel by rememberUpdatedState(onDragCancel)
-
-    var showMenu by remember { mutableStateOf(false) }
     val typography = LocalProstoTypography.current
 
     val titleColor = if (isDark) DarkTextHighContrast else ProstoDarkText
@@ -125,6 +103,14 @@ fun ActiveTabPill(
     val closeTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
     val resolvedBg = backgroundColor
     val resolvedBorder = border
+    val pillHeight by animateDpAsState(
+        targetValue = if (isCompact) 38.dp else 42.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMedium,
+        ),
+        label = "ActiveTabDragHeight",
+    )
 
     val animatedProgress by animateFloatAsState(
         targetValue = if (isLoading) loadingProgress.coerceIn(0f, 1f) else 0f,
@@ -139,7 +125,7 @@ fun ActiveTabPill(
         shadowElevation = 0.dp,
         modifier =
             modifier
-                .height(42.dp)
+                .height(pillHeight)
                 .shadow(
                     elevation = 2.dp,
                     shape = RoundedCornerShape(21.dp),
@@ -176,63 +162,21 @@ fun ActiveTabPill(
             }
 
             // Pill Content Row
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .pointerInput(tabId ?: url) {
-                            awaitEachGesture {
-                                val down = awaitFirstDown(requireUnconsumed = false)
-                                val longPress = awaitLongPressOrCancellation(down.id)
-                                if (longPress != null) {
-                                    vibration.confirm()
-                                    var totalDragX = 0f
-                                    var isDraggingInternal = false
-                                    val currentPointerId = longPress.id
-                                    var cancelled = false
-
-                                    while (true) {
-                                        val event = awaitPointerEvent(PointerEventPass.Initial)
-                                        val dragChange = event.changes.firstOrNull { it.id == currentPointerId }
-                                        if (dragChange == null) {
-                                            cancelled = true
-                                            break
-                                        }
-                                        if (dragChange.changedToUp()) {
-                                            dragChange.consume()
-                                            break
-                                        }
-
-                                        val dragAmount = dragChange.positionChange()
-                                        totalDragX += dragAmount.x
-                                        dragChange.consume()
-
-                                        if (!isDraggingInternal && abs(totalDragX) > touchSlop) {
-                                            isDraggingInternal = true
-                                            currentOnDragStart?.invoke()
-                                        }
-
-                                        if (isDraggingInternal) {
-                                            currentOnDrag?.invoke(dragAmount.x)
-                                        }
-                                    }
-
-                                    if (isDraggingInternal) {
-                                        if (cancelled) {
-                                            currentOnDragCancel?.invoke()
-                                        } else {
-                                            currentOnDragEnd?.invoke()
-                                        }
-                                    } else if (!cancelled) {
-                                        showMenu = true
-                                    }
-                                }
-                            }
-                        }.clickable(onClick = onOpenSearch)
-                        .padding(start = 10.dp, end = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            AnimatedVisibility(
+                visible = !isCompact,
+                enter = fadeIn(animationSpec = tween(120)),
+                exit = fadeOut(animationSpec = tween(80)),
+                modifier = Modifier.fillMaxSize(),
             ) {
+                Row(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .clickable(onClick = onOpenSearch)
+                            .padding(start = 10.dp, end = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                 // Bare favicon container (no background box)
                 if (isHome) {
                     Box(
@@ -322,11 +266,41 @@ fun ActiveTabPill(
                         modifier = Modifier.size(13.dp),
                     )
                 }
+                }
+            }
+
+            AnimatedVisibility(
+                visible = isCompact,
+                enter = fadeIn(animationSpec = tween(100)),
+                exit = fadeOut(animationSpec = tween(80)),
+                modifier = Modifier.align(Alignment.Center),
+            ) {
+                if (isHome) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = "Home",
+                        tint = iconTint,
+                        modifier = Modifier.size(18.dp),
+                    )
+                } else {
+                    SiteFavicon(
+                        faviconUrl = faviconUrl,
+                        imageSize = 18.dp,
+                        placeholder = {
+                            Icon(
+                                imageVector = Icons.Default.Language,
+                                contentDescription = title,
+                                tint = iconTint,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                    )
+                }
             }
 
             TabContextMenu(
-                expanded = showMenu,
-                onDismissRequest = { showMenu = false },
+                expanded = menuExpanded,
+                onDismissRequest = onMenuDismiss,
                 isDark = isDark,
                 onCloseTab = onClose,
                 onCopyUrl = {
@@ -367,13 +341,10 @@ fun ActiveTabPill(
     modifier: Modifier = Modifier,
     onSwipeNext: () -> Unit = {},
     onSwipePrev: () -> Unit = {},
-    onDragStart: (() -> Unit)? = null,
-    onDrag: ((Float) -> Unit)? = null,
-    onDragEnd: (() -> Unit)? = null,
-    onDragCancel: (() -> Unit)? = null,
+    menuExpanded: Boolean = false,
+    onMenuDismiss: () -> Unit = {},
 ) {
     ActiveTabPill(
-        tabId = tab.id,
         title = displayTitle,
         domain = displayDomain,
         url = tab.url,
@@ -391,10 +362,8 @@ fun ActiveTabPill(
         modifier = modifier,
         onSwipeNext = onSwipeNext,
         onSwipePrev = onSwipePrev,
-        onDragStart = onDragStart,
-        onDrag = onDrag,
-        onDragEnd = onDragEnd,
-        onDragCancel = onDragCancel,
+        menuExpanded = menuExpanded,
+        onMenuDismiss = onMenuDismiss,
     )
 }
 
@@ -403,7 +372,6 @@ fun ActiveTabPill(
  */
 @Composable
 fun ActiveTabCenterCapsule(
-    tabId: String? = null,
     title: String,
     domain: String,
     url: String,
@@ -421,13 +389,10 @@ fun ActiveTabCenterCapsule(
     modifier: Modifier = Modifier,
     onSwipeNext: () -> Unit = {},
     onSwipePrev: () -> Unit = {},
-    onDragStart: (() -> Unit)? = null,
-    onDrag: ((Float) -> Unit)? = null,
-    onDragEnd: (() -> Unit)? = null,
-    onDragCancel: (() -> Unit)? = null,
+    menuExpanded: Boolean = false,
+    onMenuDismiss: () -> Unit = {},
 ) {
     ActiveTabPill(
-        tabId = tabId,
         title = title,
         domain = domain,
         url = url,
@@ -445,10 +410,8 @@ fun ActiveTabCenterCapsule(
         modifier = modifier,
         onSwipeNext = onSwipeNext,
         onSwipePrev = onSwipePrev,
-        onDragStart = onDragStart,
-        onDrag = onDrag,
-        onDragEnd = onDragEnd,
-        onDragCancel = onDragCancel,
+        menuExpanded = menuExpanded,
+        onMenuDismiss = onMenuDismiss,
     )
 }
 

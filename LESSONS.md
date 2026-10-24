@@ -22,10 +22,10 @@ Active, non-obvious gotchas that cannot yet be prevented by static typing or lin
 - **Do:** Ensure the very first statement inside `awaitEachGesture` is a suspending call (such as `awaitFirstDown()`), and suspend on `awaitPointerEvent` until pointers release if waiting for an ongoing animation.
 - **Don't:** Return early from `awaitEachGesture` before a suspending pointer method is invoked.
 
-## 3. PointerEventPass.Initial required for draggable rows containing clickable child buttons
-- **Cause:** By default, child clickables consume pointer events on `PointerEventPass.Main` before parent gesture handlers can observe displacement past touch slop.
-- **Do:** Observe pointer displacement on `PointerEventPass.Initial` without consuming while below `touchSlop`, and consume changes (`change.consume()`) on `PointerEventPass.Initial` once past `touchSlop` so child buttons cleanly cancel.
-- **Don't:** Rely solely on `PointerEventPass.Main` or default draggable modifiers for rows that contain clickable child controls.
+## 3. Host long-lived drag gestures on the stable list node, never inside a reorderable LazyList item
+- **Cause:** Child clickables consume `Main`-pass events, so a parent drag handler must observe `PointerEventPass.Initial`. Worse, reordering changes a slot's content type (active pill vs. inactive circle), so `LazyList` disposes and recreates the dragged item's `LayoutNode`; that detach path calls `HitPathTracker.removePointerInputModifierNode` -> `Node.dispatchCancel`, synthesizing a pointer cancel that aborts the drag mid-reorder and springs the item back. The gesture node is destroyed, so no `onDragEnd` follows.
+- **Do:** Host the long-press/drag loop on the stable `LazyRow`/list node, resolve the item id from the down position via `LazyListState.layoutInfo`, observe `PointerEventPass.Initial`, and consume only after the long-press timeout or touch slop. Keep item composables free of drag state and drag callbacks.
+- **Don't:** Put a long-lived `awaitEachGesture` loop inside a `LazyList` item that can be reordered, or rely on `PointerEventPass.Main` when the item contains clickable children.
 
 ## 4. Kotlin default parameter evaluation trap with mutable state during drag-and-drop reorder
 - **Cause:** Kotlin evaluates default arguments at the call site before entering the function body. Mutating state inside the function before using a default-initialized parameter binds to the stale pre-mutation state.

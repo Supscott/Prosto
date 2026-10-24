@@ -576,4 +576,46 @@ class TabStripDragSpringTest {
         )
         assertEquals(8f, deltaRight, 0.001f)
     }
+
+    @Test
+    fun onDragCancel_smoothlySettlesAndClearsDraggingState() = runTest(testFrameClock) {
+        val state = TabStripDragState(
+            initialTabs = sampleTabs,
+            coroutineScope = this,
+            onReorder = {}
+        )
+
+        state.onDragStart("tab1")
+        state.onDrag(tabId = "tab1", deltaX = 30f, swapThreshold = 44f)
+        assertTrue(state.isDragging)
+        assertEquals(30f, state.dragOffsetPx, 0.001f)
+
+        // Cancellation (e.g. gesture interrupted or system back gesture)
+        state.onDragCancel(isReleasedActive = true)
+
+        assertFalse(state.isDragging)
+        assertNull(state.draggingTabId)
+        assertEquals(0f, state.dragOffsetPx, 0.001f)
+        assertTrue(state.isSettling)
+        assertEquals("tab1", state.settlingTabId)
+
+        // Settle completes cleanly
+        testScheduler.advanceUntilIdle()
+        assertFalse(state.isSettling)
+        assertNull(state.settlingTabId)
+    }
+
+    @Test
+    fun onDragCancel_whenNotDragging_isSafeNoOp() = runTest(testFrameClock) {
+        val state = TabStripDragState(
+            initialTabs = sampleTabs,
+            coroutineScope = this,
+            onReorder = {}
+        )
+
+        state.onDragCancel(isReleasedActive = false)
+        assertFalse(state.isDragging)
+        assertFalse(state.isSettling)
+        assertNull(state.draggingTabId)
+    }
 }
