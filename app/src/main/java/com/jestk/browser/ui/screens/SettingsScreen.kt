@@ -650,7 +650,7 @@ fun SettingsContent(
                 subtitle = stringResource(R.string.about_app_github_summary),
                 onClick = {
                     try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/jestk/browser"))
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Supscott/Prosto"))
                         context.startActivity(intent)
                     } catch (_: Exception) {
                         Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()

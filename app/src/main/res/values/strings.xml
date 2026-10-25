@@ -78,7 +78,7 @@
     <string name="about_app_website_title">Prosto Web Browser</string>
     <string name="about_app_website_summary">Fast, fluid, and gesture-driven</string>
     <string name="about_app_github_title">Source Code on GitHub</string>
-    <string name="about_app_github_summary">github.com/jestk/browser</string>
+    <string name="about_app_github_summary">github.com/Supscott/Prosto</string>
     <string name="about_love_footer">Crafted with love for a fast and private web</string>
     <string name="vibration_setting_title">Vibration</string>
     <string name="vibration_setting_summary">Vibrate on gestures and long press</string>
