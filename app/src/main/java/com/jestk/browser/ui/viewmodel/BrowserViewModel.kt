@@ -817,15 +817,15 @@ class BrowserViewModel(
             return
         }
 
-        // Hiding the dock starts working below h-screen (scrollY > viewportHeight)
-        val isBelowHScreen = viewportHeight > 0 && scrollY > viewportHeight
-        if (!isBelowHScreen) {
-            // Within the first screen (scrollY <= viewportHeight) or scrolled back to top: dock must always be visible
+        // Hiding the dock starts working below 50% screen (scrollY > viewportHeight / 2)
+        val isBelowHalfScreen = viewportHeight > 0 && scrollY > (viewportHeight / 2)
+        if (!isBelowHalfScreen) {
+            // Within the first half-screen (scrollY <= viewportHeight / 2) or scrolled back to top: dock must always be visible
             if (!current.isBottomBarVisible) {
                 _uiState.update { it.copy(isBottomBarVisible = true) }
             }
         } else {
-            // Below h-screen: hide if scrolling down, show if scrolling up
+            // Below 50% screen: hide if scrolling down, show if scrolling up
             if (deltaY > 8f) {
                 if (current.isBottomBarVisible) {
                     _uiState.update {

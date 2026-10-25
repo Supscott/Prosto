@@ -40,7 +40,7 @@ Smartphones have grown to 6.7"+ displays, yet traditional mobile browsers still 
 ### 🚀 Floating Gesture Dock
 - **1-Swipe New Tab + Search:** Swipe upward from anywhere on the floating bottom dock to instantly spawn a new tab with the search omnibox focused and the keyboard open.
 - **Tactile Spring Tab Reordering:** Long-press and drag tabs directly across the bottom strip. Tabs spring into place smoothly using Jetpack Compose spring physics (`Modifier.animateItem()`).
-- **Scroll-Driven Auto-Hide:** As you scroll down past the first viewport, the dock gracefully recedes off-screen to give you edge-to-edge reading space. A slight upward scroll brings it right back.
+- **Scroll-Driven Auto-Hide:** As you scroll down past half the screen, the dock gracefully recedes off-screen to give you edge-to-edge reading space. A slight upward scroll brings it right back.
 
 ### 🔍 Dynamic Search Carousel & Power Shortcuts
 - **Instant Provider Switching:** Fling horizontally across search engines right in the omnibox container (Google, DuckDuckGo, Brave, Kagi, Ecosia, Startpage).
