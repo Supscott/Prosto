@@ -12,6 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -47,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -408,19 +410,27 @@ fun JestkApp(
                 !uiState.isSettingsVisible &&
                 !uiState.isDownloadsVisible
 
-            AnimatedVisibility(
-                visible = isBottomBarVisible,
-                enter =
-                    fadeIn(tween(220, easing = FastOutSlowInEasing)) +
-                        slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
-                exit =
-                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
-                        slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
-                modifier = Modifier.align(Alignment.BottomCenter),
-            ) {
+            val bottomBarSlideOffset by animateDpAsState(
+                targetValue = if (isBottomBarVisible) 0.dp else 120.dp,
+                animationSpec = tween(durationMillis = if (isBottomBarVisible) 260 else 220, easing = FastOutSlowInEasing),
+                label = "BottomBarSlide",
+            )
+            val bottomBarAlpha by animateFloatAsState(
+                targetValue = if (isBottomBarVisible) 1f else 0f,
+                animationSpec = tween(durationMillis = if (isBottomBarVisible) 220 else 180, easing = FastOutSlowInEasing),
+                label = "BottomBarAlpha",
+            )
+
+            if (bottomBarAlpha > 0f) {
                 UnifiedBottomBar(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer {
+                            translationY = bottomBarSlideOffset.toPx()
+                            alpha = bottomBarAlpha
+                        },
                 )
             }
 

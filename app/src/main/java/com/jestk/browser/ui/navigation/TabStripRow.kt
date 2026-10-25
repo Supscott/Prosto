@@ -64,11 +64,15 @@ import androidx.compose.ui.zIndex
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkDockSurface
+import com.jestk.browser.ui.theme.DarkError
+import com.jestk.browser.ui.theme.DarkErrorContainer
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoCardSurface
+import com.jestk.browser.ui.theme.ProstoError
+import com.jestk.browser.ui.theme.ProstoErrorContainer
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
@@ -152,6 +156,7 @@ fun TabStripRow(
             rememberTabStripDragState(
                 initialTabs = displayTabs,
                 onReorder = { reordered -> onEvent(BrowserUiEvent.ReorderTabs(reordered)) },
+                onRemoveTab = { tabId -> onEvent(BrowserUiEvent.CloseTab(tabId)) },
                 coroutineScope = coroutineScope,
             )
 
@@ -210,6 +215,7 @@ fun TabStripRow(
         val rightPinnedOffsetPx = with(density) { 46.dp.toPx() }
         val maxScrollStepPx = with(density) { 8.dp.toPx() }
         val edgeSlackPx = with(density) { 8.dp.toPx() }
+        val removeThresholdPx = with(density) { 50.dp.toPx() }
 
         val dragReorderModifier =
             rememberTabStripDragReorderModifier(
@@ -222,6 +228,7 @@ fun TabStripRow(
                 totalChipWidthPx = totalChipWidthPx,
                 rightPinnedOffsetPx = rightPinnedOffsetPx,
                 edgeSlackPx = edgeSlackPx,
+                removeThresholdPx = removeThresholdPx,
                 onLongPress = { tabId -> contextMenuTabId = tabId },
             )
 
@@ -241,6 +248,10 @@ fun TabStripRow(
             if (!dragState.isDragging || draggingTabId == null) return@LaunchedEffect
 
             while (isActive && dragState.isDragging && dragState.draggingTabId == draggingTabId) {
+                if (dragState.isOverRemoveZone) {
+                    delay(16)
+                    continue
+                }
                 val layoutInfo = lazyListState.layoutInfo
                 val visibleItem = layoutInfo.visibleItemsInfo.firstOrNull { it.key == draggingTabId }
                 if (visibleItem == null) {
@@ -319,6 +330,12 @@ fun TabStripRow(
                 val isDraggingThis = dragState.draggingTabId == tab.id
                 val isSettlingThis = dragState.settlingTabId == tab.id
                 val isElevated = isDraggingThis || isSettlingThis
+                val isOverRemoveZone = isDraggingThis && dragState.isOverRemoveZone
+
+                val removeDistancePx = (-dragState.dragOffsetYPx).coerceAtLeast(0f)
+                val removeProgress = (removeDistancePx / removeThresholdPx).coerceIn(0f, 1f)
+                val overDistance = ((-dragState.dragOffsetYPx - removeThresholdPx) / removeThresholdPx).coerceIn(0f, 1f)
+
                 val renderedActiveWidth by animateDpAsState(
                     targetValue = if (isDraggingThis) 38.dp else activeTabWidth,
                     animationSpec = spring(
@@ -334,13 +351,31 @@ fun TabStripRow(
                         isSettlingThis -> dragState.settleOffsetAnim.value
                         else -> 0f
                     }
+                val itemTranslationY =
+                    when {
+                        isDraggingThis -> dragState.dragOffsetYPx
+                        isSettlingThis -> dragState.settleOffsetYAnim.value
+                        else -> 0f
+                    }
+
+                val baseDragScale = if (isActive) 1.05f else 1.08f
+                val dynamicDragScale =
+                    (baseDragScale - (removeProgress * 0.45f) - (overDistance * 0.05f)).coerceAtLeast(0.50f)
+                val dynamicDragAlpha =
+                    (1.0f - (removeProgress * 0.55f) - (overDistance * 0.05f)).coerceIn(0.40f, 1.0f)
+
                 val itemScale =
                     when {
-                        isDraggingThis -> if (isActive) 1.05f else 1.08f
+                        isDraggingThis -> dynamicDragScale
                         isSettlingThis -> dragState.settleScaleAnim.value
                         else -> 1.0f
                     }
                 val effectiveScale = itemScale + if (isDraggingThis) dragState.swapScaleBump.value else 0f
+                val itemAlpha =
+                    when {
+                        isDraggingThis -> dynamicDragAlpha
+                        else -> 1.0f
+                    }
 
                 val itemPlacementModifier =
                     if (isDraggingThis) {
@@ -354,6 +389,8 @@ fun TabStripRow(
                                 ),
                         )
                     }
+
+                val tabRemoveProgress = if (isDraggingThis) removeProgress else 0f
 
                 if (isActive) {
                     val currentTitle =
@@ -369,14 +406,17 @@ fun TabStripRow(
                     val currentUrl = if (isActive && uiState.currentUrl.isNotEmpty()) uiState.currentUrl else tab.url
                     val currentDomain = if (tabIsHome) "" else extractDomain(currentUrl)
 
+                    val activePillBgActual = centerPillBg
+                    val activePillBorderActual = centerPillBorder
+
                     ActiveTabPill(
                         title = currentTitle,
                         domain = currentDomain,
                         url = currentUrl,
                         faviconUrl = tab.faviconUrl,
                         isHome = tabIsHome,
-                        backgroundColor = centerPillBg,
-                        border = centerPillBorder,
+                        backgroundColor = activePillBgActual,
+                        border = activePillBorderActual,
                         isDark = isDark,
                         isLoading = uiState.isLoading,
                         loadingProgress = uiState.loadingProgress,
@@ -401,22 +441,41 @@ fun TabStripRow(
                                 .testTag("tab_${tab.id}")
                                 .graphicsLayer {
                                     translationX = itemTranslationX
+                                    translationY = itemTranslationY
                                     scaleX = effectiveScale
                                     scaleY = effectiveScale
+                                    alpha = itemAlpha
                                 },
                         menuExpanded = contextMenuTabId == tab.id,
                         onMenuDismiss = { contextMenuTabId = null },
                         isCompact = isDraggingThis,
+                        isRemovePending = isOverRemoveZone,
+                        removeProgress = tabRemoveProgress,
                     )
                 } else {
                     val isTabLoaded = uiState.isTabLoaded(tab.id)
+                    val inactiveBtnBgActual =
+                        if (isDraggingThis) {
+                            if (isDark) DarkSurface.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.90f)
+                        } else {
+                            circleBtnBg
+                        }
+                    val inactiveBtnBorderActual =
+                        if (isDraggingThis) {
+                            ProstoBorders.floatingBorder(isDark)
+                        } else {
+                            null
+                        }
+
                     InactiveTabButton(
                         tab = tab,
                         isDark = isDark,
                         isLoaded = isTabLoaded,
                         grayUnloadedTabs = uiState.settings.isGrayUnloadedTabsEnabled,
-                        backgroundColor = circleBtnBg,
-                        border = null,
+                        backgroundColor = inactiveBtnBgActual,
+                        border = inactiveBtnBorderActual,
+                        isRemovePending = isOverRemoveZone,
+                        removeProgress = tabRemoveProgress,
                         onClick = {
                             onEvent(BrowserUiEvent.SelectTab(tab.id))
                         },
@@ -433,8 +492,10 @@ fun TabStripRow(
                                 .testTag("tab_${tab.id}")
                                 .graphicsLayer {
                                     translationX = itemTranslationX
+                                    translationY = itemTranslationY
                                     scaleX = effectiveScale
                                     scaleY = effectiveScale
+                                    alpha = itemAlpha
                                     transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
                                 },
                         menuExpanded = contextMenuTabId == tab.id,
@@ -498,6 +559,46 @@ fun TabStripRow(
                     .align(Alignment.CenterEnd)
                     .padding(end = 4.dp),
         )
+
+        // Floating Vanishing Tab Overlay during removal release animation
+        val removingTab = dragState.removingTab
+        if (removingTab != null) {
+            val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
+            Box(
+                modifier =
+                    Modifier
+                        .size(38.dp)
+                        .graphicsLayer {
+                            translationX = dragState.removingVisualX
+                            translationY = dragState.removeOffsetYAnim.value
+                            scaleX = dragState.removeScaleAnim.value
+                            scaleY = dragState.removeScaleAnim.value
+                            alpha = dragState.removeAlphaAnim.value
+                            transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+                        },
+                contentAlignment = Alignment.Center,
+            ) {
+                Surface(
+                    shape = CircleShape,
+                    color = if (isDark) DarkSurface.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.90f),
+                    border = ProstoBorders.floatingBorder(isDark),
+                    shadowElevation = 0.dp,
+                    modifier = Modifier.size(38.dp),
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Remove Tab",
+                            tint = normalTint,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -513,6 +614,8 @@ fun InactiveTabButton(
     border: BorderStroke? = null,
     isLoaded: Boolean = true,
     grayUnloadedTabs: Boolean = true,
+    isRemovePending: Boolean = false,
+    removeProgress: Float = 0f,
     onClick: () -> Unit,
     onClose: () -> Unit,
     onAddFavorite: (String, String) -> Unit,
@@ -532,6 +635,7 @@ fun InactiveTabButton(
     val grayscaleFilter = remember(isGray) {
         if (isGray) ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) else null
     }
+    val crossAlpha = if (isRemovePending) 1f else ((removeProgress - 0.15f) / 0.70f).coerceIn(0f, 1f)
 
     Surface(
         shape = CircleShape,
@@ -551,44 +655,61 @@ fun InactiveTabButton(
             contentAlignment = Alignment.Center,
         ) {
             val isHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home"
-            if (isHome) {
+            if (crossAlpha > 0f) {
                 Icon(
-                    imageVector = Icons.Default.Home,
-                    contentDescription = "Home",
+                    imageVector = Icons.Default.Close,
+                    contentDescription = "Remove Tab",
                     tint = normalTint,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .graphicsLayer { alpha = crossAlpha },
                 )
-            } else {
-                SiteFavicon(
-                    faviconUrl = tab.faviconUrl,
-                    imageSize = 18.dp,
-                    colorFilter = grayscaleFilter,
-                    placeholder = {
-                        val initial =
-                            tab.title
-                                .trim()
-                                .firstOrNull()
-                                ?.uppercaseChar()
-                        if (initial != null && initial.isLetterOrDigit() && tab.title != "New Tab") {
-                            Text(
-                                text = initial.toString(),
-                                style =
-                                    typography.labelMd.copy(
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 12.sp,
-                                    ),
-                                color = normalTint,
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Language,
-                                contentDescription = tab.title,
-                                tint = normalTint,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        }
-                    },
-                )
+            }
+            if (crossAlpha < 1f) {
+                Box(
+                    modifier = Modifier.graphicsLayer { alpha = 1f - crossAlpha },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isHome) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = "Home",
+                            tint = normalTint,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    } else {
+                        SiteFavicon(
+                            faviconUrl = tab.faviconUrl,
+                            imageSize = 18.dp,
+                            colorFilter = grayscaleFilter,
+                            placeholder = {
+                                val initial =
+                                    tab.title
+                                        .trim()
+                                        .firstOrNull()
+                                        ?.uppercaseChar()
+                                if (initial != null && initial.isLetterOrDigit() && tab.title != "New Tab") {
+                                    Text(
+                                        text = initial.toString(),
+                                        style =
+                                            typography.labelMd.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 12.sp,
+                                            ),
+                                        color = normalTint,
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Language,
+                                        contentDescription = tab.title,
+                                        tint = normalTint,
+                                        modifier = Modifier.size(18.dp),
+                                    )
+                                }
+                            },
+                        )
+                    }
+                }
             }
 
             TabContextMenu(

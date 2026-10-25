@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.Tab
@@ -160,21 +162,30 @@ fun UnifiedBottomBar(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Tactile Floating Capsule Dock
+                    // Tactile Floating Capsule Dock & Tab Strip
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(50.dp)
-                            .prostoFloatingSurface(
-                                shape = ProstoShapes.Dock,
-                                isDark = isDark,
-                                backgroundColor = dockBg,
-                                elevation = 10.dp
-                            )
+                            .testTag("dock_capsule")
                             .swipeUpToSearch(density) {
                                 currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
                             }
                     ) {
+                        // Tactile Floating Capsule Dock Surface (clipped cleanly to stadium capsule)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .prostoFloatingSurface(
+                                    shape = ProstoShapes.Dock,
+                                    isDark = isDark,
+                                    backgroundColor = dockBg,
+                                    elevation = 10.dp,
+                                    clip = true,
+                                )
+                        )
+
+                        // Tab Strip Row (tabs rest on the dock surface, unclipped by the dock capsule)
                         TabStripRow(
                             uiState = uiState,
                             onEvent = onEvent,

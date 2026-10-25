@@ -47,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -55,11 +56,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.components.SiteFavicon
+import com.jestk.browser.ui.theme.DarkError
 import com.jestk.browser.ui.theme.DarkTextHighContrast
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoAccent
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoError
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.util.ClipboardHelper
 
@@ -98,6 +101,8 @@ fun ActiveTabPill(
     menuExpanded: Boolean = false,
     onMenuDismiss: () -> Unit = {},
     isCompact: Boolean = false,
+    isRemovePending: Boolean = false,
+    removeProgress: Float = 0f,
 ) {
     val context = LocalContext.current
     val typography = LocalProstoTypography.current
@@ -270,32 +275,56 @@ fun ActiveTabPill(
                 }
             }
 
+            val crossAlpha = if (isRemovePending) 1f else ((removeProgress - 0.15f) / 0.70f).coerceIn(0f, 1f)
+
             AnimatedVisibility(
                 visible = isCompact,
                 enter = fadeIn(animationSpec = tween(100)),
                 exit = fadeOut(animationSpec = tween(80)),
                 modifier = Modifier.align(Alignment.Center),
             ) {
-                if (isHome) {
-                    Icon(
-                        imageVector = Icons.Default.Home,
-                        contentDescription = "Home",
-                        tint = iconTint,
-                        modifier = Modifier.size(18.dp),
-                    )
-                } else {
-                    SiteFavicon(
-                        faviconUrl = faviconUrl,
-                        imageSize = 18.dp,
-                        placeholder = {
-                            Icon(
-                                imageVector = Icons.Default.Language,
-                                contentDescription = title,
-                                tint = iconTint,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                    )
+                Box(
+                    modifier = Modifier.size(24.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (crossAlpha > 0f) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Remove Tab",
+                            tint = closeTint,
+                            modifier = Modifier
+                                .size(16.dp)
+                                .graphicsLayer { alpha = crossAlpha },
+                        )
+                    }
+                    if (crossAlpha < 1f) {
+                        Box(
+                            modifier = Modifier.graphicsLayer { alpha = 1f - crossAlpha },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (isHome) {
+                                Icon(
+                                    imageVector = Icons.Default.Home,
+                                    contentDescription = "Home",
+                                    tint = iconTint,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            } else {
+                                SiteFavicon(
+                                    faviconUrl = faviconUrl,
+                                    imageSize = 18.dp,
+                                    placeholder = {
+                                        Icon(
+                                            imageVector = Icons.Default.Language,
+                                            contentDescription = title,
+                                            tint = iconTint,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    },
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
