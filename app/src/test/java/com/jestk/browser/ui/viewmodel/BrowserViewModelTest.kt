@@ -248,7 +248,7 @@ class BrowserViewModelTest {
         }
 
     @Test
-    fun onWebScroll_withinFirstScreen_maintainsBottomBarVisible() =
+    fun onWebScroll_withinFirstHalfScreen_maintainsBottomBarVisible() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()
             advanceUntilIdle()
@@ -259,17 +259,17 @@ class BrowserViewModelTest {
 
             assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
 
-            // Scroll down within first screen (scrollY = 400, viewportHeight = 800)
-            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 25f, scrollY = 400, viewportHeight = 800))
+            // Scroll down within first 50% of screen (scrollY = 200, viewportHeight = 800)
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 25f, scrollY = 200, viewportHeight = 800))
             assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
 
-            // Scroll down further within first screen (scrollY = 800, viewportHeight = 800)
-            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 25f, scrollY = 800, viewportHeight = 800))
+            // Scroll down up to 50% boundary (scrollY = 400, viewportHeight = 800)
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 25f, scrollY = 400, viewportHeight = 800))
             assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
         }
 
     @Test
-    fun onWebScroll_belowHScreen_hidesOnScrollDownAndShowsOnScrollUp() =
+    fun onWebScroll_pastHalfScreen_hidesOnScrollDownAndShowsOnScrollUp() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()
             advanceUntilIdle()
@@ -280,24 +280,24 @@ class BrowserViewModelTest {
 
             val viewportHeight = 800
 
-            // 1. Scroll down below h-screen -> bottom bar hides
-            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 25f, scrollY = 1200, viewportHeight = viewportHeight))
+            // 1. Scroll down past 50% screen (scrollY = 401 > 400) -> bottom bar hides
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 25f, scrollY = 401, viewportHeight = viewportHeight))
             assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
 
             // 2. Continuing downward scroll keeps it hidden
             viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 30f, scrollY = 1500, viewportHeight = viewportHeight))
             assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
 
-            // 3. Scroll up below h-screen -> bottom bar reappears
+            // 3. Scroll up past 50% screen -> bottom bar reappears
             viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = -25f, scrollY = 1450, viewportHeight = viewportHeight))
             assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
 
-            // 4. Scroll down again below h-screen -> bottom bar hides
+            // 4. Scroll down again past 50% screen -> bottom bar hides
             viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 20f, scrollY = 1500, viewportHeight = viewportHeight))
             assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
 
-            // 5. Scroll back up into top screen (scrollY <= viewportHeight) -> bottom bar reappears
-            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 0f, scrollY = 600, viewportHeight = viewportHeight))
+            // 5. Scroll back up into top 50% screen (scrollY <= viewportHeight / 2) -> bottom bar reappears
+            viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 0f, scrollY = 300, viewportHeight = viewportHeight))
             assertThat(viewModel.uiState.value.isBottomBarVisible).isTrue()
         }
 
@@ -326,7 +326,7 @@ class BrowserViewModelTest {
 
             val activeTabId = viewModel.uiState.value.activeTabId!!
 
-            // Hide dock by scrolling down below h-screen
+            // Hide dock by scrolling down past 50% screen
             viewModel.onEvent(BrowserUiEvent.OnWebScroll(deltaY = 30f, scrollY = 1500, viewportHeight = 800))
             assertThat(viewModel.uiState.value.isBottomBarVisible).isFalse()
 

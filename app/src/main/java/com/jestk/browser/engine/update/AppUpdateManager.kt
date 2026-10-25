@@ -164,12 +164,14 @@ class AppUpdateManager(
         val file = updateFile(versionName)
         val contentIntent =
             if (file.exists()) {
-                PendingIntent.getActivity(
-                    context,
-                    0,
-                    installIntent(file),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                )
+                runCatching {
+                    PendingIntent.getActivity(
+                        context,
+                        0,
+                        installIntent(file),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                    )
+                }.getOrNull()
             } else {
                 null
             }
