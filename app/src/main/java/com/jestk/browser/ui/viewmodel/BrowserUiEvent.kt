@@ -213,6 +213,10 @@ sealed interface BrowserUiEvent {
         val enabled: Boolean,
     ) : BrowserUiEvent
 
+    data class SetGrayUnloadedTabsEnabled(
+        val enabled: Boolean,
+    ) : BrowserUiEvent
+
     // Self-update
     data class SetAutoUpdateEnabled(
         val enabled: Boolean,

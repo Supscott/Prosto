@@ -354,6 +354,7 @@ class BrowserViewModelTest {
             viewModel.onEvent(BrowserUiEvent.SetSearchEngine(SearchEngine.GOOGLE))
             viewModel.onEvent(BrowserUiEvent.SetAdBlockerEnabled(false))
             viewModel.onEvent(BrowserUiEvent.SetVibrationEnabled(false))
+            viewModel.onEvent(BrowserUiEvent.SetGrayUnloadedTabsEnabled(false))
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
@@ -361,6 +362,7 @@ class BrowserViewModelTest {
             assertThat(state.settings.searchEngine).isEqualTo(SearchEngine.GOOGLE)
             assertThat(state.settings.isAdBlockerEnabled).isFalse()
             assertThat(state.settings.isVibrationEnabled).isFalse()
+            assertThat(state.settings.isGrayUnloadedTabsEnabled).isFalse()
         }
 
     @Test
@@ -1396,12 +1398,15 @@ class BrowserViewModelTest {
             val state = viewModel.uiState.value
             val tabId = state.activeTabId!!
             val webView = webViewPool.getOrCreateWebView(tabId, context)
+            advanceUntilIdle()
             assertThat(webViewPool.getWebView(tabId)).isEqualTo(webView)
+            assertThat(viewModel.uiState.value.loadedTabIds).contains(tabId)
 
             // 3. Close tab removes from WebViewPool
             viewModel.onEvent(BrowserUiEvent.CloseTab(tabId))
             advanceUntilIdle()
             assertThat(webViewPool.getWebView(tabId)).isNull()
+            assertThat(viewModel.uiState.value.loadedTabIds).doesNotContain(tabId)
 
             // 4. Close all tabs clears WebViewPool
             val newActiveTabId = viewModel.uiState.value.activeTabId!!

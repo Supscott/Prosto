@@ -196,4 +196,23 @@ class SettingsRepositoryTest {
             repository.setSkippedUpdateVersion(null)
             assertThat(repository.getCurrentSettings().skippedUpdateVersion).isNull()
         }
+
+    @Test
+    fun grayUnloadedTabsDefaultsToEnabled() =
+        runTest(testDispatcher) {
+            assertThat(repository.getCurrentSettings().isGrayUnloadedTabsEnabled).isTrue()
+            assertThat(repository.getSettings().first().isGrayUnloadedTabsEnabled).isTrue()
+        }
+
+    @Test
+    fun setGrayUnloadedTabsEnabled_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setGrayUnloadedTabsEnabled(false)
+
+            assertThat(repository.getSettings().first().isGrayUnloadedTabsEnabled).isFalse()
+            assertThat(repository.getCurrentSettings().isGrayUnloadedTabsEnabled).isFalse()
+
+            repository.setGrayUnloadedTabsEnabled(true)
+            assertThat(repository.getCurrentSettings().isGrayUnloadedTabsEnabled).isTrue()
+        }
 }

@@ -34,6 +34,7 @@ class SettingsRepositoryImpl(
             val openInAppsStr = settingDao.getSetting(SettingKeys.OPEN_IN_APPS_ENABLED)
             val autoUpdateStr = settingDao.getSetting(SettingKeys.AUTO_UPDATE_ENABLED)
             val vibrationStr = settingDao.getSetting(SettingKeys.VIBRATION_ENABLED)
+            val grayUnloadedTabsStr = settingDao.getSetting(SettingKeys.GRAY_UNLOADED_TABS_ENABLED)
             val skippedUpdateStr = settingDao.getSetting(SettingKeys.SKIPPED_UPDATE_VERSION)
 
             val theme = themeStr?.let { runCatching { ThemeMode.valueOf(it) }.getOrDefault(ThemeMode.SYSTEM) } ?: ThemeMode.SYSTEM
@@ -43,6 +44,7 @@ class SettingsRepositoryImpl(
             val openInApps = openInAppsStr?.toBooleanStrictOrNull() ?: true
             val autoUpdate = autoUpdateStr?.toBooleanStrictOrNull() ?: true
             val vibration = vibrationStr?.toBooleanStrictOrNull() ?: true
+            val grayUnloadedTabs = grayUnloadedTabsStr?.toBooleanStrictOrNull() ?: true
             val skippedUpdate = skippedUpdateStr?.takeIf { it.isNotBlank() }
             val hiddenEngines =
                 hiddenStr
@@ -61,6 +63,7 @@ class SettingsRepositoryImpl(
                 isAutoUpdateEnabled = autoUpdate,
                 isVibrationEnabled = vibration,
                 skippedUpdateVersion = skippedUpdate,
+                isGrayUnloadedTabsEnabled = grayUnloadedTabs,
             )
         }
 
@@ -98,6 +101,11 @@ class SettingsRepositoryImpl(
     override suspend fun setVibrationEnabled(enabled: Boolean) =
         withContext(ioDispatcher) {
             settingDao.setSetting(SettingEntity(SettingKeys.VIBRATION_ENABLED, enabled.toString()))
+        }
+
+    override suspend fun setGrayUnloadedTabsEnabled(enabled: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.GRAY_UNLOADED_TABS_ENABLED, enabled.toString()))
         }
 
     override suspend fun setSkippedUpdateVersion(version: String?) =

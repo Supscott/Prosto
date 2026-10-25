@@ -421,6 +421,8 @@ class AdBlockerEngineTest {
 
                     override suspend fun setVibrationEnabled(enabled: Boolean) {}
 
+                    override suspend fun setGrayUnloadedTabsEnabled(enabled: Boolean) {}
+
                     override suspend fun setSkippedUpdateVersion(version: String?) {}
                 }
 
@@ -627,6 +629,8 @@ class AdBlockerEngineTest {
         override suspend fun setAutoUpdateEnabled(enabled: Boolean) {}
 
         override suspend fun setVibrationEnabled(enabled: Boolean) {}
+
+        override suspend fun setGrayUnloadedTabsEnabled(enabled: Boolean) {}
 
         override suspend fun setSkippedUpdateVersion(version: String?) {}
     }

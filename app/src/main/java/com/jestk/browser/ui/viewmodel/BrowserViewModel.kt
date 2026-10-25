@@ -113,6 +113,13 @@ class BrowserViewModel(
 
     init {
         webViewPool?.onDownloadStarted = { item -> onDownloadStarted(item) }
+        webViewPool?.let { pool ->
+            viewModelScope.launch {
+                pool.loadedTabIds.collect { loaded ->
+                    _uiState.update { it.copy(loadedTabIds = loaded) }
+                }
+            }
+        }
         viewModelScope.launch(ioDispatcher) {
             restoreSession()
             observeDatabaseFlows()
@@ -508,6 +515,13 @@ class BrowserViewModel(
                 _uiState.update { it.copy(settings = it.settings.copy(isVibrationEnabled = event.enabled)) }
                 viewModelScope.launch(ioDispatcher) {
                     settingsRepository.setVibrationEnabled(event.enabled)
+                }
+            }
+
+            is BrowserUiEvent.SetGrayUnloadedTabsEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(isGrayUnloadedTabsEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setGrayUnloadedTabsEnabled(event.enabled)
                 }
             }
 

@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
@@ -253,6 +254,59 @@ fun SettingsContent(
             isDark = isDark,
             onSelectMode = { onEvent(BrowserUiEvent.SetThemeMode(it)) },
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        InsetGroupedCard(isDark = isDark) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FilterNone,
+                            contentDescription = null,
+                            tint = ProstoBrandPrimary,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+
+                    Column {
+                        Text(
+                            text = stringResource(R.string.gray_unloaded_tabs_title),
+                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
+                        )
+                        Text(
+                            text = stringResource(R.string.gray_unloaded_tabs_summary),
+                            style = LocalProstoTypography.current.bodySm,
+                            color = ProstoMutedSlate,
+                        )
+                    }
+                }
+
+                ProstoToggleSwitch(
+                    checked = uiState.settings.isGrayUnloadedTabsEnabled,
+                    onCheckedChange = { onEvent(BrowserUiEvent.SetGrayUnloadedTabsEnabled(it)) },
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 

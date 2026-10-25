@@ -24,6 +24,8 @@ interface SettingsRepository {
 
     suspend fun setVibrationEnabled(enabled: Boolean)
 
+    suspend fun setGrayUnloadedTabsEnabled(enabled: Boolean)
+
     suspend fun setSkippedUpdateVersion(version: String?)
 
     fun getBlockedAdsCount(): Flow<Long>

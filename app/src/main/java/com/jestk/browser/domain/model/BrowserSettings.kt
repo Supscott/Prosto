@@ -9,6 +9,7 @@ data class BrowserSettings(
     val isAutoUpdateEnabled: Boolean = true,
     val isVibrationEnabled: Boolean = true,
     val skippedUpdateVersion: String? = null,
+    val isGrayUnloadedTabsEnabled: Boolean = true,
 ) {
     val adBlockerEnabled: Boolean
         get() = isAdBlockerEnabled

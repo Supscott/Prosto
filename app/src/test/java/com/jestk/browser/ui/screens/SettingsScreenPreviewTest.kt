@@ -46,6 +46,21 @@ class SettingsScreenPreviewTest {
     }
 
     @Test
+    fun settingsScreen_showsGrayUnloadedTabsToggle() {
+        composeRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SettingsScreen(
+                    uiState = BrowserUiState(activeScreen = ScreenType.SETTINGS, isDefaultBrowser = false),
+                    onEvent = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Gray unloaded tabs").assertExists()
+        composeRule.onNodeWithText("Show inactive tabs not loaded in RAM in gray").assertExists()
+    }
+
+    @Test
     fun renderSettingsScreenLightPreview() {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()

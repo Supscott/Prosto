@@ -50,6 +50,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -407,9 +409,12 @@ fun TabStripRow(
                         isCompact = isDraggingThis,
                     )
                 } else {
+                    val isTabLoaded = uiState.isTabLoaded(tab.id)
                     InactiveTabButton(
                         tab = tab,
                         isDark = isDark,
+                        isLoaded = isTabLoaded,
+                        grayUnloadedTabs = uiState.settings.isGrayUnloadedTabsEnabled,
                         backgroundColor = circleBtnBg,
                         border = null,
                         onClick = {
@@ -506,6 +511,8 @@ fun InactiveTabButton(
     isDark: Boolean,
     backgroundColor: Color = Color.Transparent,
     border: BorderStroke? = null,
+    isLoaded: Boolean = true,
+    grayUnloadedTabs: Boolean = true,
     onClick: () -> Unit,
     onClose: () -> Unit,
     onAddFavorite: (String, String) -> Unit,
@@ -515,7 +522,16 @@ fun InactiveTabButton(
 ) {
     val context = LocalContext.current
     val typography = LocalProstoTypography.current
-    val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
+    val isGray = grayUnloadedTabs && !isLoaded
+    val contentAlpha = if (isGray) 0.45f else 1.0f
+    val normalTint = if (isDark) {
+        if (isGray) Color(0xFF64748B) else Color(0xFF94A3B8)
+    } else {
+        if (isGray) Color(0xFF94A3B8) else ProstoMutedSlate
+    }
+    val grayscaleFilter = remember(isGray) {
+        if (isGray) ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) else null
+    }
 
     Surface(
         shape = CircleShape,
@@ -529,7 +545,9 @@ fun InactiveTabButton(
                 .clickable(onClick = onClick),
     ) {
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer { alpha = contentAlpha },
             contentAlignment = Alignment.Center,
         ) {
             val isHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home"
@@ -544,6 +562,7 @@ fun InactiveTabButton(
                 SiteFavicon(
                     faviconUrl = tab.faviconUrl,
                     imageSize = 18.dp,
+                    colorFilter = grayscaleFilter,
                     placeholder = {
                         val initial =
                             tab.title
