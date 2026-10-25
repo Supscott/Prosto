@@ -74,17 +74,9 @@ fun UnifiedBottomBar(
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.End
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. Animated Popup Menu Card anchored above the Menu Button
-            ActionPopupMenu(
-                expanded = uiState.isMenuExpanded,
-                uiState = uiState,
-                isDark = isDark,
-                onEvent = onEvent
-            )
-
-            // 2. "Swipe up to search" Hint (visible when active tab is Home)
+            // 1. "Swipe up to search" Hint (visible when active tab is Home)
             AnimatedVisibility(
                 visible = isHome && !uiState.isMenuExpanded,
                 enter = fadeIn(animationSpec = tween(200)) + slideInVertically(animationSpec = tween(200)) { it / 2 },
@@ -101,7 +93,7 @@ fun UnifiedBottomBar(
                 )
             }
 
-            // 3. Quick Search Engine Switcher (visible on search results page)
+            // 2. Quick Search Engine Switcher (visible on search results page)
             val searchMatch = uiState.searchPageMatch
             val isEditExpanded = uiState.isSearchEngineSwitcherEditExpanded
             val hasVisibleEngines = uiState.visibleSearchPageEngines.isNotEmpty()
@@ -206,6 +198,18 @@ fun UnifiedBottomBar(
                 }
             }
         }
+
+        // 4. Animated Popup Menu Card anchored independently above the Menu Button
+        ActionPopupMenu(
+            expanded = uiState.isMenuExpanded,
+            uiState = uiState,
+            isDark = isDark,
+            onEvent = onEvent,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .navigationBarsPadding()
+                .padding(bottom = 56.dp)
+        )
     }
 }
 
