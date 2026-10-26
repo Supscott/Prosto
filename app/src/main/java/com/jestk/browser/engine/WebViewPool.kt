@@ -255,6 +255,7 @@ class WebViewPool(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
+                    databaseEnabled = true
                     mediaPlaybackRequiresUserGesture = false
                     builtInZoomControls = true
                     displayZoomControls = false
@@ -295,6 +296,7 @@ class WebViewPool(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
+                    databaseEnabled = true
                     mediaPlaybackRequiresUserGesture = false
                     builtInZoomControls = true
                     displayZoomControls = false

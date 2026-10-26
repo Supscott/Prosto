@@ -239,4 +239,12 @@ class WebViewPoolRobolectricTest {
         webViewPool.clearAll()
         assertThat(webViewPool.loadedTabIds.value).isEmpty()
     }
+
+    @Test
+    fun getOrCreateWebView_configuresWebSettingsWithDatabaseEnabled() {
+        val webView = webViewPool.getOrCreateWebView("tab-settings")
+        assertThat(webView.settings.databaseEnabled).isTrue()
+        assertThat(webView.settings.domStorageEnabled).isTrue()
+        assertThat(webView.settings.javaScriptEnabled).isTrue()
+    }
 }

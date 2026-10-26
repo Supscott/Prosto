@@ -241,32 +241,171 @@ object AdBlockerEngine {
         return null
     }
 
-    fun shouldBlock(url: String?): Boolean {
-        if (url.isNullOrBlank()) return false
-        val trimmedUrl = url.trim()
-        if (trimmedUrl.startsWith("data:", ignoreCase = true) ||
-            trimmedUrl.startsWith("javascript:", ignoreCase = true) ||
-            trimmedUrl.startsWith("about:", ignoreCase = true) ||
-            trimmedUrl.startsWith("file:", ignoreCase = true) ||
-            trimmedUrl.startsWith("content:", ignoreCase = true)
+    data class ParsedUrl(
+        val host: String,
+        val path: String,
+        val rawUrl: String,
+    )
+
+    private val lastParsedUrl = ThreadLocal<ParsedUrl?>()
+
+    fun parseUrl(url: String?): ParsedUrl? {
+        if (url.isNullOrBlank()) return null
+        val cached = lastParsedUrl.get()
+        if (cached != null && (cached.rawUrl === url || cached.rawUrl == url)) {
+            return cached
+        }
+        val parsed = extractHostAndPath(url)
+        lastParsedUrl.set(parsed)
+        return parsed
+    }
+
+    internal fun extractHostAndPath(url: String): ParsedUrl? {
+        var start = 0
+        val len = url.length
+        while (start < len && url[start] <= ' ') {
+            start++
+        }
+        var end = len
+        while (end > start && url[end - 1] <= ' ') {
+            end--
+        }
+        if (start >= end) return null
+
+        if (url.regionMatches(start, "data:", 0, 5, ignoreCase = true) ||
+            url.regionMatches(start, "javascript:", 0, 11, ignoreCase = true) ||
+            url.regionMatches(start, "about:", 0, 6, ignoreCase = true) ||
+            url.regionMatches(start, "file:", 0, 5, ignoreCase = true) ||
+            url.regionMatches(start, "content:", 0, 8, ignoreCase = true) ||
+            url.regionMatches(start, "mailto:", 0, 7, ignoreCase = true) ||
+            url.regionMatches(start, "tel:", 0, 4, ignoreCase = true) ||
+            url.regionMatches(start, "sms:", 0, 4, ignoreCase = true) ||
+            url.regionMatches(start, "geo:", 0, 4, ignoreCase = true)
         ) {
-            return false
+            return ParsedUrl(host = "", path = "", rawUrl = url)
         }
 
-        val uri =
-            try {
-                val normalizedUrl =
-                    when {
-                        trimmedUrl.startsWith("//") -> "https:$trimmedUrl"
-                        !trimmedUrl.contains("://") -> "https://$trimmedUrl"
-                        else -> trimmedUrl
+        var hostStart = -1
+        if (start + 1 < end && url[start] == '/' && url[start + 1] == '/') {
+            hostStart = start + 2
+        } else {
+            val schemeDelim = url.indexOf("://", start)
+            if (schemeDelim != -1 && schemeDelim < end) {
+                var hasBreakBeforeScheme = false
+                for (i in start until schemeDelim) {
+                    val c = url[i]
+                    if (c == '/' || c == '?' || c == '#') {
+                        hasBreakBeforeScheme = true
+                        break
                     }
-                Uri.parse(normalizedUrl)
-            } catch (_: Exception) {
-                null
-            } ?: return false
+                }
+                if (!hasBreakBeforeScheme) {
+                    hostStart = schemeDelim + 3
+                }
+            }
+        }
 
-        val host = uri.host?.lowercase() ?: return false
+        if (hostStart == -1) {
+            if (url[start] == '/') {
+                return ParsedUrl(host = "", path = "", rawUrl = url)
+            }
+            hostStart = start
+        }
+
+        for (i in hostStart until end) {
+            val c = url[i]
+            if (c == '/' || c == '?' || c == '#') break
+            if (c == '@') {
+                hostStart = i + 1
+                break
+            }
+        }
+
+        var hostEnd = end
+        var pathStart = -1
+
+        if (hostStart < end && url[hostStart] == '[') {
+            val closeBracket = url.indexOf(']', hostStart)
+            if (closeBracket != -1 && closeBracket < end) {
+                hostEnd = closeBracket + 1
+            }
+        } else {
+            for (i in hostStart until end) {
+                val c = url[i]
+                if (c == ':' || c == '/' || c == '?' || c == '#') {
+                    hostEnd = i
+                    break
+                }
+            }
+        }
+
+        if (hostEnd <= hostStart) {
+            return ParsedUrl(host = "", path = "", rawUrl = url)
+        }
+
+        for (i in hostEnd until end) {
+            val c = url[i]
+            if (c == '/') {
+                pathStart = i
+                break
+            } else if (c == '?' || c == '#') {
+                break
+            }
+        }
+
+        val host = run {
+            var hasUpper = false
+            for (i in hostStart until hostEnd) {
+                val c = url[i]
+                if (c in 'A'..'Z') {
+                    hasUpper = true
+                    break
+                }
+            }
+            if (hasUpper) {
+                url.substring(hostStart, hostEnd).lowercase()
+            } else {
+                url.substring(hostStart, hostEnd)
+            }
+        }
+
+        val path = if (pathStart != -1) {
+            var pathEnd = end
+            for (i in pathStart until end) {
+                val c = url[i]
+                if (c == '?' || c == '#') {
+                    pathEnd = i
+                    break
+                }
+            }
+            var hasUpper = false
+            for (i in pathStart until pathEnd) {
+                val c = url[i]
+                if (c in 'A'..'Z') {
+                    hasUpper = true
+                    break
+                }
+            }
+            if (hasUpper) {
+                url.substring(pathStart, pathEnd).lowercase()
+            } else {
+                url.substring(pathStart, pathEnd)
+            }
+        } else {
+            ""
+        }
+
+        return ParsedUrl(host = host, path = path, rawUrl = url)
+    }
+
+    fun shouldBlock(url: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        val parsed = parseUrl(url) ?: return false
+        return shouldBlock(parsed)
+    }
+
+    fun shouldBlock(parsed: ParsedUrl): Boolean {
+        val host = parsed.host
         if (host.isEmpty()) return false
 
         if (blockedHosts.contains(host)) return true
@@ -287,8 +426,8 @@ object AdBlockerEngine {
         }
 
         // Check path rules for multi-purpose search engines/portals serving ads under subpaths
-        val path = uri.path?.lowercase().orEmpty()
-        if (isBlockedPath(host, path)) {
+        val path = parsed.path
+        if (path.isNotEmpty() && isBlockedPath(host, path)) {
             return true
         }
 
@@ -539,87 +678,98 @@ object AdBlockerEngine {
         }
     }
 
+    private val TRACKER_DOMAINS = arrayOf(
+        "google-analytics.com",
+        "scorecardresearch.com",
+        "quantserve.com",
+        "hotjar.com",
+        "clarity.ms",
+        "segment.io",
+        "segment.com",
+        "mixpanel.com",
+        "amplitude.com",
+        "statcounter.com",
+        "counter.yadro.ru",
+        "top-fwz1.mail.ru",
+    )
+
     /**
      * Determines whether a given URL belongs to an analytics, tracker, telemetry, or beacon service.
      * Examples: google-analytics.com, mc.yandex.ru, scorecardresearch.com, quantserve.com, adfstat, metrika, beacon, pixel, etc.
      */
     fun isTracker(url: String): Boolean {
         if (url.isBlank()) return false
-        val cleanUrl = url.lowercase().trim()
-        val uri =
-            try {
-                val normalized =
-                    when {
-                        cleanUrl.startsWith("//") -> "https:$cleanUrl"
-                        !cleanUrl.contains("://") -> "https://$cleanUrl"
-                        else -> cleanUrl
-                    }
-                Uri.parse(normalized)
-            } catch (_: Exception) {
-                null
-            }
-
-        val host = uri?.host?.lowercase().orEmpty()
-        val path = uri?.path?.lowercase().orEmpty()
-
-        // Known tracker & analytics domains
-        val trackerDomains =
-            listOf(
-                "google-analytics.com",
-                "scorecardresearch.com",
-                "quantserve.com",
-                "hotjar.com",
-                "clarity.ms",
-                "segment.io",
-                "segment.com",
-                "mixpanel.com",
-                "amplitude.com",
-                "statcounter.com",
-                "counter.yadro.ru",
-                "top-fwz1.mail.ru",
-            )
-        if (trackerDomains.any { host == it || host.endsWith(".$it") }) {
-            return true
-        }
-
-        // Host fragments specifically associated with telemetry / metrics
-        if (host.contains("adfstat") ||
-            host.contains("metrika") ||
-            host.startsWith("mc.yandex.") ||
-            host.contains(".metrika.") ||
-            host.contains("analytics.") ||
-            host.contains("telemetry.") ||
-            host.contains("tracker.") ||
-            host.contains("tracking.") ||
-            host.contains("stats.")
-        ) {
-            return true
-        }
-
-        // Path or URL fragments indicating beacons, telemetry, pixels, collectors
-        if (path.contains("/collect") ||
-            path.contains("/beacon") ||
-            path.contains("/analytics") ||
-            path.contains("/telemetry") ||
-            path.contains("/pixel") ||
-            path.contains("/metrika") ||
-            path.contains("/track") ||
-            cleanUrl.contains("beacon") ||
-            cleanUrl.contains("pixel") ||
-            cleanUrl.contains("telemetry") ||
-            cleanUrl.contains("adfstat") ||
-            cleanUrl.contains("metrika")
-        ) {
-            return true
-        }
-
-        return false
+        val parsed = parseUrl(url) ?: return false
+        return isTracker(parsed)
     }
 
     @JvmName("isTrackerNullable")
     fun isTracker(url: String?): Boolean {
         if (url.isNullOrBlank()) return false
-        return isTracker(url as String)
+        val parsed = parseUrl(url) ?: return false
+        return isTracker(parsed)
+    }
+
+    fun isTracker(parsed: ParsedUrl): Boolean {
+        return isTracker(parsed.host, parsed.path, parsed.rawUrl)
+    }
+
+    fun isTracker(
+        host: String,
+        path: String,
+        rawUrl: String = "",
+    ): Boolean {
+        if (host.isEmpty() && path.isEmpty() && rawUrl.isEmpty()) return false
+
+        // Known tracker & analytics domains
+        if (host.isNotEmpty()) {
+            for (td in TRACKER_DOMAINS) {
+                if (host == td || host.endsWith(".$td")) {
+                    return true
+                }
+            }
+
+            // Host fragments specifically associated with telemetry / metrics
+            if (host.contains("adfstat") ||
+                host.contains("metrika") ||
+                host.startsWith("mc.yandex.") ||
+                host.contains(".metrika.") ||
+                host.contains("analytics.") ||
+                host.contains("telemetry.") ||
+                host.contains("tracker.") ||
+                host.contains("tracking.") ||
+                host.contains("stats.")
+            ) {
+                return true
+            }
+        }
+
+        // Path or URL fragments indicating beacons, telemetry, pixels, collectors
+        if (path.isNotEmpty()) {
+            if (path.contains("/collect") ||
+                path.contains("/beacon") ||
+                path.contains("/analytics") ||
+                path.contains("/telemetry") ||
+                path.contains("/pixel") ||
+                path.contains("/metrika") ||
+                path.contains("/track")
+            ) {
+                return true
+            }
+        }
+
+        if (rawUrl.isNotEmpty()) {
+            if (rawUrl.contains("beacon", ignoreCase = true) ||
+                rawUrl.contains("pixel", ignoreCase = true) ||
+                rawUrl.contains("telemetry", ignoreCase = true) ||
+                rawUrl.contains("adfstat", ignoreCase = true) ||
+                rawUrl.contains("metrika", ignoreCase = true)
+            ) {
+                return true
+            }
+        }
+
+        return false
     }
 
     fun recordBlockedRequest(url: String) {
@@ -638,6 +788,7 @@ object AdBlockerEngine {
             blockedHosts.addAll(DEFAULT_HOSTS)
             isInitialized = false
             blockedRequestStats = null
+            lastParsedUrl.remove()
         }
     }
 }

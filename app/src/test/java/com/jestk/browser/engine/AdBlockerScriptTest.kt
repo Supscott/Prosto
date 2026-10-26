@@ -69,6 +69,9 @@ class AdBlockerScriptTest {
     @Test
     fun buildDocumentStartScript_containsBridgeCheckStyleInjectionAndMutationObserver() {
         val js = AdBlockerScript.buildDocumentStartScript()
+        // Idempotency guard
+        assertThat(js).contains("window.__hori_adblock_initialized")
+
         // Bridge check
         assertThat(js).contains("window.HoriAdBlockBridge")
         assertThat(js).contains("window.HoriAdBlockBridge.isEnabled()")
@@ -77,9 +80,11 @@ class AdBlockerScriptTest {
         assertThat(js).contains("__hori_adblock_css")
         assertThat(js).contains("document.createElement('style')")
 
-        // MutationObserver & parent collapsing
+        // MutationObserver & debounced addedNodes parent collapsing
         assertThat(js).contains("MutationObserver")
         assertThat(js).contains("observe(document.documentElement || document.body")
+        assertThat(js).contains("mutations[i].addedNodes")
+        assertThat(js).contains("requestAnimationFrame")
         assertThat(js).contains("parent.children.length === 1")
         assertThat(js).contains("[id^=\"adfox\"]")
         assertThat(js).contains("[class*=\"bannerContainer\"]")
