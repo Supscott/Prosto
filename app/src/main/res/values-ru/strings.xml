@@ -86,10 +86,12 @@
     <string name="update_setting_summary">Автоматически загружать новые релизы с GitHub</string>
     <string name="update_card_title">Доступно обновление</string>
     <string name="update_card_title_ready">Обновление готово</string>
-    <string name="update_card_body">Prosto %1$s готово к установке</string>
+    <string name="update_card_body">Доступна новая версия Prosto %1$s</string>
     <string name="update_card_downloading">Загрузка обновления… %1$d%%</string>
     <string name="update_card_ready_body">Prosto %1$s загружено. Перезапустите Prosto для установки.</string>
+    <string name="update_action_download">Скачать</string>
     <string name="update_action_install">Установить</string>
+    <string name="update_action_restart_install">Перезапустить / Установить</string>
     <string name="update_action_install_later">Установить позже</string>
     <string name="update_action_skip">Пропустить</string>
     <string name="update_notification_channel">Обновления</string>

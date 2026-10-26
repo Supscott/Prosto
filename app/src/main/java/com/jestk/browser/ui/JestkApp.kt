@@ -69,6 +69,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
+import com.jestk.browser.domain.model.isVisible
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
@@ -81,6 +82,7 @@ import com.jestk.browser.ui.overlays.ImageContextMenuModal
 import com.jestk.browser.ui.overlays.LinkContextMenuModal
 import com.jestk.browser.ui.overlays.SearchOverlay
 import com.jestk.browser.ui.overlays.TabOverviewGrid
+import com.jestk.browser.ui.overlays.UpdateNotificationCard
 import com.jestk.browser.ui.screens.DownloadsScreen
 import com.jestk.browser.ui.screens.SettingsScreen
 import com.jestk.browser.ui.pip.FloatingVideoMiniPlayer
@@ -726,6 +728,27 @@ fun JestkApp(
                         }
                     )
                 }
+            }
+
+            // Self-Update Floating Notification Banner
+            AnimatedVisibility(
+                visible = uiState.updateState.isVisible && !uiState.isSettingsVisible,
+                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
+                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(bottom = snackbarBaseBottomOffset, start = 16.dp, end = 16.dp),
+            ) {
+                UpdateNotificationCard(
+                    state = uiState.updateState,
+                    onDownload = { viewModel.onEvent(BrowserUiEvent.DownloadUpdate) },
+                    onInstall = { viewModel.onEvent(BrowserUiEvent.InstallUpdate) },
+                    onInstallLater = { viewModel.onEvent(BrowserUiEvent.InstallUpdateLater) },
+                    onSkip = { viewModel.onEvent(BrowserUiEvent.SkipUpdate) },
+                    isDark = isDark,
+                )
             }
 
             // Link Context Menu Floating Modal

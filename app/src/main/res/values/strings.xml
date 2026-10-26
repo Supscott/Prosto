@@ -88,10 +88,12 @@
     <string name="update_setting_summary">Download new releases from GitHub automatically</string>
     <string name="update_card_title">Update available</string>
     <string name="update_card_title_ready">Update ready</string>
-    <string name="update_card_body">Prosto %1$s is ready to install</string>
+    <string name="update_card_body">Prosto %1$s is available</string>
     <string name="update_card_downloading">Downloading update… %1$d%%</string>
     <string name="update_card_ready_body">Prosto %1$s is downloaded. Reopen Prosto to install it.</string>
+    <string name="update_action_download">Download</string>
     <string name="update_action_install">Install</string>
+    <string name="update_action_restart_install">Restart / Install</string>
     <string name="update_action_install_later">Install Later</string>
     <string name="update_action_skip">Skip</string>
     <string name="update_notification_channel">Updates</string>

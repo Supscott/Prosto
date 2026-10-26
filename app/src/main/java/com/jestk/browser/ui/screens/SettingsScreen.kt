@@ -242,6 +242,7 @@ fun SettingsContent(
         if (uiState.updateState.isVisible) {
             UpdateNotificationCard(
                 state = uiState.updateState,
+                onDownload = { onEvent(BrowserUiEvent.DownloadUpdate) },
                 onInstall = { onEvent(BrowserUiEvent.InstallUpdate) },
                 onInstallLater = { onEvent(BrowserUiEvent.InstallUpdateLater) },
                 onSkip = { onEvent(BrowserUiEvent.SkipUpdate) },

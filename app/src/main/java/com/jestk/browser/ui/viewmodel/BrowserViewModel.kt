@@ -188,6 +188,10 @@ class BrowserViewModel(
         }
     }
 
+    fun onAppResume() {
+        updateCoordinator.onAppResume()
+    }
+
     fun onEvent(event: BrowserUiEvent) {
         when (event) {
             is BrowserUiEvent.OpenNewTab -> {
@@ -515,7 +519,11 @@ class BrowserViewModel(
                 viewModelScope.launch(ioDispatcher) {
                     settingsRepository.setAutoUpdateEnabled(event.enabled)
                 }
-                if (event.enabled) updateCoordinator.onAutoUpdateEnabled()
+                if (event.enabled) {
+                    updateCoordinator.onAutoUpdateEnabled()
+                } else {
+                    updateCoordinator.onAutoUpdateDisabled()
+                }
             }
 
             is BrowserUiEvent.SetVibrationEnabled -> {
@@ -530,6 +538,10 @@ class BrowserViewModel(
                 viewModelScope.launch(ioDispatcher) {
                     settingsRepository.setGrayUnloadedTabsEnabled(event.enabled)
                 }
+            }
+
+            is BrowserUiEvent.DownloadUpdate -> {
+                updateCoordinator.onDownloadRequested()
             }
 
             is BrowserUiEvent.InstallUpdate -> {

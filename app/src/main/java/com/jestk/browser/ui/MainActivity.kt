@@ -161,6 +161,7 @@ class MainActivity : ComponentActivity(), FileChooserHandler {
     override fun onResume() {
         super.onResume()
         viewModel.updateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(this))
+        viewModel.onAppResume()
     }
 
     override fun onNewIntent(intent: Intent) {

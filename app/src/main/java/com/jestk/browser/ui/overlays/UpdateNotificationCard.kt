@@ -57,12 +57,13 @@ fun UpdateNotificationCard(
     onSkip: () -> Unit,
     isDark: Boolean,
     modifier: Modifier = Modifier,
+    onDownload: () -> Unit = onInstall,
 ) {
     Surface(
         shape = ProstoShapes.Card,
         color = if (isDark) DarkSurface else Color.White,
         border = ProstoBorders.cardBorder(isDark),
-        shadowElevation = 2.dp,
+        shadowElevation = 4.dp,
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(
@@ -138,47 +139,56 @@ fun UpdateNotificationCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Button(
-                        onClick = onInstall,
-                        shape = ProstoShapes.Pill,
-                        colors =
-                            ButtonDefaults.buttonColors(
-                                containerColor = ProstoBrandPrimary,
-                                contentColor = Color.White,
-                            ),
-                        modifier = Modifier.height(38.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.update_action_install),
-                            style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
-                        )
-                    }
+                    when (state) {
+                        is AppUpdateUiState.Available -> {
+                            Button(
+                                onClick = onDownload,
+                                shape = ProstoShapes.Pill,
+                                colors =
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = ProstoBrandPrimary,
+                                        contentColor = Color.White,
+                                    ),
+                                modifier = Modifier.height(38.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.update_action_download),
+                                    style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
+                                )
+                            }
 
-                    if (state is AppUpdateUiState.Available) {
-                        OutlinedButton(
-                            onClick = onInstallLater,
-                            shape = ProstoShapes.Pill,
-                            border = BorderStroke(1.dp, ProstoBrandPrimary.copy(alpha = 0.35f)),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ProstoBrandPrimary),
-                            modifier = Modifier.height(38.dp),
-                        ) {
-                            Text(
-                                text = stringResource(R.string.update_action_install_later),
-                                style = LocalProstoTypography.current.labelMd,
-                            )
+                            TextButton(
+                                onClick = onSkip,
+                                shape = ProstoShapes.Pill,
+                                modifier = Modifier.height(38.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.update_action_skip),
+                                    style = LocalProstoTypography.current.labelMd,
+                                    color = ProstoMutedSlate,
+                                )
+                            }
                         }
-                    }
 
-                    TextButton(
-                        onClick = onSkip,
-                        shape = ProstoShapes.Pill,
-                        modifier = Modifier.height(38.dp),
-                    ) {
-                        Text(
-                            text = stringResource(R.string.update_action_skip),
-                            style = LocalProstoTypography.current.labelMd,
-                            color = ProstoMutedSlate,
-                        )
+                        is AppUpdateUiState.ReadyToInstall -> {
+                            Button(
+                                onClick = onInstall,
+                                shape = ProstoShapes.Pill,
+                                colors =
+                                    ButtonDefaults.buttonColors(
+                                        containerColor = ProstoBrandPrimary,
+                                        contentColor = Color.White,
+                                    ),
+                                modifier = Modifier.height(38.dp),
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.update_action_restart_install),
+                                    style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
+                                )
+                            }
+                        }
+
+                        else -> Unit
                     }
                 }
             }
@@ -189,19 +199,16 @@ fun UpdateNotificationCard(
 @Composable
 private fun updateBody(state: AppUpdateUiState): String =
     when (state) {
-        is AppUpdateUiState.Available -> {
-            stringResource(R.string.update_card_body, state.update.versionName)
-        }
+        is AppUpdateUiState.Available ->
+            state.update.releaseNotes.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.update_card_body, state.update.versionName)
 
-        is AppUpdateUiState.Downloading -> {
+        is AppUpdateUiState.Downloading ->
             stringResource(R.string.update_card_downloading, state.progress)
-        }
 
-        is AppUpdateUiState.ReadyToInstall -> {
+        is AppUpdateUiState.ReadyToInstall ->
             stringResource(R.string.update_card_ready_body, state.versionName)
-        }
 
-        AppUpdateUiState.None -> {
+        AppUpdateUiState.None ->
             ""
-        }
     }

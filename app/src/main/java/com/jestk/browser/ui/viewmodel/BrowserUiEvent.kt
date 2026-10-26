@@ -226,6 +226,8 @@ sealed interface BrowserUiEvent {
         val enabled: Boolean,
     ) : BrowserUiEvent
 
+    data object DownloadUpdate : BrowserUiEvent
+
     data object InstallUpdate : BrowserUiEvent
 
     data object InstallUpdateLater : BrowserUiEvent
