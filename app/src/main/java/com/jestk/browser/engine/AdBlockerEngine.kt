@@ -150,95 +150,141 @@ object AdBlockerEngine {
      * - Ignores comments (`!`, `[`), element hiding rules (`##`, `#?#`), and whitelist rules (`@@`).
      */
     fun extractDomainFromAbpRule(line: String): String? {
-        val trimmed = line.trim()
-        if (trimmed.isEmpty() ||
-            trimmed.startsWith("!") ||
-            trimmed.startsWith("[") ||
-            trimmed.startsWith("@@") ||
-            trimmed.contains("##") ||
-            trimmed.contains("#?#")
-        ) {
+        var start = 0
+        val len = line.length
+        while (start < len && line[start].isWhitespace()) {
+            start++
+        }
+        var end = len
+        while (end > start && line[end - 1].isWhitespace()) {
+            end--
+        }
+        if (start >= end) return null
+
+        val firstChar = line[start]
+        if (firstChar == '!' || firstChar == '[' || firstChar == '@') return null
+
+        if (end - start < 4) return null
+        if (line[start] != '|' || line[start + 1] != '|') return null
+
+        val caretIndex = line.indexOf('^', start + 2)
+        if (caretIndex == -1 || caretIndex >= end) return null
+
+        val afterCaretStart = caretIndex + 1
+        if (afterCaretStart < end && line[afterCaretStart] != '$') {
             return null
         }
 
-        if (!trimmed.startsWith("||")) {
-            return null
+        var dStart = start + 2
+        var dEnd = caretIndex
+        while (dStart < dEnd && line[dStart].isWhitespace()) {
+            dStart++
+        }
+        while (dEnd > dStart && line[dEnd - 1].isWhitespace()) {
+            dEnd--
+        }
+        if (dStart >= dEnd) return null
+
+        val firstDomainChar = line[dStart]
+        if (firstDomainChar == '.' || firstDomainChar == '-') return null
+        val lastDomainChar = line[dEnd - 1]
+        if (lastDomainChar == '.' || lastDomainChar == '-') return null
+
+        var hasDot = false
+        for (i in dStart until dEnd) {
+            val c = line[i]
+            if (c == '.') {
+                hasDot = true
+            } else if (c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c == '-' || c == '_') {
+                // valid hostname character
+            } else {
+                return null
+            }
         }
 
-        val caretIndex = trimmed.indexOf('^')
-        if (caretIndex == -1) return null
+        if (!hasDot) return null
 
-        val afterCaret = trimmed.substring(caretIndex + 1)
-        if (afterCaret.isNotEmpty() && !afterCaret.startsWith("$")) {
-            return null
-        }
-
-        val domainCandidate = trimmed.substring(2, caretIndex).trim().lowercase()
-        if (domainCandidate.isEmpty()) return null
-
-        // Domain must not contain paths, wildcards, ports, query params, or extra separators
-        if (domainCandidate.contains('/') ||
-            domainCandidate.contains('*') ||
-            domainCandidate.contains(':') ||
-            domainCandidate.contains('?') ||
-            domainCandidate.contains('^')
-        ) {
-            return null
-        }
-
-        // Hostname characters: lowercase letters, digits, dots, hyphens, underscores
-        if (!domainCandidate.all { it in 'a'..'z' || it in '0'..'9' || it == '.' || it == '-' || it == '_' }) {
-            return null
-        }
-
-        // Must contain a dot and not start or end with a dot or hyphen
-        if (!domainCandidate.contains('.') ||
-            domainCandidate.startsWith('.') ||
-            domainCandidate.endsWith('.') ||
-            domainCandidate.startsWith('-') ||
-            domainCandidate.endsWith('-')
-        ) {
-            return null
-        }
-
-        return domainCandidate
+        return line.substring(dStart, dEnd).lowercase()
     }
 
     /**
      * Parses standard /etc/hosts format lines (e.g. "0.0.0.0 domain.com" or "domain.com")
      */
     fun extractDomainFromHostsLine(line: String): String? {
-        val trimmed = line.trim()
-        if (trimmed.isEmpty() ||
-            trimmed.startsWith("#") ||
-            trimmed.startsWith("!") ||
-            trimmed.startsWith("[") ||
-            trimmed.startsWith("@@") ||
-            trimmed.contains("##") ||
-            trimmed.contains("#?#")
-        ) {
+        var start = 0
+        val len = line.length
+        while (start < len && line[start].isWhitespace()) {
+            start++
+        }
+        var end = len
+        while (end > start && line[end - 1].isWhitespace()) {
+            end--
+        }
+        if (start >= end) return null
+
+        val firstChar = line[start]
+        if (firstChar == '#' || firstChar == '!' || firstChar == '[' || firstChar == '@') {
             return null
         }
-        val parts = trimmed.split("\\s+".toRegex())
-        val hostCandidate =
-            if (parts.size >= 2 && (parts[0] == "127.0.0.1" || parts[0] == "0.0.0.0")) {
-                parts[1].lowercase()
-            } else {
-                parts[0].lowercase()
-            }
 
-        if (hostCandidate.contains('.') &&
-            !hostCandidate.contains('/') &&
-            !hostCandidate.contains('*') &&
-            !hostCandidate.contains(':') &&
-            !hostCandidate.startsWith('.') &&
-            !hostCandidate.endsWith('.') &&
-            !hostCandidate.startsWith('-') &&
-            !hostCandidate.endsWith('-')
-        ) {
-            return hostCandidate
+        var i = start
+        while (i < end) {
+            if (line[i] == '#' && i + 1 < end && (line[i + 1] == '#' || (i + 2 < end && line[i + 1] == '?' && line[i + 2] == '#'))) {
+                return null
+            }
+            i++
         }
-        return null
+
+        var t0End = start
+        while (t0End < end && !line[t0End].isWhitespace()) {
+            t0End++
+        }
+
+        val isIp = (t0End - start == 9 && line.regionMatches(start, "127.0.0.1", 0, 9)) ||
+            (t0End - start == 7 && line.regionMatches(start, "0.0.0.0", 0, 7))
+
+        val dStart: Int
+        val dEnd: Int
+
+        if (isIp) {
+            var t1Start = t0End
+            while (t1Start < end && line[t1Start].isWhitespace()) {
+                t1Start++
+            }
+            if (t1Start >= end) return null
+            var t1End = t1Start
+            while (t1End < end && !line[t1End].isWhitespace()) {
+                t1End++
+            }
+            dStart = t1Start
+            dEnd = t1End
+        } else {
+            dStart = start
+            dEnd = t0End
+        }
+
+        if (dStart >= dEnd) return null
+
+        val firstDomainChar = line[dStart]
+        if (firstDomainChar == '.' || firstDomainChar == '-') return null
+        val lastDomainChar = line[dEnd - 1]
+        if (lastDomainChar == '.' || lastDomainChar == '-') return null
+
+        var hasDot = false
+        for (idx in dStart until dEnd) {
+            val c = line[idx]
+            if (c == '.') {
+                hasDot = true
+            } else if (c in 'a'..'z' || c in 'A'..'Z' || c in '0'..'9' || c == '-' || c == '_') {
+                // valid hostname character
+            } else {
+                return null
+            }
+        }
+
+        if (!hasDot) return null
+
+        return line.substring(dStart, dEnd).lowercase()
     }
 
     data class ParsedUrl(
@@ -807,14 +853,27 @@ object AdBlockerEngine {
  * matching runs on the main thread.
  */
 private class HostBlocklist {
-    private val exactHosts = ConcurrentHashMap.newKeySet<String>()
-    private val hashBuckets = ConcurrentHashMap<Int, List<String>>()
+    private val exactHosts = ConcurrentHashMap.newKeySet<String>(65536)
+    private val hashBuckets = ConcurrentHashMap<Int, Any>(65536)
 
     val size: Int get() = exactHosts.size
 
     fun add(host: String) {
         if (!exactHosts.add(host)) return
-        hashBuckets.merge(host.hashCode(), listOf(host)) { existing, added -> existing + added }
+        hashBuckets.compute(host.hashCode()) { _, existing ->
+            when (existing) {
+                null -> host
+                is String -> arrayOf(existing, host)
+                is Array<*> -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val arr = existing as Array<String>
+                    val newArr = java.util.Arrays.copyOf(arr, arr.size + 1)
+                    newArr[arr.size] = host
+                    newArr
+                }
+                else -> host
+            }
+        }
     }
 
     fun addAll(hosts: Collection<String>) {
@@ -840,11 +899,17 @@ private class HostBlocklist {
         fromIndex: Int,
     ): Boolean {
         if (fromIndex < 0 || fromIndex >= host.length) return false
-        val candidates = hashBuckets[hashRegion(host, fromIndex)] ?: return false
+        val candidate = hashBuckets[hashRegion(host, fromIndex)] ?: return false
         val length = host.length - fromIndex
-        for (candidate in candidates) {
-            if (candidate.length == length && host.regionMatches(fromIndex, candidate, 0, length)) {
-                return true
+        if (candidate is String) {
+            return candidate.length == length && host.regionMatches(fromIndex, candidate, 0, length)
+        } else if (candidate is Array<*>) {
+            @Suppress("UNCHECKED_CAST")
+            val arr = candidate as Array<String>
+            for (c in arr) {
+                if (c.length == length && host.regionMatches(fromIndex, c, 0, length)) {
+                    return true
+                }
             }
         }
         return false

@@ -193,19 +193,21 @@ class JestkWebViewClient(
             if (isAdBlockerEnabled()) {
                 AdBlockerScript.injectAdBlocker(wv)
             }
-            extractThemeColor(wv, isPageStarted = false)
-            SnapshotEngine.captureSnapshot(
-                webView = wv,
-                tabId = tabId,
-                context = wv.context,
-                onVisualColorsSampled = { topColor, _ ->
-                    if (!validUrl.contains("apple.com", ignoreCase = true)) {
-                        onThemeColorDetected(tabId, topColor)
+            wv.post {
+                extractThemeColor(wv, isPageStarted = false)
+                SnapshotEngine.captureSnapshot(
+                    webView = wv,
+                    tabId = tabId,
+                    context = wv.context,
+                    onVisualColorsSampled = { topColor, _ ->
+                        if (!validUrl.contains("apple.com", ignoreCase = true)) {
+                            onThemeColorDetected(tabId, topColor)
+                        }
                     }
-                }
-            ) { path ->
-                if (path != null) {
-                    onSnapshotReady(tabId, path)
+                ) { path ->
+                    if (path != null) {
+                        onSnapshotReady(tabId, path)
+                    }
                 }
             }
         }
