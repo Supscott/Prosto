@@ -12,4 +12,5 @@ object SettingKeys {
     const val VIBRATION_ENABLED = "vibration_enabled"
     const val SKIPPED_UPDATE_VERSION = "skipped_update_version"
     const val GRAY_UNLOADED_TABS_ENABLED = "gray_unloaded_tabs_enabled"
+    const val TRACKING_PROTECTION_ENABLED = "tracking_protection_enabled"
 }

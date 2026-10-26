@@ -399,6 +399,8 @@ class AdBlockerEngineTest {
 
                     override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
 
+                    override suspend fun setTrackingProtectionEnabled(enabled: Boolean) {}
+
                     override fun getBlockedAdsCount() = kotlinx.coroutines.flow.flowOf(adsIncremented.get())
 
                     override fun getBlockedTrackersCount() = kotlinx.coroutines.flow.flowOf(trackersIncremented.get())
@@ -609,6 +611,8 @@ class AdBlockerEngineTest {
         override suspend fun setSearchEngine(engine: com.jestk.browser.domain.model.SearchEngine) {}
 
         override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
+
+        override suspend fun setTrackingProtectionEnabled(enabled: Boolean) {}
 
         override fun getBlockedAdsCount() = kotlinx.coroutines.flow.flowOf(adsIncremented)
 

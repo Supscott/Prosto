@@ -57,6 +57,7 @@ import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkError
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkTextHighContrast
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoAccent
@@ -108,9 +109,9 @@ fun ActiveTabPill(
     val typography = LocalProstoTypography.current
 
     val titleColor = if (isDark) DarkTextHighContrast else ProstoDarkText
-    val domainColor = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
+    val domainColor = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
     val iconTint = if (isDark) ProstoAccent else ProstoBrandPrimary
-    val closeTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
+    val closeTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
     val resolvedBg = backgroundColor
     val resolvedBorder = border
     val pillHeight by animateDpAsState(

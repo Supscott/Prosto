@@ -28,7 +28,8 @@ class JestkWebViewClient(
     private val onBlockedResource: ((url: String, isTracker: Boolean) -> Unit)? = null,
     private val onTitleReceived: ((tabId: String, title: String) -> Unit)? = null,
     private val isOpenInAppsEnabled: (() -> Boolean)? = null,
-    private val onExternalAppOffered: ((tabId: String, prompt: ExternalAppPrompt, userInitiated: Boolean) -> Unit)? = null
+    private val onExternalAppOffered: ((tabId: String, prompt: ExternalAppPrompt, userInitiated: Boolean) -> Unit)? = null,
+    private val isTrackingProtectionEnabled: (() -> Boolean)? = null,
 ) : WebViewClient() {
 
     private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -112,27 +113,32 @@ class JestkWebViewClient(
         request: WebResourceRequest?
     ): WebResourceResponse? {
         if (request == null) return null
-        if (isAdBlockerEnabled()) {
+        val adBlockerActive = isAdBlockerEnabled()
+        val trackingActive = isTrackingProtectionEnabled?.invoke() ?: true
+        if (adBlockerActive || trackingActive) {
             val url = request.url?.toString()
             if (AdBlockerEngine.shouldBlock(url)) {
                 val validUrl = url.orEmpty()
                 val isTracker = AdBlockerEngine.isTracker(validUrl)
-                onBlockedResource?.invoke(validUrl, isTracker)
-                if (settingsRepository != null) {
-                    telemetryScope.launch {
-                        if (isTracker) {
-                            settingsRepository.incrementBlockedTrackers()
-                        } else {
-                            settingsRepository.incrementBlockedAds()
+                val shouldBlock = (isTracker && trackingActive) || (!isTracker && adBlockerActive)
+                if (shouldBlock) {
+                    onBlockedResource?.invoke(validUrl, isTracker)
+                    if (settingsRepository != null) {
+                        telemetryScope.launch {
+                            if (isTracker) {
+                                settingsRepository.incrementBlockedTrackers()
+                            } else {
+                                settingsRepository.incrementBlockedAds()
+                            }
                         }
+                    } else {
+                        AdBlockerEngine.recordBlockedRequest(validUrl)
                     }
-                } else {
-                    AdBlockerEngine.recordBlockedRequest(validUrl)
+                    return AdBlockerEngine.createSmartBlockedResponse(
+                        url = url,
+                        requestHeaders = request.requestHeaders
+                    )
                 }
-                return AdBlockerEngine.createSmartBlockedResponse(
-                    url = url,
-                    requestHeaders = request.requestHeaders
-                )
             }
         }
         return super.shouldInterceptRequest(view, request)

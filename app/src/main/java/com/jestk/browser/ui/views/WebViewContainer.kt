@@ -303,7 +303,8 @@ fun WebViewContainer(
                         isOpenInAppsEnabled = { currentUiState.settings.isOpenInAppsEnabled },
                         onExternalAppOffered = { id, prompt, userInitiated ->
                             currentOnEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
-                        }
+                        },
+                        isTrackingProtectionEnabled = { currentUiState.settings.isTrackingProtectionEnabled },
                     )
 
                     webView.webChromeClient = JestkWebChromeClient(

@@ -97,6 +97,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
         } ?: SearchEngine.DUCKDUCKGO
 
     val isAdBlockerEnabled = map[SettingKeys.AD_BLOCKER_ENABLED]?.toBooleanStrictOrNull() ?: true
+    val isTrackingProtectionEnabled = map[SettingKeys.TRACKING_PROTECTION_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isOpenInAppsEnabled = map[SettingKeys.OPEN_IN_APPS_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isAutoUpdateEnabled = map[SettingKeys.AUTO_UPDATE_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isVibrationEnabled = map[SettingKeys.VIBRATION_ENABLED]?.toBooleanStrictOrNull() ?: true
@@ -115,6 +116,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
         themeMode = themeMode,
         searchEngine = searchEngine,
         isAdBlockerEnabled = isAdBlockerEnabled,
+        isTrackingProtectionEnabled = isTrackingProtectionEnabled,
         hiddenSearchPageEngineIds = hiddenEngines,
         isOpenInAppsEnabled = isOpenInAppsEnabled,
         isAutoUpdateEnabled = isAutoUpdateEnabled,

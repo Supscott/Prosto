@@ -165,7 +165,8 @@ fun JestkApp(
                     isOpenInAppsEnabled = { viewModel.uiState.value.settings.isOpenInAppsEnabled },
                     onExternalAppOffered = { id, prompt, userInitiated ->
                         viewModel.onEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
-                    }
+                    },
+                    isTrackingProtectionEnabled = { viewModel.uiState.value.settings.isTrackingProtectionEnabled },
                 )
                 wv.webChromeClient = JestkWebChromeClient(
                     tabId = tabId,

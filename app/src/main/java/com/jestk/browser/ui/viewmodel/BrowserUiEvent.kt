@@ -209,6 +209,10 @@ sealed interface BrowserUiEvent {
         val enabled: Boolean,
     ) : BrowserUiEvent
 
+    data class SetTrackingProtectionEnabled(
+        val enabled: Boolean,
+    ) : BrowserUiEvent
+
     data class SetVibrationEnabled(
         val enabled: Boolean,
     ) : BrowserUiEvent

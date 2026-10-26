@@ -496,6 +496,13 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.SetTrackingProtectionEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(isTrackingProtectionEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setTrackingProtectionEnabled(event.enabled)
+                }
+            }
+
             is BrowserUiEvent.SetOpenInAppsEnabled -> {
                 _uiState.update { it.copy(settings = it.settings.copy(isOpenInAppsEnabled = event.enabled)) }
                 viewModelScope.launch(ioDispatcher) {

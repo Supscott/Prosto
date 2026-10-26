@@ -66,6 +66,7 @@ import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.DarkError
 import com.jestk.browser.ui.theme.DarkErrorContainer
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.LocalProstoTypography
@@ -563,7 +564,7 @@ fun TabStripRow(
         // Floating Vanishing Tab Overlay during removal release animation
         val removingTab = dragState.removingTab
         if (removingTab != null) {
-            val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
+            val normalTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
             Box(
                 modifier =
                     Modifier
@@ -628,9 +629,9 @@ fun InactiveTabButton(
     val isGray = grayUnloadedTabs && !isLoaded
     val contentAlpha = if (isGray) 0.45f else 1.0f
     val normalTint = if (isDark) {
-        if (isGray) Color(0xFF64748B) else Color(0xFF94A3B8)
+        if (isGray) DarkOnSurfaceVariant.copy(alpha = 0.6f) else DarkOnSurfaceVariant
     } else {
-        if (isGray) Color(0xFF94A3B8) else ProstoMutedSlate
+        if (isGray) ProstoMutedSlate.copy(alpha = 0.6f) else ProstoMutedSlate
     }
     val grayscaleFilter = remember(isGray) {
         if (isGray) ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) else null
@@ -747,7 +748,7 @@ fun AddTabDockButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
+    val normalTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
 
     Surface(
         shape = CircleShape,

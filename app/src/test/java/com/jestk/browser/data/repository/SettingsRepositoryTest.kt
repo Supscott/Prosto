@@ -43,6 +43,7 @@ class SettingsRepositoryTest {
             assertThat(settings.themeMode).isEqualTo(ThemeMode.SYSTEM)
             assertThat(settings.searchEngine).isEqualTo(SearchEngine.DUCKDUCKGO)
             assertThat(settings.isAdBlockerEnabled).isTrue()
+            assertThat(settings.isTrackingProtectionEnabled).isTrue()
         }
 
     @Test
@@ -195,6 +196,18 @@ class SettingsRepositoryTest {
 
             repository.setSkippedUpdateVersion(null)
             assertThat(repository.getCurrentSettings().skippedUpdateVersion).isNull()
+        }
+
+    @Test
+    fun setTrackingProtectionEnabled_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setTrackingProtectionEnabled(false)
+
+            assertThat(repository.getSettings().first().isTrackingProtectionEnabled).isFalse()
+            assertThat(repository.getCurrentSettings().isTrackingProtectionEnabled).isFalse()
+
+            repository.setTrackingProtectionEnabled(true)
+            assertThat(repository.getCurrentSettings().isTrackingProtectionEnabled).isTrue()
         }
 
     @Test

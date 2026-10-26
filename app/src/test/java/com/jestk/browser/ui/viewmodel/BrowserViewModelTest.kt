@@ -353,6 +353,7 @@ class BrowserViewModelTest {
             viewModel.onEvent(BrowserUiEvent.SetThemeMode(ThemeMode.DARK))
             viewModel.onEvent(BrowserUiEvent.SetSearchEngine(SearchEngine.GOOGLE))
             viewModel.onEvent(BrowserUiEvent.SetAdBlockerEnabled(false))
+            viewModel.onEvent(BrowserUiEvent.SetTrackingProtectionEnabled(false))
             viewModel.onEvent(BrowserUiEvent.SetVibrationEnabled(false))
             viewModel.onEvent(BrowserUiEvent.SetGrayUnloadedTabsEnabled(false))
             advanceUntilIdle()
@@ -361,6 +362,7 @@ class BrowserViewModelTest {
             assertThat(state.settings.themeMode).isEqualTo(ThemeMode.DARK)
             assertThat(state.settings.searchEngine).isEqualTo(SearchEngine.GOOGLE)
             assertThat(state.settings.isAdBlockerEnabled).isFalse()
+            assertThat(state.settings.isTrackingProtectionEnabled).isFalse()
             assertThat(state.settings.isVibrationEnabled).isFalse()
             assertThat(state.settings.isGrayUnloadedTabsEnabled).isFalse()
         }

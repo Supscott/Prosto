@@ -235,7 +235,6 @@ fun SettingsContent(
         ) {
             onEvent(BrowserUiEvent.UpdateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(context)))
         }
-    var isTrackingProtectionEnabled by remember { mutableStateOf(true) }
     var showProvidersDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
@@ -264,54 +263,14 @@ fun SettingsContent(
         Spacer(modifier = Modifier.height(12.dp))
 
         InsetGroupedCard(isDark = isDark) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FilterNone,
-                            contentDescription = null,
-                            tint = ProstoBrandPrimary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = stringResource(R.string.gray_unloaded_tabs_title),
-                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else ProstoDarkText,
-                        )
-                        Text(
-                            text = stringResource(R.string.gray_unloaded_tabs_summary),
-                            style = LocalProstoTypography.current.bodySm,
-                            color = ProstoMutedSlate,
-                        )
-                    }
-                }
-
-                ProstoToggleSwitch(
-                    checked = uiState.settings.isGrayUnloadedTabsEnabled,
-                    onCheckedChange = { onEvent(BrowserUiEvent.SetGrayUnloadedTabsEnabled(it)) },
-                )
-            }
+            SettingToggleRow(
+                icon = Icons.Default.FilterNone,
+                title = stringResource(R.string.gray_unloaded_tabs_title),
+                summary = stringResource(R.string.gray_unloaded_tabs_summary),
+                checked = uiState.settings.isGrayUnloadedTabsEnabled,
+                onCheckedChange = { onEvent(BrowserUiEvent.SetGrayUnloadedTabsEnabled(it)) },
+                isDark = isDark,
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -594,8 +553,8 @@ fun SettingsContent(
                 icon = Icons.Default.Shield,
                 title = stringResource(R.string.tracking_protection_title),
                 summary = stringResource(R.string.tracking_protection_summary),
-                checked = isTrackingProtectionEnabled,
-                onCheckedChange = { isTrackingProtectionEnabled = it },
+                checked = uiState.settings.isTrackingProtectionEnabled,
+                onCheckedChange = { onEvent(BrowserUiEvent.SetTrackingProtectionEnabled(it)) },
                 isDark = isDark,
             )
         }
