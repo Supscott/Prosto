@@ -78,7 +78,6 @@ import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.domain.model.isVisible
 import com.jestk.browser.ui.components.ProstoToggleSwitch
 import com.jestk.browser.ui.overlays.SearchEngineBadge
-import com.jestk.browser.ui.overlays.UpdateNotificationCard
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -238,19 +237,6 @@ fun SettingsContent(
     var showProvidersDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // Update notification banner (when an update is ready or pending)
-        if (uiState.updateState.isVisible) {
-            UpdateNotificationCard(
-                state = uiState.updateState,
-                onDownload = { onEvent(BrowserUiEvent.DownloadUpdate) },
-                onInstall = { onEvent(BrowserUiEvent.InstallUpdate) },
-                onInstallLater = { onEvent(BrowserUiEvent.InstallUpdateLater) },
-                onSkip = { onEvent(BrowserUiEvent.SkipUpdate) },
-                isDark = isDark,
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
         // ==========================================
         // 1. APPEARANCE (ВНЕШНИЙ ВИД)
         // ==========================================

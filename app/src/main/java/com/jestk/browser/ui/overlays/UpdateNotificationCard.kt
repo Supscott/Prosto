@@ -53,7 +53,6 @@ import com.jestk.browser.ui.theme.ProstoShapes
 fun UpdateNotificationCard(
     state: AppUpdateUiState,
     onInstall: () -> Unit,
-    onInstallLater: () -> Unit,
     onSkip: () -> Unit,
     isDark: Boolean,
     modifier: Modifier = Modifier,
@@ -141,21 +140,10 @@ fun UpdateNotificationCard(
                 ) {
                     when (state) {
                         is AppUpdateUiState.Available -> {
-                            Button(
+                            PrimaryActionButton(
+                                text = stringResource(R.string.update_action_download),
                                 onClick = onDownload,
-                                shape = ProstoShapes.Pill,
-                                colors =
-                                    ButtonDefaults.buttonColors(
-                                        containerColor = ProstoBrandPrimary,
-                                        contentColor = Color.White,
-                                    ),
-                                modifier = Modifier.height(38.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.update_action_download),
-                                    style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
-                                )
-                            }
+                            )
 
                             TextButton(
                                 onClick = onSkip,
@@ -171,21 +159,10 @@ fun UpdateNotificationCard(
                         }
 
                         is AppUpdateUiState.ReadyToInstall -> {
-                            Button(
+                            PrimaryActionButton(
+                                text = stringResource(R.string.update_action_restart_install),
                                 onClick = onInstall,
-                                shape = ProstoShapes.Pill,
-                                colors =
-                                    ButtonDefaults.buttonColors(
-                                        containerColor = ProstoBrandPrimary,
-                                        contentColor = Color.White,
-                                    ),
-                                modifier = Modifier.height(38.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.update_action_restart_install),
-                                    style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
-                                )
-                            }
+                            )
                         }
 
                         else -> Unit
@@ -193,6 +170,28 @@ fun UpdateNotificationCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun PrimaryActionButton(
+    text: String,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        shape = ProstoShapes.Pill,
+        colors =
+            ButtonDefaults.buttonColors(
+                containerColor = ProstoBrandPrimary,
+                contentColor = Color.White,
+            ),
+        modifier = Modifier.height(38.dp),
+    ) {
+        Text(
+            text = text,
+            style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
+        )
     }
 }
 

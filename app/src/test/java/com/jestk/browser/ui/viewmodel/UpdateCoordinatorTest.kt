@@ -247,19 +247,41 @@ class UpdateCoordinatorTest {
     }
 
     @Test
-    fun checkForUpdate_whenPendingUpdateOnDisk_publishesReadyToInstallIfNotInstalled() = runTest(testDispatcher) {
+    fun checkForUpdate_whenPendingUpdateOnDisk_publishesReadyToInstall() = runTest(testDispatcher) {
         fakeUpdateManager.currentVer = "0.4.0"
         fakeUpdateManager.pendingVersion = "0.5.0"
+        fakeUpdateManager.latestRelease = null
         fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
 
         val coordinator = createCoordinator()
         coordinator.onAppStart()
         advanceUntilIdle()
 
-        // Should not fetch from network, should use pending update
-        assertThat(fakeUpdateManager.fetchCount).isEqualTo(0)
         assertThat(uiState.updateState).isInstanceOf(AppUpdateUiState.ReadyToInstall::class.java)
         assertThat((uiState.updateState as AppUpdateUiState.ReadyToInstall).versionName).isEqualTo("0.5.0")
+    }
+
+    @Test
+    fun checkForUpdate_whenNewerReleaseOnGithubThanPending_downloadsNewerRelease() = runTest(testDispatcher) {
+        val newerRelease = AppUpdate(
+            versionName = "0.6.0",
+            releaseNotes = "Major updates",
+            apkUrl = "https://example.com/0.6.0.apk",
+            releaseUrl = "https://example.com",
+        )
+        fakeUpdateManager.currentVer = "0.4.0"
+        fakeUpdateManager.pendingVersion = "0.5.0"
+        fakeUpdateManager.latestRelease = newerRelease
+        fakeUpdateManager.downloadResult = File("/tmp/0.6.0.apk")
+        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
+
+        val coordinator = createCoordinator()
+        coordinator.onAppStart()
+        advanceUntilIdle()
+
+        assertThat(fakeUpdateManager.downloadedUpdate).isEqualTo(newerRelease)
+        assertThat(uiState.updateState).isInstanceOf(AppUpdateUiState.ReadyToInstall::class.java)
+        assertThat((uiState.updateState as AppUpdateUiState.ReadyToInstall).versionName).isEqualTo("0.6.0")
     }
 
     @Test

@@ -68,40 +68,40 @@ class UpdateCoordinator(
     suspend fun checkForUpdate() {
         val manager = appUpdateManager ?: return
         val settings = settingsRepository.getCurrentSettings()
-        Log.d(TAG, "checkForUpdate: currentVer=${manager.currentVersion()}, autoUpdate=${settings.isAutoUpdateEnabled}")
+        val currentVersion = manager.currentVersion()
+        Log.d(TAG, "checkForUpdate: currentVer=$currentVersion, autoUpdate=${settings.isAutoUpdateEnabled}")
 
-        // An APK downloaded in a previous session is waiting to be installed.
         val pending = manager.pendingUpdateVersion()
+        val release = manager.fetchLatestRelease()
+
+        if (release != null && compareVersions(release.versionName, currentVersion) > 0) {
+            if (pending != null && compareVersions(pending, release.versionName) >= 0) {
+                Log.d(TAG, "Pending update APK $pending matches latest release ${release.versionName}")
+                publish(AppUpdateUiState.ReadyToInstall(pending))
+                return
+            }
+            if (release.versionName == settings.skippedUpdateVersion) {
+                Log.d(TAG, "Version ${release.versionName} was skipped by user")
+            } else {
+                if (settings.isAutoUpdateEnabled) {
+                    Log.d(TAG, "Auto-update enabled, initiating download for ${release.versionName}")
+                    download(release)
+                } else {
+                    Log.d(TAG, "Publishing update available for ${release.versionName}")
+                    publish(AppUpdateUiState.Available(release))
+                }
+                return
+            }
+        }
+
         if (pending != null) {
             Log.d(TAG, "Pending update APK found on disk: $pending")
             publish(AppUpdateUiState.ReadyToInstall(pending))
             return
         }
 
-        val release = manager.fetchLatestRelease()
-        if (release == null) {
-            Log.w(TAG, "checkForUpdate: no release fetched")
-            return
-        }
-        val currentVersion = manager.currentVersion()
-        val comparison = compareVersions(release.versionName, currentVersion)
-        Log.d(TAG, "checkForUpdate: latest=${release.versionName}, current=$currentVersion, diff=$comparison")
-
-        if (comparison <= 0) {
+        if (release != null) {
             Log.d(TAG, "Current version is up to date ($currentVersion >= ${release.versionName})")
-            return
-        }
-        if (release.versionName == settings.skippedUpdateVersion) {
-            Log.d(TAG, "Version ${release.versionName} was skipped by user")
-            return
-        }
-
-        if (settings.isAutoUpdateEnabled) {
-            Log.d(TAG, "Auto-update enabled, initiating download for ${release.versionName}")
-            download(release, installWhenDone = false)
-        } else {
-            Log.d(TAG, "Publishing update available for ${release.versionName}")
-            publish(AppUpdateUiState.Available(release))
         }
     }
 
@@ -109,7 +109,7 @@ class UpdateCoordinator(
         val state = getCurrentState().updateState
         if (state is AppUpdateUiState.Available) {
             Log.d(TAG, "onDownloadRequested: starting download for ${state.update.versionName}")
-            download(state.update, installWhenDone = false)
+            download(state.update)
         }
     }
 
@@ -117,8 +117,7 @@ class UpdateCoordinator(
         val manager = appUpdateManager ?: return
         when (val state = getCurrentState().updateState) {
             is AppUpdateUiState.Available -> {
-                Log.d(TAG, "onInstallRequested for available: downloading ${state.update.versionName}")
-                download(state.update, installWhenDone = false)
+                onDownloadRequested()
             }
 
             is AppUpdateUiState.ReadyToInstall -> {
@@ -131,14 +130,8 @@ class UpdateCoordinator(
                 manager.installUpdate(state.versionName)
             }
 
-            else -> {
-                Unit
-            }
+            else -> Unit
         }
-    }
-
-    fun onInstallLater() {
-        publish(AppUpdateUiState.None)
     }
 
     fun onSkip() {
@@ -156,10 +149,7 @@ class UpdateCoordinator(
         publish(AppUpdateUiState.None)
     }
 
-    private fun download(
-        update: AppUpdate,
-        installWhenDone: Boolean,
-    ) {
+    private fun download(update: AppUpdate) {
         val manager = appUpdateManager ?: return
         publish(AppUpdateUiState.Downloading(update.versionName, 0))
         downloadJob?.cancel()
@@ -180,7 +170,6 @@ class UpdateCoordinator(
                 }
                 publish(AppUpdateUiState.ReadyToInstall(update.versionName))
                 manager.notifyUpdateReady(update.versionName)
-                if (installWhenDone) manager.installUpdate(update.versionName)
             }
     }
 

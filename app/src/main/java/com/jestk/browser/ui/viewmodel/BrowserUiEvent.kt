@@ -230,8 +230,6 @@ sealed interface BrowserUiEvent {
 
     data object InstallUpdate : BrowserUiEvent
 
-    data object InstallUpdateLater : BrowserUiEvent
-
     data object SkipUpdate : BrowserUiEvent
 
     // Search Engine Management

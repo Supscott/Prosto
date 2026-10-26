@@ -57,7 +57,6 @@ class UpdateNotificationCardTest {
                             UpdateNotificationCard(
                                 state = state,
                                 onInstall = {},
-                                onInstallLater = {},
                                 onSkip = {},
                                 isDark = isDark,
                                 modifier = Modifier.padding(16.dp),
@@ -170,7 +169,6 @@ class UpdateNotificationCardTest {
                     state = state,
                     onDownload = { downloadClicked = true },
                     onInstall = {},
-                    onInstallLater = {},
                     onSkip = { skipClicked = true },
                     isDark = false,
                 )
@@ -193,7 +191,6 @@ class UpdateNotificationCardTest {
                 UpdateNotificationCard(
                     state = AppUpdateUiState.ReadyToInstall("0.5.0"),
                     onInstall = { installClicked = true },
-                    onInstallLater = {},
                     onSkip = {},
                     isDark = false,
                 )

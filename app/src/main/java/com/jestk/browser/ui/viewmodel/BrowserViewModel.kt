@@ -518,11 +518,11 @@ class BrowserViewModel(
                 _uiState.update { it.copy(settings = it.settings.copy(isAutoUpdateEnabled = event.enabled)) }
                 viewModelScope.launch(ioDispatcher) {
                     settingsRepository.setAutoUpdateEnabled(event.enabled)
-                }
-                if (event.enabled) {
-                    updateCoordinator.onAutoUpdateEnabled()
-                } else {
-                    updateCoordinator.onAutoUpdateDisabled()
+                    if (event.enabled) {
+                        updateCoordinator.onAutoUpdateEnabled()
+                    } else {
+                        updateCoordinator.onAutoUpdateDisabled()
+                    }
                 }
             }
 
@@ -546,10 +546,6 @@ class BrowserViewModel(
 
             is BrowserUiEvent.InstallUpdate -> {
                 updateCoordinator.onInstallRequested()
-            }
-
-            is BrowserUiEvent.InstallUpdateLater -> {
-                updateCoordinator.onInstallLater()
             }
 
             is BrowserUiEvent.SkipUpdate -> {

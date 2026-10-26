@@ -732,20 +732,25 @@ fun JestkApp(
 
             // Self-Update Floating Notification Banner
             AnimatedVisibility(
-                visible = uiState.updateState.isVisible && !uiState.isSettingsVisible,
+                visible = uiState.updateState.isVisible,
                 enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
                 exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
                 modifier =
                     Modifier
                         .align(Alignment.BottomCenter)
                         .navigationBarsPadding()
-                        .padding(bottom = snackbarBaseBottomOffset, start = 16.dp, end = 16.dp),
+                        .padding(
+                            bottom = snackbarBaseBottomOffset +
+                                (if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) 56.dp else 0.dp) +
+                                (if (uiState.showDownloadSnackbar && uiState.lastDownloadNotification != null) 56.dp else 0.dp),
+                            start = 16.dp,
+                            end = 16.dp,
+                        ),
             ) {
                 UpdateNotificationCard(
                     state = uiState.updateState,
                     onDownload = { viewModel.onEvent(BrowserUiEvent.DownloadUpdate) },
                     onInstall = { viewModel.onEvent(BrowserUiEvent.InstallUpdate) },
-                    onInstallLater = { viewModel.onEvent(BrowserUiEvent.InstallUpdateLater) },
                     onSkip = { viewModel.onEvent(BrowserUiEvent.SkipUpdate) },
                     isDark = isDark,
                 )
