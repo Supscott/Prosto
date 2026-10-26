@@ -42,6 +42,7 @@ class SettingsScreenPreviewTest {
         }
 
         composeRule.onNodeWithText("Vibration").assertExists()
+        composeRule.onNodeWithText("Tracking Protection").assertExists()
         composeRule.onNodeWithText("GENERAL").assertExists()
         composeRule.onNodeWithText("APPEARANCE").assertExists()
         composeRule.onNodeWithText("SEARCH").assertExists()

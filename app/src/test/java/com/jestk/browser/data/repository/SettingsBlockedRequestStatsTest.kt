@@ -91,4 +91,24 @@ class SettingsBlockedRequestStatsTest {
         assertThat(repo.totalAdsIncremented.get()).isEqualTo(7L)
         assertThat(repo.totalTrackersIncremented.get()).isEqualTo(3L)
     }
+
+    @Test
+    fun defaultFlushDelayDebouncesAndFlushesPendingRequests() = runTest {
+        val testDispatcher = StandardTestDispatcher(testScheduler)
+        val repo = FakeSettingsRepository()
+        val stats = SettingsBlockedRequestStats(
+            settingsRepository = repo,
+            ioDispatcher = testDispatcher,
+        )
+
+        stats.recordBlockedRequest(isTracker = false)
+
+        // At 100ms: still buffering
+        testScheduler.advanceTimeBy(100)
+        assertThat(repo.totalAdsIncremented.get()).isEqualTo(0L)
+
+        // At 151ms: flushed
+        testScheduler.advanceTimeBy(51)
+        assertThat(repo.totalAdsIncremented.get()).isEqualTo(1L)
+    }
 }

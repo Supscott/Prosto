@@ -22,13 +22,15 @@ import java.util.concurrent.atomic.AtomicReference
 class SettingsBlockedRequestStats(
     private val settingsRepository: SettingsRepository,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val flushDelayMs: Long = 100L,
+    private val flushDelayMs: Long = 150L,
 ) : BlockedRequestStats {
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val pendingAds = AtomicLong(0)
     private val pendingTrackers = AtomicLong(0)
-    private val scheduledFlush = AtomicReference<Job?>(null)
+    private val lock = Any()
+    private var flushJob: Job? = null
+    private var hasPendingSinceLastFlush = false
 
     override suspend fun recordBlockedRequest(isTracker: Boolean) {
         if (isTracker) {
@@ -36,23 +38,21 @@ class SettingsBlockedRequestStats(
         } else {
             pendingAds.incrementAndGet()
         }
-        scheduleFlush()
-    }
-
-    private fun scheduleFlush() {
-        val existing = scheduledFlush.get()
-        if (existing != null && existing.isActive) return
-
-        val newJob = scope.launch {
-            delay(flushDelayMs)
-            flush()
-        }
-        if (!scheduledFlush.compareAndSet(existing, newJob)) {
-            newJob.cancel()
+        synchronized(lock) {
+            hasPendingSinceLastFlush = true
+            if (flushJob?.isActive != true) {
+                flushJob = scope.launch {
+                    delay(flushDelayMs)
+                    flush()
+                }
+            }
         }
     }
 
-    suspend fun flush() {
+    override suspend fun flush() {
+        synchronized(lock) {
+            hasPendingSinceLastFlush = false
+        }
         val ads = pendingAds.getAndSet(0)
         val trackers = pendingTrackers.getAndSet(0)
         if (ads > 0) {
@@ -60,6 +60,14 @@ class SettingsBlockedRequestStats(
         }
         if (trackers > 0) {
             settingsRepository.incrementBlockedTrackers(trackers)
+        }
+        synchronized(lock) {
+            if (hasPendingSinceLastFlush && flushJob?.isActive != true) {
+                flushJob = scope.launch {
+                    delay(flushDelayMs)
+                    flush()
+                }
+            }
         }
     }
 }

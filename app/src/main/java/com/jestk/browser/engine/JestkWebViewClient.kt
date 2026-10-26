@@ -124,17 +124,7 @@ class JestkWebViewClient(
                 val shouldBlock = (isTracker && trackingActive) || (!isTracker && adBlockerActive)
                 if (shouldBlock) {
                     onBlockedResource?.invoke(validUrl, isTracker)
-                    if (settingsRepository != null) {
-                        telemetryScope.launch {
-                            if (isTracker) {
-                                settingsRepository.incrementBlockedTrackers()
-                            } else {
-                                settingsRepository.incrementBlockedAds()
-                            }
-                        }
-                    } else {
-                        AdBlockerEngine.recordBlockedRequest(validUrl)
-                    }
+                    AdBlockerEngine.recordBlockedRequest(isTracker)
                     return AdBlockerEngine.createSmartBlockedResponse(
                         url = url,
                         requestHeaders = request.requestHeaders
@@ -174,7 +164,9 @@ class JestkWebViewClient(
             } else if (validUrl.contains("youtube.com", ignoreCase = true) && isDark) {
                 onThemeColorDetected(tabId, android.graphics.Color.parseColor("#0f0f0f"))
             } else {
-                extractThemeColor(wv, isPageStarted = true)
+                wv.post {
+                    extractThemeColor(wv, isPageStarted = true)
+                }
             }
         }
     }
@@ -195,6 +187,7 @@ class JestkWebViewClient(
             }
             wv.post {
                 extractThemeColor(wv, isPageStarted = false)
+                AdBlockerEngine.flushBlockedStats()
                 SnapshotEngine.captureSnapshot(
                     webView = wv,
                     tabId = tabId,
