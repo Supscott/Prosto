@@ -336,11 +336,13 @@ fun WebViewContainer(
                 factory = { ctx ->
                     webViewPool.isAdBlockerEnabled = { currentUiState.settings.isAdBlockerEnabled }
                     val act = ctx.findActivity() ?: ctx
+                    val initialVisibility = if (isHome) View.INVISIBLE else View.VISIBLE
                     val tabsContainer = FrameLayout(ctx).apply {
                         layoutParams = ViewGroup.LayoutParams(
                             ViewGroup.LayoutParams.MATCH_PARENT,
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
+                        visibility = initialVisibility
                     }
 
                     val brandColors = intArrayOf(
@@ -396,7 +398,7 @@ fun WebViewContainer(
                             ViewGroup.LayoutParams.MATCH_PARENT
                         )
                     )
-                    initialWebView.visibility = View.VISIBLE
+                    initialWebView.visibility = initialVisibility
                     initialWebView.safeResume()
 
                     val nestedWebView = initialWebView as? NestedWebView
@@ -419,7 +421,7 @@ fun WebViewContainer(
                             uiState.fullscreenCustomView != null
 
                     swipeRefresh.isRefreshing = uiState.isLoading
-                    swipeRefresh.isEnabled = !isBlocked
+                    swipeRefresh.isEnabled = !isBlocked && !isHome
 
                     val brandColors = intArrayOf(
                         primaryColor,
@@ -432,6 +434,10 @@ fun WebViewContainer(
                     (swipeRefresh as? JestkSwipeRefreshLayout)?.onRefreshTriggerReached = { vibration.confirm() }
 
                     val tabsContainer = (swipeRefresh.getChildAt(0) as? FrameLayout) ?: return@AndroidView
+                    val targetVisibility = if (isHome) View.INVISIBLE else View.VISIBLE
+                    if (tabsContainer.visibility != targetVisibility) {
+                        tabsContainer.visibility = targetVisibility
+                    }
                     val act = swipeRefresh.context.findActivity() ?: swipeRefresh.context
                     val targetWebView = webViewPool.getOrCreateWebView(tabId, act)
 
@@ -453,8 +459,9 @@ fun WebViewContainer(
                     for (i in 0 until tabsContainer.childCount) {
                         val child = tabsContainer.getChildAt(i)
                         if (child === targetWebView) {
-                            if (child.visibility != View.VISIBLE) {
-                                child.visibility = View.VISIBLE
+                            val childVis = if (isHome) View.INVISIBLE else View.VISIBLE
+                            if (child.visibility != childVis) {
+                                child.visibility = childVis
                             }
                             child.bringToFront()
                         } else {
