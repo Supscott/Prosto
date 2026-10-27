@@ -186,6 +186,68 @@ class JestkWebViewClientTest {
     }
 
     @Test
+    fun shouldOverrideUrlLoading_warnsOnInsecureHttp_whenNotAllowed() {
+        var warnedUrl: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onInsecureHttpWarning = { _, url -> warnedUrl = url },
+            isInsecureHostAllowed = { false },
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = android.webkit.WebView(context)
+
+        val request = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse("http://insecure-site.org/page")
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = true
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        val shouldOverride = client.shouldOverrideUrlLoading(webView, request)
+        assertThat(shouldOverride).isTrue()
+        assertThat(warnedUrl).isEqualTo("http://insecure-site.org/page")
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_allowsInsecureHttp_whenHostAllowed() {
+        var warnedUrl: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onInsecureHttpWarning = { _, url -> warnedUrl = url },
+            isInsecureHostAllowed = { host -> host == "insecure-site.org" },
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = android.webkit.WebView(context)
+
+        val request = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse("http://insecure-site.org/page")
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = true
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        val shouldOverride = client.shouldOverrideUrlLoading(webView, request)
+        assertThat(shouldOverride).isFalse()
+        assertThat(warnedUrl).isNull()
+    }
+
+    @Test
     fun onPageStarted_offersExternalApp_whenDedicatedAppInstalled() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         ExternalAppResolver.clearBrowserPackagesCache()

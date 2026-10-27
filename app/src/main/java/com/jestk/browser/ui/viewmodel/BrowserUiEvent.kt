@@ -2,6 +2,7 @@ package com.jestk.browser.ui.viewmodel
 
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.HistoryItem
+import com.jestk.browser.domain.model.InsecureNavigationTarget
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
@@ -348,6 +349,17 @@ sealed interface BrowserUiEvent {
     data class SetOpenInAppsEnabled(
         val enabled: Boolean,
     ) : BrowserUiEvent
+
+    // Insecure HTTP Warning
+    data class ShowInsecureHttpWarning(
+        val url: String,
+        val tabId: String? = null,
+        val target: InsecureNavigationTarget = InsecureNavigationTarget.ACTIVE_TAB,
+    ) : BrowserUiEvent
+
+    data object ConfirmInsecureHttpNavigation : BrowserUiEvent
+
+    data object DismissInsecureHttpWarning : BrowserUiEvent
 }
 
 enum class ExternalAppDismissReason {

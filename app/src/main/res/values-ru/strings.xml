@@ -78,4 +78,8 @@
     <string name="update_notification_title">Обновление готово</string>
     <string name="update_notification_body">Prosto %1$s готово к установке</string>
     <string name="about_version">Prosto Browser %1$s • Prosto Canvas</string>
+    <string name="insecure_site_warning_title">Сайт небезопасен</string>
+    <string name="insecure_site_warning_message">Подключение к сайту %1$s не зашифровано. Пароли, сообщения и платёжные данные могут быть перехвачены.</string>
+    <string name="insecure_site_continue_button">Всё равно перейти</string>
+    <string name="insecure_site_go_back_button">Назад</string>
 </resources>

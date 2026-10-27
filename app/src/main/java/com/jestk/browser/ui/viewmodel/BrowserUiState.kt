@@ -7,6 +7,7 @@ import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
+import com.jestk.browser.domain.model.InsecureHttpPrompt
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.SearchEngine
@@ -72,6 +73,8 @@ data class BrowserUiState(
     val isSearchEngineSwitcherEditExpanded: Boolean = false,
     val blockedAdsCount: Long = 0L,
     val blockedTrackersCount: Long = 0L,
+    val insecureHttpPrompt: InsecureHttpPrompt? = null,
+    val allowedInsecureHosts: Set<String> = emptySet(),
 ) {
     val visibleSearchPageEngines: List<SearchEngine>
         get() = searchEngines.filter { it.id !in settings.hiddenSearchPageEngineIds }

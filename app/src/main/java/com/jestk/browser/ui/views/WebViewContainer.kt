@@ -302,6 +302,12 @@ fun WebViewContainer(
                         isOpenInAppsEnabled = { currentUiState.settings.isOpenInAppsEnabled },
                         onExternalAppOffered = { id, prompt, userInitiated ->
                             currentOnEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
+                        },
+                        onInsecureHttpWarning = { id, url ->
+                            currentOnEvent(BrowserUiEvent.ShowInsecureHttpWarning(url = url, tabId = id))
+                        },
+                        isInsecureHostAllowed = { host ->
+                            currentUiState.allowedInsecureHosts.contains(host.lowercase().trim())
                         }
                     )
 

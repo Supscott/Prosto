@@ -430,6 +430,10 @@ class BrowserViewModelStressTest {
         for ((input, expectedUrlPrefix) in testCases) {
             viewModel.onEvent(BrowserUiEvent.LoadUrl(input))
             advanceUntilIdle()
+            if (viewModel.uiState.value.insecureHttpPrompt != null) {
+                viewModel.onEvent(BrowserUiEvent.ConfirmInsecureHttpNavigation)
+                advanceUntilIdle()
+            }
             val state = viewModel.uiState.value
             if (expectedUrlPrefix.isEmpty()) {
                 assertThat(state.currentUrl).isEmpty()

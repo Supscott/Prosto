@@ -74,6 +74,7 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
+import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
 import com.jestk.browser.ui.overlays.LinkContextMenuModal
@@ -163,6 +164,12 @@ fun JestkApp(
                     isOpenInAppsEnabled = { viewModel.uiState.value.settings.isOpenInAppsEnabled },
                     onExternalAppOffered = { id, prompt, userInitiated ->
                         viewModel.onEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
+                    },
+                    onInsecureHttpWarning = { id, url ->
+                        viewModel.onEvent(BrowserUiEvent.ShowInsecureHttpWarning(url = url, tabId = id))
+                    },
+                    isInsecureHostAllowed = { host ->
+                        viewModel.isInsecureHostAllowed(host)
                     }
                 )
                 wv.webChromeClient = JestkWebChromeClient(
@@ -775,6 +782,16 @@ fun JestkApp(
                             )
                         )
                     },
+                )
+            }
+
+            // Insecure HTTP Warning Modal Dialog
+            uiState.insecureHttpPrompt?.let { prompt ->
+                InsecureHttpWarningDialog(
+                    isDark = isDark,
+                    url = prompt.url,
+                    onDismiss = { viewModel.onEvent(BrowserUiEvent.DismissInsecureHttpWarning) },
+                    onConfirm = { viewModel.onEvent(BrowserUiEvent.ConfirmInsecureHttpNavigation) },
                 )
             }
 

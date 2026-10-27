@@ -9,6 +9,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.repository.SettingsRepository
+import com.jestk.browser.util.UrlSecurityUtils
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,7 +29,9 @@ class JestkWebViewClient(
     private val onBlockedResource: ((url: String, isTracker: Boolean) -> Unit)? = null,
     private val onTitleReceived: ((tabId: String, title: String) -> Unit)? = null,
     private val isOpenInAppsEnabled: (() -> Boolean)? = null,
-    private val onExternalAppOffered: ((tabId: String, prompt: ExternalAppPrompt, userInitiated: Boolean) -> Unit)? = null
+    private val onExternalAppOffered: ((tabId: String, prompt: ExternalAppPrompt, userInitiated: Boolean) -> Unit)? = null,
+    private val onInsecureHttpWarning: ((tabId: String, url: String) -> Unit)? = null,
+    private val isInsecureHostAllowed: ((host: String) -> Boolean)? = null,
 ) : WebViewClient() {
 
     private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -50,6 +53,10 @@ class JestkWebViewClient(
         // Subframe web navigations must load normally; subframe custom schemes are the classic
         // hidden-iframe "Open in app" technique and still need to reach the resolver.
         if (!request.isForMainFrame && isWebUrl(url)) return false
+
+        // Warn before loading cleartext HTTP websites in the main frame
+        if (request.isForMainFrame && checkInsecureHttpNavigation(url)) return true
+
         return handleExternalNavigation(
             view = view,
             url = url,
@@ -62,7 +69,19 @@ class JestkWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
         val validUrl = url.orEmpty()
         if (validUrl.isBlank()) return false
+        if (checkInsecureHttpNavigation(validUrl)) return true
         return handleExternalNavigation(view, validUrl, userInitiated = true)
+    }
+
+    private fun checkInsecureHttpNavigation(url: String): Boolean {
+        if (!isHttpUrl(url)) return false
+        val host = extractHost(url)
+        val isAllowed = isInsecureHostAllowed?.invoke(host) == true
+        if (!isAllowed) {
+            onInsecureHttpWarning?.invoke(tabId, url)
+            return true
+        }
+        return false
     }
 
     /**
@@ -339,6 +358,10 @@ class JestkWebViewClient(
             }
             return scheme == "http" || scheme == "https"
         }
+
+        fun isHttpUrl(url: String): Boolean = UrlSecurityUtils.isHttpUrl(url)
+
+        fun extractHost(url: String): String = UrlSecurityUtils.extractHost(url)
 
         fun parseCssColor(raw: String?): Int? {
             if (raw.isNullOrBlank()) return null

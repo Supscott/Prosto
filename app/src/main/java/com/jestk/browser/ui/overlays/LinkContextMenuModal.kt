@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.widget.Toast
 import com.jestk.browser.util.ClipboardHelper
+import com.jestk.browser.util.UrlSecurityUtils
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -203,11 +204,13 @@ fun LinkContextMenuContent(
             onClick = {
                 onEvent(BrowserUiEvent.DismissLinkContextMenu)
                 onEvent(BrowserUiEvent.OpenTabInBackground(url))
-                Toast.makeText(
-                    context,
-                    tabOpenedInBackgroundMessage,
-                    Toast.LENGTH_SHORT,
-                ).show()
+                if (!UrlSecurityUtils.isHttpUrl(url)) {
+                    Toast.makeText(
+                        context,
+                        tabOpenedInBackgroundMessage,
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
             },
         )
 

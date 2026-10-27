@@ -6,6 +6,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jestk.browser.domain.model.DownloadItem
+import com.jestk.browser.domain.model.InsecureHttpPrompt
+import com.jestk.browser.domain.model.InsecureNavigationTarget
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.SearchEngine
@@ -19,6 +21,7 @@ import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.download.HoriDownloadManager
 import com.jestk.browser.engine.update.AppUpdateManager
+import com.jestk.browser.util.UrlSecurityUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -80,7 +83,7 @@ class BrowserViewModel(
             getCurrentState = { _uiState.value },
             updateUiState = { transform -> _uiState.update(transform) },
             onSelectTab = { tabId -> tabCoordinator.selectTab(tabId) },
-            onOpenNewTab = { url -> tabCoordinator.openNewTab(url) },
+            onOpenNewTab = { url -> onEvent(BrowserUiEvent.OpenNewTab(url)) },
             scope = viewModelScope,
             ioDispatcher = ioDispatcher,
         )
@@ -181,16 +184,38 @@ class BrowserViewModel(
         }
     }
 
+    fun isInsecureHostAllowed(urlOrHost: String): Boolean {
+        val host = UrlSecurityUtils.extractHost(urlOrHost)
+        return host.isNotEmpty() && _uiState.value.allowedInsecureHosts.contains(host)
+    }
+
+    fun shouldWarnForInsecureUrl(url: String): Boolean {
+        return url.isNotEmpty() && UrlSecurityUtils.isHttpUrl(url) && !isInsecureHostAllowed(url)
+    }
+
     fun onEvent(event: BrowserUiEvent) {
         when (event) {
             is BrowserUiEvent.OpenNewTab -> {
                 Log.d(TAG, "Navigation command: open new tab for ${event.url}")
-                tabCoordinator.openNewTab(event.url)
+                if (shouldWarnForInsecureUrl(event.url)) {
+                    onEvent(
+                        BrowserUiEvent.ShowInsecureHttpWarning(
+                            url = event.url,
+                            target = InsecureNavigationTarget.NEW_TAB,
+                        )
+                    )
+                } else {
+                    tabCoordinator.openNewTab(event.url)
+                }
             }
 
             is BrowserUiEvent.OpenRecentTab -> {
                 Log.d(TAG, "Navigation command: open recent tab ${event.item.url}")
-                tabCoordinator.openRecentTab(event.item) { loadUrl(it) }
+                tabCoordinator.openRecentTab(
+                    item = event.item,
+                    onNavigateUrl = { loadUrl(it) },
+                    onOpenNewTab = { onEvent(BrowserUiEvent.OpenNewTab(it)) },
+                )
             }
 
             is BrowserUiEvent.SelectTab -> {
@@ -666,7 +691,16 @@ class BrowserViewModel(
 
             is BrowserUiEvent.OpenTabInBackground -> {
                 Log.d(TAG, "Navigation command: open tab in background for ${event.url}")
-                tabCoordinator.openTabInBackground(event.url)
+                if (shouldWarnForInsecureUrl(event.url)) {
+                    onEvent(
+                        BrowserUiEvent.ShowInsecureHttpWarning(
+                            url = event.url,
+                            target = InsecureNavigationTarget.BACKGROUND_TAB,
+                        )
+                    )
+                } else {
+                    tabCoordinator.openTabInBackground(event.url)
+                }
             }
 
             is BrowserUiEvent.UpdateDefaultBrowserStatus -> {
@@ -727,7 +761,59 @@ class BrowserViewModel(
                         contextMenuAnchor = null,
                     )
                 }
-                tabCoordinator.openNewTab(event.imageUrl)
+                onEvent(BrowserUiEvent.OpenNewTab(event.imageUrl))
+            }
+
+            is BrowserUiEvent.ShowInsecureHttpWarning -> {
+                Log.d(TAG, "Showing insecure HTTP warning for ${event.url}")
+                _uiState.update {
+                    it.copy(
+                        insecureHttpPrompt = InsecureHttpPrompt(
+                            url = event.url,
+                            tabId = event.tabId,
+                            target = event.target,
+                        ),
+                        activeOverlay = OverlayType.NONE,
+                        isMenuExpanded = false,
+                    )
+                }
+            }
+
+            is BrowserUiEvent.ConfirmInsecureHttpNavigation -> {
+                val prompt = _uiState.value.insecureHttpPrompt
+                if (prompt != null) {
+                    val url = prompt.url
+                    val host = UrlSecurityUtils.extractHost(url)
+                    _uiState.update {
+                        it.copy(
+                            insecureHttpPrompt = null,
+                            allowedInsecureHosts = if (host.isNotEmpty()) it.allowedInsecureHosts + host else it.allowedInsecureHosts,
+                        )
+                    }
+                    when (prompt.target) {
+                        InsecureNavigationTarget.NEW_TAB -> {
+                            tabCoordinator.openNewTab(url)
+                        }
+                        InsecureNavigationTarget.BACKGROUND_TAB -> {
+                            tabCoordinator.openTabInBackground(url)
+                        }
+                        InsecureNavigationTarget.ACTIVE_TAB -> {
+                            if (prompt.tabId != null && prompt.tabId != _uiState.value.activeTabId) {
+                                tabCoordinator.selectTab(prompt.tabId)
+                            }
+                            loadUrl(url)
+                        }
+                    }
+                }
+            }
+
+            is BrowserUiEvent.DismissInsecureHttpWarning -> {
+                _uiState.update { state ->
+                    state.copy(
+                        insecureHttpPrompt = null,
+                        activeOverlay = if (state.isHome) OverlayType.HOME else state.activeOverlay,
+                    )
+                }
             }
         }
     }
@@ -777,6 +863,17 @@ class BrowserViewModel(
                     }
                 }
             }
+
+        if (shouldWarnForInsecureUrl(finalUrl)) {
+            onEvent(
+                BrowserUiEvent.ShowInsecureHttpWarning(
+                    url = finalUrl,
+                    tabId = _uiState.value.activeTabId,
+                    target = InsecureNavigationTarget.ACTIVE_TAB,
+                )
+            )
+            return
+        }
 
         tabCoordinator.navigateToUrl(finalUrl, matchedShortcutEngine)
     }
@@ -836,6 +933,10 @@ class BrowserViewModel(
 
     private fun handleBackNavigation() {
         val current = _uiState.value
+        if (current.insecureHttpPrompt != null) {
+            onEvent(BrowserUiEvent.DismissInsecureHttpWarning)
+            return
+        }
         if (current.isSearchEngineSwitcherEditExpanded) {
             _uiState.update { it.copy(isSearchEngineSwitcherEditExpanded = false) }
             return

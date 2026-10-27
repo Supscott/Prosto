@@ -78,4 +78,8 @@
     <string name="update_notification_title">Update ready</string>
     <string name="update_notification_body">Prosto %1$s is ready to install</string>
     <string name="about_version">Prosto Browser %1$s • Prosto Canvas</string>
+    <string name="insecure_site_warning_title">Site is not secure</string>
+    <string name="insecure_site_warning_message">The connection to %1$s is not encrypted. Passwords, messages, or payment info could be intercepted.</string>
+    <string name="insecure_site_continue_button">Continue anyway</string>
+    <string name="insecure_site_go_back_button">Go back</string>
 </resources>
