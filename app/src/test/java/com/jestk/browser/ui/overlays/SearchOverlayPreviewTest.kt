@@ -27,6 +27,7 @@ import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.SearchEngine
+import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.navigation.SearchEngineSwitcherRow
 import com.jestk.browser.ui.theme.JestkBrowserTheme
@@ -1020,6 +1021,62 @@ val width = 440
         assertTrue(!state.isScrolling)
         state.onDragStart()
         assertTrue(state.isScrolling)
+    }
+
+    @Test
+    fun renderOpenTabSwitchCarouselVisualPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val sampleTabs = listOf(
+            Tab(id = "1", url = "https://youtube.com/watch?v=123", title = "YouTube Video"),
+            Tab(id = "2", url = "https://github.com/torvalds/linux", title = "GitHub - Linux"),
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                        OpenTabSwitchCarousel(
+                            tabs = sampleTabs,
+                            isDark = false,
+                            onTabClick = {},
+                        )
+                    }
+                    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                        OpenTabSwitchCarousel(
+                            tabs = sampleTabs,
+                            isDark = true,
+                            onTabClick = {},
+                        )
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 440
+        val height = 200
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/open_tab_switch_carousel_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        assertTrue(outputFile.exists())
     }
 }
 

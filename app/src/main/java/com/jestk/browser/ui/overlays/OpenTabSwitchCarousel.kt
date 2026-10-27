@@ -3,7 +3,6 @@ package com.jestk.browser.ui.overlays
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -23,7 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -33,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
@@ -58,8 +57,6 @@ fun OpenTabSwitchCarousel(
     onTabClick: (Tab) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val matcher = remember { SearchInputAutocompleteMatcher() }
-
     LazyRow(
         modifier = modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 4.dp),
@@ -69,7 +66,7 @@ fun OpenTabSwitchCarousel(
         items(tabs, key = { it.id }) { tab ->
             OpenTabSwitchCapsule(
                 tab = tab,
-                cleanDomain = matcher.extractDomain(tab.url),
+                cleanDomain = SearchInputAutocompleteMatcher.extractDomain(tab.url),
                 isDark = isDark,
                 onClick = { onTabClick(tab) },
             )
@@ -91,7 +88,7 @@ private fun OpenTabSwitchCapsule(
     val actionDesc = stringResource(R.string.switch_to_open_tab)
 
     Surface(
-        shape = RoundedCornerShape(20.dp),
+        shape = CircleShape,
         color = bg,
         border = border,
         shadowElevation = 3.dp,
@@ -103,7 +100,7 @@ private fun OpenTabSwitchCapsule(
     ) {
         Row(
             modifier = Modifier
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -138,7 +135,7 @@ private fun OpenTabSwitchCapsule(
                 if (cleanDomain.isNotBlank()) {
                     Text(
                         text = cleanDomain,
-                        style = LocalProstoTypography.current.labelSm,
+                        style = LocalProstoTypography.current.bodySm.copy(fontSize = 12.sp),
                         color = ProstoMutedSlate,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

@@ -147,4 +147,38 @@ class SearchInputAutocompleteMatcherTest {
         assertEquals("1", matches[0].id)
         assertEquals("2", matches[1].id)
     }
+
+    @Test
+    fun findInlineMatch_queryWithTabWhitespace_returnsNull() {
+        val result = matcher.findInlineMatch(
+            query = "git\thub",
+            tabs = listOf(Tab(id = "1", url = "https://github.com", title = "GitHub")),
+            favorites = emptyList(),
+            history = emptyList(),
+        )
+        assertNull(result)
+    }
+
+    @Test
+    fun findInlineMatch_uppercaseSchemeAndWww_stripsCorrectly() {
+        val result = matcher.findInlineMatch(
+            query = "you",
+            tabs = emptyList(),
+            favorites = listOf(FavoriteItem(id = 1, url = "HTTPS://WWW.YOUTUBE.COM/watch", title = "YouTube")),
+            history = emptyList(),
+        )
+        assertEquals("youtube.com", result)
+    }
+
+    @Test
+    fun findMatchingOpenTabs_matchesByTitle() {
+        val tabs = listOf(
+            Tab(id = "1", url = "https://reddit.com/r/androiddev", title = "Android Developers Community"),
+            Tab(id = "2", url = "https://google.com", title = "Google"),
+        )
+
+        val matches = matcher.findMatchingOpenTabs(query = "developers", tabs = tabs)
+        assertEquals(1, matches.size)
+        assertEquals("1", matches[0].id)
+    }
 }

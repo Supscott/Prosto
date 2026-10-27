@@ -11,27 +11,38 @@ import com.jestk.browser.domain.model.Tab
  */
 class SearchInputAutocompleteMatcher {
 
+    companion object {
+        private val SCHEME_WWW_REGEX = Regex("""^(https?://)?(www\.)?""", RegexOption.IGNORE_CASE)
+
+        /**
+         * Cleans a URL string by stripping http/https schemes and www. prefix (case-insensitively).
+         */
+        fun cleanUrl(url: String): String {
+            return url.trim().replace(SCHEME_WWW_REGEX, "")
+        }
+
+        /**
+         * Extracts the clean host/domain from a URL without scheme or www.
+         */
+        fun extractDomain(url: String): String {
+            val cleaned = cleanUrl(url)
+            return cleaned.substringBefore("/").substringBefore("?").substringBefore("#")
+        }
+    }
+
     /**
      * Cleans a URL string by stripping http/https schemes and www. prefix.
      */
-    fun cleanUrl(url: String): String {
-        return url.trim()
-            .removePrefix("https://")
-            .removePrefix("http://")
-            .removePrefix("www.")
-    }
+    fun cleanUrl(url: String): String = Companion.cleanUrl(url)
 
     /**
      * Extracts the clean host/domain from a URL without scheme or www.
      */
-    fun extractDomain(url: String): String {
-        val cleaned = cleanUrl(url)
-        return cleaned.substringBefore("/").substringBefore("?").substringBefore("#")
-    }
+    fun extractDomain(url: String): String = Companion.extractDomain(url)
 
     /**
      * Finds the highest-ranked inline autocomplete candidate for [query].
-     * Returns null if query is blank, contains spaces, or has no eligible candidate.
+     * Returns null if query is blank, contains whitespace (\s), or has no eligible candidate.
      */
     fun findInlineMatch(
         query: String,
@@ -39,31 +50,29 @@ class SearchInputAutocompleteMatcher {
         favorites: List<FavoriteItem>,
         history: List<HistoryItem>,
     ): String? {
-        if (query.isBlank() || query.contains(" ")) {
+        if (query.isBlank() || query.any { it.isWhitespace() }) {
             return null
         }
 
         val hasSlash = query.contains("/")
 
-        // 1. Check Open Tabs (sorted by lastActiveTimestamp descending)
-        val sortedTabs = tabs.sortedByDescending { it.lastActiveTimestamp }
-        for (tab in sortedTabs) {
-            val candidate = getCandidate(tab.url, hasSlash)
-            val match = matchPrefix(query, candidate)
-            if (match != null) return match
+        // Prioritized candidates sequence: Open Tabs -> Favorites -> Browsing History
+        val candidateUrls = sequence {
+            val sortedTabs = tabs.sortedByDescending { it.lastActiveTimestamp }
+            for (tab in sortedTabs) {
+                yield(tab.url)
+            }
+            for (fav in favorites) {
+                yield(fav.url)
+            }
+            val sortedHistory = history.sortedByDescending { it.timestamp }
+            for (item in sortedHistory) {
+                yield(item.url)
+            }
         }
 
-        // 2. Check Favorites
-        for (favorite in favorites) {
-            val candidate = getCandidate(favorite.url, hasSlash)
-            val match = matchPrefix(query, candidate)
-            if (match != null) return match
-        }
-
-        // 3. Check Browsing History (sorted by timestamp descending)
-        val sortedHistory = history.sortedByDescending { it.timestamp }
-        for (item in sortedHistory) {
-            val candidate = getCandidate(item.url, hasSlash)
+        for (url in candidateUrls) {
+            val candidate = getCandidate(url, hasSlash)
             val match = matchPrefix(query, candidate)
             if (match != null) return match
         }
@@ -72,31 +81,39 @@ class SearchInputAutocompleteMatcher {
     }
 
     /**
-     * Returns all open tabs matching [query] for display in the "Switch to Tab" carousel.
+     * Returns all open tabs matching [query] (excluding the current tab if filtered by caller)
+     * for display in the "Switch to Tab" carousel.
+     * Matches against either clean domain/URL prefix or tab title.
      */
     fun findMatchingOpenTabs(
         query: String,
         tabs: List<Tab>,
     ): List<Tab> {
-        if (query.isBlank() || query.contains(" ")) {
+        val trimmed = query.trim()
+        if (trimmed.isBlank()) {
             return emptyList()
         }
 
-        val hasSlash = query.contains("/")
+        val hasSlash = trimmed.contains("/")
         val sortedTabs = tabs.sortedByDescending { it.lastActiveTimestamp }
 
         return sortedTabs.filter { tab ->
             val candidate = getCandidate(tab.url, hasSlash)
-            candidate.startsWith(query, ignoreCase = true)
+            val urlMatches = candidate.startsWith(trimmed, ignoreCase = true)
+            val titleMatches = tab.title.isNotBlank() && tab.title.contains(trimmed, ignoreCase = true)
+            urlMatches || titleMatches
         }
     }
 
     private fun getCandidate(url: String, hasSlash: Boolean): String {
         val cleaned = cleanUrl(url)
         return if (hasSlash) {
-            cleaned.substringBefore("?").substringBefore("#")
+            val host = cleaned.substringBefore("/").lowercase()
+            val pathAndQuery = cleaned.substringAfter("/", "")
+            val path = pathAndQuery.substringBefore("?").substringBefore("#")
+            if (path.isEmpty()) "$host/" else "$host/$path"
         } else {
-            cleaned.substringBefore("/").substringBefore("?").substringBefore("#")
+            cleaned.substringBefore("/").substringBefore("?").substringBefore("#").lowercase()
         }
     }
 

@@ -143,7 +143,8 @@ fun SearchOverlay(
         }
     }
     val matchingOpenTabs = remember(activeQuery, uiState.tabs) {
-        autocompleteMatcher.findMatchingOpenTabs(activeQuery, uiState.tabs)
+        val inactiveTabs = uiState.tabs.filterNot { it.isActive }
+        autocompleteMatcher.findMatchingOpenTabs(activeQuery, inactiveTabs)
     }
 
     LaunchedEffect(Unit) {
@@ -363,6 +364,25 @@ fun SearchOverlay(
                         val newText = newValue.text
                         val hadSelection = !textFieldValue.selection.collapsed
 
+                        val applyAutocomplete: (String, TextFieldValue) -> Unit = { query, fallbackValue ->
+                            val match = autocompleteMatcher.findInlineMatch(
+                                query = query,
+                                tabs = uiState.tabs,
+                                favorites = uiState.favorites,
+                                history = uiState.searchHistorySuggestions,
+                            )
+                            if (match != null) {
+                                textFieldValue = TextFieldValue(
+                                    text = match,
+                                    selection = TextRange(query.length, match.length),
+                                )
+                                onEvent(BrowserUiEvent.UpdateSearchQuery(query))
+                            } else {
+                                textFieldValue = fallbackValue
+                                onEvent(BrowserUiEvent.UpdateSearchQuery(query))
+                            }
+                        }
+
                         if (hadSelection) {
                             val textWithoutSelection = oldText.removeRange(
                                 textFieldValue.selection.min,
@@ -376,22 +396,7 @@ fun SearchOverlay(
                             } else {
                                 // User typed a character replacing the selection
                                 suppressAutocomplete = false
-                                val match = autocompleteMatcher.findInlineMatch(
-                                    query = newText,
-                                    tabs = uiState.tabs,
-                                    favorites = uiState.favorites,
-                                    history = uiState.searchHistorySuggestions,
-                                )
-                                if (match != null) {
-                                    textFieldValue = TextFieldValue(
-                                        text = match,
-                                        selection = TextRange(newText.length, match.length),
-                                    )
-                                    onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
-                                } else {
-                                    textFieldValue = newValue
-                                    onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
-                                }
+                                applyAutocomplete(newText, newValue)
                             }
                         } else {
                             if (newText.length < oldText.length) {
@@ -404,25 +409,8 @@ fun SearchOverlay(
                                 textFieldValue = newValue
                             } else {
                                 // User typed forward
-                                if (suppressAutocomplete) {
-                                    suppressAutocomplete = false
-                                }
-                                val match = autocompleteMatcher.findInlineMatch(
-                                    query = newText,
-                                    tabs = uiState.tabs,
-                                    favorites = uiState.favorites,
-                                    history = uiState.searchHistorySuggestions,
-                                )
-                                if (match != null) {
-                                    textFieldValue = TextFieldValue(
-                                        text = match,
-                                        selection = TextRange(newText.length, match.length),
-                                    )
-                                    onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
-                                } else {
-                                    textFieldValue = newValue
-                                    onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
-                                }
+                                suppressAutocomplete = false
+                                applyAutocomplete(newText, newValue)
                             }
                         }
                     },
