@@ -112,6 +112,19 @@ object AdBlockerEngine {
     }
 
     private fun loadRulesFromAssets(context: Context) {
+        try {
+            val assetList = context.assets.list("")
+            if (assetList?.contains("adblock_domains.txt") == true) {
+                context.assets.open("adblock_domains.txt").use { inputStream ->
+                    loadPrecompiledDomainsFromStream(inputStream)
+                }
+                isInitialized = true
+                return
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to load precompiled rules, falling back to raw assets", e)
+        }
+
         val assetFiles = listOf("adblock_hosts.txt", "EasyList.txt", "EasyListCookie.txt")
         for (fileName in assetFiles) {
             try {
@@ -123,6 +136,25 @@ object AdBlockerEngine {
             }
         }
         isInitialized = true
+    }
+
+    fun loadPrecompiledDomainsFromStream(inputStream: InputStream) {
+        BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).useLines { lines ->
+            val buffer = ArrayList<String>(1000)
+            lines.forEach { line ->
+                val trimmed = line.trim()
+                if (trimmed.isNotEmpty()) {
+                    buffer.add(trimmed)
+                    if (buffer.size >= 1000) {
+                        blockedHosts.addAll(buffer)
+                        buffer.clear()
+                    }
+                }
+            }
+            if (buffer.isNotEmpty()) {
+                blockedHosts.addAll(buffer)
+            }
+        }
     }
 
     fun loadRulesFromStream(inputStream: InputStream) {
@@ -149,124 +181,280 @@ object AdBlockerEngine {
      * - Extracts rules starting with `||` and ending with `^` or `^$...`, e.g. `||doubleclick.net^` -> `doubleclick.net`.
      * - Ignores comments (`!`, `[`), element hiding rules (`##`, `#?#`), and whitelist rules (`@@`).
      */
+    private fun isValidHostnameChar(c: Char): Boolean =
+        (c in 'a'..'z') || (c in 'A'..'Z') || (c in '0'..'9') || c == '-' || c == '_'
+
+    private fun validateAndFormatDomain(line: String, start: Int, end: Int): String? {
+        if (start >= end) return null
+        val firstChar = line[start]
+        if (firstChar == '.' || firstChar == '-') return null
+        val lastChar = line[end - 1]
+        if (lastChar == '.' || lastChar == '-') return null
+
+        var hasDot = false
+        for (i in start until end) {
+            val c = line[i]
+            if (c == '.') {
+                hasDot = true
+            } else if (!isValidHostnameChar(c)) {
+                return null
+            }
+        }
+        if (!hasDot) return null
+        return line.substring(start, end).lowercase()
+    }
+
+    /**
+     * Parses ABP domain rules:
+     * - Extracts rules starting with `||` and ending with `^` or `^$...`, e.g. `||doubleclick.net^` -> `doubleclick.net`.
+     * - Ignores comments (`!`, `[`), element hiding rules (`##`, `#?#`), and whitelist rules (`@@`).
+     */
     fun extractDomainFromAbpRule(line: String): String? {
-        val trimmed = line.trim()
-        if (trimmed.isEmpty() ||
-            trimmed.startsWith("!") ||
-            trimmed.startsWith("[") ||
-            trimmed.startsWith("@@") ||
-            trimmed.contains("##") ||
-            trimmed.contains("#?#")
-        ) {
-            return null
-        }
+        var start = 0
+        val len = line.length
+        while (start < len && line[start].isWhitespace()) start++
+        var end = len
+        while (end > start && line[end - 1].isWhitespace()) end--
+        if (start >= end) return null
 
-        if (!trimmed.startsWith("||")) {
-            return null
-        }
+        val firstChar = line[start]
+        if (firstChar == '!' || firstChar == '[' || firstChar == '@') return null
+        if (end - start < 4 || line[start] != '|' || line[start + 1] != '|') return null
 
-        val caretIndex = trimmed.indexOf('^')
-        if (caretIndex == -1) return null
+        val caretIndex = line.indexOf('^', start + 2)
+        if (caretIndex == -1 || caretIndex >= end) return null
 
-        val afterCaret = trimmed.substring(caretIndex + 1)
-        if (afterCaret.isNotEmpty() && !afterCaret.startsWith("$")) {
-            return null
-        }
+        val afterCaretStart = caretIndex + 1
+        if (afterCaretStart < end && line[afterCaretStart] != '$') return null
 
-        val domainCandidate = trimmed.substring(2, caretIndex).trim().lowercase()
-        if (domainCandidate.isEmpty()) return null
+        var domainStart = start + 2
+        var domainEnd = caretIndex
+        while (domainStart < domainEnd && line[domainStart].isWhitespace()) domainStart++
+        while (domainEnd > domainStart && line[domainEnd - 1].isWhitespace()) domainEnd--
 
-        // Domain must not contain paths, wildcards, ports, query params, or extra separators
-        if (domainCandidate.contains('/') ||
-            domainCandidate.contains('*') ||
-            domainCandidate.contains(':') ||
-            domainCandidate.contains('?') ||
-            domainCandidate.contains('^')
-        ) {
-            return null
-        }
-
-        // Hostname characters: lowercase letters, digits, dots, hyphens, underscores
-        if (!domainCandidate.all { it in 'a'..'z' || it in '0'..'9' || it == '.' || it == '-' || it == '_' }) {
-            return null
-        }
-
-        // Must contain a dot and not start or end with a dot or hyphen
-        if (!domainCandidate.contains('.') ||
-            domainCandidate.startsWith('.') ||
-            domainCandidate.endsWith('.') ||
-            domainCandidate.startsWith('-') ||
-            domainCandidate.endsWith('-')
-        ) {
-            return null
-        }
-
-        return domainCandidate
+        return validateAndFormatDomain(line, domainStart, domainEnd)
     }
 
     /**
      * Parses standard /etc/hosts format lines (e.g. "0.0.0.0 domain.com" or "domain.com")
      */
     fun extractDomainFromHostsLine(line: String): String? {
-        val trimmed = line.trim()
-        if (trimmed.isEmpty() ||
-            trimmed.startsWith("#") ||
-            trimmed.startsWith("!") ||
-            trimmed.startsWith("[") ||
-            trimmed.startsWith("@@") ||
-            trimmed.contains("##") ||
-            trimmed.contains("#?#")
-        ) {
+        var start = 0
+        val len = line.length
+        while (start < len && line[start].isWhitespace()) start++
+        var end = len
+        while (end > start && line[end - 1].isWhitespace()) end--
+        if (start >= end) return null
+
+        val firstChar = line[start]
+        if (firstChar == '#' || firstChar == '!' || firstChar == '[' || firstChar == '@') {
             return null
         }
-        val parts = trimmed.split("\\s+".toRegex())
-        val hostCandidate =
-            if (parts.size >= 2 && (parts[0] == "127.0.0.1" || parts[0] == "0.0.0.0")) {
-                parts[1].lowercase()
-            } else {
-                parts[0].lowercase()
-            }
 
-        if (hostCandidate.contains('.') &&
-            !hostCandidate.contains('/') &&
-            !hostCandidate.contains('*') &&
-            !hostCandidate.contains(':') &&
-            !hostCandidate.startsWith('.') &&
-            !hostCandidate.endsWith('.') &&
-            !hostCandidate.startsWith('-') &&
-            !hostCandidate.endsWith('-')
-        ) {
-            return hostCandidate
+        var i = start
+        while (i < end) {
+            if (line[i] == '#' && i + 1 < end && (line[i + 1] == '#' || (i + 2 < end && line[i + 1] == '?' && line[i + 2] == '#'))) {
+                return null
+            }
+            i++
         }
-        return null
+
+        var token0End = start
+        while (token0End < end && !line[token0End].isWhitespace()) {
+            token0End++
+        }
+
+        val isIp = (token0End - start == 9 && line.regionMatches(start, "127.0.0.1", 0, 9)) ||
+            (token0End - start == 7 && line.regionMatches(start, "0.0.0.0", 0, 7))
+
+        val domainStart: Int
+        val domainEnd: Int
+
+        if (isIp) {
+            var token1Start = token0End
+            while (token1Start < end && line[token1Start].isWhitespace()) {
+                token1Start++
+            }
+            if (token1Start >= end) return null
+            var token1End = token1Start
+            while (token1End < end && !line[token1End].isWhitespace()) {
+                token1End++
+            }
+            domainStart = token1Start
+            domainEnd = token1End
+        } else {
+            domainStart = start
+            domainEnd = token0End
+        }
+
+        return validateAndFormatDomain(line, domainStart, domainEnd)
+    }
+
+    data class ParsedUrl(
+        val host: String,
+        val path: String,
+        val rawUrl: String,
+    )
+
+    private val lastParsedUrl = ThreadLocal<ParsedUrl?>()
+
+    fun parseUrl(url: String?): ParsedUrl? {
+        if (url.isNullOrBlank()) return null
+        val cached = lastParsedUrl.get()
+        if (cached != null && (cached.rawUrl === url || cached.rawUrl == url)) {
+            return cached
+        }
+        val parsed = extractHostAndPath(url)
+        lastParsedUrl.set(parsed)
+        return parsed
+    }
+
+    internal fun extractHostAndPath(url: String): ParsedUrl? {
+        var start = 0
+        val len = url.length
+        while (start < len && url[start] <= ' ') {
+            start++
+        }
+        var end = len
+        while (end > start && url[end - 1] <= ' ') {
+            end--
+        }
+        if (start >= end) return null
+
+        if (url.regionMatches(start, "data:", 0, 5, ignoreCase = true) ||
+            url.regionMatches(start, "javascript:", 0, 11, ignoreCase = true) ||
+            url.regionMatches(start, "about:", 0, 6, ignoreCase = true) ||
+            url.regionMatches(start, "file:", 0, 5, ignoreCase = true) ||
+            url.regionMatches(start, "content:", 0, 8, ignoreCase = true) ||
+            url.regionMatches(start, "mailto:", 0, 7, ignoreCase = true) ||
+            url.regionMatches(start, "tel:", 0, 4, ignoreCase = true) ||
+            url.regionMatches(start, "sms:", 0, 4, ignoreCase = true) ||
+            url.regionMatches(start, "geo:", 0, 4, ignoreCase = true)
+        ) {
+            return ParsedUrl(host = "", path = "", rawUrl = url)
+        }
+
+        var hostStart = -1
+        if (start + 1 < end && url[start] == '/' && url[start + 1] == '/') {
+            hostStart = start + 2
+        } else {
+            val schemeDelim = url.indexOf("://", start)
+            if (schemeDelim != -1 && schemeDelim < end) {
+                var hasBreakBeforeScheme = false
+                for (i in start until schemeDelim) {
+                    val c = url[i]
+                    if (c == '/' || c == '?' || c == '#') {
+                        hasBreakBeforeScheme = true
+                        break
+                    }
+                }
+                if (!hasBreakBeforeScheme) {
+                    hostStart = schemeDelim + 3
+                }
+            }
+        }
+
+        if (hostStart == -1) {
+            if (url[start] == '/') {
+                return ParsedUrl(host = "", path = "", rawUrl = url)
+            }
+            hostStart = start
+        }
+
+        for (i in hostStart until end) {
+            val c = url[i]
+            if (c == '/' || c == '?' || c == '#') break
+            if (c == '@') {
+                hostStart = i + 1
+                break
+            }
+        }
+
+        var hostEnd = end
+        var pathStart = -1
+
+        if (hostStart < end && url[hostStart] == '[') {
+            val closeBracket = url.indexOf(']', hostStart)
+            if (closeBracket != -1 && closeBracket < end) {
+                hostEnd = closeBracket + 1
+            }
+        } else {
+            for (i in hostStart until end) {
+                val c = url[i]
+                if (c == ':' || c == '/' || c == '?' || c == '#') {
+                    hostEnd = i
+                    break
+                }
+            }
+        }
+
+        if (hostEnd <= hostStart) {
+            return ParsedUrl(host = "", path = "", rawUrl = url)
+        }
+
+        for (i in hostEnd until end) {
+            val c = url[i]
+            if (c == '/') {
+                pathStart = i
+                break
+            } else if (c == '?' || c == '#') {
+                break
+            }
+        }
+
+        val host = run {
+            var hasUpper = false
+            for (i in hostStart until hostEnd) {
+                val c = url[i]
+                if (c in 'A'..'Z') {
+                    hasUpper = true
+                    break
+                }
+            }
+            if (hasUpper) {
+                url.substring(hostStart, hostEnd).lowercase()
+            } else {
+                url.substring(hostStart, hostEnd)
+            }
+        }
+
+        val path = if (pathStart != -1) {
+            var pathEnd = end
+            for (i in pathStart until end) {
+                val c = url[i]
+                if (c == '?' || c == '#') {
+                    pathEnd = i
+                    break
+                }
+            }
+            var hasUpper = false
+            for (i in pathStart until pathEnd) {
+                val c = url[i]
+                if (c in 'A'..'Z') {
+                    hasUpper = true
+                    break
+                }
+            }
+            if (hasUpper) {
+                url.substring(pathStart, pathEnd).lowercase()
+            } else {
+                url.substring(pathStart, pathEnd)
+            }
+        } else {
+            ""
+        }
+
+        return ParsedUrl(host = host, path = path, rawUrl = url)
     }
 
     fun shouldBlock(url: String?): Boolean {
         if (url.isNullOrBlank()) return false
-        val trimmedUrl = url.trim()
-        if (trimmedUrl.startsWith("data:", ignoreCase = true) ||
-            trimmedUrl.startsWith("javascript:", ignoreCase = true) ||
-            trimmedUrl.startsWith("about:", ignoreCase = true) ||
-            trimmedUrl.startsWith("file:", ignoreCase = true) ||
-            trimmedUrl.startsWith("content:", ignoreCase = true)
-        ) {
-            return false
-        }
+        val parsed = parseUrl(url) ?: return false
+        return shouldBlock(parsed)
+    }
 
-        val uri =
-            try {
-                val normalizedUrl =
-                    when {
-                        trimmedUrl.startsWith("//") -> "https:$trimmedUrl"
-                        !trimmedUrl.contains("://") -> "https://$trimmedUrl"
-                        else -> trimmedUrl
-                    }
-                Uri.parse(normalizedUrl)
-            } catch (_: Exception) {
-                null
-            } ?: return false
-
-        val host = uri.host?.lowercase() ?: return false
+    fun shouldBlock(parsed: ParsedUrl): Boolean {
+        val host = parsed.host
         if (host.isEmpty()) return false
 
         if (blockedHosts.contains(host)) return true
@@ -287,8 +475,8 @@ object AdBlockerEngine {
         }
 
         // Check path rules for multi-purpose search engines/portals serving ads under subpaths
-        val path = uri.path?.lowercase().orEmpty()
-        if (isBlockedPath(host, path)) {
+        val path = parsed.path
+        if (path.isNotEmpty() && isBlockedPath(host, path)) {
             return true
         }
 
@@ -539,87 +727,105 @@ object AdBlockerEngine {
         }
     }
 
+    private val TRACKER_DOMAINS = arrayOf(
+        "google-analytics.com",
+        "scorecardresearch.com",
+        "quantserve.com",
+        "hotjar.com",
+        "clarity.ms",
+        "segment.io",
+        "segment.com",
+        "mixpanel.com",
+        "amplitude.com",
+        "statcounter.com",
+        "counter.yadro.ru",
+        "top-fwz1.mail.ru",
+    )
+
     /**
      * Determines whether a given URL belongs to an analytics, tracker, telemetry, or beacon service.
      * Examples: google-analytics.com, mc.yandex.ru, scorecardresearch.com, quantserve.com, adfstat, metrika, beacon, pixel, etc.
      */
     fun isTracker(url: String): Boolean {
         if (url.isBlank()) return false
-        val cleanUrl = url.lowercase().trim()
-        val uri =
-            try {
-                val normalized =
-                    when {
-                        cleanUrl.startsWith("//") -> "https:$cleanUrl"
-                        !cleanUrl.contains("://") -> "https://$cleanUrl"
-                        else -> cleanUrl
-                    }
-                Uri.parse(normalized)
-            } catch (_: Exception) {
-                null
-            }
-
-        val host = uri?.host?.lowercase().orEmpty()
-        val path = uri?.path?.lowercase().orEmpty()
-
-        // Known tracker & analytics domains
-        val trackerDomains =
-            listOf(
-                "google-analytics.com",
-                "scorecardresearch.com",
-                "quantserve.com",
-                "hotjar.com",
-                "clarity.ms",
-                "segment.io",
-                "segment.com",
-                "mixpanel.com",
-                "amplitude.com",
-                "statcounter.com",
-                "counter.yadro.ru",
-                "top-fwz1.mail.ru",
-            )
-        if (trackerDomains.any { host == it || host.endsWith(".$it") }) {
-            return true
-        }
-
-        // Host fragments specifically associated with telemetry / metrics
-        if (host.contains("adfstat") ||
-            host.contains("metrika") ||
-            host.startsWith("mc.yandex.") ||
-            host.contains(".metrika.") ||
-            host.contains("analytics.") ||
-            host.contains("telemetry.") ||
-            host.contains("tracker.") ||
-            host.contains("tracking.") ||
-            host.contains("stats.")
-        ) {
-            return true
-        }
-
-        // Path or URL fragments indicating beacons, telemetry, pixels, collectors
-        if (path.contains("/collect") ||
-            path.contains("/beacon") ||
-            path.contains("/analytics") ||
-            path.contains("/telemetry") ||
-            path.contains("/pixel") ||
-            path.contains("/metrika") ||
-            path.contains("/track") ||
-            cleanUrl.contains("beacon") ||
-            cleanUrl.contains("pixel") ||
-            cleanUrl.contains("telemetry") ||
-            cleanUrl.contains("adfstat") ||
-            cleanUrl.contains("metrika")
-        ) {
-            return true
-        }
-
-        return false
+        val parsed = parseUrl(url) ?: return false
+        return isTracker(parsed)
     }
 
     @JvmName("isTrackerNullable")
     fun isTracker(url: String?): Boolean {
         if (url.isNullOrBlank()) return false
-        return isTracker(url as String)
+        val parsed = parseUrl(url) ?: return false
+        return isTracker(parsed)
+    }
+
+    fun isTracker(parsed: ParsedUrl): Boolean {
+        return isTracker(parsed.host, parsed.path, parsed.rawUrl)
+    }
+
+    fun isTracker(
+        host: String,
+        path: String,
+        rawUrl: String = "",
+    ): Boolean {
+        if (host.isEmpty() && path.isEmpty() && rawUrl.isEmpty()) return false
+
+        // Known tracker & analytics domains
+        if (host.isNotEmpty()) {
+            for (td in TRACKER_DOMAINS) {
+                if (host == td || host.endsWith(".$td")) {
+                    return true
+                }
+            }
+
+            // Host fragments specifically associated with telemetry / metrics
+            if (host.contains("adfstat") ||
+                host.contains("metrika") ||
+                host.startsWith("mc.yandex.") ||
+                host.contains(".metrika.") ||
+                host.contains("analytics.") ||
+                host.contains("telemetry.") ||
+                host.contains("tracker.") ||
+                host.contains("tracking.") ||
+                host.contains("stats.")
+            ) {
+                return true
+            }
+        }
+
+        // Path or URL fragments indicating beacons, telemetry, pixels, collectors
+        if (path.isNotEmpty()) {
+            if (path.contains("/collect") ||
+                path.contains("/beacon") ||
+                path.contains("/analytics") ||
+                path.contains("/telemetry") ||
+                path.contains("/pixel") ||
+                path.contains("/metrika") ||
+                path.contains("/track")
+            ) {
+                return true
+            }
+        }
+
+        if (rawUrl.isNotEmpty()) {
+            if (rawUrl.contains("beacon", ignoreCase = true) ||
+                rawUrl.contains("pixel", ignoreCase = true) ||
+                rawUrl.contains("telemetry", ignoreCase = true) ||
+                rawUrl.contains("adfstat", ignoreCase = true) ||
+                rawUrl.contains("metrika", ignoreCase = true)
+            ) {
+                return true
+            }
+        }
+
+        return false
+    }
+
+    fun recordBlockedRequest(isTracker: Boolean) {
+        val stats = blockedRequestStats ?: return
+        activeScope().launch {
+            stats.recordBlockedRequest(isTracker)
+        }
     }
 
     fun recordBlockedRequest(url: String) {
@@ -627,6 +833,13 @@ object AdBlockerEngine {
         val tracker = isTracker(url)
         activeScope().launch {
             stats.recordBlockedRequest(tracker)
+        }
+    }
+
+    fun flushBlockedStats() {
+        val stats = blockedRequestStats ?: return
+        activeScope().launch {
+            stats.flush()
         }
     }
 
@@ -638,6 +851,7 @@ object AdBlockerEngine {
             blockedHosts.addAll(DEFAULT_HOSTS)
             isInitialized = false
             blockedRequestStats = null
+            lastParsedUrl.remove()
         }
     }
 }
@@ -655,15 +869,47 @@ object AdBlockerEngine {
  * The instance is safe for concurrent use: rules are loaded on a background thread while the
  * matching runs on the main thread.
  */
+private sealed interface HostBucket {
+    fun matches(host: String, fromIndex: Int, length: Int): Boolean
+    fun withHost(newHost: String): HostBucket
+
+    class Single(val host: String) : HostBucket {
+        override fun matches(host: String, fromIndex: Int, length: Int): Boolean =
+            this.host.length == length && host.regionMatches(fromIndex, this.host, 0, length)
+
+        override fun withHost(newHost: String): HostBucket =
+            Multi(arrayOf(host, newHost))
+    }
+
+    class Multi(val hosts: Array<String>) : HostBucket {
+        override fun matches(host: String, fromIndex: Int, length: Int): Boolean {
+            for (h in hosts) {
+                if (h.length == length && host.regionMatches(fromIndex, h, 0, length)) {
+                    return true
+                }
+            }
+            return false
+        }
+
+        override fun withHost(newHost: String): HostBucket {
+            val newArr = java.util.Arrays.copyOf(hosts, hosts.size + 1)
+            newArr[hosts.size] = newHost
+            return Multi(newArr)
+        }
+    }
+}
+
 private class HostBlocklist {
-    private val exactHosts = ConcurrentHashMap.newKeySet<String>()
-    private val hashBuckets = ConcurrentHashMap<Int, List<String>>()
+    private val exactHosts = ConcurrentHashMap.newKeySet<String>(65536)
+    private val hashBuckets = ConcurrentHashMap<Int, HostBucket>(65536)
 
     val size: Int get() = exactHosts.size
 
     fun add(host: String) {
         if (!exactHosts.add(host)) return
-        hashBuckets.merge(host.hashCode(), listOf(host)) { existing, added -> existing + added }
+        hashBuckets.compute(host.hashCode()) { _, existing ->
+            existing?.withHost(host) ?: HostBucket.Single(host)
+        }
     }
 
     fun addAll(hosts: Collection<String>) {
@@ -689,14 +935,8 @@ private class HostBlocklist {
         fromIndex: Int,
     ): Boolean {
         if (fromIndex < 0 || fromIndex >= host.length) return false
-        val candidates = hashBuckets[hashRegion(host, fromIndex)] ?: return false
-        val length = host.length - fromIndex
-        for (candidate in candidates) {
-            if (candidate.length == length && host.regionMatches(fromIndex, candidate, 0, length)) {
-                return true
-            }
-        }
-        return false
+        val bucket = hashBuckets[hashRegion(host, fromIndex)] ?: return false
+        return bucket.matches(host, fromIndex, host.length - fromIndex)
     }
 
     /**

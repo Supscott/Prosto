@@ -456,6 +456,101 @@ val width = 440
     }
 
     @Test
+    fun renderSearchEngineSelectorScrollToFirstPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+        val density = Density(1f)
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+                val carouselStateBefore = remember(density) {
+                    SearchEngineCarouselState(
+                        initialEngine = SearchEngine.BRAVE,
+                        density = density,
+                        coroutineScope = coroutineScope,
+                        vibration = object : VibrationFeedback {
+                            override fun tick() {}
+                            override fun confirm() {}
+                        },
+                        engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
+                        onEngineSelected = {}
+                    )
+                }
+                val carouselStateAfter = remember(density) {
+                    SearchEngineCarouselState(
+                        initialEngine = SearchEngine.GOOGLE,
+                        density = density,
+                        coroutineScope = coroutineScope,
+                        vibration = object : VibrationFeedback {
+                            override fun tick() {}
+                            override fun confirm() {}
+                        },
+                        engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
+                        onEngineSelected = {}
+                    )
+                }
+
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(0xFFDFF7F3))
+                            .padding(24.dp),
+                        horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("Before Double-Tap (Brave)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            SearchEngineSelectorButton(
+                                carouselState = carouselStateBefore,
+                                isMenuOpen = false,
+                                isDark = false,
+                                onClick = {}
+                            )
+                        }
+
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Text("After Double-Tap (Scrolled to First: Google)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            SearchEngineSelectorButton(
+                                carouselState = carouselStateAfter,
+                                isMenuOpen = false,
+                                isDark = false,
+                                onClick = {}
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 540
+        val height = 180
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/search_selector_scroll_to_first_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        assertTrue(outputFile.exists())
+    }
+
+    @Test
     fun renderSearchOverlayWithDropdownOpenPreview() {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()

@@ -28,10 +28,10 @@ class SettingsScreenPreviewTest {
     val composeRule = createComposeRule()
 
     /**
-     * The INTERACTION section (vibration toggle) must be reachable in the settings screen.
+     * The GENERAL section (vibration toggle and open in apps) and all 5 categories must be reachable.
      */
     @Test
-    fun settingsScreen_showsVibrationToggle() {
+    fun settingsScreen_showsVibrationToggleAndCategories() {
         composeRule.setContent {
             JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
                 SettingsScreen(
@@ -42,7 +42,27 @@ class SettingsScreenPreviewTest {
         }
 
         composeRule.onNodeWithText("Vibration").assertExists()
-        composeRule.onNodeWithText("INTERACTION").assertExists()
+        composeRule.onNodeWithText("Tracking Protection").assertExists()
+        composeRule.onNodeWithText("GENERAL").assertExists()
+        composeRule.onNodeWithText("APPEARANCE").assertExists()
+        composeRule.onNodeWithText("SEARCH").assertExists()
+        composeRule.onNodeWithText("PRIVACY & PROTECTION").assertExists()
+        composeRule.onNodeWithText("ABOUT & PROSTO").assertExists()
+    }
+
+    @Test
+    fun settingsScreen_showsGrayUnloadedTabsToggle() {
+        composeRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SettingsScreen(
+                    uiState = BrowserUiState(activeScreen = ScreenType.SETTINGS, isDefaultBrowser = false),
+                    onEvent = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Gray unloaded tabs").assertExists()
+        composeRule.onNodeWithText("Show inactive tabs not loaded in RAM in gray").assertExists()
     }
 
     @Test

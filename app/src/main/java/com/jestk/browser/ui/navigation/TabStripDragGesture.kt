@@ -42,6 +42,7 @@ internal fun rememberTabStripDragReorderModifier(
     totalChipWidthPx: Float,
     rightPinnedOffsetPx: Float,
     edgeSlackPx: Float,
+    removeThresholdPx: Float = with(LocalDensity.current) { 36.dp.toPx() },
     onLongPress: (String) -> Unit,
 ): Modifier {
     val currentMetrics by rememberUpdatedState(layoutMetrics)
@@ -52,7 +53,7 @@ internal fun rememberTabStripDragReorderModifier(
     val density = LocalDensity.current
     val touchSlop = with(density) { 8.dp.toPx() }
 
-    return Modifier.pointerInput(touchSlop, tabSpacingPx, totalChipWidthPx, rightPinnedOffsetPx, edgeSlackPx) {
+    return Modifier.pointerInput(touchSlop, tabSpacingPx, totalChipWidthPx, rightPinnedOffsetPx, edgeSlackPx, removeThresholdPx) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             val tabId = lazyListState.tabIdAt(down.position.x, tabSpacingPx) ?: return@awaitEachGesture
@@ -61,10 +62,12 @@ internal fun rememberTabStripDragReorderModifier(
             currentVibration.confirm()
             val pointerId = longPress.id
             var totalDragX = 0f
+            var totalDragY = 0f
             var isDragging = false
             var cancelled = false
             var completed = false
             var grabOffsetPx = 0f
+            val startTouchY = down.position.y
 
             fun isReleasedActive() = tabId == currentActiveTabId
 
@@ -81,13 +84,20 @@ internal fun rememberTabStripDragReorderModifier(
                         break
                     }
 
-                    val pointerDeltaX = change.positionChange().x
-                    totalDragX += pointerDeltaX
+                    val pointerDelta = change.positionChange()
+                    totalDragX += pointerDelta.x
+                    totalDragY += pointerDelta.y
                     change.consume()
 
-                    if (!isDragging && abs(totalDragX) > touchSlop) {
+                    if (!isDragging && (abs(totalDragX) > touchSlop || abs(totalDragY) > touchSlop)) {
                         isDragging = true
-                        dragState.onDragStart(tabId)
+                        val initialOffset =
+                            lazyListState.layoutInfo.visibleItemsInfo
+                                .firstOrNull { it.key == tabId }
+                                ?.offset
+                                ?.toFloat()
+                                ?: 0f
+                        dragState.onDragStart(tabId, initialVisualX = initialOffset)
                         val visibleItem =
                             lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == tabId }
                         if (visibleItem != null) {
@@ -110,7 +120,11 @@ internal fun rememberTabStripDragReorderModifier(
                             totalChipWidthPx = totalChipWidthPx,
                             rightPinnedOffsetPx = rightPinnedOffsetPx,
                             edgeSlackPx = edgeSlackPx,
+                            dragOffsetYPx = change.position.y - startTouchY,
+                            removeThresholdPx = removeThresholdPx,
                             onSwapVibration = { currentVibration.tick() },
+                            onEnterRemoveZone = { currentVibration.tick() },
+                            onExitRemoveZone = { currentVibration.tick() },
                         )
                     }
                 }
@@ -123,6 +137,7 @@ internal fun rememberTabStripDragReorderModifier(
                         dragState.onDragEnd(
                             isReleasedActive = isReleasedActive(),
                             originalTabs = currentTabs,
+                            onConfirmVibration = { currentVibration.confirm() },
                         )
                     }
                 } else if (!cancelled) {
@@ -147,8 +162,21 @@ internal fun dragTabToViewportPosition(
     totalChipWidthPx: Float,
     rightPinnedOffsetPx: Float,
     edgeSlackPx: Float,
+    dragOffsetYPx: Float = 0f,
+    removeThresholdPx: Float = 0f,
     onSwapVibration: () -> Unit,
+    onEnterRemoveZone: () -> Unit = {},
+    onExitRemoveZone: () -> Unit = {},
 ) {
+    if (removeThresholdPx > 0f) {
+        dragState.updateVerticalDrag(
+            offsetY = dragOffsetYPx,
+            removeThresholdPx = removeThresholdPx,
+            onEnterRemoveZone = onEnterRemoveZone,
+            onExitRemoveZone = onExitRemoveZone,
+        )
+    }
+
     val visibleItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == tabId } ?: return
     val oldIndex = dragState.currentTabs.indexOfFirst { it.id == tabId }
     if (oldIndex < 0) return
@@ -160,6 +188,7 @@ internal fun dragTabToViewportPosition(
             -edgeSlackPx,
             (totalChipWidthPx - rightPinnedOffsetPx + edgeSlackPx) - visibleItem.size,
         )
+    dragState.updateVisualX(boundedVisualStart)
     val targetOffset = boundedVisualStart - itemLayoutOffsetPx
     val deltaX = targetOffset - dragState.dragOffsetPx
     if (deltaX != 0f) {
@@ -175,11 +204,11 @@ internal fun dragTabToViewportPosition(
     if (newIndex < 0) return
     val newSlotStart = dragState.getSlotStart(newIndex, dragState.currentTabs, metrics)
     val draggedTabBecameFirst = newIndex < oldIndex && newIndex <= firstVisibleIndex
-    if (draggedTabBecameFirst) {
+    if (draggedTabBecameFirst && !dragState.isOverRemoveZone) {
         lazyListState.requestScrollToItem(newIndex)
     }
     val newItemOffset =
-        if (draggedTabBecameFirst) {
+        if (draggedTabBecameFirst && !dragState.isOverRemoveZone) {
             0f
         } else {
             itemLayoutOffsetPx + newSlotStart - oldSlotStart

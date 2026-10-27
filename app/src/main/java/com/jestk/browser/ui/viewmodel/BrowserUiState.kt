@@ -7,6 +7,7 @@ import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
+import com.jestk.browser.domain.model.InsecureHttpPrompt
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.SearchEngine
@@ -18,6 +19,7 @@ data class BrowserUiState(
     val tabs: List<Tab> = emptyList(),
     val recentTabs: List<com.jestk.browser.domain.model.RecentTabItem> = emptyList(),
     val activeTabId: String? = null,
+    val loadedTabIds: Set<String> = emptySet(),
     val recentlyClosedTab: Tab? = null,
     val showUndoTabCloseSnackbar: Boolean = false,
     val externalAppPrompt: ExternalAppPrompt? = null,
@@ -72,6 +74,8 @@ data class BrowserUiState(
     val isSearchEngineSwitcherEditExpanded: Boolean = false,
     val blockedAdsCount: Long = 0L,
     val blockedTrackersCount: Long = 0L,
+    val insecureHttpPrompt: InsecureHttpPrompt? = null,
+    val allowedInsecureHosts: Set<String> = emptySet(),
 ) {
     val visibleSearchPageEngines: List<SearchEngine>
         get() = searchEngines.filter { it.id !in settings.hiddenSearchPageEngineIds }
@@ -115,4 +119,7 @@ data class BrowserUiState(
             val candidate = currentUrl.ifEmpty { activeTabUrl }
             return SearchEngine.findMatchingEngineAndQuery(candidate, searchEngines)
         }
+
+    fun isTabLoaded(tabId: String): Boolean =
+        tabId in loadedTabIds || tabId == activeTabId
 }

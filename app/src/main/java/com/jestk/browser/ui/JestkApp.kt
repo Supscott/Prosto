@@ -12,6 +12,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
@@ -47,6 +48,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -67,6 +69,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
+import com.jestk.browser.domain.model.isVisible
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
@@ -74,11 +77,13 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
+import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
 import com.jestk.browser.ui.overlays.LinkContextMenuModal
 import com.jestk.browser.ui.overlays.SearchOverlay
 import com.jestk.browser.ui.overlays.TabOverviewGrid
+import com.jestk.browser.ui.overlays.UpdateNotificationCard
 import com.jestk.browser.ui.screens.DownloadsScreen
 import com.jestk.browser.ui.screens.SettingsScreen
 import com.jestk.browser.ui.pip.FloatingVideoMiniPlayer
@@ -163,6 +168,13 @@ fun JestkApp(
                     isOpenInAppsEnabled = { viewModel.uiState.value.settings.isOpenInAppsEnabled },
                     onExternalAppOffered = { id, prompt, userInitiated ->
                         viewModel.onEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
+                    },
+                    isTrackingProtectionEnabled = { viewModel.uiState.value.settings.isTrackingProtectionEnabled },
+                    onInsecureHttpWarning = { id, url ->
+                        viewModel.onEvent(BrowserUiEvent.ShowInsecureHttpWarning(url = url, tabId = id))
+                    },
+                    isInsecureHostAllowed = { host ->
+                        viewModel.isInsecureHostAllowed(host)
                     }
                 )
                 wv.webChromeClient = JestkWebChromeClient(
@@ -408,19 +420,27 @@ fun JestkApp(
                 !uiState.isSettingsVisible &&
                 !uiState.isDownloadsVisible
 
-            AnimatedVisibility(
-                visible = isBottomBarVisible,
-                enter =
-                    fadeIn(tween(220, easing = FastOutSlowInEasing)) +
-                        slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
-                exit =
-                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
-                        slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
-                modifier = Modifier.align(Alignment.BottomCenter),
-            ) {
+            val bottomBarSlideOffset by animateDpAsState(
+                targetValue = if (isBottomBarVisible) 0.dp else 120.dp,
+                animationSpec = tween(durationMillis = if (isBottomBarVisible) 260 else 220, easing = FastOutSlowInEasing),
+                label = "BottomBarSlide",
+            )
+            val bottomBarAlpha by animateFloatAsState(
+                targetValue = if (isBottomBarVisible) 1f else 0f,
+                animationSpec = tween(durationMillis = if (isBottomBarVisible) 220 else 180, easing = FastOutSlowInEasing),
+                label = "BottomBarAlpha",
+            )
+
+            if (bottomBarAlpha > 0f) {
                 UnifiedBottomBar(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer {
+                            translationY = bottomBarSlideOffset.toPx()
+                            alpha = bottomBarAlpha
+                        },
                 )
             }
 
@@ -717,6 +737,32 @@ fun JestkApp(
                 }
             }
 
+            // Self-Update Floating Notification Banner
+            AnimatedVisibility(
+                visible = uiState.updateState.isVisible,
+                enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
+                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
+                modifier =
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .navigationBarsPadding()
+                        .padding(
+                            bottom = snackbarBaseBottomOffset +
+                                (if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) 56.dp else 0.dp) +
+                                (if (uiState.showDownloadSnackbar && uiState.lastDownloadNotification != null) 56.dp else 0.dp),
+                            start = 16.dp,
+                            end = 16.dp,
+                        ),
+            ) {
+                UpdateNotificationCard(
+                    state = uiState.updateState,
+                    onDownload = { viewModel.onEvent(BrowserUiEvent.DownloadUpdate) },
+                    onInstall = { viewModel.onEvent(BrowserUiEvent.InstallUpdate) },
+                    onSkip = { viewModel.onEvent(BrowserUiEvent.SkipUpdate) },
+                    isDark = isDark,
+                )
+            }
+
             // Link Context Menu Floating Modal
             uiState.linkContextMenuUrl?.let { linkUrl ->
                 LinkContextMenuModal(
@@ -775,6 +821,16 @@ fun JestkApp(
                             )
                         )
                     },
+                )
+            }
+
+            // Insecure HTTP Warning Modal Dialog
+            uiState.insecureHttpPrompt?.let { prompt ->
+                InsecureHttpWarningDialog(
+                    isDark = isDark,
+                    url = prompt.url,
+                    onDismiss = { viewModel.onEvent(BrowserUiEvent.DismissInsecureHttpWarning) },
+                    onConfirm = { viewModel.onEvent(BrowserUiEvent.ConfirmInsecureHttpNavigation) },
                 )
             }
 

@@ -15,6 +15,7 @@ import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.util.UrlSecurityUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collectLatest
@@ -218,6 +219,13 @@ internal class TabCoordinator(
                 tabLoadingProgress[activeTab.id] = 100
             }
 
+            val restoredInsecureHosts = tabsWithActive
+                .map { it.url }
+                .filter { UrlSecurityUtils.isHttpUrl(it) }
+                .map { UrlSecurityUtils.extractHost(it) }
+                .filter { it.isNotEmpty() }
+                .toSet()
+
             updateUiState { state ->
                 state.copy(
                     tabs = tabsWithActive,
@@ -227,6 +235,7 @@ internal class TabCoordinator(
                     canGoBack = false,
                     canGoForward = false,
                     activeThemeColor = initialThemeColor,
+                    allowedInsecureHosts = state.allowedInsecureHosts + restoredInsecureHosts,
                     isLoading = hasWebUrl,
                     loadingProgress = if (hasWebUrl) 0.15f else 0f,
                     settings = effectiveSettings,
@@ -449,7 +458,11 @@ internal class TabCoordinator(
         }
     }
 
-    fun openRecentTab(item: RecentTabItem, onNavigateUrl: (String) -> Unit) {
+    fun openRecentTab(
+        item: RecentTabItem,
+        onNavigateUrl: (String) -> Unit,
+        onOpenNewTab: (String) -> Unit = { openNewTab(it) },
+    ) {
         Log.d(TAG, "Opening recent tab: ${item.url}")
         val existingOpenTab = getCurrentState().tabs.firstOrNull { it.url == item.url }
         if (existingOpenTab != null) {
@@ -461,7 +474,7 @@ internal class TabCoordinator(
                 onNavigateUrl(item.url)
                 updateUiState { it.copy(activeOverlay = OverlayType.NONE) }
             } else {
-                openNewTab(item.url)
+                onOpenNewTab(item.url)
                 updateUiState { it.copy(activeOverlay = OverlayType.NONE) }
             }
         }

@@ -8,6 +8,7 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.FileProvider
 import com.jestk.browser.R
@@ -21,11 +22,13 @@ import org.json.JSONObject
 import java.io.File
 import java.util.concurrent.TimeUnit
 
+private const val TAG = "AppUpdateManager"
+
 /**
  * Talks to the GitHub Releases API, downloads release APKs and hands them to the
  * system package installer.
  */
-class AppUpdateManager(
+open class AppUpdateManager(
     private val context: Context,
 ) {
     private val client =
@@ -36,25 +39,39 @@ class AppUpdateManager(
             .build()
 
     /** Returns the latest GitHub release that ships an APK, or null when unavailable. */
-    suspend fun fetchLatestRelease(repo: String = DEFAULT_REPO): AppUpdate? =
+    open suspend fun fetchLatestRelease(repo: String = DEFAULT_REPO): AppUpdate? =
         withContext(Dispatchers.IO) {
             runCatching {
+                val url = "https://api.github.com/repos/$repo/releases/latest"
+                Log.d(TAG, "Fetching latest release from $url")
                 val request =
                     Request
                         .Builder()
-                        .url("https://api.github.com/repos/$repo/releases/latest")
+                        .url(url)
                         .header("Accept", "application/vnd.github+json")
                         .header("User-Agent", USER_AGENT)
                         .build()
                 client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@use null
-                    parseGithubRelease(response.body?.string().orEmpty())
+                    if (!response.isSuccessful) {
+                        Log.w(TAG, "GitHub release fetch failed: HTTP ${response.code} ${response.message}")
+                        return@use null
+                    }
+                    val body = response.body?.string().orEmpty()
+                    val parsed = parseGithubRelease(body)
+                    if (parsed != null) {
+                        Log.d(TAG, "Fetched release: ${parsed.versionName}")
+                    } else {
+                        Log.w(TAG, "Could not parse valid release with APK from response")
+                    }
+                    parsed
                 }
+            }.onFailure { e ->
+                Log.e(TAG, "Exception while fetching latest release", e)
             }.getOrNull()
         }
 
     /** Downloads the release APK into app-private storage. */
-    suspend fun download(
+    open suspend fun download(
         update: AppUpdate,
         onProgress: (Int) -> Unit,
     ): File? {
@@ -96,14 +113,14 @@ class AppUpdateManager(
     }
 
     /** Version of the build that is currently installed. */
-    fun currentVersion(): String =
+    open fun currentVersion(): String =
         runCatching {
             @Suppress("DEPRECATION")
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull() ?: "0.0.0"
 
     /** Version of a previously downloaded APK that is still newer than [currentVersion], if any. */
-    fun pendingUpdateVersion(currentVersion: String = currentVersion()): String? {
+    open fun pendingUpdateVersion(currentVersion: String = currentVersion()): String? {
         val files = updateDir().listFiles { file -> file.isFile && file.name.endsWith(APK_SUFFIX) } ?: return null
         val candidates =
             files.mapNotNull { file ->
@@ -121,10 +138,10 @@ class AppUpdateManager(
             ?.first
     }
 
-    fun canInstallPackages(): Boolean = context.packageManager.canRequestPackageInstalls()
+    open fun canInstallPackages(): Boolean = context.packageManager.canRequestPackageInstalls()
 
     /** Opens the system installer for a previously downloaded APK. */
-    fun installUpdate(versionName: String): Boolean {
+    open fun installUpdate(versionName: String): Boolean {
         val file = updateFile(versionName)
         if (!file.exists()) return false
         return runCatching {
@@ -134,7 +151,7 @@ class AppUpdateManager(
     }
 
     /** Sends the user to the system screen where "install unknown apps" can be granted. */
-    fun requestInstallPermission(): Boolean =
+    open fun requestInstallPermission(): Boolean =
         runCatching {
             context.startActivity(
                 Intent(
@@ -145,12 +162,12 @@ class AppUpdateManager(
             true
         }.getOrDefault(false)
 
-    fun deletePendingUpdate(versionName: String) {
+    open fun deletePendingUpdate(versionName: String) {
         updateFile(versionName).delete()
     }
 
     /** Tells the user that a new version is waiting to be installed. */
-    fun notifyUpdateReady(versionName: String) {
+    open fun notifyUpdateReady(versionName: String) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             manager.createNotificationChannel(
@@ -164,12 +181,14 @@ class AppUpdateManager(
         val file = updateFile(versionName)
         val contentIntent =
             if (file.exists()) {
-                PendingIntent.getActivity(
-                    context,
-                    0,
-                    installIntent(file),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                )
+                runCatching {
+                    PendingIntent.getActivity(
+                        context,
+                        0,
+                        installIntent(file),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                    )
+                }.getOrNull()
             } else {
                 null
             }
@@ -198,7 +217,7 @@ class AppUpdateManager(
     private fun updateFile(versionName: String): File = File(updateDir(), "$FILE_PREFIX$versionName$APK_SUFFIX")
 
     companion object {
-        const val DEFAULT_REPO = "Supscott/browser"
+        const val DEFAULT_REPO = "Supscott/Prosto"
         private const val USER_AGENT = "Prosto-Android"
         private const val UPDATE_DIR = "updates"
         private const val FILE_PREFIX = "prosto-"

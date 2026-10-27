@@ -447,6 +447,10 @@ fun SearchOverlay(
                     isMenuOpen = isDropdownOpen,
                     isDark = isDark,
                     onClick = { isDropdownOpen = !isDropdownOpen },
+                    onDoubleTap = {
+                        isDropdownOpen = false
+                        carouselState.scrollToFirst()
+                    },
                 )
             }
         }

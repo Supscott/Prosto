@@ -30,19 +30,23 @@ class SettingsRepositoryImpl(
             val themeStr = settingDao.getSetting(SettingKeys.THEME_MODE)
             val searchStr = settingDao.getSetting(SettingKeys.SEARCH_ENGINE)
             val adBlockerStr = settingDao.getSetting(SettingKeys.AD_BLOCKER_ENABLED)
+            val trackingProtectionStr = settingDao.getSetting(SettingKeys.TRACKING_PROTECTION_ENABLED)
             val hiddenStr = settingDao.getSetting(SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES)
             val openInAppsStr = settingDao.getSetting(SettingKeys.OPEN_IN_APPS_ENABLED)
             val autoUpdateStr = settingDao.getSetting(SettingKeys.AUTO_UPDATE_ENABLED)
             val vibrationStr = settingDao.getSetting(SettingKeys.VIBRATION_ENABLED)
+            val grayUnloadedTabsStr = settingDao.getSetting(SettingKeys.GRAY_UNLOADED_TABS_ENABLED)
             val skippedUpdateStr = settingDao.getSetting(SettingKeys.SKIPPED_UPDATE_VERSION)
 
             val theme = themeStr?.let { runCatching { ThemeMode.valueOf(it) }.getOrDefault(ThemeMode.SYSTEM) } ?: ThemeMode.SYSTEM
             val search =
                 searchStr?.let { runCatching { SearchEngine.valueOf(it) }.getOrDefault(SearchEngine.DUCKDUCKGO) } ?: SearchEngine.DUCKDUCKGO
             val adBlocker = adBlockerStr?.toBooleanStrictOrNull() ?: true
+            val trackingProtection = trackingProtectionStr?.toBooleanStrictOrNull() ?: true
             val openInApps = openInAppsStr?.toBooleanStrictOrNull() ?: true
             val autoUpdate = autoUpdateStr?.toBooleanStrictOrNull() ?: true
             val vibration = vibrationStr?.toBooleanStrictOrNull() ?: true
+            val grayUnloadedTabs = grayUnloadedTabsStr?.toBooleanStrictOrNull() ?: true
             val skippedUpdate = skippedUpdateStr?.takeIf { it.isNotBlank() }
             val hiddenEngines =
                 hiddenStr
@@ -56,11 +60,13 @@ class SettingsRepositoryImpl(
                 themeMode = theme,
                 searchEngine = search,
                 isAdBlockerEnabled = adBlocker,
+                isTrackingProtectionEnabled = trackingProtection,
                 hiddenSearchPageEngineIds = hiddenEngines,
                 isOpenInAppsEnabled = openInApps,
                 isAutoUpdateEnabled = autoUpdate,
                 isVibrationEnabled = vibration,
                 skippedUpdateVersion = skippedUpdate,
+                isGrayUnloadedTabsEnabled = grayUnloadedTabs,
             )
         }
 
@@ -77,6 +83,11 @@ class SettingsRepositoryImpl(
     override suspend fun setAdBlockerEnabled(enabled: Boolean) =
         withContext(ioDispatcher) {
             settingDao.setSetting(SettingEntity(SettingKeys.AD_BLOCKER_ENABLED, enabled.toString()))
+        }
+
+    override suspend fun setTrackingProtectionEnabled(enabled: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.TRACKING_PROTECTION_ENABLED, enabled.toString()))
         }
 
     override suspend fun setHiddenSearchPageEngineIds(hiddenIds: Set<String>) =
@@ -98,6 +109,11 @@ class SettingsRepositoryImpl(
     override suspend fun setVibrationEnabled(enabled: Boolean) =
         withContext(ioDispatcher) {
             settingDao.setSetting(SettingEntity(SettingKeys.VIBRATION_ENABLED, enabled.toString()))
+        }
+
+    override suspend fun setGrayUnloadedTabsEnabled(enabled: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.GRAY_UNLOADED_TABS_ENABLED, enabled.toString()))
         }
 
     override suspend fun setSkippedUpdateVersion(version: String?) =

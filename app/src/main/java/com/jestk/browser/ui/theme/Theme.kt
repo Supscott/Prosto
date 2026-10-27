@@ -259,10 +259,11 @@ fun Modifier.prostoFloatingSurface(
     backgroundColor: Color? = null,
     borderWidth: Dp = 1.dp,
     elevation: Dp = 10.dp,
+    clip: Boolean = true,
 ): Modifier {
     val bg = backgroundColor ?: if (isDark) DarkSurface else Color.White
     val border = ProstoBorders.floatingBorder(isDark = isDark, width = borderWidth)
-    return this
+    val base = this
         .shadow(
             elevation = elevation,
             shape = shape,
@@ -271,7 +272,7 @@ fun Modifier.prostoFloatingSurface(
             spotColor = Color.Black,
         ).background(color = bg, shape = shape)
         .border(border = border, shape = shape)
-        .clip(shape)
+    return if (clip) base.clip(shape) else base
 }
 
 /**

@@ -16,4 +16,9 @@ interface BlockedRequestStats {
      * to a known ad host.
      */
     suspend fun recordBlockedRequest(isTracker: Boolean)
+
+    /**
+     * Flushes any in-memory buffered counts to persistent storage.
+     */
+    suspend fun flush() {}
 }

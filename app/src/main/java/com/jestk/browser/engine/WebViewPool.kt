@@ -29,6 +29,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -68,6 +71,16 @@ class WebViewPool(
     }
 
     private val pool = ConcurrentHashMap<String, WebView>()
+    private val _loadedTabIds = MutableStateFlow<Set<String>>(emptySet())
+    val loadedTabIds: StateFlow<Set<String>> = _loadedTabIds.asStateFlow()
+
+    private fun updateLoadedTabIds() {
+        _loadedTabIds.value = pool.keys.toSet()
+    }
+
+    fun isTabLoaded(tabId: String): Boolean = pool.containsKey(tabId)
+    fun getLoadedTabIds(): Set<String> = pool.keys.toSet()
+
     private val lruOrder = ConcurrentLinkedDeque<String>()
     private val mediaPlayingTabs = ConcurrentHashMap.newKeySet<String>()
     private var activeTabId: String? = null
@@ -242,6 +255,7 @@ class WebViewPool(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
+                    databaseEnabled = true
                     mediaPlaybackRequiresUserGesture = false
                     builtInZoomControls = true
                     displayZoomControls = false
@@ -268,6 +282,7 @@ class WebViewPool(
             currentIsDark?.let { applyThemeMode(webView, it) }
 
             pool[tabId] = webView
+            updateLoadedTabIds()
             trimPool(tabId)
             Log.d(TAG, "Created WebView for tab $tabId")
             onWebViewCreated?.invoke(tabId, webView)
@@ -281,6 +296,7 @@ class WebViewPool(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
+                    databaseEnabled = true
                     mediaPlaybackRequiresUserGesture = false
                     builtInZoomControls = true
                     displayZoomControls = false
@@ -305,6 +321,7 @@ class WebViewPool(
             }
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
             pool[tabId] = fallbackWebView
+            updateLoadedTabIds()
             trimPool(tabId)
             Log.d(TAG, "Created fallback WebView for tab $tabId")
             onWebViewCreated?.invoke(tabId, fallbackWebView)
@@ -560,6 +577,7 @@ class WebViewPool(
             activeTabId = null
         }
         val webView = pool.remove(tabId) ?: return
+        updateLoadedTabIds()
         Log.d(TAG, "Removing WebView for tab $tabId")
         detachFromParent(webView)
         try {
@@ -594,6 +612,7 @@ class WebViewPool(
         val keys = pool.keys().toList()
         keys.forEach { removeWebView(it) }
         pool.clear()
+        updateLoadedTabIds()
     }
 
     fun size(): Int = pool.size
