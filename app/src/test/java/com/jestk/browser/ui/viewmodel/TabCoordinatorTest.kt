@@ -53,6 +53,7 @@ class TabCoordinatorTest {
     private val navigationCommands = mutableListOf<NavigationCommand>()
 
     private lateinit var coordinator: TabCoordinator
+    private lateinit var webViewPool: com.jestk.browser.engine.WebViewPool
 
     @Before
     fun setup() {
@@ -64,13 +65,14 @@ class TabCoordinatorTest {
         historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
         favoriteRepo = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher)
         recentTabRepo = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher)
+        webViewPool = com.jestk.browser.engine.WebViewPool(context)
 
         coordinator = TabCoordinator(
             tabRepository = tabRepo,
             recentTabRepository = recentTabRepo,
             favoriteRepository = favoriteRepo,
             historyRepository = historyRepo,
-            webViewPool = null,
+            webViewPool = webViewPool,
             tabOperationMutex = tabMutex,
             tabThemeColors = tabThemeColors,
             getCurrentState = { uiState },
@@ -85,6 +87,7 @@ class TabCoordinatorTest {
     @After
     @Throws(IOException::class)
     fun teardown() {
+        webViewPool.clearAll()
         FaviconManager.deleteAllFavicons()
         Dispatchers.resetMain()
         db.close()
@@ -244,13 +247,17 @@ class TabCoordinatorTest {
             coordinator.openNewTab("https://tab-a.com")
             advanceUntilIdle()
             val tabAId = uiState.activeTabId!!
+            webViewPool.getOrCreateWebView(tabAId)
 
             coordinator.openNewTab("https://tab-b.com")
             advanceUntilIdle()
             val tabBId = uiState.activeTabId!!
+            webViewPool.getOrCreateWebView(tabBId)
 
             assertThat(uiState.activeTabId).isEqualTo(tabBId)
             assertThat(uiState.currentUrl).isEqualTo("https://tab-b.com")
+            assertThat(webViewPool.getWebView(tabBId)).isNotNull()
+            assertThat(webViewPool.getWebView(tabAId)).isNotNull()
 
             // Close active tab B
             coordinator.closeTab(tabBId)
@@ -259,6 +266,8 @@ class TabCoordinatorTest {
             assertThat(uiState.activeTabId).isEqualTo(tabAId)
             assertThat(uiState.currentUrl).isEqualTo("https://tab-a.com")
             assertThat(uiState.tabs.map { it.id }).containsExactly(initialHomeId, tabAId)
+            assertThat(webViewPool.getWebView(tabBId)).isNull()
+            assertThat(webViewPool.getWebView(tabAId)).isNotNull()
 
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tabAId)

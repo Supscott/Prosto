@@ -475,7 +475,7 @@ internal class TabCoordinator(
         }
         activateTabInternal(
             selected = selected,
-            baseTabs = getCurrentState().tabs,
+            tabsList = getCurrentState().tabs,
             keepOverlayIfTabGrid = false,
         )
         scope.launch(ioDispatcher) {
@@ -487,10 +487,9 @@ internal class TabCoordinator(
 
     private fun activateTabInternal(
         selected: Tab,
-        baseTabs: List<Tab>,
+        tabsList: List<Tab>,
         keepOverlayIfTabGrid: Boolean = false,
         recentlyClosedTab: Tab? = null,
-        showUndoSnackbar: Boolean = false,
     ) {
         val tabId = selected.id
         webViewPool?.onTabActivated(tabId, getCurrentState().isVideoPlaying)
@@ -516,7 +515,7 @@ internal class TabCoordinator(
 
         updateUiState { state ->
             val updatedTabs =
-                baseTabs.map { t ->
+                tabsList.map { t ->
                     val c = tabThemeColors[t.id] ?: t.themeColor
                     if (t.id == tabId) {
                         t.copy(
@@ -551,8 +550,8 @@ internal class TabCoordinator(
                 externalAppPrompt = pendingExternalAppPrompts[tabId],
                 activeOverlay = targetOverlay,
                 isBottomBarVisible = true,
-                recentlyClosedTab = if (showUndoSnackbar) recentlyClosedTab else state.recentlyClosedTab,
-                showUndoTabCloseSnackbar = if (showUndoSnackbar) (recentlyClosedTab != null) else state.showUndoTabCloseSnackbar,
+                recentlyClosedTab = recentlyClosedTab ?: state.recentlyClosedTab,
+                showUndoTabCloseSnackbar = if (recentlyClosedTab != null) true else state.showUndoTabCloseSnackbar,
             )
         }
         publishPendingExternalAppPrompt(tabId)
@@ -566,9 +565,6 @@ internal class TabCoordinator(
                     canGoBack = effectiveCanGoBack,
                     canGoForward = effectiveCanGoForward,
                 )
-                if (effectiveUrl.isNotEmpty() && !effectiveUrl.startsWith("about:") && effectiveTitle.isNotEmpty()) {
-                    historyRepository.recordVisit(effectiveUrl, effectiveTitle)
-                }
             }
         }
     }
@@ -588,7 +584,45 @@ internal class TabCoordinator(
         val wasActive = getCurrentState().activeTabId == tabId
         val remainingTabs = currentTabs.filter { it.id != tabId }
 
+        if (!wasActive) {
+            updateUiState { state ->
+                val updatedTabs = remainingTabs.map { t ->
+                    val c = tabThemeColors[t.id] ?: t.themeColor
+                    t.copy(themeColor = c)
+                }
+                state.copy(
+                    tabs = updatedTabs,
+                    recentlyClosedTab = closingTab,
+                    showUndoTabCloseSnackbar = closingTab != null,
+                )
+            }
+            scope.launch(ioDispatcher) {
+                SnapshotEngine.deleteTabSnapshot(tabId)
+                FaviconManager.deleteTabFavicons(tabId)
+                tabOperationMutex.withLock {
+                    val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                    tabRepository.closeTab(tabId)
+                }
+            }
+            return
+        }
+
         if (remainingTabs.isEmpty()) {
+            updateUiState { state ->
+                state.copy(
+                    tabs = emptyList(),
+                    activeTabId = null,
+                    currentUrl = "",
+                    pageTitle = "Home",
+                    isLoading = false,
+                    loadingProgress = 0f,
+                    activeThemeColor = null,
+                    activeOverlay = if (state.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
+                    recentlyClosedTab = closingTab,
+                    showUndoTabCloseSnackbar = closingTab != null,
+                    externalAppPrompt = null,
+                )
+            }
             scope.launch(ioDispatcher) {
                 SnapshotEngine.deleteTabSnapshot(tabId)
                 FaviconManager.deleteTabFavicons(tabId)
@@ -618,9 +652,7 @@ internal class TabCoordinator(
             }
         } else {
             val nextActive =
-                if (!wasActive && remainingTabs.any { it.id == getCurrentState().activeTabId }) {
-                    remainingTabs.first { it.id == getCurrentState().activeTabId }
-                } else if (closedIdx > 0) {
+                if (closedIdx > 0) {
                     currentTabs[closedIdx - 1]
                 } else {
                     remainingTabs.first()
@@ -628,10 +660,9 @@ internal class TabCoordinator(
 
             activateTabInternal(
                 selected = nextActive,
-                baseTabs = remainingTabs,
+                tabsList = remainingTabs,
                 keepOverlayIfTabGrid = true,
                 recentlyClosedTab = closingTab,
-                showUndoSnackbar = true,
             )
 
             scope.launch(ioDispatcher) {

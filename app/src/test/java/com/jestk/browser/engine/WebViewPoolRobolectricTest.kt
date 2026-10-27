@@ -3,6 +3,7 @@ package com.jestk.browser.engine
 import android.app.Activity
 import android.content.Context
 import android.content.MutableContextWrapper
+import android.os.Looper
 import android.widget.FrameLayout
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
@@ -11,6 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -222,6 +224,9 @@ class WebViewPoolRobolectricTest {
         webViewPool.getOrCreateWebView("tab-bg-1", activity)
         webViewPool.getOrCreateWebView("tab-bg-2", activity)
 
+        val mainLooper = shadowOf(Looper.getMainLooper())
+        mainLooper.idle()
+
         var backgroundException: Throwable? = null
         val thread = Thread {
             try {
@@ -234,8 +239,12 @@ class WebViewPoolRobolectricTest {
         thread.join(2000)
 
         assertThat(backgroundException).isNull()
-        org.robolectric.shadows.ShadowLooper.idleMainLooper()
-        // Both WebViews must remain valid and accessible without crashing
+        // Work was posted to the main looper from the background thread
+        assertThat(mainLooper.isIdle).isFalse()
+        mainLooper.idle()
+        assertThat(mainLooper.isIdle).isTrue()
+
+        // Both WebViews remain valid and accessible without crashing
         assertThat(webViewPool.getWebView("tab-bg-1")).isNotNull()
         assertThat(webViewPool.getWebView("tab-bg-2")).isNotNull()
     }

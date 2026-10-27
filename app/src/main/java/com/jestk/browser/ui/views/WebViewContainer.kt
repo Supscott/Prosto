@@ -250,11 +250,7 @@ fun WebViewContainer(
                     webView.isFocusable = true
                     webView.isFocusableInTouchMode = true
                     setupWebViewLongClick(webView)
-                    try {
-                        webView.onResume()
-                    } catch (t: Throwable) {
-                        android.util.Log.w("WebViewContainer", "Failed to resume WebView on attach", t)
-                    }
+                    webView.safeResume()
 
                     webView.setOnScrollChangeListener { v, _, scrollY, _, oldScrollY ->
                         val dy = scrollY - oldScrollY
@@ -407,11 +403,6 @@ fun WebViewContainer(
                     currentWebView.isFocusable = true
                     currentWebView.isFocusableInTouchMode = true
                     setupWebViewLongClick(currentWebView)
-                    try {
-                        currentWebView.onResume()
-                    } catch (t: Throwable) {
-                        android.util.Log.w("WebViewContainer", "Failed to resume current WebView on update", t)
-                    }
 
                     if (currentWebView.parent !== swipeRefresh) {
                         (currentWebView.parent as? ViewGroup)?.removeView(currentWebView)
@@ -422,6 +413,7 @@ fun WebViewContainer(
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
                         )
+                        currentWebView.safeResume()
                     }
 
                     (swipeRefresh as? JestkSwipeRefreshLayout)?.onRefreshTriggerReached = { vibration.confirm() }
@@ -443,5 +435,13 @@ fun WebViewContainer(
             )
         }
         }
+    }
+}
+
+private fun WebView.safeResume() {
+    try {
+        onResume()
+    } catch (t: Throwable) {
+        android.util.Log.w("WebViewContainer", "Failed to resume WebView", t)
     }
 }
