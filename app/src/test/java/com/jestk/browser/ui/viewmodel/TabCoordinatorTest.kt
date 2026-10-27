@@ -235,6 +235,37 @@ class TabCoordinatorTest {
         }
 
     @Test
+    fun closeTab_whenActiveTabClosed_synchronouslySwitchesToAdjacentTabWithCorrectUrl() =
+        runTest(testDispatcher) {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+            val initialHomeId = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab-a.com")
+            advanceUntilIdle()
+            val tabAId = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab-b.com")
+            advanceUntilIdle()
+            val tabBId = uiState.activeTabId!!
+
+            assertThat(uiState.activeTabId).isEqualTo(tabBId)
+            assertThat(uiState.currentUrl).isEqualTo("https://tab-b.com")
+
+            // Close active tab B
+            coordinator.closeTab(tabBId)
+
+            // Must switch synchronously BEFORE advanceUntilIdle
+            assertThat(uiState.activeTabId).isEqualTo(tabAId)
+            assertThat(uiState.currentUrl).isEqualTo("https://tab-a.com")
+            assertThat(uiState.tabs.map { it.id }).containsExactly(initialHomeId, tabAId)
+
+            advanceUntilIdle()
+            assertThat(uiState.activeTabId).isEqualTo(tabAId)
+            assertThat(uiState.currentUrl).isEqualTo("https://tab-a.com")
+        }
+
+    @Test
     fun closeAllTabs_clearsAllLoadingProgress() =
         runTest(testDispatcher) {
             coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
