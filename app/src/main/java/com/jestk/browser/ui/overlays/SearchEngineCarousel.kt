@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
@@ -49,6 +50,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -75,6 +77,7 @@ import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.VibrationFeedback
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -362,6 +365,15 @@ internal class SearchEngineCarouselState(
                 }
             }
     }
+
+    /**
+     * Smoothly scrolls and snaps the carousel to the first search engine in the list.
+     */
+    fun scrollToFirst() {
+        val list = if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
+        val firstEngine = list.firstOrNull() ?: return
+        animateToEngine(firstEngine)
+    }
 }
 
 /**
@@ -399,10 +411,12 @@ internal fun SearchEngineSelectorButton(
     isDark: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onDoubleTap: (() -> Unit)? = null,
 ) {
     val bg = if (isDark) DarkSurface else Color.White
     val border = ProstoBorders.cardBorder(isDark)
     val density = carouselState.density
+    val doubleTapAction = onDoubleTap ?: { carouselState.scrollToFirst() }
 
     val containerWidth by animateDpAsState(
         targetValue = if (carouselState.isScrolling) 160.dp else 68.dp,
@@ -443,8 +457,9 @@ internal fun SearchEngineSelectorButton(
             modifier
                 .width(containerWidth)
                 .height(52.dp)
-                .semantics {
+                .semantics(mergeDescendants = true) {
                     role = Role.Button
+                    contentDescription = "Search engine selector"
                     onClick {
                         onClick()
                         true
@@ -452,6 +467,7 @@ internal fun SearchEngineSelectorButton(
                 }.searchEngineButtonGestures(
                     carouselState = carouselState,
                     onClick = onClick,
+                    onDoubleTap = doubleTapAction,
                 ),
     ) {
         Box(
@@ -573,7 +589,7 @@ internal fun SearchEngineSelectorButton(
             // Dropdown Indicator Arrow
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = "Search engine selector",
+                contentDescription = null,
                 tint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
                 modifier =
                     Modifier
@@ -600,11 +616,14 @@ internal fun SearchEngineSelectorButton(
     onSwipeRight: () -> Unit,
     modifier: Modifier = Modifier,
     engines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
+    onSelectEngine: ((SearchEngine) -> Unit)? = null,
+    onDoubleTap: (() -> Unit)? = null,
 ) {
     val coroutineScope = rememberCoroutineScope()
     val vibration = LocalVibrationFeedback.current
     val currentOnSwipeLeft by rememberUpdatedState(onSwipeLeft)
     val currentOnSwipeRight by rememberUpdatedState(onSwipeRight)
+    val currentOnSelectEngine by rememberUpdatedState(onSelectEngine)
 
     val carouselState =
         remember(selectedEngine, density, engines) {
@@ -615,6 +634,7 @@ internal fun SearchEngineSelectorButton(
                 vibration = vibration,
                 engines = engines,
                 onEngineSelected = { target ->
+                    currentOnSelectEngine?.invoke(target)
                     val list = if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
                     val oldIdx = list.indexOfFirst { it.id == selectedEngine.id }.let { if (it == -1) 0 else it }
                     val newIdx = list.indexOfFirst { it.id == target.id }.let { if (it == -1) 0 else it }
@@ -634,6 +654,7 @@ internal fun SearchEngineSelectorButton(
         isDark = isDark,
         onClick = onClick,
         modifier = modifier,
+        onDoubleTap = onDoubleTap,
     )
 }
 
@@ -641,14 +662,39 @@ internal fun SearchEngineSelectorButton(
 internal fun Modifier.searchEngineButtonGestures(
     carouselState: SearchEngineCarouselState,
     onClick: () -> Unit,
+    onDoubleTap: (() -> Unit)? = null,
 ): Modifier {
     val currentOnClick by rememberUpdatedState(onClick)
+    val currentOnDoubleTap by rememberUpdatedState(onDoubleTap)
     val viewConfig = LocalViewConfiguration.current
+    val coroutineScope = rememberCoroutineScope()
 
     return this.pointerInput(carouselState) {
         val velocityTracker = VelocityTracker()
+        var pendingSingleTapJob: Job? = null
+        var lastTapUpTime = 0L
+        var lastTapUpPosition: Offset? = null
+        val doubleTapTimeoutMillis = viewConfig.doubleTapTimeoutMillis
+        val maxDoubleTapSlop = viewConfig.touchSlop * 2f
+
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
+            val downTime = down.uptimeMillis
+            val timeSinceLastTapUp = downTime - lastTapUpTime
+            val isWithinSlop = lastTapUpPosition?.let { prevPos ->
+                (down.position - prevPos).getDistance() <= maxDoubleTapSlop
+            } ?: false
+
+            val isPotentialDoubleTap = currentOnDoubleTap != null &&
+                lastTapUpTime > 0L &&
+                timeSinceLastTapUp in 0L..doubleTapTimeoutMillis &&
+                isWithinSlop
+
+            if (isPotentialDoubleTap) {
+                pendingSingleTapJob?.cancel()
+                pendingSingleTapJob = null
+            }
+
             velocityTracker.resetTracking()
             velocityTracker.addPosition(down.uptimeMillis, down.position)
             var totalDragX = 0f
@@ -659,8 +705,34 @@ internal fun Modifier.searchEngineButtonGestures(
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                 if (!change.pressed) {
                     if (!isDrag) {
-                        currentOnClick()
+                        val isTap = (change.uptimeMillis - downTime) < viewConfig.longPressTimeoutMillis
+                        if (isTap) {
+                            if (currentOnDoubleTap != null) {
+                                if (isPotentialDoubleTap) {
+                                    lastTapUpTime = 0L
+                                    lastTapUpPosition = null
+                                    currentOnDoubleTap?.invoke()
+                                } else {
+                                    lastTapUpTime = change.uptimeMillis
+                                    lastTapUpPosition = change.position
+                                    pendingSingleTapJob?.cancel()
+                                    pendingSingleTapJob = coroutineScope.launch {
+                                        delay(doubleTapTimeoutMillis)
+                                        lastTapUpTime = 0L
+                                        lastTapUpPosition = null
+                                        currentOnClick()
+                                    }
+                                }
+                            } else {
+                                currentOnClick()
+                            }
+                        } else {
+                            lastTapUpTime = 0L
+                            lastTapUpPosition = null
+                        }
                     } else {
+                        lastTapUpTime = 0L
+                        lastTapUpPosition = null
                         val velocity = velocityTracker.calculateVelocity().x
                         carouselState.onDragEnd(velocity)
                     }
@@ -671,6 +743,10 @@ internal fun Modifier.searchEngineButtonGestures(
                 totalDragX += dragX
                 if (!isDrag && abs(totalDragX) > viewConfig.touchSlop) {
                     isDrag = true
+                    pendingSingleTapJob?.cancel()
+                    pendingSingleTapJob = null
+                    lastTapUpTime = 0L
+                    lastTapUpPosition = null
                     carouselState.onDragStart()
                 }
                 if (isDrag) {
