@@ -49,6 +49,7 @@ import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.engine.SearchInputAutocompleteMatcher
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.prostoSkyBackground
@@ -117,6 +118,9 @@ fun SearchOverlay(
         isDropdownOpen = false
     }
 
+    val autocompleteMatcher = remember { SearchInputAutocompleteMatcher() }
+    var suppressAutocomplete by remember { mutableStateOf(false) }
+
     var textFieldValue by remember {
         mutableStateOf(
             TextFieldValue(
@@ -129,6 +133,17 @@ fun SearchOverlay(
                     },
             ),
         )
+    }
+
+    val activeQuery = remember(textFieldValue) {
+        if (!textFieldValue.selection.collapsed) {
+            textFieldValue.text.substring(0, textFieldValue.selection.min)
+        } else {
+            textFieldValue.text
+        }
+    }
+    val matchingOpenTabs = remember(activeQuery, uiState.tabs) {
+        autocompleteMatcher.findMatchingOpenTabs(activeQuery, uiState.tabs)
     }
 
     LaunchedEffect(Unit) {
@@ -262,6 +277,7 @@ fun SearchOverlay(
 
                                     else -> item.url
                                 }
+                            suppressAutocomplete = true
                             textFieldValue =
                                 TextFieldValue(
                                     text = queryText,
@@ -282,13 +298,27 @@ fun SearchOverlay(
                 Spacer(modifier = Modifier.height(4.dp))
             }
 
-            // Favorites squircle cards placed directly above the search engine switcher
+            // Favorites squircle cards placed directly above the open tabs carousel and input bar
             if (!uiState.isSearchHistoryExpanded && uiState.favorites.isNotEmpty()) {
                 SearchFavoritesSection(
                     favorites = uiState.favorites,
                     isDark = isDark,
                     onSelect = { url ->
                         onEvent(BrowserUiEvent.LoadUrl(url))
+                        onEvent(BrowserUiEvent.DismissOverlay)
+                    },
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+
+            // Open Tab Switch Carousel (matching open tabs displayed directly above the input)
+            if (matchingOpenTabs.isNotEmpty()) {
+                OpenTabSwitchCarousel(
+                    tabs = matchingOpenTabs,
+                    isDark = isDark,
+                    onTabClick = { tab ->
+                        vibration?.tick()
+                        onEvent(BrowserUiEvent.SelectTab(tab.id))
                         onEvent(BrowserUiEvent.DismissOverlay)
                     },
                     modifier = Modifier.padding(bottom = 8.dp),
@@ -317,6 +347,7 @@ fun SearchOverlay(
                                     newValue.text.startsWith("${engine.shortcut} ", ignoreCase = true)
                             }
                         if (matchedEngine != null) {
+                            suppressAutocomplete = false
                             carouselState.animateToEngine(matchedEngine)
                             val remaining = newValue.text.substring(matchedEngine.shortcut!!.length + 1)
                             textFieldValue =
@@ -325,9 +356,74 @@ fun SearchOverlay(
                                     selection = TextRange(remaining.length),
                                 )
                             onEvent(BrowserUiEvent.UpdateSearchQuery(remaining))
+                            return@HeroSearchInputField
+                        }
+
+                        val oldText = textFieldValue.text
+                        val newText = newValue.text
+                        val hadSelection = !textFieldValue.selection.collapsed
+
+                        if (hadSelection) {
+                            val textWithoutSelection = oldText.removeRange(
+                                textFieldValue.selection.min,
+                                textFieldValue.selection.max,
+                            )
+                            if (newText == textWithoutSelection) {
+                                // User pressed Backspace deleting the autocompleted selection
+                                suppressAutocomplete = true
+                                textFieldValue = newValue
+                                onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
+                            } else {
+                                // User typed a character replacing the selection
+                                suppressAutocomplete = false
+                                val match = autocompleteMatcher.findInlineMatch(
+                                    query = newText,
+                                    tabs = uiState.tabs,
+                                    favorites = uiState.favorites,
+                                    history = uiState.searchHistorySuggestions,
+                                )
+                                if (match != null) {
+                                    textFieldValue = TextFieldValue(
+                                        text = match,
+                                        selection = TextRange(newText.length, match.length),
+                                    )
+                                    onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
+                                } else {
+                                    textFieldValue = newValue
+                                    onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
+                                }
+                            }
                         } else {
-                            textFieldValue = newValue
-                            onEvent(BrowserUiEvent.UpdateSearchQuery(newValue.text))
+                            if (newText.length < oldText.length) {
+                                // User deleted a character
+                                suppressAutocomplete = true
+                                textFieldValue = newValue
+                                onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
+                            } else if (newText == oldText) {
+                                // Selection or cursor moved
+                                textFieldValue = newValue
+                            } else {
+                                // User typed forward
+                                if (suppressAutocomplete) {
+                                    suppressAutocomplete = false
+                                }
+                                val match = autocompleteMatcher.findInlineMatch(
+                                    query = newText,
+                                    tabs = uiState.tabs,
+                                    favorites = uiState.favorites,
+                                    history = uiState.searchHistorySuggestions,
+                                )
+                                if (match != null) {
+                                    textFieldValue = TextFieldValue(
+                                        text = match,
+                                        selection = TextRange(newText.length, match.length),
+                                    )
+                                    onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
+                                } else {
+                                    textFieldValue = newValue
+                                    onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
+                                }
+                            }
                         }
                     },
                     searchEngine = carouselState.currentEngine,
@@ -338,10 +434,12 @@ fun SearchOverlay(
                         onEvent(BrowserUiEvent.DismissOverlay)
                     },
                     onClear = {
+                        suppressAutocomplete = false
                         textFieldValue = TextFieldValue("", TextRange.Zero)
                         onEvent(BrowserUiEvent.UpdateSearchQuery(""))
                     },
                     onVoiceResult = { spokenText ->
+                        suppressAutocomplete = true
                         textFieldValue =
                             TextFieldValue(
                                 text = spokenText,

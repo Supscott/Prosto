@@ -7,8 +7,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import com.jestk.browser.domain.model.BrowserSettings
+import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.SearchEngine
+import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
@@ -150,5 +152,115 @@ class SearchOverlayInputTest {
         val updateEvents = events.filterIsInstance<BrowserUiEvent.UpdateSearchQuery>()
         assertTrue("Expected UpdateSearchQuery from history insert", updateEvents.isNotEmpty())
         assertEquals("android studio", updateEvents.last().query)
+    }
+
+    @Test
+    fun searchOverlay_typingDomainPrefix_autocompletesCandidate_andSubmitsFullUrl() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val favorites = listOf(
+            FavoriteItem(id = 1, title = "GitHub", url = "https://github.com/torvalds"),
+        )
+        val state = BrowserUiState(
+            searchQuery = "",
+            favorites = favorites,
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE),
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) },
+                )
+            }
+        }
+
+        // Type prefix "git"
+        composeTestRule.onNodeWithText("Search with Google").performTextInput("git")
+
+        // Input should now display the autocompleted domain "github.com"
+        composeTestRule.onNodeWithText("github.com").assertExists()
+
+        // Submit via IME action
+        composeTestRule.onNodeWithText("github.com").performImeAction()
+
+        val submitEvents = events.filterIsInstance<BrowserUiEvent.SubmitSearch>()
+        assertTrue("Expected SubmitSearch event", submitEvents.isNotEmpty())
+        assertEquals("github.com", submitEvents.last().query)
+    }
+
+    @Test
+    fun searchOverlay_matchingOpenTab_displaysSwitchToTabCapsule_andClicks() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val tabs = listOf(
+            Tab(id = "tab-yt", title = "YouTube", url = "https://youtube.com/watch?v=123", lastActiveTimestamp = 100),
+        )
+        val state = BrowserUiState(
+            searchQuery = "",
+            tabs = tabs,
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE),
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) },
+                )
+            }
+        }
+
+        // Type prefix "you"
+        composeTestRule.onNodeWithText("Search with Google").performTextInput("you")
+
+        // Capsule should be visible with Switch badge and title
+        composeTestRule.onNodeWithContentDescription("Switch to open tab: YouTube").assertExists()
+        composeTestRule.onAllNodes(androidx.compose.ui.test.hasText("Switch"))[0].assertExists()
+
+        // Click on the open tab capsule
+        composeTestRule.onNodeWithContentDescription("Switch to open tab: YouTube").performClick()
+
+        val selectTabEvents = events.filterIsInstance<BrowserUiEvent.SelectTab>()
+        assertEquals(1, selectTabEvents.size)
+        assertEquals("tab-yt", selectTabEvents.first().tabId)
+
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertEquals(1, dismissEvents.size)
+    }
+
+    @Test
+    fun searchOverlay_backspaceOnAutocomplete_cancelsAutocompletion_withoutTrappingUser() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val favorites = listOf(
+            FavoriteItem(id = 1, title = "GitHub", url = "https://github.com/torvalds"),
+            FavoriteItem(id = 2, title = "GitLab", url = "https://gitlab.com/repo"),
+        )
+        val state = BrowserUiState(
+            searchQuery = "",
+            favorites = favorites,
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE),
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) },
+                )
+            }
+        }
+
+        // Type prefix "git"
+        composeTestRule.onNodeWithText("Search with Google").performTextInput("git")
+        composeTestRule.onNodeWithText("github.com").assertExists()
+
+        // Simulate Backspace: user removes the autocompleted selection back to "git"
+        composeTestRule.onNodeWithText("github.com").performTextInput("") // replaces selection with empty
+        // Verify text is now "git"
+        composeTestRule.onNodeWithText("git").assertExists()
+
+        // Typing forward 'l' resets suppression and finds "gitlab.com"
+        composeTestRule.onNodeWithText("git").performTextInput("l")
+        composeTestRule.onNodeWithText("gitlab.com").assertExists()
     }
 }
