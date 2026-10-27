@@ -481,84 +481,103 @@ internal class TabCoordinator(
     }
 
     fun selectTab(tabId: String) {
-        webViewPool?.onTabActivated(tabId, getCurrentState().isVideoPlaying)
         val selected = getCurrentState().tabs.find { it.id == tabId }
         if (selected == null) {
             Log.w(TAG, "Select tab $tabId requested but the tab is not in the current state")
+            return
         }
-        if (selected != null) {
-            val liveWebView = webViewPool?.getWebView(tabId)
-            val liveUrl = liveWebView?.url?.takeIf { it.isNotBlank() && it != "about:blank" }
-            val liveTitle = liveWebView?.title?.takeIf { it.isNotBlank() }
-
-            val effectiveUrl = liveUrl ?: selected.url
-            val effectiveTitle = liveTitle ?: (if (liveUrl != null && (selected.title.isEmpty() || selected.title == "Home")) liveUrl else selected.title)
-            val effectiveCanGoBack = liveWebView?.canGoBack() ?: selected.canGoBack
-            val effectiveCanGoForward = liveWebView?.canGoForward() ?: selected.canGoForward
-
-            val isHome = effectiveUrl.isEmpty() || effectiveUrl == "about:blank"
-            val cachedColor = tabThemeColors[tabId] ?: selected.themeColor
-            val progress = tabLoadingProgress[tabId]
-            val isTabLoading = progress != null && progress < 100
-            val tabProgress = when {
-                isTabLoading -> (progress!! / 100f).coerceIn(0f, 1f)
-                isHome -> 0f
-                else -> 1.0f
-            }
-            updateUiState { state ->
-                val updatedTabs =
-                    state.tabs.map { t ->
-                        val c = tabThemeColors[t.id] ?: t.themeColor
-                        if (t.id == tabId) {
-                            t.copy(
-                                isActive = true,
-                                url = effectiveUrl,
-                                title = effectiveTitle,
-                                canGoBack = effectiveCanGoBack,
-                                canGoForward = effectiveCanGoForward,
-                                themeColor = c
-                            )
-                        } else {
-                            t.copy(isActive = false, themeColor = c)
-                        }
-                    }
-                state.copy(
-                    tabs = updatedTabs,
-                    activeTabId = tabId,
-                    currentUrl = effectiveUrl,
-                    pageTitle = effectiveTitle,
-                    isLoading = isTabLoading,
-                    loadingProgress = tabProgress,
-                    canGoBack = effectiveCanGoBack,
-                    canGoForward = effectiveCanGoForward,
-                    activeThemeColor = if (isHome) null else cachedColor,
-                    isMenuExpanded = false,
-                    isSearchEngineSwitcherEditExpanded = false,
-                    externalAppPrompt = null,
-                    activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
-                    isBottomBarVisible = true,
-                )
-            }
-            publishPendingExternalAppPrompt(tabId)
-            Log.d(TAG, "Selected tab $tabId (url=$effectiveUrl)")
-            if (liveUrl != null || liveTitle != null) {
-                scope.launch(ioDispatcher) {
-                    tabRepository.updateTabDetails(
-                        id = tabId,
-                        url = effectiveUrl,
-                        title = effectiveTitle,
-                        canGoBack = effectiveCanGoBack,
-                        canGoForward = effectiveCanGoForward,
-                    )
-                    if (effectiveUrl.isNotEmpty() && !effectiveUrl.startsWith("about:") && effectiveTitle.isNotEmpty()) {
-                        historyRepository.recordVisit(effectiveUrl, effectiveTitle)
-                    }
-                }
-            }
-        }
+        activateTabInternal(
+            selected = selected,
+            tabsList = getCurrentState().tabs,
+            keepOverlayIfTabGrid = false,
+        )
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 tabRepository.setActiveTab(tabId)
+            }
+        }
+    }
+
+    private fun activateTabInternal(
+        selected: Tab,
+        tabsList: List<Tab>,
+        keepOverlayIfTabGrid: Boolean = false,
+        recentlyClosedTab: Tab? = null,
+    ) {
+        val tabId = selected.id
+        webViewPool?.onTabActivated(tabId, getCurrentState().isVideoPlaying)
+
+        val liveWebView = webViewPool?.getWebView(tabId)
+        val liveUrl = liveWebView?.url?.takeIf { it.isNotBlank() && it != "about:blank" }
+        val liveTitle = liveWebView?.title?.takeIf { it.isNotBlank() }
+
+        val effectiveUrl = liveUrl ?: selected.url
+        val effectiveTitle = liveTitle ?: (if (liveUrl != null && (selected.title.isEmpty() || selected.title == "Home")) liveUrl else selected.title)
+        val effectiveCanGoBack = liveWebView?.canGoBack() ?: selected.canGoBack
+        val effectiveCanGoForward = liveWebView?.canGoForward() ?: selected.canGoForward
+
+        val isHome = effectiveUrl.isEmpty() || effectiveUrl == "about:blank"
+        val cachedColor = tabThemeColors[tabId] ?: selected.themeColor
+        val progress = tabLoadingProgress[tabId]
+        val isTabLoading = progress != null && progress < 100
+        val tabProgress = when {
+            isTabLoading -> (progress!! / 100f).coerceIn(0f, 1f)
+            isHome -> 0f
+            else -> 1.0f
+        }
+
+        updateUiState { state ->
+            val updatedTabs =
+                tabsList.map { t ->
+                    val c = tabThemeColors[t.id] ?: t.themeColor
+                    if (t.id == tabId) {
+                        t.copy(
+                            isActive = true,
+                            url = effectiveUrl,
+                            title = effectiveTitle,
+                            canGoBack = effectiveCanGoBack,
+                            canGoForward = effectiveCanGoForward,
+                            themeColor = c
+                        )
+                    } else {
+                        t.copy(isActive = false, themeColor = c)
+                    }
+                }
+            val targetOverlay = when {
+                keepOverlayIfTabGrid && state.activeOverlay == OverlayType.TAB_GRID -> OverlayType.TAB_GRID
+                isHome -> OverlayType.HOME
+                else -> OverlayType.NONE
+            }
+            state.copy(
+                tabs = updatedTabs,
+                activeTabId = tabId,
+                currentUrl = effectiveUrl,
+                pageTitle = effectiveTitle,
+                isLoading = isTabLoading,
+                loadingProgress = tabProgress,
+                canGoBack = effectiveCanGoBack,
+                canGoForward = effectiveCanGoForward,
+                activeThemeColor = if (isHome) null else cachedColor,
+                isMenuExpanded = false,
+                isSearchEngineSwitcherEditExpanded = false,
+                externalAppPrompt = pendingExternalAppPrompts[tabId],
+                activeOverlay = targetOverlay,
+                isBottomBarVisible = true,
+                recentlyClosedTab = recentlyClosedTab ?: state.recentlyClosedTab,
+                showUndoTabCloseSnackbar = if (recentlyClosedTab != null) true else state.showUndoTabCloseSnackbar,
+            )
+        }
+        publishPendingExternalAppPrompt(tabId)
+        Log.d(TAG, "Activated tab $tabId (url=$effectiveUrl)")
+        if (liveUrl != null || liveTitle != null) {
+            scope.launch(ioDispatcher) {
+                tabRepository.updateTabDetails(
+                    id = tabId,
+                    url = effectiveUrl,
+                    title = effectiveTitle,
+                    canGoBack = effectiveCanGoBack,
+                    canGoForward = effectiveCanGoForward,
+                )
             }
         }
     }
@@ -571,18 +590,58 @@ internal class TabCoordinator(
         pendingExternalAppPrompts.remove(tabId)
         timedOutExternalAppDomains.remove(tabId)
         webViewPool?.removeWebView(tabId)
-        val closingTab = getCurrentState().tabs.find { it.id == tabId }
-        scope.launch(ioDispatcher) {
-            SnapshotEngine.deleteTabSnapshot(tabId)
-            FaviconManager.deleteTabFavicons(tabId)
-            tabOperationMutex.withLock {
-                val currentTabs = getCurrentState().tabs
-                val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
-                val closedIdx = currentTabs.indexOfFirst { it.id == tabId }
-                val wasActive = getCurrentState().activeTabId == tabId
-                tabRepository.closeTab(tabId)
-                val remainingTabs = currentTabs.filter { it.id != tabId }
-                if (remainingTabs.isEmpty()) {
+
+        val currentTabs = getCurrentState().tabs
+        val closingTab = currentTabs.find { it.id == tabId }
+        val closedIdx = currentTabs.indexOfFirst { it.id == tabId }
+        val wasActive = getCurrentState().activeTabId == tabId
+        val remainingTabs = currentTabs.filter { it.id != tabId }
+
+        if (!wasActive) {
+            updateUiState { state ->
+                val updatedTabs = remainingTabs.map { t ->
+                    val c = tabThemeColors[t.id] ?: t.themeColor
+                    t.copy(themeColor = c)
+                }
+                state.copy(
+                    tabs = updatedTabs,
+                    recentlyClosedTab = closingTab,
+                    showUndoTabCloseSnackbar = closingTab != null,
+                )
+            }
+            scope.launch(ioDispatcher) {
+                SnapshotEngine.deleteTabSnapshot(tabId)
+                FaviconManager.deleteTabFavicons(tabId)
+                tabOperationMutex.withLock {
+                    val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                    tabRepository.closeTab(tabId)
+                }
+            }
+            return
+        }
+
+        if (remainingTabs.isEmpty()) {
+            updateUiState { state ->
+                state.copy(
+                    tabs = emptyList(),
+                    activeTabId = null,
+                    currentUrl = "",
+                    pageTitle = "Home",
+                    isLoading = false,
+                    loadingProgress = 0f,
+                    activeThemeColor = null,
+                    activeOverlay = if (state.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
+                    recentlyClosedTab = closingTab,
+                    showUndoTabCloseSnackbar = closingTab != null,
+                    externalAppPrompt = null,
+                )
+            }
+            scope.launch(ioDispatcher) {
+                SnapshotEngine.deleteTabSnapshot(tabId)
+                FaviconManager.deleteTabFavicons(tabId)
+                tabOperationMutex.withLock {
+                    val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                    tabRepository.closeTab(tabId)
                     val newTab = tabRepository.createTab(url = "", title = "Home")
                     tabRepository.setActiveTab(newTab.id)
                     webViewPool?.onTabActivated(newTab.id, false)
@@ -602,50 +661,30 @@ internal class TabCoordinator(
                             externalAppPrompt = null,
                         )
                     }
+                }
+            }
+        } else {
+            val nextActive =
+                if (closedIdx > 0) {
+                    currentTabs[closedIdx - 1]
                 } else {
-                    val nextActive =
-                        if (!wasActive && remainingTabs.any { it.id == getCurrentState().activeTabId }) {
-                            remainingTabs.first { it.id == getCurrentState().activeTabId }
-                        } else if (closedIdx > 0) {
-                            currentTabs[closedIdx - 1]
-                        } else {
-                            remainingTabs.first()
-                        }
-                    val isNextHome = nextActive.url.isEmpty() || nextActive.url == "about:blank"
-                    val nextColor = tabThemeColors[nextActive.id] ?: nextActive.themeColor
+                    remainingTabs.first()
+                }
+
+            activateTabInternal(
+                selected = nextActive,
+                tabsList = remainingTabs,
+                keepOverlayIfTabGrid = true,
+                recentlyClosedTab = closingTab,
+            )
+
+            scope.launch(ioDispatcher) {
+                SnapshotEngine.deleteTabSnapshot(tabId)
+                FaviconManager.deleteTabFavicons(tabId)
+                tabOperationMutex.withLock {
+                    val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                    tabRepository.closeTab(tabId)
                     tabRepository.setActiveTab(nextActive.id)
-                    webViewPool?.onTabActivated(nextActive.id, false)
-                    val nextProgress = tabLoadingProgress[nextActive.id]
-                    val isNextLoading = nextProgress != null && nextProgress < 100
-                    val nextLoadingProgress = when {
-                        isNextLoading -> (nextProgress!! / 100f).coerceIn(0f, 1f)
-                        isNextHome -> 0f
-                        else -> 1.0f
-                    }
-                    updateUiState {
-                        it.copy(
-                            tabs = remainingTabs.map { t -> t.copy(isActive = t.id == nextActive.id) },
-                            activeTabId = nextActive.id,
-                            currentUrl = nextActive.url,
-                            pageTitle = nextActive.title,
-                            canGoBack = nextActive.canGoBack,
-                            canGoForward = nextActive.canGoForward,
-                            isLoading = isNextLoading,
-                            loadingProgress = nextLoadingProgress,
-                            activeThemeColor = if (isNextHome) null else nextColor,
-                            activeOverlay =
-                                if (it.activeOverlay == OverlayType.TAB_GRID) {
-                                    OverlayType.TAB_GRID
-                                } else if (isNextHome) {
-                                    OverlayType.HOME
-                                } else {
-                                    OverlayType.NONE
-                                },
-                            recentlyClosedTab = tabToSave,
-                            showUndoTabCloseSnackbar = tabToSave != null,
-                            externalAppPrompt = null,
-                        )
-                    }
                 }
             }
         }

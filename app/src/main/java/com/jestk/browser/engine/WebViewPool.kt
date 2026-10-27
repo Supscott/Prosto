@@ -7,6 +7,8 @@ import android.content.MutableContextWrapper
 import com.jestk.browser.util.findActivity
 import android.net.Uri
 import android.os.Environment
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import android.util.Log
 import android.view.ViewGroup
@@ -172,23 +174,26 @@ class WebViewPool(
         }
     }
 
+    private fun runOnMainThread(action: () -> Unit) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            action()
+        } else {
+            Handler(Looper.getMainLooper()).post(action)
+        }
+    }
+
     fun setMediaPlaying(tabId: String, isPlaying: Boolean) {
         if (isPlaying) {
             mediaPlayingTabs.add(tabId)
-            pool[tabId]?.let { wv ->
-                try { wv.onResume() } catch (t: Throwable) {
-                    Log.w(TAG, "Failed to resume WebView for tab $tabId", t)
+            runOnMainThread {
+                pool[tabId]?.let { wv ->
+                    try { wv.onResume() } catch (t: Throwable) {
+                        Log.w(TAG, "Failed to resume WebView for tab $tabId", t)
+                    }
                 }
             }
         } else {
             mediaPlayingTabs.remove(tabId)
-            if (tabId != activeTabId) {
-                pool[tabId]?.let { wv ->
-                    try { wv.onPause() } catch (t: Throwable) {
-                        Log.w(TAG, "Failed to pause WebView for tab $tabId", t)
-                    }
-                }
-            }
         }
     }
 
@@ -199,21 +204,12 @@ class WebViewPool(
         if (isMediaPlaying) {
             mediaPlayingTabs.add(tabId)
         }
-        pool.forEach { (id, webView) ->
-            if (id == tabId) {
+        runOnMainThread {
+            pool[tabId]?.let { webView ->
                 try {
                     webView.onResume()
                 } catch (t: Throwable) {
                     Log.w(TAG, "Failed to resume WebView for active tab $tabId", t)
-                }
-            } else {
-                val isPlaying = mediaPlayingTabs.contains(id)
-                if (!isPlaying) {
-                    try {
-                        webView.onPause()
-                    } catch (t: Throwable) {
-                        Log.w(TAG, "Failed to pause WebView for background tab $id", t)
-                    }
                 }
             }
         }

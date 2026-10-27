@@ -169,7 +169,7 @@ class UpdateCoordinator(
                     return@launch
                 }
                 publish(AppUpdateUiState.ReadyToInstall(update.versionName))
-                manager.notifyUpdateReady(update.versionName)
+                runCatching { manager.notifyUpdateReady(update.versionName) }
             }
     }
 

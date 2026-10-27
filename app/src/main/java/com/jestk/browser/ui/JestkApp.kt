@@ -371,28 +371,32 @@ fun JestkApp(
                     .fillMaxSize()
                     .background(animatedAppBg),
         ) {
-            // Main Viewport: WebView Container or Home Screen (NO BLUR)
+            // Main Viewport: WebView Container and Home Screen (NO BLUR)
             Box(
                 modifier = Modifier.fillMaxSize(),
             ) {
-                if (showHomeScreen) {
-                    HomeScreen(
+                uiState.activeTabId?.let { activeId ->
+                    WebViewContainer(
+                        tabId = activeId,
+                        webViewPool = webViewPool,
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
                         modifier = Modifier.fillMaxSize(),
                     )
-                } else {
-                    uiState.activeTabId?.let { activeId ->
-                        key(activeId) {
-                            WebViewContainer(
-                                tabId = activeId,
-                                webViewPool = webViewPool,
-                                uiState = uiState,
-                                onEvent = viewModel::onEvent,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
-                    }
+                }
+
+                if (showHomeScreen) {
+                    HomeScreen(
+                        uiState = uiState,
+                        onEvent = viewModel::onEvent,
+                        modifier =
+                            Modifier
+                                .fillMaxSize()
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null,
+                                ) {},
+                    )
                 }
             }
 
