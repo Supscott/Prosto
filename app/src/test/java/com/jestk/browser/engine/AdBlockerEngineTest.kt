@@ -399,6 +399,8 @@ class AdBlockerEngineTest {
 
                     override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
 
+                    override suspend fun setTrackingProtectionEnabled(enabled: Boolean) {}
+
                     override fun getBlockedAdsCount() = kotlinx.coroutines.flow.flowOf(adsIncremented.get())
 
                     override fun getBlockedTrackersCount() = kotlinx.coroutines.flow.flowOf(trackersIncremented.get())
@@ -420,6 +422,8 @@ class AdBlockerEngineTest {
                     override suspend fun setAutoUpdateEnabled(enabled: Boolean) {}
 
                     override suspend fun setVibrationEnabled(enabled: Boolean) {}
+
+                    override suspend fun setGrayUnloadedTabsEnabled(enabled: Boolean) {}
 
                     override suspend fun setSkippedUpdateVersion(version: String?) {}
                 }
@@ -608,6 +612,8 @@ class AdBlockerEngineTest {
 
         override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
 
+        override suspend fun setTrackingProtectionEnabled(enabled: Boolean) {}
+
         override fun getBlockedAdsCount() = kotlinx.coroutines.flow.flowOf(adsIncremented)
 
         override fun getBlockedTrackersCount() = kotlinx.coroutines.flow.flowOf(trackersIncremented)
@@ -627,6 +633,8 @@ class AdBlockerEngineTest {
         override suspend fun setAutoUpdateEnabled(enabled: Boolean) {}
 
         override suspend fun setVibrationEnabled(enabled: Boolean) {}
+
+        override suspend fun setGrayUnloadedTabsEnabled(enabled: Boolean) {}
 
         override suspend fun setSkippedUpdateVersion(version: String?) {}
     }

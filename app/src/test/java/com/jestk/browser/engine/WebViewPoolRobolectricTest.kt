@@ -215,4 +215,36 @@ class WebViewPoolRobolectricTest {
         assertThat(webViewPool.getWebView("keep-2")).isNotNull()
         assertThat(webViewPool.getWebView("remove-me")).isNull()
     }
+
+    @Test
+    fun loadedTabIdsFlow_updatesOnCreateEvictAndRemove() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+
+        assertThat(webViewPool.loadedTabIds.value).isEmpty()
+        assertThat(webViewPool.isTabLoaded("tab-1")).isFalse()
+
+        webViewPool.getOrCreateWebView("tab-1", activity)
+        assertThat(webViewPool.loadedTabIds.value).containsExactly("tab-1")
+        assertThat(webViewPool.isTabLoaded("tab-1")).isTrue()
+
+        webViewPool.getOrCreateWebView("tab-2", activity)
+        assertThat(webViewPool.loadedTabIds.value).containsExactly("tab-1", "tab-2")
+        assertThat(webViewPool.getLoadedTabIds()).containsExactly("tab-1", "tab-2")
+
+        webViewPool.removeWebView("tab-1")
+        assertThat(webViewPool.loadedTabIds.value).containsExactly("tab-2")
+        assertThat(webViewPool.isTabLoaded("tab-1")).isFalse()
+        assertThat(webViewPool.isTabLoaded("tab-2")).isTrue()
+
+        webViewPool.clearAll()
+        assertThat(webViewPool.loadedTabIds.value).isEmpty()
+    }
+
+    @Test
+    fun getOrCreateWebView_configuresWebSettingsWithDatabaseEnabled() {
+        val webView = webViewPool.getOrCreateWebView("tab-settings")
+        assertThat(webView.settings.databaseEnabled).isTrue()
+        assertThat(webView.settings.domStorageEnabled).isTrue()
+        assertThat(webView.settings.javaScriptEnabled).isTrue()
+    }
 }

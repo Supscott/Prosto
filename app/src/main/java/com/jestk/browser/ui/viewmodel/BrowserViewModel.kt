@@ -116,6 +116,13 @@ class BrowserViewModel(
 
     init {
         webViewPool?.onDownloadStarted = { item -> onDownloadStarted(item) }
+        webViewPool?.let { pool ->
+            viewModelScope.launch {
+                pool.loadedTabIds.collect { loaded ->
+                    _uiState.update { it.copy(loadedTabIds = loaded) }
+                }
+            }
+        }
         viewModelScope.launch(ioDispatcher) {
             restoreSession()
             observeDatabaseFlows()
@@ -182,6 +189,10 @@ class BrowserViewModel(
         _uiState.update {
             it.copy(isDefaultBrowser = isDefault)
         }
+    }
+
+    fun onAppResume() {
+        updateCoordinator.onAppResume()
     }
 
     fun isInsecureHostAllowed(urlOrHost: String): Boolean {
@@ -514,6 +525,13 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.SetTrackingProtectionEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(isTrackingProtectionEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setTrackingProtectionEnabled(event.enabled)
+                }
+            }
+
             is BrowserUiEvent.SetOpenInAppsEnabled -> {
                 _uiState.update { it.copy(settings = it.settings.copy(isOpenInAppsEnabled = event.enabled)) }
                 viewModelScope.launch(ioDispatcher) {
@@ -525,8 +543,12 @@ class BrowserViewModel(
                 _uiState.update { it.copy(settings = it.settings.copy(isAutoUpdateEnabled = event.enabled)) }
                 viewModelScope.launch(ioDispatcher) {
                     settingsRepository.setAutoUpdateEnabled(event.enabled)
+                    if (event.enabled) {
+                        updateCoordinator.onAutoUpdateEnabled()
+                    } else {
+                        updateCoordinator.onAutoUpdateDisabled()
+                    }
                 }
-                if (event.enabled) updateCoordinator.onAutoUpdateEnabled()
             }
 
             is BrowserUiEvent.SetVibrationEnabled -> {
@@ -536,12 +558,19 @@ class BrowserViewModel(
                 }
             }
 
-            is BrowserUiEvent.InstallUpdate -> {
-                updateCoordinator.onInstallRequested()
+            is BrowserUiEvent.SetGrayUnloadedTabsEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(isGrayUnloadedTabsEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setGrayUnloadedTabsEnabled(event.enabled)
+                }
             }
 
-            is BrowserUiEvent.InstallUpdateLater -> {
-                updateCoordinator.onInstallLater()
+            is BrowserUiEvent.DownloadUpdate -> {
+                updateCoordinator.onDownloadRequested()
+            }
+
+            is BrowserUiEvent.InstallUpdate -> {
+                updateCoordinator.onInstallRequested()
             }
 
             is BrowserUiEvent.SkipUpdate -> {
@@ -900,15 +929,15 @@ class BrowserViewModel(
             return
         }
 
-        // Hiding the dock starts working below h-screen (scrollY > viewportHeight)
-        val isBelowHScreen = viewportHeight > 0 && scrollY > viewportHeight
-        if (!isBelowHScreen) {
-            // Within the first screen (scrollY <= viewportHeight) or scrolled back to top: dock must always be visible
+        // Hiding the dock starts working below 50% screen (scrollY > viewportHeight / 2)
+        val isBelowHalfScreen = viewportHeight > 0 && scrollY > (viewportHeight / 2)
+        if (!isBelowHalfScreen) {
+            // Within the first half-screen (scrollY <= viewportHeight / 2) or scrolled back to top: dock must always be visible
             if (!current.isBottomBarVisible) {
                 _uiState.update { it.copy(isBottomBarVisible = true) }
             }
         } else {
-            // Below h-screen: hide if scrolling down, show if scrolling up
+            // Below 50% screen: hide if scrolling down, show if scrolling up
             if (deltaY > 8f) {
                 if (current.isBottomBarVisible) {
                     _uiState.update {

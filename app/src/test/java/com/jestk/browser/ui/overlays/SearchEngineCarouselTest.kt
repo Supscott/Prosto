@@ -25,6 +25,8 @@ import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.util.VibrationFeedback
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -40,6 +42,12 @@ import java.io.FileOutputStream
 @Config(sdk = [34])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SearchEngineCarouselTest {
+
+    private val testFrameClock = object : androidx.compose.runtime.MonotonicFrameClock {
+        override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R {
+            return onFrame(System.nanoTime())
+        }
+    }
 
     @Test
     fun testInterpolationAtExactCenterSlot() {
@@ -201,6 +209,87 @@ class SearchEngineCarouselTest {
         // Beyond boundary: dist = 0.6f
         val indicator06 = SearchEngineCarouselInterpolation.calculateIndicatorAlpha(0, 0.6f, progress)
         assertEquals(0.0f, indicator06, 0.001f)
+    }
+
+    @Test
+    fun testScrollToFirst_animatesToFirstEngineAndSelectsIt() = runTest(testFrameClock) {
+        var selectedEngine: SearchEngine? = null
+        var tickCount = 0
+        val testVibration = object : VibrationFeedback {
+            override fun tick() { tickCount++ }
+            override fun confirm() {}
+        }
+
+        val state = SearchEngineCarouselState(
+            initialEngine = SearchEngine.BRAVE,
+            density = Density(1f),
+            coroutineScope = this,
+            vibration = testVibration,
+            engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
+            onEngineSelected = { selectedEngine = it }
+        )
+
+        assertEquals(SearchEngine.BRAVE, state.currentEngine)
+        state.scrollToFirst()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SearchEngine.GOOGLE, state.currentEngine)
+        assertEquals(SearchEngine.GOOGLE, selectedEngine)
+        assertTrue(tickCount > 0)
+    }
+
+    @Test
+    fun testScrollToFirst_whenAlreadyAtFirstEngine_staysAtFirstEngine() = runTest(testFrameClock) {
+        var selectedEngine: SearchEngine? = null
+        var tickCount = 0
+        val testVibration = object : VibrationFeedback {
+            override fun tick() { tickCount++ }
+            override fun confirm() {}
+        }
+
+        val state = SearchEngineCarouselState(
+            initialEngine = SearchEngine.GOOGLE,
+            density = Density(1f),
+            coroutineScope = this,
+            vibration = testVibration,
+            engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
+            onEngineSelected = { selectedEngine = it }
+        )
+
+        assertEquals(SearchEngine.GOOGLE, state.currentEngine)
+        state.scrollToFirst()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SearchEngine.GOOGLE, state.currentEngine)
+        assertEquals(SearchEngine.GOOGLE, selectedEngine)
+    }
+
+    @Test
+    fun testScrollToFirst_withCustomEnginesList_animatesToFirstInList() = runTest(testFrameClock) {
+        var selectedEngine: SearchEngine? = null
+        val customEngines = listOf(
+            SearchEngine.DUCKDUCKGO,
+            SearchEngine.GOOGLE,
+            SearchEngine.BRAVE
+        )
+        val state = SearchEngineCarouselState(
+            initialEngine = SearchEngine.BRAVE,
+            density = Density(1f),
+            coroutineScope = this,
+            vibration = object : VibrationFeedback {
+                override fun tick() {}
+                override fun confirm() {}
+            },
+            engines = customEngines,
+            onEngineSelected = { selectedEngine = it }
+        )
+
+        assertEquals(SearchEngine.BRAVE, state.currentEngine)
+        state.scrollToFirst()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(SearchEngine.DUCKDUCKGO, state.currentEngine)
+        assertEquals(SearchEngine.DUCKDUCKGO, selectedEngine)
     }
 
     @Test

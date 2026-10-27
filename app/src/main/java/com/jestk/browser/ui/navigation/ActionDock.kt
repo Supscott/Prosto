@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoAccent
@@ -205,7 +206,7 @@ fun ActionDockMenuButton(
     modifier: Modifier = Modifier,
 ) {
     val activeTint = if (isDark) ProstoAccent else ProstoBrandPrimary
-    val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
+    val normalTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
 
     Box(
         modifier =
@@ -296,7 +297,7 @@ fun SwipeUpHint(
                     typography.labelSm.copy(
                         fontWeight = FontWeight.Medium,
                     ),
-                color = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate,
+                color = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
             )
         }
     }
@@ -318,7 +319,7 @@ fun PopupMenuItem(
 ) {
     val activeBg = if (isDark) Color(0x2656DBCF) else ProstoBrandPrimary.copy(alpha = 0.10f)
     val activeTint = if (isDark) ProstoAccent else ProstoBrandPrimary
-    val normalTint = if (isDark) Color(0xFF94A3B8) else ProstoMutedSlate
+    val normalTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
     val typography = LocalProstoTypography.current
 
     Surface(

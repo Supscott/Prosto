@@ -225,22 +225,6 @@ fun HomeScreen(
                         .padding(horizontal = 20.dp),
             )
 
-            // Update notification (auto-update disabled or update ready)
-            if (uiState.updateState.isVisible) {
-                Spacer(modifier = Modifier.height(20.dp))
-                UpdateNotificationCard(
-                    state = uiState.updateState,
-                    onInstall = { onEvent(BrowserUiEvent.InstallUpdate) },
-                    onInstallLater = { onEvent(BrowserUiEvent.InstallUpdateLater) },
-                    onSkip = { onEvent(BrowserUiEvent.SkipUpdate) },
-                    isDark = isDark,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp),
-                )
-            }
-
             // Default Browser Recommendation Card
             if (!uiState.isDefaultBrowser && !isDefaultBrowserDismissed) {
                 Spacer(modifier = Modifier.height(20.dp))

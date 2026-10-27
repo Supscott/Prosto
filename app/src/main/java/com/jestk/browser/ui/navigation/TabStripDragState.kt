@@ -1,8 +1,10 @@
 package com.jestk.browser.ui.navigation
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -69,7 +71,8 @@ internal fun computeAutoScrollDelta(
 internal class TabStripDragState(
     initialTabs: List<Tab>,
     val coroutineScope: CoroutineScope,
-    val onReorder: (List<Tab>) -> Unit
+    val onReorder: (List<Tab>) -> Unit,
+    val onRemoveTab: (String) -> Unit = {},
 ) {
     var currentTabs by mutableStateOf(initialTabs)
         private set
@@ -80,7 +83,25 @@ internal class TabStripDragState(
     var settlingTabId by mutableStateOf<String?>(null)
         private set
 
+    var removingTab by mutableStateOf<Tab?>(null)
+        private set
+
+    val removingTabId: String?
+        get() = removingTab?.id
+
+    var lastVisualXPx by mutableFloatStateOf(0f)
+        private set
+
+    var removingVisualX by mutableFloatStateOf(0f)
+        private set
+
     var dragOffsetPx by mutableFloatStateOf(0f)
+        private set
+
+    var dragOffsetYPx by mutableFloatStateOf(0f)
+        private set
+
+    var isOverRemoveZone by mutableStateOf(false)
         private set
 
     var isDragging by mutableStateOf(false)
@@ -89,9 +110,17 @@ internal class TabStripDragState(
     val isSettling: Boolean
         get() = settlingTabId != null
 
+    val isRemoving: Boolean
+        get() = removingTab != null
+
     val settleOffsetAnim = Animatable(0f, visibilityThreshold = 0.5f)
+    val settleOffsetYAnim = Animatable(0f, visibilityThreshold = 0.5f)
     val settleScaleAnim = Animatable(1.0f)
     val swapScaleBump = Animatable(0f)
+
+    val removeScaleAnim = Animatable(1.0f)
+    val removeAlphaAnim = Animatable(1.0f)
+    val removeOffsetYAnim = Animatable(0f)
 
     private enum class SwapDirection { LEFT, RIGHT }
     private var lastSwapDirection: SwapDirection? = null
@@ -99,14 +128,16 @@ internal class TabStripDragState(
     private var swapBumpJob: Job? = null
 
     private var settleJob: Job? = null
+    private var removeJob: Job? = null
     private var pendingTabs: List<Tab>? = null
 
     fun updateTabs(newTabs: List<Tab>) {
-        if (!isDragging && !isSettling) {
+        if (!isDragging && !isSettling && !isRemoving) {
             currentTabs = newTabs
             pendingTabs = null
         } else {
-            pendingTabs = newTabs
+            val filtered = removingTab?.id?.let { id -> newTabs.filter { it.id != id } } ?: newTabs
+            pendingTabs = filtered
         }
     }
 
@@ -130,7 +161,26 @@ internal class TabStripDragState(
             resetSwapState()
             coroutineScope.launch {
                 settleOffsetAnim.snapTo(0f)
+                settleOffsetYAnim.snapTo(0f)
                 settleScaleAnim.snapTo(1.0f)
+            }
+            pendingTabs?.let {
+                currentTabs = it
+                pendingTabs = null
+            }
+        }
+        if (isRemoving) {
+            removeJob?.cancel()
+            removeJob = null
+            val removedId = removingTab?.id
+            removingTab = null
+            coroutineScope.launch {
+                removeScaleAnim.snapTo(1.0f)
+                removeAlphaAnim.snapTo(1.0f)
+                removeOffsetYAnim.snapTo(0f)
+            }
+            if (removedId != null) {
+                onRemoveTab(removedId)
             }
             pendingTabs?.let {
                 currentTabs = it
@@ -139,19 +189,47 @@ internal class TabStripDragState(
         }
     }
 
-    fun onDragStart(tabId: String) {
-        if (isSettling) {
+    fun updateVisualX(visualX: Float) {
+        lastVisualXPx = visualX
+    }
+
+    fun onDragStart(tabId: String, initialVisualX: Float = 0f) {
+        if (isSettling || isRemoving) {
             cancelSettlingImmediately()
         }
         draggingTabId = tabId
         dragOffsetPx = 0f
+        dragOffsetYPx = 0f
+        lastVisualXPx = initialVisualX
+        isOverRemoveZone = false
         isDragging = true
         resetSwapState()
     }
 
-    fun updateDragOffset(offsetPx: Float) {
+    fun updateDragOffset(offsetPx: Float, offsetYPx: Float = dragOffsetYPx) {
         if (isDragging) {
             dragOffsetPx = offsetPx
+            dragOffsetYPx = offsetYPx
+        }
+    }
+
+    fun updateVerticalDrag(
+        offsetY: Float,
+        removeThresholdPx: Float,
+        onEnterRemoveZone: () -> Unit = {},
+        onExitRemoveZone: () -> Unit = {},
+    ) {
+        if (!isDragging) return
+        dragOffsetYPx = if (offsetY > 0f) offsetY * 0.15f else offsetY
+        val wasOverRemove = isOverRemoveZone
+        val nowOverRemove = dragOffsetYPx <= -removeThresholdPx
+        if (wasOverRemove != nowOverRemove) {
+            isOverRemoveZone = nowOverRemove
+            if (nowOverRemove) {
+                onEnterRemoveZone()
+            } else {
+                onExitRemoveZone()
+            }
         }
     }
 
@@ -184,6 +262,9 @@ internal class TabStripDragState(
     ) {
         if (!isDragging || draggingTabId != tabId) return
         dragOffsetPx += deltaX
+        if (isOverRemoveZone) {
+            return
+        }
         val currentIndex = currentTabs.indexOfFirst { it.id == tabId }
         if (currentIndex == -1) return
 
@@ -326,12 +407,90 @@ internal class TabStripDragState(
         )
     }
 
-    fun onDragEnd(isReleasedActive: Boolean, originalTabs: List<Tab>? = null) {
+    fun onDragEnd(
+        isReleasedActive: Boolean,
+        originalTabs: List<Tab>? = null,
+        onConfirmVibration: () -> Unit = {},
+        currentScale: Float? = null,
+        currentAlpha: Float? = null,
+    ) {
         val tabId = draggingTabId ?: return
         if (!isDragging) return
 
+        if (isOverRemoveZone) {
+            isDragging = false
+            draggingTabId = null
+            isOverRemoveZone = false
+            resetSwapState()
+
+            onConfirmVibration()
+
+            val removedTab = currentTabs.firstOrNull { it.id == tabId }
+            val remainingTabs = currentTabs.filter { it.id != tabId }
+
+            if (originalTabs != null && currentTabs != originalTabs) {
+                onReorder(remainingTabs)
+            }
+
+            // Immediately drop tab from dock list so LazyRow closes the gap without leaving a ghost icon
+            currentTabs = remainingTabs
+            onRemoveTab(tabId)
+
+            val startScale = currentScale ?: 0.60f
+            val startAlpha = currentAlpha ?: 0.45f
+            val startY = dragOffsetYPx
+
+            removingTab = removedTab
+            removingVisualX = lastVisualXPx
+
+            removeJob?.cancel()
+            removeJob = coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                removeScaleAnim.snapTo(startScale)
+                removeAlphaAnim.snapTo(startAlpha)
+                removeOffsetYAnim.snapTo(startY)
+
+                val scaleJob = launch {
+                    removeScaleAnim.animateTo(
+                        targetValue = 0f,
+                        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                    )
+                }
+                val alphaJob = launch {
+                    removeAlphaAnim.animateTo(
+                        targetValue = 0f,
+                        animationSpec = tween(durationMillis = 160, easing = FastOutSlowInEasing),
+                    )
+                }
+                val offsetJob = launch {
+                    removeOffsetYAnim.animateTo(
+                        targetValue = startY - 30f,
+                        animationSpec = tween(durationMillis = 180, easing = FastOutSlowInEasing),
+                    )
+                }
+
+                scaleJob.join()
+                alphaJob.join()
+                offsetJob.join()
+
+                removingTab = null
+                removeScaleAnim.snapTo(1.0f)
+                removeAlphaAnim.snapTo(1.0f)
+                removeOffsetYAnim.snapTo(0f)
+                dragOffsetPx = 0f
+                dragOffsetYPx = 0f
+                removeJob = null
+
+                pendingTabs?.let {
+                    currentTabs = it.filter { t -> t.id != tabId }
+                    pendingTabs = null
+                }
+            }
+            return
+        }
+
         val finalOffset = dragOffsetPx
-        val startScale = if (isReleasedActive) 1.05f else 1.08f
+        val finalOffsetY = dragOffsetYPx
+        val startScale = currentScale ?: (if (isReleasedActive) 1.05f else 1.08f)
 
         if (originalTabs != null && currentTabs != originalTabs) {
             onReorder(currentTabs)
@@ -340,12 +499,14 @@ internal class TabStripDragState(
         isDragging = false
         draggingTabId = null
         dragOffsetPx = 0f
+        dragOffsetYPx = 0f
         resetSwapState()
 
         settlingTabId = tabId
         settleJob?.cancel()
         settleJob = coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
             settleOffsetAnim.snapTo(finalOffset)
+            settleOffsetYAnim.snapTo(finalOffsetY)
             settleScaleAnim.snapTo(startScale)
 
             val offsetJob = launch {
@@ -354,8 +515,18 @@ internal class TabStripDragState(
                     animationSpec = spring(
                         stiffness = Spring.StiffnessMedium,
                         dampingRatio = Spring.DampingRatioLowBouncy,
-                        visibilityThreshold = 0.5f
-                    )
+                        visibilityThreshold = 0.5f,
+                    ),
+                )
+            }
+            val offsetYJob = launch {
+                settleOffsetYAnim.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMedium,
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        visibilityThreshold = 0.5f,
+                    ),
                 )
             }
             val scaleJob = launch {
@@ -363,15 +534,17 @@ internal class TabStripDragState(
                     targetValue = 1.0f,
                     animationSpec = spring(
                         stiffness = Spring.StiffnessMedium,
-                        dampingRatio = Spring.DampingRatioLowBouncy
-                    )
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                    ),
                 )
             }
             offsetJob.join()
+            offsetYJob.join()
             scaleJob.join()
 
             settlingTabId = null
             settleOffsetAnim.snapTo(0f)
+            settleOffsetYAnim.snapTo(0f)
             settleScaleAnim.snapTo(1.0f)
             settleJob = null
 
@@ -387,17 +560,21 @@ internal class TabStripDragState(
         if (!isDragging) return
 
         val finalOffset = dragOffsetPx
+        val finalOffsetY = dragOffsetYPx
         val startScale = if (isReleasedActive) 1.05f else 1.08f
 
         isDragging = false
         draggingTabId = null
         dragOffsetPx = 0f
+        dragOffsetYPx = 0f
+        isOverRemoveZone = false
         resetSwapState()
 
         settlingTabId = tabId
         settleJob?.cancel()
         settleJob = coroutineScope.launch(start = CoroutineStart.UNDISPATCHED) {
             settleOffsetAnim.snapTo(finalOffset)
+            settleOffsetYAnim.snapTo(finalOffsetY)
             settleScaleAnim.snapTo(startScale)
 
             val offsetJob = launch {
@@ -406,8 +583,18 @@ internal class TabStripDragState(
                     animationSpec = spring(
                         stiffness = Spring.StiffnessMedium,
                         dampingRatio = Spring.DampingRatioLowBouncy,
-                        visibilityThreshold = 0.5f
-                    )
+                        visibilityThreshold = 0.5f,
+                    ),
+                )
+            }
+            val offsetYJob = launch {
+                settleOffsetYAnim.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMedium,
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        visibilityThreshold = 0.5f,
+                    ),
                 )
             }
             val scaleJob = launch {
@@ -415,15 +602,17 @@ internal class TabStripDragState(
                     targetValue = 1.0f,
                     animationSpec = spring(
                         stiffness = Spring.StiffnessMedium,
-                        dampingRatio = Spring.DampingRatioLowBouncy
-                    )
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                    ),
                 )
             }
             offsetJob.join()
+            offsetYJob.join()
             scaleJob.join()
 
             settlingTabId = null
             settleOffsetAnim.snapTo(0f)
+            settleOffsetYAnim.snapTo(0f)
             settleScaleAnim.snapTo(1.0f)
             settleJob = null
 
@@ -439,14 +628,17 @@ internal class TabStripDragState(
 internal fun rememberTabStripDragState(
     initialTabs: List<Tab>,
     onReorder: (List<Tab>) -> Unit,
-    coroutineScope: CoroutineScope = rememberCoroutineScope()
+    onRemoveTab: (String) -> Unit = {},
+    coroutineScope: CoroutineScope = rememberCoroutineScope(),
 ): TabStripDragState {
     val currentOnReorder by rememberUpdatedState(onReorder)
+    val currentOnRemoveTab by rememberUpdatedState(onRemoveTab)
     return remember {
         TabStripDragState(
             initialTabs = initialTabs,
             coroutineScope = coroutineScope,
-            onReorder = { currentOnReorder(it) }
+            onReorder = { currentOnReorder(it) },
+            onRemoveTab = { currentOnRemoveTab(it) },
         )
     }
 }

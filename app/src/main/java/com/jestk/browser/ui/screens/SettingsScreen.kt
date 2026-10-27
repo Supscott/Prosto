@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,8 +36,10 @@ import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
@@ -44,6 +47,7 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.VerifiedUser
+import androidx.compose.material.icons.filled.Vibration
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -74,7 +78,6 @@ import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.domain.model.isVisible
 import com.jestk.browser.ui.components.ProstoToggleSwitch
 import com.jestk.browser.ui.overlays.SearchEngineBadge
-import com.jestk.browser.ui.overlays.UpdateNotificationCard
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -92,15 +95,15 @@ import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.DefaultBrowserHelper
+import com.jestk.browser.util.LocalVibrationFeedback
 
 /**
  * Settings Screen - Dedicated full-screen settings destination in Prosto Canvas design system.
  * Features:
- * - Full-screen layout with status and navigation bar padding (edge-to-edge).
- * - Prosto top bar with back navigation and close buttons.
- * - Segmented theme selector (System, Light, Dark).
- * - Inset grouped cards for Account, Default Browser, Privacy & Protection, and About.
- * - Prosto tactile switches and badges with zero blur.
+ * - Full-screen layout with edge-to-edge padding.
+ * - Grouped categories: Appearance, General, Search, Privacy & Protection, and About & Prosto.
+ * - Minimalist outline icons without heavy background plates for enhanced readability.
+ * - Prosto tactile switches and dropdown menus with crisp borders.
  */
 @Composable
 fun SettingsScreen(
@@ -218,6 +221,7 @@ fun SettingsContent(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val vibration = LocalVibrationFeedback.current
     val appVersion = remember(context) {
         runCatching {
             @Suppress("DEPRECATION")
@@ -230,23 +234,12 @@ fun SettingsContent(
         ) {
             onEvent(BrowserUiEvent.UpdateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(context)))
         }
-    var isTrackingProtectionEnabled by remember { mutableStateOf(true) }
     var showProvidersDialog by remember { mutableStateOf(false) }
 
     Column(modifier = modifier.fillMaxWidth()) {
-        // Update notification (auto-update disabled or update ready)
-        if (uiState.updateState.isVisible) {
-            UpdateNotificationCard(
-                state = uiState.updateState,
-                onInstall = { onEvent(BrowserUiEvent.InstallUpdate) },
-                onInstallLater = { onEvent(BrowserUiEvent.InstallUpdateLater) },
-                onSkip = { onEvent(BrowserUiEvent.SkipUpdate) },
-                isDark = isDark,
-            )
-            Spacer(modifier = Modifier.height(24.dp))
-        }
-
-        // SECTION 1: THEME PICKER (Segmented Control Container)
+        // ==========================================
+        // 1. APPEARANCE (ВНЕШНИЙ ВИД)
+        // ==========================================
         SettingsSectionHeader(title = stringResource(R.string.settings_section_appearance))
         SegmentedThemeControl(
             selectedMode = uiState.settings.themeMode,
@@ -254,295 +247,80 @@ fun SettingsContent(
             onSelectMode = { onEvent(BrowserUiEvent.SetThemeMode(it)) },
         )
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        InsetGroupedCard(isDark = isDark) {
+            SettingToggleRow(
+                icon = Icons.Default.FilterNone,
+                title = stringResource(R.string.gray_unloaded_tabs_title),
+                summary = stringResource(R.string.gray_unloaded_tabs_summary),
+                checked = uiState.settings.isGrayUnloadedTabsEnabled,
+                onCheckedChange = { onEvent(BrowserUiEvent.SetGrayUnloadedTabsEnabled(it)) },
+                isDark = isDark,
+            )
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
-        // SECTION: INTERACTION (vibration)
-        SettingsInteractionSection(
-            isDark = isDark,
-            isVibrationEnabled = uiState.settings.isVibrationEnabled,
-            onVibrationEnabledChange = { onEvent(BrowserUiEvent.SetVibrationEnabled(it)) },
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // SECTION: DEFAULT BROWSER (Only visible if not default)
-        if (!uiState.isDefaultBrowser) {
-            SettingsSectionHeader(title = stringResource(R.string.settings_section_general))
-            InsetGroupedCard(isDark = isDark) {
+        // ==========================================
+        // 2. GENERAL (ОБЩИЕ)
+        // ==========================================
+        SettingsSectionHeader(title = stringResource(R.string.settings_section_general))
+        InsetGroupedCard(isDark = isDark) {
+            // Default Browser (Only visible if not currently default browser)
+            if (!uiState.isDefaultBrowser) {
                 DefaultBrowserSettingTile(
                     isDark = isDark,
                     onClick = {
                         DefaultBrowserHelper.openDefaultBrowserSettings(context, defaultBrowserLauncher)
                     },
                 )
-            }
-            Spacer(modifier = Modifier.height(24.dp))
-        }
 
-        // SECTION: UPDATES
-        SettingsSectionHeader(title = stringResource(R.string.update_section_title))
-        InsetGroupedCard(isDark = isDark) {
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.SystemUpdate,
-                            contentDescription = null,
-                            tint = ProstoBrandPrimary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = stringResource(R.string.update_setting_title),
-                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else ProstoDarkText,
-                        )
-                        Text(
-                            text = stringResource(R.string.update_setting_summary),
-                            style = LocalProstoTypography.current.bodySm,
-                            color = ProstoMutedSlate,
-                        )
-                    }
-                }
-
-                ProstoToggleSwitch(
-                    checked = uiState.settings.isAutoUpdateEnabled,
-                    onCheckedChange = { onEvent(BrowserUiEvent.SetAutoUpdateEnabled(it)) },
+                HorizontalDivider(
+                    color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                    modifier = Modifier.padding(start = 56.dp),
                 )
             }
+
+            // Open in Apps Row
+            SettingToggleRow(
+                icon = Icons.AutoMirrored.Filled.OpenInNew,
+                title = stringResource(R.string.open_in_apps_setting_title),
+                summary = stringResource(R.string.open_in_apps_setting_summary),
+                checked = uiState.settings.isOpenInAppsEnabled,
+                onCheckedChange = { onEvent(BrowserUiEvent.SetOpenInAppsEnabled(it)) },
+                isDark = isDark,
+            )
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 56.dp),
+            )
+
+            // Vibration Row
+            SettingToggleRow(
+                icon = Icons.Default.Vibration,
+                title = stringResource(R.string.vibration_setting_title),
+                summary = stringResource(R.string.vibration_setting_summary),
+                checked = uiState.settings.isVibrationEnabled,
+                onCheckedChange = { enabled ->
+                    onEvent(BrowserUiEvent.SetVibrationEnabled(enabled))
+                    if (enabled) {
+                        vibration.confirm()
+                    }
+                },
+                isDark = isDark,
+            )
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // SECTION 3: PRIVACY & SECURITY
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SettingsSectionHeader(
-                title = stringResource(R.string.settings_section_privacy),
-                modifier = Modifier.padding(bottom = 0.dp),
-            )
-
-            Surface(
-                shape = RoundedCornerShape(12.dp),
-                color = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.VerifiedUser,
-                        contentDescription = null,
-                        tint = ProstoBrandPrimary,
-                        modifier = Modifier.size(13.dp),
-                    )
-                    Text(
-                        text = "Protected",
-                        style =
-                            LocalProstoTypography.current.labelMd.copy(
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.SemiBold,
-                            ),
-                        color = ProstoBrandPrimary,
-                    )
-                }
-            }
-        }
-
+        // ==========================================
+        // 3. SEARCH (ПОИСК)
+        // ==========================================
+        SettingsSectionHeader(title = stringResource(R.string.settings_section_search))
         InsetGroupedCard(isDark = isDark) {
-            // Ad Blocker Row
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Block,
-                            contentDescription = null,
-                            tint = ProstoBrandPrimary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = "Ad Blocker",
-                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else ProstoDarkText,
-                        )
-                        Text(
-                            text = "Eliminates banners and popups",
-                            style = LocalProstoTypography.current.bodySm,
-                            color = ProstoMutedSlate,
-                        )
-                    }
-                }
-
-                ProstoToggleSwitch(
-                    checked = uiState.settings.isAdBlockerEnabled,
-                    onCheckedChange = { onEvent(BrowserUiEvent.SetAdBlockerEnabled(it)) },
-                )
-            }
-
-            HorizontalDivider(
-                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 64.dp),
-            )
-
-            // Tracking Protection Row
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Shield,
-                            contentDescription = null,
-                            tint = ProstoBrandPrimary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = "Tracking Protection",
-                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else ProstoDarkText,
-                        )
-                        Text(
-                            text = "Prevents cross-site tracking",
-                            style = LocalProstoTypography.current.bodySm,
-                            color = ProstoMutedSlate,
-                        )
-                    }
-                }
-
-                ProstoToggleSwitch(
-                    checked = isTrackingProtectionEnabled,
-                    onCheckedChange = { isTrackingProtectionEnabled = it },
-                )
-            }
-
-            HorizontalDivider(
-                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 64.dp),
-            )
-
-            // Open in Apps Row
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.OpenInNew,
-                            contentDescription = null,
-                            tint = ProstoBrandPrimary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = "Open in apps",
-                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else ProstoDarkText,
-                        )
-                        Text(
-                            text = "Offer to open supported links in installed apps",
-                            style = LocalProstoTypography.current.bodySm,
-                            color = ProstoMutedSlate,
-                        )
-                    }
-                }
-
-                ProstoToggleSwitch(
-                    checked = uiState.settings.isOpenInAppsEnabled,
-                    onCheckedChange = { onEvent(BrowserUiEvent.SetOpenInAppsEnabled(it)) },
-                )
-            }
-
-            HorizontalDivider(
-                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 64.dp),
-            )
-
-            // Search Engine Row with Dropdown Menu
+            // Preferred Search Engine Row with Dropdown Menu
             var searchMenuExpanded by remember { mutableStateOf(false) }
             Row(
                 modifier =
@@ -555,22 +333,18 @@ fun SettingsContent(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                     modifier = Modifier.weight(1f),
                 ) {
                     Box(
-                        modifier =
-                            Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
-                        contentAlignment = Alignment.Center,
+                        modifier = Modifier.width(24.dp),
+                        contentAlignment = Alignment.CenterStart,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = null,
                             tint = ProstoBrandPrimary,
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier.size(22.dp),
                         )
                     }
 
@@ -581,7 +355,7 @@ fun SettingsContent(
                             color = if (isDark) DarkOnSurface else ProstoDarkText,
                         )
                         Text(
-                            text = "Choose your preferred engine",
+                            text = stringResource(R.string.search_engine_summary),
                             style = LocalProstoTypography.current.bodySm,
                             color = ProstoMutedSlate,
                         )
@@ -660,119 +434,31 @@ fun SettingsContent(
 
             HorizontalDivider(
                 color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 64.dp),
+                modifier = Modifier.padding(start = 56.dp),
             )
 
             // Add Search Engine Row
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onEvent(BrowserUiEvent.ShowAddSearchEngineDialog()) }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = null,
-                            tint = ProstoBrandPrimary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = "Add Search Engine",
-                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else ProstoDarkText,
-                        )
-                        Text(
-                            text = "Add custom provider with shortcuts",
-                            style = LocalProstoTypography.current.bodySm,
-                            color = ProstoMutedSlate,
-                        )
-                    }
-                }
-
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = ProstoMutedSlate,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
+            SettingClickableRow(
+                icon = Icons.Default.Add,
+                title = stringResource(R.string.add_search_engine_title),
+                summary = stringResource(R.string.add_search_engine_summary),
+                onClick = { onEvent(BrowserUiEvent.ShowAddSearchEngineDialog()) },
+                isDark = isDark,
+            )
 
             HorizontalDivider(
                 color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 64.dp),
+                modifier = Modifier.padding(start = 56.dp),
             )
 
             // Search Page Providers Row
-            Row(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { showProvidersDialog = true }
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(34.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = null,
-                            tint = ProstoBrandPrimary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                    }
-
-                    Column {
-                        Text(
-                            text = "Search Page Providers",
-                            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                            color = if (isDark) DarkOnSurface else ProstoDarkText,
-                        )
-                        Text(
-                            text = "Choose engines shown on search results",
-                            style = LocalProstoTypography.current.bodySm,
-                            color = ProstoMutedSlate,
-                        )
-                    }
-                }
-
-                Icon(
-                    imageVector = Icons.Default.ChevronRight,
-                    contentDescription = null,
-                    tint = ProstoMutedSlate,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
+            SettingClickableRow(
+                icon = Icons.Default.Tune,
+                title = stringResource(R.string.search_providers_title),
+                summary = stringResource(R.string.search_providers_summary),
+                onClick = { showProvidersDialog = true },
+                isDark = isDark,
+            )
         }
 
         if (showProvidersDialog) {
@@ -789,12 +475,104 @@ fun SettingsContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // SECTION 4: ABOUT & HORI
+        // ==========================================
+        // 4. PRIVACY & PROTECTION (КОНФИДЕНЦИАЛЬНОСТЬ)
+        // ==========================================
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SettingsSectionHeader(
+                title = stringResource(R.string.settings_section_privacy),
+                modifier = Modifier.padding(bottom = 0.dp),
+            )
+
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.VerifiedUser,
+                        contentDescription = null,
+                        tint = ProstoBrandPrimary,
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Text(
+                        text = stringResource(R.string.privacy_status_protected),
+                        style =
+                            LocalProstoTypography.current.labelMd.copy(
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                            ),
+                        color = ProstoBrandPrimary,
+                    )
+                }
+            }
+        }
+
+        InsetGroupedCard(isDark = isDark) {
+            // Ad Blocker Row
+            SettingToggleRow(
+                icon = Icons.Default.Block,
+                title = stringResource(R.string.ad_blocker_title),
+                summary = stringResource(R.string.ad_blocker_summary),
+                checked = uiState.settings.isAdBlockerEnabled,
+                onCheckedChange = { onEvent(BrowserUiEvent.SetAdBlockerEnabled(it)) },
+                isDark = isDark,
+            )
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 56.dp),
+            )
+
+            // Tracking Protection Row
+            SettingToggleRow(
+                icon = Icons.Default.Shield,
+                title = stringResource(R.string.tracking_protection_title),
+                summary = stringResource(R.string.tracking_protection_summary),
+                checked = uiState.settings.isTrackingProtectionEnabled,
+                onCheckedChange = { onEvent(BrowserUiEvent.SetTrackingProtectionEnabled(it)) },
+                isDark = isDark,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ==========================================
+        // 5. ABOUT & SYSTEM (О ПРИЛОЖЕНИИ)
+        // ==========================================
         SettingsSectionHeader(title = stringResource(R.string.settings_section_about))
         InsetGroupedCard(isDark = isDark) {
+            // Auto-update Row
+            SettingToggleRow(
+                icon = Icons.Default.SystemUpdate,
+                title = stringResource(R.string.update_setting_title),
+                summary = stringResource(R.string.update_setting_summary),
+                checked = uiState.settings.isAutoUpdateEnabled,
+                onCheckedChange = { onEvent(BrowserUiEvent.SetAutoUpdateEnabled(it)) },
+                isDark = isDark,
+            )
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 56.dp),
+            )
+
+            // Website link
             HyperlinkRow(
-                title = "Prosto Web Browser",
-                subtitle = "Fast, fluid, and gesture-driven",
+                icon = Icons.Default.Public,
+                title = stringResource(R.string.about_app_website_title),
+                subtitle = stringResource(R.string.about_app_website_summary),
                 onClick = {
                     try {
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://jestk.com"))
@@ -803,24 +581,28 @@ fun SettingsContent(
                         Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
                     }
                 },
+                isDark = isDark,
             )
 
             HorizontalDivider(
                 color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
-                modifier = Modifier.padding(start = 16.dp),
+                modifier = Modifier.padding(start = 56.dp),
             )
 
+            // GitHub link
             HyperlinkRow(
-                title = "Source Code on GitHub",
-                subtitle = "github.com/jestk/browser",
+                icon = Icons.Default.Code,
+                title = stringResource(R.string.about_app_github_title),
+                subtitle = stringResource(R.string.about_app_github_summary),
                 onClick = {
                     try {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/jestk/browser"))
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Supscott/Prosto"))
                         context.startActivity(intent)
                     } catch (_: Exception) {
                         Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
                     }
                 },
+                isDark = isDark,
             )
         }
 
@@ -852,7 +634,7 @@ fun SettingsContent(
             }
 
             Text(
-                text = "Crafted with love for a fast and private web",
+                text = stringResource(R.string.about_love_footer),
                 style = LocalProstoTypography.current.bodySm,
                 color = ProstoMutedSlate,
             )
@@ -862,6 +644,126 @@ fun SettingsContent(
                 color = ProstoMutedSlate.copy(alpha = 0.7f),
             )
         }
+    }
+}
+
+/**
+ * Standard toggle row with a sleek outline icon, title, summary, and switch control.
+ */
+@Composable
+fun SettingToggleRow(
+    icon: ImageVector,
+    title: String,
+    summary: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    isDark: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.weight(1f),
+        ) {
+            Box(
+                modifier = Modifier.width(24.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = ProstoBrandPrimary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+
+            Column {
+                Text(
+                    text = title,
+                    style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                    color = if (isDark) DarkOnSurface else ProstoDarkText,
+                )
+                Text(
+                    text = summary,
+                    style = LocalProstoTypography.current.bodySm,
+                    color = ProstoMutedSlate,
+                )
+            }
+        }
+
+        ProstoToggleSwitch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+        )
+    }
+}
+
+/**
+ * Standard clickable row with an outline icon, title, summary, and chevron indicator.
+ */
+@Composable
+fun SettingClickableRow(
+    icon: ImageVector,
+    title: String,
+    summary: String,
+    onClick: () -> Unit,
+    isDark: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.weight(1f),
+        ) {
+            Box(
+                modifier = Modifier.width(24.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = ProstoBrandPrimary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+
+            Column {
+                Text(
+                    text = title,
+                    style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                    color = if (isDark) DarkOnSurface else ProstoDarkText,
+                )
+                Text(
+                    text = summary,
+                    style = LocalProstoTypography.current.bodySm,
+                    color = ProstoMutedSlate,
+                )
+            }
+        }
+
+        Icon(
+            imageVector = Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = ProstoMutedSlate,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
@@ -992,11 +894,12 @@ fun SegmentedThemeControl(
 
 @Composable
 fun HyperlinkRow(
+    icon: ImageVector,
     title: String,
     subtitle: String,
     onClick: () -> Unit,
+    isDark: Boolean = LocalIsDarkTheme.current,
 ) {
-    val isDark = LocalIsDarkTheme.current
     Row(
         modifier =
             Modifier
@@ -1006,17 +909,35 @@ fun HyperlinkRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column {
-            Text(
-                text = title,
-                style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-                color = if (isDark) DarkOnSurface else ProstoDarkText,
-            )
-            Text(
-                text = subtitle,
-                style = LocalProstoTypography.current.bodySm,
-                color = ProstoMutedSlate,
-            )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.weight(1f),
+        ) {
+            Box(
+                modifier = Modifier.width(24.dp),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = ProstoBrandPrimary,
+                    modifier = Modifier.size(22.dp),
+                )
+            }
+
+            Column {
+                Text(
+                    text = title,
+                    style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
+                    color = if (isDark) DarkOnSurface else ProstoDarkText,
+                )
+                Text(
+                    text = subtitle,
+                    style = LocalProstoTypography.current.bodySm,
+                    color = ProstoMutedSlate,
+                )
+            }
         }
 
         Icon(
@@ -1045,22 +966,18 @@ fun DefaultBrowserSettingTile(
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             modifier = Modifier.weight(1f),
         ) {
             Box(
-                modifier =
-                    Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
-                contentAlignment = Alignment.Center,
+                modifier = Modifier.width(24.dp),
+                contentAlignment = Alignment.CenterStart,
             ) {
                 Icon(
                     imageVector = Icons.Default.Public,
                     contentDescription = null,
                     tint = ProstoBrandPrimary,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(22.dp),
                 )
             }
 
@@ -1131,7 +1048,7 @@ fun SearchPageProvidersDialog(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        text = "Search Page Providers",
+                        text = stringResource(R.string.search_providers_title),
                         style = LocalProstoTypography.current.headlineSm.copy(fontWeight = FontWeight.Bold),
                         color = if (isDark) DarkOnSurface else ProstoDarkText,
                     )
@@ -1149,7 +1066,7 @@ fun SearchPageProvidersDialog(
                 }
 
                 Text(
-                    text = "Enable or disable providers that appear in the quick switcher on search results pages.",
+                    text = stringResource(R.string.search_providers_summary),
                     style = LocalProstoTypography.current.bodySm,
                     color = ProstoMutedSlate,
                     modifier = Modifier.padding(top = 4.dp, bottom = 16.dp),

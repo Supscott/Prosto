@@ -11,11 +11,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.domain.model.AppUpdate
 import com.jestk.browser.domain.model.AppUpdateUiState
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -29,6 +34,8 @@ import java.io.FileOutputStream
 @Config(sdk = [34])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class UpdateNotificationCardTest {
+    @get:Rule
+    val composeRule = createComposeRule()
     private fun render(
         state: AppUpdateUiState,
         isDark: Boolean,
@@ -50,7 +57,6 @@ class UpdateNotificationCardTest {
                             UpdateNotificationCard(
                                 state = state,
                                 onInstall = {},
-                                onInstallLater = {},
                                 onSkip = {},
                                 isDark = isDark,
                                 modifier = Modifier.padding(16.dp),
@@ -103,6 +109,10 @@ class UpdateNotificationCardTest {
 
         assertThat(isBlank(bitmap)).isFalse()
         assertThat(File("build/update_card_available_light.png").length()).isGreaterThan(0L)
+
+        val darkBitmap = render(state, isDark = true, name = "available_dark")
+        assertThat(isBlank(darkBitmap)).isFalse()
+        assertThat(File("build/update_card_available_dark.png").length()).isGreaterThan(0L)
     }
 
     @Test
@@ -116,6 +126,15 @@ class UpdateNotificationCardTest {
 
         assertThat(isBlank(bitmap)).isFalse()
         assertThat(File("build/update_card_ready_dark.png").length()).isGreaterThan(0L)
+
+        val lightBitmap =
+            render(
+                AppUpdateUiState.ReadyToInstall("1.2.0"),
+                isDark = false,
+                name = "ready_light",
+            )
+        assertThat(isBlank(lightBitmap)).isFalse()
+        assertThat(File("build/update_card_ready_light.png").length()).isGreaterThan(0L)
     }
 
     @Test
@@ -128,5 +147,57 @@ class UpdateNotificationCardTest {
             )
 
         assertThat(isBlank(bitmap)).isFalse()
+    }
+
+    @Test
+    fun availableState_clickingDownloadAndSkip_triggersCallbacks() {
+        var downloadClicked = false
+        var skipClicked = false
+
+        val state = AppUpdateUiState.Available(
+            AppUpdate(
+                versionName = "0.5.0",
+                releaseNotes = "Fixes",
+                apkUrl = "https://example.com/apk",
+                releaseUrl = "https://example.com/release",
+            )
+        )
+
+        composeRule.setContent {
+            JestkBrowserTheme {
+                UpdateNotificationCard(
+                    state = state,
+                    onDownload = { downloadClicked = true },
+                    onInstall = {},
+                    onSkip = { skipClicked = true },
+                    isDark = false,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Download").assertIsDisplayed().performClick()
+        assertThat(downloadClicked).isTrue()
+
+        composeRule.onNodeWithText("Skip").assertIsDisplayed().performClick()
+        assertThat(skipClicked).isTrue()
+    }
+
+    @Test
+    fun readyToInstallState_clickingRestartInstall_triggersInstallCallback() {
+        var installClicked = false
+
+        composeRule.setContent {
+            JestkBrowserTheme {
+                UpdateNotificationCard(
+                    state = AppUpdateUiState.ReadyToInstall("0.5.0"),
+                    onInstall = { installClicked = true },
+                    onSkip = {},
+                    isDark = false,
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Restart / Install").assertIsDisplayed().performClick()
+        assertThat(installClicked).isTrue()
     }
 }

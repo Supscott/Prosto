@@ -30,6 +30,7 @@ class JestkWebViewClient(
     private val onTitleReceived: ((tabId: String, title: String) -> Unit)? = null,
     private val isOpenInAppsEnabled: (() -> Boolean)? = null,
     private val onExternalAppOffered: ((tabId: String, prompt: ExternalAppPrompt, userInitiated: Boolean) -> Unit)? = null,
+    private val isTrackingProtectionEnabled: (() -> Boolean)? = null,
     private val onInsecureHttpWarning: ((tabId: String, url: String) -> Unit)? = null,
     private val isInsecureHostAllowed: ((host: String) -> Boolean)? = null,
 ) : WebViewClient() {
@@ -131,27 +132,23 @@ class JestkWebViewClient(
         request: WebResourceRequest?
     ): WebResourceResponse? {
         if (request == null) return null
-        if (isAdBlockerEnabled()) {
+        val adBlockerActive = isAdBlockerEnabled()
+        val trackingActive = isTrackingProtectionEnabled?.invoke() ?: true
+        if (adBlockerActive || trackingActive) {
             val url = request.url?.toString()
-            if (AdBlockerEngine.shouldBlock(url)) {
+            val parsedUrl = AdBlockerEngine.parseUrl(url)
+            if (parsedUrl != null && AdBlockerEngine.shouldBlock(parsedUrl)) {
                 val validUrl = url.orEmpty()
-                val isTracker = AdBlockerEngine.isTracker(validUrl)
-                onBlockedResource?.invoke(validUrl, isTracker)
-                if (settingsRepository != null) {
-                    telemetryScope.launch {
-                        if (isTracker) {
-                            settingsRepository.incrementBlockedTrackers()
-                        } else {
-                            settingsRepository.incrementBlockedAds()
-                        }
-                    }
-                } else {
-                    AdBlockerEngine.recordBlockedRequest(validUrl)
+                val isTracker = AdBlockerEngine.isTracker(parsedUrl)
+                val shouldBlock = (isTracker && trackingActive) || (!isTracker && adBlockerActive)
+                if (shouldBlock) {
+                    onBlockedResource?.invoke(validUrl, isTracker)
+                    AdBlockerEngine.recordBlockedRequest(isTracker)
+                    return AdBlockerEngine.createSmartBlockedResponse(
+                        url = url,
+                        requestHeaders = request.requestHeaders
+                    )
                 }
-                return AdBlockerEngine.createSmartBlockedResponse(
-                    url = url,
-                    requestHeaders = request.requestHeaders
-                )
             }
         }
         return super.shouldInterceptRequest(view, request)
@@ -186,7 +183,9 @@ class JestkWebViewClient(
             } else if (validUrl.contains("youtube.com", ignoreCase = true) && isDark) {
                 onThemeColorDetected(tabId, android.graphics.Color.parseColor("#0f0f0f"))
             } else {
-                extractThemeColor(wv, isPageStarted = true)
+                wv.post {
+                    extractThemeColor(wv, isPageStarted = true)
+                }
             }
         }
     }
@@ -205,19 +204,22 @@ class JestkWebViewClient(
             if (isAdBlockerEnabled()) {
                 AdBlockerScript.injectAdBlocker(wv)
             }
-            extractThemeColor(wv, isPageStarted = false)
-            SnapshotEngine.captureSnapshot(
-                webView = wv,
-                tabId = tabId,
-                context = wv.context,
-                onVisualColorsSampled = { topColor, _ ->
-                    if (!validUrl.contains("apple.com", ignoreCase = true)) {
-                        onThemeColorDetected(tabId, topColor)
+            wv.post {
+                extractThemeColor(wv, isPageStarted = false)
+                AdBlockerEngine.flushBlockedStats()
+                SnapshotEngine.captureSnapshot(
+                    webView = wv,
+                    tabId = tabId,
+                    context = wv.context,
+                    onVisualColorsSampled = { topColor, _ ->
+                        if (!validUrl.contains("apple.com", ignoreCase = true)) {
+                            onThemeColorDetected(tabId, topColor)
+                        }
                     }
-                }
-            ) { path ->
-                if (path != null) {
-                    onSnapshotReady(tabId, path)
+                ) { path ->
+                    if (path != null) {
+                        onSnapshotReady(tabId, path)
+                    }
                 }
             }
         }

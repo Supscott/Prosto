@@ -3,9 +3,11 @@ package com.jestk.browser.ui.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -19,6 +21,8 @@ import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.util.LocalVibrationFeedback
+import com.jestk.browser.util.VibrationFeedback
 import org.junit.Rule
 import org.junit.Test
 import org.junit.Assert.assertTrue
@@ -43,31 +47,42 @@ class TabStripRowDragTest {
     val composeRule = createComposeRule()
 
     private val events = mutableListOf<BrowserUiEvent>()
+    private var vibrationTicks = 0
+    private var vibrationConfirms = 0
+    private val testVibration = object : VibrationFeedback {
+        override fun tick() { vibrationTicks++ }
+        override fun confirm() { vibrationConfirms++ }
+    }
 
     private fun render(
         tabs: List<Tab>,
         activeTabId: String,
         dockWidth: Dp = 360.dp,
     ) {
+        events.clear()
+        vibrationTicks = 0
+        vibrationConfirms = 0
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
-            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                Box(
-                    modifier =
-                        Modifier
-                            .width(dockWidth)
-                            .height(54.dp),
-                ) {
-                    TabStripRow(
-                        uiState =
-                            BrowserUiState(
-                                tabs = tabs,
-                                activeTabId = activeTabId,
-                                currentUrl = tabs.first { it.id == activeTabId }.url,
-                                pageTitle = tabs.first { it.id == activeTabId }.title,
-                            ),
-                        onEvent = { events += it },
-                    )
+            CompositionLocalProvider(LocalVibrationFeedback provides testVibration) {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .width(dockWidth)
+                                .height(54.dp),
+                    ) {
+                        TabStripRow(
+                            uiState =
+                                BrowserUiState(
+                                    tabs = tabs,
+                                    activeTabId = activeTabId,
+                                    currentUrl = tabs.first { it.id == activeTabId }.url,
+                                    pageTitle = tabs.first { it.id == activeTabId }.title,
+                                ),
+                            onEvent = { events += it },
+                        )
+                    }
                 }
             }
         }
@@ -245,6 +260,163 @@ class TabStripRowDragTest {
         composeRule.mainClock.advanceTimeBy(300)
 
         composeRule.onNodeWithText("Close tab").assertExists()
+    }
+
+    @Test
+    fun dragInactiveTabAboveDock_removesTabWithAnimationAndVibration() {
+        render(tabs = fourTabs(activeIndex = 0), activeTabId = "tab1")
+        val tag = "tab_tab2"
+        val start = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
+
+        composeRule.onRoot().performTouchInput { down(start) }
+        composeRule.mainClock.advanceTimeBy(700)
+
+        // Drag upwards into space above dock (at xxhdpi, 36.dp is 108px; drag -180px)
+        repeat(12) { step ->
+            val fraction = (step + 1f) / 12f
+            composeRule.onRoot().performTouchInput { moveTo(Offset(start.x, start.y - 180f * fraction)) }
+            composeRule.mainClock.advanceTimeBy(16)
+        }
+
+        // While hovered in remove zone, close icon should appear
+        composeRule.onNodeWithContentDescription("Remove Tab", useUnmergedTree = true).assertExists()
+
+        // Release to confirm removal
+        composeRule.onRoot().performTouchInput { up() }
+
+        // Confirm vibration triggered upon release in remove zone
+        assertThat(vibrationConfirms).isAtLeast(2)
+
+        // Advance through removal animation
+        composeRule.mainClock.advanceTimeBy(500)
+        val closed = events.filterIsInstance<BrowserUiEvent.CloseTab>()
+        assertThat(closed).hasSize(1)
+        assertThat(closed.first().tabId).isEqualTo("tab2")
+    }
+
+    @Test
+    fun dragActiveTabAboveDock_removesTabWithAnimationAndVibration() {
+        render(tabs = fourTabs(activeIndex = 0), activeTabId = "tab1")
+        val tag = "tab_tab1"
+        val start = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
+
+        composeRule.onRoot().performTouchInput { down(start) }
+        composeRule.mainClock.advanceTimeBy(700)
+
+        // Drag active tab upwards into space above dock
+        repeat(12) { step ->
+            val fraction = (step + 1f) / 12f
+            composeRule.onRoot().performTouchInput { moveTo(Offset(start.x, start.y - 180f * fraction)) }
+            composeRule.mainClock.advanceTimeBy(16)
+        }
+
+        composeRule.onNodeWithContentDescription("Remove Tab", useUnmergedTree = true).assertExists()
+
+        composeRule.onRoot().performTouchInput { up() }
+        assertThat(vibrationConfirms).isAtLeast(2)
+
+        composeRule.mainClock.advanceTimeBy(500)
+        val closed = events.filterIsInstance<BrowserUiEvent.CloseTab>()
+        assertThat(closed).hasSize(1)
+        assertThat(closed.first().tabId).isEqualTo("tab1")
+    }
+
+    @Test
+    fun dragTabAboveDock_andDragBackDown_doesNotRemoveTab() {
+        render(tabs = fourTabs(activeIndex = 0), activeTabId = "tab1")
+        val tag = "tab_tab2"
+        val start = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
+
+        composeRule.onRoot().performTouchInput { down(start) }
+        composeRule.mainClock.advanceTimeBy(700)
+
+        // Drag upwards into remove zone
+        repeat(12) { step ->
+            val fraction = (step + 1f) / 12f
+            composeRule.onRoot().performTouchInput { moveTo(Offset(start.x, start.y - 180f * fraction)) }
+            composeRule.mainClock.advanceTimeBy(16)
+        }
+        composeRule.onNodeWithContentDescription("Remove Tab", useUnmergedTree = true).assertExists()
+
+        // Drag back down into the dock
+        repeat(12) { step ->
+            val fraction = (step + 1f) / 12f
+            composeRule.onRoot().performTouchInput { moveTo(Offset(start.x, (start.y - 180f) + 180f * fraction)) }
+            composeRule.mainClock.advanceTimeBy(16)
+        }
+        composeRule.onNodeWithContentDescription("Remove Tab", useUnmergedTree = true).assertDoesNotExist()
+
+        // Release inside dock
+        composeRule.onRoot().performTouchInput { up() }
+        composeRule.mainClock.advanceTimeBy(500)
+
+        // No tab closed
+        assertThat(events.filterIsInstance<BrowserUiEvent.CloseTab>()).isEmpty()
+    }
+
+    @Test
+    fun dragTabAboveDock_whileReordered_preservesReorderOnRemoval() {
+        render(tabs = fourTabs(activeIndex = 0), activeTabId = "tab1")
+        val tag = "tab_tab4"
+        val start = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
+
+        composeRule.onRoot().performTouchInput { down(start) }
+        composeRule.mainClock.advanceTimeBy(700)
+
+        // Move horizontally past left neighbor to trigger swap
+        for (x in listOf(175f, 145f, 115f)) {
+            composeRule.onRoot().performTouchInput { moveTo(Offset(x, start.y)) }
+            composeRule.mainClock.advanceTimeBy(32)
+        }
+
+        // Drag up into remove zone
+        repeat(12) { step ->
+            val fraction = (step + 1f) / 12f
+            composeRule.onRoot().performTouchInput { moveTo(Offset(115f, start.y - 180f * fraction)) }
+            composeRule.mainClock.advanceTimeBy(16)
+        }
+
+        composeRule.onRoot().performTouchInput { up() }
+        composeRule.mainClock.advanceTimeBy(500)
+
+        val closed = events.filterIsInstance<BrowserUiEvent.CloseTab>()
+        assertThat(closed).hasSize(1)
+        assertThat(closed.first().tabId).isEqualTo("tab4")
+
+        // Reorder event excluding the removed tab was dispatched
+        val reordered = events.filterIsInstance<BrowserUiEvent.ReorderTabs>().lastOrNull()
+        assertThat(reordered?.orderedTabs?.map { it.id }).doesNotContain("tab4")
+    }
+
+    @Test
+    fun dragTabAboveDock_removesTabImmediatelyFromDock_noGhostIconRemains() {
+        render(tabs = fourTabs(activeIndex = 0), activeTabId = "tab1")
+        val tag = "tab_tab2"
+        val start = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
+
+        composeRule.onRoot().performTouchInput { down(start) }
+        composeRule.mainClock.advanceTimeBy(700)
+
+        // Drag upwards into remove zone
+        repeat(12) { step ->
+            val fraction = (step + 1f) / 12f
+            composeRule.onRoot().performTouchInput { moveTo(Offset(start.x, start.y - 180f * fraction)) }
+            composeRule.mainClock.advanceTimeBy(16)
+        }
+
+        // Release to confirm removal
+        composeRule.onRoot().performTouchInput { up() }
+
+        // Immediately after release, the tab must not linger in the dock items
+        composeRule.onNodeWithTag("tab_tab2").assertDoesNotExist()
+
+        // After removal animation completes, event is dispatched and no ghost icon appears
+        composeRule.mainClock.advanceTimeBy(500)
+        composeRule.onNodeWithTag("tab_tab2").assertDoesNotExist()
+
+        val closed = events.filterIsInstance<BrowserUiEvent.CloseTab>()
+        assertThat(closed).hasSize(1)
+        assertThat(closed.first().tabId).isEqualTo("tab2")
     }
 
     private fun dragTabToLeftEdge(tag: String) {

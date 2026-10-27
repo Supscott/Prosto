@@ -19,6 +19,7 @@ data class BrowserUiState(
     val tabs: List<Tab> = emptyList(),
     val recentTabs: List<com.jestk.browser.domain.model.RecentTabItem> = emptyList(),
     val activeTabId: String? = null,
+    val loadedTabIds: Set<String> = emptySet(),
     val recentlyClosedTab: Tab? = null,
     val showUndoTabCloseSnackbar: Boolean = false,
     val externalAppPrompt: ExternalAppPrompt? = null,
@@ -118,4 +119,7 @@ data class BrowserUiState(
             val candidate = currentUrl.ifEmpty { activeTabUrl }
             return SearchEngine.findMatchingEngineAndQuery(candidate, searchEngines)
         }
+
+    fun isTabLoaded(tabId: String): Boolean =
+        tabId in loadedTabIds || tabId == activeTabId
 }

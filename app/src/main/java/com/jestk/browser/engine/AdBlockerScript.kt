@@ -222,6 +222,9 @@ object AdBlockerScript {
         return """
             (function() {
                 try {
+                    if (window.__hori_adblock_initialized) return;
+                    window.__hori_adblock_initialized = true;
+
                     // Check if ad blocking is disabled via bridge
                     if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.isEnabled === 'function') {
                         if (!window.HoriAdBlockBridge.isEnabled()) {
@@ -341,30 +344,72 @@ object AdBlockerScript {
                     injectStyle();
 
                     // 3. Dynamic DOM Cleaner / MutationObserver
-                    function sanitizeNodes() {
+                    var AD_SELECTOR = 'ins.adsbygoogle, [id^="google_ads_iframe"], [id^="div-gpt-ad"], [id^="yandex_rtb_"], [id^="adfox"], [class*="bannerContainer"], [class*="incontentBanner"], [class*="BannersBlock"], [class*="RightsideBanners"], [class*="adFeedback"], [class*="tovarnayaCourusel"], .yandex-adaptive, .ya-partner, .ad-container, .ad-banner, .advertisement, [data-ad-placeholder]';
+
+                    function collapseElement(el) {
                         try {
-                            var adNodes = document.querySelectorAll(
-                                'ins.adsbygoogle, [id^="google_ads_iframe"], [id^="div-gpt-ad"], [id^="yandex_rtb_"], [id^="adfox"], [class*="bannerContainer"], [class*="incontentBanner"], [class*="BannersBlock"], [class*="RightsideBanners"], [class*="adFeedback"], [class*="tovarnayaCourusel"], .yandex-adaptive, .ya-partner, .ad-container, .ad-banner, .advertisement, [data-ad-placeholder]'
-                            );
-                            for (var i = 0; i < adNodes.length; i++) {
-                                var el = adNodes[i];
-                                el.style.setProperty('display', 'none', 'important');
-                                el.style.setProperty('height', '0', 'important');
-                                el.style.setProperty('min-height', '0', 'important');
-                                var parent = el.parentElement;
-                                if (parent && parent.children.length === 1 && !parent.textContent.trim()) {
-                                    parent.style.setProperty('display', 'none', 'important');
-                                    parent.style.setProperty('height', '0', 'important');
-                                    parent.style.setProperty('min-height', '0', 'important');
+                            el.style.setProperty('display', 'none', 'important');
+                            el.style.setProperty('height', '0', 'important');
+                            el.style.setProperty('min-height', '0', 'important');
+                            var parent = el.parentElement;
+                            if (parent && parent.children.length === 1 && !parent.textContent.trim()) {
+                                parent.style.setProperty('display', 'none', 'important');
+                                parent.style.setProperty('height', '0', 'important');
+                                parent.style.setProperty('min-height', '0', 'important');
+                            }
+                        } catch(e) {}
+                    }
+
+                    var pendingNodes = [];
+                    var debounceTimer = null;
+
+                    function processPendingNodes() {
+                        debounceTimer = null;
+                        if (!pendingNodes.length) return;
+                        var nodes = pendingNodes;
+                        pendingNodes = [];
+                        try {
+                            for (var i = 0; i < nodes.length; i++) {
+                                var node = nodes[i];
+                                if (!node || node.nodeType !== 1) continue;
+                                if (node.matches && node.matches(AD_SELECTOR)) {
+                                    collapseElement(node);
+                                }
+                                if (node.querySelectorAll) {
+                                    var matches = node.querySelectorAll(AD_SELECTOR);
+                                    for (var j = 0; j < matches.length; j++) {
+                                        collapseElement(matches[j]);
+                                    }
                                 }
                             }
                         } catch(err) {}
                     }
 
+                    function scheduleSanitize() {
+                        if (debounceTimer !== null) return;
+                        if (window.requestAnimationFrame) {
+                            debounceTimer = window.requestAnimationFrame(processPendingNodes);
+                        } else {
+                            debounceTimer = setTimeout(processPendingNodes, 100);
+                        }
+                    }
+
                     if (window.MutationObserver && (document.documentElement || document.body)) {
-                        var observer = new MutationObserver(function() {
+                        var observer = new MutationObserver(function(mutations) {
                             injectStyle();
-                            sanitizeNodes();
+                            for (var i = 0; i < mutations.length; i++) {
+                                var added = mutations[i].addedNodes;
+                                if (added) {
+                                    for (var j = 0; j < added.length; j++) {
+                                        if (added[j].nodeType === 1) {
+                                            pendingNodes.push(added[j]);
+                                        }
+                                    }
+                                }
+                            }
+                            if (pendingNodes.length > 0) {
+                                scheduleSanitize();
+                            }
                         });
                         observer.observe(document.documentElement || document.body, {
                             childList: true,
@@ -372,13 +417,19 @@ object AdBlockerScript {
                         });
                     }
 
+                    function sanitizeInitial() {
+                        injectStyle();
+                        var root = document.body || document.documentElement;
+                        if (root) {
+                            pendingNodes.push(root);
+                            processPendingNodes();
+                        }
+                    }
+
                     if (document.readyState === 'loading') {
-                        document.addEventListener('DOMContentLoaded', function() {
-                            injectStyle();
-                            sanitizeNodes();
-                        });
+                        document.addEventListener('DOMContentLoaded', sanitizeInitial);
                     } else {
-                        sanitizeNodes();
+                        sanitizeInitial();
                     }
                 } catch(e) {}
             })();

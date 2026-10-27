@@ -254,9 +254,10 @@ fun WebViewContainer(
                     webView.setOnScrollChangeListener { v, _, scrollY, _, oldScrollY ->
                         val dy = scrollY - oldScrollY
                         val viewportHeight = if (v.height > 0) v.height else v.resources.displayMetrics.heightPixels
-                        val crossedHScreen = (oldScrollY > viewportHeight && scrollY <= viewportHeight) ||
-                            (oldScrollY <= viewportHeight && scrollY > viewportHeight)
-                        if (kotlin.math.abs(dy) > 8 || scrollY <= 0 || crossedHScreen) {
+                        val scrollThreshold = viewportHeight / 2
+                        val crossedThreshold = (oldScrollY > scrollThreshold && scrollY <= scrollThreshold) ||
+                            (oldScrollY <= scrollThreshold && scrollY > scrollThreshold)
+                        if (kotlin.math.abs(dy) > 8 || scrollY <= 0 || crossedThreshold) {
                             currentOnEvent(
                                 BrowserUiEvent.OnWebScroll(
                                     deltaY = dy.toFloat(),
@@ -303,6 +304,7 @@ fun WebViewContainer(
                         onExternalAppOffered = { id, prompt, userInitiated ->
                             currentOnEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
                         },
+                        isTrackingProtectionEnabled = { currentUiState.settings.isTrackingProtectionEnabled },
                         onInsecureHttpWarning = { id, url ->
                             currentOnEvent(BrowserUiEvent.ShowInsecureHttpWarning(url = url, tabId = id))
                         },

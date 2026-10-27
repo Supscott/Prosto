@@ -210,7 +210,15 @@ sealed interface BrowserUiEvent {
         val enabled: Boolean,
     ) : BrowserUiEvent
 
+    data class SetTrackingProtectionEnabled(
+        val enabled: Boolean,
+    ) : BrowserUiEvent
+
     data class SetVibrationEnabled(
+        val enabled: Boolean,
+    ) : BrowserUiEvent
+
+    data class SetGrayUnloadedTabsEnabled(
         val enabled: Boolean,
     ) : BrowserUiEvent
 
@@ -219,9 +227,9 @@ sealed interface BrowserUiEvent {
         val enabled: Boolean,
     ) : BrowserUiEvent
 
-    data object InstallUpdate : BrowserUiEvent
+    data object DownloadUpdate : BrowserUiEvent
 
-    data object InstallUpdateLater : BrowserUiEvent
+    data object InstallUpdate : BrowserUiEvent
 
     data object SkipUpdate : BrowserUiEvent
 

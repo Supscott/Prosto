@@ -294,4 +294,82 @@ class DockRefinementsTest {
         assertThat(outputFile.exists()).isTrue()
         assertThat(outputFile.length()).isGreaterThan(0L)
     }
+
+    @Test
+    fun testBrowserUiStateIsTabLoaded() {
+        val state = BrowserUiState(
+            tabs = listOf(
+                Tab(id = "1", url = "https://example.com", isActive = true),
+                Tab(id = "2", url = "https://github.com", isActive = false),
+                Tab(id = "3", url = "https://news.ycombinator.com", isActive = false),
+            ),
+            activeTabId = "1",
+            loadedTabIds = setOf("1", "2"),
+        )
+
+        // Active tab is always loaded
+        assertThat(state.isTabLoaded("1")).isTrue()
+        // Inactive tab in loadedTabIds is loaded
+        assertThat(state.isTabLoaded("2")).isTrue()
+        // Inactive tab not in loadedTabIds is NOT loaded
+        assertThat(state.isTabLoaded("3")).isFalse()
+    }
+
+    @Test
+    fun renderTabStripRowWithUnloadedGrayTabsAndToggle() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val sampleState = BrowserUiState(
+            currentUrl = "https://example.com",
+            pageTitle = "Example Domain",
+            isLoading = false,
+            tabs = listOf(
+                Tab(id = "1", url = "https://example.com", title = "Example Domain", isActive = true),
+                Tab(id = "2", url = "https://github.com", title = "GitHub", isActive = false),
+                Tab(id = "3", url = "https://news.ycombinator.com", title = "Hacker News", isActive = false),
+            ),
+            activeTabId = "1",
+            loadedTabIds = setOf("1", "2"), // "3" is unloaded in RAM
+            settings = com.jestk.browser.domain.model.BrowserSettings(isGrayUnloadedTabsEnabled = true),
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Box(
+                        modifier = Modifier
+                            .width(360.dp)
+                            .height(54.dp)
+                            .background(Color(0xFFF1F5F9))
+                    ) {
+                        TabStripRow(
+                            uiState = sampleState,
+                            onEvent = {}
+                        )
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 720
+        val height = 108
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/tab_strip_row_gray_unloaded_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+        assertThat(outputFile.exists()).isTrue()
+        assertThat(outputFile.length()).isGreaterThan(0L)
+    }
 }
