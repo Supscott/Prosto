@@ -181,15 +181,6 @@ class WebViewPool(
             }
         } else {
             mediaPlayingTabs.remove(tabId)
-            if (tabId != activeTabId) {
-                runOnMainThread {
-                    pool[tabId]?.let { wv ->
-                        try { wv.onPause() } catch (t: Throwable) {
-                            Log.w(TAG, "Failed to pause WebView for tab $tabId", t)
-                        }
-                    }
-                }
-            }
         }
     }
 
@@ -201,22 +192,11 @@ class WebViewPool(
             mediaPlayingTabs.add(tabId)
         }
         runOnMainThread {
-            pool.forEach { (id, webView) ->
-                if (id == tabId) {
-                    try {
-                        webView.onResume()
-                    } catch (t: Throwable) {
-                        Log.w(TAG, "Failed to resume WebView for active tab $tabId", t)
-                    }
-                } else {
-                    val isPlaying = mediaPlayingTabs.contains(id)
-                    if (!isPlaying) {
-                        try {
-                            webView.onPause()
-                        } catch (t: Throwable) {
-                            Log.w(TAG, "Failed to pause WebView for background tab $id", t)
-                        }
-                    }
+            pool[tabId]?.let { webView ->
+                try {
+                    webView.onResume()
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Failed to resume WebView for active tab $tabId", t)
                 }
             }
         }

@@ -164,12 +164,17 @@ class AppUpdateManager(
         val file = updateFile(versionName)
         val contentIntent =
             if (file.exists()) {
-                PendingIntent.getActivity(
-                    context,
-                    0,
-                    installIntent(file),
-                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                )
+                try {
+                    PendingIntent.getActivity(
+                        context,
+                        0,
+                        installIntent(file),
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                    )
+                } catch (t: Throwable) {
+                    android.util.Log.w("AppUpdateManager", "Failed to create install intent for notification", t)
+                    null
+                }
             } else {
                 null
             }

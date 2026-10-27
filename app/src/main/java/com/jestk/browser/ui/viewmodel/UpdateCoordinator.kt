@@ -116,8 +116,12 @@ class UpdateCoordinator(
                 return@launch
             }
             publish(AppUpdateUiState.ReadyToInstall(update.versionName))
-            manager.notifyUpdateReady(update.versionName)
-            if (installWhenDone) manager.installUpdate(update.versionName)
+            try {
+                manager.notifyUpdateReady(update.versionName)
+                if (installWhenDone) manager.installUpdate(update.versionName)
+            } catch (t: Throwable) {
+                android.util.Log.w("UpdateCoordinator", "Failed to notify or install update", t)
+            }
         }
     }
 

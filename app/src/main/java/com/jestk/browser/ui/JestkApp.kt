@@ -371,15 +371,13 @@ fun JestkApp(
                     )
                 } else {
                     uiState.activeTabId?.let { activeId ->
-                        key(activeId) {
-                            WebViewContainer(
-                                tabId = activeId,
-                                webViewPool = webViewPool,
-                                uiState = uiState,
-                                onEvent = viewModel::onEvent,
-                                modifier = Modifier.fillMaxSize(),
-                            )
-                        }
+                        WebViewContainer(
+                            tabId = activeId,
+                            webViewPool = webViewPool,
+                            uiState = uiState,
+                            onEvent = viewModel::onEvent,
+                            modifier = Modifier.fillMaxSize(),
+                        )
                     }
                 }
             }

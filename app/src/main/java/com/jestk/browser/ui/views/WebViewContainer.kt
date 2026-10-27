@@ -1,13 +1,16 @@
 package com.jestk.browser.ui.views
 
 import android.annotation.SuppressLint
+import android.content.Context
 import android.content.MutableContextWrapper
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
+import android.widget.FrameLayout
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -33,6 +36,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -207,6 +211,96 @@ fun WebViewContainer(
         }
     }
 
+    val context = LocalContext.current
+    val currentActiveTabId by rememberUpdatedState(tabId)
+
+    val handleFavicon: (String, android.graphics.Bitmap) -> Unit = remember {
+        { id, icon ->
+            scope.launch {
+                val currentTabUrl = currentTab?.url?.takeIf { it.isNotBlank() }
+                val activeUrl = if (currentUiState.activeTabId == id) currentUiState.currentUrl.takeIf { it.isNotBlank() } else null
+                val webViewUrl = webViewPool.getWebView(id)?.url?.takeIf { it.isNotBlank() }
+                val currentUrl = currentTabUrl ?: activeUrl ?: webViewUrl ?: targetUrl.takeIf { it.isNotBlank() }
+                val path = FaviconManager.saveFavicon(context, id, icon, currentUrl)
+                if (path != null) {
+                    currentOnEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
+                }
+            }
+        }
+    }
+
+    val configureWebView: (WebView, String, Context) -> Unit = remember {
+        { wv, forTabId, act ->
+            (wv.context as? MutableContextWrapper)?.baseContext = act
+            wv.isFocusable = true
+            wv.isFocusableInTouchMode = true
+            setupWebViewLongClick(wv)
+
+            if (wv.tag != forTabId) {
+                wv.tag = forTabId
+                wv.setOnScrollChangeListener { v, _, scrollY, _, oldScrollY ->
+                    val dy = scrollY - oldScrollY
+                    val viewportHeight = if (v.height > 0) v.height else v.resources.displayMetrics.heightPixels
+                    val crossedHScreen = (oldScrollY > viewportHeight && scrollY <= viewportHeight) ||
+                        (oldScrollY <= viewportHeight && scrollY > viewportHeight)
+                    if (kotlin.math.abs(dy) > 8 || scrollY <= 0 || crossedHScreen) {
+                        currentOnEvent(
+                            BrowserUiEvent.OnWebScroll(
+                                deltaY = dy.toFloat(),
+                                scrollY = scrollY,
+                                viewportHeight = viewportHeight,
+                            )
+                        )
+                    }
+                }
+
+                wv.webViewClient = JestkWebViewClient(
+                    tabId = forTabId,
+                    isAdBlockerEnabled = { currentUiState.settings.isAdBlockerEnabled },
+                    onPageStarted = { id, url ->
+                        currentOnEvent(BrowserUiEvent.OnPageStarted(id, url))
+                    },
+                    onPageFinished = { id, url, title ->
+                        currentOnEvent(BrowserUiEvent.OnPageFinished(id, url, title))
+                    },
+                    onNavigationStateChanged = { id, canBack, canForward ->
+                        currentOnEvent(BrowserUiEvent.OnNavigationStateChanged(id, canBack, canForward))
+                    },
+                    onSnapshotReady = { id, path -> currentOnEvent(BrowserUiEvent.OnSnapshotCaptured(id, path)) },
+                    onThemeColorDetected = { id, color ->
+                        currentOnEvent(BrowserUiEvent.OnThemeColorReceived(id, color))
+                    },
+                    isDarkTheme = { isDark },
+                    onFaviconReceived = handleFavicon,
+                    onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
+                    isOpenInAppsEnabled = { currentUiState.settings.isOpenInAppsEnabled },
+                    onExternalAppOffered = { id, prompt, userInitiated ->
+                        currentOnEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
+                    }
+                )
+
+                wv.webChromeClient = JestkWebChromeClient(
+                    tabId = forTabId,
+                    webView = wv,
+                    onProgressChanged = { id, progress -> currentOnEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
+                    onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
+                    onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
+                        currentOnEvent(BrowserUiEvent.SetFullscreenCustomView(view, isFullscreen, orientation))
+                    },
+                    onVideoPlayingStateChanged = { isPlaying ->
+                        currentOnEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
+                    },
+                    onFaviconReceived = handleFavicon,
+                    onShowFileChooser = { callback, params ->
+                        val handler = act as? FileChooserHandler
+                            ?: wv.context.findActivity() as? FileChooserHandler
+                        handler?.openFileChooser(callback, params) ?: false
+                    }
+                )
+            }
+        }
+    }
+
     val resolvedThemeColor = uiState.activeThemeColor ?: currentTab?.themeColor
     val isHome = uiState.activeOverlay == OverlayType.HOME ||
             uiState.currentUrl.isEmpty() ||
@@ -238,102 +332,15 @@ fun WebViewContainer(
         Box(
             modifier = contentModifier
         ) {
-            key(tabId) {
             AndroidView<SwipeRefreshLayout>(
-                factory = { context ->
+                factory = { ctx ->
                     webViewPool.isAdBlockerEnabled = { currentUiState.settings.isAdBlockerEnabled }
-                    val activity = context.findActivity() ?: context
-                    val webView = webViewPool.getOrCreateWebView(tabId, activity)
-                    // Enforce proper parent detachment when recycling WebViews in Compose
-                    (webView.parent as? ViewGroup)?.removeView(webView)
-                    (webView.context as? MutableContextWrapper)?.baseContext = activity
-                    webView.isFocusable = true
-                    webView.isFocusableInTouchMode = true
-                    setupWebViewLongClick(webView)
-                    webView.safeResume()
-
-                    webView.setOnScrollChangeListener { v, _, scrollY, _, oldScrollY ->
-                        val dy = scrollY - oldScrollY
-                        val viewportHeight = if (v.height > 0) v.height else v.resources.displayMetrics.heightPixels
-                        val crossedHScreen = (oldScrollY > viewportHeight && scrollY <= viewportHeight) ||
-                            (oldScrollY <= viewportHeight && scrollY > viewportHeight)
-                        if (kotlin.math.abs(dy) > 8 || scrollY <= 0 || crossedHScreen) {
-                            currentOnEvent(
-                                BrowserUiEvent.OnWebScroll(
-                                    deltaY = dy.toFloat(),
-                                    scrollY = scrollY,
-                                    viewportHeight = viewportHeight,
-                                )
-                            )
-                        }
-                    }
-
-                    val handleFavicon: (String, android.graphics.Bitmap) -> Unit = { id, icon ->
-                        scope.launch {
-                            val currentTabUrl = currentTab?.url?.takeIf { it.isNotBlank() }
-                            val activeUrl = if (currentUiState.activeTabId == id) currentUiState.currentUrl.takeIf { it.isNotBlank() } else null
-                            val webViewUrl = webView.url?.takeIf { it.isNotBlank() }
-                            val currentUrl = currentTabUrl ?: activeUrl ?: webViewUrl ?: targetUrl.takeIf { it.isNotBlank() }
-                            val path = FaviconManager.saveFavicon(context, id, icon, currentUrl)
-                            if (path != null) {
-                                currentOnEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
-                            }
-                        }
-                    }
-
-                    webView.webViewClient = JestkWebViewClient(
-                        tabId = tabId,
-                        isAdBlockerEnabled = { currentUiState.settings.isAdBlockerEnabled },
-                        onPageStarted = { id, url ->
-                            currentOnEvent(BrowserUiEvent.OnPageStarted(id, url))
-                        },
-                        onPageFinished = { id, url, title ->
-                            currentOnEvent(BrowserUiEvent.OnPageFinished(id, url, title))
-                        },
-                        onNavigationStateChanged = { id, canBack, canForward ->
-                            currentOnEvent(BrowserUiEvent.OnNavigationStateChanged(id, canBack, canForward))
-                        },
-                        onSnapshotReady = { id, path -> currentOnEvent(BrowserUiEvent.OnSnapshotCaptured(id, path)) },
-                        onThemeColorDetected = { id, color ->
-                            currentOnEvent(BrowserUiEvent.OnThemeColorReceived(id, color))
-                        },
-                        isDarkTheme = { isDark },
-                        onFaviconReceived = handleFavicon,
-                        onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
-                        isOpenInAppsEnabled = { currentUiState.settings.isOpenInAppsEnabled },
-                        onExternalAppOffered = { id, prompt, userInitiated ->
-                            currentOnEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
-                        }
-                    )
-
-                    webView.webChromeClient = JestkWebChromeClient(
-                        tabId = tabId,
-                        webView = webView,
-                        onProgressChanged = { id, progress -> currentOnEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
-                        onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
-                        onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
-                            currentOnEvent(BrowserUiEvent.SetFullscreenCustomView(view, isFullscreen, orientation))
-                        },
-                        onVideoPlayingStateChanged = { isPlaying ->
-                            currentOnEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
-                        },
-                        onFaviconReceived = handleFavicon,
-                        onShowFileChooser = { callback, params ->
-                            val handler = context.findActivity() as? FileChooserHandler
-                                ?: webView.context.findActivity() as? FileChooserHandler
-                            handler?.openFileChooser(callback, params) ?: false
-                        }
-                    )
-
-                    val nestedWebView = webView as? NestedWebView
-                    val nestedLoadedUrl = nestedWebView?.loadedUrl
-                    val isUnloaded = nestedLoadedUrl.isNullOrEmpty() || nestedLoadedUrl == "about:blank"
-                    if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
-                        if (isUnloaded && (webView.url.isNullOrEmpty() || webView.url == "about:blank")) {
-                            webView.loadUrl(targetUrl)
-                        } else if (currentTab?.themeColor == null) {
-                            (webView.webViewClient as? JestkWebViewClient)?.extractThemeColor(webView)
-                        }
+                    val act = ctx.findActivity() ?: ctx
+                    val tabsContainer = FrameLayout(ctx).apply {
+                        layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
                     }
 
                     val brandColors = intArrayOf(
@@ -343,7 +350,7 @@ fun WebViewContainer(
                         android.graphics.Color.parseColor("#38BDF8")
                     )
 
-                    JestkSwipeRefreshLayout(context).apply {
+                    val swipeRefresh = JestkSwipeRefreshLayout(ctx).apply {
                         setColorSchemeColors(*brandColors)
                         setProgressBackgroundColorSchemeColor(surfaceColor)
                         descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
@@ -354,8 +361,9 @@ fun WebViewContainer(
                             vibration.confirm()
                         }
                         setOnChildScrollUpCallback { _, _ ->
-                            val currentChild = (getChildAt(0) as? android.webkit.WebView) ?: webView
-                            val nested = currentChild as? NestedWebView
+                            val activeWv = webViewPool.getWebView(currentActiveTabId)
+                                ?: (tabsContainer.getChildAt(tabsContainer.childCount - 1) as? WebView)
+                            val nested = activeWv as? NestedWebView
                             val isBlocked = currentUiState.isLoading ||
                                     currentUiState.isVideoPlaying ||
                                     currentUiState.isFullscreenCustomView ||
@@ -366,17 +374,43 @@ fun WebViewContainer(
                             } else if (nested != null && !nested.isPullToRefreshEligible()) {
                                 true
                             } else {
-                                currentChild.canScrollVertically(-1) || currentChild.scrollY > 0
+                                activeWv?.canScrollVertically(-1) == true || (activeWv?.scrollY ?: 0) > 0
                             }
                         }
                         addView(
-                            webView,
+                            tabsContainer,
                             ViewGroup.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
                         )
                     }
+
+                    val initialWebView = webViewPool.getOrCreateWebView(tabId, act)
+                    (initialWebView.parent as? ViewGroup)?.removeView(initialWebView)
+                    configureWebView(initialWebView, tabId, act)
+                    tabsContainer.addView(
+                        initialWebView,
+                        ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT
+                        )
+                    )
+                    initialWebView.visibility = View.VISIBLE
+                    initialWebView.safeResume()
+
+                    val nestedWebView = initialWebView as? NestedWebView
+                    val nestedLoadedUrl = nestedWebView?.loadedUrl
+                    val isUnloaded = nestedLoadedUrl.isNullOrEmpty() || nestedLoadedUrl == "about:blank"
+                    if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
+                        if (isUnloaded && (initialWebView.url.isNullOrEmpty() || initialWebView.url == "about:blank")) {
+                            initialWebView.loadUrl(targetUrl)
+                        } else if (currentTab?.themeColor == null) {
+                            (initialWebView.webViewClient as? JestkWebViewClient)?.extractThemeColor(initialWebView)
+                        }
+                    }
+
+                    swipeRefresh
                 },
                 update = { swipeRefresh ->
                     webViewPool.isAdBlockerEnabled = { uiState.settings.isAdBlockerEnabled }
@@ -395,45 +429,63 @@ fun WebViewContainer(
                     )
                     swipeRefresh.setColorSchemeColors(*brandColors)
                     swipeRefresh.setProgressBackgroundColorSchemeColor(surfaceColor)
+                    (swipeRefresh as? JestkSwipeRefreshLayout)?.onRefreshTriggerReached = { vibration.confirm() }
 
-                    val activity = swipeRefresh.context.findActivity() ?: swipeRefresh.context
-                    val currentWebView = (swipeRefresh.getChildAt(0) as? android.webkit.WebView)
-                        ?: webViewPool.getOrCreateWebView(tabId, activity)
-                    (currentWebView.context as? MutableContextWrapper)?.baseContext = activity
-                    currentWebView.isFocusable = true
-                    currentWebView.isFocusableInTouchMode = true
-                    setupWebViewLongClick(currentWebView)
+                    val tabsContainer = (swipeRefresh.getChildAt(0) as? FrameLayout) ?: return@AndroidView
+                    val act = swipeRefresh.context.findActivity() ?: swipeRefresh.context
+                    val targetWebView = webViewPool.getOrCreateWebView(tabId, act)
 
-                    if (currentWebView.parent !== swipeRefresh) {
-                        (currentWebView.parent as? ViewGroup)?.removeView(currentWebView)
-                        swipeRefresh.addView(
-                            currentWebView,
+                    if (targetWebView.parent !== tabsContainer) {
+                        (targetWebView.parent as? ViewGroup)?.removeView(targetWebView)
+                        tabsContainer.addView(
+                            targetWebView,
                             ViewGroup.LayoutParams(
                                 ViewGroup.LayoutParams.MATCH_PARENT,
                                 ViewGroup.LayoutParams.MATCH_PARENT
                             )
                         )
-                        currentWebView.safeResume()
+                        configureWebView(targetWebView, tabId, act)
+                        targetWebView.safeResume()
+                    } else {
+                        configureWebView(targetWebView, tabId, act)
                     }
 
-                    (swipeRefresh as? JestkSwipeRefreshLayout)?.onRefreshTriggerReached = { vibration.confirm() }
+                    for (i in 0 until tabsContainer.childCount) {
+                        val child = tabsContainer.getChildAt(i)
+                        if (child === targetWebView) {
+                            if (child.visibility != View.VISIBLE) {
+                                child.visibility = View.VISIBLE
+                            }
+                            child.bringToFront()
+                        } else {
+                            if (child.visibility != View.GONE) {
+                                child.visibility = View.GONE
+                            }
+                        }
+                    }
 
-                    val currentNested = currentWebView as? NestedWebView
+                    val pooledWebViews = uiState.tabs.mapNotNull { webViewPool.getWebView(it.id) }.toSet()
+                    for (i in tabsContainer.childCount - 1 downTo 0) {
+                        val child = tabsContainer.getChildAt(i) as? WebView
+                        if (child != null && child !== targetWebView && !pooledWebViews.contains(child)) {
+                            tabsContainer.removeViewAt(i)
+                        }
+                    }
+
+                    val currentNested = targetWebView as? NestedWebView
                     val currentLoadedUrl = currentNested?.loadedUrl
                     val isCurrentUnloaded = currentLoadedUrl.isNullOrEmpty() || currentLoadedUrl == "about:blank"
                     if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
-                        if (isCurrentUnloaded && (currentWebView.url.isNullOrEmpty() || currentWebView.url == "about:blank")) {
-                            currentWebView.loadUrl(targetUrl)
+                        if (isCurrentUnloaded && (targetWebView.url.isNullOrEmpty() || targetWebView.url == "about:blank")) {
+                            targetWebView.loadUrl(targetUrl)
                         }
                     }
                 },
                 onReset = { swipeRefresh ->
                     (swipeRefresh as? JestkSwipeRefreshLayout)?.onRefreshTriggerReached = null
-                    swipeRefresh.removeAllViews()
                 },
                 modifier = Modifier.fillMaxSize()
             )
-        }
         }
     }
 }
