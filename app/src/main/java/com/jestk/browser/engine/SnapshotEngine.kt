@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.webkit.WebView
+import com.jestk.browser.util.atomicMoveTo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -208,10 +209,7 @@ object SnapshotEngine {
                 FileOutputStream(tempFile).use { out ->
                     thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
                 }
-                if (!tempFile.renameTo(targetFile)) {
-                    tempFile.copyTo(targetFile, overwrite = true)
-                    tempFile.delete()
-                }
+                tempFile.atomicMoveTo(targetFile)
                 thumbnailBitmap.recycle()
 
                 Log.d(TAG, "Captured snapshot for tab $tabId")

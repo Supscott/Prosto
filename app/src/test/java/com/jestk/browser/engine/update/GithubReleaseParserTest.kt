@@ -58,12 +58,12 @@ class GithubReleaseParserTest {
     }
 
     @Test
-    fun parseGithubRelease_ignoresNonProstoApkAssets() {
+    fun parseGithubRelease_ignoresDebugApkAssets() {
         val assets =
             """
             [
               {"name":"app-debug.apk","browser_download_url":"https://example.com/debug.apk"},
-              {"name":"other.apk","browser_download_url":"https://example.com/other.apk"}
+              {"name":"prosto-debug.apk","browser_download_url":"https://example.com/prosto-debug.apk"}
             ]
             """.trimIndent()
 

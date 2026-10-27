@@ -250,12 +250,12 @@ fun SwipeUpHint(
                     false
                 }
         }
-    val bounceOffset =
+    val bounceState =
         if (isRunningInTest || LocalInspectionMode.current) {
-            0f
+            null
         } else {
             val infiniteTransition = rememberInfiniteTransition(label = "SwipeHintBounce")
-            val bounce by infiniteTransition.animateFloat(
+            infiniteTransition.animateFloat(
                 initialValue = 0f,
                 targetValue = -3f,
                 animationSpec =
@@ -265,7 +265,6 @@ fun SwipeUpHint(
                     ),
                 label = "SwipeHintBounceY",
             )
-            bounce
         }
 
     val typography = LocalProstoTypography.current
@@ -277,7 +276,10 @@ fun SwipeUpHint(
         shadowElevation = 2.dp,
         modifier =
             modifier
-                .offset { IntOffset(0, bounceOffset.dp.roundToPx()) }
+                .offset {
+                    val y = bounceState?.value ?: 0f
+                    IntOffset(0, y.dp.roundToPx())
+                }
                 .clip(ProstoShapes.Pill)
                 .clickable(onClick = onClick),
     ) {

@@ -3,6 +3,7 @@ package com.jestk.browser.engine
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import com.jestk.browser.util.atomicMoveTo
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -101,5 +102,21 @@ class SnapshotEngineTest {
         SnapshotEngine.init(context.applicationContext)
 
         assertThat(SnapshotEngine.isScopeActive()).isTrue()
+    }
+
+    @Test
+    fun atomicStaging_createsFinalSnapshotWithoutLeavingTempFile() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        SnapshotEngine.init(context)
+
+        val snapshotsDir = File(context.filesDir, "snapshots").apply { mkdirs() }
+        val tempFile = File(snapshotsDir, "tab_test123.jpg.tmp").apply { writeBytes("bitmap_bytes".toByteArray()) }
+        val targetFile = File(snapshotsDir, "tab_test123.jpg")
+
+        val moved = tempFile.atomicMoveTo(targetFile)
+        assertThat(moved).isTrue()
+        assertThat(tempFile.exists()).isFalse()
+        assertThat(targetFile.exists()).isTrue()
+        assertThat(targetFile.readText()).isEqualTo("bitmap_bytes")
     }
 }

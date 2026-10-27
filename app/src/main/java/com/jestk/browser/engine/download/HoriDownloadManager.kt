@@ -11,6 +11,7 @@ import android.webkit.CookieManager
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.DownloadStatus
 import com.jestk.browser.domain.repository.DownloadRepository
+import com.jestk.browser.util.atomicMoveTo
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -511,10 +512,7 @@ class HoriDownloadManager(
 
         val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
         tempFile.outputStream().use { it.write(bytes) }
-        if (!tempFile.renameTo(targetFile)) {
-            tempFile.copyTo(targetFile, overwrite = true)
-            tempFile.delete()
-        }
+        tempFile.atomicMoveTo(targetFile)
 
         val id = downloadRepository.recordDownload(
             url = if (url.length > 512) url.take(512) + "..." else url,

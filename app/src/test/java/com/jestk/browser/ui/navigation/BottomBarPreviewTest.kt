@@ -535,4 +535,56 @@ val width = 440
         assertThat(outputFile.exists()).isTrue()
         assertThat(outputFile.length()).isGreaterThan(0L)
     }
+
+    @Test
+    fun renderHomeScreenWithSwipeUpSearchHintPreview() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val homeState = BrowserUiState(
+            tabs = listOf(Tab(id = "home-tab", url = "about:blank", title = "Home")),
+            activeTabId = "home-tab",
+            isMenuExpanded = false
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color.White),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        UnifiedBottomBar(
+                            uiState = homeState,
+                            onEvent = {}
+                        )
+                    }
+                }
+            }
+        }
+        activity.setContentView(composeView)
+
+        val width = 440
+        val height = 956
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        composeView.draw(canvas)
+
+        val outputFile = File("build/dock_home_swipe_hint_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+
+        assertThat(outputFile.exists()).isTrue()
+        assertThat(outputFile.length()).isGreaterThan(0L)
+    }
 }

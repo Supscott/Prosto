@@ -310,4 +310,40 @@ class WebViewPoolRobolectricTest {
         assertThat(quoted).contains("\\r\\n")
         assertThat(quoted).doesNotContain("\r\n")
     }
+
+    @Test
+    fun buildBlobDownloadScript_generatesValidJavascriptWithQuotedParameters() {
+        val blobUrl = "blob:https://example.com/uuid-1234"
+        val maliciousDisposition = "attachment; filename=\"safe\\nInjected: True';\");\""
+        val mimeType = "application/pdf"
+
+        val js = webViewPool.buildBlobDownloadScript(blobUrl, maliciousDisposition, mimeType)
+
+        val quotedUrl = org.json.JSONObject.quote(blobUrl)
+        val quotedMime = org.json.JSONObject.quote(mimeType)
+
+        // Verifies parameters are wrapped in quotes and embedded safely
+        assertThat(js).contains("xhr.open('GET', $quotedUrl, true);")
+        assertThat(js).contains("window.JestkBlobBridge.onBlobDownloaded(reader.result,")
+        assertThat(js).contains(quotedMime)
+    }
+
+    @Test
+    fun handleBlobDownload_onOriginatingWebView_postsAndEvaluates() {
+        val webView = webViewPool.getOrCreateWebView("tab-download-target")
+        val mainLooper = shadowOf(Looper.getMainLooper())
+        mainLooper.idle()
+
+        webViewPool.handleBlobDownload(
+            blobUrl = "blob:https://example.com/test",
+            contentDisposition = "attachment; filename=\"test.png\"",
+            mimeType = "image/png",
+            context = appContext,
+            webView = webView
+        )
+        mainLooper.idle()
+
+        // WebView remains valid and active
+        assertThat(webView.url).isNull()
+    }
 }

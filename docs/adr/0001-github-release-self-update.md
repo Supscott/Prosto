@@ -24,7 +24,9 @@ Requirements:
 **Detection.** On every cold start (once per app process) the app queries
 `GET https://api.github.com/repos/Supscott/Prosto/releases/latest`. The release is newer
 when the semver of its `tag_name` (with the `v` prefix stripped) is greater than the
-installed `versionName`. Releases without an `.apk` asset are ignored.
+installed `versionName`. Releases without an `.apk` asset are ignored. When multiple
+assets or builds are attached to a release, debug binaries (`*debug*.apk`) are filtered
+out and official release binaries (`prosto-*.apk`) are prioritized.
 
 **Download.** The release APK is streamed with OkHttp into app-private storage
 (`filesDir/updates/prosto-<version>.apk`, written to a `.part` file first and renamed on

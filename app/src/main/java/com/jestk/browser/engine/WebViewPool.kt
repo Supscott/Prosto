@@ -471,11 +471,28 @@ class WebViewPool(
         Toast.makeText(targetContext, "Preparing download...", Toast.LENGTH_SHORT).show()
         Log.d(TAG, "Preparing blob download: $blobUrl")
 
+        val js = buildBlobDownloadScript(blobUrl, contentDisposition, mimeType)
+
+        try {
+            webView.post {
+                webView.evaluateJavascript(js, null)
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "Failed to evaluate blob download script", t)
+            Toast.makeText(targetContext, "Download failed: ${t.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    internal fun buildBlobDownloadScript(
+        blobUrl: String,
+        contentDisposition: String?,
+        mimeType: String?
+    ): String {
         val jsonUrl = org.json.JSONObject.quote(blobUrl)
         val jsonDisposition = org.json.JSONObject.quote(contentDisposition ?: "")
         val jsonMime = org.json.JSONObject.quote(mimeType ?: "")
 
-        val js = """
+        return """
             (function() {
                 try {
                     var xhr = new XMLHttpRequest();
@@ -510,15 +527,6 @@ class WebViewPool(
                 } catch(e) {}
             })();
         """.trimIndent()
-
-        try {
-            webView.post {
-                webView.evaluateJavascript(js, null)
-            }
-        } catch (t: Throwable) {
-            Log.e(TAG, "Failed to evaluate blob download script", t)
-            Toast.makeText(targetContext, "Download failed: ${t.message}", Toast.LENGTH_SHORT).show()
-        }
     }
 
     fun applyThemeMode(webView: WebView, isDark: Boolean) {

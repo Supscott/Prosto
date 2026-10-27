@@ -132,4 +132,34 @@ class DownloadRepositoryTest {
         assertThat(repository.getDownloadById(id)).isNull()
         assertThat(tempFile.exists()).isFalse()
     }
+
+    @Test
+    fun deleteDownload_whenScopeCancelled_rethrowsCancellationException() = runTest(testDispatcher) {
+        val job = kotlinx.coroutines.Job()
+        job.cancel()
+        var caughtCancellation = false
+        try {
+            kotlinx.coroutines.withContext(job) {
+                repository.deleteDownload(1L, deleteFile = true)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            caughtCancellation = true
+        }
+        assertThat(caughtCancellation).isTrue()
+    }
+
+    @Test
+    fun clearAllDownloads_whenScopeCancelled_rethrowsCancellationException() = runTest(testDispatcher) {
+        val job = kotlinx.coroutines.Job()
+        job.cancel()
+        var caughtCancellation = false
+        try {
+            kotlinx.coroutines.withContext(job) {
+                repository.clearAllDownloads(deleteFiles = true)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            caughtCancellation = true
+        }
+        assertThat(caughtCancellation).isTrue()
+    }
 }
