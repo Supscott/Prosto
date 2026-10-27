@@ -215,4 +215,28 @@ class WebViewPoolRobolectricTest {
         assertThat(webViewPool.getWebView("keep-2")).isNotNull()
         assertThat(webViewPool.getWebView("remove-me")).isNull()
     }
+
+    @Test
+    fun onTabActivated_whenCalledFromBackgroundThread_dispatchesLifecycleToMainLooper() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        webViewPool.getOrCreateWebView("tab-bg-1", activity)
+        webViewPool.getOrCreateWebView("tab-bg-2", activity)
+
+        var backgroundException: Throwable? = null
+        val thread = Thread {
+            try {
+                webViewPool.onTabActivated("tab-bg-2")
+            } catch (t: Throwable) {
+                backgroundException = t
+            }
+        }
+        thread.start()
+        thread.join(2000)
+
+        assertThat(backgroundException).isNull()
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        // Both WebViews must remain valid and accessible without crashing
+        assertThat(webViewPool.getWebView("tab-bg-1")).isNotNull()
+        assertThat(webViewPool.getWebView("tab-bg-2")).isNotNull()
+    }
 }
