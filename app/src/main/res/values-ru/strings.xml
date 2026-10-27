@@ -56,7 +56,6 @@
     <string name="external_app_open_in">Открыть в %1$s</string>
     <string name="external_app_open_generic">Открыть в приложении</string>
     <string name="external_app_open_action">Открыть</string>
-    <string name="update_section_title">ОБНОВЛЕНИЯ</string>
     <string name="settings_section_interaction">ВЗАИМОДЕЙСТВИЕ</string>
     <string name="settings_section_appearance">ВНЕШНИЙ ВИД</string>
     <string name="settings_section_general">ОБЩИЕ</string>

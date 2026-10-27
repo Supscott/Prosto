@@ -139,7 +139,9 @@ class SearchEngineRepositoryImpl(
                     searchEngineDao.update(engine.copy(iconUrl = fileUri).toEntity())
                 }
             }
-        } catch (_: Throwable) {
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (_: Exception) {
             // Non-fatal, will retry on subsequent launches
         }
     }

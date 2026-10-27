@@ -7,9 +7,9 @@ export type SearchEngine = {
   custom?: boolean;
 };
 
-export const DOWNLOAD_URL = 'https://github.com/Supscott/browser/releases';
-export const REPO_URL = 'https://github.com/Supscott/browser';
-export const LICENSE_URL = 'https://github.com/Supscott/browser/blob/main/LICENSE';
+export const DOWNLOAD_URL = 'https://github.com/Supscott/Prosto/releases';
+export const REPO_URL = 'https://github.com/Supscott/Prosto';
+export const LICENSE_URL = 'https://github.com/Supscott/Prosto/blob/main/LICENSE';
 
 export const BUILT_IN_ENGINES: SearchEngine[] = [
   { id: 'google', name: 'Google', mark: 'G', color: '#f6c945', url: 'https://www.google.com/search?q=%s' },

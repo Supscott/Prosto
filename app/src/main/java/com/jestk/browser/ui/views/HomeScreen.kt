@@ -542,8 +542,8 @@ private fun FavoriteSquircleCard(
     item: PresetFavorite,
     isDark: Boolean,
     onClick: () -> Unit,
-    onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
+    onDelete: (() -> Unit)? = null,
 ) {
     var showMenu by remember { mutableStateOf(false) }
     val clipboard = LocalClipboard.current

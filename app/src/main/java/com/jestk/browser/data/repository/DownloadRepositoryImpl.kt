@@ -103,7 +103,9 @@ class DownloadRepositoryImpl(
                     if (partFile.exists()) {
                         partFile.delete()
                     }
-                } catch (_: Throwable) {}
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {}
             }
         }
         downloadDao.deleteDownloadById(id)
@@ -116,7 +118,9 @@ class DownloadRepositoryImpl(
                 try {
                     File(entity.filePath).delete()
                     File("${entity.filePath}.crdownload").delete()
-                } catch (_: Throwable) {}
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (_: Exception) {}
             }
         }
         downloadDao.clearAllDownloads()

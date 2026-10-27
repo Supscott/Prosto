@@ -494,17 +494,27 @@ class HoriDownloadManager(
         if (commaIndex == -1) throw IllegalArgumentException("Invalid data URL")
 
         val metadata = url.substring(5, commaIndex)
-        val base64Data = url.substring(commaIndex + 1)
-        val bytes = Base64.decode(base64Data, Base64.DEFAULT)
+        val rawData = url.substring(commaIndex + 1)
+        val isBase64 = metadata.contains(";base64", ignoreCase = true)
+        val bytes = if (isBase64) {
+            Base64.decode(rawData, Base64.DEFAULT)
+        } else {
+            java.net.URLDecoder.decode(rawData, "UTF-8").toByteArray(Charsets.UTF_8)
+        }
 
         val metaMime = metadata.substringBefore(';').trim().ifEmpty { null }
-        val resolvedMime = metaMime ?: mimeType ?: "application/octet-stream"
+        val resolvedMime = metaMime ?: mimeType ?: "text/plain"
 
         val fileName = DownloadFileNameResolver.resolveFileName("data:$resolvedMime", contentDisposition, resolvedMime)
         val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         val targetFile = DownloadFileNameResolver.resolveUniqueFile(downloadDir, fileName)
 
-        targetFile.writeBytes(bytes)
+        val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
+        tempFile.outputStream().use { it.write(bytes) }
+        if (!tempFile.renameTo(targetFile)) {
+            tempFile.copyTo(targetFile, overwrite = true)
+            tempFile.delete()
+        }
 
         val id = downloadRepository.recordDownload(
             url = if (url.length > 512) url.take(512) + "..." else url,

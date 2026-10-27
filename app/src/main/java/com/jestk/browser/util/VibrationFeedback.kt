@@ -1,5 +1,6 @@
 package com.jestk.browser.util
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.media.AudioAttributes
 import android.os.Build
@@ -50,12 +51,14 @@ class VibratorVibrationFeedback internal constructor(
 
     private val canVibrate: Boolean = vibrator?.hasVibrator() == true
 
+    @SuppressLint("InlinedApi")
     override fun tick() =
         vibrate(
             predefinedEffect = VibrationEffect.EFFECT_TICK,
             fallbackDurationMs = TICK_DURATION_MS,
         )
 
+    @SuppressLint("InlinedApi")
     override fun confirm() =
         vibrate(
             predefinedEffect = VibrationEffect.EFFECT_CLICK,

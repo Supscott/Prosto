@@ -8,10 +8,10 @@
 
   An ultra-fast, gesture-driven Android browser crafted around one-handed ergonomics, tactile physics, and zero distractions.
 
-  [![Release](https://img.shields.io/github/v/release/Supscott/browser?style=flat-square&color=2563EB&label=Release)](https://github.com/Supscott/browser/releases)
+  [![Release](https://img.shields.io/github/v/release/Supscott/Prosto?style=flat-square&color=2563EB&label=Release)](https://github.com/Supscott/Prosto/releases)
   [![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-3B82F6.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
   [![Android Min SDK](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-34D399.svg?style=flat-square)](https://developer.android.com/about/versions/oreo)
-  [![APK Size](https://img.shields.io/badge/APK%20Size-~4.0%20MB-10B981.svg?style=flat-square)](https://github.com/Supscott/browser/releases)
+  [![APK Size](https://img.shields.io/badge/APK%20Size-~4.0%20MB-10B981.svg?style=flat-square)](https://github.com/Supscott/Prosto/releases)
   [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7C3AED.svg?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
   [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202025.12-4285F4.svg?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
   [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
@@ -59,9 +59,9 @@ Smartphones have grown to 6.7"+ displays, yet traditional mobile browsers still 
 
 Get the latest release directly from GitHub:
 
-[![Download APK](https://img.shields.io/badge/Download-prosto--v0.5.0.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/browser/releases/download/v0.5.0/prosto-v0.5.0.apk)
+[![Download APK](https://img.shields.io/badge/Download-prosto--v0.5.0.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/Prosto/releases/download/v0.5.0/prosto-v0.5.0.apk)
 
-> Requires **Android 8.0+ (Oreo, API 26+)**. See all versions and checksums on the [Releases page](https://github.com/Supscott/browser/releases).
+> Requires **Android 8.0+ (Oreo, API 26+)**. See all versions and checksums on the [Releases page](https://github.com/Supscott/Prosto/releases).
 
 ---
 
@@ -112,7 +112,7 @@ Prosto follows Clean Architecture principles with Jetpack Compose:
 ## 🤝 Contributing
 
 Contributions are welcome! Whether it's reporting a bug, proposing a new feature, or submitting a pull request:
-1. Check existing [Issues](https://github.com/Supscott/browser/issues) or create a new one.
+1. Check existing [Issues](https://github.com/Supscott/Prosto/issues) or create a new one.
 2. Read our [Contributing Guidelines](CONTRIBUTING.md).
 3. Ensure all tests pass before submitting (`./gradlew :app:testDebugUnitTest`).
 

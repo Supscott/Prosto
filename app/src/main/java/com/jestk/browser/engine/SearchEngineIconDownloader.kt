@@ -4,15 +4,24 @@ import android.content.Context
 import com.jestk.browser.domain.model.SearchEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
+import java.util.concurrent.TimeUnit
 
 object SearchEngineIconDownloader {
     private const val ICONS_DIR = "search_icons"
-    private const val CONNECT_TIMEOUT_MS = 6000
-    private const val READ_TIMEOUT_MS = 6000
-    private const val MAX_REDIRECTS = 5
+    private const val CONNECT_TIMEOUT_SECONDS = 6L
+    private const val READ_TIMEOUT_SECONDS = 6L
+
+    private val httpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+    }
 
     fun getIconFile(
         context: Context,
@@ -67,61 +76,32 @@ object SearchEngineIconDownloader {
         urlStr: String,
         destinationFile: File,
     ): Boolean {
-        var currentUrl = urlStr
-        var redirects = 0
-        var connection: HttpURLConnection? = null
+        return try {
+            val request = Request.Builder()
+                .url(urlStr)
+                .header("User-Agent", "Mozilla/5.0 ProstoBrowser/1.0")
+                .build()
 
-        try {
-            while (redirects < MAX_REDIRECTS) {
-                val url = URL(currentUrl)
-                connection =
-                    (url.openConnection() as HttpURLConnection).apply {
-                        connectTimeout = CONNECT_TIMEOUT_MS
-                        readTimeout = READ_TIMEOUT_MS
-                        instanceFollowRedirects = true
-                        setRequestProperty("User-Agent", "Mozilla/5.0 ProstoBrowser/1.0")
-                    }
+            httpClient.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return false
+                val body = response.body ?: return false
 
-                val code = connection.responseCode
-                if (code == HttpURLConnection.HTTP_MOVED_PERM ||
-                    code == HttpURLConnection.HTTP_MOVED_TEMP ||
-                    code == HttpURLConnection.HTTP_SEE_OTHER ||
-                    code == 307 || code == 308
-                ) {
-                    val location = connection.getHeaderField("Location") ?: break
-                    currentUrl =
-                        if (location.startsWith("http://") || location.startsWith("https://")) {
-                            location
-                        } else {
-                            URL(url, location).toString()
-                        }
-                    redirects++
-                    connection.disconnect()
-                    continue
+                destinationFile.parentFile?.mkdirs()
+                val tempFile = File(destinationFile.parentFile, "${destinationFile.name}.tmp")
+                tempFile.outputStream().use { output ->
+                    body.byteStream().copyTo(output)
                 }
 
-                if (code in 200..299) {
-                    destinationFile.parentFile?.mkdirs()
-                    val tempFile = File(destinationFile.parentFile, "${destinationFile.name}.tmp")
-                    connection.inputStream.use { input ->
-                        tempFile.outputStream().use { output ->
-                            input.copyTo(output)
-                        }
-                    }
-                    return if (tempFile.exists() && tempFile.length() > 0) {
-                        tempFile.renameTo(destinationFile)
-                    } else {
-                        tempFile.delete()
-                        false
-                    }
+                if (tempFile.exists() && tempFile.length() > 0) {
+                    tempFile.renameTo(destinationFile)
+                } else {
+                    tempFile.delete()
+                    false
                 }
-                break
             }
         } catch (_: Throwable) {
             // Network errors are non-fatal; the app falls back to remote URL or letter initial
-        } finally {
-            connection?.disconnect()
+            false
         }
-        return false
     }
 }

@@ -56,7 +56,6 @@
     <string name="external_app_open_in">Open in %1$s</string>
     <string name="external_app_open_generic">Open in app</string>
     <string name="external_app_open_action">Open</string>
-    <string name="update_section_title">UPDATES</string>
     <string name="settings_section_interaction">INTERACTION</string>
     <string name="settings_section_appearance">APPEARANCE</string>
     <string name="settings_section_general">GENERAL</string>

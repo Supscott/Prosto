@@ -203,9 +203,14 @@ object SnapshotEngine {
                     if (!exists()) mkdirs()
                 }
                 val targetFile = File(snapshotsDir, "tab_${tabId}.jpg")
+                val tempFile = File(snapshotsDir, "tab_${tabId}.jpg.tmp")
 
-                FileOutputStream(targetFile).use { out ->
+                FileOutputStream(tempFile).use { out ->
                     thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                }
+                if (!tempFile.renameTo(targetFile)) {
+                    tempFile.copyTo(targetFile, overwrite = true)
+                    tempFile.delete()
                 }
                 thumbnailBitmap.recycle()
 

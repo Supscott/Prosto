@@ -115,4 +115,20 @@ class SearchEngineRepositoryTest {
         assertThat(reordered[4].id).isEqualTo("duckduckgo")
         assertThat(reordered[5].id).isEqualTo("google")
     }
+
+    @Test
+    fun downloadIcons_whenScopeCancelled_rethrowsCancellationException() = runTest {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val job = kotlinx.coroutines.Job()
+        job.cancel()
+        var caughtCancellation = false
+        try {
+            kotlinx.coroutines.withContext(job) {
+                repository.downloadIcons(context)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            caughtCancellation = true
+        }
+        assertThat(caughtCancellation).isTrue()
+    }
 }

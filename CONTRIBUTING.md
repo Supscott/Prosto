@@ -47,7 +47,7 @@ If you add new features or fix bugs:
 
 ## 🐛 Reporting Bugs
 
-- Search existing [Issues](https://github.com/Supscott/browser/issues) to ensure the bug hasn't already been reported.
+- Search existing [Issues](https://github.com/Supscott/Prosto/issues) to ensure the bug hasn't already been reported.
 - If not, open a new issue using our **Bug Report Template** and include:
   - Android version and device model.
   - Steps to reproduce.

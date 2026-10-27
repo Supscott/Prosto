@@ -179,7 +179,7 @@ export function BentoSection() {
 
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="min-w-0 flex-1 overflow-x-auto rounded-xl border border-line bg-black/25 px-3.5 py-3 font-mono text-[0.58rem] text-muted">
-                <span className="text-brand">$</span> git clone https://github.com/Supscott/browser.git
+                <span className="text-brand">$</span> git clone https://github.com/Supscott/Prosto.git
               </div>
               <a
                 href={REPO_URL}

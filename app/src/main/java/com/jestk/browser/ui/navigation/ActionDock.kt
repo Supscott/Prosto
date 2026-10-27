@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -201,9 +202,9 @@ fun ActionPopupMenu(
 fun ActionDockMenuButton(
     isExpanded: Boolean,
     isDark: Boolean,
-    backgroundColor: Color = if (isDark) DarkSurface else ProstoCardSurface,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    backgroundColor: Color = if (isDark) DarkSurface else ProstoCardSurface,
 ) {
     val activeTint = if (isDark) ProstoAccent else ProstoBrandPrimary
     val normalTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
@@ -276,7 +277,7 @@ fun SwipeUpHint(
         shadowElevation = 2.dp,
         modifier =
             modifier
-                .offset(y = bounceOffset.dp)
+                .offset { IntOffset(0, bounceOffset.dp.roundToPx()) }
                 .clip(ProstoShapes.Pill)
                 .clickable(onClick = onClick),
     ) {
@@ -313,9 +314,9 @@ fun PopupMenuItem(
     label: String,
     isActive: Boolean,
     isDark: Boolean,
-    trailingLabel: String? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    trailingLabel: String? = null,
 ) {
     val activeBg = if (isDark) Color(0x2656DBCF) else ProstoBrandPrimary.copy(alpha = 0.10f)
     val activeTint = if (isDark) ProstoAccent else ProstoBrandPrimary

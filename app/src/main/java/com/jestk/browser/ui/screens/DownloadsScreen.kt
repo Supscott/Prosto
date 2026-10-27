@@ -281,15 +281,15 @@ private fun DownloadsEmptyState(
 @Composable
 private fun DownloadItemCard(
     item: DownloadItem,
-    progressInfo: DownloadProgressInfo? = null,
     isDark: Boolean,
     onClick: () -> Unit,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+    progressInfo: DownloadProgressInfo? = null,
     onPause: () -> Unit = {},
     onResume: () -> Unit = {},
     onCancel: () -> Unit = {},
     onRetry: () -> Unit = {},
-    onDelete: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val category = resolveFileCategory(item.fileName, item.mimeType)
 

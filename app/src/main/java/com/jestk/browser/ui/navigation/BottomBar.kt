@@ -22,7 +22,6 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
@@ -45,7 +44,6 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
  * - Dock surface: #FFFFFF 80% opacity in Light mode, #0D1824 80% opacity in Dark mode.
  * - Active tab capsule: solid 100% #FFFFFF in Light mode, #0D1824 in Dark mode with light elevation shadow (2.dp).
  * - Elevation & Depth: Level 2 ambient elevation shadow (10.dp cerulean-tinted shadow) and crisp rim border. NO BLUR.
- * - Scroll-driven auto-hide offset translation via [BrowserUiState.bottomBarOffsetY].
  * - Assembles [TabStripRow], [ActionPopupMenu], [SwipeUpHint], and [ActionDockMenuButton].
  */
 @Composable
@@ -67,11 +65,7 @@ fun UnifiedBottomBar(
     val circleBtnBg = Color.Transparent
 
     Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                translationY = uiState.bottomBarOffsetY
-            },
+        modifier = modifier.fillMaxWidth(),
         contentAlignment = Alignment.BottomCenter
     ) {
         Column(

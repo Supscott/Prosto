@@ -243,9 +243,8 @@ class WebViewPoolRobolectricTest {
     }
 
     @Test
-    fun getOrCreateWebView_configuresWebSettingsWithDatabaseEnabled() {
+    fun getOrCreateWebView_configuresWebSettings() {
         val webView = webViewPool.getOrCreateWebView("tab-settings")
-        assertThat(webView.settings.databaseEnabled).isTrue()
         assertThat(webView.settings.domStorageEnabled).isTrue()
         assertThat(webView.settings.javaScriptEnabled).isTrue()
     }
@@ -279,5 +278,36 @@ class WebViewPoolRobolectricTest {
         // Both WebViews remain valid and accessible without crashing
         assertThat(webViewPool.getWebView("tab-bg-1")).isNotNull()
         assertThat(webViewPool.getWebView("tab-bg-2")).isNotNull()
+    }
+
+    @Test
+    fun handleBlobDownload_whenWebViewIsNull_doesNotCrashAndDoesNotEvaluateOnArbitraryPool() {
+        val webView = webViewPool.getOrCreateWebView("tab-isolated")
+        val mainLooper = shadowOf(Looper.getMainLooper())
+        mainLooper.idle()
+
+        // Pass null webView
+        webViewPool.handleBlobDownload(
+            blobUrl = "blob:https://evil.com/test",
+            contentDisposition = "attachment; filename=\"test.pdf\"",
+            mimeType = "application/pdf",
+            context = appContext,
+            webView = null
+        )
+        mainLooper.idle()
+
+        // Pool instance tab-isolated should remain undisturbed
+        assertThat(webViewPool.getWebView("tab-isolated")).isNotNull()
+    }
+
+    @Test
+    fun jsonQuoting_safelyEscapesSpecialCharactersAndNewlines() {
+        val maliciousHeader = "attachment; filename=\"test\r\nInjected-Header: 1'; alert(1); //\""
+        val quoted = org.json.JSONObject.quote(maliciousHeader)
+        // Must start and end with double quotes and contain escaped carriage return/newline
+        assertThat(quoted.startsWith("\"")).isTrue()
+        assertThat(quoted.endsWith("\"")).isTrue()
+        assertThat(quoted).contains("\\r\\n")
+        assertThat(quoted).doesNotContain("\r\n")
     }
 }

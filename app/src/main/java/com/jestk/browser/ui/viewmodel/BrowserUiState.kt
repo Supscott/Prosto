@@ -54,7 +54,6 @@ data class BrowserUiState(
     val updateState: AppUpdateUiState = AppUpdateUiState.None,
     // UI Dynamics & Gestures
     val isBottomBarVisible: Boolean = true,
-    val bottomBarOffsetY: Float = 0f,
     val activeThemeColor: Int? = null,
     val isMenuExpanded: Boolean = false,
     // Media & Fullscreen

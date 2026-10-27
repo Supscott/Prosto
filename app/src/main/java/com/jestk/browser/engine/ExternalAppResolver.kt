@@ -266,18 +266,8 @@ object ExternalAppResolver {
         val excludedPackages = genericBrowserPackages + selfPackageName
         val domain = extractDomain(url).ifBlank { targetPackages.firstOrNull().orEmpty() }
 
-        // Try the strict filter first, then relax the categories/flags. Many apps declare their
-        // deep-link filters without CATEGORY_BROWSABLE or CATEGORY_DEFAULT.
-        var matches = queryMatches(packageManager, parsedIntent, excludedPackages)
-        if (matches.isEmpty()) {
-            val withoutBrowsable = Intent(parsedIntent).apply {
-                removeCategory(Intent.CATEGORY_BROWSABLE)
-            }
-            matches = queryMatches(packageManager, withoutBrowsable, excludedPackages)
-        }
-        if (matches.isEmpty()) {
-            matches = queryMatches(packageManager, parsedIntent, excludedPackages, matchDefaultOnly = false)
-        }
+        // Enforce CATEGORY_BROWSABLE: web content must never match internal non-browsable activities.
+        val matches = queryMatches(packageManager, parsedIntent, excludedPackages)
 
         if (matches.isNotEmpty()) {
             val match = matches.first()
@@ -307,17 +297,16 @@ object ExternalAppResolver {
             val appIcon = appInfo?.loadIcon(packageManager)?.toAppIcon()
             val directIntent = Intent(Intent.ACTION_VIEW, parsedIntent.data).apply {
                 setPackage(targetPackage)
+                addCategory(Intent.CATEGORY_BROWSABLE)
             }
             val canHandleDirectly = queryMatches(
                 packageManager,
                 directIntent,
                 excludedPackages,
-                matchDefaultOnly = false
+                matchDefaultOnly = true
             ).isNotEmpty()
-            val targetIntent = when {
-                canHandleDirectly -> directIntent
-                else -> packageManager.getLaunchIntentForPackage(targetPackage) ?: directIntent
-            }
+            if (!canHandleDirectly) continue
+            val targetIntent = directIntent
 
             return ExternalAppResolution.Offer(
                 prompt = ExternalAppPrompt(
@@ -343,7 +332,7 @@ object ExternalAppResolver {
         }
 
         // App not installed and no site fallback: offer the market listing when the package is known.
-        val missingPackage = targetPackages.firstOrNull()
+        val missingPackage = targetPackages.firstOrNull { !isPackageInstalled(packageManager, it) }
         if (missingPackage != null) {
             return ExternalAppResolution.Offer(
                 prompt = ExternalAppPrompt(

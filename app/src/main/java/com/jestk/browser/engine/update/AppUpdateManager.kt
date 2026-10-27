@@ -249,7 +249,8 @@ fun parseGithubRelease(json: String): AppUpdate? {
     for (index in 0 until assets.length()) {
         val asset = assets.optJSONObject(index) ?: continue
         val name = asset.optString("name")
-        if (!name.endsWith(".apk", ignoreCase = true)) continue
+        val isExpectedReleaseApk = name.startsWith("prosto-", ignoreCase = true) && name.endsWith(".apk", ignoreCase = true)
+        if (!isExpectedReleaseApk) continue
         val apkUrl = asset.optString("browser_download_url")
         if (apkUrl.isBlank()) continue
         return AppUpdate(

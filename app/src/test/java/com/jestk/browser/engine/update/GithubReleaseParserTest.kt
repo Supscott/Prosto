@@ -20,7 +20,7 @@ class GithubReleaseParserTest {
           "body": "$body",
           "draft": $draft,
           "prerelease": $prerelease,
-          "html_url": "https://github.com/Supscott/browser/releases/tag/$tag",
+          "html_url": "https://github.com/Supscott/Prosto/releases/tag/$tag",
           "assets": $assets
         }
         """.trimIndent()
@@ -55,6 +55,34 @@ class GithubReleaseParserTest {
         val update = parseGithubRelease(release(assets = assets))
 
         assertThat(update?.apkUrl).isEqualTo("https://example.com/prosto.apk")
+    }
+
+    @Test
+    fun parseGithubRelease_ignoresNonProstoApkAssets() {
+        val assets =
+            """
+            [
+              {"name":"app-debug.apk","browser_download_url":"https://example.com/debug.apk"},
+              {"name":"other.apk","browser_download_url":"https://example.com/other.apk"}
+            ]
+            """.trimIndent()
+
+        val update = parseGithubRelease(release(assets = assets))
+        assertThat(update).isNull()
+    }
+
+    @Test
+    fun parseGithubRelease_prefersProstoApkOverArbitraryApk() {
+        val assets =
+            """
+            [
+              {"name":"app-debug.apk","browser_download_url":"https://example.com/debug.apk"},
+              {"name":"prosto-v1.3.0.apk","browser_download_url":"https://example.com/prosto-v1.3.0.apk"}
+            ]
+            """.trimIndent()
+
+        val update = parseGithubRelease(release(assets = assets))
+        assertThat(update?.apkUrl).isEqualTo("https://example.com/prosto-v1.3.0.apk")
     }
 
     @Test

@@ -323,6 +323,33 @@ class HoriDownloadManagerTest {
     }
 
     @Test
+    fun handleDataUrl_decodesUrlEncodedPlaintextAndCompletesSuccessfully() = testScope.runTest {
+        val rawText = "Hello Plaintext URL World!"
+        val encodedText = java.net.URLEncoder.encode(rawText, "UTF-8")
+        val dataUrl = "data:text/plain,$encodedText"
+
+        val downloadId = downloadManager.handleDataUrl(
+            url = dataUrl,
+            contentDisposition = "inline; filename=\"plain.txt\"",
+            mimeType = "text/plain"
+        )
+        advanceUntilIdle()
+
+        assertThat(downloadId).isGreaterThan(0L)
+
+        val item = fakeRepository.getDownloadById(downloadId)
+        assertThat(item).isNotNull()
+        assertThat(item?.status).isEqualTo(DownloadStatus.COMPLETED)
+        assertThat(item?.fileName).isEqualTo("plain.txt")
+        assertThat(item?.bytesDownloaded).isEqualTo(rawText.toByteArray().size.toLong())
+
+        val writtenFile = File(item!!.filePath)
+        assertThat(writtenFile.exists()).isTrue()
+        assertThat(writtenFile.readText()).isEqualTo(rawText)
+        writtenFile.delete()
+    }
+
+    @Test
     fun progressFormatting_viaFileSizeFormatter_matchesExpectedOutput() {
         val info = DownloadProgressInfo(
             id = 10L,

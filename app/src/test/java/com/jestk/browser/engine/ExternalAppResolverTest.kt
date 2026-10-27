@@ -287,7 +287,7 @@ class ExternalAppResolverTest {
     }
 
     @Test
-    fun resolve_intentSchemeForInstalledPackageWithoutMatchingFilter_offersInstalledApp() {
+    fun resolve_intentSchemeForInstalledPackageWithoutBrowsableFilter_doesNotOfferLaunch() {
         val pkg = "com.example.deepapp"
         val packageInfo = android.content.pm.PackageInfo().apply {
             packageName = pkg
@@ -298,14 +298,11 @@ class ExternalAppResolverTest {
         }
         shadowOf(packageManager).installPackage(packageInfo)
 
-        // The app is installed but no activity advertises the scheme in the shadow registry.
+        // The app is installed but no activity advertises the scheme with CATEGORY_BROWSABLE.
         val url = "intent://open#Intent;scheme=deepapp;package=$pkg;end"
         val result = ExternalAppResolver.resolve(context, url, "tab_1")
 
-        assertThat(result).isInstanceOf(ExternalAppResolution.Offer::class.java)
-        val offer = result as ExternalAppResolution.Offer
-        assertThat(offer.prompt.appPackage).isEqualTo(pkg)
-        assertThat(offer.prompt.isInstalled).isTrue()
-        assertThat(offer.prompt.intentUri).doesNotContain("market://")
+        // Must not offer to launch non-browsable activities
+        assertThat(result).isEqualTo(ExternalAppResolution.UnresolvableScheme)
     }
 }

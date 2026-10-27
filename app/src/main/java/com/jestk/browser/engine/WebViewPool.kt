@@ -251,7 +251,6 @@ class WebViewPool(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    databaseEnabled = true
                     mediaPlaybackRequiresUserGesture = false
                     builtInZoomControls = true
                     displayZoomControls = false
@@ -292,7 +291,6 @@ class WebViewPool(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    databaseEnabled = true
                     mediaPlaybackRequiresUserGesture = false
                     builtInZoomControls = true
                     displayZoomControls = false
@@ -456,7 +454,7 @@ class WebViewPool(
         }
     }
 
-    private fun handleBlobDownload(
+    internal fun handleBlobDownload(
         blobUrl: String,
         contentDisposition: String?,
         mimeType: String?,
@@ -464,44 +462,44 @@ class WebViewPool(
         webView: WebView?
     ) {
         val targetContext = context.findActivity() ?: applicationContext
-        val targetWebView = webView ?: pool.values.firstOrNull()
-        if (targetWebView == null) {
-            Toast.makeText(targetContext, "Download failed: Cannot resolve blob data", Toast.LENGTH_SHORT).show()
+        if (webView == null) {
+            Log.w(TAG, "Cannot handle blob download without originating WebView reference")
+            Toast.makeText(targetContext, "Download failed: Tab origin unavailable", Toast.LENGTH_SHORT).show()
             return
         }
 
         Toast.makeText(targetContext, "Preparing download...", Toast.LENGTH_SHORT).show()
         Log.d(TAG, "Preparing blob download: $blobUrl")
 
-        val safeDisposition = contentDisposition?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
-        val safeMime = mimeType?.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
-        val safeUrl = blobUrl.replace("\\", "\\\\")?.replace("'", "\\'") ?: ""
+        val jsonUrl = org.json.JSONObject.quote(blobUrl)
+        val jsonDisposition = org.json.JSONObject.quote(contentDisposition ?: "")
+        val jsonMime = org.json.JSONObject.quote(mimeType ?: "")
 
         val js = """
             (function() {
                 try {
                     var xhr = new XMLHttpRequest();
-                    xhr.open('GET', '$safeUrl', true);
+                    xhr.open('GET', $jsonUrl, true);
                     xhr.responseType = 'blob';
                     xhr.onload = function() {
                         if (this.status === 200 || this.status === 0) {
                             var reader = new FileReader();
                             reader.onloadend = function() {
                                 if (window.JestkBlobBridge) {
-                                    window.JestkBlobBridge.onBlobDownloaded(reader.result, '$safeDisposition', '$safeMime');
+                                    window.JestkBlobBridge.onBlobDownloaded(reader.result, $jsonDisposition, $jsonMime);
                                 }
                             };
                             reader.readAsDataURL(this.response);
                         }
                     };
                     xhr.onerror = function() {
-                        fetch('$safeUrl')
+                        fetch($jsonUrl)
                             .then(function(r) { return r.blob(); })
                             .then(function(b) {
                                 var reader = new FileReader();
                                 reader.onloadend = function() {
                                     if (window.JestkBlobBridge) {
-                                        window.JestkBlobBridge.onBlobDownloaded(reader.result, '$safeDisposition', '$safeMime');
+                                        window.JestkBlobBridge.onBlobDownloaded(reader.result, $jsonDisposition, $jsonMime);
                                     }
                                 };
                                 reader.readAsDataURL(b);
@@ -514,8 +512,8 @@ class WebViewPool(
         """.trimIndent()
 
         try {
-            targetWebView.post {
-                targetWebView.evaluateJavascript(js, null)
+            webView.post {
+                webView.evaluateJavascript(js, null)
             }
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to evaluate blob download script", t)
