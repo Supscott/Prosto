@@ -8,6 +8,7 @@ export type SearchEngine = {
 };
 
 export const DOWNLOAD_URL = 'https://github.com/Supscott/browser/releases';
+export const DIRECT_APK_URL = 'https://github.com/Supscott/browser/releases/latest/download/app-release.apk';
 export const REPO_URL = 'https://github.com/Supscott/browser';
 export const LICENSE_URL = 'https://github.com/Supscott/browser/blob/main/LICENSE';
 

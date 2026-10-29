@@ -1,5 +1,5 @@
 import { Check, MoveUpRight } from 'lucide-react';
-import { DockDemo } from './DockDemo';
+import { GestureAnimationDemo } from './GestureAnimationDemo';
 
 const DOCK_FEATURES = [
   {
@@ -53,8 +53,8 @@ export function DockSection() {
                 <MoveUpRight size={14} strokeWidth={2.4} />
               </span>
               <p className="text-[0.78rem] leading-6 text-muted">
-                <span className="font-bold text-paper">Try the live demo.</span> Drag the dock upward, switch tabs, flick
-                the engine rail sideways, or add your own search engine. Everything works in this little phone.
+                <span className="font-bold text-paper">Thumb gestures in action.</span> Swipe upward from anywhere on
+                the dock to open quick search without reaching for the top of your screen.
               </p>
             </div>
           </div>
@@ -68,19 +68,14 @@ export function DockSection() {
               <span className="absolute inset-[26%] rounded-full border border-brand/10" />
             </div>
 
-            <span className="mb-5 inline-flex items-center gap-2 rounded-full border border-line bg-panel px-3 py-1.5 font-mono text-[0.54rem] tracking-[0.12em] text-muted uppercase">
-              <span className="size-1.5 rounded-full bg-brand" />
-              Interactive · no install
-            </span>
-
-            <div className="relative z-10">
-              <DockDemo />
+            <div className="relative z-10 w-full">
+              <GestureAnimationDemo />
             </div>
 
             <div className="mt-5 flex items-center gap-3 text-[0.58rem] text-muted">
-              <span className="font-mono tracking-[0.1em] uppercase">Tap + to add an engine</span>
+              <span className="font-mono tracking-[0.1em] uppercase">Simulated thumb gestures</span>
               <span className="h-px w-8 bg-line" />
-              <span className="font-mono tracking-[0.1em] uppercase">Swipe up for search</span>
+              <span className="font-mono tracking-[0.1em] uppercase">Auto-looping flow</span>
             </div>
           </div>
         </div>

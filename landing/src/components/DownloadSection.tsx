@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { ArrowUpRight, Download, ShieldCheck, Smartphone } from 'lucide-react';
-import { DOWNLOAD_URL, REPO_URL } from '../lib/site';
+import { DIRECT_APK_URL, DOWNLOAD_URL } from '../lib/site';
 
 export function DownloadSection() {
   return (
@@ -14,7 +14,7 @@ export function DownloadSection() {
           <div data-reveal>
             <span className="inline-flex items-center gap-2 rounded-full border border-ink/20 px-3 py-1.5 font-mono text-[0.52rem] font-semibold tracking-[0.12em] text-ink/70 uppercase">
               <span className="size-1.5 rounded-full bg-ink" />
-              Latest GitHub release
+              Latest release · v1.0
             </span>
 
             <h2 className="display mt-6 max-w-[14ch] text-[clamp(2.9rem,7.5vw,6.3rem)] leading-[0.9] text-ink">
@@ -22,24 +22,68 @@ export function DownloadSection() {
             </h2>
 
             <p className="mt-5 max-w-md text-[0.94rem] leading-7 text-ink/70">
-              One APK. No account. No onboarding maze. Download Prosto, set it as your browser, and feel the difference in
+              One 4 MB APK. No account. No onboarding maze. Download Prosto, set it as your browser, and feel the difference in
               the first swipe.
             </p>
 
             <div className="mt-7 flex flex-col gap-2.5 sm:flex-row sm:items-center">
-              <a href={DOWNLOAD_URL} target="_blank" rel="noreferrer" className="btn btn-dark">
+              <a href={DIRECT_APK_URL} className="btn btn-dark">
                 <Download size={16} strokeWidth={2.4} />
-                Download the APK
+                Download APK (4 MB)
                 <ArrowUpRight size={15} strokeWidth={2.4} />
               </a>
               <a
-                href={REPO_URL}
+                href={DOWNLOAD_URL}
                 target="_blank"
                 rel="noreferrer"
                 className="btn border border-ink/20 bg-transparent text-ink hover:border-ink/40 hover:bg-ink/5"
               >
-                View the source
+                Releases & Changelog
               </a>
+            </div>
+
+            <div className="mt-6 hidden items-center gap-3.5 rounded-2xl border border-ink/15 bg-ink/[0.04] p-3 sm:flex">
+              <img
+                src="/qr-download.svg"
+                alt="QR Code to download APK"
+                className="size-14 rounded-xl bg-ink p-1.5 shadow-sm"
+                width={56}
+                height={56}
+              />
+              <div>
+                <p className="text-[0.8rem] font-bold text-ink">Scan from your phone</p>
+                <p className="text-[0.66rem] text-ink/70">Open camera on your Android phone to start instant download.</p>
+              </div>
+            </div>
+
+            {/* 3-step installation guide */}
+            <div className="mt-8 border-t border-ink/15 pt-5">
+              <p className="font-mono text-[0.52rem] font-bold tracking-[0.1em] text-ink/70 uppercase">
+                Quick install (3 steps)
+              </p>
+              <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
+                <div className="rounded-xl border border-ink/15 bg-ink/[0.03] p-3">
+                  <span className="font-mono text-[0.65rem] font-extrabold text-ink">01</span>
+                  <p className="mt-1 text-[0.74rem] font-bold text-ink">Download APK</p>
+                  <p className="mt-0.5 text-[0.62rem] leading-snug text-ink/70">
+                    Direct 4 MB file, completes in a few seconds.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-ink/15 bg-ink/[0.03] p-3">
+                  <span className="font-mono text-[0.65rem] font-extrabold text-ink">02</span>
+                  <p className="mt-1 text-[0.74rem] font-bold text-ink">Open file</p>
+                  <p className="mt-0.5 text-[0.62rem] leading-snug text-ink/70">
+                    Tap the download notification or check Downloads folder.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-ink/15 bg-ink/[0.03] p-3">
+                  <span className="font-mono text-[0.65rem] font-extrabold text-ink">03</span>
+                  <p className="mt-1 text-[0.74rem] font-bold text-ink">Confirm install</p>
+                  <p className="mt-0.5 text-[0.62rem] leading-snug text-ink/70">
+                    Allow "Install unknown apps" from browser if prompted.
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 font-mono text-[0.52rem] font-semibold tracking-[0.1em] text-ink/60 uppercase">
@@ -62,12 +106,12 @@ export function DownloadSection() {
               Zero telemetry
             </div>
 
-            <div className="rotate-[5deg] rounded-[2.55rem] border border-ink/25 bg-ink p-1.5 shadow-[0_55px_90px_-38px_rgba(0, 0, 0, 0.65)]">
-              <div className="device-screen !rounded-[2.1rem]">
+            <div className="rotate-[5deg] rounded-[1.75rem] border border-ink/25 bg-ink p-1.5 shadow-[0_55px_90px_-38px_rgba(0, 0, 0, 0.65)]">
+              <div className="device-screen !rounded-[1.45rem]">
                 <div className="device-status !text-paper/60">
-                  <span>9:41</span>
-                  <span className="device-notch !bg-black" aria-hidden="true" />
-                  <span>LTE</span>
+                  <span>10:08</span>
+                  <span className="size-2 rounded-full bg-black/90 ring-1 ring-white/10" aria-hidden="true" />
+                  <span>5G</span>
                 </div>
                 <div className="flex flex-1 flex-col gap-2 p-3 pb-24">
                   <div className="flex items-center justify-between">

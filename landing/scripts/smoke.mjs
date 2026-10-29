@@ -27,64 +27,69 @@ await waitForPreview();
 const browser = await chromium.launch({ channel });
 
 try {
+  // 1. Mobile viewport test (390x844 iPhone 14)
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
     hasTouch: true,
-    deviceScaleFactor: 1,
+    deviceScaleFactor: 2,
   });
   const page = await context.newPage();
-  await page.addInitScript(() => {
-    if (window.sessionStorage.getItem('prosto-smoke-initialized')) return;
-    window.localStorage.removeItem('prosto.custom-engines');
-    window.sessionStorage.setItem('prosto-smoke-initialized', 'true');
-  });
   await page.goto(baseUrl, { waitUntil: 'networkidle' });
-  await page.evaluate(() => document.querySelector('.device-shell').scrollIntoView({ block: 'center' }));
-  await page.waitForTimeout(1500);
 
-  const dock = await page.locator('.device-dock-wrap').boundingBox();
-  if (!dock) throw new Error('Dock demo is missing.');
+  // Hero phone fully visible check on load
+  const phoneImg = await page.locator('#top img[alt*="Prosto Browser"]').boundingBox();
+  if (!phoneImg) throw new Error('Hero phone image is missing.');
+  check('hero phone starts below header', phoneImg.y >= 50, `y=${phoneImg.y}`);
+  check('hero phone bottom visible without scrolling', phoneImg.y + phoneImg.height <= 850, `bottom=${phoneImg.y + phoneImg.height}`);
 
-  await page.mouse.move(dock.x + dock.width / 2, dock.y + dock.height - 12);
-  await page.mouse.down();
-  await page.mouse.move(dock.x + dock.width / 2, dock.y + dock.height - 105, { steps: 10 });
-  await page.mouse.up();
-  await page.waitForTimeout(700);
-  check('drag opens quick search', (await page.locator('.device-search-layer').getAttribute('data-open')) === 'true');
-
-  await page.getByLabel('Close quick search').click();
-  await page.waitForTimeout(600);
-  check('close quick search', (await page.locator('.device-search-layer').getAttribute('data-open')) === 'false');
-
-  await page.getByLabel('Open Recipe tab').click();
+  // Mobile menu dialog test
+  await page.locator('button[aria-label="Open menu"]').click();
   await page.waitForTimeout(300);
-  check('tab switches', (await page.getByLabel('Open Recipe tab').getAttribute('data-active')) === 'true');
-  check('tab content updates', (await page.locator('.device-page-title').innerText()).includes('Miso'));
+  const isMenuOpen = await page.evaluate(() => {
+    const d = document.querySelector('dialog.nav-menu');
+    return d ? d.open : false;
+  });
+  check('mobile dialog opens', isMenuOpen);
 
-  await page.locator('.device-swipe-hint').click();
-  await page.waitForTimeout(600);
-  await page.locator('.device-engine-add').click();
-  await page.getByLabel('Custom engine name').fill('Smoke Engine');
-  await page.getByLabel('Custom engine search URL').fill('https://example.com/?q=%s');
-  await page.getByRole('button', { name: 'Add engine' }).click();
-  await page.waitForTimeout(900);
-  check('custom engine becomes active', (await page.locator('input[aria-label="Search with Smoke Engine"]').count()) === 1);
+  await page.locator('dialog.nav-menu button[aria-label="Close menu"]').click();
+  await page.waitForTimeout(300);
+  const isMenuClosed = await page.evaluate(() => {
+    const d = document.querySelector('dialog.nav-menu');
+    return d ? !d.open : true;
+  });
+  check('mobile dialog closes on button', isMenuClosed);
 
-  await page.locator('input[aria-label="Search with Smoke Engine"]').fill('calm software');
-  await page.locator('button[aria-label="Search"]').click();
-  await page.waitForTimeout(400);
-  check('search results render', (await page.locator('.device-results').innerText()).includes('calm software'));
-  check('search uses custom engine', (await page.locator('.device-results').innerText()).includes('Smoke Engine'));
+  // Dock section: Gesture demo
+  await page.evaluate(() => document.querySelector('#dock')?.scrollIntoView({ behavior: 'instant' }));
+  await page.waitForTimeout(500);
+  const gestureImgCount = await page.locator('#dock img[alt*="Home screen"]').count();
+  check('gesture animation demo renders', gestureImgCount === 1);
 
-  await page.reload({ waitUntil: 'networkidle' });
-  await page.evaluate(() => document.querySelector('.device-shell').scrollIntoView({ block: 'center' }));
-  await page.waitForTimeout(1500);
-  await page.locator('.device-swipe-hint').click();
-  await page.waitForTimeout(600);
-  check('custom engine persists', (await page.locator('.device-engine-option-name', { hasText: 'Smoke Engine' }).count()) === 1);
+  // Direct APK links
+  const apkLinks = await page.locator('a[href*="app-release.apk"]').count();
+  check('direct apk download links present', apkLinks >= 2, `count=${apkLinks}`);
+
   await context.close();
 
+  // 2. Desktop viewport test (1440x900)
+  const desktopContext = await browser.newContext({
+    viewport: { width: 1440, height: 900 },
+    deviceScaleFactor: 1,
+  });
+  const desktopPage = await desktopContext.newPage();
+  await desktopPage.goto(baseUrl, { waitUntil: 'networkidle' });
+
+  const desktopPhone = await desktopPage.locator('#top img[alt*="Prosto Browser"]').boundingBox();
+  if (!desktopPhone) throw new Error('Desktop hero phone is missing.');
+  check('desktop hero phone completely fits in viewport', desktopPhone.y + desktopPhone.height <= 900, `bottom=${desktopPhone.y + desktopPhone.height}`);
+
+  const qrInHero = await desktopPage.locator('#top img[alt="QR Code"]').count();
+  check('desktop QR badge visible in hero', qrInHero === 1);
+
+  await desktopContext.close();
+
+  // 3. Reduced motion & overflow check
   const reducedContext = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
@@ -94,12 +99,11 @@ try {
   const reducedPage = await reducedContext.newPage();
   await reducedPage.goto(baseUrl, { waitUntil: 'networkidle' });
   await reducedPage.waitForTimeout(400);
+
   const reduced = await reducedPage.evaluate(() => ({
-    lenis: document.documentElement.classList.contains('lenis'),
     overflow: document.documentElement.scrollWidth - window.innerWidth,
     footprint: document.querySelector('#specs p[class*="text-[clamp(4rem"]')?.textContent?.trim(),
   }));
-  check('reduced motion skips smooth scrolling', reduced.lenis === false);
   check('reduced motion shows final footprint', reduced.footprint?.includes('4.0') === true, reduced.footprint ?? 'missing');
   check('no horizontal overflow', reduced.overflow === 0, String(reduced.overflow));
   await reducedContext.close();

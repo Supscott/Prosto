@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Download, Menu, X } from 'lucide-react';
-import { DOWNLOAD_URL, REPO_URL } from '../lib/site';
+import { DIRECT_APK_URL, REPO_URL } from '../lib/site';
 import { Logo } from './Logo';
 
 const NAV_LINKS = [
@@ -13,6 +13,7 @@ const NAV_LINKS = [
 export function SiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 24);
@@ -22,21 +23,43 @@ export function SiteHeader() {
   }, []);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    const dialog = dialogRef.current;
+    if (!dialog) return;
 
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMenuOpen(false);
-    };
-
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKeyDown);
-    };
+    if (menuOpen && !dialog.open) {
+      dialog.showModal();
+    } else if (!menuOpen && dialog.open) {
+      dialog.close();
+    }
   }, [menuOpen]);
+
+  // Fallback for browsers without native closedby support
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+
+    if (!('closedBy' in HTMLDialogElement.prototype)) {
+      const outside = (e: PointerEvent, d: HTMLDialogElement) => {
+        const r = d.getBoundingClientRect();
+        return e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+      };
+      let pressedOutside = false;
+      const onPointerDown = (e: PointerEvent) => {
+        pressedOutside = outside(e, dialog);
+      };
+      const onPointerUp = (e: PointerEvent) => {
+        if (pressedOutside && outside(e, dialog)) {
+          dialog.close();
+        }
+      };
+      dialog.addEventListener('pointerdown', onPointerDown);
+      dialog.addEventListener('pointerup', onPointerUp);
+      return () => {
+        dialog.removeEventListener('pointerdown', onPointerDown);
+        dialog.removeEventListener('pointerup', onPointerUp);
+      };
+    }
+  }, []);
 
   return (
     <>
@@ -65,19 +88,15 @@ export function SiteHeader() {
             <div className="flex items-center gap-1.5">
               <span className="hidden sm:block">
                 <a
-                  href={DOWNLOAD_URL}
-                  target="_blank"
-                  rel="noreferrer"
+                  href={DIRECT_APK_URL}
                   className="btn btn-primary min-h-10 px-4 text-[0.68rem]"
                 >
                   <Download size={14} strokeWidth={2.4} />
-                  Get Prosto
+                  Get Prosto (APK)
                 </a>
               </span>
               <a
-                href={DOWNLOAD_URL}
-                target="_blank"
-                rel="noreferrer"
+                href={DIRECT_APK_URL}
                 className="grid size-10 place-items-center rounded-full bg-brand text-ink sm:hidden"
                 aria-label="Download the Prosto APK"
               >
@@ -97,42 +116,56 @@ export function SiteHeader() {
         </div>
       </header>
 
-      {menuOpen && (
-        <div className="nav-menu md:hidden" role="dialog" aria-modal="true" aria-label="Navigation">
-          <nav className="flex flex-col">
-            {NAV_LINKS.map((link, index) => (
-              <a key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>
-                <span className="accent not-italic">0{index + 1}</span>
-                {link.label}
-              </a>
-            ))}
-          </nav>
+      <dialog
+        ref={dialogRef}
+        {...({ closedby: 'any' } as any)}
+        onClose={() => setMenuOpen(false)}
+        className="nav-menu md:hidden"
+        aria-label="Navigation"
+      >
+        <div className="flex items-center justify-between pb-6">
+          <Logo />
+          <button
+            type="button"
+            className="grid size-10 place-items-center rounded-full border border-line bg-white/[0.03] text-paper"
+            onClick={() => setMenuOpen(false)}
+            aria-label="Close menu"
+          >
+            <X size={18} />
+          </button>
+        </div>
 
-          <div className="mt-auto">
+        <nav className="flex flex-col">
+          {NAV_LINKS.map((link, index) => (
+            <a key={link.href} href={link.href} onClick={() => setMenuOpen(false)}>
+              <span className="accent not-italic">0{index + 1}</span>
+              {link.label}
+            </a>
+          ))}
+        </nav>
+
+        <div className="mt-auto">
+          <a
+            href={DIRECT_APK_URL}
+            className="btn btn-primary w-full"
+            onClick={() => setMenuOpen(false)}
+          >
+            <Download size={16} />
+            Download APK (4 MB)
+          </a>
+          <div className="mt-4 flex items-center justify-between">
+            <span className="status-line">Open source · GPL-3.0</span>
             <a
-              href={DOWNLOAD_URL}
+              href={REPO_URL}
               target="_blank"
               rel="noreferrer"
-              className="btn btn-primary w-full"
-              onClick={() => setMenuOpen(false)}
+              className="inline-flex items-center gap-1 text-[0.7rem] font-bold text-muted"
             >
-              <Download size={16} />
-              Download the 4 MB APK
+              GitHub <ArrowUpRight size={13} />
             </a>
-            <div className="mt-4 flex items-center justify-between">
-              <span className="status-line">Open source · GPL-3.0</span>
-              <a
-                href={REPO_URL}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 text-[0.7rem] font-bold text-muted"
-              >
-                GitHub <ArrowUpRight size={13} />
-              </a>
-            </div>
           </div>
         </div>
-      )}
+      </dialog>
     </>
   );
 }

@@ -1,5 +1,4 @@
 import { useEffect } from 'react';
-import Lenis from 'lenis';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 
@@ -13,23 +12,6 @@ export function useSiteMotion() {
       return;
     }
 
-    const lenis = new Lenis({
-      lerp: 0.085,
-      wheelMultiplier: 0.95,
-      touchMultiplier: 1.15,
-      smoothWheel: true,
-    });
-
-    const updateScrollTrigger = () => ScrollTrigger.update();
-    lenis.on('scroll', updateScrollTrigger);
-
-    const tick = (time: number) => {
-      lenis.raf(time * 1000);
-    };
-
-    gsap.ticker.add(tick);
-    gsap.ticker.lagSmoothing(0);
-
     const onAnchorClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       const anchor = target?.closest<HTMLAnchorElement>('a[href^="#"]');
@@ -42,7 +24,7 @@ export function useSiteMotion() {
       if (!destination) return;
 
       event.preventDefault();
-      lenis.scrollTo(destination, { offset: -84, duration: 1.25 });
+      destination.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     document.addEventListener('click', onAnchorClick);
@@ -104,9 +86,7 @@ export function useSiteMotion() {
     return () => {
       document.removeEventListener('click', onAnchorClick);
       window.removeEventListener('load', refresh);
-      gsap.ticker.remove(tick);
       context.revert();
-      lenis.destroy();
     };
   }, []);
 }
