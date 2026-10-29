@@ -839,5 +839,16 @@ class TabCoordinatorTest {
             val activeTab = uiState.tabs.find { it.id == activeTabId }
             assertThat(activeTab?.themeColor).isEqualTo(topColor)
             assertThat(activeTab?.bottomThemeColor).isEqualTo(bottomColor)
+
+            // When subsequently meta top theme color is received without bottom color, bottom color should be preserved
+            val newTopColor = 0xFF998877.toInt()
+            coordinator.handleThemeColors(activeTabId, newTopColor, null)
+            advanceUntilIdle()
+
+            assertThat(uiState.activeTopThemeColor).isEqualTo(newTopColor)
+            assertThat(uiState.activeBottomThemeColor).isEqualTo(bottomColor)
+            val updatedActiveTab = uiState.tabs.find { it.id == activeTabId }
+            assertThat(updatedActiveTab?.themeColor).isEqualTo(newTopColor)
+            assertThat(updatedActiveTab?.bottomThemeColor).isEqualTo(bottomColor)
         }
 }

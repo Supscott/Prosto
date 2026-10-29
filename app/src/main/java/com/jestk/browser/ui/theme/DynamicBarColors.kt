@@ -44,12 +44,7 @@ object DynamicBarColors {
         // 1. Top color for status bar
         val resolvedTopColor =
             if (topThemeColor != null) {
-                val color = Color(topThemeColor)
-                if (isDark) {
-                    if (color.luminance() < DARK_MODE_LUMINANCE_THRESHOLD) color else DarkBackground
-                } else {
-                    color
-                }
+                sanitizeColor(topThemeColor, isDark)
             } else {
                 defaultBg
             }
@@ -57,25 +52,9 @@ object DynamicBarColors {
         // 2. Bottom color for area under dock and navigation bar (fallback to topThemeColor, then defaultBg)
         val resolvedBottomColor =
             when {
-                bottomThemeColor != null -> {
-                    val color = Color(bottomThemeColor)
-                    if (isDark) {
-                        if (color.luminance() < DARK_MODE_LUMINANCE_THRESHOLD) color else DarkBackground
-                    } else {
-                        color
-                    }
-                }
-                topThemeColor != null -> {
-                    val color = Color(topThemeColor)
-                    if (isDark) {
-                        if (color.luminance() < DARK_MODE_LUMINANCE_THRESHOLD) color else DarkBackground
-                    } else {
-                        color
-                    }
-                }
-                else -> {
-                    defaultBg
-                }
+                bottomThemeColor != null -> sanitizeColor(bottomThemeColor, isDark)
+                topThemeColor != null -> sanitizeColor(topThemeColor, isDark)
+                else -> defaultBg
             }
 
         return ResolvedBarColors(
@@ -85,5 +64,14 @@ object DynamicBarColors {
             isAppearanceLightStatusBars = resolvedTopColor.luminance() > 0.5f,
             isAppearanceLightNavigationBars = resolvedBottomColor.luminance() > 0.5f,
         )
+    }
+
+    private fun sanitizeColor(colorInt: Int, isDark: Boolean): Color {
+        val color = Color(colorInt)
+        return if (isDark) {
+            if (color.luminance() < DARK_MODE_LUMINANCE_THRESHOLD) color else DarkBackground
+        } else {
+            color
+        }
     }
 }

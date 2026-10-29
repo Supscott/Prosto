@@ -380,8 +380,8 @@ fun JestkApp(
             remember(animatedStatusBarBg, animatedBottomBarBg) {
                 Brush.verticalGradient(
                     0.0f to animatedStatusBarBg,
-                    0.25f to animatedStatusBarBg,
-                    0.75f to animatedBottomBarBg,
+                    0.5f to animatedStatusBarBg,
+                    0.5f to animatedBottomBarBg,
                     1.0f to animatedBottomBarBg,
                 )
             }

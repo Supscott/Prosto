@@ -353,8 +353,8 @@ fun WebViewContainer(
     val siteBackgroundBrush = remember(animatedTopBg, animatedBottomBg) {
         Brush.verticalGradient(
             0.0f to animatedTopBg,
-            0.25f to animatedTopBg,
-            0.75f to animatedBottomBg,
+            0.5f to animatedTopBg,
+            0.5f to animatedBottomBg,
             1.0f to animatedBottomBg,
         )
     }

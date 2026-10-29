@@ -1155,19 +1155,20 @@ internal class TabCoordinator(
         }
         if (bottomColor != null) {
             tabBottomThemeColors[tabId] = bottomColor
-        } else {
+        } else if (topColor == null) {
             tabBottomThemeColors.remove(tabId)
         }
         scope.launch(ioDispatcher) {
             tabRepository.updateThemeColor(tabId, topColor)
         }
+        val currentBottomColor = tabBottomThemeColors[tabId]
         updateUiState { state ->
             val updatedTabs =
                 state.tabs.map { tab ->
                     if (tab.id == tabId) {
                         tab.copy(
                             themeColor = topColor,
-                            bottomThemeColor = bottomColor ?: tab.bottomThemeColor,
+                            bottomThemeColor = currentBottomColor ?: tab.bottomThemeColor,
                         )
                     } else tab
                 }
@@ -1175,7 +1176,7 @@ internal class TabCoordinator(
                 state.copy(
                     tabs = updatedTabs,
                     activeThemeColor = topColor,
-                    activeBottomThemeColor = bottomColor ?: state.activeBottomThemeColor,
+                    activeBottomThemeColor = currentBottomColor ?: state.activeBottomThemeColor,
                 )
             } else {
                 state.copy(tabs = updatedTabs)

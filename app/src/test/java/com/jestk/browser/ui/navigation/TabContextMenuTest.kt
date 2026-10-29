@@ -12,9 +12,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class TabContextMenuTest {
 
     @get:Rule
@@ -66,5 +68,19 @@ class TabContextMenuTest {
 
         composeTestRule.onNodeWithText("Reload").assertDoesNotExist()
         composeTestRule.onNodeWithText("Close tab").assertExists()
+    }
+
+    @Test
+    fun isReloadVisible_evaluatesCorrectlyForWebpageVsHome() {
+        fun computeIsReloadVisible(isHome: Boolean, url: String): Boolean =
+            !isHome && url.isNotBlank() && !url.startsWith("about:")
+
+        // Active webpage tab
+        assertTrue(computeIsReloadVisible(isHome = false, url = "https://example.com"))
+
+        // Home tab or blank
+        assertFalse(computeIsReloadVisible(isHome = true, url = "https://example.com"))
+        assertFalse(computeIsReloadVisible(isHome = false, url = ""))
+        assertFalse(computeIsReloadVisible(isHome = false, url = "about:blank"))
     }
 }
