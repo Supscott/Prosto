@@ -1,7 +1,6 @@
 import { useSiteMotion } from './lib/useSiteMotion';
 import { TICKER_ITEMS } from './lib/site';
 import { ScrollProgress } from './components/ScrollProgress';
-import { CursorGlow } from './components/CursorGlow';
 import { SiteHeader } from './components/SiteHeader';
 import { Hero } from './components/Hero';
 import { Ticker } from './components/Ticker';
@@ -27,7 +26,6 @@ export function App() {
 
       <div className="grain" aria-hidden="true" />
       <ScrollProgress />
-      <CursorGlow />
       <SiteHeader />
 
       <main id="main">

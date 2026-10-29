@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Download, Menu, X } from 'lucide-react';
-import { DIRECT_APK_URL, REPO_URL } from '../lib/site';
+import { PLAY_STORE_URL, REPO_URL } from '../lib/site';
 import { Logo } from './Logo';
 
 const NAV_LINKS = [
@@ -88,17 +88,17 @@ export function SiteHeader() {
             <div className="flex items-center gap-1.5">
               <span className="hidden sm:block">
                 <a
-                  href={DIRECT_APK_URL}
-                  className="btn btn-primary min-h-10 px-4 text-[0.68rem]"
+                  href={PLAY_STORE_URL}
+                  className="btn btn-primary min-h-10 px-4 text-[0.6875rem]"
                 >
                   <Download size={14} strokeWidth={2.4} />
-                  Get Prosto (APK)
+                  Get Prosto
                 </a>
               </span>
               <a
-                href={DIRECT_APK_URL}
+                href={PLAY_STORE_URL}
                 className="grid size-10 place-items-center rounded-full bg-brand text-ink sm:hidden"
-                aria-label="Download the Prosto APK"
+                aria-label="Get Prosto on Google Play"
               >
                 <Download size={16} strokeWidth={2.4} />
               </a>
@@ -146,12 +146,12 @@ export function SiteHeader() {
 
         <div className="mt-auto">
           <a
-            href={DIRECT_APK_URL}
+            href={PLAY_STORE_URL}
             className="btn btn-primary w-full"
             onClick={() => setMenuOpen(false)}
           >
             <Download size={16} />
-            Download APK (4 MB)
+            Get it on Google Play
           </a>
           <div className="mt-4 flex items-center justify-between">
             <span className="status-line">Open source · GPL-3.0</span>

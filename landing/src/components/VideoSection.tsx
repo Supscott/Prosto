@@ -25,9 +25,8 @@ export function VideoSection() {
       <div className="shell">
         <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between" data-reveal>
           <div>
-            <span className="eyebrow">05 / In motion</span>
             <h2 className="display mt-5 text-[clamp(2.5rem,6.5vw,4.8rem)] text-paper">
-              See the <em className="accent text-mint">thumb</em> flow.
+              See the thumb flow.
             </h2>
           </div>
           <p className="max-w-sm text-[0.88rem] leading-6 text-muted">
@@ -50,12 +49,12 @@ export function VideoSection() {
               <span className="grid size-5 place-items-center rounded-full bg-brand text-ink">
                 <Play size={9} fill="currentColor" />
               </span>
-              <span className="font-mono text-[0.48rem] tracking-[0.1em] text-muted uppercase">Product film · 0:12</span>
+              <span className="text-[0.6875rem] text-muted">Product film · 0:12</span>
             </div>
 
             <div className="pointer-events-none absolute right-5 bottom-5 hidden items-center gap-2 rounded-full border border-line bg-ink/75 px-2.5 py-1.5 sm:right-7 sm:bottom-7 sm:flex">
               <span className="size-1.5 rounded-full bg-warm" />
-              <span className="font-mono text-[0.46rem] tracking-[0.1em] text-muted uppercase">Replace placeholder</span>
+              <span className="text-[0.6875rem] text-muted">Replace placeholder</span>
             </div>
           </div>
         </div>
@@ -68,7 +67,7 @@ export function VideoSection() {
             >
               <div className="flex items-center justify-between">
                 <span className="step-number">0{index + 1}</span>
-                <span className="font-mono text-[0.52rem] tracking-[0.1em] text-muted">{item.time}</span>
+                <span className="text-[0.6875rem] text-muted">{item.time}</span>
               </div>
               <h3 className="mt-4 text-[0.92rem] font-extrabold tracking-[-0.025em] text-paper">{item.title}</h3>
               <p className="mt-1.5 text-[0.77rem] leading-6 text-muted">{item.body}</p>

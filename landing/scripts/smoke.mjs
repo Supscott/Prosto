@@ -67,7 +67,7 @@ try {
   check('gesture animation demo renders', gestureImgCount === 1);
 
   // Direct APK links
-  const apkLinks = await page.locator('a[href*="app-release.apk"]').count();
+  const apkLinks = await page.locator('a[href*="/releases/latest/download/prosto.apk"]').count();
   check('direct apk download links present', apkLinks >= 2, `count=${apkLinks}`);
 
   await context.close();

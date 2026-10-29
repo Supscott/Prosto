@@ -22,9 +22,8 @@ export function DockSection() {
       <div className="shell">
         <div className="grid gap-14 lg:grid-cols-[0.86fr_1.14fr] lg:items-center lg:gap-8">
           <div data-reveal>
-            <span className="eyebrow">01 / The dock</span>
             <h2 className="display mt-5 text-[clamp(2.5rem,6.5vw,4.8rem)] text-paper">
-              Tabs live where your <em className="accent text-brand">thumb</em> already is.
+              Tabs live where your thumb already is.
             </h2>
             <p className="mt-5 max-w-md text-[0.95rem] leading-7 text-muted">
               The floating dock is the whole browser. It sits in the bottom third of the screen, inside the natural arc
@@ -40,7 +39,7 @@ export function DockSection() {
                   <div>
                     <div className="flex items-baseline gap-2">
                       <h3 className="text-[0.88rem] font-extrabold tracking-[-0.02em] text-paper">{feature.title}</h3>
-                      <span className="font-mono text-[0.48rem] tracking-[0.08em] text-muted">0{index + 1}</span>
+                      <span className="text-[0.6875rem] text-muted">0{index + 1}</span>
                     </div>
                     <p className="mt-1 text-[0.8rem] leading-6 text-muted">{feature.body}</p>
                   </div>
@@ -72,10 +71,10 @@ export function DockSection() {
               <GestureAnimationDemo />
             </div>
 
-            <div className="mt-5 flex items-center gap-3 text-[0.58rem] text-muted">
-              <span className="font-mono tracking-[0.1em] uppercase">Simulated thumb gestures</span>
+            <div className="mt-5 flex items-center gap-3 text-[0.6875rem] text-muted">
+              <span className="">Simulated thumb gestures</span>
               <span className="h-px w-8 bg-line" />
-              <span className="font-mono tracking-[0.1em] uppercase">Auto-looping flow</span>
+              <span className="">Auto-looping flow</span>
             </div>
           </div>
         </div>

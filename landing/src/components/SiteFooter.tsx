@@ -23,7 +23,7 @@ export function SiteFooter() {
               href={`${REPO_URL}/stargazers`}
               target="_blank"
               rel="noreferrer"
-              className="mt-6 inline-flex items-center gap-1.5 font-mono text-[0.62rem] font-semibold tracking-[0.12em] text-paper uppercase"
+              className="mt-6 inline-flex items-center gap-1.5 text-[0.6875rem] font-semibold text-paper"
             >
               Star the project <ArrowUpRight size={14} />
             </a>
@@ -31,7 +31,7 @@ export function SiteFooter() {
 
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-4 md:grid-cols-2">
             <div>
-              <p className="eyebrow">Explore</p>
+              <p className="text-sm font-semibold text-paper">Explore</p>
               <ul className="mt-4 space-y-2.5">
                 {FOOTER_LINKS.slice(0, 2).map((link) => (
                   <li key={link.href}>
@@ -43,7 +43,7 @@ export function SiteFooter() {
               </ul>
             </div>
             <div>
-              <p className="eyebrow">Project</p>
+              <p className="text-sm font-semibold text-paper">Project</p>
               <ul className="mt-4 space-y-2.5">
                 {FOOTER_LINKS.slice(2).map((link) => (
                   <li key={link.href}>
@@ -63,9 +63,9 @@ export function SiteFooter() {
           </p>
         </div>
 
-        <div className="mt-8 flex flex-col gap-3 border-t border-line pt-6 text-[0.65rem] text-muted sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-8 flex flex-col gap-3 border-t border-line pt-6 text-[0.6875rem] text-muted sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Prosto. Independent and open source.</p>
-          <p className="font-mono tracking-[0.1em] uppercase">Designed for one hand · Built with care</p>
+          <p>Designed for one hand. Built with care.</p>
         </div>
       </div>
     </footer>

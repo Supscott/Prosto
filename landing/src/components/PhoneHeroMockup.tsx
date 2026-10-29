@@ -13,7 +13,7 @@ export function PhoneHeroMockup() {
         />
 
         {/* Pixel 11 Phone Body - realistic subtle curvature and uniform bezels */}
-        <div className="relative mx-auto h-[38vh] max-h-[19rem] sm:h-[46vh] sm:max-h-[26rem] lg:h-[min(34rem,64vh)] aspect-[1220/2712] rounded-[1.35rem] sm:rounded-[1.6rem] lg:rounded-[1.85rem] border border-white/25 bg-[#141d1a] p-1.5 sm:p-2 lg:p-2 shadow-[0_30px_70px_-15px_rgba(0,0,0,0.9),0_0_0_1px_rgba(255,255,255,0.12),inset_0_1px_1px_rgba(255,255,255,0.15)]">
+        <div className="relative mx-auto h-[38vh] max-h-[19rem] sm:h-[46vh] sm:max-h-[26rem] lg:h-[min(34rem,64vh)] aspect-[1220/2712] rounded-[1.35rem] sm:rounded-[1.6rem] lg:rounded-[1.85rem] border border-white/25 bg-panel-2 p-1.5 sm:p-2 lg:p-2">
           {/* Pixel physical buttons on right edge */}
           <div className="absolute -right-[3px] top-[22%] h-4 sm:h-5 w-[3px] rounded-r-xs bg-white/35 shadow-sm" aria-hidden="true" />
           <div className="absolute -right-[3px] top-[32%] h-9 sm:h-11 w-[3px] rounded-r-xs bg-white/25 shadow-sm" aria-hidden="true" />
@@ -25,10 +25,10 @@ export function PhoneHeroMockup() {
 
             {/* Pixel centered circular punch-hole camera */}
             <div
-              className="absolute top-2 sm:top-2.5 left-1/2 z-30 flex size-2.5 sm:size-3 -translate-x-1/2 items-center justify-center rounded-full bg-[#050807] ring-1 ring-white/10 shadow-[inset_0_1px_2px_rgba(0,0,0,0.9)]"
+              className="absolute top-2 sm:top-2.5 left-1/2 z-30 flex size-2.5 sm:size-3 -translate-x-1/2 items-center justify-center rounded-full bg-ink ring-1 ring-white/10 shadow-inner"
               aria-hidden="true"
             >
-              <div className="size-1 rounded-full bg-[#112922]" />
+              <div className="size-1 rounded-full bg-panel" />
             </div>
 
             {/* Screen Screenshot */}
@@ -51,7 +51,7 @@ export function PhoneHeroMockup() {
 
         {/* Floating Card 1: Trackers blocked (3D space) */}
         <div
-          className="absolute -top-2 -right-3 z-20 hidden rounded-2xl border border-brand/35 bg-panel p-2.5 shadow-2xl sm:block [transform:translateZ(45px)]"
+          className="absolute -top-2 -right-3 z-20 hidden rounded-2xl border border-brand/35 bg-panel p-2.5 shadow-md sm:block [transform:translateZ(45px)]"
           style={{ animation: 'floatCard 6s ease-in-out infinite' }}
         >
           <div className="flex items-center gap-2">
@@ -59,15 +59,15 @@ export function PhoneHeroMockup() {
               <ShieldCheck size={13} />
             </span>
             <div>
-              <p className="font-mono text-[0.45rem] tracking-[0.08em] text-muted uppercase">Shield active</p>
-              <p className="text-[0.68rem] font-extrabold text-paper">0 Trackers passed</p>
+              <p className="text-[0.6875rem] text-muted">Shield active</p>
+              <p className="text-[0.6875rem] font-extrabold text-paper">0 Trackers passed</p>
             </div>
           </div>
         </div>
 
         {/* Floating Card 2: 1-hand thumb zone (3D space) */}
         <div
-          className="absolute -bottom-3 -left-4 z-20 hidden rounded-2xl border border-mint/35 bg-panel p-2.5 shadow-2xl sm:block [transform:translateZ(50px)]"
+          className="absolute -bottom-3 -left-4 z-20 hidden rounded-2xl border border-mint/35 bg-panel p-2.5 shadow-md sm:block [transform:translateZ(50px)]"
           style={{ animation: 'floatCard 6s ease-in-out 1.5s infinite' }}
         >
           <div className="flex items-center gap-2">
@@ -75,20 +75,20 @@ export function PhoneHeroMockup() {
               <Layers size={13} />
             </span>
             <div>
-              <p className="font-mono text-[0.45rem] tracking-[0.08em] text-muted uppercase">Thumb reach</p>
-              <p className="text-[0.68rem] font-extrabold text-paper">Dock at bottom ⅓</p>
+              <p className="text-[0.6875rem] text-muted">Thumb reach</p>
+              <p className="text-[0.6875rem] font-extrabold text-paper">Dock at bottom ⅓</p>
             </div>
           </div>
         </div>
 
         {/* Floating Card 3: Lightweight (3D space) */}
         <div
-          className="absolute top-1/2 -left-6 z-20 hidden -translate-y-1/2 rounded-2xl border border-white/20 bg-panel px-2.5 py-1.5 shadow-xl md:block [transform:translateZ(35px)]"
+          className="absolute top-1/2 -left-6 z-20 hidden -translate-y-1/2 rounded-2xl border border-white/20 bg-panel px-2.5 py-1.5 shadow-md md:block [transform:translateZ(35px)]"
           style={{ animation: 'floatCard 6s ease-in-out 3s infinite' }}
         >
           <div className="flex items-center gap-1.5">
             <Sparkles size={11} className="text-brand" />
-            <span className="font-mono text-[0.5rem] font-bold text-paper">4.0 MB APK</span>
+            <span className="text-[0.6875rem] font-bold text-paper">4.0 MB APK</span>
           </div>
         </div>
       </div>

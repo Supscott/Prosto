@@ -19,7 +19,7 @@ export function Logo({ compact = false }: LogoProps) {
         </svg>
       </span>
       {!compact && (
-        <span className="text-[0.95rem] font-extrabold tracking-[0.18em] text-paper">
+        <span className="text-[0.95rem] font-extrabold text-paper">
           PROSTO
         </span>
       )}

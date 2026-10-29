@@ -22,19 +22,13 @@ export function PrivacySection() {
 
   return (
     <section id="privacy" className="section relative overflow-hidden">
-      <div
-        className="pointer-events-none absolute top-1/3 -left-24 size-[28rem] rounded-full bg-brand/[0.025] blur-3xl"
-        aria-hidden="true"
-      />
-
       <div className="shell relative z-10">
         <div className="grid gap-12 lg:grid-cols-[0.9fr_1.1fr] lg:items-center lg:gap-16">
           <div data-reveal>
-            <span className="eyebrow">03 / Quiet web</span>
             <h2 className="display mt-5 text-[clamp(2.5rem,6.5vw,4.8rem)] text-paper">
               The internet,
               <span className="block">
-                with the noise turned <em className="accent text-brand">down.</em>
+                with the noise turned down.
               </span>
             </h2>
             <p className="mt-5 max-w-md text-[0.95rem] leading-7 text-muted">
@@ -57,7 +51,7 @@ export function PrivacySection() {
             <div className="rounded-[1.8rem] border border-line bg-panel p-4 shadow-[0_50px_110px_-60px_rgba(0, 0, 0, 0.95)] sm:p-6">
               <div className="flex items-center justify-between">
                 <span className="status-line">Shield active</span>
-                <span className="rounded-full border border-brand/25 bg-brand/[0.08] px-2.5 py-1 font-mono text-[0.48rem] tracking-[0.12em] text-brand uppercase">
+                <span className="rounded-full border border-brand/25 bg-brand/[0.08] px-2.5 py-1 text-[0.6875rem] text-brand">
                   On-device
                 </span>
               </div>
@@ -68,19 +62,19 @@ export function PrivacySection() {
                   <span className="radar-core">
                     <ShieldCheck size={30} strokeWidth={1.6} />
                   </span>
-                  <span className="absolute top-[9%] left-1/2 -translate-x-1/2 font-mono text-[0.4rem] tracking-[0.12em] text-muted uppercase">
+                  <span className="absolute top-[9%] left-1/2 -translate-x-1/2 text-[0.6875rem] text-muted">
                     Tracker
                   </span>
-                  <span className="absolute bottom-[12%] left-[6%] font-mono text-[0.4rem] tracking-[0.12em] text-muted uppercase">
+                  <span className="absolute bottom-[12%] left-[6%] text-[0.6875rem] text-muted">
                     Ad
                   </span>
-                  <span className="absolute right-[5%] bottom-[22%] font-mono text-[0.4rem] tracking-[0.12em] text-muted uppercase">
+                  <span className="absolute right-[5%] bottom-[22%] text-[0.6875rem] text-muted">
                     Beacon
                   </span>
                 </div>
 
                 <div>
-                  <div className="flex items-center justify-between border-b border-line pb-2 font-mono text-[0.46rem] tracking-[0.1em] text-muted uppercase">
+                  <div className="flex items-center justify-between border-b border-line pb-2 text-[0.6875rem] text-muted">
                     <span>Request log</span>
                     <span className="text-brand">Blocked</span>
                   </div>
@@ -106,20 +100,20 @@ export function PrivacySection() {
               <div className="mt-5 grid grid-cols-3 divide-x divide-line border-t border-line pt-4">
                 <div className="pr-3">
                   <p className="text-[1.25rem] font-extrabold tracking-[-0.05em] text-paper">0</p>
-                  <p className="mt-1 font-mono text-[0.43rem] tracking-[0.08em] text-muted uppercase">SDKs</p>
+                  <p className="mt-1 text-[0.6875rem] text-muted">SDKs</p>
                 </div>
                 <div className="px-3">
                   <p className="text-[1.25rem] font-extrabold tracking-[-0.05em] text-paper">1×1</p>
-                  <p className="mt-1 font-mono text-[0.43rem] tracking-[0.08em] text-muted uppercase">PNG swap</p>
+                  <p className="mt-1 text-[0.6875rem] text-muted">PNG swap</p>
                 </div>
                 <div className="pl-3">
                   <p className="text-[1.25rem] font-extrabold tracking-[-0.05em] text-paper">204</p>
-                  <p className="mt-1 font-mono text-[0.43rem] tracking-[0.08em] text-muted uppercase">No content</p>
+                  <p className="mt-1 text-[0.6875rem] text-muted">No content</p>
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 flex items-start gap-2 px-1 text-[0.58rem] leading-4 text-muted/70">
+            <div className="mt-4 flex items-start gap-2 px-1 text-[0.6875rem] leading-4 text-muted/70">
               <LockKeyhole size={11} className="mt-0.5 flex-none" />
               <p>Example requests only. Prosto does not collect or report what it blocks.</p>
               <EyeOff size={11} className="mt-0.5 flex-none" />
