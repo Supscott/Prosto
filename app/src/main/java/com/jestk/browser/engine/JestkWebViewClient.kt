@@ -23,6 +23,7 @@ class JestkWebViewClient(
     private val onNavigationStateChanged: (tabId: String, canGoBack: Boolean, canGoForward: Boolean) -> Unit,
     private val onSnapshotReady: (tabId: String, path: String) -> Unit,
     private val onThemeColorDetected: (tabId: String, color: Int?) -> Unit = { _, _ -> },
+    private val onThemeColorsDetected: ((tabId: String, topColor: Int?, bottomColor: Int?) -> Unit)? = null,
     private val isDarkTheme: (() -> Boolean)? = null,
     private val onFaviconReceived: ((tabId: String, icon: Bitmap) -> Unit)? = null,
     private val settingsRepository: SettingsRepository? = null,
@@ -163,6 +164,14 @@ class JestkWebViewClient(
         }
     }
 
+    private fun notifyThemeColors(tabId: String, topColor: Int?, bottomColor: Int? = null) {
+        if (onThemeColorsDetected != null) {
+            onThemeColorsDetected.invoke(tabId, topColor, bottomColor)
+        } else {
+            onThemeColorDetected(tabId, topColor)
+        }
+    }
+
     override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
         super.onPageStarted(view, url, favicon)
         val validUrl = url.orEmpty()
@@ -179,9 +188,9 @@ class JestkWebViewClient(
                 AdBlockerScript.injectAdBlocker(wv)
             }
             if (validUrl.contains("apple.com", ignoreCase = true)) {
-                onThemeColorDetected(tabId, android.graphics.Color.parseColor("#161617"))
+                notifyThemeColors(tabId, android.graphics.Color.parseColor("#161617"), android.graphics.Color.parseColor("#161617"))
             } else if (validUrl.contains("youtube.com", ignoreCase = true) && isDark) {
-                onThemeColorDetected(tabId, android.graphics.Color.parseColor("#0f0f0f"))
+                notifyThemeColors(tabId, android.graphics.Color.parseColor("#0f0f0f"), android.graphics.Color.parseColor("#0f0f0f"))
             } else {
                 wv.post {
                     extractThemeColor(wv, isPageStarted = true)
@@ -211,9 +220,9 @@ class JestkWebViewClient(
                     webView = wv,
                     tabId = tabId,
                     context = wv.context,
-                    onVisualColorsSampled = { topColor, _ ->
+                    onVisualColorsSampled = { topColor, bottomColor ->
                         if (!validUrl.contains("apple.com", ignoreCase = true)) {
-                            onThemeColorDetected(tabId, topColor)
+                            notifyThemeColors(tabId, topColor, bottomColor)
                         }
                     }
                 ) { path ->
@@ -315,7 +324,7 @@ class JestkWebViewClient(
         webView.evaluateJavascript(js) { rawResult ->
             val parsedColor = parseCssColor(rawResult)
             if (parsedColor != null) {
-                onThemeColorDetected(tabId, parsedColor)
+                notifyThemeColors(tabId, parsedColor)
             }
         }
     }

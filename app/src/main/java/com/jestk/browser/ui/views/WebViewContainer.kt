@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -50,6 +51,7 @@ import com.jestk.browser.util.findActivity
 import com.jestk.browser.ui.FileChooserHandler
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.DynamicBarColors
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.ProstoAccent
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
@@ -271,6 +273,9 @@ fun WebViewContainer(
                     onThemeColorDetected = { id, color ->
                         currentOnEvent(BrowserUiEvent.OnThemeColorReceived(id, color))
                     },
+                    onThemeColorsDetected = { id, topColor, bottomColor ->
+                        currentOnEvent(BrowserUiEvent.OnThemeColorsReceived(id, topColor, bottomColor))
+                    },
                     isDarkTheme = { isDark },
                     onFaviconReceived = handleFavicon,
                     onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
@@ -309,16 +314,29 @@ fun WebViewContainer(
         }
     }
 
-    val resolvedThemeColor = uiState.activeThemeColor ?: currentTab?.themeColor
+    val resolvedTopColor = uiState.activeTopThemeColor ?: currentTab?.topThemeColor
+    val resolvedBottomColor = uiState.activeBottomThemeColor ?: currentTab?.bottomThemeColor
     val isHome = uiState.activeOverlay == OverlayType.HOME ||
             uiState.currentUrl.isEmpty() ||
             uiState.currentUrl == "about:blank"
-    val defaultBg = if (isDark) DarkBackground else ProstoCanvasFloor
-    val targetSiteBg = if (isHome) defaultBg else (resolvedThemeColor?.let { Color(it) } ?: defaultBg)
-    val animatedSiteBg by animateColorAsState(
-        targetValue = targetSiteBg,
+    val isHomeOrNeutral = isHome || uiState.isSettingsVisible || uiState.isDownloadsVisible
+
+    val resolvedColors = DynamicBarColors.resolve(
+        isDark = isDark,
+        isHomeOrNeutralScreen = isHomeOrNeutral,
+        topThemeColor = resolvedTopColor,
+        bottomThemeColor = resolvedBottomColor,
+    )
+
+    val animatedTopBg by animateColorAsState(
+        targetValue = resolvedColors.statusBarColor,
         animationSpec = tween(durationMillis = 350),
-        label = "WebViewContainerSiteBg"
+        label = "WebViewContainerTopBg"
+    )
+    val animatedBottomBg by animateColorAsState(
+        targetValue = resolvedColors.underDockColor,
+        animationSpec = tween(durationMillis = 350),
+        label = "WebViewContainerBottomBg"
     )
 
     val contentModifier = if (uiState.isFullscreenCustomView) {
@@ -332,10 +350,19 @@ fun WebViewContainer(
             .imePadding()
     }
 
+    val siteBackgroundBrush = remember(animatedTopBg, animatedBottomBg) {
+        Brush.verticalGradient(
+            0.0f to animatedTopBg,
+            0.25f to animatedTopBg,
+            0.75f to animatedBottomBg,
+            1.0f to animatedBottomBg,
+        )
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(animatedSiteBg)
+            .background(siteBackgroundBrush)
     ) {
         Box(
             modifier = contentModifier

@@ -67,6 +67,7 @@ internal class TabCoordinator(
     internal val dismissedExternalAppDomains: MutableMap<String, MutableSet<String>> = ConcurrentHashMap(),
     internal val pendingExternalAppPrompts: MutableMap<String, ExternalAppPrompt> = ConcurrentHashMap(),
     internal val timedOutExternalAppDomains: MutableMap<String, MutableSet<String>> = ConcurrentHashMap(),
+    internal val tabBottomThemeColors: ConcurrentHashMap<String, Int> = ConcurrentHashMap(),
 ) {
     fun handleExternalAppOffered(
         tabId: String,
@@ -277,12 +278,14 @@ internal class TabCoordinator(
                                 title = tabTitle,
                                 isActive = isActive,
                                 themeColor = cached ?: tab.themeColor,
+                                bottomThemeColor = tabBottomThemeColors[tab.id] ?: tab.bottomThemeColor,
                                 faviconUrl = tabFavicon,
                             )
                         }
                     val currentTab = enrichedTabs.find { it.id == activeId }
                     val isHome = currentTab?.url.isNullOrEmpty() || currentTab?.url == "about:blank"
                     val activeColor = if (activeId != null) tabThemeColors[activeId] else null
+                    val activeBottomColor = if (activeId != null) tabBottomThemeColors[activeId] else null
                     val resolvedUrl = if (isSameAsActive) state.currentUrl else (currentTab?.url ?: state.currentUrl)
                     val resolvedTitle = if (isSameAsActive) state.pageTitle else (currentTab?.title ?: state.pageTitle)
                     state.copy(
@@ -293,6 +296,7 @@ internal class TabCoordinator(
                         canGoBack = currentTab?.canGoBack ?: state.canGoBack,
                         canGoForward = currentTab?.canGoForward ?: state.canGoForward,
                         activeThemeColor = if (isHome) null else (activeColor ?: state.activeThemeColor),
+                        activeBottomThemeColor = if (isHome) null else (activeBottomColor ?: state.activeBottomThemeColor),
                     )
                 }
             }
@@ -357,6 +361,7 @@ internal class TabCoordinator(
                         isLoading = false,
                         loadingProgress = 0f,
                         activeThemeColor = null,
+                        activeBottomThemeColor = null,
                         activeOverlay = OverlayType.SEARCH,
                         searchQuery = "",
                         isSearchHistoryExpanded = false,
@@ -412,6 +417,7 @@ internal class TabCoordinator(
                         isLoading = isWebLoading,
                         loadingProgress = if (isWebLoading) 0.15f else 0f,
                         activeThemeColor = null,
+                        activeBottomThemeColor = null,
                         isMenuExpanded = false,
                         isSearchEngineSwitcherEditExpanded = false,
                         externalAppPrompt = null,
@@ -518,6 +524,7 @@ internal class TabCoordinator(
 
         val isHome = effectiveUrl.isEmpty() || effectiveUrl == "about:blank"
         val cachedColor = tabThemeColors[tabId] ?: selected.themeColor
+        val cachedBottomColor = tabBottomThemeColors[tabId] ?: selected.bottomThemeColor
         val progress = tabLoadingProgress[tabId]
         val isTabLoading = progress != null && progress < 100
         val tabProgress = when {
@@ -530,6 +537,7 @@ internal class TabCoordinator(
             val updatedTabs =
                 tabsList.map { t ->
                     val c = tabThemeColors[t.id] ?: t.themeColor
+                    val bc = tabBottomThemeColors[t.id] ?: t.bottomThemeColor
                     if (t.id == tabId) {
                         t.copy(
                             isActive = true,
@@ -537,10 +545,11 @@ internal class TabCoordinator(
                             title = effectiveTitle,
                             canGoBack = effectiveCanGoBack,
                             canGoForward = effectiveCanGoForward,
-                            themeColor = c
+                            themeColor = c,
+                            bottomThemeColor = bc,
                         )
                     } else {
-                        t.copy(isActive = false, themeColor = c)
+                        t.copy(isActive = false, themeColor = c, bottomThemeColor = bc)
                     }
                 }
             val targetOverlay = when {
@@ -558,6 +567,7 @@ internal class TabCoordinator(
                 canGoBack = effectiveCanGoBack,
                 canGoForward = effectiveCanGoForward,
                 activeThemeColor = if (isHome) null else cachedColor,
+                activeBottomThemeColor = if (isHome) null else cachedBottomColor,
                 isMenuExpanded = false,
                 isSearchEngineSwitcherEditExpanded = false,
                 externalAppPrompt = pendingExternalAppPrompts[tabId],
@@ -585,6 +595,7 @@ internal class TabCoordinator(
     fun closeTab(tabId: String) {
         Log.d(TAG, "Closing tab $tabId")
         tabThemeColors.remove(tabId)
+        tabBottomThemeColors.remove(tabId)
         tabLoadingProgress.remove(tabId)
         dismissedExternalAppDomains.remove(tabId)
         pendingExternalAppPrompts.remove(tabId)
@@ -655,6 +666,7 @@ internal class TabCoordinator(
                             isLoading = false,
                             loadingProgress = 0f,
                             activeThemeColor = null,
+                        activeBottomThemeColor = null,
                             activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
                             recentlyClosedTab = tabToSave,
                             showUndoTabCloseSnackbar = tabToSave != null,
@@ -790,6 +802,7 @@ internal class TabCoordinator(
                         isLoading = false,
                         loadingProgress = 0f,
                         activeThemeColor = null,
+                        activeBottomThemeColor = null,
                         externalAppPrompt = null,
                         activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
                     )
@@ -1131,21 +1144,39 @@ internal class TabCoordinator(
     }
 
     fun handleThemeColor(tabId: String, color: Int?) {
-        if (color != null) {
-            tabThemeColors[tabId] = color
+        handleThemeColors(tabId, color, tabBottomThemeColors[tabId])
+    }
+
+    fun handleThemeColors(tabId: String, topColor: Int?, bottomColor: Int?) {
+        if (topColor != null) {
+            tabThemeColors[tabId] = topColor
         } else {
             tabThemeColors.remove(tabId)
         }
+        if (bottomColor != null) {
+            tabBottomThemeColors[tabId] = bottomColor
+        } else {
+            tabBottomThemeColors.remove(tabId)
+        }
         scope.launch(ioDispatcher) {
-            tabRepository.updateThemeColor(tabId, color)
+            tabRepository.updateThemeColor(tabId, topColor)
         }
         updateUiState { state ->
             val updatedTabs =
                 state.tabs.map { tab ->
-                    if (tab.id == tabId) tab.copy(themeColor = color) else tab
+                    if (tab.id == tabId) {
+                        tab.copy(
+                            themeColor = topColor,
+                            bottomThemeColor = bottomColor ?: tab.bottomThemeColor,
+                        )
+                    } else tab
                 }
             if (state.activeTabId == tabId) {
-                state.copy(tabs = updatedTabs, activeThemeColor = color)
+                state.copy(
+                    tabs = updatedTabs,
+                    activeThemeColor = topColor,
+                    activeBottomThemeColor = bottomColor ?: state.activeBottomThemeColor,
+                )
             } else {
                 state.copy(tabs = updatedTabs)
             }

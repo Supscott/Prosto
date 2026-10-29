@@ -4,6 +4,7 @@
     <string name="search_with_engine">Поиск в %1$s</string>
     <string name="settings">Настройки</string>
     <string name="close_tab">Закрыть вкладку</string>
+    <string name="reload_tab">Обновить</string>
     <string name="clear_history">Очистить историю</string>
     <string name="search_history_title">История поиска</string>
     <string name="expand_history">Вся история</string>

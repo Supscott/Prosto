@@ -12,5 +12,8 @@ data class Tab @JvmOverloads constructor(
     val isActive: Boolean = false,
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
-    val themeColor: Int? = null
-)
+    val themeColor: Int? = null,
+    val bottomThemeColor: Int? = null,
+) {
+    val topThemeColor: Int? get() = themeColor
+}

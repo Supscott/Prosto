@@ -31,6 +31,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
@@ -56,11 +57,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkDockSurface
@@ -434,6 +437,9 @@ fun TabStripRow(
                         onShare = { urlToShare ->
                             shareWebpageUrl(context, urlToShare)
                         },
+                        onReload = {
+                            onEvent(BrowserUiEvent.Reload)
+                        },
                         modifier =
                             Modifier
                                 .width(renderedActiveWidth)
@@ -794,6 +800,8 @@ fun TabContextMenu(
     onCopyUrl: () -> Unit,
     onAddFavorite: () -> Unit,
     onShareLink: (() -> Unit)? = null,
+    isReloadVisible: Boolean = false,
+    onReload: (() -> Unit)? = null,
 ) {
     val menuBg = if (isDark) DarkSurface else ProstoCardSurface
     val menuBorder = ProstoBorders.floatingBorder(isDark)
@@ -813,6 +821,22 @@ fun TabContextMenu(
             modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
             verticalArrangement = Arrangement.Center,
         ) {
+            // Reload (First item when isReloadVisible is true)
+            if (isReloadVisible && onReload != null) {
+                PopupMenuItem(
+                    icon = Icons.Default.Refresh,
+                    label = stringResource(R.string.reload_tab),
+                    isActive = false,
+                    isDark = isDark,
+                    onClick = {
+                        onDismissRequest()
+                        onReload()
+                    },
+                )
+
+                HorizontalDivider(color = dividerColor, thickness = 1.dp)
+            }
+
             // Close Tab
             PopupMenuItem(
                 icon = Icons.Default.Close,

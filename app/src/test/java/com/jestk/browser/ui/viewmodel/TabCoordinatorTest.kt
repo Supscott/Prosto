@@ -815,4 +815,29 @@ class TabCoordinatorTest {
             coordinator.handleExternalAppOffered(uiState.activeTabId!!, secondPrompt)
             assertThat(uiState.externalAppPrompt).isEqualTo(secondPrompt)
         }
+
+    @Test
+    fun handleThemeColors_updatesTopAndBottomThemeColorsInState() =
+        testScope.runTest {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            coordinator.openNewTab("https://example.com")
+            advanceUntilIdle()
+            val activeTabId = uiState.activeTabId!!
+
+            val topColor = 0xFF123456.toInt()
+            val bottomColor = 0xFF654321.toInt()
+
+            coordinator.handleThemeColors(activeTabId, topColor, bottomColor)
+            advanceUntilIdle()
+
+            assertThat(uiState.activeThemeColor).isEqualTo(topColor)
+            assertThat(uiState.activeTopThemeColor).isEqualTo(topColor)
+            assertThat(uiState.activeBottomThemeColor).isEqualTo(bottomColor)
+
+            val activeTab = uiState.tabs.find { it.id == activeTabId }
+            assertThat(activeTab?.themeColor).isEqualTo(topColor)
+            assertThat(activeTab?.bottomThemeColor).isEqualTo(bottomColor)
+        }
 }

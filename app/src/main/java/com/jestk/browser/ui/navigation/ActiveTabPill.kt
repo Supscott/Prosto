@@ -104,6 +104,7 @@ fun ActiveTabPill(
     isCompact: Boolean = false,
     isRemovePending: Boolean = false,
     removeProgress: Float = 0f,
+    onReload: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val typography = LocalProstoTypography.current
@@ -346,6 +347,8 @@ fun ActiveTabPill(
                     }
                 },
                 onShareLink = { onShare(url) },
+                isReloadVisible = !isHome && url.isNotBlank() && !url.startsWith("about:"),
+                onReload = onReload,
             )
         }
     }

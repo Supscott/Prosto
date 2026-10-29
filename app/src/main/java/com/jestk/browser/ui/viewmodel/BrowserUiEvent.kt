@@ -161,6 +161,12 @@ sealed interface BrowserUiEvent {
         val color: Int?,
     ) : BrowserUiEvent
 
+    data class OnThemeColorsReceived(
+        val tabId: String,
+        val topColor: Int?,
+        val bottomColor: Int?,
+    ) : BrowserUiEvent
+
     // Favorites & History
     data object ShowAddFavoriteDialog : BrowserUiEvent
 

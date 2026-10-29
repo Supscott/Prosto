@@ -47,6 +47,7 @@ import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
@@ -90,6 +91,7 @@ import com.jestk.browser.ui.pip.FloatingVideoMiniPlayer
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.DynamicBarColors
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.ProstoBorders
@@ -162,6 +164,7 @@ fun JestkApp(
                     onNavigationStateChanged = { id, canBack, canForward -> viewModel.onEvent(BrowserUiEvent.OnNavigationStateChanged(id, canBack, canForward)) },
                     onSnapshotReady = { id, path -> viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(id, path)) },
                     onThemeColorDetected = { id, color -> viewModel.onEvent(BrowserUiEvent.OnThemeColorReceived(id, color)) },
+                    onThemeColorsDetected = { id, topColor, bottomColor -> viewModel.onEvent(BrowserUiEvent.OnThemeColorsReceived(id, topColor, bottomColor)) },
                     isDarkTheme = { isDark },
                     onFaviconReceived = handleFavicon,
                     onTitleReceived = { id, title -> viewModel.onEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
@@ -262,27 +265,35 @@ fun JestkApp(
         }
 
         val currentTab = uiState.tabs.find { it.id == uiState.activeTabId }
-        val siteColor = uiState.activeThemeColor ?: currentTab?.themeColor
+        val siteTopColor = uiState.activeTopThemeColor ?: currentTab?.topThemeColor
+        val siteBottomColor = uiState.activeBottomThemeColor ?: currentTab?.bottomThemeColor
         val showHomeScreen =
             uiState.activeOverlay == OverlayType.HOME ||
                 uiState.currentUrl.isEmpty() ||
                 uiState.currentUrl == "about:blank"
+        val isHomeOrNeutral = showHomeScreen || uiState.isSettingsVisible || uiState.isDownloadsVisible
 
-        val defaultBg = if (isDark) DarkBackground else ProstoCanvasFloor
-        val targetAppBg =
-            if (showHomeScreen || siteColor == null || uiState.isSettingsVisible || uiState.isDownloadsVisible) {
-                defaultBg
-            } else {
-                Color(siteColor)
-            }
-        val animatedAppBg by animateColorAsState(
-            targetValue = targetAppBg,
+        val resolvedColors = DynamicBarColors.resolve(
+            isDark = isDark,
+            isHomeOrNeutralScreen = isHomeOrNeutral,
+            topThemeColor = siteTopColor,
+            bottomThemeColor = siteBottomColor,
+        )
+
+        val animatedStatusBarBg by animateColorAsState(
+            targetValue = resolvedColors.statusBarColor,
             animationSpec = tween(durationMillis = 350),
-            label = "JestkAppRootBgColor",
+            label = "JestkAppStatusBarBgColor",
+        )
+        val animatedBottomBarBg by animateColorAsState(
+            targetValue = resolvedColors.underDockColor,
+            animationSpec = tween(durationMillis = 350),
+            label = "JestkAppBottomBarBgColor",
         )
 
         val view = LocalView.current
-        val isLightSite = animatedAppBg.luminance() > 0.5f
+        val isLightStatus = animatedStatusBarBg.luminance() > 0.5f
+        val isLightNav = animatedBottomBarBg.luminance() > 0.5f
         if (!view.isInEditMode) {
             val isFullscreen = uiState.isFullscreenCustomView
             SideEffect {
@@ -290,16 +301,16 @@ fun JestkApp(
                 val window = activity?.window
                 if (window != null) {
                     val insetsController = WindowCompat.getInsetsController(window, window.decorView)
-                    insetsController.isAppearanceLightStatusBars = isLightSite
-                    insetsController.isAppearanceLightNavigationBars = isLightSite
+                    insetsController.isAppearanceLightStatusBars = isLightStatus
+                    insetsController.isAppearanceLightNavigationBars = isLightNav
 
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                         window.isNavigationBarContrastEnforced = false
                     }
                     @Suppress("DEPRECATION")
-                    window.statusBarColor = animatedAppBg.toArgb()
+                    window.statusBarColor = animatedStatusBarBg.toArgb()
                     @Suppress("DEPRECATION")
-                    window.navigationBarColor = animatedAppBg.toArgb()
+                    window.navigationBarColor = animatedBottomBarBg.toArgb()
                 }
             }
 
@@ -365,11 +376,21 @@ fun JestkApp(
             }
         }
 
+        val appBackgroundBrush =
+            remember(animatedStatusBarBg, animatedBottomBarBg) {
+                Brush.verticalGradient(
+                    0.0f to animatedStatusBarBg,
+                    0.25f to animatedStatusBarBg,
+                    0.75f to animatedBottomBarBg,
+                    1.0f to animatedBottomBarBg,
+                )
+            }
+
         Box(
             modifier =
                 modifier
                     .fillMaxSize()
-                    .background(animatedAppBg),
+                    .background(appBackgroundBrush),
         ) {
             // Main Viewport: WebView Container and Home Screen (NO BLUR)
             Box(

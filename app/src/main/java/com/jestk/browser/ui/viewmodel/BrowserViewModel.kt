@@ -437,6 +437,10 @@ class BrowserViewModel(
                 tabCoordinator.handleThemeColor(event.tabId, event.color)
             }
 
+            is BrowserUiEvent.OnThemeColorsReceived -> {
+                tabCoordinator.handleThemeColors(event.tabId, event.topColor, event.bottomColor)
+            }
+
             is BrowserUiEvent.ShowAddFavoriteDialog -> {
                 _uiState.update { it.copy(showAddFavoriteDialog = true) }
             }

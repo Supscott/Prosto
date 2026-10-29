@@ -55,6 +55,7 @@ data class BrowserUiState(
     // UI Dynamics & Gestures
     val isBottomBarVisible: Boolean = true,
     val activeThemeColor: Int? = null,
+    val activeBottomThemeColor: Int? = null,
     val isMenuExpanded: Boolean = false,
     // Media & Fullscreen
     val isVideoPlaying: Boolean = false,
@@ -107,6 +108,9 @@ data class BrowserUiState(
      */
     val isSettingsVisible: Boolean
         get() = activeScreen == ScreenType.SETTINGS || activeOverlay == OverlayType.SETTINGS
+
+    val activeTopThemeColor: Int?
+        get() = activeThemeColor
 
     val isDownloadsVisible: Boolean
         get() = activeScreen == ScreenType.DOWNLOADS || activeOverlay == OverlayType.DOWNLOADS
