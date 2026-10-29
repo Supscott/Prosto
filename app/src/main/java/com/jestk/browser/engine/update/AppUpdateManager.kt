@@ -74,7 +74,7 @@ open class AppUpdateManager(
 
 /**
  * Maps a GitHub release payload to an [AppUpdate]. Returns null when the release
- * is a draft/prerelease or carries no installable APK asset.
+ * is empty, draft, prerelease, or missing a valid version name.
  */
 fun parseGithubRelease(json: String): AppUpdate? {
     if (json.isBlank()) return null
@@ -85,36 +85,10 @@ fun parseGithubRelease(json: String): AppUpdate? {
     val versionName = tag.removePrefix("v").removePrefix("V")
     if (versionName.isBlank()) return null
 
-    val assets = root.optJSONArray("assets") ?: return null
-    for (index in 0 until assets.length()) {
-        val asset = assets.optJSONObject(index) ?: continue
-        val name = asset.optString("name")
-        val isApk = name.endsWith(".apk", ignoreCase = true)
-        if (!isApk) continue
-
-        val isDebug = name.contains("debug", ignoreCase = true)
-        if (isDebug) continue
-
-        // When multiple assets or builds are present, prefer official release binaries (prosto-*.apk)
-        val isOfficial = name.startsWith("prosto-", ignoreCase = true)
-        if (!isOfficial && assets.length() > 1) {
-            val hasOfficial = (0 until assets.length()).any { i ->
-                val otherName = assets.optJSONObject(i)?.optString("name").orEmpty()
-                otherName.startsWith("prosto-", ignoreCase = true) &&
-                    otherName.endsWith(".apk", ignoreCase = true) &&
-                    !otherName.contains("debug", ignoreCase = true)
-            }
-            if (hasOfficial) continue
-        }
-
-        val apkUrl = asset.optString("browser_download_url")
-        if (apkUrl.isBlank()) continue
-        return AppUpdate(
-            versionName = versionName,
-            releaseNotes = root.optString("body"),
-            releaseUrl = root.optString("html_url"),
-            apkUrl = apkUrl,
-        )
-    }
-    return null
+    val releaseUrl = root.optString("html_url").ifBlank { "https://github.com/Supscott/Prosto/releases/tag/$tag" }
+    return AppUpdate(
+        versionName = versionName,
+        releaseNotes = root.optString("body"),
+        releaseUrl = releaseUrl,
+    )
 }

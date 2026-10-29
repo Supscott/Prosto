@@ -82,7 +82,7 @@
     <string name="about_love_footer">Создано с любовью для быстрого и приватного веба</string>
     <string name="vibration_setting_title">Вибрация</string>
     <string name="vibration_setting_summary">Вибрация при жестах и долгом нажатии</string>
-    <string name="update_setting_title">Проверка обновлений</string>
+    <string name="update_setting_title">Автоматическая проверка обновлений</string>
     <string name="update_setting_summary">Автоматически проверять наличие новых релизов на GitHub</string>
     <string name="update_card_title">Доступно обновление</string>
     <string name="update_card_body">Доступна новая версия Prosto %1$s</string>

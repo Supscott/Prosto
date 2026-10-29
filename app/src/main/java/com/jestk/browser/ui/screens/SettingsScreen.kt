@@ -574,7 +574,6 @@ fun SettingsContent(
                 subtitle = stringResource(R.string.update_check_up_to_date, appVersion),
                 onClick = {
                     onEvent(BrowserUiEvent.CheckForUpdate(manual = true))
-                    Toast.makeText(context, context.getString(R.string.update_check_up_to_date, appVersion), Toast.LENGTH_SHORT).show()
                 },
                 isDark = isDark,
             )

@@ -65,6 +65,11 @@ class UpdateCoordinator(
         publish(AppUpdateUiState.None)
     }
 
+    fun onCheckNow() {
+        Log.d(TAG, "onCheckNow: triggering manual update check")
+        scope.launch(ioDispatcher) { checkForUpdate(manual = true) }
+    }
+
     suspend fun checkForUpdate(manual: Boolean = false) {
         val manager = appUpdateManager ?: return
         val settings = settingsRepository.getCurrentSettings()
@@ -95,7 +100,7 @@ class UpdateCoordinator(
     fun onRedirectRequested() {
         val state = getCurrentState().updateState
         if (state is AppUpdateUiState.Available) {
-            val targetUrl = state.update.releaseUrl.ifBlank { state.update.apkUrl }
+            val targetUrl = state.update.releaseUrl
             if (targetUrl.isNotBlank()) {
                 Log.d(TAG, "onRedirectRequested: launching browser for $targetUrl")
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {

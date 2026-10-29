@@ -26,11 +26,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.AppUpdateUiState
 import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalProstoTypography
@@ -108,7 +110,9 @@ fun UpdateNotificationCard(
                                 fontSize = 12.sp,
                                 lineHeight = 16.sp,
                             ),
-                        color = ProstoMutedSlate,
+                        maxLines = 3,
+                        overflow = TextOverflow.Ellipsis,
+                        color = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
                     )
                 }
             }
@@ -124,31 +128,38 @@ fun UpdateNotificationCard(
                     onClick = onRedirect,
                 )
 
-                TextButton(
+                SecondaryActionButton(
+                    text = stringResource(R.string.update_action_later),
                     onClick = onDismiss,
-                    shape = ProstoShapes.Pill,
-                    modifier = Modifier.height(38.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.update_action_later),
-                        style = LocalProstoTypography.current.labelMd,
-                        color = ProstoMutedSlate,
-                    )
-                }
+                    isDark = isDark,
+                )
 
-                TextButton(
+                SecondaryActionButton(
+                    text = stringResource(R.string.update_action_skip),
                     onClick = onSkip,
-                    shape = ProstoShapes.Pill,
-                    modifier = Modifier.height(38.dp),
-                ) {
-                    Text(
-                        text = stringResource(R.string.update_action_skip),
-                        style = LocalProstoTypography.current.labelMd,
-                        color = ProstoMutedSlate,
-                    )
-                }
+                    isDark = isDark,
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun SecondaryActionButton(
+    text: String,
+    onClick: () -> Unit,
+    isDark: Boolean,
+) {
+    TextButton(
+        onClick = onClick,
+        shape = ProstoShapes.Pill,
+        modifier = Modifier.height(38.dp),
+    ) {
+        Text(
+            text = text,
+            style = LocalProstoTypography.current.labelMd,
+            color = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
+        )
     }
 }
 
