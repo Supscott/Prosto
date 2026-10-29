@@ -179,7 +179,7 @@ fun UnifiedBottomBar(
                                 )
                         )
 
-                        // Tab Strip Row (tabs rest on the dock surface, unclipped by the dock capsule)
+                        // Tab Strip Row (tabs rest on the dock surface and clip cleanly to the dock capsule during horizontal scroll)
                         TabStripRow(
                             uiState = uiState,
                             onEvent = onEvent,

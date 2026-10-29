@@ -49,10 +49,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -314,11 +319,80 @@ fun TabStripRow(
             }
         }
 
+        val leftFadeWidthPx = with(density) { 32.dp.toPx() }
+        val rightFadeWidthPx = with(density) { 32.dp.toPx() }
+
+        val canScrollBackward = lazyListState.canScrollBackward
+        val canScrollForward = lazyListState.canScrollForward
+        val isFadeActive = canScrollBackward || canScrollForward
+
+        val isDraggingActiveTab = dragState.isDragging && dragState.draggingTabId == uiState.activeTabId
+        val renderedActiveWidth by animateDpAsState(
+            targetValue = if (isDraggingActiveTab) 38.dp else activeTabWidth,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioMediumBouncy,
+                stiffness = Spring.StiffnessMedium,
+            ),
+            label = "ActiveTabDragWidth",
+        )
+
         LazyRow(
             state = lazyListState,
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .fillMaxHeight()
+                    .clip(ProstoShapes.Dock)
+                    .graphicsLayer {
+                        compositingStrategy =
+                            if (isFadeActive) {
+                                CompositingStrategy.Offscreen
+                            } else {
+                                CompositingStrategy.Auto
+                            }
+                    }
+                    .drawWithContent {
+                        drawContent()
+                        if (isFadeActive) {
+                            if (canScrollBackward) {
+                                drawRect(
+                                    brush =
+                                        Brush.horizontalGradient(
+                                            0f to Color.Transparent,
+                                            1f to Color.Black,
+                                            startX = 0f,
+                                            endX = leftFadeWidthPx,
+                                        ),
+                                    blendMode = BlendMode.DstIn,
+                                    size = Size(leftFadeWidthPx, size.height),
+                                )
+                            }
+                            if (canScrollForward) {
+                                val endX = size.width - rightPinnedOffsetPx
+                                val startX = (endX - rightFadeWidthPx).coerceAtLeast(0f)
+                                drawRect(
+                                    brush =
+                                        Brush.horizontalGradient(
+                                            0f to Color.Black,
+                                            1f to Color.Transparent,
+                                            startX = startX,
+                                            endX = endX,
+                                        ),
+                                    blendMode = BlendMode.DstIn,
+                                    topLeft = Offset(startX, 0f),
+                                    size = Size(endX - startX, size.height),
+                                )
+                                if (endX < size.width) {
+                                    drawRect(
+                                        color = Color.Transparent,
+                                        blendMode = BlendMode.DstIn,
+                                        topLeft = Offset(endX, 0f),
+                                        size = Size(size.width - endX, size.height),
+                                    )
+                                }
+                            }
+                        }
+                    }
                     .then(dragReorderModifier),
             userScrollEnabled = !dragState.isDragging && !dragState.isSettling,
             contentPadding = PaddingValues(start = 5.dp, end = 46.dp),
@@ -331,58 +405,10 @@ fun TabStripRow(
             ) { index, tab ->
                 val isActive = index == activeIndex
                 val tabIsHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home" || (isHome && isActive)
-                val isDraggingThis = dragState.draggingTabId == tab.id
-                val isSettlingThis = dragState.settlingTabId == tab.id
-                val isElevated = isDraggingThis || isSettlingThis
-                val isOverRemoveZone = isDraggingThis && dragState.isOverRemoveZone
-
-                val removeDistancePx = (-dragState.dragOffsetYPx).coerceAtLeast(0f)
-                val removeProgress = (removeDistancePx / removeThresholdPx).coerceIn(0f, 1f)
-                val overDistance = ((-dragState.dragOffsetYPx - removeThresholdPx) / removeThresholdPx).coerceIn(0f, 1f)
-
-                val renderedActiveWidth by animateDpAsState(
-                    targetValue = if (isDraggingThis) 38.dp else activeTabWidth,
-                    animationSpec = spring(
-                        dampingRatio = Spring.DampingRatioMediumBouncy,
-                        stiffness = Spring.StiffnessMedium,
-                    ),
-                    label = "ActiveTabDragWidth",
-                )
-
-                val itemTranslationX =
-                    when {
-                        isDraggingThis -> dragState.dragOffsetPx
-                        isSettlingThis -> dragState.settleOffsetAnim.value
-                        else -> 0f
-                    }
-                val itemTranslationY =
-                    when {
-                        isDraggingThis -> dragState.dragOffsetYPx
-                        isSettlingThis -> dragState.settleOffsetYAnim.value
-                        else -> 0f
-                    }
-
-                val baseDragScale = if (isActive) 1.05f else 1.08f
-                val dynamicDragScale =
-                    (baseDragScale - (removeProgress * 0.45f) - (overDistance * 0.05f)).coerceAtLeast(0.50f)
-                val dynamicDragAlpha =
-                    (1.0f - (removeProgress * 0.55f) - (overDistance * 0.05f)).coerceIn(0.40f, 1.0f)
-
-                val itemScale =
-                    when {
-                        isDraggingThis -> dynamicDragScale
-                        isSettlingThis -> dragState.settleScaleAnim.value
-                        else -> 1.0f
-                    }
-                val effectiveScale = itemScale + if (isDraggingThis) dragState.swapScaleBump.value else 0f
-                val itemAlpha =
-                    when {
-                        isDraggingThis -> dynamicDragAlpha
-                        else -> 1.0f
-                    }
+                val isElevated = dragState.draggingTabId == tab.id || dragState.settlingTabId == tab.id
 
                 val itemPlacementModifier =
-                    if (isDraggingThis) {
+                    if (isElevated) {
                         Modifier
                     } else {
                         Modifier.animateItem(
@@ -393,8 +419,6 @@ fun TabStripRow(
                                 ),
                         )
                     }
-
-                val tabRemoveProgress = if (isDraggingThis) removeProgress else 0f
 
                 if (isActive) {
                     val currentTitle =
@@ -410,17 +434,14 @@ fun TabStripRow(
                     val currentUrl = if (isActive && uiState.currentUrl.isNotEmpty()) uiState.currentUrl else tab.url
                     val currentDomain = if (tabIsHome) "" else extractDomain(currentUrl)
 
-                    val activePillBgActual = centerPillBg
-                    val activePillBorderActual = centerPillBorder
-
                     ActiveTabPill(
                         title = currentTitle,
                         domain = currentDomain,
                         url = currentUrl,
                         faviconUrl = tab.faviconUrl,
                         isHome = tabIsHome,
-                        backgroundColor = activePillBgActual,
-                        border = activePillBorderActual,
+                        backgroundColor = centerPillBg,
+                        border = centerPillBorder,
                         isDark = isDark,
                         isLoading = uiState.isLoading,
                         loadingProgress = uiState.loadingProgress,
@@ -444,45 +465,28 @@ fun TabStripRow(
                             Modifier
                                 .width(renderedActiveWidth)
                                 .then(itemPlacementModifier)
-                                .zIndex(if (isElevated) 10f else 0f)
                                 .testTag("tab_${tab.id}")
                                 .graphicsLayer {
-                                    translationX = itemTranslationX
-                                    translationY = itemTranslationY
-                                    scaleX = effectiveScale
-                                    scaleY = effectiveScale
-                                    alpha = itemAlpha
+                                    alpha = if (isElevated) 0f else 1f
                                 },
                         menuExpanded = contextMenuTabId == tab.id,
                         onMenuDismiss = { contextMenuTabId = null },
-                        isCompact = isDraggingThis,
-                        isRemovePending = isOverRemoveZone,
-                        removeProgress = tabRemoveProgress,
+                        isCompact = false,
+                        isRemovePending = false,
+                        removeProgress = 0f,
                     )
                 } else {
                     val isTabLoaded = uiState.isTabLoaded(tab.id)
-                    val inactiveBtnBgActual =
-                        if (isDraggingThis) {
-                            if (isDark) DarkSurface.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.90f)
-                        } else {
-                            circleBtnBg
-                        }
-                    val inactiveBtnBorderActual =
-                        if (isDraggingThis) {
-                            ProstoBorders.floatingBorder(isDark)
-                        } else {
-                            null
-                        }
 
                     InactiveTabButton(
                         tab = tab,
                         isDark = isDark,
                         isLoaded = isTabLoaded,
                         grayUnloadedTabs = uiState.settings.isGrayUnloadedTabsEnabled,
-                        backgroundColor = inactiveBtnBgActual,
-                        border = inactiveBtnBorderActual,
-                        isRemovePending = isOverRemoveZone,
-                        removeProgress = tabRemoveProgress,
+                        backgroundColor = circleBtnBg,
+                        border = null,
+                        isRemovePending = false,
+                        removeProgress = 0f,
                         onClick = {
                             onEvent(BrowserUiEvent.SelectTab(tab.id))
                         },
@@ -495,14 +499,9 @@ fun TabStripRow(
                         modifier =
                             Modifier
                                 .then(itemPlacementModifier)
-                                .zIndex(if (isElevated) 10f else 0f)
                                 .testTag("tab_${tab.id}")
                                 .graphicsLayer {
-                                    translationX = itemTranslationX
-                                    translationY = itemTranslationY
-                                    scaleX = effectiveScale
-                                    scaleY = effectiveScale
-                                    alpha = itemAlpha
+                                    alpha = if (isElevated) 0f else 1f
                                     transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
                                 },
                         menuExpanded = contextMenuTabId == tab.id,
@@ -511,47 +510,6 @@ fun TabStripRow(
                 }
             }
         }
-
-        // Left edge fade (visible when scrolled right)
-        if (lazyListState.canScrollBackward) {
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterStart)
-                        .fillMaxHeight()
-                        .width(36.dp)
-                        .clip(RoundedCornerShape(topStart = 25.dp, bottomStart = 25.dp))
-                        .background(
-                            Brush.horizontalGradient(
-                                colors =
-                                    listOf(
-                                        dockBg,
-                                        dockBg.copy(alpha = dockBg.alpha * 0.75f),
-                                        Color.Transparent,
-                                    ),
-                            ),
-                        ),
-            )
-        }
-
-        // Right edge horizontal gradient scrim beneath the pinned button
-        Box(
-            modifier =
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .fillMaxHeight()
-                    .width(42.dp)
-                    .clip(RoundedCornerShape(topEnd = 25.dp, bottomEnd = 25.dp))
-                    .background(
-                        Brush.horizontalGradient(
-                            listOf(
-                                Color.Transparent,
-                                dockBg.copy(alpha = dockBg.alpha * 0.75f),
-                                dockBg,
-                            ),
-                        ),
-                    ),
-        )
 
         // Pinned New Tab Button (absolute right-0 over tab strip)
         AddTabDockButton(
@@ -566,6 +524,172 @@ fun TabStripRow(
                     .align(Alignment.CenterEnd)
                     .padding(end = 4.dp),
         )
+
+        // Floating Dragged / Settling Tab Overlay (outside LazyRow to prevent clipping above dock)
+        val elevatedTabId = dragState.draggingTabId ?: dragState.settlingTabId
+        val elevatedTab = if (elevatedTabId != null) dragState.currentTabs.firstOrNull { it.id == elevatedTabId } else null
+        if (elevatedTab != null) {
+            val isDraggingThis = dragState.draggingTabId == elevatedTab.id
+            val isSettlingThis = dragState.settlingTabId == elevatedTab.id
+            val isElevatedActive = elevatedTab.id == uiState.activeTabId
+            val tabIsHome = elevatedTab.url.isEmpty() || elevatedTab.url == "about:blank" || elevatedTab.title == "Home" || (isHome && isElevatedActive)
+            val isOverRemoveZone = isDraggingThis && dragState.isOverRemoveZone
+
+            val removeDistancePx = (-dragState.dragOffsetYPx).coerceAtLeast(0f)
+            val removeProgress = (removeDistancePx / removeThresholdPx).coerceIn(0f, 1f)
+            val overDistance = ((-dragState.dragOffsetYPx - removeThresholdPx) / removeThresholdPx).coerceIn(0f, 1f)
+
+            val baseDragScale = if (isElevatedActive) 1.05f else 1.08f
+            val dynamicDragScale =
+                (baseDragScale - (removeProgress * 0.20f) - (overDistance * 0.05f)).coerceAtLeast(0.80f)
+            val dynamicDragAlpha =
+                (1.0f - (removeProgress * 0.15f) - (overDistance * 0.05f)).coerceIn(0.80f, 1.0f)
+
+            val itemScale =
+                when {
+                    isDraggingThis -> dynamicDragScale
+                    isSettlingThis -> dragState.settleScaleAnim.value
+                    else -> 1.0f
+                }
+            val effectiveScale = itemScale + if (isDraggingThis) dragState.swapScaleBump.value else 0f
+            val itemAlpha =
+                when {
+                    isDraggingThis -> dynamicDragAlpha
+                    isSettlingThis -> 1.0f
+                    else -> 1.0f
+                }
+
+            val overlayX =
+                when {
+                    isDraggingThis -> dragState.lastVisualXPx
+                    isSettlingThis -> {
+                        val slotItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == elevatedTab.id }
+                        val slotOffset = slotItem?.offset?.toFloat() ?: dragState.lastVisualXPx
+                        slotOffset + dragState.settleOffsetAnim.value
+                    }
+                    else -> 0f
+                }
+            val overlayY =
+                when {
+                    isDraggingThis -> dragState.dragOffsetYPx
+                    isSettlingThis -> dragState.settleOffsetYAnim.value
+                    else -> 0f
+                }
+
+            val tabRemoveProgress = if (isDraggingThis) removeProgress else 0f
+
+            val renderedOverlayActiveWidth by animateDpAsState(
+                targetValue = if (isDraggingThis) 38.dp else activeTabWidth,
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                    stiffness = Spring.StiffnessMedium,
+                ),
+                label = "OverlayActiveTabDragWidth",
+            )
+
+            if (isElevatedActive) {
+                val currentTitle =
+                    if (tabIsHome) {
+                        "Home"
+                    } else {
+                        when {
+                            isElevatedActive && uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
+                            elevatedTab.title.isNotEmpty() && elevatedTab.title != "Home" && elevatedTab.title != "New Tab" -> elevatedTab.title
+                            else -> "Prosto Browser"
+                        }
+                    }
+                val currentUrl = if (isElevatedActive && uiState.currentUrl.isNotEmpty()) uiState.currentUrl else elevatedTab.url
+                val currentDomain = if (tabIsHome) "" else extractDomain(currentUrl)
+
+                val activePillBgActual =
+                    if (isDraggingThis) {
+                        if (isDark) DarkSurface.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.95f)
+                    } else {
+                        centerPillBg
+                    }
+                val activePillBorderActual =
+                    if (isDraggingThis) {
+                        ProstoBorders.floatingBorder(isDark)
+                    } else {
+                        centerPillBorder
+                    }
+
+                ActiveTabPill(
+                    title = currentTitle,
+                    domain = currentDomain,
+                    url = currentUrl,
+                    faviconUrl = elevatedTab.faviconUrl,
+                    isHome = tabIsHome,
+                    backgroundColor = activePillBgActual,
+                    border = activePillBorderActual,
+                    isDark = isDark,
+                    isLoading = uiState.isLoading,
+                    loadingProgress = uiState.loadingProgress,
+                    onOpenSearch = {},
+                    onClose = {},
+                    onAddFavorite = { _, _ -> },
+                    onShare = {},
+                    onReload = {},
+                    modifier =
+                        Modifier
+                            .width(renderedOverlayActiveWidth)
+                            .zIndex(20f)
+                            .graphicsLayer {
+                                translationX = overlayX
+                                translationY = overlayY
+                                scaleX = effectiveScale
+                                scaleY = effectiveScale
+                                alpha = itemAlpha
+                            },
+                    menuExpanded = false,
+                    onMenuDismiss = {},
+                    isCompact = isDraggingThis,
+                    isRemovePending = isOverRemoveZone,
+                    removeProgress = tabRemoveProgress,
+                )
+            } else {
+                val isTabLoaded = uiState.isTabLoaded(elevatedTab.id)
+                val inactiveBtnBgActual =
+                    if (isDraggingThis) {
+                        if (isDark) DarkSurface.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.90f)
+                    } else {
+                        circleBtnBg
+                    }
+                val inactiveBtnBorderActual =
+                    if (isDraggingThis) {
+                        ProstoBorders.floatingBorder(isDark)
+                    } else {
+                        null
+                    }
+
+                InactiveTabButton(
+                    tab = elevatedTab,
+                    isDark = isDark,
+                    isLoaded = isTabLoaded,
+                    grayUnloadedTabs = uiState.settings.isGrayUnloadedTabsEnabled,
+                    backgroundColor = inactiveBtnBgActual,
+                    border = inactiveBtnBorderActual,
+                    isRemovePending = isOverRemoveZone,
+                    removeProgress = tabRemoveProgress,
+                    onClick = {},
+                    onClose = {},
+                    onAddFavorite = { _, _ -> },
+                    modifier =
+                        Modifier
+                            .zIndex(20f)
+                            .graphicsLayer {
+                                translationX = overlayX
+                                translationY = overlayY
+                                scaleX = effectiveScale
+                                scaleY = effectiveScale
+                                alpha = itemAlpha
+                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+                            },
+                    menuExpanded = false,
+                    onMenuDismiss = {},
+                )
+            }
+        }
 
         // Floating Vanishing Tab Overlay during removal release animation
         val removingTab = dragState.removingTab

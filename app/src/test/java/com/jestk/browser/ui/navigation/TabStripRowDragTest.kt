@@ -263,7 +263,7 @@ class TabStripRowDragTest {
     }
 
     @Test
-    fun dragInactiveTabAboveDock_removesTabWithAnimationAndVibration() {
+    fun dragInactiveTabAboveDock_removesTabWithAnimation() {
         render(tabs = fourTabs(activeIndex = 0), activeTabId = "tab1")
         val tag = "tab_tab2"
         val start = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
@@ -284,8 +284,8 @@ class TabStripRowDragTest {
         // Release to confirm removal
         composeRule.onRoot().performTouchInput { up() }
 
-        // Confirm vibration triggered upon release in remove zone
-        assertThat(vibrationConfirms).isAtLeast(2)
+        // No vibration upon release in remove zone (only 1 from initial long press)
+        assertThat(vibrationConfirms).isEqualTo(1)
 
         // Advance through removal animation
         composeRule.mainClock.advanceTimeBy(500)
@@ -295,7 +295,7 @@ class TabStripRowDragTest {
     }
 
     @Test
-    fun dragActiveTabAboveDock_removesTabWithAnimationAndVibration() {
+    fun dragActiveTabAboveDock_removesTabWithAnimation() {
         render(tabs = fourTabs(activeIndex = 0), activeTabId = "tab1")
         val tag = "tab_tab1"
         val start = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
@@ -313,7 +313,7 @@ class TabStripRowDragTest {
         composeRule.onNodeWithContentDescription("Remove Tab", useUnmergedTree = true).assertExists()
 
         composeRule.onRoot().performTouchInput { up() }
-        assertThat(vibrationConfirms).isAtLeast(2)
+        assertThat(vibrationConfirms).isEqualTo(1)
 
         composeRule.mainClock.advanceTimeBy(500)
         val closed = events.filterIsInstance<BrowserUiEvent.CloseTab>()

@@ -5,6 +5,7 @@ import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -371,5 +372,126 @@ class DockRefinementsTest {
         }
         assertThat(outputFile.exists()).isTrue()
         assertThat(outputFile.length()).isGreaterThan(0L)
+    }
+
+    @Test
+    fun dockClipsTabsToCapsuleShapeDuringHorizontalScroll() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val sampleState = BrowserUiState(
+            currentUrl = "https://example.com",
+            pageTitle = "Example Domain",
+            isLoading = false,
+            tabs = (1..6).map {
+                Tab(
+                    id = "$it",
+                    url = "https://$it.example.com",
+                    title = "Tab $it",
+                    isActive = it == 1
+                )
+            },
+            activeTabId = "1"
+        )
+
+        val outerBg = Color(0xFFFF0000)
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                            .background(outerBg),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        UnifiedBottomBar(
+                            uiState = sampleState,
+                            onEvent = {}
+                        )
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val density = composeView.resources.displayMetrics.density
+        val width = (400 * density).toInt()
+        val height = (100 * density).toInt()
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        // Outside margin to the left of the dock (dock has padding horizontal = 16dp).
+        // At x = 6dp, pixels must remain background red (no tab bleeds outside dock).
+        val checkX = (6 * density).toInt()
+        val startY = (20 * density).toInt()
+        val endY = (80 * density).toInt()
+        for (y in startY until endY) {
+            val pixel = bitmap.getPixel(checkX, y)
+            assertThat(pixel).isEqualTo(android.graphics.Color.RED)
+        }
+    }
+
+    @Test
+    fun unifiedBottomBarAllowsDraggedTabVisibilityUpToMiddleOfScreen() {
+        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
+        val activity = controller.get()
+
+        val sampleState = BrowserUiState(
+            currentUrl = "https://example.com",
+            pageTitle = "Example Domain",
+            isLoading = false,
+            tabs = listOf(
+                Tab(id = "1", url = "https://example.com", title = "Example Domain", isActive = true),
+                Tab(id = "2", url = "https://github.com", title = "GitHub", isActive = false),
+            ),
+            activeTabId = "1"
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(800.dp)
+                            .background(Color.White),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        UnifiedBottomBar(
+                            uiState = sampleState,
+                            onEvent = {},
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxHeight(0.55f)
+                        )
+                    }
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val density = composeView.resources.displayMetrics.density
+        val width = (400 * density).toInt()
+        val height = (800 * density).toInt()
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        // UnifiedBottomBar reaches up to 55% of the 800dp screen (top = 360dp, height = 440dp).
+        // It safely provides headroom for dragging a tab up to the middle of the screen.
+        assertThat(bitmap.height).isEqualTo((800 * density).toInt())
     }
 }

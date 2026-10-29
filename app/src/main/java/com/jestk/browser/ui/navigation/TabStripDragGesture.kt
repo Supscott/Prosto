@@ -137,7 +137,6 @@ internal fun rememberTabStripDragReorderModifier(
                         dragState.onDragEnd(
                             isReleasedActive = isReleasedActive(),
                             originalTabs = currentTabs,
-                            onConfirmVibration = { currentVibration.confirm() },
                         )
                     }
                 } else if (!cancelled) {
