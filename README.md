@@ -4,7 +4,7 @@
 
   # Prosto Browser
 
-  **Browsing made simple. Tabs at your thumb.**
+  **A new way to interact with the internet.**
 
   An ultra-fast, gesture-driven Android browser crafted around one-handed ergonomics, tactile physics, and zero distractions.
 
@@ -102,10 +102,11 @@ Prosto follows Clean Architecture principles with Jetpack Compose:
 
 ## 🗺️ Planned Features
 
-- [ ] Custom ad-block filter list URL subscriptions (EasyList, uBlock origin formats)
-- [ ] One-tap Desktop site request switcher
-- [ ] Bookmarks and search history export/import (HTML / JSON)
-- [ ] Community repository distribution (F-Droid & IzzyOnDroid)
+- [ ] **Tab Folders:** Organize multiple tabs inside persistent folders.
+- [ ] **Workspaces:** Isolated browsing environments separated from the main space (independent tabs, folders, cookies, and logins).
+- [ ] **Smart Tab Auto-Grouping:** Context-aware automatic tab grouping by URL domain and topic semantics.
+- [ ] **Cross-Device Sync:** Secure cloud synchronization for open tabs, bookmarks, and settings.
+- [ ] **Plugins & Mods:** User-scriptable extensions and community add-on marketplace (functioning similarly to Chrome extensions).
 
 ---
 
