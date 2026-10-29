@@ -62,7 +62,7 @@ jobs:
           echo "Found raw APK: $RAW_APK"
 
           TAG_NAME="${{ github.ref_name }}"
-          RELEASE_APK="prosto-${TAG_NAME}.apk"
+          RELEASE_APK="prosto.apk"
 
           if [ -z "$KEYSTORE_BASE64" ]; then
             echo "::error::KEYSTORE_BASE64 is not configured."
