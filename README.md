@@ -59,7 +59,7 @@ Smartphones have grown to 6.7"+ displays, yet traditional mobile browsers still 
 
 Get the latest release directly from GitHub:
 
-[![Download APK](https://img.shields.io/badge/Download-prosto--v0.5.0.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/Prosto/releases/download/v0.5.0/prosto-v0.5.0.apk)
+[![Download APK](https://img.shields.io/badge/Download-prosto--v0.6.0.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/Prosto/releases/download/v0.6.0/prosto-v0.6.0.apk)
 
 > Requires **Android 8.0+ (Oreo, API 26+)**. See all versions and checksums on the [Releases page](https://github.com/Supscott/Prosto/releases).
 
