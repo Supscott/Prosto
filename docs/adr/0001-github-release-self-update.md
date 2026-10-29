@@ -1,63 +1,30 @@
-# ADR 0001 — Self-update from GitHub releases, installed on the next cold start
+# ADR 0001 — Notify & Redirect GitHub Release Update Flow
 
-- **Status:** Accepted
-- **Date:** 2026-10-21
+- **Status:** Accepted (Updated: Replaces self-installer with Notify & Redirect)
+- **Date:** 2026-10-21 (Updated 2026-10-29)
 - **Scope:** `engine/update/`, `ui/viewmodel/UpdateCoordinator.kt`, `ui/overlays/UpdateNotificationCard.kt`
 
 ## Context
 
-Prosto is distributed as signed APKs attached to GitHub releases, not through Google Play.
-Users therefore have no way to receive a new version other than manually downloading and
-side-loading an APK.
+Prosto is distributed as signed APKs attached to GitHub releases.
+Initially, the application utilized an in-app package installer flow that downloaded APKs into app-private storage and invoked the system installer via `FileProvider` with `REQUEST_INSTALL_PACKAGES`.
 
-Requirements:
+However, Android platform security policies and Google Play Protect classify applications that download and trigger installations of arbitrary executable `.apk` packages outside authorized store channels as Potentially Harmful Applications (PHA / Trojan-Downloader), flagging builds as malicious. Furthermore, `REQUEST_INSTALL_PACKAGES` is heavily restricted.
 
-1. A new release must be detected automatically.
-2. The app must never terminate itself while the user is browsing - a browser that closes
-   itself mid-session destroys the session.
-3. The new version must become active after the app is closed and reopened.
-4. With auto-update disabled, the user must be offered the update with the explicit
-   choices *Install*, *Install Later* and *Skip*.
+## Decision: Notify & Redirect
 
-## Decision
-
-**Detection.** On every cold start (once per app process) the app queries
-`GET https://api.github.com/repos/Supscott/Prosto/releases/latest`. The release is newer
-when the semver of its `tag_name` (with the `v` prefix stripped) is greater than the
-installed `versionName`. Releases without an `.apk` asset are ignored. When multiple
-assets or builds are attached to a release, debug binaries (`*debug*.apk`) are filtered
-out and official release binaries (`prosto-*.apk`) are prioritized.
-
-**Download.** The release APK is streamed with OkHttp into app-private storage
-(`filesDir/updates/prosto-<version>.apk`, written to a `.part` file first and renamed on
-completion). The download runs in the background and never blocks the UI.
-
-**Installation.** The APK is handed to the *system package installer* through a
-`FileProvider` content URI. It is never installed silently, so the OS never kills the
-running process behind the user's back.
-
-**Timing.** With auto-update enabled the download is triggered automatically, but the
-install is deferred to the **next cold start**: the app is not browsing anything yet, so
-the replacement cannot interrupt a session. The user is told the update is ready through
-a system notification whose tap action opens the installer directly. With auto-update
-disabled the app shows an in-app notification card on the home and the settings screen
-with *Install*, *Install Later* and *Skip*.
-
-**Skip.** "Skip" persists the version in the settings table, so that version is never
-offered again; "Install Later" only hides the card for the current session and the update
-is offered again on the next start.
+1. **Permission Removal.** The `REQUEST_INSTALL_PACKAGES` permission is completely removed from `AndroidManifest.xml`.
+2. **Detection.** On cold start and on app resume (throttled to 1 hour), the app queries `GET https://api.github.com/repos/Supscott/Prosto/releases/latest`. The release is newer when the semver of its `tag_name` is greater than the installed `versionName`.
+3. **No In-App APK Streaming.** The app does not download, write, or store `.apk` binaries into private or cache storage.
+4. **Notify.** When a newer version is detected (and not skipped), the app presents an in-app notification card (`UpdateNotificationCard`) on screen.
+5. **Redirect.** Tapping "Update" launches an external `Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl))` with `FLAG_ACTIVITY_NEW_TASK`, handing off the release page/download to the browser or system download manager. Standard system mechanisms handle the file safely and transparently.
+6. **Skip / Dismiss.** "Skip" persists the version into settings so the user is not prompted again for that release; "Later" dismisses the notification for the current session.
 
 ## Consequences
 
-- Release convention: the git tag must be `v<versionName>` and the `versionName` in
-  `app/build.gradle.kts` must be bumped for every release.
-- Release APKs must be signed with the **same key** as the installed build, otherwise the
-  system installer rejects them with a signature mismatch.
-- The app needs `REQUEST_INSTALL_PACKAGES` and the user has to grant "install unknown
-  apps" once. The app sends the user to that system screen when the permission is
-  missing, and never installs without it.
-- `REQUEST_INSTALL_PACKAGES` is only acceptable for this distribution channel. If Prosto
-  is ever published on Google Play, this mechanism must be replaced by the Play in-app
+- Completely eliminates Google Play Protect malware/downloader heuristics.
+- No `REQUEST_INSTALL_PACKAGES` required.
+- Transparent and user-controlled updates via official GitHub releases.
   update API.
 - The check runs once per cold start, which stays well inside the unauthenticated GitHub
   API rate limit of 60 requests per hour and per IP.

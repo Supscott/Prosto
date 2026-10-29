@@ -1,35 +1,24 @@
 package com.jestk.browser.domain.model
 
 /**
- * A GitHub release that ships an installable APK.
+ * A GitHub release available for the user to view and download.
  */
 data class AppUpdate(
     val versionName: String,
     val releaseNotes: String,
-    val apkUrl: String,
     val releaseUrl: String,
+    val apkUrl: String = "",
 )
 
 /**
- * UI-facing state of the self-update flow.
+ * UI-facing state of the update notification flow.
  */
 sealed interface AppUpdateUiState {
     data object None : AppUpdateUiState
 
-    /** A newer release exists but was not downloaded yet (auto-update disabled). */
+    /** A newer release exists and can be offered to the user. */
     data class Available(
         val update: AppUpdate,
-    ) : AppUpdateUiState
-
-    /** The APK is being downloaded in the background. */
-    data class Downloading(
-        val versionName: String,
-        val progress: Int,
-    ) : AppUpdateUiState
-
-    /** The APK is on disk and can be handed over to the system installer. */
-    data class ReadyToInstall(
-        val versionName: String,
     ) : AppUpdateUiState
 }
 
@@ -43,7 +32,8 @@ private data class ParsedVersion(
 
 /**
  * Compares two version strings ("v1.2.0", "1.2", "1.2.0-beta1").
- * Returns a positive number when [left] is newer than [right].
+ * Returns a positive number when [left] is newer than [right],
+ * 0 when equal, and negative when [left] is older than [right].
  */
 fun compareVersions(
     left: String,

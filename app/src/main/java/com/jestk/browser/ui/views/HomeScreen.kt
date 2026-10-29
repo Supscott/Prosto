@@ -83,10 +83,8 @@ import com.jestk.browser.R
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.ThemeMode
-import com.jestk.browser.domain.model.isVisible
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.components.ProstoRecentTabCard
-import com.jestk.browser.ui.overlays.UpdateNotificationCard
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant

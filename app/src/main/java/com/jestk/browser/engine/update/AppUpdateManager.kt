@@ -1,32 +1,21 @@
 package com.jestk.browser.engine.update
 
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.provider.Settings
 import android.util.Log
-import androidx.core.app.NotificationCompat
-import androidx.core.content.FileProvider
-import com.jestk.browser.R
 import com.jestk.browser.domain.model.AppUpdate
-import com.jestk.browser.domain.model.compareVersions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.json.JSONObject
-import java.io.File
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "AppUpdateManager"
 
 /**
- * Talks to the GitHub Releases API, downloads release APKs and hands them to the
- * system package installer.
+ * Talks to the GitHub Releases API to detect newer releases.
+ * Does not download or install APKs itself; instead provides release metadata
+ * for transparent redirect and notification.
  */
 open class AppUpdateManager(
     private val context: Context,
@@ -70,48 +59,6 @@ open class AppUpdateManager(
             }.getOrNull()
         }
 
-    /** Downloads the release APK into app-private storage. */
-    open suspend fun download(
-        update: AppUpdate,
-        onProgress: (Int) -> Unit,
-    ): File? {
-        val target = updateFile(update.versionName)
-        val temp = File(target.parentFile, "${target.name}.part")
-        return withContext(Dispatchers.IO) {
-            runCatching {
-                val request =
-                    Request
-                        .Builder()
-                        .url(update.apkUrl)
-                        .header("User-Agent", USER_AGENT)
-                        .build()
-                client.newCall(request).execute().use { response ->
-                    if (!response.isSuccessful) return@use null
-                    val body = response.body ?: return@use null
-                    val total = body.contentLength()
-                    body.byteStream().use { input ->
-                        temp.outputStream().use { output ->
-                            val buffer = ByteArray(BUFFER_SIZE)
-                            var downloaded = 0L
-                            while (true) {
-                                val read = input.read(buffer)
-                                if (read == -1) break
-                                output.write(buffer, 0, read)
-                                downloaded += read
-                                if (total > 0) onProgress(((downloaded * 100) / total).toInt().coerceIn(0, 100))
-                            }
-                        }
-                    }
-                    target.delete()
-                    if (temp.renameTo(target)) target else null
-                } ?: run {
-                    temp.delete()
-                    null
-                }
-            }.onFailure { temp.delete() }.getOrNull()
-        }
-    }
-
     /** Version of the build that is currently installed. */
     open fun currentVersion(): String =
         runCatching {
@@ -119,122 +66,15 @@ open class AppUpdateManager(
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull() ?: "0.0.0"
 
-    /** Version of a previously downloaded APK that is still newer than [currentVersion], if any. */
-    open fun pendingUpdateVersion(currentVersion: String = currentVersion()): String? {
-        val files = updateDir().listFiles { file -> file.isFile && file.name.endsWith(APK_SUFFIX) } ?: return null
-        val candidates =
-            files.mapNotNull { file ->
-                val version = file.name.removePrefix(FILE_PREFIX).removeSuffix(APK_SUFFIX)
-                if (version.isBlank()) null else version to file
-            }
-        // Outdated APKs are useless: drop them so they never get installed.
-        candidates
-            .filter { (version, _) -> compareVersions(version, currentVersion) <= 0 }
-            .forEach { (_, file) -> file.delete() }
-        return candidates
-            .filter { (version, _) -> compareVersions(version, currentVersion) > 0 }
-            .sortedWith { (left, _), (right, _) -> compareVersions(left, right) }
-            .lastOrNull()
-            ?.first
-    }
-
-    open fun canInstallPackages(): Boolean = context.packageManager.canRequestPackageInstalls()
-
-    /** Opens the system installer for a previously downloaded APK. */
-    open fun installUpdate(versionName: String): Boolean {
-        val file = updateFile(versionName)
-        if (!file.exists()) return false
-        return runCatching {
-            context.startActivity(installIntent(file))
-            true
-        }.getOrDefault(false)
-    }
-
-    /** Sends the user to the system screen where "install unknown apps" can be granted. */
-    open fun requestInstallPermission(): Boolean =
-        runCatching {
-            context.startActivity(
-                Intent(
-                    Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                    Uri.parse("package:${context.packageName}"),
-                ).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-            )
-            true
-        }.getOrDefault(false)
-
-    open fun deletePendingUpdate(versionName: String) {
-        updateFile(versionName).delete()
-    }
-
-    /** Tells the user that a new version is waiting to be installed. */
-    open fun notifyUpdateReady(versionName: String) {
-        val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.createNotificationChannel(
-                NotificationChannel(
-                    CHANNEL_ID,
-                    context.getString(R.string.update_notification_channel),
-                    NotificationManager.IMPORTANCE_DEFAULT,
-                ),
-            )
-        }
-        val file = updateFile(versionName)
-        val contentIntent =
-            if (file.exists()) {
-                try {
-                    PendingIntent.getActivity(
-                        context,
-                        0,
-                        installIntent(file),
-                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
-                    )
-                } catch (t: Throwable) {
-                    android.util.Log.w("AppUpdateManager", "Failed to create install intent for notification", t)
-                    null
-                }
-            } else {
-                null
-            }
-        val notification =
-            NotificationCompat
-                .Builder(context, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_update_notif)
-                .setContentTitle(context.getString(R.string.update_notification_title))
-                .setContentText(context.getString(R.string.update_notification_body, versionName))
-                .setAutoCancel(true)
-                .setContentIntent(contentIntent)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                .build()
-        manager.notify(NOTIFICATION_ID, notification)
-    }
-
-    private fun installIntent(file: File): Intent {
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
-        return Intent(Intent.ACTION_VIEW)
-            .setDataAndType(uri, APK_MIME)
-            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
-
-    private fun updateDir(): File = File(context.filesDir, UPDATE_DIR).apply { mkdirs() }
-
-    private fun updateFile(versionName: String): File = File(updateDir(), "$FILE_PREFIX$versionName$APK_SUFFIX")
-
     companion object {
         const val DEFAULT_REPO = "Supscott/Prosto"
         private const val USER_AGENT = "Prosto-Android"
-        private const val UPDATE_DIR = "updates"
-        private const val FILE_PREFIX = "prosto-"
-        private const val APK_SUFFIX = ".apk"
-        private const val APK_MIME = "application/vnd.android.package-archive"
-        private const val CHANNEL_ID = "prosto_updates"
-        private const val NOTIFICATION_ID = 4201
-        private const val BUFFER_SIZE = 16 * 1024
     }
 }
 
 /**
  * Maps a GitHub release payload to an [AppUpdate]. Returns null when the release
- * carries no installable APK.
+ * is a draft/prerelease or carries no installable APK asset.
  */
 fun parseGithubRelease(json: String): AppUpdate? {
     if (json.isBlank()) return null
@@ -272,8 +112,8 @@ fun parseGithubRelease(json: String): AppUpdate? {
         return AppUpdate(
             versionName = versionName,
             releaseNotes = root.optString("body"),
-            apkUrl = apkUrl,
             releaseUrl = root.optString("html_url"),
+            apkUrl = apkUrl,
         )
     }
     return null

@@ -762,7 +762,7 @@ fun JestkApp(
                 }
             }
 
-            // Self-Update Floating Notification Banner
+            // Update Floating Notification Banner
             AnimatedVisibility(
                 visible = uiState.updateState.isVisible,
                 enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
@@ -781,8 +781,8 @@ fun JestkApp(
             ) {
                 UpdateNotificationCard(
                     state = uiState.updateState,
-                    onDownload = { viewModel.onEvent(BrowserUiEvent.DownloadUpdate) },
-                    onInstall = { viewModel.onEvent(BrowserUiEvent.InstallUpdate) },
+                    onRedirect = { viewModel.onEvent(BrowserUiEvent.RedirectToUpdate) },
+                    onDismiss = { viewModel.onEvent(BrowserUiEvent.DismissUpdate) },
                     onSkip = { viewModel.onEvent(BrowserUiEvent.SkipUpdate) },
                     isDark = isDark,
                 )

@@ -1,6 +1,5 @@
 package com.jestk.browser.ui.overlays
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,8 +16,6 @@ import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,25 +36,26 @@ import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
-import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.ui.theme.ProstoShapes
 
 /**
- * In-app notification about a pending app update. Rendered on the home and the
- * settings screen whenever [state] is not [AppUpdateUiState.None].
+ * In-app notification about an available app update using the Notify & Redirect pattern.
+ * Rendered floating over the current screen whenever [state] is [AppUpdateUiState.Available].
  */
 @Composable
 fun UpdateNotificationCard(
     state: AppUpdateUiState,
-    onInstall: () -> Unit,
+    onRedirect: () -> Unit,
+    onDismiss: () -> Unit,
     onSkip: () -> Unit,
     isDark: Boolean,
     modifier: Modifier = Modifier,
-    onDownload: () -> Unit = onInstall,
 ) {
+    if (state !is AppUpdateUiState.Available) return
+
     Surface(
         shape = ProstoShapes.Card,
         color = if (isDark) DarkSurface else Color.White,
@@ -94,13 +92,7 @@ fun UpdateNotificationCard(
 
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text =
-                            stringResource(
-                                when (state) {
-                                    is AppUpdateUiState.ReadyToInstall -> R.string.update_card_title_ready
-                                    else -> R.string.update_card_title
-                                },
-                            ),
+                        text = stringResource(R.string.update_card_title),
                         style =
                             LocalProstoTypography.current.headlineSm.copy(
                                 fontSize = 15.sp,
@@ -121,52 +113,39 @@ fun UpdateNotificationCard(
                 }
             }
 
-            if (state is AppUpdateUiState.Downloading) {
-                Spacer(modifier = Modifier.height(12.dp))
-                LinearProgressIndicator(
-                    progress = { state.progress / 100f },
-                    color = ProstoBrandPrimary,
-                    trackColor = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor,
-                    modifier = Modifier.fillMaxWidth(),
+            Spacer(modifier = Modifier.height(14.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                PrimaryActionButton(
+                    text = stringResource(R.string.update_action_download),
+                    onClick = onRedirect,
                 )
-            }
 
-            if (state !is AppUpdateUiState.Downloading) {
-                Spacer(modifier = Modifier.height(14.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                TextButton(
+                    onClick = onDismiss,
+                    shape = ProstoShapes.Pill,
+                    modifier = Modifier.height(38.dp),
                 ) {
-                    when (state) {
-                        is AppUpdateUiState.Available -> {
-                            PrimaryActionButton(
-                                text = stringResource(R.string.update_action_download),
-                                onClick = onDownload,
-                            )
+                    Text(
+                        text = stringResource(R.string.update_action_later),
+                        style = LocalProstoTypography.current.labelMd,
+                        color = ProstoMutedSlate,
+                    )
+                }
 
-                            TextButton(
-                                onClick = onSkip,
-                                shape = ProstoShapes.Pill,
-                                modifier = Modifier.height(38.dp),
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.update_action_skip),
-                                    style = LocalProstoTypography.current.labelMd,
-                                    color = ProstoMutedSlate,
-                                )
-                            }
-                        }
-
-                        is AppUpdateUiState.ReadyToInstall -> {
-                            PrimaryActionButton(
-                                text = stringResource(R.string.update_action_restart_install),
-                                onClick = onInstall,
-                            )
-                        }
-
-                        else -> Unit
-                    }
+                TextButton(
+                    onClick = onSkip,
+                    shape = ProstoShapes.Pill,
+                    modifier = Modifier.height(38.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.update_action_skip),
+                        style = LocalProstoTypography.current.labelMd,
+                        color = ProstoMutedSlate,
+                    )
                 }
             }
         }
@@ -196,18 +175,6 @@ private fun PrimaryActionButton(
 }
 
 @Composable
-private fun updateBody(state: AppUpdateUiState): String =
-    when (state) {
-        is AppUpdateUiState.Available ->
-            state.update.releaseNotes.takeIf { it.isNotBlank() }
-                ?: stringResource(R.string.update_card_body, state.update.versionName)
-
-        is AppUpdateUiState.Downloading ->
-            stringResource(R.string.update_card_downloading, state.progress)
-
-        is AppUpdateUiState.ReadyToInstall ->
-            stringResource(R.string.update_card_ready_body, state.versionName)
-
-        AppUpdateUiState.None ->
-            ""
-    }
+private fun updateBody(state: AppUpdateUiState.Available): String =
+    state.update.releaseNotes.takeIf { it.isNotBlank() }
+        ?: stringResource(R.string.update_card_body, state.update.versionName)

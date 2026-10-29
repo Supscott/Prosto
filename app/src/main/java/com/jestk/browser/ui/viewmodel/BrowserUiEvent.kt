@@ -228,16 +228,20 @@ sealed interface BrowserUiEvent {
         val enabled: Boolean,
     ) : BrowserUiEvent
 
-    // Self-update
+    // Update
     data class SetAutoUpdateEnabled(
         val enabled: Boolean,
     ) : BrowserUiEvent
 
-    data object DownloadUpdate : BrowserUiEvent
+    data class CheckForUpdate(
+        val manual: Boolean = false,
+    ) : BrowserUiEvent
 
-    data object InstallUpdate : BrowserUiEvent
+    data object RedirectToUpdate : BrowserUiEvent
 
     data object SkipUpdate : BrowserUiEvent
+
+    data object DismissUpdate : BrowserUiEvent
 
     // Search Engine Management
     data class ShowAddSearchEngineDialog(

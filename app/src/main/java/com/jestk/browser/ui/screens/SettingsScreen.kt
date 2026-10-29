@@ -75,7 +75,6 @@ import androidx.compose.ui.window.Dialog
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
-import com.jestk.browser.domain.model.isVisible
 import com.jestk.browser.ui.components.ProstoToggleSwitch
 import com.jestk.browser.ui.overlays.SearchEngineBadge
 import com.jestk.browser.ui.theme.DarkBackground
@@ -553,13 +552,30 @@ fun SettingsContent(
         // ==========================================
         SettingsSectionHeader(title = stringResource(R.string.settings_section_about))
         InsetGroupedCard(isDark = isDark) {
-            // Auto-update Row
+            // Auto-update Toggle Row
             SettingToggleRow(
                 icon = Icons.Default.SystemUpdate,
                 title = stringResource(R.string.update_setting_title),
                 summary = stringResource(R.string.update_setting_summary),
                 checked = uiState.settings.isAutoUpdateEnabled,
                 onCheckedChange = { onEvent(BrowserUiEvent.SetAutoUpdateEnabled(it)) },
+                isDark = isDark,
+            )
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 56.dp),
+            )
+
+            // Manual Check for Updates
+            HyperlinkRow(
+                icon = Icons.Default.SystemUpdate,
+                title = stringResource(R.string.update_check_manual),
+                subtitle = stringResource(R.string.update_check_up_to_date, appVersion),
+                onClick = {
+                    onEvent(BrowserUiEvent.CheckForUpdate(manual = true))
+                    Toast.makeText(context, context.getString(R.string.update_check_up_to_date, appVersion), Toast.LENGTH_SHORT).show()
+                },
                 isDark = isDark,
             )
 

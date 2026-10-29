@@ -1,7 +1,8 @@
 package com.jestk.browser.ui.viewmodel
 
-import androidx.compose.ui.geometry.Offset
 import com.jestk.browser.domain.model.AppUpdateUiState
+
+import androidx.compose.ui.geometry.Offset
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.ExternalAppPrompt
@@ -50,7 +51,7 @@ data class BrowserUiState(
     val downloadProgressMap: Map<Long, DownloadProgressInfo> = emptyMap(),
     // Settings
     val settings: BrowserSettings = BrowserSettings(),
-    // Self-update
+    // Update
     val updateState: AppUpdateUiState = AppUpdateUiState.None,
     // UI Dynamics & Gestures
     val isBottomBarVisible: Boolean = true,

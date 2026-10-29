@@ -1,5 +1,6 @@
 package com.jestk.browser.ui.viewmodel
 
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.util.Log
 import androidx.compose.ui.geometry.Offset
@@ -56,6 +57,22 @@ class BrowserViewModel(
     private val _uiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = _uiState.asStateFlow()
 
+    internal val updateCoordinator =
+        UpdateCoordinator(
+            appUpdateManager = appUpdateManager,
+            settingsRepository = settingsRepository,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            scope = viewModelScope,
+            ioDispatcher = ioDispatcher,
+        )
+
+    var onLaunchIntent: (Intent) -> Unit
+        get() = updateCoordinator.onLaunchIntent
+        set(value) {
+            updateCoordinator.onLaunchIntent = value
+        }
+
     /**
      * Current vibration preference, read on demand so a toggle takes effect without restarting
      * the gesture that captured this view model.
@@ -84,16 +101,6 @@ class BrowserViewModel(
             updateUiState = { transform -> _uiState.update(transform) },
             onSelectTab = { tabId -> tabCoordinator.selectTab(tabId) },
             onOpenNewTab = { url -> onEvent(BrowserUiEvent.OpenNewTab(url)) },
-            scope = viewModelScope,
-            ioDispatcher = ioDispatcher,
-        )
-
-    private val updateCoordinator =
-        UpdateCoordinator(
-            appUpdateManager = appUpdateManager,
-            settingsRepository = settingsRepository,
-            getCurrentState = { _uiState.value },
-            updateUiState = { transform -> _uiState.update(transform) },
             scope = viewModelScope,
             ioDispatcher = ioDispatcher,
         )
@@ -191,10 +198,6 @@ class BrowserViewModel(
         }
     }
 
-    fun onAppResume() {
-        updateCoordinator.onAppResume()
-    }
-
     fun isInsecureHostAllowed(urlOrHost: String): Boolean {
         val host = UrlSecurityUtils.extractHost(urlOrHost)
         return host.isNotEmpty() && _uiState.value.allowedInsecureHosts.contains(host)
@@ -202,6 +205,10 @@ class BrowserViewModel(
 
     fun shouldWarnForInsecureUrl(url: String): Boolean {
         return url.isNotEmpty() && UrlSecurityUtils.isHttpUrl(url) && !isInsecureHostAllowed(url)
+    }
+
+    fun onAppResume() {
+        updateCoordinator.onAppResume()
     }
 
     fun onEvent(event: BrowserUiEvent) {
@@ -543,18 +550,6 @@ class BrowserViewModel(
                 }
             }
 
-            is BrowserUiEvent.SetAutoUpdateEnabled -> {
-                _uiState.update { it.copy(settings = it.settings.copy(isAutoUpdateEnabled = event.enabled)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setAutoUpdateEnabled(event.enabled)
-                    if (event.enabled) {
-                        updateCoordinator.onAutoUpdateEnabled()
-                    } else {
-                        updateCoordinator.onAutoUpdateDisabled()
-                    }
-                }
-            }
-
             is BrowserUiEvent.SetVibrationEnabled -> {
                 _uiState.update { it.copy(settings = it.settings.copy(isVibrationEnabled = event.enabled)) }
                 viewModelScope.launch(ioDispatcher) {
@@ -569,16 +564,34 @@ class BrowserViewModel(
                 }
             }
 
-            is BrowserUiEvent.DownloadUpdate -> {
-                updateCoordinator.onDownloadRequested()
+            is BrowserUiEvent.SetAutoUpdateEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(isAutoUpdateEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setAutoUpdateEnabled(event.enabled)
+                    if (event.enabled) {
+                        updateCoordinator.onAutoUpdateEnabled()
+                    } else {
+                        updateCoordinator.onAutoUpdateDisabled()
+                    }
+                }
             }
 
-            is BrowserUiEvent.InstallUpdate -> {
-                updateCoordinator.onInstallRequested()
+            is BrowserUiEvent.CheckForUpdate -> {
+                viewModelScope.launch(ioDispatcher) {
+                    updateCoordinator.checkForUpdate(event.manual)
+                }
+            }
+
+            is BrowserUiEvent.RedirectToUpdate -> {
+                updateCoordinator.onRedirectRequested()
             }
 
             is BrowserUiEvent.SkipUpdate -> {
                 updateCoordinator.onSkip()
+            }
+
+            is BrowserUiEvent.DismissUpdate -> {
+                updateCoordinator.onDismiss()
             }
 
             is BrowserUiEvent.OnExternalAppOffered -> {

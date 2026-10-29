@@ -1,5 +1,8 @@
 package com.jestk.browser.ui.viewmodel
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.util.Log
 import com.jestk.browser.domain.model.AppUpdate
 import com.jestk.browser.domain.model.AppUpdateUiState
@@ -8,16 +11,17 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.engine.update.AppUpdateManager
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 private const val TAG = "UpdateCoordinator"
 private const val DEFAULT_THROTTLE_MS = 60 * 60 * 1000L // 1 hour
 
 /**
- * Owns the self-update flow: detect a GitHub release, download it and hand it to
- * the system installer. The app is never killed while the user browses - an update
- * that was downloaded in the background is installed on the next cold start.
+ * Coordinates update discovery using the Notify & Redirect pattern:
+ * - Checks GitHub Releases API in the background (cold start, throttled resume, or on demand).
+ * - Notifies the user via [AppUpdateUiState.Available] when a newer version exists.
+ * - Redirects the user to the official release download URL via external Intent on request.
+ * - Does not perform in-app APK downloads or package installation.
  */
 class UpdateCoordinator(
     private val appUpdateManager: AppUpdateManager?,
@@ -27,15 +31,15 @@ class UpdateCoordinator(
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher,
     private val clock: () -> Long = { System.currentTimeMillis() },
-    private val checkThrottleMs: Long = DEFAULT_THROTTLE_MS,
+    val checkThrottleMs: Long = DEFAULT_THROTTLE_MS,
+    var onLaunchIntent: (Intent) -> Unit = {},
 ) {
     private var lastCheckTimestamp: Long = 0L
-    private var downloadJob: Job? = null
 
     fun onAppStart() {
         Log.d(TAG, "onAppStart: scheduling update check")
         lastCheckTimestamp = clock()
-        scope.launch(ioDispatcher) { checkForUpdate() }
+        scope.launch(ioDispatcher) { checkForUpdate(manual = false) }
     }
 
     fun onAppResume() {
@@ -47,56 +51,39 @@ class UpdateCoordinator(
         }
         Log.d(TAG, "onAppResume: checking for updates after ${elapsed / 1000}s")
         lastCheckTimestamp = now
-        scope.launch(ioDispatcher) { checkForUpdate() }
+        scope.launch(ioDispatcher) { checkForUpdate(manual = false) }
     }
 
     fun onAutoUpdateEnabled() {
         Log.d(TAG, "onAutoUpdateEnabled: immediate check")
         lastCheckTimestamp = clock()
-        scope.launch(ioDispatcher) { checkForUpdate() }
+        scope.launch(ioDispatcher) { checkForUpdate(manual = false) }
     }
 
     fun onAutoUpdateDisabled() {
-        Log.d(TAG, "onAutoUpdateDisabled: cancelling pending downloads")
-        downloadJob?.cancel()
-        downloadJob = null
-        if (getCurrentState().updateState is AppUpdateUiState.Downloading) {
-            publish(AppUpdateUiState.None)
-        }
+        Log.d(TAG, "onAutoUpdateDisabled: clearing update notification")
+        publish(AppUpdateUiState.None)
     }
 
-    suspend fun checkForUpdate() {
+    suspend fun checkForUpdate(manual: Boolean = false) {
         val manager = appUpdateManager ?: return
         val settings = settingsRepository.getCurrentSettings()
-        val currentVersion = manager.currentVersion()
-        Log.d(TAG, "checkForUpdate: currentVer=$currentVersion, autoUpdate=${settings.isAutoUpdateEnabled}")
-
-        val pending = manager.pendingUpdateVersion()
-        val release = manager.fetchLatestRelease()
-
-        if (release != null && compareVersions(release.versionName, currentVersion) > 0) {
-            if (pending != null && compareVersions(pending, release.versionName) >= 0) {
-                Log.d(TAG, "Pending update APK $pending matches latest release ${release.versionName}")
-                publish(AppUpdateUiState.ReadyToInstall(pending))
-                return
-            }
-            if (release.versionName == settings.skippedUpdateVersion) {
-                Log.d(TAG, "Version ${release.versionName} was skipped by user")
-            } else {
-                if (settings.isAutoUpdateEnabled) {
-                    Log.d(TAG, "Auto-update enabled, initiating download for ${release.versionName}")
-                    download(release)
-                } else {
-                    Log.d(TAG, "Publishing update available for ${release.versionName}")
-                    publish(AppUpdateUiState.Available(release))
-                }
-                return
-            }
+        if (!manual && !settings.isAutoUpdateEnabled) {
+            Log.d(TAG, "checkForUpdate: auto-update check disabled in settings")
+            return
         }
 
-        if (pending != null) {
-            Log.d(TAG, "Pending update APK found on disk: $pending")
-            publish(AppUpdateUiState.ReadyToInstall(pending))
+        val currentVersion = manager.currentVersion()
+        Log.d(TAG, "checkForUpdate: currentVer=$currentVersion, manual=$manual")
+
+        val release = manager.fetchLatestRelease()
+        if (release != null && compareVersions(release.versionName, currentVersion) > 0) {
+            if (!manual && release.versionName == settings.skippedUpdateVersion) {
+                Log.d(TAG, "Version ${release.versionName} was skipped by user")
+                return
+            }
+            Log.d(TAG, "Publishing update available for ${release.versionName}")
+            publish(AppUpdateUiState.Available(release))
             return
         }
 
@@ -105,72 +92,36 @@ class UpdateCoordinator(
         }
     }
 
-    fun onDownloadRequested() {
+    fun onRedirectRequested() {
         val state = getCurrentState().updateState
         if (state is AppUpdateUiState.Available) {
-            Log.d(TAG, "onDownloadRequested: starting download for ${state.update.versionName}")
-            download(state.update)
-        }
-    }
-
-    fun onInstallRequested() {
-        val manager = appUpdateManager ?: return
-        when (val state = getCurrentState().updateState) {
-            is AppUpdateUiState.Available -> {
-                onDownloadRequested()
-            }
-
-            is AppUpdateUiState.ReadyToInstall -> {
-                if (!manager.canInstallPackages()) {
-                    Log.d(TAG, "onInstallRequested: requesting install unknown apps permission")
-                    manager.requestInstallPermission()
-                    return
+            val targetUrl = state.update.releaseUrl.ifBlank { state.update.apkUrl }
+            if (targetUrl.isNotBlank()) {
+                Log.d(TAG, "onRedirectRequested: launching browser for $targetUrl")
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(targetUrl)).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-                Log.d(TAG, "onInstallRequested: launching installer for ${state.versionName}")
-                manager.installUpdate(state.versionName)
+                runCatching { onLaunchIntent(intent) }.onFailure { e ->
+                    Log.e(TAG, "Failed to launch release url intent", e)
+                }
             }
-
-            else -> Unit
+            publish(AppUpdateUiState.None)
         }
     }
 
     fun onSkip() {
-        downloadJob?.cancel()
-        downloadJob = null
         val version =
             when (val state = getCurrentState().updateState) {
                 is AppUpdateUiState.Available -> state.update.versionName
-                is AppUpdateUiState.Downloading -> state.versionName
-                is AppUpdateUiState.ReadyToInstall -> state.versionName
                 AppUpdateUiState.None -> null
             } ?: return
-        appUpdateManager?.deletePendingUpdate(version)
         scope.launch(ioDispatcher) { settingsRepository.setSkippedUpdateVersion(version) }
         publish(AppUpdateUiState.None)
     }
 
-    private fun download(update: AppUpdate) {
-        val manager = appUpdateManager ?: return
-        publish(AppUpdateUiState.Downloading(update.versionName, 0))
-        downloadJob?.cancel()
-        downloadJob =
-            scope.launch(ioDispatcher) {
-                var lastProgress = -1
-                val file =
-                    manager.download(update) { progress ->
-                        if (progress != lastProgress) {
-                            lastProgress = progress
-                            publish(AppUpdateUiState.Downloading(update.versionName, progress))
-                        }
-                    }
-                if (file == null) {
-                    Log.w(TAG, "Download failed for ${update.versionName}")
-                    publish(AppUpdateUiState.Available(update))
-                    return@launch
-                }
-                publish(AppUpdateUiState.ReadyToInstall(update.versionName))
-                runCatching { manager.notifyUpdateReady(update.versionName) }
-            }
+    fun onDismiss() {
+        Log.d(TAG, "onDismiss: dismissing update banner for current session")
+        publish(AppUpdateUiState.None)
     }
 
     private fun publish(state: AppUpdateUiState) {

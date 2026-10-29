@@ -1,6 +1,8 @@
 package com.jestk.browser.ui.viewmodel
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.domain.model.AppUpdate
@@ -25,7 +27,6 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import java.io.File
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -36,6 +37,7 @@ class UpdateCoordinatorTest {
     private var uiState = BrowserUiState()
     private lateinit var fakeSettingsRepo: FakeSettingsRepository
     private lateinit var fakeUpdateManager: FakeAppUpdateManager
+    private var launchedIntent: Intent? = null
 
     private var currentTime = 1_000_000L
 
@@ -44,6 +46,7 @@ class UpdateCoordinatorTest {
         Dispatchers.setMain(testDispatcher)
         fakeSettingsRepo = FakeSettingsRepository()
         fakeUpdateManager = FakeAppUpdateManager(ApplicationProvider.getApplicationContext())
+        launchedIntent = null
     }
 
     @After
@@ -61,6 +64,7 @@ class UpdateCoordinatorTest {
             ioDispatcher = testDispatcher,
             clock = { currentTime },
             checkThrottleMs = throttleMs,
+            onLaunchIntent = { intent -> launchedIntent = intent },
         )
     }
 
@@ -70,15 +74,14 @@ class UpdateCoordinatorTest {
     }
 
     @Test
-    fun onAppStart_whenNewerReleaseAvailableAndAutoUpdateOff_publishesAvailable() = runTest(testDispatcher) {
+    fun onAppStart_whenNewerReleaseAvailable_publishesAvailable() = runTest(testDispatcher) {
         fakeUpdateManager.currentVer = "0.4.0"
         fakeUpdateManager.latestRelease = AppUpdate(
             versionName = "0.5.0",
             releaseNotes = "New features",
-            apkUrl = "https://example.com/0.5.0.apk",
             releaseUrl = "https://github.com/Supscott/Prosto/releases/tag/v0.5.0",
         )
-        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = false)
+        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
 
         val coordinator = createCoordinator()
         coordinator.onAppStart()
@@ -96,7 +99,6 @@ class UpdateCoordinatorTest {
         fakeUpdateManager.latestRelease = AppUpdate(
             versionName = "0.5.0",
             releaseNotes = "New features",
-            apkUrl = "https://example.com/0.5.0.apk",
             releaseUrl = "https://github.com/Supscott/Prosto/releases/tag/v0.5.0",
         )
 
@@ -108,12 +110,29 @@ class UpdateCoordinatorTest {
     }
 
     @Test
+    fun onAppStart_whenAutoUpdateDisabled_doesNotCheck() = runTest(testDispatcher) {
+        fakeUpdateManager.currentVer = "0.4.0"
+        fakeUpdateManager.latestRelease = AppUpdate(
+            versionName = "0.5.0",
+            releaseNotes = "New features",
+            releaseUrl = "https://github.com/Supscott/Prosto/releases/tag/v0.5.0",
+        )
+        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = false)
+
+        val coordinator = createCoordinator()
+        coordinator.onAppStart()
+        advanceUntilIdle()
+
+        assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.None)
+        assertThat(fakeUpdateManager.fetchCount).isEqualTo(0)
+    }
+
+    @Test
     fun onAppResume_throttlesChecksWithinInterval() = runTest(testDispatcher) {
         fakeUpdateManager.currentVer = "0.4.0"
         fakeUpdateManager.latestRelease = AppUpdate(
             versionName = "0.5.0",
             releaseNotes = "Notes",
-            apkUrl = "https://example.com/0.5.0.apk",
             releaseUrl = "https://example.com",
         )
 
@@ -124,173 +143,107 @@ class UpdateCoordinatorTest {
         advanceUntilIdle()
         assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
 
-        // Resume after only 10 minutes -> should be throttled, no new fetch
+        // Resume after only 10 minutes -> should be throttled
         currentTime += 600_000L
         coordinator.onAppResume()
         advanceUntilIdle()
         assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
 
-        // Resume after full hour (50 more minutes) -> should trigger fetch
-        currentTime += 3000_000L
+        // Resume after 65 minutes -> interval exceeded, should trigger check
+        currentTime += 3300_000L
         coordinator.onAppResume()
         advanceUntilIdle()
         assertThat(fakeUpdateManager.fetchCount).isEqualTo(2)
     }
 
     @Test
-    fun onDownloadRequested_startsDownloadAndTransitionsToReadyToInstall() = runTest(testDispatcher) {
+    fun onRedirectRequested_launchesViewIntentAndClearsState() = runTest(testDispatcher) {
         val update = AppUpdate(
             versionName = "0.5.0",
             releaseNotes = "Notes",
-            apkUrl = "https://example.com/0.5.0.apk",
-            releaseUrl = "https://example.com",
+            releaseUrl = "https://github.com/Supscott/Prosto/releases/tag/v0.5.0",
         )
-        fakeUpdateManager.downloadResult = File("/tmp/test.apk")
-        val coordinator = createCoordinator()
-
         uiState = uiState.copy(updateState = AppUpdateUiState.Available(update))
 
-        coordinator.onDownloadRequested()
-        advanceUntilIdle()
+        val coordinator = createCoordinator()
+        coordinator.onRedirectRequested()
 
-        assertThat(fakeUpdateManager.downloadedUpdate).isEqualTo(update)
-        assertThat(uiState.updateState).isInstanceOf(AppUpdateUiState.ReadyToInstall::class.java)
-        assertThat((uiState.updateState as AppUpdateUiState.ReadyToInstall).versionName).isEqualTo("0.5.0")
+        assertThat(launchedIntent).isNotNull()
+        assertThat(launchedIntent?.action).isEqualTo(Intent.ACTION_VIEW)
+        assertThat(launchedIntent?.data).isEqualTo(Uri.parse("https://github.com/Supscott/Prosto/releases/tag/v0.5.0"))
+        assertThat(launchedIntent?.flags?.and(Intent.FLAG_ACTIVITY_NEW_TASK)).isEqualTo(Intent.FLAG_ACTIVITY_NEW_TASK)
+        assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.None)
     }
 
     @Test
-    fun onSkip_persistsSkippedVersionAndClearsUpdateState() = runTest(testDispatcher) {
+    fun onSkip_persistsSkippedVersionAndClearsState() = runTest(testDispatcher) {
         val update = AppUpdate(
             versionName = "0.5.0",
             releaseNotes = "Notes",
-            apkUrl = "https://example.com/0.5.0.apk",
             releaseUrl = "https://example.com",
         )
-        val coordinator = createCoordinator()
         uiState = uiState.copy(updateState = AppUpdateUiState.Available(update))
 
+        val coordinator = createCoordinator()
         coordinator.onSkip()
         advanceUntilIdle()
 
-        assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.None)
         assertThat(fakeSettingsRepo.settings.value.skippedUpdateVersion).isEqualTo("0.5.0")
+        assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.None)
     }
 
     @Test
-    fun onAppStart_whenAutoUpdateEnabled_triggersDownloadAutomatically() = runTest(testDispatcher) {
+    fun onDismiss_clearsStateWithoutPersistingSkip() = runTest(testDispatcher) {
         val update = AppUpdate(
             versionName = "0.5.0",
             releaseNotes = "Notes",
-            apkUrl = "https://example.com/0.5.0.apk",
             releaseUrl = "https://example.com",
         )
+        uiState = uiState.copy(updateState = AppUpdateUiState.Available(update))
+
+        val coordinator = createCoordinator()
+        coordinator.onDismiss()
+
+        assertThat(fakeSettingsRepo.settings.value.skippedUpdateVersion).isNull()
+        assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.None)
+    }
+
+    @Test
+    fun checkForUpdate_whenSkipped_doesNotPublishUnlessManual() = runTest(testDispatcher) {
         fakeUpdateManager.currentVer = "0.4.0"
-        fakeUpdateManager.latestRelease = update
-        fakeUpdateManager.downloadResult = File("/tmp/prosto.apk")
-        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
+        fakeUpdateManager.latestRelease = AppUpdate(
+            versionName = "0.5.0",
+            releaseNotes = "Notes",
+            releaseUrl = "https://example.com",
+        )
+        fakeSettingsRepo.settings.value = BrowserSettings(
+            isAutoUpdateEnabled = true,
+            skippedUpdateVersion = "0.5.0",
+        )
 
         val coordinator = createCoordinator()
         coordinator.onAppStart()
         advanceUntilIdle()
 
-        assertThat(fakeUpdateManager.downloadedUpdate).isEqualTo(update)
-        assertThat(uiState.updateState).isInstanceOf(AppUpdateUiState.ReadyToInstall::class.java)
-        assertThat((uiState.updateState as AppUpdateUiState.ReadyToInstall).versionName).isEqualTo("0.5.0")
-    }
+        assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.None)
 
-    @Test
-    fun onInstallRequested_whenReadyAndPermissionMissing_requestsPermission() = runTest(testDispatcher) {
-        fakeUpdateManager.canInstall = false
-        val coordinator = createCoordinator()
-        uiState = uiState.copy(updateState = AppUpdateUiState.ReadyToInstall("0.5.0"))
-
-        coordinator.onInstallRequested()
+        // Manual check ignores skipped version
+        coordinator.checkForUpdate(manual = true)
         advanceUntilIdle()
-
-        assertThat(fakeUpdateManager.requestedPermission).isTrue()
-        assertThat(fakeUpdateManager.installedVersion).isNull()
+        assertThat(uiState.updateState).isInstanceOf(AppUpdateUiState.Available::class.java)
     }
 
     @Test
-    fun onInstallRequested_whenReadyAndPermissionGranted_installsUpdate() = runTest(testDispatcher) {
-        fakeUpdateManager.canInstall = true
-        val coordinator = createCoordinator()
-        uiState = uiState.copy(updateState = AppUpdateUiState.ReadyToInstall("0.5.0"))
-
-        coordinator.onInstallRequested()
-        advanceUntilIdle()
-
-        assertThat(fakeUpdateManager.requestedPermission).isFalse()
-        assertThat(fakeUpdateManager.installedVersion).isEqualTo("0.5.0")
-    }
-
-    @Test
-    fun onAutoUpdateEnabled_triggersImmediateCheckAndDownload() = runTest(testDispatcher) {
+    fun onAutoUpdateDisabled_clearsUpdateState() = runTest(testDispatcher) {
         val update = AppUpdate(
             versionName = "0.5.0",
             releaseNotes = "Notes",
-            apkUrl = "https://example.com/0.5.0.apk",
             releaseUrl = "https://example.com",
         )
-        fakeUpdateManager.currentVer = "0.4.0"
-        fakeUpdateManager.latestRelease = update
-        fakeUpdateManager.downloadResult = File("/tmp/prosto.apk")
-        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
+        uiState = uiState.copy(updateState = AppUpdateUiState.Available(update))
 
         val coordinator = createCoordinator()
-        coordinator.onAutoUpdateEnabled()
-        advanceUntilIdle()
-
-        assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
-        assertThat(fakeUpdateManager.downloadedUpdate).isEqualTo(update)
-        assertThat(uiState.updateState).isInstanceOf(AppUpdateUiState.ReadyToInstall::class.java)
-    }
-
-    @Test
-    fun checkForUpdate_whenPendingUpdateOnDisk_publishesReadyToInstall() = runTest(testDispatcher) {
-        fakeUpdateManager.currentVer = "0.4.0"
-        fakeUpdateManager.pendingVersion = "0.5.0"
-        fakeUpdateManager.latestRelease = null
-        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
-
-        val coordinator = createCoordinator()
-        coordinator.onAppStart()
-        advanceUntilIdle()
-
-        assertThat(uiState.updateState).isInstanceOf(AppUpdateUiState.ReadyToInstall::class.java)
-        assertThat((uiState.updateState as AppUpdateUiState.ReadyToInstall).versionName).isEqualTo("0.5.0")
-    }
-
-    @Test
-    fun checkForUpdate_whenNewerReleaseOnGithubThanPending_downloadsNewerRelease() = runTest(testDispatcher) {
-        val newerRelease = AppUpdate(
-            versionName = "0.6.0",
-            releaseNotes = "Major updates",
-            apkUrl = "https://example.com/0.6.0.apk",
-            releaseUrl = "https://example.com",
-        )
-        fakeUpdateManager.currentVer = "0.4.0"
-        fakeUpdateManager.pendingVersion = "0.5.0"
-        fakeUpdateManager.latestRelease = newerRelease
-        fakeUpdateManager.downloadResult = File("/tmp/0.6.0.apk")
-        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
-
-        val coordinator = createCoordinator()
-        coordinator.onAppStart()
-        advanceUntilIdle()
-
-        assertThat(fakeUpdateManager.downloadedUpdate).isEqualTo(newerRelease)
-        assertThat(uiState.updateState).isInstanceOf(AppUpdateUiState.ReadyToInstall::class.java)
-        assertThat((uiState.updateState as AppUpdateUiState.ReadyToInstall).versionName).isEqualTo("0.6.0")
-    }
-
-    @Test
-    fun onAutoUpdateDisabled_cancelsActiveDownload() = runTest(testDispatcher) {
-        val coordinator = createCoordinator()
-        uiState = uiState.copy(updateState = AppUpdateUiState.Downloading("0.5.0", 25))
-
         coordinator.onAutoUpdateDisabled()
-        advanceUntilIdle()
 
         assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.None)
     }
@@ -299,39 +252,12 @@ class UpdateCoordinatorTest {
         var currentVer: String = "0.4.0"
         var latestRelease: AppUpdate? = null
         var fetchCount = 0
-        var downloadedUpdate: AppUpdate? = null
-        var downloadResult: File? = null
-        var canInstall: Boolean = true
-        var requestedPermission: Boolean = false
-        var installedVersion: String? = null
-        var pendingVersion: String? = null
 
         override fun currentVersion(): String = currentVer
-
-        override fun canInstallPackages(): Boolean = canInstall
-
-        override fun requestInstallPermission(): Boolean {
-            requestedPermission = true
-            return true
-        }
-
-        override fun installUpdate(versionName: String): Boolean {
-            installedVersion = versionName
-            return true
-        }
-
-        override fun pendingUpdateVersion(currentVersion: String): String? = pendingVersion
 
         override suspend fun fetchLatestRelease(repo: String): AppUpdate? {
             fetchCount++
             return latestRelease
-        }
-
-        override suspend fun download(update: AppUpdate, onProgress: (Int) -> Unit): File? {
-            downloadedUpdate = update
-            onProgress(50)
-            onProgress(100)
-            return downloadResult
         }
     }
 

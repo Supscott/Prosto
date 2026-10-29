@@ -142,6 +142,8 @@ class MainActivity : ComponentActivity(), FileChooserHandler {
 
         handleIntent(intent)
 
+        viewModel.onLaunchIntent = { intent -> startActivity(intent) }
+
         setContent {
             val vibration =
                 remember {
