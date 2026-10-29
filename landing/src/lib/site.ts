@@ -8,6 +8,7 @@ export type SearchEngine = {
 };
 
 export const DOWNLOAD_URL = 'https://github.com/Supscott/Prosto/releases';
+export const DIRECT_APK_URL = 'https://github.com/Supscott/Prosto/releases/latest/download/app-release.apk';
 export const REPO_URL = 'https://github.com/Supscott/Prosto';
 export const LICENSE_URL = 'https://github.com/Supscott/Prosto/blob/main/LICENSE';
 

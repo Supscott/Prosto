@@ -91,25 +91,9 @@
   }
 }
 
-html.lenis,
-html.lenis body {
-  height: auto;
-}
-
-.lenis.lenis-smooth {
-  scroll-behavior: auto !important;
-}
-
-.lenis.lenis-smooth [data-lenis-prevent] {
-  overscroll-behavior: contain;
-}
-
-.lenis.lenis-stopped {
-  overflow: hidden;
-}
-
-.lenis.lenis-smooth iframe {
-  pointer-events: none;
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5.5rem;
 }
 
 .shell {
@@ -368,6 +352,68 @@ html.lenis body {
 .scene-frame {
   position: relative;
   isolation: isolate;
+}
+
+.phone-3d-wrap {
+  transform: rotateY(-7deg) rotateX(5deg) rotateZ(-1.5deg);
+  animation: heroPhoneFloat 6s ease-in-out infinite alternate;
+}
+
+@keyframes heroPhoneFloat {
+  0% {
+    transform: rotateY(-7deg) rotateX(5deg) rotateZ(-1.5deg) translateY(0);
+  }
+  100% {
+    transform: rotateY(-4deg) rotateX(3deg) rotateZ(-0.5deg) translateY(-12px);
+  }
+}
+
+@keyframes floatCard {
+  0%, 100% {
+    transform: translateZ(45px) translateY(0);
+  }
+  50% {
+    transform: translateZ(45px) translateY(-8px);
+  }
+}
+
+@keyframes thumbSwipeUp {
+  0% {
+    transform: translate(-50%, 40px) scale(0.9);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, 30px) scale(1);
+  }
+  60% {
+    transform: translate(-50%, -70px) scale(1);
+    opacity: 1;
+  }
+  80%, 100% {
+    transform: translate(-50%, -90px) scale(0.9);
+    opacity: 0;
+  }
+}
+
+@keyframes thumbFlick {
+  0% {
+    transform: translate(-20%, 0);
+  }
+  50% {
+    transform: translate(-80%, 0);
+  }
+  100% {
+    transform: translate(-20%, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .phone-3d-wrap,
+  .phone-3d-wrap * {
+    animation: none !important;
+    transform: none !important;
+  }
 }
 
 .scene-canvas {
@@ -1321,9 +1367,15 @@ html.lenis body {
   background: var(--brand);
 }
 
-.nav-menu {
+dialog.nav-menu {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: 100vw;
+  max-height: 100dvh;
+  margin: 0;
+  border: none;
   z-index: 70;
   display: flex;
   flex-direction: column;
@@ -1334,7 +1386,17 @@ html.lenis body {
       transparent 34%
     ),
     #0e1513;
-  padding: 6.5rem 1.5rem 2rem;
+  padding: 1.5rem 1.5rem max(2rem, env(safe-area-inset-bottom, 2rem));
+  color: var(--paper);
+  box-sizing: border-box;
+}
+
+dialog.nav-menu:not([open]) {
+  display: none;
+}
+
+dialog.nav-menu::backdrop {
+  background: rgba(0, 0, 0, 0.8);
 }
 
 .nav-menu nav a {
