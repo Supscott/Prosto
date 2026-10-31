@@ -93,29 +93,12 @@ jobs:
           sha256sum "$RELEASE_APK" > checksums.txt
           cat checksums.txt
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "${{ github.ref_name }}"
           draft: false
           prerelease: false
-          generate_release_notes: true
           files: |
             ${{ env.RELEASE_APK }}
             checksums.txt
-          body: |
-            ### 🚀 Prosto Browser ${{ github.ref_name }}
-
-            **Browsing made simple. Tabs at your thumb.**
-
-            #### 📦 Downloads
-            - **Installable APK:** `${{ env.RELEASE_APK }}`
-              (see the Assets section below)
-            - **Checksums:** `sha256sum -c checksums.txt`
-
-            #### 📱 Requirements
-            - Android 8.0+ (Oreo, API 26+)
-            - ARM64 / ARMv7 / x86_64
-
-            ---
-            *Built and signed with GitHub Actions.*
