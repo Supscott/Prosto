@@ -978,21 +978,19 @@ private fun DefaultBrowserPromptCard(
                     }
                 }
 
-                IconButton(
-                    onClick = onDismissClick,
+                Box(
                     modifier =
                         Modifier
-                            .size(20.dp)
+                            .size(24.dp)
                             .clip(CircleShape)
-                            .background(
-                                if (isDark) DarkSurfaceVariant.copy(alpha = 0.6f) else Color(0xFFF1F5F9),
-                            ),
+                            .clickable(onClick = onDismissClick),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.dismiss),
                         tint = ProstoMutedSlate,
-                        modifier = Modifier.size(12.dp),
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
@@ -1102,22 +1100,20 @@ fun FeedbackPromptCard(
                     }
                 }
 
-                IconButton(
-                    onClick = onDismissClick,
+                Box(
                     modifier =
                         Modifier
-                            .size(20.dp)
+                            .size(24.dp)
                             .clip(CircleShape)
-                            .background(
-                                if (isDark) DarkSurfaceVariant.copy(alpha = 0.6f) else Color(0xFFF1F5F9),
-                            )
+                            .clickable(onClick = onDismissClick)
                             .testTag("feedback_card_dismiss"),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.dismiss),
                         tint = ProstoMutedSlate,
-                        modifier = Modifier.size(12.dp),
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
