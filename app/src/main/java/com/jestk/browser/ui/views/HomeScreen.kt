@@ -982,17 +982,17 @@ private fun DefaultBrowserPromptCard(
                     onClick = onDismissClick,
                     modifier =
                         Modifier
-                            .size(28.dp)
+                            .size(20.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isDark) DarkSurfaceVariant else ProstoCanvasFloor,
+                                if (isDark) DarkSurfaceVariant.copy(alpha = 0.6f) else Color(0xFFF1F5F9),
                             ),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.dismiss),
                         tint = ProstoMutedSlate,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(12.dp),
                     )
                 }
             }
@@ -1106,10 +1106,10 @@ fun FeedbackPromptCard(
                     onClick = onDismissClick,
                     modifier =
                         Modifier
-                            .size(28.dp)
+                            .size(20.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isDark) DarkSurfaceVariant else ProstoCanvasFloor,
+                                if (isDark) DarkSurfaceVariant.copy(alpha = 0.6f) else Color(0xFFF1F5F9),
                             )
                             .testTag("feedback_card_dismiss"),
                 ) {
@@ -1117,7 +1117,7 @@ fun FeedbackPromptCard(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.dismiss),
                         tint = ProstoMutedSlate,
-                        modifier = Modifier.size(14.dp),
+                        modifier = Modifier.size(12.dp),
                     )
                 }
             }
