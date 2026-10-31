@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBackIos
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -616,6 +617,22 @@ fun SettingsContent(
                     } catch (_: Exception) {
                         Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
                     }
+                },
+                isDark = isDark,
+            )
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 56.dp),
+            )
+
+            // Feedback and Community
+            HyperlinkRow(
+                icon = Icons.AutoMirrored.Filled.Chat,
+                title = stringResource(R.string.settings_about_feedback_title),
+                subtitle = stringResource(R.string.settings_about_feedback_summary),
+                onClick = {
+                    onEvent(BrowserUiEvent.OpenFeedbackSheet)
                 },
                 isDark = isDark,
             )

@@ -68,6 +68,8 @@ data class BrowserUiState(
     val imageContextMenuLinkUrl: String? = null,
     val contextMenuAnchor: Offset? = null,
     val isDefaultBrowser: Boolean = true,
+    val isFeedbackCardVisible: Boolean = true,
+    val isFeedbackSheetVisible: Boolean = false,
     val showAddFavoriteDialog: Boolean = false,
     val searchEngines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     val showAddEditSearchEngineDialog: Boolean = false,

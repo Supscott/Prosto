@@ -37,6 +37,8 @@ class SettingsRepositoryImpl(
             val vibrationStr = settingDao.getSetting(SettingKeys.VIBRATION_ENABLED)
             val grayUnloadedTabsStr = settingDao.getSetting(SettingKeys.GRAY_UNLOADED_TABS_ENABLED)
             val skippedUpdateStr = settingDao.getSetting(SettingKeys.SKIPPED_UPDATE_VERSION)
+            val feedbackPromptStateStr = settingDao.getSetting(SettingKeys.FEEDBACK_PROMPT_STATE)
+            val feedbackPromptSnoozedUntilStr = settingDao.getSetting(SettingKeys.FEEDBACK_PROMPT_SNOOZED_UNTIL)
 
             val theme = themeStr?.let { runCatching { ThemeMode.valueOf(it) }.getOrDefault(ThemeMode.SYSTEM) } ?: ThemeMode.SYSTEM
             val search =
@@ -48,6 +50,12 @@ class SettingsRepositoryImpl(
             val vibration = vibrationStr?.toBooleanStrictOrNull() ?: true
             val grayUnloadedTabs = grayUnloadedTabsStr?.toBooleanStrictOrNull() ?: true
             val skippedUpdate = skippedUpdateStr?.takeIf { it.isNotBlank() }
+            val feedbackPromptState =
+                feedbackPromptStateStr?.let { raw ->
+                    runCatching { com.jestk.browser.domain.model.FeedbackPromptState.valueOf(raw) }
+                        .getOrDefault(com.jestk.browser.domain.model.FeedbackPromptState.VISIBLE)
+                } ?: com.jestk.browser.domain.model.FeedbackPromptState.VISIBLE
+            val feedbackPromptSnoozedUntil = feedbackPromptSnoozedUntilStr?.toLongOrNull() ?: 0L
             val hiddenEngines =
                 hiddenStr
                     ?.takeIf { it.isNotBlank() }
@@ -67,6 +75,8 @@ class SettingsRepositoryImpl(
                 isVibrationEnabled = vibration,
                 skippedUpdateVersion = skippedUpdate,
                 isGrayUnloadedTabsEnabled = grayUnloadedTabs,
+                feedbackPromptState = feedbackPromptState,
+                feedbackPromptSnoozedUntil = feedbackPromptSnoozedUntil,
             )
         }
 
@@ -119,6 +129,17 @@ class SettingsRepositoryImpl(
     override suspend fun setSkippedUpdateVersion(version: String?) =
         withContext(ioDispatcher) {
             settingDao.setSetting(SettingEntity(SettingKeys.SKIPPED_UPDATE_VERSION, version.orEmpty()))
+        }
+
+    override suspend fun setFeedbackPromptState(state: com.jestk.browser.domain.model.FeedbackPromptState) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.FEEDBACK_PROMPT_STATE, state.name))
+        }
+
+    override suspend fun snoozeFeedbackPrompt(snoozedUntil: Long) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.FEEDBACK_PROMPT_STATE, com.jestk.browser.domain.model.FeedbackPromptState.SNOOZED.name))
+            settingDao.setSetting(SettingEntity(SettingKeys.FEEDBACK_PROMPT_SNOOZED_UNTIL, snoozedUntil.toString()))
         }
 
     override fun getBlockedAdsCount(): Flow<Long> =

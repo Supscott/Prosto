@@ -30,6 +30,10 @@ interface SettingsRepository {
 
     suspend fun setSkippedUpdateVersion(version: String?)
 
+    suspend fun setFeedbackPromptState(state: com.jestk.browser.domain.model.FeedbackPromptState) {}
+
+    suspend fun snoozeFeedbackPrompt(snoozedUntil: Long) {}
+
     fun getBlockedAdsCount(): Flow<Long>
 
     fun getBlockedTrackersCount(): Flow<Long>

@@ -11,6 +11,8 @@ data class BrowserSettings(
     val isVibrationEnabled: Boolean = true,
     val skippedUpdateVersion: String? = null,
     val isGrayUnloadedTabsEnabled: Boolean = true,
+    val feedbackPromptState: FeedbackPromptState = FeedbackPromptState.VISIBLE,
+    val feedbackPromptSnoozedUntil: Long = 0L,
 ) {
     val adBlockerEnabled: Boolean
         get() = isAdBlockerEnabled

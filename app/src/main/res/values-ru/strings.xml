@@ -100,4 +100,18 @@
     <string name="insecure_site_warning_message">Подключение к сайту %1$s не зашифровано. Пароли, сообщения и платёжные данные могут быть перехвачены.</string>
     <string name="insecure_site_continue_button">Всё равно перейти</string>
     <string name="insecure_site_go_back_button">Назад</string>
+
+    <!-- Feedback & Community Rating -->
+    <string name="feedback_card_title">Поделитесь впечатлениями</string>
+    <string name="feedback_card_desc">Расскажите, что вам нравится, а что стоит улучшить. Мы читаем каждое сообщение.</string>
+    <string name="feedback_card_action_rate">Оставить отзыв</string>
+    <string name="feedback_card_action_later">Позже</string>
+    <string name="feedback_sheet_title">Обратная связь</string>
+    <string name="feedback_sheet_telegram_title">Чат сообщества в Telegram</string>
+    <string name="feedback_sheet_telegram_desc">Обсуждение браузера, вопросы и обратная связь</string>
+    <string name="feedback_sheet_github_title">Сообщить о баге на GitHub</string>
+    <string name="feedback_sheet_github_desc">Технические отчёты об ошибках и крашах</string>
+    <string name="settings_about_feedback_title">Обратная связь и отзывы</string>
+    <string name="settings_about_feedback_summary">Чат в Telegram и баг-репорты на GitHub</string>
+    <string name="error_cannot_open_link">Не удалось открыть ссылку</string>
 </resources>

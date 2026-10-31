@@ -228,4 +228,34 @@ class SettingsRepositoryTest {
             repository.setGrayUnloadedTabsEnabled(true)
             assertThat(repository.getCurrentSettings().isGrayUnloadedTabsEnabled).isTrue()
         }
+
+    @Test
+    fun feedbackPromptDefaultsToVisible() =
+        runTest(testDispatcher) {
+            val settings = repository.getCurrentSettings()
+            assertThat(settings.feedbackPromptState).isEqualTo(com.jestk.browser.domain.model.FeedbackPromptState.VISIBLE)
+            assertThat(settings.feedbackPromptSnoozedUntil).isEqualTo(0L)
+        }
+
+    @Test
+    fun setFeedbackPromptState_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setFeedbackPromptState(com.jestk.browser.domain.model.FeedbackPromptState.DISMISSED)
+
+            assertThat(repository.getSettings().first().feedbackPromptState)
+                .isEqualTo(com.jestk.browser.domain.model.FeedbackPromptState.DISMISSED)
+            assertThat(repository.getCurrentSettings().feedbackPromptState)
+                .isEqualTo(com.jestk.browser.domain.model.FeedbackPromptState.DISMISSED)
+        }
+
+    @Test
+    fun snoozeFeedbackPrompt_persistsStateAndTimestamp() =
+        runTest(testDispatcher) {
+            val targetTimestamp = 123456789L
+            repository.snoozeFeedbackPrompt(targetTimestamp)
+
+            val current = repository.getCurrentSettings()
+            assertThat(current.feedbackPromptState).isEqualTo(com.jestk.browser.domain.model.FeedbackPromptState.SNOOZED)
+            assertThat(current.feedbackPromptSnoozedUntil).isEqualTo(targetTimestamp)
+        }
 }

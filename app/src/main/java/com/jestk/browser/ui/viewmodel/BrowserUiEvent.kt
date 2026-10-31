@@ -378,6 +378,17 @@ sealed interface BrowserUiEvent {
     data object ConfirmInsecureHttpNavigation : BrowserUiEvent
 
     data object DismissInsecureHttpWarning : BrowserUiEvent
+
+    // Feedback & Community Rating
+    data object DismissFeedbackPrompt : BrowserUiEvent
+
+    data class SnoozeFeedbackPrompt(
+        val durationMs: Long = 3 * 24 * 60 * 60 * 1000L,
+    ) : BrowserUiEvent
+
+    data object OpenFeedbackSheet : BrowserUiEvent
+
+    data object CloseFeedbackSheet : BrowserUiEvent
 }
 
 enum class ExternalAppDismissReason {

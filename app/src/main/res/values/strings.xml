@@ -100,4 +100,18 @@
     <string name="insecure_site_warning_message">The connection to %1$s is not encrypted. Passwords, messages, or payment info could be intercepted.</string>
     <string name="insecure_site_continue_button">Continue anyway</string>
     <string name="insecure_site_go_back_button">Go back</string>
+
+    <!-- Feedback & Community Rating -->
+    <string name="feedback_card_title">Enjoying Prosto?</string>
+    <string name="feedback_card_desc">Help us make Prosto better. Share your thoughts or report issues directly to the developers.</string>
+    <string name="feedback_card_action_rate">Leave feedback</string>
+    <string name="feedback_card_action_later">Later</string>
+    <string name="feedback_sheet_title">Feedback &amp; Community</string>
+    <string name="feedback_sheet_telegram_title">Telegram Community Chat</string>
+    <string name="feedback_sheet_telegram_desc">Discuss features, ask questions, and share thoughts</string>
+    <string name="feedback_sheet_github_title">GitHub Issue Tracker</string>
+    <string name="feedback_sheet_github_desc">Report technical bugs, crashes, and suggest features</string>
+    <string name="settings_about_feedback_title">Feedback &amp; Community</string>
+    <string name="settings_about_feedback_summary">Telegram chat and GitHub bug reports</string>
+    <string name="error_cannot_open_link">Could not open link</string>
 </resources>

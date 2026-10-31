@@ -6,9 +6,13 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import org.junit.Rule
 import org.junit.Test
@@ -63,6 +67,25 @@ class SettingsScreenPreviewTest {
 
         composeRule.onNodeWithText("Gray unloaded tabs").assertExists()
         composeRule.onNodeWithText("Show inactive tabs not loaded in RAM in gray").assertExists()
+    }
+
+    @Test
+    fun settingsScreen_showsFeedbackOptionAndTriggersEvent() {
+        var capturedEvent: BrowserUiEvent? = null
+        composeRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SettingsScreen(
+                    uiState = BrowserUiState(activeScreen = ScreenType.SETTINGS, isDefaultBrowser = false),
+                    onEvent = { capturedEvent = it },
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Feedback & Community").assertExists()
+        composeRule.onNodeWithText("Telegram chat and GitHub bug reports").assertExists()
+
+        composeRule.onNodeWithText("Feedback & Community").performScrollTo().performClick()
+        assertThat(capturedEvent).isEqualTo(BrowserUiEvent.OpenFeedbackSheet)
     }
 
     @Test

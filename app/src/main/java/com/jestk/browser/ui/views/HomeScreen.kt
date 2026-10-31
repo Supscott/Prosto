@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.QrCodeScanner
@@ -70,6 +71,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.toClipEntry
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -232,6 +234,21 @@ fun HomeScreen(
                         DefaultBrowserHelper.openDefaultBrowserSettings(context, defaultBrowserLauncher)
                     },
                     onDismissClick = { isDefaultBrowserDismissed = true },
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                )
+            }
+
+            // Feedback Prompt Card
+            if (uiState.isFeedbackCardVisible) {
+                Spacer(modifier = Modifier.height(20.dp))
+                FeedbackPromptCard(
+                    isDark = isDark,
+                    onRateClick = { onEvent(BrowserUiEvent.OpenFeedbackSheet) },
+                    onSnoozeClick = { onEvent(BrowserUiEvent.SnoozeFeedbackPrompt()) },
+                    onDismissClick = { onEvent(BrowserUiEvent.DismissFeedbackPrompt) },
                     modifier =
                         Modifier
                             .fillMaxWidth()
@@ -1008,6 +1025,153 @@ private fun DefaultBrowserPromptCard(
     }
 }
 
+@Composable
+fun FeedbackPromptCard(
+    isDark: Boolean,
+    onRateClick: () -> Unit,
+    onSnoozeClick: () -> Unit,
+    onDismissClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = ProstoShapes.Card,
+        color = if (isDark) DarkSurface else Color.White,
+        border = ProstoBorders.cardBorder(isDark),
+        shadowElevation = 2.dp,
+        modifier = modifier,
+    ) {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .size(40.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(
+                                    if (isDark) DarkSurfaceVariant else ProstoCanvasFloor,
+                                ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = "Feedback icon",
+                            tint = ProstoBrandPrimary,
+                            modifier = Modifier.size(24.dp).testTag("feedback_card_icon"),
+                        )
+                    }
+
+                    Column(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .padding(end = 8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(R.string.feedback_card_title),
+                            style =
+                                LocalProstoTypography.current.headlineSm.copy(
+                                    fontSize = 15.sp,
+                                    letterSpacing = (-0.2).sp,
+                                ),
+                            color = if (isDark) DarkOnSurface else ProstoDarkText,
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = stringResource(R.string.feedback_card_desc),
+                            style =
+                                LocalProstoTypography.current.bodySm.copy(
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp,
+                                ),
+                            color = ProstoMutedSlate,
+                        )
+                    }
+                }
+
+                IconButton(
+                    onClick = onDismissClick,
+                    modifier =
+                        Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(
+                                if (isDark) DarkSurfaceVariant else ProstoCanvasFloor,
+                            )
+                            .testTag("feedback_card_dismiss"),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.dismiss),
+                        tint = ProstoMutedSlate,
+                        modifier = Modifier.size(14.dp),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(
+                    onClick = onRateClick,
+                    shape = ProstoShapes.Pill,
+                    colors =
+                        ButtonDefaults.buttonColors(
+                            containerColor = ProstoBrandPrimary,
+                            contentColor = Color.White,
+                        ),
+                    modifier = Modifier.height(40.dp).testTag("feedback_card_rate_button"),
+                ) {
+                    Text(
+                        text = stringResource(R.string.feedback_card_action_rate),
+                        style =
+                            LocalProstoTypography.current.labelMd.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White,
+                            ),
+                    )
+                }
+
+                TextButton(
+                    onClick = onSnoozeClick,
+                    shape = ProstoShapes.Pill,
+                    colors =
+                        ButtonDefaults.textButtonColors(
+                            contentColor = ProstoMutedSlate,
+                        ),
+                    modifier = Modifier.height(40.dp).testTag("feedback_card_later_button"),
+                ) {
+                    Text(
+                        text = stringResource(R.string.feedback_card_action_later),
+                        style =
+                            LocalProstoTypography.current.labelMd.copy(
+                                fontWeight = FontWeight.Medium,
+                                color = ProstoMutedSlate,
+                            ),
+                    )
+                }
+            }
+        }
+    }
+}
+
 fun formatStatCount(count: Long): String {
     if (count <= 0) return "0"
     if (count < 1000) return count.toString()
@@ -1185,5 +1349,35 @@ fun HomeScreenDarkPreview() {
                 ),
             onEvent = {},
         )
+    }
+}
+
+@Preview(name = "FeedbackPromptCard Light", showBackground = true)
+@Composable
+fun FeedbackPromptCardLightPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+        Box(modifier = Modifier.padding(16.dp)) {
+            FeedbackPromptCard(
+                isDark = false,
+                onRateClick = {},
+                onSnoozeClick = {},
+                onDismissClick = {},
+            )
+        }
+    }
+}
+
+@Preview(name = "FeedbackPromptCard Dark", showBackground = true)
+@Composable
+fun FeedbackPromptCardDarkPreview() {
+    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+        Box(modifier = Modifier.padding(16.dp)) {
+            FeedbackPromptCard(
+                isDark = true,
+                onRateClick = {},
+                onSnoozeClick = {},
+                onDismissClick = {},
+            )
+        }
     }
 }

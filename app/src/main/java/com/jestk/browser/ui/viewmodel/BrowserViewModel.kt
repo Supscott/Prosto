@@ -7,6 +7,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jestk.browser.domain.model.DownloadItem
+import com.jestk.browser.domain.model.FeedbackPromptState
 import com.jestk.browser.domain.model.InsecureHttpPrompt
 import com.jestk.browser.domain.model.InsecureNavigationTarget
 import com.jestk.browser.domain.model.OverlayType
@@ -50,6 +51,7 @@ class BrowserViewModel(
     private val webViewPool: WebViewPool? = null,
     private val appUpdateManager: AppUpdateManager? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val currentTimeProvider: () -> Long = { System.currentTimeMillis() },
 ) : ViewModel() {
     private val tabOperationMutex = Mutex()
     private val tabThemeColors = ConcurrentHashMap<String, Int>()
@@ -142,9 +144,18 @@ class BrowserViewModel(
         webViewPool?.onDownloadStarted = null
     }
 
+    private fun calculateFeedbackCardVisible(settings: com.jestk.browser.domain.model.BrowserSettings): Boolean {
+        return when (settings.feedbackPromptState) {
+            FeedbackPromptState.DISMISSED -> false
+            FeedbackPromptState.SNOOZED -> currentTimeProvider() >= settings.feedbackPromptSnoozedUntil
+            FeedbackPromptState.VISIBLE -> true
+        }
+    }
+
     private suspend fun restoreSession() {
         Log.d(TAG, "Restoring session")
         val initialSettings = settingsRepository.getCurrentSettings()
+        _uiState.update { it.copy(isFeedbackCardVisible = calculateFeedbackCardVisible(initialSettings)) }
         val currentEngines =
             if (searchEngineRepository != null) {
                 searchEngineRepository.ensureDefaultEnginesSeeded()
@@ -209,6 +220,13 @@ class BrowserViewModel(
 
     fun onAppResume() {
         updateCoordinator.onAppResume()
+        val currentSettings = _uiState.value.settings
+        if (currentSettings.feedbackPromptState == FeedbackPromptState.SNOOZED) {
+            val visible = calculateFeedbackCardVisible(currentSettings)
+            if (visible != _uiState.value.isFeedbackCardVisible) {
+                _uiState.update { it.copy(isFeedbackCardVisible = visible) }
+            }
+        }
     }
 
     fun onEvent(event: BrowserUiEvent) {
@@ -605,6 +623,43 @@ class BrowserViewModel(
                 updateCoordinator.onRedirectRequested()
             }
 
+            BrowserUiEvent.DismissFeedbackPrompt -> {
+                _uiState.update {
+                    it.copy(
+                        isFeedbackCardVisible = false,
+                        settings = it.settings.copy(feedbackPromptState = FeedbackPromptState.DISMISSED),
+                    )
+                }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setFeedbackPromptState(FeedbackPromptState.DISMISSED)
+                }
+            }
+
+            is BrowserUiEvent.SnoozeFeedbackPrompt -> {
+                val snoozedUntil = currentTimeProvider() + event.durationMs
+                _uiState.update {
+                    it.copy(
+                        isFeedbackCardVisible = false,
+                        settings =
+                            it.settings.copy(
+                                feedbackPromptState = FeedbackPromptState.SNOOZED,
+                                feedbackPromptSnoozedUntil = snoozedUntil,
+                            ),
+                    )
+                }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.snoozeFeedbackPrompt(snoozedUntil)
+                }
+            }
+
+            BrowserUiEvent.OpenFeedbackSheet -> {
+                _uiState.update { it.copy(isFeedbackSheetVisible = true) }
+            }
+
+            BrowserUiEvent.CloseFeedbackSheet -> {
+                _uiState.update { it.copy(isFeedbackSheetVisible = false) }
+            }
+
             is BrowserUiEvent.SkipUpdate -> {
                 updateCoordinator.onSkip()
             }
@@ -998,6 +1053,10 @@ class BrowserViewModel(
 
     private fun handleBackNavigation() {
         val current = _uiState.value
+        if (current.isFeedbackSheetVisible) {
+            onEvent(BrowserUiEvent.CloseFeedbackSheet)
+            return
+        }
         if (current.insecureHttpPrompt != null) {
             onEvent(BrowserUiEvent.DismissInsecureHttpWarning)
             return

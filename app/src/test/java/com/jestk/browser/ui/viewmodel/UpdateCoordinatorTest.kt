@@ -280,6 +280,15 @@ class UpdateCoordinatorTest {
         override suspend fun setSkippedUpdateVersion(version: String?) {
             settings.value = settings.value.copy(skippedUpdateVersion = version)
         }
+        override suspend fun setFeedbackPromptState(state: com.jestk.browser.domain.model.FeedbackPromptState) {
+            settings.value = settings.value.copy(feedbackPromptState = state)
+        }
+        override suspend fun snoozeFeedbackPrompt(snoozedUntil: Long) {
+            settings.value = settings.value.copy(
+                feedbackPromptState = com.jestk.browser.domain.model.FeedbackPromptState.SNOOZED,
+                feedbackPromptSnoozedUntil = snoozedUntil,
+            )
+        }
         override fun getBlockedAdsCount(): Flow<Long> = MutableStateFlow(0L)
         override fun getBlockedTrackersCount(): Flow<Long> = MutableStateFlow(0L)
         override suspend fun incrementBlockedAds(count: Long) {}

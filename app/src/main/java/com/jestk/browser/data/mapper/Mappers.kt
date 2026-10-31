@@ -103,6 +103,12 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
     val isVibrationEnabled = map[SettingKeys.VIBRATION_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isGrayUnloadedTabsEnabled = map[SettingKeys.GRAY_UNLOADED_TABS_ENABLED]?.toBooleanStrictOrNull() ?: true
     val skippedUpdateVersion = map[SettingKeys.SKIPPED_UPDATE_VERSION]?.takeIf { it.isNotBlank() }
+    val feedbackPromptState =
+        map[SettingKeys.FEEDBACK_PROMPT_STATE]?.let { raw ->
+            runCatching { com.jestk.browser.domain.model.FeedbackPromptState.valueOf(raw) }
+                .getOrDefault(com.jestk.browser.domain.model.FeedbackPromptState.VISIBLE)
+        } ?: com.jestk.browser.domain.model.FeedbackPromptState.VISIBLE
+    val feedbackPromptSnoozedUntil = map[SettingKeys.FEEDBACK_PROMPT_SNOOZED_UNTIL]?.toLongOrNull() ?: 0L
 
     val hiddenEngines =
         map[SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES]
@@ -123,6 +129,8 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
         isVibrationEnabled = isVibrationEnabled,
         skippedUpdateVersion = skippedUpdateVersion,
         isGrayUnloadedTabsEnabled = isGrayUnloadedTabsEnabled,
+        feedbackPromptState = feedbackPromptState,
+        feedbackPromptSnoozedUntil = feedbackPromptSnoozedUntil,
     )
 }
 

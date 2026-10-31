@@ -78,6 +78,7 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
+import com.jestk.browser.ui.overlays.FeedbackBottomSheet
 import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
@@ -856,6 +857,18 @@ fun JestkApp(
                     url = prompt.url,
                     onDismiss = { viewModel.onEvent(BrowserUiEvent.DismissInsecureHttpWarning) },
                     onConfirm = { viewModel.onEvent(BrowserUiEvent.ConfirmInsecureHttpNavigation) },
+                )
+            }
+
+            // Feedback Bottom Sheet Modal
+            if (uiState.isFeedbackSheetVisible) {
+                FeedbackBottomSheet(
+                    isDark = isDark,
+                    onDismiss = { viewModel.onEvent(BrowserUiEvent.CloseFeedbackSheet) },
+                    onFeedbackSubmitted = {
+                        viewModel.onEvent(BrowserUiEvent.DismissFeedbackPrompt)
+                        viewModel.onEvent(BrowserUiEvent.CloseFeedbackSheet)
+                    },
                 )
             }
 
