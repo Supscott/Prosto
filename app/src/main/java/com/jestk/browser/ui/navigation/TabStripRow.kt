@@ -1,6 +1,7 @@
 package com.jestk.browser.ui.navigation
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -51,6 +52,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
@@ -58,17 +60,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.Outline
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.compose.ui.zIndex
 import com.jestk.browser.R
+import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkDockSurface
@@ -207,16 +220,33 @@ fun TabStripRow(
                 )
             }
 
-        LaunchedEffect(uiState.activeTabId, activeIndex, dragState.isDragging, dragState.isSettling) {
-            if (!dragState.isDragging && !dragState.isSettling && activeIndex in dragState.currentTabs.indices) {
-                val viewportWidthPx =
-                    lazyListState.layoutInfo.viewportSize.width
-                        .takeIf { it > 0 }
-                        ?.toFloat()
-                        ?: totalChipWidthPx
-                val centeringOffsetPx = ((viewportWidthPx - activeTabWidthPx) / 2f).coerceAtLeast(0f)
-                val scrollOffset = -centeringOffsetPx.toInt()
-                lazyListState.animateScrollToItem(activeIndex, scrollOffset)
+        var lastCenteredActiveTabId by remember { mutableStateOf<String?>(null) }
+        var lastActiveOverlay by remember { mutableStateOf<OverlayType?>(null) }
+
+        LaunchedEffect(uiState.activeTabId, uiState.activeOverlay) {
+            val activeTabId = uiState.activeTabId
+            val currentOverlay = uiState.activeOverlay
+            val overlayDismissed = lastActiveOverlay == OverlayType.TAB_GRID && currentOverlay != OverlayType.TAB_GRID
+            lastActiveOverlay = currentOverlay
+
+            if (currentOverlay != OverlayType.TAB_GRID && activeTabId != null) {
+                if (activeTabId != lastCenteredActiveTabId || overlayDismissed) {
+                    val targetIndex =
+                        dragState.currentTabs.indexOfFirst { it.id == activeTabId }
+                            .takeIf { it >= 0 }
+                            ?: displayTabs.indexOfFirst { it.id == activeTabId }
+                    if (targetIndex >= 0) {
+                        lastCenteredActiveTabId = activeTabId
+                        val viewportWidthPx =
+                            lazyListState.layoutInfo.viewportSize.width
+                                .takeIf { it > 0 }
+                                ?.toFloat()
+                                ?: totalChipWidthPx
+                        val centeringOffsetPx = ((viewportWidthPx - activeTabWidthPx) / 2f).coerceAtLeast(0f)
+                        val scrollOffset = -centeringOffsetPx.toInt()
+                        lazyListState.animateScrollToItem(targetIndex, scrollOffset)
+                    }
+                }
             }
         }
 
@@ -421,23 +451,12 @@ fun TabStripRow(
                     }
 
                 if (isActive) {
-                    val currentTitle =
-                        if (tabIsHome) {
-                            "Home"
-                        } else {
-                            when {
-                                isActive && uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
-                                tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
-                                else -> "Prosto Browser"
-                            }
-                        }
-                    val currentUrl = if (isActive && uiState.currentUrl.isNotEmpty()) uiState.currentUrl else tab.url
-                    val currentDomain = if (tabIsHome) "" else extractDomain(currentUrl)
+                    val displayInfo = resolveTabDisplayInfo(tab = tab, isActive = true, isHome = tabIsHome, uiState = uiState)
 
                     ActiveTabPill(
-                        title = currentTitle,
-                        domain = currentDomain,
-                        url = currentUrl,
+                        title = displayInfo.title,
+                        domain = displayInfo.domain,
+                        url = displayInfo.url,
                         faviconUrl = tab.faviconUrl,
                         isHome = tabIsHome,
                         backgroundColor = centerPillBg,
@@ -446,7 +465,7 @@ fun TabStripRow(
                         isLoading = uiState.isLoading,
                         loadingProgress = uiState.loadingProgress,
                         onOpenSearch = {
-                            val targetPrefill = if (currentUrl.isNotBlank() && currentUrl != "about:blank") currentUrl else null
+                            val targetPrefill = if (displayInfo.url.isNotBlank() && displayInfo.url != "about:blank") displayInfo.url else null
                             onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = targetPrefill, openInNewTab = false))
                         },
                         onClose = {
@@ -588,22 +607,11 @@ fun TabStripRow(
             )
 
             if (isElevatedActive) {
-                val currentTitle =
-                    if (tabIsHome) {
-                        "Home"
-                    } else {
-                        when {
-                            isElevatedActive && uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
-                            elevatedTab.title.isNotEmpty() && elevatedTab.title != "Home" && elevatedTab.title != "New Tab" -> elevatedTab.title
-                            else -> "Prosto Browser"
-                        }
-                    }
-                val currentUrl = if (isElevatedActive && uiState.currentUrl.isNotEmpty()) uiState.currentUrl else elevatedTab.url
-                val currentDomain = if (tabIsHome) "" else extractDomain(currentUrl)
+                val displayInfo = resolveTabDisplayInfo(tab = elevatedTab, isActive = isElevatedActive, isHome = tabIsHome, uiState = uiState)
 
                 val activePillBgActual =
                     if (isDraggingThis) {
-                        if (isDark) DarkSurface.copy(alpha = 0.92f) else Color.White.copy(alpha = 0.95f)
+                        if (isDark) DarkSurface else Color.White
                     } else {
                         centerPillBg
                     }
@@ -615,9 +623,9 @@ fun TabStripRow(
                     }
 
                 ActiveTabPill(
-                    title = currentTitle,
-                    domain = currentDomain,
-                    url = currentUrl,
+                    title = displayInfo.title,
+                    domain = displayInfo.domain,
+                    url = displayInfo.url,
                     faviconUrl = elevatedTab.faviconUrl,
                     isHome = tabIsHome,
                     backgroundColor = activePillBgActual,
@@ -651,7 +659,7 @@ fun TabStripRow(
                 val isTabLoaded = uiState.isTabLoaded(elevatedTab.id)
                 val inactiveBtnBgActual =
                     if (isDraggingThis) {
-                        if (isDark) DarkSurface.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.90f)
+                        if (isDark) DarkSurface else Color.White
                     } else {
                         circleBtnBg
                     }
@@ -711,7 +719,7 @@ fun TabStripRow(
             ) {
                 Surface(
                     shape = CircleShape,
-                    color = if (isDark) DarkSurface.copy(alpha = 0.85f) else Color.White.copy(alpha = 0.90f),
+                    color = if (isDark) DarkSurface else Color.White,
                     border = ProstoBorders.floatingBorder(isDark),
                     shadowElevation = 0.dp,
                     modifier = Modifier.size(38.dp),
@@ -906,6 +914,63 @@ fun AddTabDockButton(
 }
 
 /**
+ * Custom PopupPositionProvider that anchors the tab context menu horizontally to the
+ * pressed tab and vertically aligns its bottom edge to the standard dock elevation height
+ * (matching ActionPopupMenu's 64.dp elevation above the navigation bar / dock bottom).
+ */
+internal class TabContextMenuPositionProvider(
+    private val density: Density,
+    private val margin: androidx.compose.ui.unit.Dp = 12.dp,
+) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val marginPx = with(density) { margin.roundToPx() }
+        val isPill = anchorBounds.height >= with(density) { 40.dp.roundToPx() }
+        // For pill (42dp): 14dp gap above pill top places bottom at 64dp above navigation bar
+        // For circle (38dp): 16dp gap above circle top aligns to the exact same 64dp elevation
+        val bottomGapPx = with(density) { (if (isPill) 14.dp else 16.dp).roundToPx() }
+
+        val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
+            .coerceIn(marginPx, (windowSize.width - popupContentSize.width - marginPx).coerceAtLeast(marginPx))
+
+        val targetBottomY = anchorBounds.top - bottomGapPx
+        val y = (targetBottomY - popupContentSize.height).coerceAtLeast(marginPx)
+
+        return IntOffset(x, y)
+    }
+}
+
+/**
+ * Clipping shape that allows shadow to spread outwards on top, left, and right,
+ * but clips at the bottom boundary (size.height + dockGapPx) so the modal's downward
+ * elevation shadow does not overlay onto the dock surface, keeping the shadow
+ * visually underneath the dock capsule.
+ */
+internal class DockShadowUnderClipShape(
+    val dockGapPx: Float,
+    val overflowPx: Float,
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        val rect =
+            Rect(
+                left = -overflowPx,
+                top = -overflowPx,
+                right = size.width + overflowPx,
+                bottom = size.height + dockGapPx,
+            )
+        return Outline.Rectangle(rect)
+    }
+}
+
+/**
  * Contextual dropdown menu on tabs (active or inactive).
  * Adheres to Prosto Canvas:
  * - Floating card with 24px radius (ProstoShapes.Card), pure solid surface.
@@ -927,97 +992,157 @@ fun TabContextMenu(
     isReloadVisible: Boolean = false,
     onReload: (() -> Unit)? = null,
 ) {
+    if (!expanded) return
+
+    BackHandler(enabled = true, onBack = onDismissRequest)
+
     val menuBg = if (isDark) DarkSurface else ProstoCardSurface
     val menuBorder = ProstoBorders.floatingBorder(isDark)
     val dividerColor = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)
+    val density = LocalDensity.current
+    val popupPositionProvider = remember(density) {
+        TabContextMenuPositionProvider(density)
+    }
 
-    DropdownMenu(
-        expanded = expanded,
+    Popup(
         onDismissRequest = onDismissRequest,
-        shape = ProstoShapes.Card,
-        containerColor = menuBg,
-        shadowElevation = 12.dp,
-        border = menuBorder,
-        modifier = Modifier.width(172.dp),
-        properties = PopupProperties(focusable = false, dismissOnClickOutside = true, dismissOnBackPress = true),
+        popupPositionProvider = popupPositionProvider,
+        properties = PopupProperties(focusable = true, dismissOnClickOutside = true, dismissOnBackPress = true),
     ) {
-        Column(
-            modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
-            verticalArrangement = Arrangement.Center,
+        val dockGapPx = with(density) { 10.dp.toPx() }
+        val overflowPx = with(density) { 32.dp.toPx() }
+
+        Box(
+            modifier =
+                Modifier
+                    .graphicsLayer {
+                        shape = DockShadowUnderClipShape(dockGapPx, overflowPx)
+                        clip = true
+                    }
+                    .drawWithContent {
+                        clipRect(
+                            left = -overflowPx,
+                            top = -overflowPx,
+                            right = size.width + overflowPx,
+                            bottom = size.height + dockGapPx,
+                        ) {
+                            this@drawWithContent.drawContent()
+                        }
+                    },
         ) {
-            // Reload (First item when isReloadVisible is true)
-            if (isReloadVisible && onReload != null) {
-                PopupMenuItem(
-                    icon = Icons.Default.Refresh,
-                    label = stringResource(R.string.reload_tab),
-                    isActive = false,
-                    isDark = isDark,
-                    onClick = {
-                        onDismissRequest()
-                        onReload()
-                    },
-                )
+            Surface(
+                shape = ProstoShapes.Card,
+                color = menuBg,
+                shadowElevation = 12.dp,
+                border = menuBorder,
+                modifier = Modifier.width(172.dp),
+            ) {
+                Column(
+                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
+                    verticalArrangement = Arrangement.Center,
+                ) {
+                    // Reload (First item when isReloadVisible is true)
+                    if (isReloadVisible && onReload != null) {
+                        PopupMenuItem(
+                            icon = Icons.Default.Refresh,
+                            label = stringResource(R.string.reload_tab),
+                            isActive = false,
+                            isDark = isDark,
+                            onClick = {
+                                onDismissRequest()
+                                onReload()
+                            },
+                        )
 
-                HorizontalDivider(color = dividerColor, thickness = 1.dp)
-            }
+                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                    }
 
-            // Close Tab
-            PopupMenuItem(
-                icon = Icons.Default.Close,
-                label = "Close tab",
-                isActive = false,
-                isDark = isDark,
-                onClick = {
-                    onDismissRequest()
-                    onCloseTab()
-                },
-            )
+                    // Close Tab
+                    PopupMenuItem(
+                        icon = Icons.Default.Close,
+                        label = "Close tab",
+                        isActive = false,
+                        isDark = isDark,
+                        onClick = {
+                            onDismissRequest()
+                            onCloseTab()
+                        },
+                    )
 
-            HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                    HorizontalDivider(color = dividerColor, thickness = 1.dp)
 
-            // Copy URL
-            PopupMenuItem(
-                icon = Icons.Default.ContentCopy,
-                label = "Copy URL",
-                isActive = false,
-                isDark = isDark,
-                onClick = {
-                    onDismissRequest()
-                    onCopyUrl()
-                },
-            )
+                    // Copy URL
+                    PopupMenuItem(
+                        icon = Icons.Default.ContentCopy,
+                        label = "Copy URL",
+                        isActive = false,
+                        isDark = isDark,
+                        onClick = {
+                            onDismissRequest()
+                            onCopyUrl()
+                        },
+                    )
 
-            HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                    HorizontalDivider(color = dividerColor, thickness = 1.dp)
 
-            // Add to Favorites
-            PopupMenuItem(
-                icon = Icons.Default.Bookmark,
-                label = "Add to Favorites",
-                isActive = false,
-                isDark = isDark,
-                onClick = {
-                    onDismissRequest()
-                    onAddFavorite()
-                },
-            )
+                    // Add to Favorites
+                    PopupMenuItem(
+                        icon = Icons.Default.Bookmark,
+                        label = "Add to Favorites",
+                        isActive = false,
+                        isDark = isDark,
+                        onClick = {
+                            onDismissRequest()
+                            onAddFavorite()
+                        },
+                    )
 
-            // Share Link
-            if (onShareLink != null) {
-                HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                    // Share Link
+                    if (onShareLink != null) {
+                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
 
-                PopupMenuItem(
-                    icon = Icons.Default.Share,
-                    label = "Share Link",
-                    isActive = false,
-                    isDark = isDark,
-                    onClick = {
-                        onDismissRequest()
-                        onShareLink()
-                    },
-                )
+                        PopupMenuItem(
+                            icon = Icons.Default.Share,
+                            label = "Share Link",
+                            isActive = false,
+                            isDark = isDark,
+                            onClick = {
+                                onDismissRequest()
+                                onShareLink()
+                            },
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+private data class TabDisplayInfo(
+    val title: String,
+    val url: String,
+    val domain: String,
+)
+
+private fun resolveTabDisplayInfo(
+    tab: Tab,
+    isActive: Boolean,
+    isHome: Boolean,
+    uiState: BrowserUiState,
+): TabDisplayInfo {
+    val currentTitle =
+        if (isHome) {
+            "Home"
+        } else {
+            when {
+                isActive && uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
+                tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
+                else -> "Prosto Browser"
+            }
+        }
+    val currentUrl = if (isActive && uiState.currentUrl.isNotEmpty()) uiState.currentUrl else tab.url
+    val currentDomain = if (isHome) "" else extractDomain(currentUrl)
+    return TabDisplayInfo(title = currentTitle, url = currentUrl, domain = currentDomain)
 }
 
 private fun extractDomain(url: String): String {

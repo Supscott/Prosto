@@ -5,7 +5,6 @@ import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -470,7 +469,6 @@ class DockRefinementsTest {
                             onEvent = {},
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
-                                .fillMaxHeight(0.55f)
                         )
                     }
                 }

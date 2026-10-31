@@ -747,6 +747,53 @@ class BrowserViewModelTest {
         }
 
     @Test
+    fun openSearch_whenExistingHomeTabExists_reusesHomeTabWithoutCreatingNewTab() =
+        runTest(testDispatcher) {
+            val tab1 = tabRepo.createTab(url = "https://github.com", title = "GitHub")
+            val tab2 = tabRepo.createTab(url = "", title = "Home")
+            tabRepo.setActiveTab(tab1.id)
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.tabs).hasSize(2)
+            assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tab1.id)
+
+            viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertThat(state.tabs).hasSize(2)
+            assertThat(state.activeTabId).isEqualTo(tab2.id)
+            assertThat(state.activeOverlay).isEqualTo(OverlayType.SEARCH)
+            assertThat(state.searchQuery).isEmpty()
+        }
+
+    @Test
+    fun openSearch_whenMultipleWebTabsAndNoHomeTab_createsNewSearchTab() =
+        runTest(testDispatcher) {
+            val tab1 = tabRepo.createTab(url = "https://github.com", title = "GitHub")
+            val tab2 = tabRepo.createTab(url = "https://gitlab.com", title = "GitLab")
+            tabRepo.setActiveTab(tab1.id)
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.tabs).hasSize(2)
+            assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tab1.id)
+
+            viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertThat(state.tabs).hasSize(3)
+            assertThat(state.activeTabId).isNotEqualTo(tab1.id)
+            assertThat(state.activeTabId).isNotEqualTo(tab2.id)
+            assertThat(state.activeOverlay).isEqualTo(OverlayType.SEARCH)
+            assertThat(state.searchQuery).isEmpty()
+        }
+
+    @Test
     fun openSearch_withOpenInNewTabFalse_editsCurrentTabWithoutCreatingNewTab() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()

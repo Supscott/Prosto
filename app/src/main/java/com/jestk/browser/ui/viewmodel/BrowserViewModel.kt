@@ -310,7 +310,26 @@ class BrowserViewModel(
                         current.currentUrl.isEmpty() ||
                         current.currentUrl == "about:blank"
                 if (event.openInNewTab && !isHome) {
-                    tabCoordinator.openNewTabForSearch { searchCoordinator.updateHistorySuggestions("") }
+                    val existingHomeTab =
+                        current.tabs.firstOrNull {
+                            it.url.isEmpty() || it.url == "about:blank" || it.title == "Home"
+                        }
+                    if (existingHomeTab != null) {
+                        tabCoordinator.selectTab(existingHomeTab.id)
+                        val prefill = event.prefilledUrl ?: ""
+                        _uiState.update {
+                            it.copy(
+                                activeOverlay = OverlayType.SEARCH,
+                                searchQuery = prefill,
+                                isSearchHistoryExpanded = false,
+                                isLoadingMoreHistory = false,
+                                hasMoreHistory = true,
+                            )
+                        }
+                        searchCoordinator.updateHistorySuggestions(prefill)
+                    } else {
+                        tabCoordinator.openNewTabForSearch { searchCoordinator.updateHistorySuggestions("") }
+                    }
                 } else {
                     val prefill = event.prefilledUrl ?: if (isHome) "" else current.currentUrl
                     _uiState.update {

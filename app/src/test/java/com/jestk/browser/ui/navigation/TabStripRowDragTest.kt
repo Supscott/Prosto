@@ -4,18 +4,25 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
 import com.google.common.truth.Truth.assertThat
+import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
@@ -54,6 +61,8 @@ class TabStripRowDragTest {
         override fun confirm() { vibrationConfirms++ }
     }
 
+    private val testUiState = mutableStateOf<BrowserUiState?>(null)
+
     private fun render(
         tabs: List<Tab>,
         activeTabId: String,
@@ -62,8 +71,16 @@ class TabStripRowDragTest {
         events.clear()
         vibrationTicks = 0
         vibrationConfirms = 0
+        testUiState.value =
+            BrowserUiState(
+                tabs = tabs,
+                activeTabId = activeTabId,
+                currentUrl = tabs.first { it.id == activeTabId }.url,
+                pageTitle = tabs.first { it.id == activeTabId }.title,
+            )
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
+            val state = testUiState.value ?: return@setContent
             CompositionLocalProvider(LocalVibrationFeedback provides testVibration) {
                 JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
                     Box(
@@ -73,13 +90,7 @@ class TabStripRowDragTest {
                                 .height(54.dp),
                     ) {
                         TabStripRow(
-                            uiState =
-                                BrowserUiState(
-                                    tabs = tabs,
-                                    activeTabId = activeTabId,
-                                    currentUrl = tabs.first { it.id == activeTabId }.url,
-                                    pageTitle = tabs.first { it.id == activeTabId }.title,
-                                ),
+                            uiState = state,
                             onEvent = { events += it },
                         )
                     }
@@ -263,7 +274,7 @@ class TabStripRowDragTest {
     }
 
     @Test
-    fun dragInactiveTabAboveDock_removesTabWithAnimation() {
+    fun dragInactiveTabAboveDock_removesTabWithAnimationAndVibration() {
         render(tabs = fourTabs(activeIndex = 0), activeTabId = "tab1")
         val tag = "tab_tab2"
         val start = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
@@ -284,8 +295,8 @@ class TabStripRowDragTest {
         // Release to confirm removal
         composeRule.onRoot().performTouchInput { up() }
 
-        // No vibration upon release in remove zone (only 1 from initial long press)
-        assertThat(vibrationConfirms).isEqualTo(1)
+        // Confirm vibration triggered upon release in remove zone
+        assertThat(vibrationConfirms).isAtLeast(2)
 
         // Advance through removal animation
         composeRule.mainClock.advanceTimeBy(500)
@@ -295,7 +306,7 @@ class TabStripRowDragTest {
     }
 
     @Test
-    fun dragActiveTabAboveDock_removesTabWithAnimation() {
+    fun dragActiveTabAboveDock_removesTabWithAnimationAndVibration() {
         render(tabs = fourTabs(activeIndex = 0), activeTabId = "tab1")
         val tag = "tab_tab1"
         val start = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
@@ -313,7 +324,7 @@ class TabStripRowDragTest {
         composeRule.onNodeWithContentDescription("Remove Tab", useUnmergedTree = true).assertExists()
 
         composeRule.onRoot().performTouchInput { up() }
-        assertThat(vibrationConfirms).isEqualTo(1)
+        assertThat(vibrationConfirms).isAtLeast(2)
 
         composeRule.mainClock.advanceTimeBy(500)
         val closed = events.filterIsInstance<BrowserUiEvent.CloseTab>()
@@ -418,6 +429,143 @@ class TabStripRowDragTest {
         assertThat(closed).hasSize(1)
         assertThat(closed.first().tabId).isEqualTo("tab2")
     }
+
+    @Test
+    fun dragTab_whenStripScrolledAwayFromActiveTab_doesNotAutoScrollBackToActiveTab() {
+        val tabs = (1..8).map { index ->
+            Tab(
+                id = "tab$index",
+                url = "https://$index.example",
+                title = "Tab $index",
+                isActive = index == 1,
+            )
+        }
+        render(tabs = tabs, activeTabId = "tab1", dockWidth = 260.dp)
+
+        // Initially tab1 is active and visible
+        val initialTab1Bounds = composeRule.onNodeWithTag("tab_tab1", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertThat(initialTab1Bounds.right).isGreaterThan(0f)
+
+        // Scroll strip forward so tab1 scrolls out of the viewport
+        repeat(3) {
+            composeRule.onRoot().performTouchInput { swipeLeft() }
+            composeRule.mainClock.advanceTimeBy(300)
+        }
+
+        // Tab1 should now be scrolled off-screen to the left
+        val scrolledTab1Node = findNode("tab_tab1")
+        assertTrue(
+            "Expected tab1 to be scrolled off-screen: ${scrolledTab1Node?.boundsInRoot}",
+            scrolledTab1Node == null || scrolledTab1Node.boundsInRoot.right <= 0f,
+        )
+
+        // Find a visible tab near the end (e.g. tab7 or tab6)
+        val visibleTag = if (findNode("tab_tab7") != null) {
+            "tab_tab7"
+        } else {
+            "tab_tab6"
+        }
+        val start = composeRule.onNodeWithTag(visibleTag, useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.center
+
+        // Long press to start dragging the inactive tab
+        composeRule.onRoot().performTouchInput { down(start) }
+        composeRule.mainClock.advanceTimeBy(700)
+
+        // Drag slightly to trigger reorder/drag state
+        composeRule.onRoot().performTouchInput { moveTo(Offset(start.x - 40f, start.y)) }
+        composeRule.mainClock.advanceTimeBy(100)
+
+        // Release the dragged tab and let it settle
+        composeRule.onRoot().performTouchInput { up() }
+        composeRule.mainClock.advanceTimeBy(1_000)
+
+        // Settling must NOT trigger scroll back to center tab1
+        val afterSettleTab1Node = findNode("tab_tab1")
+        assertTrue(
+            "Tab1 auto-scrolled back into view after drag settle: ${afterSettleTab1Node?.boundsInRoot}",
+            afterSettleTab1Node == null || afterSettleTab1Node.boundsInRoot.right <= 0f,
+        )
+    }
+
+    @Test
+    fun selectInactiveTab_smoothlyScrollsToCenterActiveTab() {
+        val tabs = (1..8).map { index ->
+            Tab(
+                id = "tab$index",
+                url = "https://$index.example",
+                title = "Tab $index",
+                isActive = index == 1,
+            )
+        }
+        render(tabs = tabs, activeTabId = "tab1", dockWidth = 260.dp)
+
+        // Tab8 is far to the right and off-screen initially
+        val initialTab8Node = findNode("tab_tab8")
+        val dockRight = composeRule.onRoot().fetchSemanticsNode().boundsInRoot.right
+        assertTrue(
+            "Tab8 should not be visible initially: ${initialTab8Node?.boundsInRoot}",
+            initialTab8Node == null || initialTab8Node.boundsInRoot.left >= dockRight,
+        )
+
+        // Select tab8 by updating UI state (simulating tab switch)
+        composeRule.mainClock.autoAdvance = true
+        testUiState.value = BrowserUiState(
+            tabs = tabs.map { it.copy(isActive = it.id == "tab8") },
+            activeTabId = "tab8",
+            currentUrl = "https://8.example",
+            pageTitle = "Tab 8",
+        )
+        composeRule.waitForIdle()
+
+        // Tab8 should now be centered and visible in the dock
+        val centeredTab8Node = composeRule.onNodeWithTag("tab_tab8", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        assertThat(centeredTab8Node.boundsInRoot.left).isGreaterThan(0f)
+        assertThat(centeredTab8Node.boundsInRoot.right).isAtMost(dockRight)
+    }
+
+    @Test
+    fun reselectActiveTabFromOverviewGrid_smoothlyScrollsToCenterActiveTab() {
+        val tabs = (1..8).map {
+            Tab(id = "tab$it", url = "https://$it.example", title = "Tab $it", isActive = it == 8)
+        }
+        render(tabs = tabs, activeTabId = "tab8", dockWidth = 260.dp)
+
+        // Advance initial render clock so tab8 is initially centered
+        composeRule.mainClock.autoAdvance = true
+        composeRule.waitForIdle()
+
+        val dockRight = composeRule.onRoot().fetchSemanticsNode().boundsInRoot.right
+
+        // User manually scrolls the tab strip so tab8 moves out of view to the right
+        composeRule.mainClock.autoAdvance = false
+        composeRule.onRoot().performTouchInput {
+            swipeRight(startX = 20f, endX = 240f)
+        }
+        composeRule.mainClock.advanceTimeBy(300)
+
+        // Overview grid opens (activeOverlay = TAB_GRID)
+        testUiState.value = testUiState.value?.copy(activeOverlay = OverlayType.TAB_GRID)
+        composeRule.mainClock.advanceTimeBy(100)
+
+        // User re-selects the already-active tab8 from overview grid (activeOverlay becomes NONE)
+        composeRule.mainClock.autoAdvance = true
+        testUiState.value = testUiState.value?.copy(activeOverlay = OverlayType.NONE)
+        composeRule.waitForIdle()
+
+        // Tab8 should now be centered and visible in the dock
+        val centeredTab8Node = composeRule.onNodeWithTag("tab_tab8", useUnmergedTree = true)
+            .fetchSemanticsNode()
+        assertThat(centeredTab8Node.boundsInRoot.left).isGreaterThan(0f)
+        assertThat(centeredTab8Node.boundsInRoot.right).isAtMost(dockRight)
+    }
+
+    private fun findNode(tag: String): androidx.compose.ui.semantics.SemanticsNode? =
+        composeRule.onAllNodesWithTag(tag, useUnmergedTree = true)
+            .fetchSemanticsNodes()
+            .firstOrNull()
 
     private fun dragTabToLeftEdge(tag: String) {
         val bounds = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot

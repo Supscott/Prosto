@@ -410,6 +410,7 @@ internal class TabStripDragState(
     fun onDragEnd(
         isReleasedActive: Boolean,
         originalTabs: List<Tab>? = null,
+        onConfirmVibration: () -> Unit = {},
         currentScale: Float? = null,
         currentAlpha: Float? = null,
     ) {
@@ -421,6 +422,7 @@ internal class TabStripDragState(
             draggingTabId = null
             isOverRemoveZone = false
             resetSwapState()
+            onConfirmVibration()
 
             val removedTab = currentTabs.firstOrNull { it.id == tabId }
             val remainingTabs = currentTabs.filter { it.id != tabId }
