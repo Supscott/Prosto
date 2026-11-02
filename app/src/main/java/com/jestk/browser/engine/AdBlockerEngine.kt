@@ -73,7 +73,7 @@ object AdBlockerEngine {
             "viqeo.tv",
         )
 
-    val AUTH_SECURITY_ALLOWLIST: Set<String> =
+    internal val AUTH_SECURITY_ALLOWLIST: Set<String> =
         setOf(
             "arkoselabs.com",
             "client-api.arkoselabs.com",
@@ -83,7 +83,7 @@ object AdBlockerEngine {
             "recaptcha.net",
         )
 
-    fun isAllowlistedAuthDomain(host: String): Boolean {
+    internal fun isAllowlistedAuthDomain(host: String): Boolean {
         if (host.isEmpty()) return false
         val lowerHost = host.lowercase()
         for (allowed in AUTH_SECURITY_ALLOWLIST) {

@@ -319,17 +319,12 @@ fun WebViewContainer(
                         handler?.openFileChooser(callback, params) ?: false
                     },
                     onCreateWindowRequest = { _, _, _, resultMsg ->
-                        val transport = resultMsg?.obj as? WebView.WebViewTransport
-                        if (transport != null) {
-                            val newTabId = java.util.UUID.randomUUID().toString()
-                            val newWv = webViewPool.getOrCreateWebView(newTabId, wv.context)
-                            transport.webView = newWv
-                            resultMsg.sendToTarget()
-                            currentOnEvent(BrowserUiEvent.OpenPopupTab(newTabId))
-                            true
-                        } else {
-                            false
-                        }
+                        com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
+                            resultMsg = resultMsg,
+                            context = wv.context,
+                            webViewPool = webViewPool,
+                            onPopupOpened = { currentOnEvent(BrowserUiEvent.OpenPopupTab(it)) }
+                        )
                     },
                     onCloseWindowRequest = { id ->
                         currentOnEvent(BrowserUiEvent.CloseTab(id))

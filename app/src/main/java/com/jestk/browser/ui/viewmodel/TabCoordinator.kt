@@ -410,59 +410,62 @@ internal class TabCoordinator(
         }
     }
 
+    private suspend fun activateNewTabState(
+        created: Tab,
+        url: String,
+        pageTitle: String,
+        cachedFavicon: String?,
+        isWebLoading: Boolean,
+        isHome: Boolean
+    ) {
+        tabRepository.setActiveTab(created.id)
+        dismissedExternalAppDomains.remove(created.id)
+        pendingExternalAppPrompts.remove(created.id)
+        timedOutExternalAppDomains.remove(created.id)
+        if (cachedFavicon != null) {
+            tabRepository.updateFavicon(created.id, cachedFavicon)
+        }
+        webViewPool?.onTabActivated(created.id, false)
+        val baseTabs =
+            if (getCurrentState().tabs.isEmpty()) {
+                tabRepository.getInitialTabs().filter { it.id != created.id }
+            } else {
+                getCurrentState().tabs.filter { it.id != created.id }
+            }
+        val currentTabs = baseTabs.map { it.copy(isActive = false) }
+        val updatedTabs = (currentTabs + created.copy(isActive = true, faviconUrl = cachedFavicon)).distinctBy { it.id }
+        tabLoadingProgress[created.id] = if (isWebLoading) 15 else 100
+        updateUiState {
+            it.copy(
+                tabs = updatedTabs,
+                activeTabId = created.id,
+                currentUrl = url,
+                pageTitle = pageTitle,
+                isLoading = isWebLoading,
+                loadingProgress = if (isWebLoading) 0.15f else 0f,
+                activeThemeColor = null,
+                activeBottomThemeColor = null,
+                isMenuExpanded = false,
+                isSearchEngineSwitcherEditExpanded = false,
+                externalAppPrompt = null,
+                activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
+                linkContextMenuUrl = null,
+                selectedImageUrl = null,
+                isBottomBarVisible = true,
+            )
+        }
+    }
+
     fun openNewTab(url: String) {
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
-                val title = if (url.isEmpty() || url == "about:blank") "Home" else "Loading..."
-                val cachedFavicon = if (url.isNotEmpty() && url != "about:blank") {
-                    FaviconManager.getCachedFaviconForUrl(url)
-                } else null
+                val isHome = url.isEmpty() || url == "about:blank"
+                val title = if (isHome) "Home" else ""
+                val cachedFavicon = if (!isHome) FaviconManager.getCachedFaviconForUrl(url) else null
                 val created = tabRepository.createTab(url = url, title = title)
                 Log.d(TAG, "Created tab ${created.id} for $url")
-                tabRepository.setActiveTab(created.id)
-                // A new external navigation is a fresh user intent: the tab may be reused when
-                // the same URL is already open, so per-tab suppression must not leak into it.
-                dismissedExternalAppDomains.remove(created.id)
-                pendingExternalAppPrompts.remove(created.id)
-                timedOutExternalAppDomains.remove(created.id)
-                if (cachedFavicon != null) {
-                    tabRepository.updateFavicon(created.id, cachedFavicon)
-                }
-                webViewPool?.onTabActivated(created.id, false)
-                val baseTabs =
-                    if (getCurrentState().tabs.isEmpty()) {
-                        tabRepository.getInitialTabs().filter { it.id != created.id }
-                    } else {
-                        getCurrentState().tabs.filter { it.id != created.id }
-                    }
-                val currentTabs = baseTabs.map { it.copy(isActive = false) }
-                val updatedTabs = (currentTabs + created.copy(isActive = true, faviconUrl = cachedFavicon)).distinctBy { it.id }
-                val isHome = url.isEmpty() || url == "about:blank"
                 val isWebLoading = !isHome && url.isNotEmpty()
-                if (isWebLoading) {
-                    tabLoadingProgress[created.id] = 15
-                } else {
-                    tabLoadingProgress[created.id] = 100
-                }
-                updateUiState {
-                    it.copy(
-                        tabs = updatedTabs,
-                        activeTabId = created.id,
-                        currentUrl = url,
-                        pageTitle = title,
-                        isLoading = isWebLoading,
-                        loadingProgress = if (isWebLoading) 0.15f else 0f,
-                        activeThemeColor = null,
-                        activeBottomThemeColor = null,
-                        isMenuExpanded = false,
-                        isSearchEngineSwitcherEditExpanded = false,
-                        externalAppPrompt = null,
-                        activeOverlay = if (isHome) OverlayType.HOME else OverlayType.NONE,
-                        linkContextMenuUrl = null,
-                        selectedImageUrl = null,
-                        isBottomBarVisible = true,
-                    )
-                }
+                activateNewTabState(created, url, title, cachedFavicon, isWebLoading, isHome)
                 if (url.isNotEmpty() && url != "about:blank") {
                     emitNavigation(NavigationCommand.LoadUrl(url))
                 }
@@ -473,41 +476,9 @@ internal class TabCoordinator(
     fun openPopupTab(tabId: String) {
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
-                val created = tabRepository.createTab(url = "", title = "Loading...", id = tabId)
+                val created = tabRepository.createTab(url = "", title = "", id = tabId)
                 Log.d(TAG, "Created popup tab ${created.id}")
-                tabRepository.setActiveTab(created.id)
-                dismissedExternalAppDomains.remove(created.id)
-                pendingExternalAppPrompts.remove(created.id)
-                timedOutExternalAppDomains.remove(created.id)
-                webViewPool?.onTabActivated(created.id, false)
-                val baseTabs =
-                    if (getCurrentState().tabs.isEmpty()) {
-                        tabRepository.getInitialTabs().filter { it.id != created.id }
-                    } else {
-                        getCurrentState().tabs.filter { it.id != created.id }
-                    }
-                val currentTabs = baseTabs.map { it.copy(isActive = false) }
-                val updatedTabs = (currentTabs + created.copy(isActive = true)).distinctBy { it.id }
-                tabLoadingProgress[created.id] = 15
-                updateUiState {
-                    it.copy(
-                        tabs = updatedTabs,
-                        activeTabId = created.id,
-                        currentUrl = "",
-                        pageTitle = "Loading...",
-                        isLoading = true,
-                        loadingProgress = 0.15f,
-                        activeThemeColor = null,
-                        activeBottomThemeColor = null,
-                        isMenuExpanded = false,
-                        isSearchEngineSwitcherEditExpanded = false,
-                        externalAppPrompt = null,
-                        activeOverlay = OverlayType.NONE,
-                        linkContextMenuUrl = null,
-                        selectedImageUrl = null,
-                        isBottomBarVisible = true,
-                    )
-                }
+                activateNewTabState(created, "", "", null, isWebLoading = true, isHome = false)
             }
         }
     }

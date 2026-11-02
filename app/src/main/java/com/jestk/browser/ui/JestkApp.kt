@@ -204,17 +204,12 @@ fun JestkApp(
                     },
                     onFaviconReceived = handleFavicon,
                     onCreateWindowRequest = { _, _, _, resultMsg ->
-                        val transport = resultMsg?.obj as? WebView.WebViewTransport
-                        if (transport != null) {
-                            val newTabId = java.util.UUID.randomUUID().toString()
-                            val newWv = webViewPool.getOrCreateWebView(newTabId, context)
-                            transport.webView = newWv
-                            resultMsg.sendToTarget()
-                            viewModel.onEvent(BrowserUiEvent.OpenPopupTab(newTabId))
-                            true
-                        } else {
-                            false
-                        }
+                        com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
+                            resultMsg = resultMsg,
+                            context = context,
+                            webViewPool = webViewPool,
+                            onPopupOpened = { viewModel.onEvent(BrowserUiEvent.OpenPopupTab(it)) }
+                        )
                     },
                     onCloseWindowRequest = { id ->
                         viewModel.onEvent(BrowserUiEvent.CloseTab(id))

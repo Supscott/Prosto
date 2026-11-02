@@ -361,4 +361,40 @@ class JestkWebChromeClientTest {
         client.onCloseWindow(null)
         assertThat(closedId).isEqualTo("tab-to-close")
     }
+
+    @Test
+    fun handleCreateWindow_bindsTransportAndReturnsTrue() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webViewPool = WebViewPool(context)
+        val transport = android.webkit.WebView(context).WebViewTransport()
+
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val message = handler.obtainMessage()
+        message.obj = transport
+
+        var popupTabId: String? = null
+        val handled = WindowTransportHandler.handleCreateWindow(
+            resultMsg = message,
+            context = context,
+            webViewPool = webViewPool,
+            onPopupOpened = { popupTabId = it }
+        )
+
+        assertThat(handled).isTrue()
+        assertThat(popupTabId).isNotNull()
+        assertThat(transport.webView).isNotNull()
+        assertThat(webViewPool.getWebView(popupTabId!!)).isSameInstanceAs(transport.webView)
+    }
+
+    @Test
+    fun handleCreateWindow_whenMessageNullOrNotTransport_returnsFalse() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webViewPool = WebViewPool(context)
+
+        assertThat(WindowTransportHandler.handleCreateWindow(null, context, webViewPool) {}).isFalse()
+
+        val invalidMessage = android.os.Message.obtain()
+        invalidMessage.obj = "not a transport"
+        assertThat(WindowTransportHandler.handleCreateWindow(invalidMessage, context, webViewPool) {}).isFalse()
+    }
 }
