@@ -209,8 +209,12 @@ fun TabStripRow(
                 0f
             }
 
-            val maxTextWidthPx = maxOf(titleWidthPx, domainWidthPx)
-            with(density) { maxTextWidthPx.toDp() }
+            val contentTextWidthPx = if (activeDisplayInfo.domain.isNotEmpty()) {
+                minOf(titleWidthPx, domainWidthPx)
+            } else {
+                titleWidthPx
+            }
+            with(density) { contentTextWidthPx.toDp() }
         }
 
         val minActiveTabWidth = ActiveTabPillDefaults.MinWidth

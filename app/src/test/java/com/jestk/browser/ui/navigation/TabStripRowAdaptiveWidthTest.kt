@@ -97,10 +97,14 @@ class TabStripRowAdaptiveWidthTest {
     }
 
     @Test
-    fun singleLetterTitle_clampedAtMinimumWidth() {
+    fun webTabWithLongTitleAndShortDomain_adaptsToShortDomain() {
         val dockWidth = 360.dp
+        val maxAllowedWidthDp = (dockWidth * 0.45f).value // 162.dp
+
+        // X.com with actual website title "X. It’s what’s happening / X"
+        val fullTitle = "X. It’s what’s happening / X"
         val tabs = listOf(
-            Tab(id = "tab1", title = "X", url = "https://x", isActive = true),
+            Tab(id = "tab1", title = fullTitle, url = "https://x.com", isActive = true),
             Tab(id = "tab2", title = "Tab 2", url = "https://example.com", isActive = false),
         )
         render(tabs = tabs, activeTabId = "tab1", dockWidth = dockWidth)
@@ -109,9 +113,9 @@ class TabStripRowAdaptiveWidthTest {
         val bounds = pillNode.fetchSemanticsNode().boundsInRoot
         val pillWidthDp = bounds.width / 3f
 
-        // For 1 char "X", width should be clamped right near minWidth 80.dp
+        // Should adapt to short domain ("x.com") and be well below maxAllowedWidthDp (162.dp), around 110-115 dp
         assertThat(pillWidthDp).isAtLeast(80f)
-        assertThat(pillWidthDp).isAtMost(90f)
+        assertThat(pillWidthDp).isLessThan(maxAllowedWidthDp - 30f)
     }
 
     @Test
