@@ -81,6 +81,28 @@ def check_stable_favicon_paths():
     return []
 
 
+def check_webview_client_no_favicon():
+    """Verify JestkWebViewClient never handles or delegates favicon callbacks.
+
+    In Android WebView, onPageStarted(view, url, favicon) and view.favicon in
+    onPageFinished frequently yield the PREVIOUS page's favicon during cross-domain
+    navigations. WebChromeClient.onReceivedIcon is the sole canonical source.
+    """
+    if not WEB_CLIENT.exists():
+        return [f"{WEB_CLIENT.relative_to(ROOT)} not found"]
+    content = WEB_CLIENT.read_text(encoding="utf-8")
+    errors = []
+    if "onFaviconReceived" in content:
+        errors.append(
+            f"{WEB_CLIENT.relative_to(ROOT)}: must not handle or invoke onFaviconReceived"
+        )
+    if ".favicon" in content:
+        errors.append(
+            f"{WEB_CLIENT.relative_to(ROOT)}: must not access view.favicon (stale on navigation)"
+        )
+    return errors
+
+
 def check_no_continuous_effect_keys():
     """Verify LaunchedEffect is never keyed by a continuous scroll/drag value."""
     errors = []
@@ -101,6 +123,7 @@ def main():
     all_errors.extend(check_webkit_crash_resilience())
     all_errors.extend(check_domain_layer_purity())
     all_errors.extend(check_stable_favicon_paths())
+    all_errors.extend(check_webview_client_no_favicon())
     all_errors.extend(check_no_continuous_effect_keys())
 
     if all_errors:
@@ -109,7 +132,7 @@ def main():
             print(f"  FAIL: {err}")
         return 1
 
-    print("All architectural invariants satisfied (No Blur, WebKit Crash Resilience, Domain Purity).")
+    print("All architectural invariants satisfied (No Blur, WebKit Crash Resilience, Domain Purity, Favicon Safety).")
     return 0
 
 
