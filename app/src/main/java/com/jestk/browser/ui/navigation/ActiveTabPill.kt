@@ -20,12 +20,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.shape.CircleShape
@@ -83,8 +85,8 @@ import com.jestk.browser.util.ClipboardHelper
  */
 object ActiveTabPillDefaults {
     val MinWidth = 80.dp
-    // Internal fixed overhead: start pad (10dp) + favicon (18dp) + spacing (8dp) + spacing (8dp) + close button (22dp) + end pad (6dp) + render buffer (4dp) = 76dp
-    val ContentOverhead = 76.dp
+    // Internal fixed overhead: start pad (10dp) + favicon (18dp) + spacing (8dp) + text-to-close spacing (6dp) + close button (22dp) + end pad (6dp) = 70dp
+    val ContentOverhead = 70.dp
     val TitleFontSizeStandard = 12.5.sp
     val TitleFontSizeWithDomain = 11.5.sp
     val DomainFontSize = 9.5.sp
@@ -213,7 +215,6 @@ fun ActiveTabPill(
                             .clickable(onClick = onOpenSearch)
                             .padding(start = 10.dp, end = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                 // Bare favicon container (no background box)
                 if (isHome) {
@@ -258,6 +259,8 @@ fun ActiveTabPill(
                     )
                 }
 
+                Spacer(modifier = Modifier.width(8.dp))
+
                 // Truncated Title (Bold) & Domain (if not Home)
                 Column(
                     modifier =
@@ -288,7 +291,9 @@ fun ActiveTabPill(
                     }
                 }
 
-                // Close Tab Action Glyph (exact 22.dp without Material3 48.dp padding overhead)
+                Spacer(modifier = Modifier.width(6.dp))
+
+                // Close Tab Action Glyph (exact 22.dp with uniform 6.dp margins on left and right)
                 Box(
                     modifier =
                         Modifier

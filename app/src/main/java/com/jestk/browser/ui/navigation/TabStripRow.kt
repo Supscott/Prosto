@@ -187,24 +187,30 @@ fun TabStripRow(
             domainStyle,
             density,
         ) {
-            val titleWidthPx = maxOf(
-                textMeasurer.measure(
-                    text = activeDisplayInfo.title,
-                    style = titleStyle,
-                    maxLines = 1,
-                ).size.width.toFloat(),
-                with(density) { (activeDisplayInfo.title.length * ActiveTabPillDefaults.FallbackTitleCharWidthSp.value).sp.toPx() },
-            )
+            val measuredTitlePx = textMeasurer.measure(
+                text = activeDisplayInfo.title,
+                style = titleStyle,
+                maxLines = 1,
+            ).size.width.toFloat()
+            val minRealisticTitlePx = with(density) { (activeDisplayInfo.title.length * 3.5.sp.value).sp.toPx() }
+            val titleWidthPx = if (measuredTitlePx >= minRealisticTitlePx) {
+                measuredTitlePx
+            } else {
+                with(density) { (activeDisplayInfo.title.length * ActiveTabPillDefaults.FallbackTitleCharWidthSp.value).sp.toPx() }
+            }
 
             val domainWidthPx = if (activeDisplayInfo.domain.isNotEmpty()) {
-                maxOf(
-                    textMeasurer.measure(
-                        text = activeDisplayInfo.domain,
-                        style = domainStyle,
-                        maxLines = 1,
-                    ).size.width.toFloat(),
-                    with(density) { (activeDisplayInfo.domain.length * ActiveTabPillDefaults.FallbackDomainCharWidthSp.value).sp.toPx() },
-                )
+                val measuredDomainPx = textMeasurer.measure(
+                    text = activeDisplayInfo.domain,
+                    style = domainStyle,
+                    maxLines = 1,
+                ).size.width.toFloat()
+                val minRealisticDomainPx = with(density) { (activeDisplayInfo.domain.length * 3.0.sp.value).sp.toPx() }
+                if (measuredDomainPx >= minRealisticDomainPx) {
+                    measuredDomainPx
+                } else {
+                    with(density) { (activeDisplayInfo.domain.length * ActiveTabPillDefaults.FallbackDomainCharWidthSp.value).sp.toPx() }
+                }
             } else {
                 0f
             }
