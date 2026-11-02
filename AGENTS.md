@@ -1,5 +1,18 @@
 # Agent Guidelines & Project Knowledge: Prosto Browser
 
+Welcome to the **Prosto** project. This file provides operational rules, architectural standards, and workflow guidelines for all AI coding agents working on this codebase.
+
+---
+
+## Pre-Flight Checklist (Start of Non-Trivial Tasks)
+
+> [!IMPORTANT]
+> **BEFORE writing code or planning any implementation:**
+> 1. Read [`LESSONS.md`](file:///Users/ilya/CODING/browser/LESSONS.md) to review active high-signal gotchas and traps discovered on this codebase.
+> 2. Run `rtk tools/verify.sh` to ensure a green baseline before starting changes.
+
+---
+
 ## Core Rules for Coding Agents
 
 ### 1. Clarify Bug Repro Steps (Уточнение сценария воспроизведения)
@@ -19,16 +32,24 @@
   - **Friction & Bottlenecks**: Identify what slowed down investigation or testing (e.g., ambiguous repro steps, long test feedback loops, obscure platform quirks).
   - **Mechanical Prevention**: Consider if this category of bug or regression can be prevented mechanically in the future (e.g., via `tools/check_invariants.py`, unit test invariants, or architectural seams).
   - **Process / Tooling Enhancements**: Suggest or implement concrete improvements to scripts, guidelines, or invariant checks so future tasks are faster and safer.
+  - **Update LESSONS.md**: Use `python3 tools/harness_reflect.py add` to record new gotchas when relevant (observing the 10-12 active lesson budget).
 
-### 4. Architectural Rules & Gotchas
+---
 
-#### Favicon Subsystem
+## Architectural Invariants & Code Standards
+
+### Favicon Subsystem
 - **Single Source of Truth**: The only valid event for receiving a website's favicon is `WebChromeClient.onReceivedIcon(view, icon)`.
 - **Never extract favicons in `WebViewClient`**: In Android Chromium WebView, `onPageStarted(view, url, favicon)` and `view.favicon` in `onPageFinished` frequently return the favicon of the *previous* page loaded in that WebView during cross-domain navigation.
 - **Domain Guard**: Always verify `isSameDomain(tab.url, pageUrl)` before updating a tab's favicon or domain cache.
 - **Cross-Domain Navigation**: Upon navigating to a different domain, always evict stale per-tab favicon files (`FaviconManager.deleteTabFavicons(tabId)`).
 
-#### Compose & WebView State
+### Compose & WebView State
 - **No stale closures**: In `WebViewContainer`, do not use unkeyed `remember { ... }` blocks that capture volatile outer composition values (`currentTab`, `targetUrl`). Prefer `rememberUpdatedState` or look up current tab dynamically from `currentUiState.tabs.find { it.id == id }`.
-- **No Blur**: Strict prohibition on `Modifier.blur()` and `dev.chrisbanes.haze` across the entire app.
-- **Domain Purity**: Domain layer must remain free of Android framework and Compose types.
+- **No Blur**: Strict prohibition on `Modifier.blur()` and `dev.chrisbanes.haze` across the entire app. Live `WebView` inside `GraphicsLayer` or dynamic blur causes severe screen flicker on Android 12+.
+- **Domain Layer Purity**: Domain layer must remain free of Android framework UI types (`android.view.*`, `android.widget.*`, `android.graphics.*`) and Compose types. Domain models must remain pure Kotlin.
+
+### Code Hygiene & Localization
+- **UI Localization (Zero Hardcoded Strings)**: Never hardcode user-facing strings in composables or dialogs. Every string must exist in both `res/values/strings.xml` and `res/values-ru/strings.xml`, accessed via `stringResource(R.string.*)`.
+- **Zero Dead Code Policy**: Do not leave commented-out code blocks in source files. Delete dead code completely.
+- **Modularity**: Keep UI files focused (<400–500 LOC). Separate reusable state holders, popups, and auxiliary rows into dedicated files.
