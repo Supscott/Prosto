@@ -34,9 +34,11 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,6 +54,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.Tab
@@ -263,16 +266,18 @@ fun ActiveTabPill(
                 }
 
                 // Close Tab Action Glyph
-                IconButton(
-                    onClick = onClose,
-                    modifier = Modifier.size(22.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close tab",
-                        tint = closeTint,
-                        modifier = Modifier.size(13.dp),
-                    )
+                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
+                    IconButton(
+                        onClick = onClose,
+                        modifier = Modifier.size(22.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close tab",
+                            tint = closeTint,
+                            modifier = Modifier.size(13.dp),
+                        )
+                    }
                 }
                 }
             }
