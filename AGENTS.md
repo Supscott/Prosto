@@ -15,15 +15,17 @@ Welcome to the **Prosto** project. This file provides operational rules, archite
 
 ## Core Rules for Coding Agents
 
-### 1. Clarify Bug Repro Steps (Уточнение сценария воспроизведения)
-- When a user reports a bug with generic or symptomatic descriptions (e.g. "sometimes X happens", "icon is wrong", "gesture breaks"), **ask the user to clarify the exact reproduction scenario/steps** if doing so will save investigation time, rather than guessing across multiple speculative paths.
-- Examples of key details to clarify:
-  - Sequence of user actions (e.g. cross-domain navigation vs opening a new tab vs restoring a session).
-  - Specific URLs, network conditions, or state triggers.
+### 1. Clarification & Inquiries (Уточнение сценариев и параметров)
+- **Bug reproduction**: When a user reports a bug with generic or symptomatic descriptions (e.g. "sometimes X happens", "icon is wrong", "gesture breaks"), **ask the user to clarify the exact reproduction scenario/steps** if doing so will save investigation time, rather than guessing across multiple speculative paths (e.g. cross-domain navigation vs opening a new tab vs restoring a session).
+- **UI & Cosmetic tweaks (Context-First Inquiries)**: When asked to adjust subjective UI properties (e.g. "make spacing slightly smaller", "tweak padding"), **inspect the code/tokens first to find the current value** (e.g. `8.dp`), and offer concrete options (*"Currently spacing is 8.dp. Should we try 4.dp or 6.dp?"*). Never ask raw, context-free questions like *"How many dp do you want?"*.
 
 ### 2. CLI Execution & Verification
 - **Prefix commands with `rtk`**: Use `rtk git status`, `rtk git diff`, `rtk tools/verify.sh` to minimize token overhead.
-- **Fast verification**: Run `rtk tools/verify.sh` to run invariant checks and core engine/viewmodel tests in ~20 seconds.
+- **Fast verification**:
+  - `rtk tools/verify.sh`: Invariants + core coordination and engine tests (~20s).
+  - `rtk tools/verify.sh --ui`: Invariants + UI previews and bottom dock tests (~25s).
+  - `rtk tools/verify.sh --all`: Full unit test suite (`testDebugUnitTest`).
+- **Visual UI Previews**: Run `rtk tools/preview.sh <TestName>` (e.g. `rtk tools/preview.sh BottomBarPreviewTest`) to render Compose previews to PNG in `build/` using Robolectric native graphics without deploying to a physical device.
 - **Unit test target**: Always run `rtk ./gradlew testDebugUnitTest`. Never run bare `./gradlew test`, as `testReleaseUnitTest` fails without Robolectric release configuration.
 - **Invariants**: Always verify `python3 tools/check_invariants.py` passes before finalizing changes.
 

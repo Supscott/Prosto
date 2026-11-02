@@ -11,6 +11,12 @@ python3 tools/check_invariants.py
 if [[ "${1:-}" == "--all" ]]; then
     echo "==> Running full test suite (testDebugUnitTest)..."
     ./gradlew testDebugUnitTest
+elif [[ "${1:-}" == "--ui" ]]; then
+    echo "==> Running UI & preview tests (BottomBar, Dock, Dialogs)..."
+    ./gradlew testDebugUnitTest \
+        --tests "com.jestk.browser.ui.navigation.BottomBarPreviewTest" \
+        --tests "com.jestk.browser.ui.navigation.DockRefinementsTest" \
+        --tests "com.jestk.browser.ui.navigation.TabContextMenuTest"
 else
     echo "==> Running core coordination & engine unit tests..."
     ./gradlew testDebugUnitTest \
