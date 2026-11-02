@@ -500,22 +500,24 @@ val width = 440
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .background(Color.White),
-                        contentAlignment = Alignment.BottomCenter
+                            .background(Color.White)
                     ) {
                         MockWebPageContent()
                         UnifiedBottomBar(
                             uiState = sampleState,
-                            onEvent = {}
+                            onEvent = {},
+                            modifier = Modifier.align(Alignment.BottomCenter)
                         )
                     }
                 }
             }
         }
         activity.setContentView(composeView)
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
 
-val width = 440
-        val height = 2340
+        val width = 440
+        val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
