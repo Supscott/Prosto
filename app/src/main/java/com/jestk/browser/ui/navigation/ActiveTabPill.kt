@@ -60,6 +60,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -400,9 +401,10 @@ private fun FadingSingleLineText(
     style: TextStyle,
     color: Color,
     modifier: Modifier = Modifier,
-    fadeWidth: Dp = 24.dp,
+    fadeWidth: Dp = 12.dp,
 ) {
     var overflows by remember(text) { mutableStateOf(false) }
+    val density = LocalDensity.current
 
     Text(
         text = text,
@@ -411,10 +413,10 @@ private fun FadingSingleLineText(
         softWrap = false,
         overflow = TextOverflow.Clip,
         onTextLayout = { layoutResult ->
+            val overflowThresholdPx = with(density) { 2.dp.toPx() }
             overflows =
-                layoutResult.multiParagraph.maxIntrinsicWidth > layoutResult.size.width ||
-                layoutResult.didOverflowWidth ||
-                layoutResult.hasVisualOverflow
+                layoutResult.multiParagraph.maxIntrinsicWidth > (layoutResult.size.width + overflowThresholdPx) ||
+                layoutResult.didOverflowWidth
         },
         modifier =
             modifier.then(
