@@ -140,6 +140,16 @@ class TabRepositoryImpl(
             tabDao.reorderTabs(orderedTabs.map { it.toEntity() })
         }
 
+    override suspend fun updateFolderId(tabId: String, folderId: String?) =
+        withContext(ioDispatcher) {
+            tabDao.updateFolderId(tabId, folderId)
+        }
+
+    override suspend fun clearFolderId(folderId: String) =
+        withContext(ioDispatcher) {
+            tabDao.clearFolderId(folderId)
+        }
+
     override suspend fun clearRecentTabs() =
         withContext(ioDispatcher) {
             // No-op for TabRepository since recent tabs are derived from tabs table or managed by RecentTabRepository

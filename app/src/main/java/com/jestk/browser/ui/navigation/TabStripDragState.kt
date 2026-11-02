@@ -14,6 +14,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.TabFolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
@@ -30,7 +31,13 @@ internal data class TabStripLayoutMetrics(
     val activeTabId: String? = null,
     val hysteresisPx: Float = 10f,
     val draggingTabId: String? = null,
-)
+    val itemWidthProvider: ((String) -> Float?)? = null,
+    val folderProvider: ((String) -> TabFolder?)? = null,
+) {
+    fun getItemWidth(key: String, fallbackWidth: Float): Float {
+        return itemWidthProvider?.invoke(key) ?: fallbackWidth
+    }
+}
 
 /**
  * Computes proportional auto-scroll step when a tab is dragged near dock boundaries.
@@ -239,7 +246,8 @@ internal class TabStripDragState(
     ): Float {
         if (tab.id == metrics.draggingTabId) return metrics.inactiveTabWidthPx
         val isActive = tab.isActive || (metrics.activeTabId != null && tab.id == metrics.activeTabId)
-        return if (isActive) metrics.activeTabWidthPx else metrics.inactiveTabWidthPx
+        val defaultWidth = if (isActive) metrics.activeTabWidthPx else metrics.inactiveTabWidthPx
+        return metrics.getItemWidth(tab.id, defaultWidth)
     }
 
     internal fun getSlotStart(
@@ -248,8 +256,23 @@ internal class TabStripDragState(
         metrics: TabStripLayoutMetrics,
     ): Float {
         var start = 0f
+        val seenFolders = mutableSetOf<String>()
         for (i in 0 until index.coerceIn(0, tabs.size)) {
-            start += getTabWidth(tabs[i], metrics) + metrics.spacingPx
+            val tab = tabs[i]
+            val fId = tab.folderId
+            if (fId != null && fId !in seenFolders) {
+                seenFolders.add(fId)
+                val folderWidth = metrics.getItemWidth("folder_$fId", metrics.inactiveTabWidthPx)
+                start += folderWidth + metrics.spacingPx
+            }
+            start += getTabWidth(tab, metrics) + metrics.spacingPx
+        }
+        if (index in tabs.indices) {
+            val fId = tabs[index].folderId
+            if (fId != null && fId !in seenFolders) {
+                val folderWidth = metrics.getItemWidth("folder_$fId", metrics.inactiveTabWidthPx)
+                start += folderWidth + metrics.spacingPx
+            }
         }
         return start
     }

@@ -13,11 +13,13 @@ import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.engine.download.DownloadProgressInfo
 
 data class BrowserUiState(
     // Tabs & Sessions
     val tabs: List<Tab> = emptyList(),
+    val folders: List<TabFolder> = emptyList(),
     val recentTabs: List<com.jestk.browser.domain.model.RecentTabItem> = emptyList(),
     val activeTabId: String? = null,
     val loadedTabIds: Set<String> = emptySet(),
@@ -70,6 +72,9 @@ data class BrowserUiState(
     val isDefaultBrowser: Boolean = true,
     val isFeedbackCardVisible: Boolean = true,
     val isFeedbackSheetVisible: Boolean = false,
+    val isFolderSheetVisible: Boolean = false,
+    val folderSheetTargetTabId: String? = null,
+    val folderSheetEditingFolderId: String? = null,
     val showAddFavoriteDialog: Boolean = false,
     val searchEngines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     val showAddEditSearchEngineDialog: Boolean = false,
@@ -131,4 +136,8 @@ data class BrowserUiState(
 
     fun isTabLoaded(tabId: String): Boolean =
         tabId in loadedTabIds || tabId == activeTabId
+
+    fun getFolder(folderId: String): TabFolder? = folders.find { it.id == folderId }
+
+    fun getTabsInFolder(folderId: String): List<Tab> = tabs.filter { it.folderId == folderId }
 }

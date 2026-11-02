@@ -134,4 +134,16 @@ interface TabDao {
             updatePosition(tabId, index)
         }
     }
+
+    @Query("SELECT * FROM tabs WHERE folderId = :folderId ORDER BY position ASC, id ASC")
+    suspend fun getTabsByFolderId(folderId: String): List<TabEntity>
+
+    @Query("SELECT * FROM tabs WHERE folderId = :folderId ORDER BY position ASC, id ASC")
+    fun getTabsByFolderIdFlow(folderId: String): Flow<List<TabEntity>>
+
+    @Query("UPDATE tabs SET folderId = :folderId WHERE id = :tabId")
+    suspend fun updateFolderId(tabId: String, folderId: String?)
+
+    @Query("UPDATE tabs SET folderId = NULL WHERE folderId = :folderId")
+    suspend fun clearFolderId(folderId: String)
 }

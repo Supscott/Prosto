@@ -44,6 +44,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -82,6 +83,7 @@ internal fun GridTabCard(
     isDark: Boolean,
     onSelect: () -> Unit,
     onClose: () -> Unit,
+    isHovered: Boolean = false,
 ) {
     var rawOffsetX by remember { mutableFloatStateOf(0f) }
     var isDismissed by remember { mutableStateOf(false) }
@@ -95,7 +97,12 @@ internal fun GridTabCard(
     val dismissThresholdPx = remember(density) { with(density) { 90.dp.toPx() } }
 
     val baseCardBg = if (isDark) DarkSurface else Color.White
-    val borderStroke = if (isActive) BorderStroke(2.dp, ProstoBrandPrimary) else ProstoBorders.cardBorder(isDark)
+    val borderStroke = when {
+        isHovered -> BorderStroke(2.5.dp, ProstoBrandPrimary)
+        isActive -> BorderStroke(2.dp, ProstoBrandPrimary)
+        else -> ProstoBorders.cardBorder(isDark)
+    }
+    val elevation = if (isHovered) 8.dp else (if (isActive) 6.dp else 2.dp)
 
     AnimatedVisibility(
         visible = !isDismissed,
@@ -105,13 +112,14 @@ internal fun GridTabCard(
             shape = ProstoShapes.Card,
             color = baseCardBg,
             border = borderStroke,
-            shadowElevation = if (isActive) 6.dp else 2.dp,
+            shadowElevation = elevation,
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .aspectRatio(9f / 16f)
                     .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
                     .clip(ProstoShapes.Card)
+                    .testTag("tab_card_${tab.id}")
                     .clickable(onClick = onSelect)
                     .pointerInput(tab.id) {
                         detectHorizontalDragGestures(

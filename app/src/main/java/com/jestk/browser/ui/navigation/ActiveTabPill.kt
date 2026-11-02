@@ -134,6 +134,11 @@ fun ActiveTabPill(
     isRemovePending: Boolean = false,
     removeProgress: Float = 0f,
     onReload: () -> Unit = {},
+    folderId: String? = null,
+    availableFolders: List<com.jestk.browser.domain.model.TabFolder> = emptyList(),
+    onCreateFolder: (() -> Unit)? = null,
+    onAddToFolder: ((String) -> Unit)? = null,
+    onRemoveFromFolder: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val typography = LocalProstoTypography.current
@@ -390,6 +395,11 @@ fun ActiveTabPill(
                 onShareLink = { onShare(url) },
                 isReloadVisible = !isHome && url.isNotBlank() && !url.startsWith("about:"),
                 onReload = onReload,
+                folderId = folderId,
+                availableFolders = availableFolders,
+                onCreateFolder = onCreateFolder,
+                onAddToFolder = onAddToFolder,
+                onRemoveFromFolder = onRemoveFromFolder,
             )
         }
     }

@@ -120,4 +120,24 @@
     <string name="settings_about_feedback_title">Обратная связь и отзывы</string>
     <string name="settings_about_feedback_summary">Чат в Telegram и баг-репорты на GitHub</string>
     <string name="error_cannot_open_link">Не удалось открыть ссылку</string>
+
+    <!-- Tab Folders -->
+    <string name="folder_new_title">Новая папка</string>
+    <string name="folder_edit_title">Редактировать папку</string>
+    <string name="folder_name_placeholder">Название папки</string>
+    <string name="folder_save_button">Сохранить</string>
+    <string name="folder_create_button">Создать</string>
+    <string name="folder_preview_label">Предпросмотр</string>
+    <string name="folder_clear_name">Очистить название</string>
+    <string name="folder_select_color">Выбрать цвет</string>
+    <string name="folder_edit_name_color">Изменить название и цвет</string>
+    <string name="folder_new_tab">Новая вкладка в папке</string>
+    <string name="folder_ungroup">Разгруппировать</string>
+    <string name="folder_close">Закрыть папку</string>
+    <string name="tab_context_new_folder">Новая папка</string>
+    <string name="tab_context_add_to_folder">Добавить в папку</string>
+    <string name="tab_context_remove_from_folder">Удалить из папки</string>
+    <string name="folder_collapse">Свернуть папку</string>
+    <string name="folder_expand">Развернуть папку</string>
+    <string name="folder_tabs_count">%d вкладок</string>
 </resources>

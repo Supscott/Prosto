@@ -14,9 +14,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,10 +28,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Refresh
@@ -50,6 +54,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
@@ -62,6 +67,7 @@ import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
@@ -70,6 +76,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -84,6 +91,7 @@ import androidx.compose.ui.zIndex
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.DarkError
@@ -94,6 +102,7 @@ import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoCardSurface
+import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoError
 import com.jestk.browser.ui.theme.ProstoErrorContainer
 import com.jestk.browser.ui.theme.ProstoMutedSlate
@@ -250,7 +259,23 @@ fun TabStripRow(
         val dragState =
             rememberTabStripDragState(
                 initialTabs = displayTabs,
-                onReorder = { reordered -> onEvent(BrowserUiEvent.ReorderTabs(reordered)) },
+                onReorder = { reordered ->
+                    for (tab in reordered) {
+                        val newIdx = reordered.indexOf(tab)
+                        val prev = reordered.getOrNull(newIdx - 1)
+                        val next = reordered.getOrNull(newIdx + 1)
+                        val targetFolderId = when {
+                            prev?.folderId != null && prev.folderId == next?.folderId -> prev.folderId
+                            next?.folderId != null && prev?.folderId != next.folderId && tab.folderId == null -> next.folderId
+                            prev?.folderId != null && next?.folderId != prev.folderId && tab.folderId == null -> prev.folderId
+                            else -> null
+                        }
+                        if (targetFolderId != null && targetFolderId != tab.folderId) {
+                            onEvent(BrowserUiEvent.AddTabToFolder(tab.id, targetFolderId))
+                        }
+                    }
+                    onEvent(BrowserUiEvent.ReorderTabs(reordered))
+                },
                 onRemoveTab = { tabId -> onEvent(BrowserUiEvent.CloseTab(tabId)) },
                 coroutineScope = coroutineScope,
             )
@@ -260,13 +285,16 @@ fun TabStripRow(
         }
 
         var contextMenuTabId by remember { mutableStateOf<String?>(null) }
+        var contextMenuFolderId by remember { mutableStateOf<String?>(null) }
+
+        val dockItems = remember(dragState.currentTabs, uiState.folders) {
+            computeDockItems(dragState.currentTabs, uiState.folders)
+        }
 
         val activeIndex =
             remember(dragState.currentTabs, uiState.activeTabId, uiState.activeTabIndex) {
                 val idx = dragState.currentTabs.indexOfFirst { it.id == uiState.activeTabId }
-                if (idx >=
-                    0
-                ) {
+                if (idx >= 0) {
                     idx
                 } else if (dragState.currentTabs.isNotEmpty()) {
                     uiState.activeTabIndex.coerceIn(0, dragState.currentTabs.lastIndex)
@@ -282,7 +310,7 @@ fun TabStripRow(
         val hysteresisPx = with(density) { 4.dp.toPx() }
 
         val layoutMetrics =
-            remember(activeTabWidthPx, inactiveTabWidthPx, tabSpacingPx, uiState.activeTabId, dragState.draggingTabId, hysteresisPx) {
+            remember(activeTabWidthPx, inactiveTabWidthPx, tabSpacingPx, uiState.activeTabId, dragState.draggingTabId, hysteresisPx, uiState.folders) {
                 TabStripLayoutMetrics(
                     activeTabWidthPx = activeTabWidthPx,
                     inactiveTabWidthPx = inactiveTabWidthPx,
@@ -290,13 +318,17 @@ fun TabStripRow(
                     activeTabId = uiState.activeTabId,
                     draggingTabId = dragState.draggingTabId,
                     hysteresisPx = hysteresisPx,
+                    itemWidthProvider = { key ->
+                        lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }?.size?.toFloat()
+                    },
+                    folderProvider = { folderId -> uiState.folders.find { it.id == folderId } },
                 )
             }
 
         var lastCenteredActiveTabId by remember { mutableStateOf<String?>(null) }
         var lastActiveOverlay by remember { mutableStateOf<OverlayType?>(null) }
 
-        LaunchedEffect(uiState.activeTabId, uiState.activeOverlay) {
+        LaunchedEffect(uiState.activeTabId, uiState.activeOverlay, dockItems) {
             val activeTabId = uiState.activeTabId
             val currentOverlay = uiState.activeOverlay
             val overlayDismissed = lastActiveOverlay == OverlayType.TAB_GRID && currentOverlay != OverlayType.TAB_GRID
@@ -305,8 +337,10 @@ fun TabStripRow(
             if (currentOverlay != OverlayType.TAB_GRID && activeTabId != null) {
                 if (activeTabId != lastCenteredActiveTabId || overlayDismissed) {
                     val targetIndex =
-                        dragState.currentTabs.indexOfFirst { it.id == activeTabId }
+                        dockItems.indexOfFirst { it.key == activeTabId }
                             .takeIf { it >= 0 }
+                            ?: dragState.currentTabs.indexOfFirst { it.id == activeTabId }
+                                .takeIf { it >= 0 }
                             ?: displayTabs.indexOfFirst { it.id == activeTabId }
                     if (targetIndex >= 0) {
                         lastCenteredActiveTabId = activeTabId
@@ -341,7 +375,13 @@ fun TabStripRow(
                 rightPinnedOffsetPx = rightPinnedOffsetPx,
                 edgeSlackPx = edgeSlackPx,
                 removeThresholdPx = removeThresholdPx,
-                onLongPress = { tabId -> contextMenuTabId = tabId },
+                onLongPress = { key ->
+                    if (key.startsWith("folder_")) {
+                        contextMenuFolderId = key.removePrefix("folder_")
+                    } else {
+                        contextMenuTabId = key
+                    }
+                },
             )
 
         // Fail-safe drag cancellation on unmount or tab disposal during drag
@@ -503,102 +543,191 @@ fun TabStripRow(
             horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             itemsIndexed(
-                items = dragState.currentTabs,
-                key = { _, tab -> tab.id },
-            ) { index, tab ->
-                val isActive = index == activeIndex
-                val tabIsHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home" || (isHome && isActive)
-                val isElevated = dragState.draggingTabId == tab.id || dragState.settlingTabId == tab.id
+                items = dockItems,
+                key = { _, item -> item.key },
+            ) { _, item ->
+                when (item) {
+                    is DockItem.FolderItem -> {
+                        val folder = item.folder
+                        val folderColor = Color(folder.color)
 
-                val itemPlacementModifier =
-                    if (isElevated) {
-                        Modifier
-                    } else {
-                        Modifier.animateItem(
-                            placementSpec =
-                                spring(
-                                    stiffness = Spring.StiffnessMedium,
-                                    dampingRatio = Spring.DampingRatioLowBouncy,
-                                ),
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .animateItem(
+                                    placementSpec = spring(
+                                        stiffness = Spring.StiffnessMedium,
+                                        dampingRatio = Spring.DampingRatioLowBouncy,
+                                    ),
+                                )
+                                .drawBehind {
+                                    val lineY = size.height - 3.dp.toPx()
+                                    val startX = 4.dp.toPx()
+                                    val endX = if (item.hasVisibleTabs) size.width + tabSpacingPx else size.width - 4.dp.toPx()
+                                    drawLine(
+                                        color = folderColor,
+                                        start = Offset(startX, lineY),
+                                        end = Offset(endX, lineY),
+                                        strokeWidth = 2.5.dp.toPx(),
+                                        cap = StrokeCap.Round,
+                                    )
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            FolderDockIndicator(
+                                folder = folder,
+                                onClick = {
+                                    onEvent(BrowserUiEvent.ToggleFolderCollapse(folder.id, fromDock = true))
+                                },
+                            )
+
+                            FolderContextMenu(
+                                folder = folder,
+                                expanded = contextMenuFolderId == folder.id,
+                                onDismissRequest = { contextMenuFolderId = null },
+                                isDark = isDark,
+                                onNewTabInFolder = {
+                                    onEvent(BrowserUiEvent.CreateTabInFolder(folder.id))
+                                },
+                                onEditFolder = {
+                                    onEvent(BrowserUiEvent.OpenEditFolderSheet(folder.id))
+                                },
+                                onUngroupFolder = {
+                                    onEvent(BrowserUiEvent.UngroupFolder(folder.id))
+                                },
+                                onCloseFolder = {
+                                    onEvent(BrowserUiEvent.CloseFolder(folder.id))
+                                },
+                            )
+                        }
                     }
+                    is DockItem.TabItem -> {
+                        val tab = item.tab
+                        val isActive = tab.id == uiState.activeTabId
+                        val tabIsHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home" || (isHome && isActive)
+                        val isElevated = dragState.draggingTabId == tab.id || dragState.settlingTabId == tab.id
+                        val folder = item.folder
 
-                if (isActive) {
-                    val displayInfo = resolveTabDisplayInfo(tab = tab, isActive = true, isHome = tabIsHome, uiState = uiState)
+                        val itemPlacementModifier =
+                            if (isElevated) {
+                                Modifier
+                            } else {
+                                Modifier.animateItem(
+                                    placementSpec =
+                                        spring(
+                                            stiffness = Spring.StiffnessMedium,
+                                            dampingRatio = Spring.DampingRatioLowBouncy,
+                                        ),
+                                )
+                            }
 
-                    ActiveTabPill(
-                        title = displayInfo.title,
-                        domain = displayInfo.domain,
-                        url = displayInfo.url,
-                        faviconUrl = tab.faviconUrl,
-                        isHome = tabIsHome,
-                        backgroundColor = centerPillBg,
-                        border = centerPillBorder,
-                        isDark = isDark,
-                        isLoading = uiState.isLoading,
-                        loadingProgress = uiState.loadingProgress,
-                        onOpenSearch = {
-                            val targetPrefill = if (displayInfo.url.isNotBlank() && displayInfo.url != "about:blank") displayInfo.url else null
-                            onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = targetPrefill, openInNewTab = false))
-                        },
-                        onClose = {
-                            onEvent(BrowserUiEvent.CloseTab(tab.id))
-                        },
-                        onAddFavorite = { favTitle, favUrl ->
-                            onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
-                        },
-                        onShare = { urlToShare ->
-                            shareWebpageUrl(context, urlToShare)
-                        },
-                        onReload = {
-                            onEvent(BrowserUiEvent.Reload)
-                        },
-                        modifier =
-                            Modifier
-                                .width(renderedActiveWidth)
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
                                 .then(itemPlacementModifier)
-                                .testTag("tab_${tab.id}")
-                                .graphicsLayer {
-                                    alpha = if (isElevated) 0f else 1f
+                                .drawBehind {
+                                    if (folder != null) {
+                                        val lineY = size.height - 3.dp.toPx()
+                                        val startX = 0f
+                                        val endX = if (item.isLastInFolder) size.width - 4.dp.toPx() else size.width + tabSpacingPx
+                                        drawLine(
+                                            color = Color(folder.color),
+                                            start = Offset(startX, lineY),
+                                            end = Offset(endX, lineY),
+                                            strokeWidth = 2.5.dp.toPx(),
+                                            cap = StrokeCap.Round,
+                                        )
+                                    }
                                 },
-                        menuExpanded = contextMenuTabId == tab.id,
-                        onMenuDismiss = { contextMenuTabId = null },
-                        isCompact = false,
-                        isRemovePending = false,
-                        removeProgress = 0f,
-                    )
-                } else {
-                    val isTabLoaded = uiState.isTabLoaded(tab.id)
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (isActive) {
+                                val displayInfo = resolveTabDisplayInfo(tab = tab, isActive = true, isHome = tabIsHome, uiState = uiState)
 
-                    InactiveTabButton(
-                        tab = tab,
-                        isDark = isDark,
-                        isLoaded = isTabLoaded,
-                        grayUnloadedTabs = uiState.settings.isGrayUnloadedTabsEnabled,
-                        backgroundColor = circleBtnBg,
-                        border = null,
-                        isRemovePending = false,
-                        removeProgress = 0f,
-                        onClick = {
-                            onEvent(BrowserUiEvent.SelectTab(tab.id))
-                        },
-                        onClose = {
-                            onEvent(BrowserUiEvent.CloseTab(tab.id))
-                        },
-                        onAddFavorite = { favTitle, favUrl ->
-                            onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
-                        },
-                        modifier =
-                            Modifier
-                                .then(itemPlacementModifier)
-                                .testTag("tab_${tab.id}")
-                                .graphicsLayer {
-                                    alpha = if (isElevated) 0f else 1f
-                                    transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
-                                },
-                        menuExpanded = contextMenuTabId == tab.id,
-                        onMenuDismiss = { contextMenuTabId = null },
-                    )
+                                ActiveTabPill(
+                                    title = displayInfo.title,
+                                    domain = displayInfo.domain,
+                                    url = displayInfo.url,
+                                    faviconUrl = tab.faviconUrl,
+                                    isHome = tabIsHome,
+                                    backgroundColor = centerPillBg,
+                                    border = centerPillBorder,
+                                    isDark = isDark,
+                                    isLoading = uiState.isLoading,
+                                    loadingProgress = uiState.loadingProgress,
+                                    onOpenSearch = {
+                                        val targetPrefill = if (displayInfo.url.isNotBlank() && displayInfo.url != "about:blank") displayInfo.url else null
+                                        onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = targetPrefill, openInNewTab = false))
+                                    },
+                                    onClose = {
+                                        onEvent(BrowserUiEvent.CloseTab(tab.id))
+                                    },
+                                    onAddFavorite = { favTitle, favUrl ->
+                                        onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
+                                    },
+                                    onShare = { urlToShare ->
+                                        shareWebpageUrl(context, urlToShare)
+                                    },
+                                    onReload = {
+                                        onEvent(BrowserUiEvent.Reload)
+                                    },
+                                    modifier =
+                                        Modifier
+                                            .width(renderedActiveWidth)
+                                            .testTag("tab_${tab.id}")
+                                            .graphicsLayer {
+                                                alpha = if (isElevated) 0f else 1f
+                                            },
+                                    menuExpanded = contextMenuTabId == tab.id,
+                                    onMenuDismiss = { contextMenuTabId = null },
+                                    isCompact = false,
+                                    isRemovePending = false,
+                                    removeProgress = 0f,
+                                    folderId = tab.folderId,
+                                    availableFolders = uiState.folders,
+                                    onCreateFolder = { onEvent(BrowserUiEvent.OpenCreateFolderSheet(tab.id)) },
+                                    onAddToFolder = { folderId -> onEvent(BrowserUiEvent.AddTabToFolder(tab.id, folderId)) },
+                                    onRemoveFromFolder = { onEvent(BrowserUiEvent.RemoveTabFromFolder(tab.id)) },
+                                )
+                            } else {
+                                val isTabLoaded = uiState.isTabLoaded(tab.id)
+
+                                InactiveTabButton(
+                                    tab = tab,
+                                    isDark = isDark,
+                                    isLoaded = isTabLoaded,
+                                    grayUnloadedTabs = uiState.settings.isGrayUnloadedTabsEnabled,
+                                    backgroundColor = circleBtnBg,
+                                    border = null,
+                                    isRemovePending = false,
+                                    removeProgress = 0f,
+                                    onClick = {
+                                        onEvent(BrowserUiEvent.SelectTab(tab.id))
+                                    },
+                                    onClose = {
+                                        onEvent(BrowserUiEvent.CloseTab(tab.id))
+                                    },
+                                    onAddFavorite = { favTitle, favUrl ->
+                                        onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
+                                    },
+                                    modifier =
+                                        Modifier
+                                            .testTag("tab_${tab.id}")
+                                            .graphicsLayer {
+                                                alpha = if (isElevated) 0f else 1f
+                                                transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
+                                            },
+                                    menuExpanded = contextMenuTabId == tab.id,
+                                    onMenuDismiss = { contextMenuTabId = null },
+                                    folderId = tab.folderId,
+                                    availableFolders = uiState.folders,
+                                    onCreateFolder = { onEvent(BrowserUiEvent.OpenCreateFolderSheet(tab.id)) },
+                                    onAddToFolder = { folderId -> onEvent(BrowserUiEvent.AddTabToFolder(tab.id, folderId)) },
+                                    onRemoveFromFolder = { onEvent(BrowserUiEvent.RemoveTabFromFolder(tab.id)) },
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -834,6 +963,11 @@ fun InactiveTabButton(
     modifier: Modifier = Modifier,
     menuExpanded: Boolean = false,
     onMenuDismiss: () -> Unit = {},
+    folderId: String? = tab.folderId,
+    availableFolders: List<TabFolder> = emptyList(),
+    onCreateFolder: (() -> Unit)? = null,
+    onAddToFolder: ((String) -> Unit)? = null,
+    onRemoveFromFolder: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val typography = LocalProstoTypography.current
@@ -943,6 +1077,11 @@ fun InactiveTabButton(
                 onShareLink = {
                     shareWebpageUrl(context, tab.url)
                 },
+                folderId = folderId,
+                availableFolders = availableFolders,
+                onCreateFolder = onCreateFolder,
+                onAddToFolder = onAddToFolder,
+                onRemoveFromFolder = onRemoveFromFolder,
             )
         }
     }
@@ -1064,6 +1203,11 @@ fun TabContextMenu(
     onShareLink: (() -> Unit)? = null,
     isReloadVisible: Boolean = false,
     onReload: (() -> Unit)? = null,
+    folderId: String? = null,
+    availableFolders: List<TabFolder> = emptyList(),
+    onCreateFolder: (() -> Unit)? = null,
+    onAddToFolder: ((folderId: String) -> Unit)? = null,
+    onRemoveFromFolder: (() -> Unit)? = null,
 ) {
     if (!expanded) return
 
@@ -1073,6 +1217,9 @@ fun TabContextMenu(
     val menuBorder = ProstoBorders.floatingBorder(isDark)
     val dividerColor = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)
     val density = LocalDensity.current
+    val typography = LocalProstoTypography.current
+    var showFolderPicker by remember { mutableStateOf(false) }
+
     val popupPositionProvider = remember(density) {
         TabContextMenuPositionProvider(density)
     }
@@ -1108,82 +1255,184 @@ fun TabContextMenu(
                 color = menuBg,
                 shadowElevation = 12.dp,
                 border = menuBorder,
-                modifier = Modifier.width(172.dp),
+                modifier = Modifier.width(188.dp),
             ) {
                 Column(
                     modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    // Reload (First item when isReloadVisible is true)
-                    if (isReloadVisible && onReload != null) {
+                    if (showFolderPicker) {
                         PopupMenuItem(
-                            icon = Icons.Default.Refresh,
-                            label = stringResource(R.string.reload_tab),
+                            icon = Icons.AutoMirrored.Filled.ArrowBack,
+                            label = stringResource(R.string.tab_context_add_to_folder),
+                            isActive = false,
+                            isDark = isDark,
+                            onClick = { showFolderPicker = false },
+                            modifier = Modifier.testTag("tab_context_folder_back"),
+                        )
+
+                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
+                        availableFolders.forEachIndexed { idx, folder ->
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.Transparent,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        onDismissRequest()
+                                        onAddToFolder?.invoke(folder.id)
+                                    }
+                                    .testTag("tab_context_pick_folder_${folder.id}"),
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(folder.color)),
+                                    )
+                                    Text(
+                                        text = folder.title.ifBlank { stringResource(R.string.folder_new_title) },
+                                        style = typography.bodyMd.copy(fontWeight = FontWeight.Medium),
+                                        color = if (isDark) Color(0xFFF1F5F9) else ProstoDarkText,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                            if (idx < availableFolders.lastIndex) {
+                                HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                            }
+                        }
+                    } else {
+                        // Reload (First item when isReloadVisible is true)
+                        if (isReloadVisible && onReload != null) {
+                            PopupMenuItem(
+                                icon = Icons.Default.Refresh,
+                                label = stringResource(R.string.reload_tab),
+                                isActive = false,
+                                isDark = isDark,
+                                onClick = {
+                                    onDismissRequest()
+                                    onReload()
+                                },
+                            )
+
+                            HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                        }
+
+                        // Close Tab
+                        PopupMenuItem(
+                            icon = Icons.Default.Close,
+                            label = "Close tab",
                             isActive = false,
                             isDark = isDark,
                             onClick = {
                                 onDismissRequest()
-                                onReload()
+                                onCloseTab()
                             },
                         )
 
                         HorizontalDivider(color = dividerColor, thickness = 1.dp)
-                    }
 
-                    // Close Tab
-                    PopupMenuItem(
-                        icon = Icons.Default.Close,
-                        label = "Close tab",
-                        isActive = false,
-                        isDark = isDark,
-                        onClick = {
-                            onDismissRequest()
-                            onCloseTab()
-                        },
-                    )
+                        // Folder options
+                        if (folderId == null) {
+                            if (onCreateFolder != null) {
+                                PopupMenuItem(
+                                    icon = Icons.Default.Add,
+                                    label = stringResource(R.string.tab_context_new_folder),
+                                    isActive = false,
+                                    isDark = isDark,
+                                    onClick = {
+                                        onDismissRequest()
+                                        onCreateFolder()
+                                    },
+                                    modifier = Modifier.testTag("tab_context_new_folder"),
+                                )
 
-                    HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                                HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                            }
 
-                    // Copy URL
-                    PopupMenuItem(
-                        icon = Icons.Default.ContentCopy,
-                        label = "Copy URL",
-                        isActive = false,
-                        isDark = isDark,
-                        onClick = {
-                            onDismissRequest()
-                            onCopyUrl()
-                        },
-                    )
+                            if (availableFolders.isNotEmpty() && onAddToFolder != null) {
+                                PopupMenuItem(
+                                    icon = Icons.Default.FilterNone,
+                                    label = stringResource(R.string.tab_context_add_to_folder),
+                                    isActive = false,
+                                    isDark = isDark,
+                                    onClick = {
+                                        showFolderPicker = true
+                                    },
+                                    modifier = Modifier.testTag("tab_context_add_to_folder"),
+                                )
 
-                    HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                                HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                            }
+                        } else if (onRemoveFromFolder != null) {
+                            PopupMenuItem(
+                                icon = Icons.Default.Close,
+                                label = stringResource(R.string.tab_context_remove_from_folder),
+                                isActive = false,
+                                isDark = isDark,
+                                onClick = {
+                                    onDismissRequest()
+                                    onRemoveFromFolder()
+                                },
+                                modifier = Modifier.testTag("tab_context_remove_from_folder"),
+                            )
 
-                    // Add to Favorites
-                    PopupMenuItem(
-                        icon = Icons.Default.Bookmark,
-                        label = "Add to Favorites",
-                        isActive = false,
-                        isDark = isDark,
-                        onClick = {
-                            onDismissRequest()
-                            onAddFavorite()
-                        },
-                    )
+                            HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                        }
 
-                    // Share Link
-                    if (onShareLink != null) {
-                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
-
+                        // Copy URL
                         PopupMenuItem(
-                            icon = Icons.Default.Share,
-                            label = "Share Link",
+                            icon = Icons.Default.ContentCopy,
+                            label = "Copy URL",
                             isActive = false,
                             isDark = isDark,
                             onClick = {
                                 onDismissRequest()
-                                onShareLink()
+                                onCopyUrl()
                             },
                         )
+
+                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
+                        // Add to Favorites
+                        PopupMenuItem(
+                            icon = Icons.Default.Bookmark,
+                            label = "Add to Favorites",
+                            isActive = false,
+                            isDark = isDark,
+                            onClick = {
+                                onDismissRequest()
+                                onAddFavorite()
+                            },
+                        )
+
+                        // Share Link
+                        if (onShareLink != null) {
+                            HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
+                            PopupMenuItem(
+                                icon = Icons.Default.Share,
+                                label = "Share Link",
+                                isActive = false,
+                                isDark = isDark,
+                                onClick = {
+                                    onDismissRequest()
+                                    onShareLink()
+                                },
+                            )
+                        }
                     }
                 }
             }

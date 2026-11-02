@@ -5,11 +5,13 @@ import com.jestk.browser.data.local.entity.HistoryEntity
 import com.jestk.browser.data.local.entity.SettingEntity
 import com.jestk.browser.data.local.entity.SettingKeys
 import com.jestk.browser.data.local.entity.TabEntity
+import com.jestk.browser.data.local.entity.TabFolderEntity
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.ThemeMode
 
 fun TabEntity.toDomain(): Tab =
@@ -26,6 +28,7 @@ fun TabEntity.toDomain(): Tab =
         isActive = isActive,
         canGoBack = canGoBack,
         canGoForward = canGoForward,
+        folderId = folderId,
     )
 
 fun Tab.toEntity(): TabEntity =
@@ -42,6 +45,27 @@ fun Tab.toEntity(): TabEntity =
         isActive = isActive,
         canGoBack = canGoBack,
         canGoForward = canGoForward,
+        folderId = folderId,
+    )
+
+fun TabFolderEntity.toDomain(): TabFolder =
+    TabFolder(
+        id = id,
+        title = title,
+        color = color,
+        isCollapsed = isCollapsed,
+        position = position,
+        createdAt = createdAt,
+    )
+
+fun TabFolder.toEntity(): TabFolderEntity =
+    TabFolderEntity(
+        id = id,
+        title = title,
+        color = color,
+        isCollapsed = isCollapsed,
+        position = position,
+        createdAt = createdAt,
     )
 
 fun HistoryEntity.toDomain(): HistoryItem =

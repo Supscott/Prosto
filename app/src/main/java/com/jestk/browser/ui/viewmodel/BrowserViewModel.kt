@@ -19,6 +19,7 @@ import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
+import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.download.HoriDownloadManager
@@ -51,6 +52,7 @@ class BrowserViewModel(
     private val searchEngineRepository: SearchEngineRepository? = null,
     private val webViewPool: WebViewPool? = null,
     private val appUpdateManager: AppUpdateManager? = null,
+    val tabFolderRepository: TabFolderRepository? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val currentTimeProvider: () -> Long = { System.currentTimeMillis() },
 ) : ViewModel() {
@@ -122,6 +124,7 @@ class BrowserViewModel(
             emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
             scope = viewModelScope,
             ioDispatcher = ioDispatcher,
+            tabFolderRepository = tabFolderRepository,
         )
 
     init {
@@ -185,6 +188,13 @@ class BrowserViewModel(
         tabCoordinator.observeDatabaseFlows()
         searchCoordinator.observeDatabaseFlows()
         downloadCoordinator.observeDatabaseFlows()
+        tabFolderRepository?.let { repo ->
+            viewModelScope.launch(ioDispatcher) {
+                repo.getAllFolders().collect { folders ->
+                    _uiState.update { it.copy(folders = folders) }
+                }
+            }
+        }
         viewModelScope.launch(ioDispatcher) {
             settingsRepository.getBlockedAdsCount().collect { count ->
                 _uiState.update { it.copy(blockedAdsCount = count) }
@@ -1004,6 +1014,107 @@ class BrowserViewModel(
                     )
                 }
             }
+
+            is BrowserUiEvent.CreateFolderFromTabs -> {
+                viewModelScope.launch {
+                    tabCoordinator.createFolderFromTabs(
+                        tabId1 = event.tabId1,
+                        tabId2 = event.tabId2,
+                        color = event.color,
+                    )
+                }
+            }
+
+            is BrowserUiEvent.OpenCreateFolderSheet -> {
+                _uiState.update {
+                    it.copy(
+                        isFolderSheetVisible = true,
+                        folderSheetTargetTabId = event.tabId,
+                        folderSheetEditingFolderId = null,
+                    )
+                }
+            }
+
+            is BrowserUiEvent.OpenEditFolderSheet -> {
+                _uiState.update {
+                    it.copy(
+                        isFolderSheetVisible = true,
+                        folderSheetTargetTabId = null,
+                        folderSheetEditingFolderId = event.folderId,
+                    )
+                }
+            }
+
+            BrowserUiEvent.DismissFolderSheet -> {
+                _uiState.update {
+                    it.copy(
+                        isFolderSheetVisible = false,
+                        folderSheetTargetTabId = null,
+                        folderSheetEditingFolderId = null,
+                    )
+                }
+            }
+
+            is BrowserUiEvent.SaveFolder -> {
+                val targetTabId = _uiState.value.folderSheetTargetTabId ?: _uiState.value.activeTabId
+                val editingFolderId = _uiState.value.folderSheetEditingFolderId
+                _uiState.update {
+                    it.copy(
+                        isFolderSheetVisible = false,
+                        folderSheetTargetTabId = null,
+                        folderSheetEditingFolderId = null,
+                    )
+                }
+                viewModelScope.launch {
+                    if (editingFolderId != null) {
+                        tabCoordinator.updateFolder(
+                            folderId = editingFolderId,
+                            title = event.title,
+                            color = event.color,
+                        )
+                    } else if (targetTabId != null) {
+                        tabCoordinator.createFolder(
+                            tabId = targetTabId,
+                            title = event.title,
+                            color = event.color,
+                        )
+                    }
+                }
+            }
+
+            is BrowserUiEvent.ToggleFolderCollapse -> {
+                viewModelScope.launch {
+                    tabCoordinator.toggleFolderCollapse(event.folderId, fromDock = event.fromDock)
+                }
+            }
+
+            is BrowserUiEvent.CloseFolder -> {
+                viewModelScope.launch {
+                    tabCoordinator.closeFolder(event.folderId)
+                }
+            }
+
+            is BrowserUiEvent.UngroupFolder -> {
+                viewModelScope.launch {
+                    tabCoordinator.ungroupFolder(event.folderId)
+                }
+            }
+
+            is BrowserUiEvent.AddTabToFolder -> {
+                viewModelScope.launch {
+                    tabCoordinator.addTabToFolder(event.tabId, event.folderId)
+                }
+            }
+
+            is BrowserUiEvent.RemoveTabFromFolder -> {
+                viewModelScope.launch {
+                    tabCoordinator.removeTabFromFolder(event.tabId)
+                }
+            }
+
+            is BrowserUiEvent.CreateTabInFolder -> {
+                tabCoordinator.createTabInFolder(event.folderId)
+            }
         }
     }
 
@@ -1137,6 +1248,10 @@ class BrowserViewModel(
         }
         if (current.isFeedbackSheetVisible) {
             onEvent(BrowserUiEvent.CloseFeedbackSheet)
+            return
+        }
+        if (current.isFolderSheetVisible) {
+            onEvent(BrowserUiEvent.DismissFolderSheet)
             return
         }
         if (current.insecureHttpPrompt != null) {

@@ -9,9 +9,11 @@ import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
 import com.jestk.browser.data.repository.RecentTabRepositoryImpl
+import com.jestk.browser.data.repository.TabFolderRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.SearchEngine
+import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.engine.FaviconManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -42,6 +44,7 @@ class TabCoordinatorTest {
     private val testScope = TestScope(testDispatcher)
     private lateinit var db: AppDatabase
     private lateinit var tabRepo: TabRepositoryImpl
+    private lateinit var tabFolderRepo: TabFolderRepositoryImpl
     private lateinit var historyRepo: HistoryRepositoryImpl
     private lateinit var favoriteRepo: FavoriteRepositoryImpl
     private lateinit var recentTabRepo: RecentTabRepositoryImpl
@@ -62,6 +65,7 @@ class TabCoordinatorTest {
         FaviconManager.init(context)
         db = AppDatabase.createInMemory(context)
         tabRepo = TabRepositoryImpl(db.tabDao(), testDispatcher)
+        tabFolderRepo = TabFolderRepositoryImpl(db.tabFolderDao(), testDispatcher)
         historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
         favoriteRepo = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher)
         recentTabRepo = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher)
@@ -81,6 +85,7 @@ class TabCoordinatorTest {
             scope = testScope,
             ioDispatcher = testDispatcher,
             tabLoadingProgress = tabLoadingProgress,
+            tabFolderRepository = tabFolderRepo,
         )
     }
 
@@ -976,5 +981,274 @@ class TabCoordinatorTest {
             assertThat(popupTab).isNotNull()
             assertThat(popupTab?.isActive).isTrue()
             assertThat(uiState.isLoading).isTrue()
+        }
+
+    @Test
+    fun createFolder_createsFolderAndAssignsToTab() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tabId = uiState.activeTabId!!
+
+            val folder = coordinator.createFolder(tabId, title = "Research", color = 0xFF10B981.toInt())
+            advanceUntilIdle()
+
+            assertThat(folder.title).isEqualTo("Research")
+            assertThat(folder.color).isEqualTo(0xFF10B981.toInt())
+            assertThat(uiState.getTabsInFolder(folder.id).map { it.id }).containsExactly(tabId)
+            assertThat(uiState.getFolder(folder.id)).isNotNull()
+
+            val fromRepo = tabFolderRepo.getFolderById(folder.id)
+            assertThat(fromRepo).isNotNull()
+            assertThat(fromRepo?.title).isEqualTo("Research")
+        }
+
+    @Test
+    fun createFolderFromTabs_groupsBothTabs() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+            val tab2Id = uiState.activeTabId!!
+
+            val folder = coordinator.createFolderFromTabs(tab1Id, tab2Id, color = 0xFF2196F3.toInt())
+            advanceUntilIdle()
+
+            val tabsInFolder = uiState.getTabsInFolder(folder.id)
+            assertThat(tabsInFolder.map { it.id }).containsExactly(tab1Id, tab2Id)
+        }
+
+    @Test
+    fun updateFolder_updatesTitleAndColor() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            val folder = coordinator.createFolder(tab1Id, title = "Old Title", color = 100)
+            advanceUntilIdle()
+
+            coordinator.updateFolder(folder.id, title = "New Title", color = 200)
+            advanceUntilIdle()
+
+            assertThat(uiState.getFolder(folder.id)?.title).isEqualTo("New Title")
+            assertThat(uiState.getFolder(folder.id)?.color).isEqualTo(200)
+
+            val fromRepo = tabFolderRepo.getFolderById(folder.id)
+            assertThat(fromRepo?.title).isEqualTo("New Title")
+            assertThat(fromRepo?.color).isEqualTo(200)
+        }
+
+    @Test
+    fun addAndRemoveTabFromFolder_managesMembershipAndAutoDeletesWhenEmpty() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+            val tab2Id = uiState.activeTabId!!
+
+            val folder = coordinator.createFolder(tab1Id, title = "Folder", color = 1)
+            advanceUntilIdle()
+
+            coordinator.addTabToFolder(tab2Id, folder.id)
+            advanceUntilIdle()
+            assertThat(uiState.getTabsInFolder(folder.id).map { it.id }).containsExactly(tab1Id, tab2Id)
+
+            // Remove tab2: folder should remain with 1 tab (tab1)
+            coordinator.removeTabFromFolder(tab2Id)
+            advanceUntilIdle()
+            assertThat(uiState.getTabsInFolder(folder.id).map { it.id }).containsExactly(tab1Id)
+            assertThat(uiState.getFolder(folder.id)).isNotNull()
+
+            // Remove tab1: folder is now empty and must be automatically deleted
+            coordinator.removeTabFromFolder(tab1Id)
+            advanceUntilIdle()
+            assertThat(uiState.getFolder(folder.id)).isNull()
+            assertThat(tabFolderRepo.getFolderById(folder.id)).isNull()
+        }
+
+    @Test
+    fun closeTab_whenLastTabInFolder_autoDeletesFolder() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+            val tab2Id = uiState.activeTabId!!
+
+            val folder = coordinator.createFolder(tab1Id, title = "Group", color = 1)
+            advanceUntilIdle()
+
+            // Closing tab1 (the only tab in folder): folder must be deleted
+            coordinator.closeTab(tab1Id)
+            advanceUntilIdle()
+
+            assertThat(uiState.getFolder(folder.id)).isNull()
+            assertThat(tabFolderRepo.getFolderById(folder.id)).isNull()
+        }
+
+    @Test
+    fun closeTab_whenOneTabRemains_preservesFolder() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+            val tab2Id = uiState.activeTabId!!
+
+            val folder = coordinator.createFolderFromTabs(tab1Id, tab2Id, color = 1)
+            advanceUntilIdle()
+
+            // Close tab2: folder must still exist with 1 tab remaining
+            coordinator.closeTab(tab2Id)
+            advanceUntilIdle()
+
+            assertThat(uiState.getFolder(folder.id)).isNotNull()
+            assertThat(uiState.getTabsInFolder(folder.id).map { it.id }).containsExactly(tab1Id)
+            assertThat(tabFolderRepo.getFolderById(folder.id)).isNotNull()
+        }
+
+    @Test
+    fun ungroupFolder_removesFolderAndPreservesTabs() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+            val tab2Id = uiState.activeTabId!!
+
+            val folder = coordinator.createFolderFromTabs(tab1Id, tab2Id, color = 1)
+            advanceUntilIdle()
+
+            coordinator.ungroupFolder(folder.id)
+            advanceUntilIdle()
+
+            assertThat(uiState.getFolder(folder.id)).isNull()
+            assertThat(tabFolderRepo.getFolderById(folder.id)).isNull()
+            assertThat(uiState.tabs.find { it.id == tab1Id }?.folderId).isNull()
+            assertThat(uiState.tabs.find { it.id == tab2Id }?.folderId).isNull()
+        }
+
+    @Test
+    fun closeFolder_closesAllTabsAndDeletesFolder() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab-outside.com")
+            advanceUntilIdle()
+            val outsideTabId = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+            val tab2Id = uiState.activeTabId!!
+
+            val folder = coordinator.createFolderFromTabs(tab1Id, tab2Id, color = 1)
+            advanceUntilIdle()
+
+            coordinator.closeFolder(folder.id)
+            advanceUntilIdle()
+
+            assertThat(uiState.getFolder(folder.id)).isNull()
+            assertThat(tabFolderRepo.getFolderById(folder.id)).isNull()
+            assertThat(uiState.tabs.map { it.id }).containsExactly(outsideTabId)
+            assertThat(uiState.activeTabId).isEqualTo(outsideTabId)
+        }
+
+    @Test
+    fun toggleFolderCollapse_fromDock_whenActiveTabInside_switchesToNearestOutsideTab() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab0.com")
+            advanceUntilIdle()
+            val tab0Id = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+            val tab2Id = uiState.activeTabId!!
+
+            // Group tab1 and tab2
+            val folder = coordinator.createFolderFromTabs(tab1Id, tab2Id, color = 1)
+            advanceUntilIdle()
+
+            // tab2 is currently active (inside the folder)
+            assertThat(uiState.activeTabId).isEqualTo(tab2Id)
+
+            // Collapse from dock
+            coordinator.toggleFolderCollapse(folder.id, fromDock = true)
+            advanceUntilIdle()
+
+            assertThat(uiState.getFolder(folder.id)?.isCollapsed).isTrue()
+            // Active tab must switch to tab0 (the nearest outside tab)
+            assertThat(uiState.activeTabId).isEqualTo(tab0Id)
+        }
+
+    @Test
+    fun toggleFolderCollapse_fromDock_whenActiveTabInsideAndNoOutsideTabs_opensHomeTab() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            val folder = coordinator.createFolder(tab1Id, color = 1)
+            advanceUntilIdle()
+
+            assertThat(uiState.activeTabId).isEqualTo(tab1Id)
+
+            // Collapse from dock when no outside tabs exist
+            coordinator.toggleFolderCollapse(folder.id, fromDock = true)
+            advanceUntilIdle()
+
+            assertThat(uiState.getFolder(folder.id)?.isCollapsed).isTrue()
+            // Active tab should now be a newly created Home tab
+            assertThat(uiState.activeTabId).isNotEqualTo(tab1Id)
+            val newActive = uiState.activeTab
+            assertThat(newActive?.folderId).isNull()
+            assertThat(newActive?.title).isEqualTo("Home")
+        }
+
+    @Test
+    fun selectTab_whenTabInsideCollapsedFolder_autoExpandsFolder() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab0.com")
+            advanceUntilIdle()
+            val tab0Id = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            val folder = coordinator.createFolder(tab1Id, color = 1)
+            advanceUntilIdle()
+
+            // Collapse folder
+            coordinator.toggleFolderCollapse(folder.id, fromDock = true)
+            advanceUntilIdle()
+            assertThat(uiState.getFolder(folder.id)?.isCollapsed).isTrue()
+            assertThat(uiState.activeTabId).isEqualTo(tab0Id)
+
+            // Selecting tab1 must auto-expand the folder
+            coordinator.selectTab(tab1Id)
+            advanceUntilIdle()
+
+            assertThat(uiState.activeTabId).isEqualTo(tab1Id)
+            assertThat(uiState.getFolder(folder.id)?.isCollapsed).isFalse()
+            assertThat(tabFolderRepo.getFolderById(folder.id)?.isCollapsed).isFalse()
         }
 }

@@ -8,9 +8,11 @@ import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
+import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
@@ -68,6 +70,7 @@ internal class TabCoordinator(
     internal val pendingExternalAppPrompts: MutableMap<String, ExternalAppPrompt> = ConcurrentHashMap(),
     internal val timedOutExternalAppDomains: MutableMap<String, MutableSet<String>> = ConcurrentHashMap(),
     internal val tabBottomThemeColors: ConcurrentHashMap<String, Int> = ConcurrentHashMap(),
+    private val tabFolderRepository: TabFolderRepository? = null,
 ) {
     fun handleExternalAppOffered(
         tabId: String,
@@ -560,6 +563,18 @@ internal class TabCoordinator(
         recentlyClosedTab: Tab? = null,
     ) {
         val tabId = selected.id
+        selected.folderId?.let { folderId ->
+            val folder = getCurrentState().getFolder(folderId)
+            if (folder != null && folder.isCollapsed) {
+                val expanded = folder.copy(isCollapsed = false)
+                updateUiState { state ->
+                    state.copy(folders = state.folders.map { if (it.id == folderId) expanded else it })
+                }
+                scope.launch(ioDispatcher) {
+                    tabFolderRepository?.updateFolder(expanded)
+                }
+            }
+        }
         webViewPool?.onTabActivated(tabId, getCurrentState().isVideoPlaying)
 
         val liveWebView = webViewPool?.getWebView(tabId)
@@ -656,6 +671,18 @@ internal class TabCoordinator(
         val closedIdx = currentTabs.indexOfFirst { it.id == tabId }
         val wasActive = getCurrentState().activeTabId == tabId
         val remainingTabs = currentTabs.filter { it.id != tabId }
+
+        closingTab?.folderId?.let { folderId ->
+            val remainingInFolder = remainingTabs.filter { it.folderId == folderId }
+            if (remainingInFolder.isEmpty()) {
+                updateUiState { state ->
+                    state.copy(folders = state.folders.filter { it.id != folderId })
+                }
+                scope.launch(ioDispatcher) {
+                    tabFolderRepository?.deleteFolder(folderId)
+                }
+            }
+        }
 
         if (!wasActive) {
             updateUiState { state ->
@@ -1305,6 +1332,213 @@ internal class TabCoordinator(
     fun deleteFavorite(id: Long) {
         scope.launch(ioDispatcher) {
             favoriteRepository.deleteFavorite(id)
+        }
+    }
+
+    suspend fun createFolder(tabId: String, title: String = "", color: Int): TabFolder {
+        val folderId = java.util.UUID.randomUUID().toString()
+        val existingFolders = tabFolderRepository?.getAllFoldersSync() ?: getCurrentState().folders
+        val nextPosition = (existingFolders.maxOfOrNull { it.position } ?: -1) + 1
+        val folder = TabFolder(
+            id = folderId,
+            title = title,
+            color = color,
+            isCollapsed = false,
+            position = nextPosition,
+        )
+        tabFolderRepository?.insertFolder(folder)
+        tabRepository.updateFolderId(tabId, folderId)
+
+        updateUiState { state ->
+            val updatedTabs = state.tabs.map { tab ->
+                if (tab.id == tabId) tab.copy(folderId = folderId) else tab
+            }
+            val updatedFolders = if (state.folders.none { it.id == folderId }) {
+                state.folders + folder
+            } else {
+                state.folders.map { if (it.id == folderId) folder else it }
+            }
+            state.copy(tabs = updatedTabs, folders = updatedFolders)
+        }
+        return folder
+    }
+
+    suspend fun createFolderFromTabs(tabId1: String, tabId2: String, color: Int? = null): TabFolder {
+        val folderColor = color ?: TabFolder.PALETTE.random()
+        val folder = createFolder(tabId = tabId1, title = "", color = folderColor)
+        addTabToFolder(tabId = tabId2, folderId = folder.id)
+        return folder
+    }
+
+    suspend fun updateFolder(folderId: String, title: String, color: Int) {
+        val current = tabFolderRepository?.getFolderById(folderId)
+            ?: getCurrentState().getFolder(folderId)
+            ?: return
+        val updated = current.copy(title = title, color = color)
+        tabFolderRepository?.updateFolder(updated)
+        updateUiState { state ->
+            state.copy(folders = state.folders.map { if (it.id == folderId) updated else it })
+        }
+    }
+
+    suspend fun toggleFolderCollapse(folderId: String, fromDock: Boolean = false) {
+        val currentFolder = tabFolderRepository?.getFolderById(folderId)
+            ?: getCurrentState().getFolder(folderId)
+            ?: return
+        val newCollapsed = !currentFolder.isCollapsed
+        val updatedFolder = currentFolder.copy(isCollapsed = newCollapsed)
+        tabFolderRepository?.updateFolder(updatedFolder)
+        updateUiState { state ->
+            state.copy(folders = state.folders.map { if (it.id == folderId) updatedFolder else it })
+        }
+
+        if (fromDock && newCollapsed) {
+            val state = getCurrentState()
+            val activeTabId = state.activeTabId
+            val activeTab = state.activeTab
+            if (activeTab != null && activeTab.folderId == folderId) {
+                val currentTabs = state.tabs
+                val activeIndex = currentTabs.indexOfFirst { it.id == activeTabId }
+                val outsideTabs = currentTabs.filter { it.folderId != folderId }
+
+                if (outsideTabs.isEmpty()) {
+                    tabOperationMutex.withLock {
+                        val created = tabRepository.createTab(url = "", title = "Home")
+                        activateNewTabState(created, "", "Home", null, isWebLoading = false, isHome = true)
+                    }
+                } else {
+                    val nearestTab = outsideTabs.minByOrNull { tab ->
+                        val tabIdx = currentTabs.indexOf(tab)
+                        kotlin.math.abs(tabIdx - activeIndex)
+                    }
+                    if (nearestTab != null) {
+                        selectTab(nearestTab.id)
+                    }
+                }
+            }
+        }
+    }
+
+    suspend fun addTabToFolder(tabId: String, folderId: String) {
+        tabRepository.updateFolderId(tabId, folderId)
+        updateUiState { state ->
+            state.copy(
+                tabs = state.tabs.map { if (it.id == tabId) it.copy(folderId = folderId) else it }
+            )
+        }
+    }
+
+    suspend fun removeTabFromFolder(tabId: String) {
+        val currentTabs = getCurrentState().tabs
+        val targetTab = currentTabs.find { it.id == tabId }
+        val folderId = targetTab?.folderId
+
+        tabRepository.updateFolderId(tabId, null)
+        updateUiState { state ->
+            state.copy(
+                tabs = state.tabs.map { if (it.id == tabId) it.copy(folderId = null) else it }
+            )
+        }
+
+        if (folderId != null) {
+            val remainingInFolder = currentTabs.filter { it.folderId == folderId && it.id != tabId }
+            if (remainingInFolder.isEmpty()) {
+                tabFolderRepository?.deleteFolder(folderId)
+                updateUiState { state ->
+                    state.copy(folders = state.folders.filter { it.id != folderId })
+                }
+            }
+        }
+    }
+
+    suspend fun ungroupFolder(folderId: String) {
+        tabRepository.clearFolderId(folderId)
+        tabFolderRepository?.deleteFolder(folderId)
+        updateUiState { state ->
+            state.copy(
+                tabs = state.tabs.map { if (it.folderId == folderId) it.copy(folderId = null) else it },
+                folders = state.folders.filter { it.id != folderId }
+            )
+        }
+    }
+
+    suspend fun closeFolder(folderId: String) {
+        val tabsInFolder = getCurrentState().tabs.filter { it.folderId == folderId }
+        tabFolderRepository?.deleteFolder(folderId)
+        updateUiState { state ->
+            state.copy(folders = state.folders.filter { it.id != folderId })
+        }
+        val (active, nonActive) = tabsInFolder.partition { it.id == getCurrentState().activeTabId }
+        nonActive.forEach { tab ->
+            closeTab(tab.id)
+        }
+        active.forEach { tab ->
+            closeTab(tab.id)
+        }
+    }
+
+    fun createTabInFolder(folderId: String) {
+        scope.launch(ioDispatcher) {
+            tabOperationMutex.withLock {
+                val created = tabRepository.createTab(url = "", title = "Home")
+                tabRepository.updateFolderId(created.id, folderId)
+                val tabWithFolder = created.copy(folderId = folderId)
+
+                // Ensure folder is expanded
+                val currentFolder = tabFolderRepository?.getFolderById(folderId) ?: getCurrentState().getFolder(folderId)
+                if (currentFolder != null && currentFolder.isCollapsed) {
+                    val expanded = currentFolder.copy(isCollapsed = false)
+                    tabFolderRepository?.updateFolder(expanded)
+                    updateUiState { state ->
+                        state.copy(folders = state.folders.map { if (it.id == folderId) expanded else it })
+                    }
+                }
+
+                // Insert tab after the last tab of this folder if exists
+                val baseTabs =
+                    if (getCurrentState().tabs.isEmpty()) {
+                        tabRepository.getInitialTabs().filter { it.id != created.id }
+                    } else {
+                        getCurrentState().tabs.filter { it.id != created.id }
+                    }
+                val lastFolderIndex = baseTabs.indexOfLast { it.folderId == folderId }
+                val currentTabs = baseTabs.map { it.copy(isActive = false) }
+                val activatedTab = tabWithFolder.copy(isActive = true)
+                val updatedTabs = if (lastFolderIndex >= 0 && lastFolderIndex < currentTabs.size) {
+                    currentTabs.toMutableList().apply { add(lastFolderIndex + 1, activatedTab) }
+                } else {
+                    currentTabs + activatedTab
+                }.distinctBy { it.id }
+
+                tabRepository.setActiveTab(created.id)
+                dismissedExternalAppDomains.remove(created.id)
+                pendingExternalAppPrompts.remove(created.id)
+                timedOutExternalAppDomains.remove(created.id)
+                webViewPool?.onTabActivated(created.id, false)
+                tabLoadingProgress[created.id] = 100
+
+                tabRepository.reorderTabs(updatedTabs)
+
+                updateUiState {
+                    it.copy(
+                        tabs = updatedTabs,
+                        activeTabId = created.id,
+                        currentUrl = "",
+                        pageTitle = "Home",
+                        isLoading = false,
+                        loadingProgress = 0f,
+                        activeThemeColor = null,
+                        activeBottomThemeColor = null,
+                        isMenuExpanded = false,
+                        isSearchEngineSwitcherEditExpanded = false,
+                        externalAppPrompt = null,
+                        activeOverlay = OverlayType.HOME,
+                        linkContextMenuUrl = null,
+                        selectedImageUrl = null,
+                        isBottomBarVisible = true,
+                    )
+                }
+            }
         }
     }
 }

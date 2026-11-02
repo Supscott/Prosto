@@ -17,11 +17,12 @@ import com.jestk.browser.data.local.entity.FavoriteEntity
 import com.jestk.browser.data.local.entity.HistoryEntity
 import com.jestk.browser.data.local.entity.SettingEntity
 import com.jestk.browser.data.local.dao.RecentTabDao
-import com.jestk.browser.data.local.entity.RecentTabEntity
-import com.jestk.browser.data.local.entity.TabEntity
-
 import com.jestk.browser.data.local.dao.SearchEngineDao
+import com.jestk.browser.data.local.dao.TabFolderDao
+import com.jestk.browser.data.local.entity.RecentTabEntity
 import com.jestk.browser.data.local.entity.SearchEngineEntity
+import com.jestk.browser.data.local.entity.TabEntity
+import com.jestk.browser.data.local.entity.TabFolderEntity
 
 @Database(
     entities = [
@@ -31,15 +32,17 @@ import com.jestk.browser.data.local.entity.SearchEngineEntity
         SettingEntity::class,
         RecentTabEntity::class,
         DownloadEntity::class,
-        SearchEngineEntity::class
+        SearchEngineEntity::class,
+        TabFolderEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun tabDao(): TabDao
+    abstract fun tabFolderDao(): TabFolderDao
     abstract fun historyDao(): HistoryDao
     abstract fun favoriteDao(): FavoriteDao
     abstract fun settingDao(): SettingDao
@@ -56,6 +59,28 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `tab_folders` (
+                        `id` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `color` INTEGER NOT NULL,
+                        `isCollapsed` INTEGER NOT NULL,
+                        `position` INTEGER NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tab_folders_position` ON `tab_folders` (`position`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tab_folders_createdAt` ON `tab_folders` (`createdAt`)")
+                db.execSQL("ALTER TABLE `tabs` ADD COLUMN `folderId` TEXT DEFAULT NULL")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tabs_folderId` ON `tabs` (`folderId`)")
+            }
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -66,7 +91,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                .addMigrations(MIGRATION_7_8)
+                .addMigrations(MIGRATION_7_8, MIGRATION_8_9)
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()
                 .also { instance = it }

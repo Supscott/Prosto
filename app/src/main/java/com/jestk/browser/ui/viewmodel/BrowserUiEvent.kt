@@ -415,6 +415,33 @@ sealed interface BrowserUiEvent {
     data object OpenFeedbackSheet : BrowserUiEvent
 
     data object CloseFeedbackSheet : BrowserUiEvent
+
+    // Tab Folders
+    data class CreateFolderFromTabs(
+        val tabId1: String,
+        val tabId2: String,
+        val color: Int? = null,
+    ) : BrowserUiEvent
+
+    data class OpenCreateFolderSheet(val tabId: String) : BrowserUiEvent
+
+    data class OpenEditFolderSheet(val folderId: String) : BrowserUiEvent
+
+    data class SaveFolder(val title: String, val color: Int) : BrowserUiEvent
+
+    data object DismissFolderSheet : BrowserUiEvent
+
+    data class ToggleFolderCollapse(val folderId: String, val fromDock: Boolean = true) : BrowserUiEvent
+
+    data class CloseFolder(val folderId: String) : BrowserUiEvent
+
+    data class UngroupFolder(val folderId: String) : BrowserUiEvent
+
+    data class AddTabToFolder(val tabId: String, val folderId: String) : BrowserUiEvent
+
+    data class RemoveTabFromFolder(val tabId: String) : BrowserUiEvent
+
+    data class CreateTabInFolder(val folderId: String) : BrowserUiEvent
 }
 
 enum class ExternalAppDismissReason {

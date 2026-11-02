@@ -60,6 +60,10 @@ internal fun rememberTabStripDragReorderModifier(
             val longPress = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
 
             currentVibration.confirm()
+            if (tabId.startsWith("folder_")) {
+                currentOnLongPress(tabId)
+                return@awaitEachGesture
+            }
             val pointerId = longPress.id
             var totalDragX = 0f
             var totalDragY = 0f

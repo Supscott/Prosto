@@ -26,5 +26,7 @@ interface TabRepository {
     suspend fun deleteAllTabs()
     suspend fun closeAllTabs()
     suspend fun reorderTabs(orderedTabs: List<Tab>)
+    suspend fun updateFolderId(tabId: String, folderId: String?)
+    suspend fun clearFolderId(folderId: String)
     suspend fun clearRecentTabs() {}
 }

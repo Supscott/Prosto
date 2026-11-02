@@ -120,4 +120,24 @@
     <string name="settings_about_feedback_title">Feedback &amp; Community</string>
     <string name="settings_about_feedback_summary">Telegram chat and GitHub bug reports</string>
     <string name="error_cannot_open_link">Could not open link</string>
+
+    <!-- Tab Folders -->
+    <string name="folder_new_title">New folder</string>
+    <string name="folder_edit_title">Edit folder</string>
+    <string name="folder_name_placeholder">Folder name</string>
+    <string name="folder_save_button">Save</string>
+    <string name="folder_create_button">Create</string>
+    <string name="folder_preview_label">Preview</string>
+    <string name="folder_clear_name">Clear name</string>
+    <string name="folder_select_color">Select color</string>
+    <string name="folder_edit_name_color">Edit name and color</string>
+    <string name="folder_new_tab">New tab in folder</string>
+    <string name="folder_ungroup">Ungroup</string>
+    <string name="folder_close">Close folder</string>
+    <string name="tab_context_new_folder">New folder</string>
+    <string name="tab_context_add_to_folder">Add to folder</string>
+    <string name="tab_context_remove_from_folder">Remove from folder</string>
+    <string name="folder_collapse">Collapse folder</string>
+    <string name="folder_expand">Expand folder</string>
+    <string name="folder_tabs_count">%d tabs</string>
 </resources>

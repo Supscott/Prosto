@@ -12,6 +12,7 @@ import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
 import com.jestk.browser.data.repository.SettingsBlockedRequestStats
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
+import com.jestk.browser.data.repository.TabFolderRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
@@ -19,6 +20,7 @@ import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
+import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.AdBlockerEngine
 import com.jestk.browser.engine.FaviconManager
@@ -31,6 +33,7 @@ import com.jestk.browser.ui.viewmodel.BrowserViewModel
 interface AppContainer {
     val database: AppDatabase
     val tabRepository: TabRepository
+    val tabFolderRepository: TabFolderRepository
     val historyRepository: HistoryRepository
     val favoriteRepository: FavoriteRepository
     val settingsRepository: SettingsRepository
@@ -83,6 +86,10 @@ class DefaultAppContainer(
         TabRepositoryImpl(database.tabDao())
     }
 
+    override val tabFolderRepository: TabFolderRepository by lazy {
+        TabFolderRepositoryImpl(database.tabFolderDao())
+    }
+
     override val historyRepository: HistoryRepository by lazy {
         HistoryRepositoryImpl(database.historyDao())
     }
@@ -114,6 +121,7 @@ class DefaultAppContainer(
             initializer {
                 BrowserViewModel(
                     tabRepository = tabRepository,
+                    tabFolderRepository = tabFolderRepository,
                     historyRepository = historyRepository,
                     favoriteRepository = favoriteRepository,
                     settingsRepository = settingsRepository,

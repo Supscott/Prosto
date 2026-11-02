@@ -2,9 +2,13 @@ package com.jestk.browser.ui.overlays
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,12 +19,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
@@ -39,6 +46,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,19 +54,35 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.R
+import com.jestk.browser.ui.components.SiteFavicon
+import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
@@ -66,6 +90,7 @@ import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
+import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
@@ -73,14 +98,114 @@ import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.theme.prostoSkyBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.util.LocalVibrationFeedback
+import java.io.File
+import kotlin.math.roundToInt
+
+internal sealed interface OverviewGridItem {
+    val key: String
+
+    data class TabCard(val tab: Tab) : OverviewGridItem {
+        override val key: String get() = "tab_${tab.id}"
+    }
+
+    data class FolderCard(val folder: TabFolder, val tabs: List<Tab>) : OverviewGridItem {
+        override val key: String get() = "folder_${folder.id}"
+    }
+
+    data class FolderHeader(val folder: TabFolder, val tabs: List<Tab>) : OverviewGridItem {
+        override val key: String get() = "folder_header_${folder.id}"
+    }
+
+    data class FolderTabCard(
+        val folder: TabFolder,
+        val tab: Tab,
+        val memberIndex: Int,
+        val totalMembers: Int,
+    ) : OverviewGridItem {
+        override val key: String get() = "tab_${tab.id}"
+    }
+}
+
+internal fun computeOverviewItems(
+    tabs: List<Tab>,
+    folders: List<TabFolder>,
+    searchQuery: String,
+    expandedFolderIds: Set<String> = emptySet(),
+): List<OverviewGridItem> {
+    val folderTabsMap = tabs.filter { it.folderId != null }.groupBy { it.folderId!! }
+    fun matchesQuery(text: String) = text.contains(searchQuery, ignoreCase = true)
+    fun tabMatches(tab: Tab) = matchesQuery(tab.title) || matchesQuery(tab.url)
+    fun folderMatches(folder: TabFolder, memberTabs: List<Tab>): Boolean {
+        return matchesQuery(folder.title) || memberTabs.any { tabMatches(it) }
+    }
+
+    val items = mutableListOf<OverviewGridItem>()
+    val processedFolderIds = mutableSetOf<String>()
+
+    fun addFolderItems(folder: TabFolder, memberTabs: List<Tab>) {
+        if (folder.id in expandedFolderIds) {
+            items.add(OverviewGridItem.FolderHeader(folder, memberTabs))
+            memberTabs.forEachIndexed { index, tab ->
+                items.add(OverviewGridItem.FolderTabCard(folder, tab, index, memberTabs.size))
+            }
+        } else {
+            items.add(OverviewGridItem.FolderCard(folder, memberTabs))
+        }
+    }
+
+    for (tab in tabs) {
+        val folderId = tab.folderId
+        if (folderId == null) {
+            if (searchQuery.isBlank() || tabMatches(tab)) {
+                items.add(OverviewGridItem.TabCard(tab))
+            }
+        } else {
+            if (folderId !in processedFolderIds) {
+                processedFolderIds.add(folderId)
+                val folder = folders.find { it.id == folderId }
+                val memberTabs = folderTabsMap[folderId] ?: emptyList()
+                if (folder != null) {
+                    if (searchQuery.isBlank()) {
+                        addFolderItems(folder, memberTabs)
+                    } else if (folderMatches(folder, memberTabs)) {
+                        val visibleTabs = if (matchesQuery(folder.title)) {
+                            memberTabs
+                        } else {
+                            memberTabs.filter { tabMatches(it) }
+                        }
+                        addFolderItems(folder, visibleTabs)
+                    }
+                }
+            }
+        }
+    }
+
+    for (folder in folders) {
+        if (folder.id !in processedFolderIds) {
+            val memberTabs = folderTabsMap[folder.id] ?: emptyList()
+            if (searchQuery.isBlank() || folderMatches(folder, memberTabs)) {
+                val visibleTabs = if (searchQuery.isBlank() || matchesQuery(folder.title)) {
+                    memberTabs
+                } else {
+                    memberTabs.filter { tabMatches(it) }
+                }
+                addFolderItems(folder, visibleTabs)
+            }
+        }
+    }
+
+    return items
+}
 
 /**
  * Tab Overview Grid - Prosto Canvas design system.
  * Features:
  * - Top navigation bar with back button, "Tabs Overview", and accent orb icon
  * - Sub-header with tab count, search in tabs, and gradient "+" add button
- * - 3-column grid with 9:16 preview cards
+ * - 3-column grid with 9:16 preview cards and collapsed folder cards
  * - Active tab highlighted with multi-color gradient border (#7BA7D7 -> #F6B99D -> #D391A5)
+ * - Direct-manipulation drag-and-drop tab grouping onto tabs and collapsed folders
  * - Floating bottom frosted "Done" pill button
  */
 @Composable
@@ -109,17 +234,24 @@ fun TabOverviewGrid(
         }
     }
 
-    val displayedTabs =
-        remember(uiState.tabs, tabSearchQuery) {
-            if (tabSearchQuery.isBlank()) {
-                uiState.tabs
-            } else {
-                uiState.tabs.filter {
-                    it.title.contains(tabSearchQuery, ignoreCase = true) ||
-                        it.url.contains(tabSearchQuery, ignoreCase = true)
-                }
-            }
+    var expandedFolderIds by remember { mutableStateOf(setOf<String>()) }
+
+    val overviewItems =
+        remember(uiState.tabs, uiState.folders, tabSearchQuery, expandedFolderIds) {
+            computeOverviewItems(
+                tabs = uiState.tabs,
+                folders = uiState.folders,
+                searchQuery = tabSearchQuery,
+                expandedFolderIds = expandedFolderIds,
+            )
         }
+
+    val gridState = rememberLazyGridState()
+    val vibration = LocalVibrationFeedback.current
+    val density = LocalDensity.current
+    var draggedTabId by remember { mutableStateOf<String?>(null) }
+    var dragProxyPosition by remember { mutableStateOf(Offset.Zero) }
+    var hoveredKey by remember { mutableStateOf<String?>(null) }
 
     Box(
         modifier =
@@ -184,9 +316,22 @@ fun TabOverviewGrid(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                val totalMatchingTabs =
+                    if (tabSearchQuery.isNotBlank()) {
+                        overviewItems.sumOf { item ->
+                            when (item) {
+                                is OverviewGridItem.TabCard -> 1
+                                is OverviewGridItem.FolderCard -> item.tabs.size
+                                is OverviewGridItem.FolderHeader -> 0
+                                is OverviewGridItem.FolderTabCard -> 1
+                            }
+                        }
+                    } else {
+                        uiState.tabs.size
+                    }
                 val tabCountText =
                     if (tabSearchQuery.isNotBlank()) {
-                        "${displayedTabs.size} of ${uiState.tabs.size} tabs"
+                        "$totalMatchingTabs of ${uiState.tabs.size} tabs"
                     } else if (uiState.tabs.size == 1) {
                         "1 tab"
                     } else {
@@ -331,30 +476,372 @@ fun TabOverviewGrid(
                 }
             }
 
-            // 3. 3-Column Vertical Grid with 9:16 preview cards
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.weight(1f),
+            // 3. 3-Column Vertical Grid with 9:16 preview cards and drag-and-drop grouping
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
             ) {
-                items(
-                    items = displayedTabs,
-                    key = { it.id },
-                ) { tab ->
-                    GridTabCard(
-                        tab = tab,
-                        isActive = tab.id == uiState.activeTabId,
-                        isDark = isDark,
-                        onSelect = {
-                            onEvent(BrowserUiEvent.SelectTab(tab.id))
-                            onEvent(BrowserUiEvent.DismissOverlay)
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(3),
+                    state = gridState,
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .testTag("overview_grid")
+                            .drawBehind {
+                                for (folderId in expandedFolderIds) {
+                                    val folder = uiState.folders.find { it.id == folderId } ?: continue
+                                    val memberTabs = uiState.tabs.filter { it.folderId == folderId }
+                                    val memberKeys = memberTabs.map { "tab_${it.id}" }.toSet()
+                                    val bounds = calculateFolderUnderlayBounds(
+                                        visibleItems = gridState.layoutInfo.visibleItemsInfo,
+                                        folderTabKeys = memberKeys,
+                                        gridWidth = size.width,
+                                        horizontalMarginPx = 10.dp.toPx(),
+                                        verticalPaddingPx = 6.dp.toPx(),
+                                    ) ?: continue
+
+                                    val cornerRadius = CornerRadius(16.dp.toPx(), 16.dp.toPx())
+                                    val folderColor = Color(folder.color)
+                                    drawRoundRect(
+                                        color = folderColor.copy(alpha = 0.15f),
+                                        topLeft = Offset(bounds.minX, bounds.minY),
+                                        size = Size(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY),
+                                        cornerRadius = cornerRadius,
+                                    )
+                                    drawRoundRect(
+                                        color = folderColor.copy(alpha = 0.35f),
+                                        topLeft = Offset(bounds.minX, bounds.minY),
+                                        size = Size(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY),
+                                        cornerRadius = cornerRadius,
+                                        style = Stroke(width = 1.5.dp.toPx()),
+                                    )
+                                }
+                            }
+                            .pointerInput(Unit) {
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    val downItem =
+                                        gridState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+                                            val x = down.position.x.toInt()
+                                            val y = down.position.y.toInt()
+                                            x >= item.offset.x && x <= item.offset.x + item.size.width &&
+                                                y >= item.offset.y && y <= item.offset.y + item.size.height
+                                        } ?: return@awaitEachGesture
+
+                                    val downKey = downItem.key.toString()
+                                    val longPress = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+                                    vibration.confirm()
+
+                                    if (downKey.startsWith("folder_header_")) {
+                                        val folderId = downKey.removePrefix("folder_header_")
+                                        onEvent(BrowserUiEvent.OpenEditFolderSheet(folderId))
+                                        return@awaitEachGesture
+                                    }
+
+                                    if (downKey.startsWith("folder_")) {
+                                        val folderId = downKey.removePrefix("folder_")
+                                        onEvent(BrowserUiEvent.OpenEditFolderSheet(folderId))
+                                        return@awaitEachGesture
+                                    }
+
+                                    if (!downKey.startsWith("tab_")) {
+                                        return@awaitEachGesture
+                                    }
+
+                                    val tabId = downKey.removePrefix("tab_")
+                                    val draggedTab = uiState.tabs.find { it.id == tabId }
+                                    val sourceFolderId = draggedTab?.folderId
+                                    draggedTabId = tabId
+                                    dragProxyPosition = longPress.position
+
+                                    val pointerId = longPress.id
+                                    var currentHoverKey: String? = null
+
+                                    try {
+                                        while (true) {
+                                            val event = awaitPointerEvent(PointerEventPass.Initial)
+                                            val change = event.changes.firstOrNull { it.id == pointerId }
+                                            if (change == null || !change.pressed) {
+                                                if (change != null && change.changedToUp()) {
+                                                    change.consume()
+                                                }
+                                                break
+                                            }
+
+                                            change.consume()
+                                            dragProxyPosition = change.position
+
+                                            val hovered =
+                                                gridState.layoutInfo.visibleItemsInfo.firstOrNull { item ->
+                                                    val x = change.position.x.toInt()
+                                                    val y = change.position.y.toInt()
+                                                    x >= item.offset.x && x <= item.offset.x + item.size.width &&
+                                                        y >= item.offset.y && y <= item.offset.y + item.size.height
+                                                }
+
+                                            val candidateKey = hovered?.key?.toString()
+                                            if (candidateKey != null && candidateKey != downKey) {
+                                                if (candidateKey != currentHoverKey) {
+                                                    currentHoverKey = candidateKey
+                                                    hoveredKey = candidateKey
+                                                    vibration.tick()
+                                                }
+                                            } else {
+                                                if (currentHoverKey != null) {
+                                                    currentHoverKey = null
+                                                    hoveredKey = null
+                                                }
+                                            }
+                                        }
+
+                                        val dropTarget = currentHoverKey
+                                        if (sourceFolderId != null) {
+                                            if (shouldRemoveTabFromFolderOnDrop(
+                                                    sourceFolderId = sourceFolderId,
+                                                    dropTargetKey = dropTarget,
+                                                    dropPosition = dragProxyPosition,
+                                                    tabs = uiState.tabs,
+                                                    visibleItems = gridState.layoutInfo.visibleItemsInfo,
+                                                )
+                                            ) {
+                                                vibration.tick()
+                                                onEvent(BrowserUiEvent.RemoveTabFromFolder(tabId))
+                                            }
+                                        } else if (dropTarget != null) {
+                                            if (dropTarget.startsWith("tab_")) {
+                                                val targetTabId = dropTarget.removePrefix("tab_")
+                                                val targetTab = uiState.tabs.find { it.id == targetTabId }
+                                                vibration.tick()
+                                                if (targetTab?.folderId != null) {
+                                                    onEvent(BrowserUiEvent.AddTabToFolder(tabId = tabId, folderId = targetTab.folderId))
+                                                } else {
+                                                    onEvent(BrowserUiEvent.CreateFolderFromTabs(tabId1 = tabId, tabId2 = targetTabId))
+                                                }
+                                            } else if (dropTarget.startsWith("folder_")) {
+                                                val targetFolderId = if (dropTarget.startsWith("folder_header_")) {
+                                                    dropTarget.removePrefix("folder_header_")
+                                                } else {
+                                                    dropTarget.removePrefix("folder_")
+                                                }
+                                                vibration.tick()
+                                                onEvent(BrowserUiEvent.AddTabToFolder(tabId = tabId, folderId = targetFolderId))
+                                            }
+                                        }
+                                    } finally {
+                                        draggedTabId = null
+                                        hoveredKey = null
+                                    }
+                                }
+                            },
+                ) {
+                    items(
+                        items = overviewItems,
+                        key = { it.key },
+                        span = { item ->
+                            when (item) {
+                                is OverviewGridItem.FolderHeader -> GridItemSpan(3)
+                                else -> GridItemSpan(1)
+                            }
                         },
-                        onClose = {
-                            onEvent(BrowserUiEvent.CloseTab(tab.id))
+                    ) { item ->
+                        when (item) {
+                            is OverviewGridItem.TabCard -> {
+                                GridTabCard(
+                                    tab = item.tab,
+                                    isActive = item.tab.id == uiState.activeTabId,
+                                    isDark = isDark,
+                                    isHovered = hoveredKey == item.key,
+                                    onSelect = {
+                                        onEvent(BrowserUiEvent.SelectTab(item.tab.id))
+                                        onEvent(BrowserUiEvent.DismissOverlay)
+                                    },
+                                    onClose = {
+                                        onEvent(BrowserUiEvent.CloseTab(item.tab.id))
+                                    },
+                                )
+                            }
+                            is OverviewGridItem.FolderCard -> {
+                                FolderOverviewGridCard(
+                                    folder = item.folder,
+                                    tabs = item.tabs,
+                                    isDark = isDark,
+                                    isHovered = hoveredKey == item.key,
+                                    onClick = {
+                                        expandedFolderIds =
+                                            if (item.folder.id in expandedFolderIds) {
+                                                expandedFolderIds - item.folder.id
+                                            } else {
+                                                expandedFolderIds + item.folder.id
+                                            }
+                                    },
+                                    onLongClick = {
+                                        onEvent(BrowserUiEvent.OpenEditFolderSheet(item.folder.id))
+                                    },
+                                )
+                            }
+                            is OverviewGridItem.FolderHeader -> {
+                                FolderOverviewGridHeader(
+                                    folder = item.folder,
+                                    tabCount = item.tabs.size,
+                                    onClick = {
+                                        expandedFolderIds = expandedFolderIds - item.folder.id
+                                    },
+                                    onLongClick = {
+                                        onEvent(BrowserUiEvent.OpenEditFolderSheet(item.folder.id))
+                                    },
+                                )
+                            }
+                            is OverviewGridItem.FolderTabCard -> {
+                                GridTabCard(
+                                    tab = item.tab,
+                                    isActive = item.tab.id == uiState.activeTabId,
+                                    isDark = isDark,
+                                    isHovered = hoveredKey == item.key,
+                                    onSelect = {
+                                        onEvent(BrowserUiEvent.SelectTab(item.tab.id))
+                                        onEvent(BrowserUiEvent.DismissOverlay)
+                                    },
+                                    onClose = {
+                                        onEvent(BrowserUiEvent.CloseTab(item.tab.id))
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Floating Sticky Header Overlay
+                val stickyHeaderState by remember(uiState.folders, uiState.tabs, expandedFolderIds) {
+                    derivedStateOf {
+                        val folderTabsMap = uiState.tabs.filter { it.folderId != null }.groupBy { it.folderId!! }
+                        val headerHeightPx = with(density) { 44.dp.toPx() }
+                        val expandedFoldersInOrder =
+                            overviewItems
+                                .filterIsInstance<OverviewGridItem.FolderHeader>()
+                                .map { it.folder }
+                        computeStickyHeaderState(
+                            expandedFolders = expandedFoldersInOrder,
+                            folderMemberTabsMap = folderTabsMap,
+                            visibleItems = gridState.layoutInfo.visibleItemsInfo,
+                            headerHeightPx = headerHeightPx,
+                        )
+                    }
+                }
+
+                if (stickyHeaderState.visible && stickyHeaderState.folder != null) {
+                    val folder = stickyHeaderState.folder!!
+                    FolderOverviewGridHeader(
+                        folder = folder,
+                        tabCount = stickyHeaderState.tabCount,
+                        isSticky = true,
+                        onClick = {
+                            expandedFolderIds = expandedFolderIds - folder.id
                         },
+                        onLongClick = {
+                            onEvent(BrowserUiEvent.OpenEditFolderSheet(folder.id))
+                        },
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp)
+                                .padding(top = 8.dp)
+                                .offset { IntOffset(0, stickyHeaderState.translationY.roundToInt()) },
                     )
+                }
+
+                // Floating Visual Proxy during drag
+                if (draggedTabId != null) {
+                    val draggedTab = uiState.tabs.find { it.id == draggedTabId }
+                    if (draggedTab != null) {
+                        val proxyWidth = 100.dp
+                        val proxyHeight = 100.dp * 16 / 9
+                        val proxyWidthPx = with(density) { proxyWidth.toPx() }
+                        val proxyHeightPx = with(density) { proxyHeight.toPx() }
+
+                        Surface(
+                            shape = ProstoShapes.Card,
+                            color = if (isDark) DarkSurface else Color.White,
+                            border = BorderStroke(2.dp, ProstoBrandPrimary),
+                            shadowElevation = 12.dp,
+                            modifier =
+                                Modifier
+                                    .offset {
+                                        IntOffset(
+                                            x = (dragProxyPosition.x - proxyWidthPx / 2f).roundToInt(),
+                                            y = (dragProxyPosition.y - proxyHeightPx / 2f).roundToInt(),
+                                        )
+                                    }
+                                    .size(width = proxyWidth, height = proxyHeight)
+                                    .clip(ProstoShapes.Card)
+                                    .testTag("drag_proxy"),
+                        ) {
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Row(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .height(28.dp)
+                                            .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor)
+                                            .padding(horizontal = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                ) {
+                                    SiteFavicon(
+                                        faviconUrl = draggedTab.faviconUrl,
+                                        imageSize = 12.dp,
+                                        containerSize = 14.dp,
+                                        shape = CircleShape,
+                                        placeholder = {
+                                            Icon(
+                                                imageVector = Icons.Default.Public,
+                                                contentDescription = null,
+                                                tint = ProstoMutedSlate.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(12.dp),
+                                            )
+                                        },
+                                    )
+                                    Text(
+                                        text = draggedTab.title.ifEmpty { "Tab" },
+                                        style = LocalProstoTypography.current.labelMd.copy(fontSize = 10.sp),
+                                        color = if (isDark) DarkOnSurface else ProstoDarkText,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                                Box(
+                                    modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .weight(1f)
+                                            .background(if (isDark) DarkBackground else ProstoCanvasFloor),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    val file = draggedTab.snapshotPath?.let { File(it) }
+                                    if (file != null && file.exists()) {
+                                        AsyncImage(
+                                            model = file,
+                                            contentDescription = draggedTab.title,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize(),
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Default.Public,
+                                            contentDescription = null,
+                                            tint = ProstoMutedSlate.copy(alpha = 0.40f),
+                                            modifier = Modifier.size(24.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -431,10 +918,28 @@ fun TabOverviewGridLightPreview() {
                                 title = "Android Developers",
                                 isActive = false,
                             ),
-                            com.jestk.browser.domain.model
-                                .Tab(id = "3", url = "https://github.com", title = "GitHub", isActive = false),
-                            com.jestk.browser.domain.model
-                                .Tab(id = "4", url = "https://duckduckgo.com", title = "DuckDuckGo", isActive = false),
+                            com.jestk.browser.domain.model.Tab(
+                                id = "3",
+                                url = "https://github.com",
+                                title = "GitHub",
+                                isActive = false,
+                                folderId = "f1",
+                            ),
+                            com.jestk.browser.domain.model.Tab(
+                                id = "4",
+                                url = "https://duckduckgo.com",
+                                title = "DuckDuckGo",
+                                isActive = false,
+                                folderId = "f1",
+                            ),
+                        ),
+                    folders =
+                        listOf(
+                            com.jestk.browser.domain.model.TabFolder(
+                                id = "f1",
+                                title = "Dev",
+                                color = 0xFF8B5CF6.toInt(),
+                            ),
                         ),
                     activeTabId = "1",
                 ),
@@ -464,10 +969,28 @@ fun TabOverviewGridDarkPreview() {
                                 title = "Android Developers",
                                 isActive = false,
                             ),
-                            com.jestk.browser.domain.model
-                                .Tab(id = "3", url = "https://github.com", title = "GitHub", isActive = false),
-                            com.jestk.browser.domain.model
-                                .Tab(id = "4", url = "https://duckduckgo.com", title = "DuckDuckGo", isActive = false),
+                            com.jestk.browser.domain.model.Tab(
+                                id = "3",
+                                url = "https://github.com",
+                                title = "GitHub",
+                                isActive = false,
+                                folderId = "f1",
+                            ),
+                            com.jestk.browser.domain.model.Tab(
+                                id = "4",
+                                url = "https://duckduckgo.com",
+                                title = "DuckDuckGo",
+                                isActive = false,
+                                folderId = "f1",
+                            ),
+                        ),
+                    folders =
+                        listOf(
+                            com.jestk.browser.domain.model.TabFolder(
+                                id = "f1",
+                                title = "Dev",
+                                color = 0xFF8B5CF6.toInt(),
+                            ),
                         ),
                     activeTabId = "1",
                 ),

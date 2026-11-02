@@ -8,7 +8,8 @@ import androidx.room.PrimaryKey
     tableName = "tabs",
     indices = [
         Index(value = ["position"]),
-        Index(value = ["lastActiveTimestamp"])
+        Index(value = ["lastActiveTimestamp"]),
+        Index(value = ["folderId"])
     ]
 )
 data class TabEntity(
@@ -24,5 +25,6 @@ data class TabEntity(
     val isIncognito: Boolean = false,
     val isActive: Boolean = false,
     val canGoBack: Boolean = false,
-    val canGoForward: Boolean = false
+    val canGoForward: Boolean = false,
+    val folderId: String? = null
 )

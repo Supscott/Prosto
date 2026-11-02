@@ -76,11 +76,13 @@ import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
 import com.jestk.browser.ui.overlays.CleanVideoPlayerOverlay
 import com.jestk.browser.ui.overlays.FeedbackBottomSheet
+import com.jestk.browser.ui.overlays.FolderEditBottomSheet
 import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
@@ -937,6 +939,21 @@ fun JestkApp(
                     onFeedbackSubmitted = {
                         viewModel.onEvent(BrowserUiEvent.DismissFeedbackPrompt)
                         viewModel.onEvent(BrowserUiEvent.CloseFeedbackSheet)
+                    },
+                )
+            }
+
+            // Folder Edit Bottom Sheet Modal
+            if (uiState.isFolderSheetVisible) {
+                val editingFolder = uiState.folderSheetEditingFolderId?.let { id -> uiState.getFolder(id) }
+                FolderEditBottomSheet(
+                    isDark = isDark,
+                    initialTitle = editingFolder?.title ?: "",
+                    initialColor = editingFolder?.color ?: TabFolder.PALETTE.first(),
+                    isEditing = editingFolder != null,
+                    onDismiss = { viewModel.onEvent(BrowserUiEvent.DismissFolderSheet) },
+                    onSave = { title, color ->
+                        viewModel.onEvent(BrowserUiEvent.SaveFolder(title = title, color = color))
                     },
                 )
             }
