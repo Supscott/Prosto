@@ -27,16 +27,18 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -56,6 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -285,19 +288,26 @@ fun ActiveTabPill(
                     }
                 }
 
-                // Close Tab Action Glyph
-                CompositionLocalProvider(LocalMinimumInteractiveComponentSize provides Dp.Unspecified) {
-                    IconButton(
-                        onClick = onClose,
-                        modifier = Modifier.size(22.dp),
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Close,
-                            contentDescription = "Close tab",
-                            tint = closeTint,
-                            modifier = Modifier.size(13.dp),
-                        )
-                    }
+                // Close Tab Action Glyph (exact 22.dp without Material3 48.dp padding overhead)
+                Box(
+                    modifier =
+                        Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .clickable(
+                                onClick = onClose,
+                                role = Role.Button,
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = ripple(bounded = true, radius = 11.dp),
+                            ),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close tab",
+                        tint = closeTint,
+                        modifier = Modifier.size(13.dp),
+                    )
                 }
                 }
             }
@@ -385,7 +395,7 @@ private fun FadingSingleLineText(
     style: TextStyle,
     color: Color,
     modifier: Modifier = Modifier,
-    fadeWidth: Dp = 20.dp,
+    fadeWidth: Dp = 24.dp,
 ) {
     var overflows by remember(text) { mutableStateOf(false) }
 
@@ -393,9 +403,13 @@ private fun FadingSingleLineText(
         text = text,
         style = style.copy(color = color),
         maxLines = 1,
+        softWrap = false,
         overflow = TextOverflow.Clip,
         onTextLayout = { layoutResult ->
-            overflows = layoutResult.hasVisualOverflow
+            overflows =
+                layoutResult.multiParagraph.maxIntrinsicWidth > layoutResult.size.width ||
+                layoutResult.didOverflowWidth ||
+                layoutResult.hasVisualOverflow
         },
         modifier =
             modifier.then(
@@ -404,20 +418,22 @@ private fun FadingSingleLineText(
                         .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
                         .drawWithContent {
                             drawContent()
-                            val fadePx = fadeWidth.toPx()
-                            val startX = (size.width - fadePx).coerceAtLeast(0f)
-                            drawRect(
-                                brush =
-                                    Brush.horizontalGradient(
-                                        0f to Color.Black,
-                                        1f to Color.Transparent,
-                                        startX = startX,
-                                        endX = size.width,
-                                    ),
-                                topLeft = Offset(startX, 0f),
-                                size = Size(size.width - startX, size.height),
-                                blendMode = BlendMode.DstIn,
-                            )
+                            if (size.width > 0f) {
+                                val fadePx = fadeWidth.toPx()
+                                val startX = (size.width - fadePx).coerceAtLeast(0f)
+                                val stopFraction = (startX / size.width).coerceIn(0f, 1f)
+                                drawRect(
+                                    brush =
+                                        Brush.horizontalGradient(
+                                            0f to Color.Black,
+                                            stopFraction to Color.Black,
+                                            1f to Color.Transparent,
+                                            startX = 0f,
+                                            endX = size.width,
+                                        ),
+                                    blendMode = BlendMode.DstIn,
+                                )
+                            }
                         }
                 } else {
                     Modifier
