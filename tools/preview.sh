@@ -10,5 +10,5 @@ TARGET="${1:-BottomBarPreviewTest}"
 echo "==> Rendering previews for target: $TARGET"
 ./gradlew testDebugUnitTest --tests "*$TARGET*" --rerun
 
-echo "==> Rendered preview images:"
-ls -lh build/*preview*.png 2>/dev/null || true
+echo "==> Rendered preview images in app/build/:"
+ls -lh app/build/*preview*.png 2>/dev/null || true
