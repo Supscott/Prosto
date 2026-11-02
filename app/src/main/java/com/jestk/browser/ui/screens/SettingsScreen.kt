@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Shield
@@ -542,6 +543,21 @@ fun SettingsContent(
                 summary = stringResource(R.string.tracking_protection_summary),
                 checked = uiState.settings.isTrackingProtectionEnabled,
                 onCheckedChange = { onEvent(BrowserUiEvent.SetTrackingProtectionEnabled(it)) },
+                isDark = isDark,
+            )
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 56.dp),
+            )
+
+            // Clean YouTube Player Row
+            SettingToggleRow(
+                icon = Icons.Default.PlayArrow,
+                title = stringResource(R.string.clean_player_setting_title),
+                summary = stringResource(R.string.clean_player_setting_summary),
+                checked = uiState.settings.isCleanYouTubePlayerEnabled,
+                onCheckedChange = { onEvent(BrowserUiEvent.SetCleanYouTubePlayerEnabled(it)) },
                 isDark = isDark,
             )
         }

@@ -44,6 +44,9 @@ class AdBlockerScriptTest {
     @Test
     fun buildSurrogateScript_declaresAdSenseGptAndYandexStubs() {
         val js = AdBlockerScript.buildSurrogateScript()
+        // Google Ad Status
+        assertThat(js).contains("window.google_ad_status = 1")
+
         // AdSense
         assertThat(js).contains("window.adsbygoogle = window.adsbygoogle || []")
         assertThat(js).contains("window.adsbygoogle.loaded = true")
@@ -104,6 +107,12 @@ class AdBlockerScriptTest {
         assertThat(js).contains("youtube.com")
         assertThat(js).contains("youtu.be")
 
+        // Clean YouTube Player interception hooks
+        assertThat(js).contains("tryCleanPlayer")
+        assertThat(js).contains("openCleanPlayer")
+        assertThat(js).contains("origPushState = history.pushState")
+        assertThat(js).contains("origReplaceState = history.replaceState")
+
         // JSON pruner properties
         assertThat(js).contains("adPlacements")
         assertThat(js).contains("playerAds")
@@ -113,6 +122,7 @@ class AdBlockerScriptTest {
         // Cold load interception hooks
         assertThat(js).contains("Object.defineProperty(window, 'ytInitialPlayerResponse'")
         assertThat(js).contains("Object.defineProperty(window, 'ytInitialData'")
+        assertThat(js).contains("Object.defineProperty(window, 'ytplayer'")
         assertThat(js).contains("origParse = JSON.parse")
         assertThat(js).contains("Response.prototype.json")
 
@@ -123,13 +133,23 @@ class AdBlockerScriptTest {
         assertThat(js).contains("v.playbackRate = 16.0")
         assertThat(js).contains("v.currentTime = v.duration")
 
-        // isInlinePlaybackNoAd anti-throttling & SABR backoff rewriting
+        // isInlinePlaybackNoAd anti-throttling & XHR / fetch / text interception
         assertThat(js).contains("isInlinePlaybackNoAd")
         assertThat(js).contains("contentPlaybackContext")
-        assertThat(js).contains("patchBackoffField")
-        assertThat(js).contains("pass.cancel()")
-        assertThat(js).contains("forceFreshSession")
-        assertThat(js).contains("sabr=1")
-        assertThat(js).contains(".player-container")
+        assertThat(js).contains("Response.prototype.text")
+        assertThat(js).contains("XMLHttpRequest.prototype")
+        assertThat(js).contains("pruneRawText")
+
+        // Recursive array pruning in pruneAdProps
+        assertThat(js).contains("Array.isArray(obj)")
+
+        // Player watchdog and responsive interval
+        assertThat(js).contains("movie_player")
+        assertThat(js).contains("getPlayerState")
+        assertThat(js).contains("setInterval(checkWatchPlayback, 300)")
+
+        // Selective setTimeout clamping
+        assertThat(js).contains("origSetTimeout")
+        assertThat(js).contains("isAdWatchdog")
     }
 }

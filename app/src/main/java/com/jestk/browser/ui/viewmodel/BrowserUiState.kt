@@ -77,6 +77,9 @@ data class BrowserUiState(
     val isSearchEngineSwitcherEditExpanded: Boolean = false,
     val blockedAdsCount: Long = 0L,
     val blockedTrackersCount: Long = 0L,
+    val cleanPlayerVideoId: String? = null,
+    val cleanPlayerOriginalUrl: String? = null,
+    val cleanPlayerStartSeconds: Int = 0,
     val insecureHttpPrompt: InsecureHttpPrompt? = null,
     val allowedInsecureHosts: Set<String> = emptySet(),
 ) {

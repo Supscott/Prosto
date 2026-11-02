@@ -221,6 +221,10 @@ sealed interface BrowserUiEvent {
         val enabled: Boolean,
     ) : BrowserUiEvent
 
+    data class SetCleanYouTubePlayerEnabled(
+        val enabled: Boolean,
+    ) : BrowserUiEvent
+
     data class SetTrackingProtectionEnabled(
         val enabled: Boolean,
     ) : BrowserUiEvent
@@ -314,6 +318,19 @@ sealed interface BrowserUiEvent {
     ) : BrowserUiEvent
 
     data object ExitFullscreen : BrowserUiEvent
+
+    // Clean YouTube Player
+    data class OpenCleanPlayer(
+        val videoId: String,
+        val originalUrl: String,
+        val startSeconds: Int = 0,
+    ) : BrowserUiEvent
+
+    data object CloseCleanPlayer : BrowserUiEvent
+
+    data class OpenCleanPlayerOnWeb(
+        val url: String,
+    ) : BrowserUiEvent
 
     // System Back Handling
     data object HandleBackPress : BrowserUiEvent

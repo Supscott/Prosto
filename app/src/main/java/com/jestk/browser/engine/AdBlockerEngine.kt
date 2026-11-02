@@ -580,6 +580,23 @@ object AdBlockerEngine {
                 ?: requestHeaders?.get("accept")?.lowercase()
                 ?: ""
 
+        val requestingOrigin = requestHeaders?.entries
+            ?.firstOrNull { it.key.equals("Origin", ignoreCase = true) }?.value
+            ?: requestHeaders?.entries
+                ?.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value
+                ?.let { runCatching { android.net.Uri.parse(it) }.getOrNull() }
+                ?.let { if (it.scheme != null && it.host != null) "${it.scheme}://${it.host}" else null }
+            ?: if (cleanUrl.contains("youtube.com") || cleanUrl.contains("doubleclick.net") || cleanUrl.contains("google")) "https://m.youtube.com" else "*"
+
+        val corsHeaders = buildMap<String, String> {
+            put("Access-Control-Allow-Origin", requestingOrigin)
+            if (requestingOrigin != "*") {
+                put("Access-Control-Allow-Credentials", "true")
+            }
+            put("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD")
+            put("Access-Control-Allow-Headers", "*")
+        }
+
         val isImage =
             mimeTypeHint?.startsWith("image/") == true ||
                 acceptHeader.contains("image/") ||
@@ -594,7 +611,7 @@ object AdBlockerEngine {
                 null,
                 200,
                 "OK",
-                mapOf("Access-Control-Allow-Origin" to "*"),
+                corsHeaders,
                 ByteArrayInputStream(TRANSPARENT_1X1_PNG),
             )
         }
@@ -610,11 +627,16 @@ object AdBlockerEngine {
                 cleanUrl.contains("header-bidding") ||
                 cleanUrl.contains("ads-async.js") ||
                 cleanUrl.contains("sdk.standalone.js") ||
-                cleanUrl.contains("adfox")
+                cleanUrl.contains("adfox") ||
+                cleanUrl.contains("ad_status")
 
         if (isScript) {
             val stubContent =
                 when {
+                    cleanUrl.contains("ad_status") -> {
+                        "window.google_ad_status = 1;"
+                    }
+
                     cleanUrl.contains("adsbygoogle") -> {
                         "window.adsbygoogle = window.adsbygoogle || []; window.adsbygoogle.loaded = true; window.adsbygoogle.push = function(o){return 0;};"
                     }
@@ -640,7 +662,7 @@ object AdBlockerEngine {
                 "UTF-8",
                 200,
                 "OK",
-                mapOf("Access-Control-Allow-Origin" to "*"),
+                corsHeaders,
                 ByteArrayInputStream(stubContent.toByteArray(Charsets.UTF_8)),
             )
         }
@@ -657,7 +679,7 @@ object AdBlockerEngine {
                 "UTF-8",
                 204,
                 "No Content",
-                mapOf("Access-Control-Allow-Origin" to "*"),
+                corsHeaders,
                 ByteArrayInputStream(ByteArray(0)),
             )
         }
@@ -667,7 +689,7 @@ object AdBlockerEngine {
                 acceptHeader.contains("application/json") ||
                 cleanUrl.endsWith(".json") ||
                 cleanUrl.contains(".json?") ||
-                cleanUrl.contains("/pagead/id") ||
+                cleanUrl.contains("pagead/id") ||
                 cleanUrl.contains("/player/ad_break") ||
                 cleanUrl.contains("/get_midroll") ||
                 cleanUrl.contains("/ad_break")
@@ -678,7 +700,7 @@ object AdBlockerEngine {
                 "UTF-8",
                 200,
                 "OK",
-                mapOf("Access-Control-Allow-Origin" to "*"),
+                corsHeaders,
                 ByteArrayInputStream("{}".toByteArray(Charsets.UTF_8)),
             )
         }
@@ -693,7 +715,7 @@ object AdBlockerEngine {
                 "UTF-8",
                 200,
                 "OK",
-                mapOf("Access-Control-Allow-Origin" to "*"),
+                corsHeaders,
                 ByteArrayInputStream("<!DOCTYPE html><html><body></body></html>".toByteArray(Charsets.UTF_8)),
             )
         }

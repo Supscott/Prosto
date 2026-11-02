@@ -79,6 +79,7 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
 import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
+import com.jestk.browser.ui.overlays.CleanVideoPlayerOverlay
 import com.jestk.browser.ui.overlays.FeedbackBottomSheet
 import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
@@ -108,6 +109,7 @@ import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.viewmodel.isSameDomain
 import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
+import com.jestk.browser.util.YouTubeUrlHelper
 import com.jestk.browser.util.findActivity
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -144,6 +146,22 @@ fun JestkApp(
     LaunchedEffect(webViewPool, viewModel) {
         webViewPool.onDownloadStarted = { item ->
             viewModel.onDownloadStarted(item)
+        }
+        webViewPool.isAdBlockerEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled }
+        webViewPool.isCleanPlayerEnabled = { viewModel.uiState.value.settings.isCleanYouTubePlayerEnabled }
+        webViewPool.onCleanPlayerRequested = { url ->
+            if (viewModel.shouldInterceptForCleanPlayer(url)) {
+                val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
+                if (videoId != null) {
+                    val startSeconds = com.jestk.browser.util.YouTubeUrlHelper.extractStartTimeSeconds(url)
+                    viewModel.onEvent(BrowserUiEvent.OpenCleanPlayer(videoId, url, startSeconds))
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
         }
         webViewPool.onWebViewCreated = { tabId, wv ->
             if (wv.webChromeClient == null) {
@@ -189,6 +207,21 @@ fun JestkApp(
                     },
                     isInsecureHostAllowed = { host ->
                         viewModel.isInsecureHostAllowed(host)
+                    },
+                    isCleanPlayerEnabled = { viewModel.uiState.value.settings.isCleanYouTubePlayerEnabled },
+                    onCleanPlayerRequested = { url ->
+                        if (viewModel.shouldInterceptForCleanPlayer(url)) {
+                            val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
+                            if (videoId != null) {
+                                val startSeconds = com.jestk.browser.util.YouTubeUrlHelper.extractStartTimeSeconds(url)
+                                viewModel.onEvent(BrowserUiEvent.OpenCleanPlayer(videoId, url, startSeconds))
+                                true
+                            } else {
+                                false
+                            }
+                        } else {
+                            false
+                        }
                     }
                 )
                 wv.webChromeClient = JestkWebChromeClient(
@@ -554,6 +587,18 @@ fun JestkApp(
                 DownloadsScreen(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+
+            val cleanVideoId = uiState.cleanPlayerVideoId
+            if (cleanVideoId != null) {
+                CleanVideoPlayerOverlay(
+                    videoId = cleanVideoId,
+                    originalUrl = uiState.cleanPlayerOriginalUrl ?: YouTubeUrlHelper.buildOriginalWatchUrl(cleanVideoId),
+                    startSeconds = uiState.cleanPlayerStartSeconds,
+                    onClose = { viewModel.onEvent(BrowserUiEvent.CloseCleanPlayer) },
+                    onOpenOnWeb = { url -> viewModel.onEvent(BrowserUiEvent.OpenCleanPlayerOnWeb(url)) },
                     modifier = Modifier.fillMaxSize(),
                 )
             }

@@ -543,4 +543,35 @@ class JestkWebViewClientTest {
 
         assertThat(gestures).containsExactly(false)
     }
+
+    @Test
+    fun shouldOverrideUrlLoading_interceptsYouTubeCleanPlayer_whenEnabled() {
+        var requestedCleanPlayerUrl: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            isCleanPlayerEnabled = { true },
+            onCleanPlayerRequested = { url ->
+                requestedCleanPlayerUrl = url
+                true
+            }
+        )
+
+        val request = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = true
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        val intercepted = client.shouldOverrideUrlLoading(null, request)
+        assertThat(intercepted).isTrue()
+        assertThat(requestedCleanPlayerUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
+    }
 }

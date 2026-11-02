@@ -298,6 +298,17 @@ fun WebViewContainer(
                     },
                     isInsecureHostAllowed = { host ->
                         currentUiState.allowedInsecureHosts.contains(host.lowercase().trim())
+                    },
+                    isCleanPlayerEnabled = { currentUiState.settings.isCleanYouTubePlayerEnabled },
+                    onCleanPlayerRequested = { url ->
+                        val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
+                        if (videoId != null) {
+                            val startSeconds = com.jestk.browser.util.YouTubeUrlHelper.extractStartTimeSeconds(url)
+                            currentOnEvent(BrowserUiEvent.OpenCleanPlayer(videoId, url, startSeconds))
+                            true
+                        } else {
+                            false
+                        }
                     }
                 )
 
@@ -393,6 +404,7 @@ fun WebViewContainer(
             AndroidView<SwipeRefreshLayout>(
                 factory = { ctx ->
                     webViewPool.isAdBlockerEnabled = { currentUiState.settings.isAdBlockerEnabled }
+                    webViewPool.isCleanPlayerEnabled = { currentUiState.settings.isCleanYouTubePlayerEnabled }
                     val act = ctx.findActivity() ?: ctx
                     val initialVisibility = if (isHome) View.INVISIBLE else View.VISIBLE
                     val tabsContainer = FrameLayout(ctx).apply {
@@ -474,6 +486,7 @@ fun WebViewContainer(
                 },
                 update = { swipeRefresh ->
                     webViewPool.isAdBlockerEnabled = { uiState.settings.isAdBlockerEnabled }
+                    webViewPool.isCleanPlayerEnabled = { uiState.settings.isCleanYouTubePlayerEnabled }
                     val isBlocked = uiState.isVideoPlaying ||
                             uiState.isFullscreenCustomView ||
                             uiState.fullscreenCustomView != null

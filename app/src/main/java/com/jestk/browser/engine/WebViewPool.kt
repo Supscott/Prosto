@@ -54,13 +54,28 @@ class WebViewPool(
 
     var onDownloadStarted: ((DownloadItem) -> Unit)? = null
     var isAdBlockerEnabled: (() -> Boolean)? = null
+    var isCleanPlayerEnabled: (() -> Boolean)? = null
+    var onCleanPlayerRequested: ((url: String) -> Boolean)? = null
     var onWebViewCreated: ((tabId: String, webView: WebView) -> Unit)? = null
 
     class AdBlockBridge(
-        private val isEnabledProvider: () -> Boolean
+        private val isEnabledProvider: () -> Boolean,
+        private val onCleanPlayerRequested: ((url: String) -> Boolean)? = null,
+        private val isCleanPlayerEnabledProvider: (() -> Boolean)? = null,
     ) {
+        constructor(isEnabledProvider: () -> Boolean) : this(isEnabledProvider, null, null)
+
         @JavascriptInterface
         fun isEnabled(): Boolean = isEnabledProvider()
+
+        @JavascriptInterface
+        fun isCleanPlayerEnabled(): Boolean = isCleanPlayerEnabledProvider?.invoke() ?: false
+
+        @JavascriptInterface
+        fun openCleanPlayer(url: String): Boolean {
+            if (isCleanPlayerEnabledProvider?.invoke() != true) return false
+            return onCleanPlayerRequested?.invoke(url) ?: false
+        }
     }
 
     class BlobDownloadBridge(
@@ -341,7 +356,11 @@ class WebViewPool(
 
     private fun setupAdBlocker(webView: WebView) {
         try {
-            val bridge = AdBlockBridge { isAdBlockerEnabled?.invoke() ?: true }
+            val bridge = AdBlockBridge(
+                isEnabledProvider = { isAdBlockerEnabled?.invoke() ?: true },
+                onCleanPlayerRequested = { url -> onCleanPlayerRequested?.invoke(url) ?: false },
+                isCleanPlayerEnabledProvider = { isCleanPlayerEnabled?.invoke() ?: true },
+            )
             webView.addJavascriptInterface(bridge, "HoriAdBlockBridge")
         } catch (t: Throwable) {
             Log.w(TAG, "Failed to add HoriAdBlockBridge interface", t)

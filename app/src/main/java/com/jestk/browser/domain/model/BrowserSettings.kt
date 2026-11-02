@@ -4,6 +4,7 @@ data class BrowserSettings(
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
     val searchEngine: SearchEngine = SearchEngine.DUCKDUCKGO,
     val isAdBlockerEnabled: Boolean = true,
+    val isCleanYouTubePlayerEnabled: Boolean = true,
     val isTrackingProtectionEnabled: Boolean = true,
     val hiddenSearchPageEngineIds: Set<String> = emptySet(),
     val isOpenInAppsEnabled: Boolean = true,

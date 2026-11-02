@@ -74,6 +74,12 @@
     <string name="ad_blocker_summary">Блокирует баннеры и всплывающие окна</string>
     <string name="tracking_protection_title">Защита от отслеживания</string>
     <string name="tracking_protection_summary">Предотвращает межсайтовое отслеживание</string>
+    <string name="clean_player_title">Чистый плеер</string>
+    <string name="clean_player_subtitle">Просмотр без рекламы и задержек</string>
+    <string name="clean_player_close">Закрыть плеер</string>
+    <string name="clean_player_open_on_site">Открыть на YouTube</string>
+    <string name="clean_player_setting_title">Чистый плеер YouTube</string>
+    <string name="clean_player_setting_summary">Воспроизводить видео YouTube в чистом плеере без рекламы и ожидания</string>
     <string name="privacy_status_protected">Защищено</string>
     <string name="about_app_website_title">Браузер Prosto</string>
     <string name="about_app_website_summary">Быстрый, плавный и управляемый жестами</string>

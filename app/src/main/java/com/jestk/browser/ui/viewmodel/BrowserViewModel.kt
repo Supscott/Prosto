@@ -24,6 +24,7 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.download.HoriDownloadManager
 import com.jestk.browser.engine.update.AppUpdateManager
 import com.jestk.browser.util.UrlSecurityUtils
+import com.jestk.browser.util.YouTubeUrlHelper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -142,6 +143,19 @@ class BrowserViewModel(
     override fun onCleared() {
         super.onCleared()
         webViewPool?.onDownloadStarted = null
+    }
+
+    var bypassCleanPlayerVideoId: String? = null
+
+    fun shouldInterceptForCleanPlayer(url: String?): Boolean {
+        if (url.isNullOrBlank()) return false
+        if (!_uiState.value.settings.isCleanYouTubePlayerEnabled) return false
+        val videoId = YouTubeUrlHelper.extractVideoId(url) ?: return false
+        if (videoId == bypassCleanPlayerVideoId) {
+            bypassCleanPlayerVideoId = null
+            return false
+        }
+        return true
     }
 
     private fun calculateFeedbackCardVisible(settings: com.jestk.browser.domain.model.BrowserSettings): Boolean {
@@ -578,6 +592,13 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.SetCleanYouTubePlayerEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(isCleanYouTubePlayerEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setCleanYouTubePlayerEnabled(event.enabled)
+                }
+            }
+
             is BrowserUiEvent.SetTrackingProtectionEnabled -> {
                 _uiState.update { it.copy(settings = it.settings.copy(isTrackingProtectionEnabled = event.enabled)) }
                 viewModelScope.launch(ioDispatcher) {
@@ -796,6 +817,39 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.OpenCleanPlayer -> {
+                _uiState.update {
+                    it.copy(
+                        cleanPlayerVideoId = event.videoId,
+                        cleanPlayerOriginalUrl = event.originalUrl,
+                        cleanPlayerStartSeconds = event.startSeconds,
+                    )
+                }
+            }
+
+            is BrowserUiEvent.CloseCleanPlayer -> {
+                _uiState.update {
+                    it.copy(
+                        cleanPlayerVideoId = null,
+                        cleanPlayerOriginalUrl = null,
+                        cleanPlayerStartSeconds = 0,
+                    )
+                }
+            }
+
+            is BrowserUiEvent.OpenCleanPlayerOnWeb -> {
+                val videoId = YouTubeUrlHelper.extractVideoId(event.url)
+                bypassCleanPlayerVideoId = videoId
+                _uiState.update {
+                    it.copy(
+                        cleanPlayerVideoId = null,
+                        cleanPlayerOriginalUrl = null,
+                        cleanPlayerStartSeconds = 0,
+                    )
+                }
+                onEvent(BrowserUiEvent.LoadUrl(event.url))
+            }
+
             is BrowserUiEvent.HandleBackPress -> {
                 handleBackNavigation()
             }
@@ -1010,6 +1064,15 @@ class BrowserViewModel(
             return
         }
 
+        if (shouldInterceptForCleanPlayer(finalUrl)) {
+            val videoId = YouTubeUrlHelper.extractVideoId(finalUrl)
+            if (videoId != null) {
+                val startSeconds = YouTubeUrlHelper.extractStartTimeSeconds(finalUrl)
+                onEvent(BrowserUiEvent.OpenCleanPlayer(videoId, finalUrl, startSeconds))
+                return
+            }
+        }
+
         tabCoordinator.navigateToUrl(finalUrl, matchedShortcutEngine)
     }
 
@@ -1068,6 +1131,10 @@ class BrowserViewModel(
 
     private fun handleBackNavigation() {
         val current = _uiState.value
+        if (current.cleanPlayerVideoId != null) {
+            onEvent(BrowserUiEvent.CloseCleanPlayer)
+            return
+        }
         if (current.isFeedbackSheetVisible) {
             onEvent(BrowserUiEvent.CloseFeedbackSheet)
             return

@@ -377,4 +377,22 @@ class WebViewPoolRobolectricTest {
         flag = false
         assertThat(bridge.isEnabled()).isFalse()
     }
+
+    @Test
+    fun adBlockBridge_openCleanPlayer_delegatesToHandler() {
+        var requestedUrl: String? = null
+        val bridge = WebViewPool.AdBlockBridge(
+            isEnabledProvider = { true },
+            onCleanPlayerRequested = { url ->
+                requestedUrl = url
+                true
+            },
+            isCleanPlayerEnabledProvider = { true }
+        )
+
+        assertThat(bridge.isCleanPlayerEnabled()).isTrue()
+        val result = bridge.openCleanPlayer("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
+        assertThat(result).isTrue()
+        assertThat(requestedUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
+    }
 }

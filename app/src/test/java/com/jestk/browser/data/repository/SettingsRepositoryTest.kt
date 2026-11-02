@@ -74,6 +74,16 @@ class SettingsRepositoryTest {
         }
 
     @Test
+    fun setCleanYouTubePlayerEnabled_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setCleanYouTubePlayerEnabled(false)
+
+            val settings = repository.getSettings().first()
+            assertThat(settings.isCleanYouTubePlayerEnabled).isFalse()
+            assertThat(repository.getCurrentSettings().isCleanYouTubePlayerEnabled).isFalse()
+        }
+
+    @Test
     fun getBlockedCounts_returnsZeroInitially() =
         runTest(testDispatcher) {
             val adsCount = repository.getBlockedAdsCount().first()

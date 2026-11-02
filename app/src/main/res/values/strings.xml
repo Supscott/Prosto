@@ -74,6 +74,12 @@
     <string name="ad_blocker_summary">Eliminates banners and popups</string>
     <string name="tracking_protection_title">Tracking Protection</string>
     <string name="tracking_protection_summary">Prevents cross-site tracking</string>
+    <string name="clean_player_title">Clean Player</string>
+    <string name="clean_player_subtitle">Distraction-free &amp; ad-free playback</string>
+    <string name="clean_player_close">Close player</string>
+    <string name="clean_player_open_on_site">Open on YouTube</string>
+    <string name="clean_player_setting_title">Clean YouTube Player</string>
+    <string name="clean_player_setting_summary">Watch YouTube videos in a distraction-free player without ads or buffering</string>
     <string name="privacy_status_protected">Protected</string>
     <string name="about_app_website_title">Prosto Web Browser</string>
     <string name="about_app_website_summary">Fast, fluid, and gesture-driven</string>

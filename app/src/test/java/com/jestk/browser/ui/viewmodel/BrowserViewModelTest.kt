@@ -2341,6 +2341,75 @@ class BrowserViewModelTest {
 
             assertThat(viewModel.uiState.value.isSearchEngineSwitcherEditExpanded).isFalse()
         }
+
+    @Test
+    fun cleanPlayer_openAndClose_updatesUiState() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenCleanPlayer("dQw4w9WgXcQ", "https://m.youtube.com/watch?v=dQw4w9WgXcQ", 42))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.cleanPlayerVideoId).isEqualTo("dQw4w9WgXcQ")
+            assertThat(viewModel.uiState.value.cleanPlayerOriginalUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
+            assertThat(viewModel.uiState.value.cleanPlayerStartSeconds).isEqualTo(42)
+
+            viewModel.onEvent(BrowserUiEvent.CloseCleanPlayer)
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.cleanPlayerVideoId).isNull()
+            assertThat(viewModel.uiState.value.cleanPlayerOriginalUrl).isNull()
+            assertThat(viewModel.uiState.value.cleanPlayerStartSeconds).isEqualTo(0)
+        }
+
+    @Test
+    fun cleanPlayer_openOnWeb_setsBypassAndLoadsUrl() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenCleanPlayer("dQw4w9WgXcQ", "https://m.youtube.com/watch?v=dQw4w9WgXcQ", 0))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenCleanPlayerOnWeb("https://m.youtube.com/watch?v=dQw4w9WgXcQ"))
+            advanceUntilIdle()
+
+            // Overlay closed and not re-intercepted by the loadUrl call
+            assertThat(viewModel.uiState.value.cleanPlayerVideoId).isNull()
+            // Active tab navigated to the requested YouTube URL
+            assertThat(viewModel.uiState.value.currentUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
+            // Subsequent other video URLs will be intercepted as normal
+            assertThat(viewModel.shouldInterceptForCleanPlayer("https://m.youtube.com/watch?v=12345678901")).isTrue()
+        }
+
+    @Test
+    fun cleanPlayer_loadUrl_interceptsYouTubeVideoWhenEnabled() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=30s"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.cleanPlayerVideoId).isEqualTo("dQw4w9WgXcQ")
+            assertThat(viewModel.uiState.value.cleanPlayerStartSeconds).isEqualTo(30)
+        }
+
+    @Test
+    fun cleanPlayer_handleBackPress_closesCleanPlayerFirst() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.OpenCleanPlayer("dQw4w9WgXcQ", "https://m.youtube.com/watch?v=dQw4w9WgXcQ", 0))
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.HandleBackPress)
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.cleanPlayerVideoId).isNull()
+        }
 }
 
 

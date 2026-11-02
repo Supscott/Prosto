@@ -297,6 +297,12 @@ class AdBlockerEngineTest {
         assertThat(x5Js.mimeType).isEqualTo("application/javascript")
         val x5Body = String(x5Js.data.readBytes())
         assertThat(x5Body).contains("window.x5media")
+
+        // DoubleClick / YouTube ad_status probe
+        val adStatusJs = AdBlockerEngine.createSmartBlockedResponse("https://static.doubleclick.net/instream/ad_status.js")
+        assertThat(adStatusJs.mimeType).isEqualTo("application/javascript")
+        val adStatusBody = String(adStatusJs.data.readBytes())
+        assertThat(adStatusBody).isEqualTo("window.google_ad_status = 1;")
     }
 
     @Test
@@ -323,20 +329,29 @@ class AdBlockerEngineTest {
         assertThat(pageadResp.mimeType).isEqualTo("application/json")
         assertThat(pageadResp.statusCode).isEqualTo(200)
         assertThat(String(pageadResp.data.readBytes())).isEqualTo("{}")
+        assertThat(pageadResp.responseHeaders["Access-Control-Allow-Origin"]).isEqualTo("https://m.youtube.com")
+        assertThat(pageadResp.responseHeaders["Access-Control-Allow-Credentials"]).isEqualTo("true")
 
         val adBreakResp = AdBlockerEngine.createSmartBlockedResponse("https://youtube.com/youtubei/v1/player/ad_break")
         assertThat(adBreakResp.mimeType).isEqualTo("application/json")
         assertThat(adBreakResp.statusCode).isEqualTo(200)
         assertThat(String(adBreakResp.data.readBytes())).isEqualTo("{}")
+        assertThat(adBreakResp.responseHeaders["Access-Control-Allow-Origin"]).isEqualTo("https://m.youtube.com")
+        assertThat(adBreakResp.responseHeaders["Access-Control-Allow-Credentials"]).isEqualTo("true")
 
-        // Accept: application/json header
+        // Accept: application/json header with custom Origin
         val acceptJsonResp = AdBlockerEngine.createSmartBlockedResponse(
             "https://example.com/ad-data",
-            requestHeaders = mapOf("Accept" to "application/json, text/plain, */*")
+            requestHeaders = mapOf(
+                "Accept" to "application/json, text/plain, */*",
+                "Origin" to "https://sub.example.com"
+            )
         )
         assertThat(acceptJsonResp.mimeType).isEqualTo("application/json")
         assertThat(acceptJsonResp.statusCode).isEqualTo(200)
         assertThat(String(acceptJsonResp.data.readBytes())).isEqualTo("{}")
+        assertThat(acceptJsonResp.responseHeaders["Access-Control-Allow-Origin"]).isEqualTo("https://sub.example.com")
+        assertThat(acceptJsonResp.responseHeaders["Access-Control-Allow-Credentials"]).isEqualTo("true")
     }
 
     @Test

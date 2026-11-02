@@ -30,6 +30,7 @@ class SettingsRepositoryImpl(
             val themeStr = settingDao.getSetting(SettingKeys.THEME_MODE)
             val searchStr = settingDao.getSetting(SettingKeys.SEARCH_ENGINE)
             val adBlockerStr = settingDao.getSetting(SettingKeys.AD_BLOCKER_ENABLED)
+            val cleanPlayerStr = settingDao.getSetting(SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED)
             val trackingProtectionStr = settingDao.getSetting(SettingKeys.TRACKING_PROTECTION_ENABLED)
             val hiddenStr = settingDao.getSetting(SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES)
             val openInAppsStr = settingDao.getSetting(SettingKeys.OPEN_IN_APPS_ENABLED)
@@ -44,6 +45,7 @@ class SettingsRepositoryImpl(
             val search =
                 searchStr?.let { runCatching { SearchEngine.valueOf(it) }.getOrDefault(SearchEngine.DUCKDUCKGO) } ?: SearchEngine.DUCKDUCKGO
             val adBlocker = adBlockerStr?.toBooleanStrictOrNull() ?: true
+            val cleanPlayer = cleanPlayerStr?.toBooleanStrictOrNull() ?: true
             val trackingProtection = trackingProtectionStr?.toBooleanStrictOrNull() ?: true
             val openInApps = openInAppsStr?.toBooleanStrictOrNull() ?: true
             val autoUpdate = autoUpdateStr?.toBooleanStrictOrNull() ?: true
@@ -68,6 +70,7 @@ class SettingsRepositoryImpl(
                 themeMode = theme,
                 searchEngine = search,
                 isAdBlockerEnabled = adBlocker,
+                isCleanYouTubePlayerEnabled = cleanPlayer,
                 isTrackingProtectionEnabled = trackingProtection,
                 hiddenSearchPageEngineIds = hiddenEngines,
                 isOpenInAppsEnabled = openInApps,
@@ -93,6 +96,11 @@ class SettingsRepositoryImpl(
     override suspend fun setAdBlockerEnabled(enabled: Boolean) =
         withContext(ioDispatcher) {
             settingDao.setSetting(SettingEntity(SettingKeys.AD_BLOCKER_ENABLED, enabled.toString()))
+        }
+
+    override suspend fun setCleanYouTubePlayerEnabled(enabled: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED, enabled.toString()))
         }
 
     override suspend fun setTrackingProtectionEnabled(enabled: Boolean) =

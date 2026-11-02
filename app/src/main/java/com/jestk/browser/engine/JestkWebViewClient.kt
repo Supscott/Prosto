@@ -33,6 +33,8 @@ class JestkWebViewClient(
     private val isTrackingProtectionEnabled: (() -> Boolean)? = null,
     private val onInsecureHttpWarning: ((tabId: String, url: String) -> Unit)? = null,
     private val isInsecureHostAllowed: ((host: String) -> Boolean)? = null,
+    private val isCleanPlayerEnabled: (() -> Boolean)? = null,
+    private val onCleanPlayerRequested: ((url: String) -> Boolean)? = null,
 ) : WebViewClient() {
 
     private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -51,6 +53,15 @@ class JestkWebViewClient(
         if (request == null) return false
         val url = request.url?.toString().orEmpty()
         if (url.isBlank()) return false
+
+        // YouTube Clean Player interceptor for main frame navigations
+        if (request.isForMainFrame && isCleanPlayerEnabled?.invoke() == true) {
+            val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
+            if (videoId != null && onCleanPlayerRequested?.invoke(url) == true) {
+                return true
+            }
+        }
+
         // Subframe web navigations must load normally; subframe custom schemes are the classic
         // hidden-iframe "Open in app" technique and still need to reach the resolver.
         if (!request.isForMainFrame && isWebUrl(url)) return false
@@ -70,6 +81,12 @@ class JestkWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
         val validUrl = url.orEmpty()
         if (validUrl.isBlank()) return false
+        if (isCleanPlayerEnabled?.invoke() == true) {
+            val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(validUrl)
+            if (videoId != null && onCleanPlayerRequested?.invoke(validUrl) == true) {
+                return true
+            }
+        }
         if (checkInsecureHttpNavigation(validUrl)) return true
         return handleExternalNavigation(view, validUrl, userInitiated = true)
     }
@@ -175,6 +192,15 @@ class JestkWebViewClient(
         super.onPageStarted(view, url, favicon)
         val validUrl = url.orEmpty()
         if (validUrl.isEmpty() || validUrl == "about:blank") return
+
+        if (isCleanPlayerEnabled?.invoke() == true) {
+            val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(validUrl)
+            if (videoId != null && onCleanPlayerRequested?.invoke(validUrl) == true) {
+                view?.stopLoading()
+                return
+            }
+        }
+
         (view as? NestedWebView)?.loadedUrl = validUrl
         onPageStarted(tabId, validUrl)
         view?.let { wv ->
