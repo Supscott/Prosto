@@ -69,6 +69,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntRect
@@ -152,7 +153,79 @@ fun TabStripRow(
         contentAlignment = Alignment.CenterStart,
     ) {
         val totalChipWidth = maxWidth
-        val activeTabWidth = totalChipWidth * 0.45f
+
+        val resolvedActiveTab = activeTab ?: Tab(
+            id = uiState.activeTabId ?: "default_tab",
+            url = uiState.currentUrl,
+            title = displayTitle,
+            isActive = true,
+        )
+        val activeTabIsHome = isHome || resolvedActiveTab.url.isEmpty() || resolvedActiveTab.url == "about:blank" || resolvedActiveTab.title == "Home"
+        val activeDisplayInfo = resolveTabDisplayInfo(tab = resolvedActiveTab, isActive = true, isHome = activeTabIsHome, uiState = uiState)
+
+        val textMeasurer = rememberTextMeasurer()
+        val typography = LocalProstoTypography.current
+
+        val titleStyle = remember(typography, activeDisplayInfo.domain.isEmpty()) {
+            typography.labelMd.copy(
+                fontSize = if (activeDisplayInfo.domain.isEmpty()) ActiveTabPillDefaults.TitleFontSizeStandard else ActiveTabPillDefaults.TitleFontSizeWithDomain,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+        val domainStyle = remember(typography) {
+            typography.bodySm.copy(
+                fontSize = ActiveTabPillDefaults.DomainFontSize,
+                fontWeight = FontWeight.Normal,
+            )
+        }
+
+        val measuredTextWidthDp = remember(
+            textMeasurer,
+            activeDisplayInfo.title,
+            activeDisplayInfo.domain,
+            titleStyle,
+            domainStyle,
+            density,
+        ) {
+            val measuredTitlePx = textMeasurer.measure(
+                text = activeDisplayInfo.title,
+                style = titleStyle,
+                maxLines = 1,
+            ).size.width.toFloat()
+            val minRealisticTitlePx = with(density) { (activeDisplayInfo.title.length * 3.5.sp.value).sp.toPx() }
+            val titleWidthPx = if (measuredTitlePx >= minRealisticTitlePx) {
+                measuredTitlePx
+            } else {
+                with(density) { (activeDisplayInfo.title.length * ActiveTabPillDefaults.FallbackTitleCharWidthSp.value).sp.toPx() }
+            }
+
+            val domainWidthPx = if (activeDisplayInfo.domain.isNotEmpty()) {
+                val measuredDomainPx = textMeasurer.measure(
+                    text = activeDisplayInfo.domain,
+                    style = domainStyle,
+                    maxLines = 1,
+                ).size.width.toFloat()
+                val minRealisticDomainPx = with(density) { (activeDisplayInfo.domain.length * 3.0.sp.value).sp.toPx() }
+                if (measuredDomainPx >= minRealisticDomainPx) {
+                    measuredDomainPx
+                } else {
+                    with(density) { (activeDisplayInfo.domain.length * ActiveTabPillDefaults.FallbackDomainCharWidthSp.value).sp.toPx() }
+                }
+            } else {
+                0f
+            }
+
+            val maxTextWidthPx = maxOf(titleWidthPx, domainWidthPx)
+            with(density) { maxTextWidthPx.toDp() }
+        }
+
+        val minActiveTabWidth = ActiveTabPillDefaults.MinWidth
+        val maxActiveTabWidth = totalChipWidth * 0.45f
+        val contentOverheadDp = ActiveTabPillDefaults.ContentOverhead
+        val desiredActiveTabWidth = contentOverheadDp + measuredTextWidthDp
+        val activeTabWidth = desiredActiveTabWidth
+            .coerceAtLeast(minOf(minActiveTabWidth, maxActiveTabWidth))
+            .coerceAtMost(maxActiveTabWidth)
         val lazyListState = rememberLazyListState()
 
         val displayTabs =
