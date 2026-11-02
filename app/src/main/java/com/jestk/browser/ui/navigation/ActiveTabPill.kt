@@ -71,6 +71,21 @@ import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.util.ClipboardHelper
 
 /**
+ * Layout metrics and typography tokens for [ActiveTabPill].
+ */
+object ActiveTabPillDefaults {
+    val MinWidth = 80.dp
+    // Internal fixed overhead: start pad (10dp) + favicon (18dp) + spacing (8dp) + spacing (8dp) + close button (22dp) + end pad (6dp) + render buffer (4dp) = 76dp
+    val ContentOverhead = 76.dp
+    val TitleFontSizeStandard = 12.5.sp
+    val TitleFontSizeWithDomain = 11.5.sp
+    val DomainFontSize = 9.5.sp
+    // Fallback char width heuristics when platform TextMeasurer runs headless/unmeasured
+    val FallbackTitleCharWidthSp = 7.5.sp
+    val FallbackDomainCharWidthSp = 6.5.sp
+}
+
+/**
  * Active tab capsule composable representing the currently focused tab.
  * Adheres to Prosto Canvas design system:
  * - Solid crisp surface (#FFFFFF in light, #0D1824 in dark) with light elevation shadow (2.dp) and no outline.
@@ -247,7 +262,7 @@ fun ActiveTabPill(
                         text = title,
                         style =
                             typography.labelMd.copy(
-                                fontSize = if (domain.isEmpty()) 12.5.sp else 11.5.sp,
+                                fontSize = if (domain.isEmpty()) ActiveTabPillDefaults.TitleFontSizeStandard else ActiveTabPillDefaults.TitleFontSizeWithDomain,
                                 fontWeight = FontWeight.Bold,
                             ),
                         color = titleColor,
@@ -257,7 +272,7 @@ fun ActiveTabPill(
                             text = domain,
                             style =
                                 typography.bodySm.copy(
-                                    fontSize = 9.5.sp,
+                                    fontSize = ActiveTabPillDefaults.DomainFontSize,
                                     fontWeight = FontWeight.Normal,
                                 ),
                             color = domainColor,

@@ -168,13 +168,13 @@ fun TabStripRow(
 
         val titleStyle = remember(typography, activeDisplayInfo.domain.isEmpty()) {
             typography.labelMd.copy(
-                fontSize = if (activeDisplayInfo.domain.isEmpty()) 12.5.sp else 11.5.sp,
+                fontSize = if (activeDisplayInfo.domain.isEmpty()) ActiveTabPillDefaults.TitleFontSizeStandard else ActiveTabPillDefaults.TitleFontSizeWithDomain,
                 fontWeight = FontWeight.Bold,
             )
         }
         val domainStyle = remember(typography) {
             typography.bodySm.copy(
-                fontSize = 9.5.sp,
+                fontSize = ActiveTabPillDefaults.DomainFontSize,
                 fontWeight = FontWeight.Normal,
             )
         }
@@ -193,7 +193,7 @@ fun TabStripRow(
                     style = titleStyle,
                     maxLines = 1,
                 ).size.width.toFloat(),
-                with(density) { (activeDisplayInfo.title.length * 7.5f).sp.toPx() },
+                with(density) { (activeDisplayInfo.title.length * ActiveTabPillDefaults.FallbackTitleCharWidthSp.value).sp.toPx() },
             )
 
             val domainWidthPx = if (activeDisplayInfo.domain.isNotEmpty()) {
@@ -203,7 +203,7 @@ fun TabStripRow(
                         style = domainStyle,
                         maxLines = 1,
                     ).size.width.toFloat(),
-                    with(density) { (activeDisplayInfo.domain.length * 6.5f).sp.toPx() },
+                    with(density) { (activeDisplayInfo.domain.length * ActiveTabPillDefaults.FallbackDomainCharWidthSp.value).sp.toPx() },
                 )
             } else {
                 0f
@@ -213,14 +213,13 @@ fun TabStripRow(
             with(density) { maxTextWidthPx.toDp() }
         }
 
-        val minActiveTabWidth = 80.dp
+        val minActiveTabWidth = ActiveTabPillDefaults.MinWidth
         val maxActiveTabWidth = totalChipWidth * 0.45f
-        // Fixed internal overhead: start pad (10dp) + favicon (18dp) + spacing (8dp) + spacing (8dp) + close button (22dp) + end pad (6dp) + render buffer (4dp) = 76dp
-        val contentOverheadDp = 76.dp
+        val contentOverheadDp = ActiveTabPillDefaults.ContentOverhead
         val desiredActiveTabWidth = contentOverheadDp + measuredTextWidthDp
         val activeTabWidth = desiredActiveTabWidth
-            .coerceAtLeast(minActiveTabWidth)
-            .coerceAtMost(maxActiveTabWidth.coerceAtLeast(minActiveTabWidth))
+            .coerceAtLeast(minOf(minActiveTabWidth, maxActiveTabWidth))
+            .coerceAtMost(maxActiveTabWidth)
         val lazyListState = rememberLazyListState()
 
         val displayTabs =

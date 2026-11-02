@@ -154,4 +154,35 @@ class TabStripRowAdaptiveWidthTest {
         closeBtn.performClick()
         assertThat(events).contains(BrowserUiEvent.CloseTab("tab1"))
     }
+
+    @Test
+    fun tabSwitch_updatesActiveTabWidthDynamically() {
+        val dockWidth = 360.dp
+        val longTitle = "A Very Long Page Title That Definitely Exceeds The Maximum Allowed Tab Width Capsule Limit In Prosto Browser"
+        val tabLong = Tab(id = "tab1", title = longTitle, url = "https://very-long-domain.example.com", isActive = true)
+        val tabShort = Tab(id = "tab2", title = "VK", url = "https://vk.com", isActive = false)
+        val tabs = listOf(tabLong, tabShort)
+
+        render(tabs = tabs, activeTabId = "tab1", dockWidth = dockWidth)
+
+        val longPillNode = composeRule.onNodeWithTag("tab_tab1", useUnmergedTree = true)
+        val initialLongWidthDp = longPillNode.fetchSemanticsNode().boundsInRoot.width / 3f
+        assertThat(initialLongWidthDp).isWithin(2f).of((dockWidth * 0.45f).value)
+
+        // Switch to short tab
+        testUiState.value = BrowserUiState(
+            tabs = listOf(tabLong.copy(isActive = false), tabShort.copy(isActive = true)),
+            activeTabId = "tab2",
+            currentUrl = tabShort.url,
+            pageTitle = tabShort.title,
+        )
+        composeRule.waitForIdle()
+
+        val shortPillNode = composeRule.onNodeWithTag("tab_tab2", useUnmergedTree = true)
+        val newShortWidthDp = shortPillNode.fetchSemanticsNode().boundsInRoot.width / 3f
+
+        // Active tab capsule width dynamically adapts and shrinks for the newly selected short tab
+        assertThat(newShortWidthDp).isLessThan(initialLongWidthDp - 20f)
+        assertThat(newShortWidthDp).isAtLeast(80f)
+    }
 }
