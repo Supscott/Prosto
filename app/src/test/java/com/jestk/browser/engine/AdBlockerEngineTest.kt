@@ -339,6 +339,14 @@ class AdBlockerEngineTest {
         assertThat(String(acceptJsonResp.data.readBytes())).isEqualTo("{}")
     }
 
+    @Test
+    fun isTracker_youtubeCorePlaybackTelemetry_returnsFalse() {
+        assertThat(AdBlockerEngine.isTracker("https://www.youtube.com/api/stats/playback?docid=123")).isFalse()
+        assertThat(AdBlockerEngine.isTracker("https://www.youtube.com/api/stats/watchtime?docid=123")).isFalse()
+        assertThat(AdBlockerEngine.isTracker("https://www.youtube.com/api/stats/qoe?docid=123")).isFalse()
+        assertThat(AdBlockerEngine.isTracker("https://m.youtube.com/api/stats/playback?docid=123")).isFalse()
+    }
+
     // --- 7. Tracker Detection & Interception Counting Tests ---
 
     @Test

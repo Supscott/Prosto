@@ -93,6 +93,7 @@ class AdBlockerScriptTest {
         assertThat(js).contains("ytInitialPlayerResponse")
         assertThat(js).contains("adPlacements")
         assertThat(js).contains("adSlots")
+        assertThat(js).contains("adBlockerActive")
     }
 
     @Test
@@ -109,21 +110,26 @@ class AdBlockerScriptTest {
         assertThat(js).contains("adSlots")
         assertThat(js).contains("adBreakHeartbeatParams")
 
-        // Interception hooks
+        // Cold load interception hooks
         assertThat(js).contains("Object.defineProperty(window, 'ytInitialPlayerResponse'")
+        assertThat(js).contains("Object.defineProperty(window, 'ytInitialData'")
         assertThat(js).contains("origParse = JSON.parse")
         assertThat(js).contains("Response.prototype.json")
 
-        // Ad-skip acceleration
+        // Mobile DOM & Ad-skip acceleration
         assertThat(js).contains(".ytp-ad-skip-button")
+        assertThat(js).contains("button[aria-label*=\"Skip\"]")
         assertThat(js).contains(".ad-showing")
+        assertThat(js).contains("v.playbackRate = 16.0")
         assertThat(js).contains("v.currentTime = v.duration")
 
         // isInlinePlaybackNoAd anti-throttling & SABR backoff rewriting
         assertThat(js).contains("isInlinePlaybackNoAd")
         assertThat(js).contains("contentPlaybackContext")
         assertThat(js).contains("patchBackoffField")
+        assertThat(js).contains("pass.cancel()")
         assertThat(js).contains("forceFreshSession")
         assertThat(js).contains("sabr=1")
+        assertThat(js).contains(".player-container")
     }
 }

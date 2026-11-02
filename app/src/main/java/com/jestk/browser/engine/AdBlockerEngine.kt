@@ -814,6 +814,15 @@ object AdBlockerEngine {
         if (host.isEmpty() && path.isEmpty() && rawUrl.isEmpty()) return false
         if (isAllowlistedAuthDomain(host)) return false
 
+        // Exempt essential YouTube player playback telemetry from tracking suppression
+        if (host == "youtube.com" || host.endsWith(".youtube.com") ||
+            host == "googlevideo.com" || host.endsWith(".googlevideo.com")
+        ) {
+            if (path.startsWith("/api/stats/") || path.startsWith("/stats/") || path.contains("playback")) {
+                return false
+            }
+        }
+
         // Known tracker & analytics domains
         if (host.isNotEmpty()) {
             for (td in TRACKER_DOMAINS) {

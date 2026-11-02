@@ -261,6 +261,16 @@ object AdBlockerScript {
                         });
                     } catch(e) {}
 
+                    var _initialData = undefined;
+                    try {
+                        Object.defineProperty(window, 'ytInitialData', {
+                            get: function() { return _initialData; },
+                            set: function(val) { _initialData = pruneAdProps(val); },
+                            configurable: true,
+                            enumerable: true
+                        });
+                    } catch(e) {}
+
                     try {
                         var origParse = JSON.parse;
                         JSON.parse = function() {
@@ -368,22 +378,32 @@ object AdBlockerScript {
                         if (video && video.currentTime > 1) return;
                         reloadedVid = vid;
                         var player = document.querySelector('#movie_player');
-                        if (!player || typeof player.cancelPlayback !== 'function' || typeof player.loadVideoById !== 'function') return;
-
-                        try {
-                            var vd = typeof player.getVideoData === 'function' ? player.getVideoData() : null;
-                            if (vd) vd.isInlinePlaybackNoAd = true;
-                        } catch(e) {}
-
-                        player.cancelPlayback();
-                        var realLoad = player.loadVideoById.bind(player);
-                        player.loadVideoById = function() {};
-                        setTimeout(function() {
+                        if (player && typeof player.cancelPlayback === 'function' && typeof player.loadVideoById === 'function') {
                             try {
-                                player.loadVideoById = realLoad;
-                                player.loadVideoById(vid);
+                                var vd = typeof player.getVideoData === 'function' ? player.getVideoData() : null;
+                                if (vd) vd.isInlinePlaybackNoAd = true;
                             } catch(e) {}
-                        }, 500);
+
+                            player.cancelPlayback();
+                            var realLoad = player.loadVideoById.bind(player);
+                            player.loadVideoById = function() {};
+                            setTimeout(function() {
+                                try {
+                                    player.loadVideoById = realLoad;
+                                    player.loadVideoById(vid);
+                                } catch(e) {}
+                            }, 500);
+                        } else {
+                            // Mobile player recovery on m.youtube.com
+                            var mobileContainer = document.querySelector('ytm-media-item, .player-container, #player');
+                            if (video) {
+                                try {
+                                    video.currentTime = 0.01;
+                                    var p = video.play();
+                                    if (p && typeof p.catch === 'function') p.catch(function() {});
+                                } catch(e) {}
+                            }
+                        }
                     }
 
                     function readStream(reader, earlyExitThreshold) {
@@ -442,6 +462,7 @@ object AdBlockerScript {
                                             if (bytes === null) {
                                                 return new Response(pass, reinit);
                                             }
+                                            try { pass.cancel(); } catch(e) {}
                                             if (patchBackoffField(bytes)) {
                                                 forceFreshSession();
                                             }
@@ -460,18 +481,27 @@ object AdBlockerScript {
                         }
                     } catch(e) {}
 
-                    // 4. Fallback ad-skip accelerator for ad overlays
+                    // 4. Fallback ad-skip accelerator for ad overlays (desktop & mobile)
                     function skipAdSlot() {
                         try {
-                            var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .ytp-ad-overlay-close-button, button.ytp-ad-skip-button');
+                            var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .ytp-ad-overlay-close-button, button.ytp-ad-skip-button, button[aria-label*="Skip"], button[class*="ytp-ad-skip-button"]');
                             if (skipBtn) {
                                 skipBtn.click();
                             }
-                            var adShowing = document.querySelector('.ad-showing, .ad-interrupting, .video-ads.ytp-ad-module');
+                            var adShowing = document.querySelector('.ad-showing, .ad-interrupting, .video-ads, .ytp-ad-player-overlay, ytm-promoted-sparkles-web-renderer');
                             if (adShowing) {
-                                var v = document.querySelector('video');
-                                if (v && !isNaN(v.duration) && v.duration > 0 && !isNaN(v.currentTime)) {
-                                    v.currentTime = v.duration;
+                                var videos = document.querySelectorAll('video');
+                                for (var i = 0; i < videos.length; i++) {
+                                    var v = videos[i];
+                                    try {
+                                        v.muted = true;
+                                        v.playbackRate = 16.0;
+                                        if (!isNaN(v.duration) && v.duration > 0 && !isNaN(v.currentTime)) {
+                                            v.currentTime = v.duration;
+                                        }
+                                        var p = v.play();
+                                        if (p && typeof p.catch === 'function') p.catch(function() {});
+                                    } catch(e) {}
                                 }
                             }
                         } catch(e) {}
@@ -575,14 +605,24 @@ object AdBlockerScript {
                     if (window.__hori_adblock_initialized) return;
                     window.__hori_adblock_initialized = true;
 
-                    // Check if ad blocking is disabled via bridge
+                    // Check if ad blocking is active via bridge
+                    var adBlockerActive = true;
                     if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.isEnabled === 'function') {
-                        if (!window.HoriAdBlockBridge.isEnabled()) {
-                            return;
-                        }
+                        try {
+                            adBlockerActive = window.HoriAdBlockBridge.isEnabled();
+                        } catch(e) {}
                     }
 
-                    // 1. Install Surrogates immediately
+                    // 1. Install YouTube Fast-Start protection immediately regardless of toggle
+                    // to prevent artificial 10-15s buffering and SABR backoffs on YouTube:
+                    $ytScript
+
+                    // If ad blocking is toggled off, exit before applying cosmetic CSS and DOM cleaners
+                    if (!adBlockerActive) {
+                        return;
+                    }
+
+                    // 2. Install Surrogates immediately
                     window.adsbygoogle = window.adsbygoogle || [];
                     window.adsbygoogle.loaded = true;
                     window.adsbygoogle.push = function(arg) { return 0; };
@@ -672,9 +712,6 @@ object AdBlockerScript {
                         init: function() { return Promise.resolve(); },
                         render: function() {}
                     };
-
-                    // 2. Install YouTube Fast-Start ad bypass immediately
-                    $ytScript
 
                     // 3. Inject Cosmetic CSS Style Tag
                     function injectStyle() {
