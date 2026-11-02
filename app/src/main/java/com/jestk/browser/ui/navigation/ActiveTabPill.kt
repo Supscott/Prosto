@@ -86,8 +86,8 @@ import com.jestk.browser.util.ClipboardHelper
  */
 object ActiveTabPillDefaults {
     val MinWidth = 80.dp
-    // Internal fixed overhead: start pad (10dp) + favicon (18dp) + spacing (8dp) + text-to-close spacing (6dp) + close button (22dp) + end pad (6dp) = 70dp
-    val ContentOverhead = 70.dp
+    // Internal fixed overhead: start pad (10dp) + favicon (18dp) + spacing (8dp) + text-to-close spacing (4dp) + close button (22dp) + end pad (6dp) = 68dp
+    val ContentOverhead = 68.dp
     val TitleFontSizeStandard = 12.5.sp
     val TitleFontSizeWithDomain = 11.5.sp
     val DomainFontSize = 9.5.sp
@@ -292,9 +292,9 @@ fun ActiveTabPill(
                     }
                 }
 
-                Spacer(modifier = Modifier.width(6.dp))
+                Spacer(modifier = Modifier.width(4.dp))
 
-                // Close Tab Action Glyph (exact 22.dp with uniform 6.dp margins on left and right)
+                // Close Tab Action Glyph (exact 22.dp with 4.dp text margin and 6.dp end pad)
                 Box(
                     modifier =
                         Modifier
@@ -401,7 +401,7 @@ private fun FadingSingleLineText(
     style: TextStyle,
     color: Color,
     modifier: Modifier = Modifier,
-    fadeWidth: Dp = 12.dp,
+    fadeWidth: Dp = 8.dp,
 ) {
     var overflows by remember(text) { mutableStateOf(false) }
     val density = LocalDensity.current
@@ -413,10 +413,8 @@ private fun FadingSingleLineText(
         softWrap = false,
         overflow = TextOverflow.Clip,
         onTextLayout = { layoutResult ->
-            val overflowThresholdPx = with(density) { 2.dp.toPx() }
-            overflows =
-                layoutResult.multiParagraph.maxIntrinsicWidth > (layoutResult.size.width + overflowThresholdPx) ||
-                layoutResult.didOverflowWidth
+            val overflowThresholdPx = with(density) { 6.dp.toPx() }
+            overflows = layoutResult.multiParagraph.maxIntrinsicWidth > (layoutResult.size.width + overflowThresholdPx)
         },
         modifier =
             modifier.then(
