@@ -877,7 +877,57 @@ class BrowserViewModelTest {
             val state = viewModel.uiState.value
             assertThat(state.isFullscreenCustomView).isFalse()
             assertThat(state.fullscreenCustomView).isNull()
+            assertThat(state.fullscreenRequestedOrientation).isEqualTo(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
             assertThat(state.tabs).hasSize(1)
+        }
+
+    @Test
+    fun updateFullscreenOrientation_whenFullscreen_updatesRequestedOrientation() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val fakeView = android.view.View(ApplicationProvider.getApplicationContext())
+            viewModel.onEvent(
+                BrowserUiEvent.SetFullscreenCustomView(
+                    view = fakeView,
+                    isFullscreen = true,
+                    requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
+                ),
+            )
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.fullscreenRequestedOrientation)
+                .isEqualTo(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+
+            // Async aspect ratio evaluation determines video is >= 4:3 landscape
+            viewModel.onEvent(
+                BrowserUiEvent.UpdateFullscreenOrientation(
+                    android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
+                ),
+            )
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.fullscreenRequestedOrientation)
+                .isEqualTo(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+        }
+
+    @Test
+    fun updateFullscreenOrientation_whenNotFullscreen_doesNotUpdateOrientation() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isFullscreenCustomView).isFalse()
+
+            viewModel.onEvent(
+                BrowserUiEvent.UpdateFullscreenOrientation(
+                    android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
+                ),
+            )
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.fullscreenRequestedOrientation)
+                .isEqualTo(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
         }
 
     @Test

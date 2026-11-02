@@ -309,6 +309,10 @@ sealed interface BrowserUiEvent {
         val requestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
     ) : BrowserUiEvent
 
+    data class UpdateFullscreenOrientation(
+        val orientation: Int,
+    ) : BrowserUiEvent
+
     data object ExitFullscreen : BrowserUiEvent
 
     // System Back Handling

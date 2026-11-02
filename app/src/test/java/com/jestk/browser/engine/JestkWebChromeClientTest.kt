@@ -18,12 +18,12 @@ import org.robolectric.RobolectricTestRunner
 class JestkWebChromeClientTest {
 
     @Test
-    fun onShowCustomView_twoArgs_defaultsToUnspecifiedOrientation() {
+    fun onShowCustomView_twoArgs_defaultsToSensorLandscape() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val testView = View(context)
         var receivedView: View? = null
         var isFullscreenState = false
-        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         var videoPlayingState = false
 
         val client = JestkWebChromeClient(
@@ -48,7 +48,7 @@ class JestkWebChromeClientTest {
         assertThat(client.isCustomViewShowing()).isTrue()
         assertThat(isFullscreenState).isTrue()
         assertThat(receivedView).isSameInstanceAs(testView)
-        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
         assertThat(testView.keepScreenOn).isTrue()
         assertThat(videoPlayingState).isTrue()
 
@@ -62,6 +62,31 @@ class JestkWebChromeClientTest {
         assertThat(testView.keepScreenOn).isFalse()
         assertThat(hiddenCallbackCalled).isTrue()
         assertThat(videoPlayingState).isFalse()
+    }
+
+    @Test
+    fun onShowCustomView_twoArgs_shortsUrl_defaultsToSensorPortrait() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webView = NestedWebView(context).apply {
+            loadedUrl = "https://m.youtube.com/shorts/12345"
+        }
+        val testView = View(context)
+        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+
+        val client = JestkWebChromeClient(
+            tabId = "tab-shorts",
+            webView = webView,
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, orientation ->
+                receivedOrientation = orientation
+            },
+            onVideoPlayingStateChanged = { }
+        )
+
+        client.onShowCustomView(testView) { }
+
+        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT)
     }
 
     @Test
@@ -113,11 +138,12 @@ class JestkWebChromeClientTest {
     }
 
     @Test
-    fun onShowCustomView_replacesExistingCustomViewCleanly() {
+    fun onShowCustomView_duplicateView_rejectsSecondCallAndPreservesFirstCustomView() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val view1 = View(context)
         val view2 = View(context)
         var callback1Called = false
+        var callback2Called = false
         var lastReceivedView: View? = null
 
         val client = JestkWebChromeClient(
@@ -132,12 +158,13 @@ class JestkWebChromeClientTest {
         assertThat(client.isCustomViewShowing()).isTrue()
         assertThat(lastReceivedView).isSameInstanceAs(view1)
 
-        // Calling onShowCustomView while already showing should dismiss the first and mount the new view
-        client.onShowCustomView(view2) { }
+        // Calling onShowCustomView with a different view while already showing should dismiss the second callback and keep the first view
+        client.onShowCustomView(view2) { callback2Called = true }
 
-        assertThat(callback1Called).isTrue()
+        assertThat(callback1Called).isFalse()
+        assertThat(callback2Called).isTrue()
         assertThat(client.isCustomViewShowing()).isTrue()
-        assertThat(lastReceivedView).isSameInstanceAs(view2)
+        assertThat(lastReceivedView).isSameInstanceAs(view1)
     }
 
     @Test
@@ -225,6 +252,98 @@ class JestkWebChromeClientTest {
 
         client.resumeVideoPlayback()
         assertThat(resumeCallbackCalled).isTrue()
+    }
+
+    @Test
+    fun resolveOrientationFromAspectRatio_widescreenAndStandard_returnsSensorLandscape() {
+        // 16:9 widescreen
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(1920, 1080))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+
+        // Exact 4:3
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(1600, 1200))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(4, 3))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+
+        // 21:9 ultra-wide
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(2560, 1080))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+    }
+
+    @Test
+    fun resolveOrientationFromAspectRatio_verticalAndSquare_returnsSensorPortrait() {
+        // 9:16 vertical (Shorts, TikTok, Reels)
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(1080, 1920))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT)
+
+        // 1:1 square (< 4:3)
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(1000, 1000))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT)
+
+        // 3:4 vertical
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(1200, 1600))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT)
+    }
+
+    @Test
+    fun resolveOrientationFromAspectRatio_invalidDimensions_returnsUnspecified() {
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(0, 0))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(0, 1080))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(1920, 0))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(-1, 1080))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+        assertThat(JestkWebChromeClient.resolveOrientationFromAspectRatio(1920, -1))
+            .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
+    }
+
+    @Test
+    fun onShowCustomView_withUnspecifiedOrientation_registersOrientationListener() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webView = android.webkit.WebView(context)
+        val view = View(context)
+        var receivedOrientation: Int? = null
+
+        val client = JestkWebChromeClient(
+            tabId = "tab-1",
+            webView = webView,
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onVideoPlayingStateChanged = { },
+            onFullscreenOrientationChanged = { orientation -> receivedOrientation = orientation }
+        )
+
+        client.onShowCustomView(view) { }
+        assertThat(client.isCustomViewShowing()).isTrue()
+    }
+
+    @Test
+    fun onShowCustomView_normalVideoUrl_defaultsToSensorLandscape() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webView = NestedWebView(context).apply {
+            loadedUrl = "https://m.youtube.com/watch?v=dQw4w9WgXcQ"
+        }
+        val testView = View(context)
+        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+
+        val client = JestkWebChromeClient(
+            tabId = "tab-youtube",
+            webView = webView,
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, orientation ->
+                receivedOrientation = orientation
+            },
+            onVideoPlayingStateChanged = { }
+        )
+
+        client.onShowCustomView(testView) { }
+
+        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
     }
 
     @Test

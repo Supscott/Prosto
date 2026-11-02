@@ -213,6 +213,9 @@ fun JestkApp(
                     },
                     onCloseWindowRequest = { id ->
                         viewModel.onEvent(BrowserUiEvent.CloseTab(id))
+                    },
+                    onFullscreenOrientationChanged = { orientation ->
+                        viewModel.onEvent(BrowserUiEvent.UpdateFullscreenOrientation(orientation))
                     }
                 )
             }

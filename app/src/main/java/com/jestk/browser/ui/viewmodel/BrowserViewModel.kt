@@ -775,6 +775,16 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.UpdateFullscreenOrientation -> {
+                _uiState.update { current ->
+                    if (current.isFullscreenCustomView) {
+                        current.copy(fullscreenRequestedOrientation = event.orientation)
+                    } else {
+                        current
+                    }
+                }
+            }
+
             is BrowserUiEvent.ExitFullscreen -> {
                 _navigationCommands.tryEmit(NavigationCommand.ExitFullscreen)
                 _uiState.update {

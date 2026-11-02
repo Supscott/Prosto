@@ -328,6 +328,9 @@ fun WebViewContainer(
                     },
                     onCloseWindowRequest = { id ->
                         currentOnEvent(BrowserUiEvent.CloseTab(id))
+                    },
+                    onFullscreenOrientationChanged = { orientation ->
+                        currentOnEvent(BrowserUiEvent.UpdateFullscreenOrientation(orientation))
                     }
                 )
             }

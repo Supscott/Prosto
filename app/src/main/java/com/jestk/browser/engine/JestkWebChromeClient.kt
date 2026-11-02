@@ -20,7 +20,8 @@ class JestkWebChromeClient(
     private val onVideoResume: (() -> Unit)? = null,
     private val onShowFileChooser: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null,
     private val onCreateWindowRequest: ((view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?) -> Boolean)? = null,
-    private val onCloseWindowRequest: ((tabId: String) -> Unit)? = null
+    private val onCloseWindowRequest: ((tabId: String) -> Unit)? = null,
+    private val onFullscreenOrientationChanged: ((orientation: Int) -> Unit)? = null
 ) : WebChromeClient() {
 
     private var customView: View? = null
@@ -77,7 +78,12 @@ class JestkWebChromeClient(
                 resumeVideoPlayback()
                 return
             }
-            onHideCustomView()
+            // A custom view is already active (e.g. YouTube remounting/transitioning).
+            // Reject the duplicate call to avoid destroying the active video surface and rebuffering.
+            try {
+                callback?.onCustomViewHidden()
+            } catch (_: Exception) {}
+            return
         }
         customView = view
         customViewCallback = callback
@@ -90,12 +96,118 @@ class JestkWebChromeClient(
             ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
             ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
             ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            else -> {
+                // If the URL explicitly indicates a vertical video / short, default to portrait
+                val currentUrl = webView?.url ?: (webView as? NestedWebView)?.loadedUrl
+                val url = currentUrl?.lowercase().orEmpty()
+                if (url.contains("/shorts/") || url.contains("/reel/") || url.contains("/clip/")) {
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+                } else {
+                    // Fullscreen video default is landscape (>= 4:3, e.g. 16:9 on YouTube, VK, Twitch)
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                }
+            }
         }
 
         onFullscreenCustomViewChanged(view, true, orientation)
         onVideoPlayingStateChanged(true)
         resumeVideoPlayback()
+
+        // Query the DOM with retries to confirm aspect ratio and detect vertical videos (< 4:3)
+        queryVideoAspectRatioAndAdjustOrientation()
+    }
+
+    private fun queryVideoAspectRatioAndAdjustOrientation(attempt: Int = 0) {
+        val targetWebView = webView ?: return
+        val js = """
+            (function() {
+                try {
+                    function checkVideo(v) {
+                        if (v && v.videoWidth > 0 && v.videoHeight > 0) {
+                            return v.videoWidth + ":" + v.videoHeight;
+                        }
+                        return null;
+                    }
+
+                    // 1. Check fullscreenElement
+                    var fs = document.fullscreenElement || document.webkitFullscreenElement;
+                    if (fs) {
+                        if (fs instanceof HTMLVideoElement) {
+                            var r = checkVideo(fs);
+                            if (r) return r;
+                        }
+                        if (fs.querySelector) {
+                            var r = checkVideo(fs.querySelector('video'));
+                            if (r) return r;
+                        }
+                    }
+
+                    // 2. Check all video elements in document (prefer playing video)
+                    var videos = document.querySelectorAll('video');
+                    var fallback = null;
+                    for (var i = 0; i < videos.length; i++) {
+                        var v = videos[i];
+                        if (v && v.videoWidth > 0 && v.videoHeight > 0) {
+                            if (!v.paused) return v.videoWidth + ":" + v.videoHeight;
+                            if (!fallback) fallback = v.videoWidth + ":" + v.videoHeight;
+                        }
+                    }
+                    if (fallback) return fallback;
+
+                    // 3. Check iframes (VK, embeds)
+                    var iframes = document.querySelectorAll('iframe');
+                    for (var j = 0; j < iframes.length; j++) {
+                        try {
+                            var iDoc = iframes[j].contentDocument || iframes[j].contentWindow.document;
+                            if (iDoc) {
+                                var iVideos = iDoc.querySelectorAll('video');
+                                for (var k = 0; k < iVideos.length; k++) {
+                                    var r = checkVideo(iVideos[k]);
+                                    if (r) return r;
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                } catch(e) {}
+                return "";
+            })();
+        """.trimIndent()
+
+        targetWebView.post {
+            try {
+                targetWebView.evaluateJavascript(js) { rawResult ->
+                    if (!isCustomViewShowing()) return@evaluateJavascript
+                    val cleaned = rawResult?.trim()?.removeSurrounding("\"")?.removeSurrounding("'").orEmpty()
+                    if (cleaned.contains(":")) {
+                        val parts = cleaned.split(":")
+                        if (parts.size == 2) {
+                            val w = parts[0].toIntOrNull() ?: 0
+                            val h = parts[1].toIntOrNull() ?: 0
+                            val resolved = resolveOrientationFromAspectRatio(w, h)
+                            if (resolved != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+                                onFullscreenOrientationChanged?.invoke(resolved)
+                                    ?: onFullscreenCustomViewChanged(customView, true, resolved)
+                                return@evaluateJavascript
+                            }
+                        }
+                    }
+
+                    // Retry up to 3 times (at 150ms, 350ms, 700ms) if video metadata was not yet ready
+                    if (attempt < 3 && isCustomViewShowing()) {
+                        val delay = when (attempt) {
+                            0 -> 150L
+                            1 -> 200L
+                            else -> 350L
+                        }
+                        targetWebView.postDelayed({
+                            if (isCustomViewShowing()) {
+                                queryVideoAspectRatioAndAdjustOrientation(attempt + 1)
+                            }
+                        }, delay)
+                    }
+                }
+            } catch (_: Exception) {}
+        }
     }
 
     override fun onHideCustomView() {
@@ -145,5 +257,18 @@ class JestkWebChromeClient(
                 } catch (_: Exception) {}
             }, 300)
         } catch (_: Exception) {}
+    }
+
+    companion object {
+        fun resolveOrientationFromAspectRatio(videoWidth: Int, videoHeight: Int): Int {
+            if (videoWidth <= 0 || videoHeight <= 0) {
+                return ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+            }
+            return if (videoWidth.toLong() * 3L >= videoHeight.toLong() * 4L) {
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            } else {
+                ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
+            }
+        }
     }
 }
