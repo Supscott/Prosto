@@ -418,6 +418,23 @@ class BrowserViewModelTest {
         }
 
     @Test
+    fun updateFavicon_whenPageUrlFromDifferentDomain_doesNotUpdateTabFavicon() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            val activeId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://siteB.com"))
+            advanceUntilIdle()
+
+            // Late-arriving favicon from siteA.com while tab is on siteB.com
+            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(activeId, "/data/user/0/favicons/favicon_siteA.png", "https://siteA.com"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.activeTab?.faviconUrl).isNull()
+        }
+
+    @Test
     fun loadUrl_toSameDomain_preservesFavicon() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()

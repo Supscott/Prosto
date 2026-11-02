@@ -58,6 +58,7 @@ import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.isSameDomain
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -216,16 +217,25 @@ fun WebViewContainer(
     val context = LocalContext.current
     val currentActiveTabId by rememberUpdatedState(tabId)
 
-    val handleFavicon: (String, android.graphics.Bitmap) -> Unit = remember {
-        { id, icon ->
+    val handleFavicon: (String, android.graphics.Bitmap, String?) -> Unit = remember {
+        { id, icon, pageUrl ->
             scope.launch {
-                val currentTabUrl = currentTab?.url?.takeIf { it.isNotBlank() }
-                val activeUrl = if (currentUiState.activeTabId == id) currentUiState.currentUrl.takeIf { it.isNotBlank() } else null
-                val webViewUrl = webViewPool.getWebView(id)?.url?.takeIf { it.isNotBlank() }
-                val currentUrl = currentTabUrl ?: activeUrl ?: webViewUrl ?: targetUrl.takeIf { it.isNotBlank() }
-                val path = FaviconManager.saveFavicon(context, id, icon, currentUrl)
+                val tab = currentUiState.tabs.find { it.id == id }
+                val tabUrl = tab?.url?.takeIf { it.isNotBlank() && it != "about:blank" }
+                val webViewUrl = webViewPool.getWebView(id)?.url?.takeIf { it.isNotBlank() && it != "about:blank" }
+                val effectiveUrl = pageUrl?.takeIf { it.isNotBlank() && it != "about:blank" }
+                    ?: tabUrl
+                    ?: webViewUrl
+
+                if (tabUrl != null && effectiveUrl != null && !isSameDomain(tabUrl, effectiveUrl)) {
+                    android.util.Log.d("WebViewContainer", "Discarding mismatched favicon for tab $id: page $effectiveUrl vs tab $tabUrl")
+                    FaviconManager.cacheFaviconForDomain(effectiveUrl, icon, context)
+                    return@launch
+                }
+
+                val path = FaviconManager.saveFavicon(context, id, icon, effectiveUrl)
                 if (path != null) {
-                    currentOnEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
+                    currentOnEvent(BrowserUiEvent.UpdateFaviconUrl(id, path, effectiveUrl))
                 }
             }
         }
@@ -277,7 +287,6 @@ fun WebViewContainer(
                         currentOnEvent(BrowserUiEvent.OnThemeColorsReceived(id, topColor, bottomColor))
                     },
                     isDarkTheme = { isDark },
-                    onFaviconReceived = handleFavicon,
                     onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
                     isOpenInAppsEnabled = { currentUiState.settings.isOpenInAppsEnabled },
                     onExternalAppOffered = { id, prompt, userInitiated ->

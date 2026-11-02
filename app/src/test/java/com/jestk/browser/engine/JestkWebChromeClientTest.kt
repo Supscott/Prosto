@@ -3,6 +3,7 @@ package com.jestk.browser.engine
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
 import android.net.Uri
 import android.view.View
 import android.webkit.ValueCallback
@@ -291,5 +292,37 @@ class JestkWebChromeClientTest {
 
         val result = client.onShowFileChooser(null, null, null)
         assertThat(result).isFalse()
+    }
+
+    @Test
+    fun onReceivedIcon_invokesCallbackWithTabIdIconAndPageUrl() {
+        var receivedTabId: String? = null
+        var receivedIcon: Bitmap? = null
+        var receivedUrl: String? = null
+
+        val client = JestkWebChromeClient(
+            tabId = "tab-icon-1",
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onVideoPlayingStateChanged = { },
+            onFaviconReceived = { tabId, icon, pageUrl ->
+                receivedTabId = tabId
+                receivedIcon = icon
+                receivedUrl = pageUrl
+            }
+        )
+
+        val bitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webView = NestedWebView(context).apply {
+            loadedUrl = "https://example.com/test"
+        }
+
+        client.onReceivedIcon(webView, bitmap)
+
+        assertThat(receivedTabId).isEqualTo("tab-icon-1")
+        assertThat(receivedIcon).isSameInstanceAs(bitmap)
+        assertThat(receivedUrl).isEqualTo("https://example.com/test")
     }
 }

@@ -474,7 +474,7 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.UpdateFaviconUrl -> {
-                tabCoordinator.handleUpdateFavicon(event.tabId, event.faviconUrl)
+                tabCoordinator.handleUpdateFavicon(event.tabId, event.faviconUrl, event.pageUrl)
             }
 
             is BrowserUiEvent.OnThemeColorReceived -> {

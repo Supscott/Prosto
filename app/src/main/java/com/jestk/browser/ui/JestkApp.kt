@@ -104,6 +104,7 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 import com.jestk.browser.ui.viewmodel.NavigationCommand
+import com.jestk.browser.ui.viewmodel.isSameDomain
 import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
 import com.jestk.browser.util.findActivity
@@ -145,15 +146,24 @@ fun JestkApp(
         }
         webViewPool.onWebViewCreated = { tabId, wv ->
             if (wv.webChromeClient == null) {
-                val handleFavicon: (String, android.graphics.Bitmap) -> Unit = { id, icon ->
+                val handleFavicon: (String, android.graphics.Bitmap, String?) -> Unit = { id, icon, pageUrl ->
                     coroutineScope.launch {
                         val currentTab = viewModel.uiState.value.tabs.find { it.id == id }
-                        val currentUrl = currentTab?.url?.takeIf { it.isNotBlank() }
-                            ?: (if (viewModel.uiState.value.activeTabId == id) viewModel.uiState.value.currentUrl.takeIf { it.isNotBlank() } else null)
-                            ?: wv.url?.takeIf { it.isNotBlank() }
-                        val path = FaviconManager.saveFavicon(context, id, icon, currentUrl)
+                        val tabUrl = currentTab?.url?.takeIf { it.isNotBlank() && it != "about:blank" }
+                        val webViewUrl = wv.url?.takeIf { it.isNotBlank() && it != "about:blank" }
+                        val effectiveUrl = pageUrl?.takeIf { it.isNotBlank() && it != "about:blank" }
+                            ?: tabUrl
+                            ?: webViewUrl
+
+                        if (tabUrl != null && effectiveUrl != null && !isSameDomain(tabUrl, effectiveUrl)) {
+                            android.util.Log.d("JestkApp", "Discarding mismatched favicon for tab $id: page $effectiveUrl vs tab $tabUrl")
+                            FaviconManager.cacheFaviconForDomain(effectiveUrl, icon, context)
+                            return@launch
+                        }
+
+                        val path = FaviconManager.saveFavicon(context, id, icon, effectiveUrl)
                         if (path != null) {
-                            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(id, path))
+                            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(id, path, effectiveUrl))
                         }
                     }
                 }
@@ -167,7 +177,6 @@ fun JestkApp(
                     onThemeColorDetected = { id, color -> viewModel.onEvent(BrowserUiEvent.OnThemeColorReceived(id, color)) },
                     onThemeColorsDetected = { id, topColor, bottomColor -> viewModel.onEvent(BrowserUiEvent.OnThemeColorsReceived(id, topColor, bottomColor)) },
                     isDarkTheme = { isDark },
-                    onFaviconReceived = handleFavicon,
                     onTitleReceived = { id, title -> viewModel.onEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
                     isOpenInAppsEnabled = { viewModel.uiState.value.settings.isOpenInAppsEnabled },
                     onExternalAppOffered = { id, prompt, userInitiated ->

@@ -204,7 +204,27 @@ internal class TabCoordinator(
                 }
 
             val currentTabs = tabRepository.getInitialTabs()
-            val tabsWithActive = if (currentTabs.isEmpty()) listOf(activeTab) else currentTabs
+            val rawTabsWithActive = if (currentTabs.isEmpty()) listOf(activeTab) else currentTabs
+            val tabsWithActive = rawTabsWithActive.map { tab ->
+                val tabFavicon = tab.faviconUrl
+                val resolvedFavicon = if (!tabFavicon.isNullOrBlank()) {
+                    val fileName = java.io.File(tabFavicon).name
+                    if (fileName.startsWith("domain_") && fileName.endsWith(".png")) {
+                        val fileHost = fileName.removePrefix("domain_").removeSuffix(".png")
+                        val currentHost = FaviconManager.extractHost(tab.url)?.let { FaviconManager.sanitizeHost(it) }
+                        if (currentHost != null && fileHost != currentHost) {
+                            FaviconManager.getCachedFaviconForUrl(tab.url)
+                        } else {
+                            tabFavicon
+                        }
+                    } else {
+                        tabFavicon
+                    }
+                } else {
+                    FaviconManager.getCachedFaviconForUrl(tab.url)
+                }
+                tab.copy(faviconUrl = resolvedFavicon)
+            }
 
             tabsWithActive.forEach { tab ->
                 tab.themeColor?.let { color -> tabThemeColors[tab.id] = color }
@@ -270,6 +290,22 @@ internal class TabCoordinator(
                             val tabUrl = if (isActive && isSameAsActive) state.currentUrl else tab.url
                             val tabTitle = if (isActive && isSameAsActive) state.pageTitle else tab.title
                             val tabFavicon = if (isActive && isSameAsActive && inMemoryTab != null) inMemoryTab.faviconUrl else tab.faviconUrl
+                            val resolvedFavicon = if (!tabFavicon.isNullOrBlank()) {
+                                val fileName = java.io.File(tabFavicon).name
+                                if (fileName.startsWith("domain_") && fileName.endsWith(".png")) {
+                                    val fileHost = fileName.removePrefix("domain_").removeSuffix(".png")
+                                    val currentHost = FaviconManager.extractHost(tabUrl)?.let { FaviconManager.sanitizeHost(it) }
+                                    if (currentHost != null && fileHost != currentHost) {
+                                        FaviconManager.getCachedFaviconForUrl(tabUrl)
+                                    } else {
+                                        tabFavicon
+                                    }
+                                } else {
+                                    tabFavicon
+                                }
+                            } else {
+                                FaviconManager.getCachedFaviconForUrl(tabUrl)
+                            }
                             if (cached != null) {
                                 tabThemeColors[tab.id] = cached
                             }
@@ -279,7 +315,7 @@ internal class TabCoordinator(
                                 isActive = isActive,
                                 themeColor = cached ?: tab.themeColor,
                                 bottomThemeColor = tabBottomThemeColors[tab.id] ?: tab.bottomThemeColor,
-                                faviconUrl = tabFavicon,
+                                faviconUrl = resolvedFavicon,
                             )
                         }
                     val currentTab = enrichedTabs.find { it.id == activeId }
@@ -866,6 +902,9 @@ internal class TabCoordinator(
 
         val currentTab = getCurrentState().tabs.find { it.id == activeId }
         val sameDomain = currentTab != null && isSameDomain(currentTab.url, finalUrl)
+        if (!sameDomain) {
+            FaviconManager.deleteTabFavicons(activeId)
+        }
         val cachedFavicon = if (!sameDomain || currentTab?.faviconUrl == null) {
             FaviconManager.getCachedFaviconForUrl(finalUrl)
         } else null
@@ -912,6 +951,9 @@ internal class TabCoordinator(
         tabLoadingProgress[tabId] = 15
         val currentTab = getCurrentState().tabs.find { it.id == tabId }
         val sameDomain = currentTab != null && isSameDomain(currentTab.url, url)
+        if (!sameDomain) {
+            FaviconManager.deleteTabFavicons(tabId)
+        }
         val cachedFavicon = if (!sameDomain || currentTab?.faviconUrl == null) {
             FaviconManager.getCachedFaviconForUrl(url)
         } else null
@@ -1113,11 +1155,33 @@ internal class TabCoordinator(
         }
     }
 
-    fun handleUpdateFavicon(tabId: String, faviconUrl: String?) {
+    fun handleUpdateFavicon(tabId: String, faviconUrl: String?, pageUrl: String? = null) {
+        val current = getCurrentState().tabs.find { it.id == tabId } ?: return
+
+        // 1. If pageUrl is specified, verify that it matches current tab's domain
+        if (!pageUrl.isNullOrBlank() && current.url.isNotBlank() && current.url != "about:blank") {
+            if (!isSameDomain(current.url, pageUrl)) {
+                Log.d(TAG, "Ignoring favicon for tab $tabId: pageUrl ($pageUrl) does not match tab url (${current.url})")
+                return
+            }
+        }
+
+        // 2. If faviconUrl points to a domain-specific cache file, verify that it matches current tab's domain
+        if (!faviconUrl.isNullOrBlank() && current.url.isNotBlank() && current.url != "about:blank") {
+            val fileName = java.io.File(faviconUrl).name
+            if (fileName.startsWith("domain_") && fileName.endsWith(".png")) {
+                val fileHost = fileName.removePrefix("domain_").removeSuffix(".png")
+                val currentHost = FaviconManager.extractHost(current.url)?.let { FaviconManager.sanitizeHost(it) }
+                if (currentHost != null && fileHost != currentHost) {
+                    Log.d(TAG, "Ignoring favicon for tab $tabId: file domain ($fileHost) does not match current host ($currentHost)")
+                    return
+                }
+            }
+        }
+
         // Pages report their icon repeatedly. The favicon path is stable, so an unchanged value
         // carries no new information and must not trigger another write and state update.
-        val current = getCurrentState().tabs.find { it.id == tabId }
-        if (current != null && current.faviconUrl == faviconUrl) return
+        if (current.faviconUrl == faviconUrl) return
         updateUiState { state ->
             state.copy(
                 tabs =
@@ -1130,14 +1194,17 @@ internal class TabCoordinator(
             tabRepository.updateFavicon(tabId, faviconUrl)
             val tab = tabRepository.getTabById(tabId)
             if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:") && !faviconUrl.isNullOrEmpty()) {
-                recentTabRepository?.updateFavicon(tab.url, faviconUrl)
-                FaviconManager.cacheFaviconPathForDomain(tab.url, faviconUrl)
-                if (favoriteRepository.isFavorite(tab.url)) {
-                    val persistentIconPath = if (faviconUrl.startsWith("/") || faviconUrl.startsWith("file:")) {
-                        FaviconManager.persistFaviconForFavorite(faviconUrl)
-                    } else null
-                    val iconToUpdate = persistentIconPath ?: faviconUrl
-                    favoriteRepository.updateFavicon(tab.url, iconToUpdate)
+                val effectiveUrl = pageUrl ?: tab.url
+                if (isSameDomain(tab.url, effectiveUrl)) {
+                    recentTabRepository?.updateFavicon(tab.url, faviconUrl)
+                    FaviconManager.cacheFaviconPathForDomain(tab.url, faviconUrl)
+                    if (favoriteRepository.isFavorite(tab.url)) {
+                        val persistentIconPath = if (faviconUrl.startsWith("/") || faviconUrl.startsWith("file:")) {
+                            FaviconManager.persistFaviconForFavorite(faviconUrl)
+                        } else null
+                        val iconToUpdate = persistentIconPath ?: faviconUrl
+                        favoriteRepository.updateFavicon(tab.url, iconToUpdate)
+                    }
                 }
             }
         }

@@ -154,6 +154,7 @@ sealed interface BrowserUiEvent {
     data class UpdateFaviconUrl(
         val tabId: String,
         val faviconUrl: String?,
+        val pageUrl: String? = null,
     ) : BrowserUiEvent
 
     data class OnThemeColorReceived(

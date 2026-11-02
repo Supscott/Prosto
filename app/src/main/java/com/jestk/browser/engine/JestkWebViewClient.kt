@@ -25,7 +25,6 @@ class JestkWebViewClient(
     private val onThemeColorDetected: (tabId: String, color: Int?) -> Unit = { _, _ -> },
     private val onThemeColorsDetected: ((tabId: String, topColor: Int?, bottomColor: Int?) -> Unit)? = null,
     private val isDarkTheme: (() -> Boolean)? = null,
-    private val onFaviconReceived: ((tabId: String, icon: Bitmap) -> Unit)? = null,
     private val settingsRepository: SettingsRepository? = null,
     private val onBlockedResource: ((url: String, isTracker: Boolean) -> Unit)? = null,
     private val onTitleReceived: ((tabId: String, title: String) -> Unit)? = null,
@@ -177,7 +176,6 @@ class JestkWebViewClient(
         val validUrl = url.orEmpty()
         if (validUrl.isEmpty() || validUrl == "about:blank") return
         (view as? NestedWebView)?.loadedUrl = validUrl
-        favicon?.let { onFaviconReceived?.invoke(tabId, it) }
         onPageStarted(tabId, validUrl)
         view?.let { wv ->
             checkExternalAppOffer(wv, validUrl)
@@ -205,7 +203,6 @@ class JestkWebViewClient(
         if (validUrl.isEmpty() || validUrl == "about:blank") return
         (view as? NestedWebView)?.loadedUrl = validUrl
         val title = view?.title.orEmpty()
-        view?.favicon?.let { onFaviconReceived?.invoke(tabId, it) }
         onPageFinished(tabId, validUrl, title)
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())

@@ -435,6 +435,118 @@ class TabCoordinatorTest {
         }
 
     @Test
+    fun handleUpdateFavicon_whenPageUrlFromDifferentDomain_isIgnored() =
+        runTest(testDispatcher) {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            FaviconManager.init(context)
+            val dummyFile = java.io.File(context.filesDir, "favicons/test_source.png").apply {
+                parentFile?.mkdirs()
+                writeBytes("png_data".toByteArray())
+            }
+
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            coordinator.navigateToUrl("https://currentsite.com")
+            advanceUntilIdle()
+
+            // Late-arriving favicon from previous site (e.g. oldsite.com)
+            coordinator.handleUpdateFavicon(activeTabId, dummyFile.absolutePath, pageUrl = "https://oldsite.com")
+            advanceUntilIdle()
+
+            val activeTab = uiState.tabs.find { it.id == activeTabId }
+            // Tab must NOT have oldsite's favicon
+            assertThat(activeTab?.faviconUrl).isNull()
+            assertThat(tabRepo.getTabById(activeTabId)?.faviconUrl).isNull()
+
+            // Current site domain cache must not be poisoned with oldsite's favicon
+            val cachedForCurrent = FaviconManager.getCachedFaviconForUrl("https://currentsite.com")
+            assertThat(cachedForCurrent).isNull()
+        }
+
+    @Test
+    fun handleUpdateFavicon_whenDomainFaviconDoesNotMatchCurrentTab_isIgnored() =
+        runTest(testDispatcher) {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            FaviconManager.init(context)
+            val domainFile = java.io.File(context.filesDir, "favicons/domain_different_site_com.png").apply {
+                parentFile?.mkdirs()
+                writeBytes("different_site_png".toByteArray())
+            }
+
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            coordinator.navigateToUrl("https://mysite.com")
+            advanceUntilIdle()
+
+            // Mismatched domain favicon path
+            coordinator.handleUpdateFavicon(activeTabId, domainFile.absolutePath)
+            advanceUntilIdle()
+
+            val activeTab = uiState.tabs.find { it.id == activeTabId }
+            assertThat(activeTab?.faviconUrl).isNull()
+            assertThat(tabRepo.getTabById(activeTabId)?.faviconUrl).isNull()
+        }
+
+    @Test
+    fun navigateToUrl_toDifferentDomain_cleansUpTabFaviconFile() =
+        runTest(testDispatcher) {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            FaviconManager.init(context)
+
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val activeTabId = uiState.activeTabId!!
+            coordinator.navigateToUrl("https://site1.com")
+            advanceUntilIdle()
+
+            // Save a tab favicon file on disk
+            val tabFaviconFile = java.io.File(context.filesDir, "favicons/favicon_$activeTabId.png").apply {
+                parentFile?.mkdirs()
+                writeBytes("site1_icon".toByteArray())
+            }
+            assertThat(tabFaviconFile.exists()).isTrue()
+
+            // Cross-domain navigation
+            coordinator.navigateToUrl("https://site2.com")
+            advanceUntilIdle()
+
+            // Old tab favicon file must be deleted
+            assertThat(tabFaviconFile.exists()).isFalse()
+        }
+
+    @Test
+    fun restoreSession_whenTabFaviconPointsToDifferentDomainFile_resolvesCorrectly() =
+        runTest(testDispatcher) {
+            val context = ApplicationProvider.getApplicationContext<Context>()
+            FaviconManager.init(context)
+
+            // Cache correct icon for siteB
+            val siteBBitmap = Bitmap.createBitmap(16, 16, Bitmap.Config.ARGB_8888)
+            val siteBPath = FaviconManager.cacheFaviconForDomain("siteb.com", siteBBitmap, context)
+            assertThat(siteBPath).isNotNull()
+
+            // Setup DB tab with siteB url but mismatched domain_sitea_com.png favicon
+            val wrongDomainFile = java.io.File(context.filesDir, "favicons/domain_sitea_com.png").apply {
+                parentFile?.mkdirs()
+                writeBytes("sitea_icon".toByteArray())
+            }
+
+            val tab = tabRepo.createTab("https://siteb.com", "Site B")
+            tabRepo.updateFavicon(tab.id, wrongDomainFile.absolutePath)
+
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+
+            val restoredTab = uiState.tabs.find { it.id == tab.id }
+            assertThat(restoredTab?.faviconUrl).isEqualTo(siteBPath)
+        }
+
+    @Test
     fun handleTitleReceived_updatesUiStateAndPersistsToRepositories() =
         runTest(testDispatcher) {
             coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)

@@ -15,7 +15,7 @@ class JestkWebChromeClient(
     private val onTitleReceived: (tabId: String, title: String) -> Unit,
     private val onFullscreenCustomViewChanged: (view: View?, isFullscreen: Boolean, requestedOrientation: Int) -> Unit,
     private val onVideoPlayingStateChanged: (isPlaying: Boolean) -> Unit,
-    private val onFaviconReceived: ((tabId: String, icon: Bitmap) -> Unit)? = null,
+    private val onFaviconReceived: ((tabId: String, icon: Bitmap, pageUrl: String?) -> Unit)? = null,
     private val onVideoResume: (() -> Unit)? = null,
     private val onShowFileChooser: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null
 ) : WebChromeClient() {
@@ -43,7 +43,8 @@ class JestkWebChromeClient(
 
     override fun onReceivedIcon(view: WebView?, icon: Bitmap?) {
         super.onReceivedIcon(view, icon)
-        icon?.let { onFaviconReceived?.invoke(tabId, it) }
+        val pageUrl = view?.url ?: (view as? NestedWebView)?.loadedUrl ?: webView?.url
+        icon?.let { onFaviconReceived?.invoke(tabId, it, pageUrl) }
     }
 
     override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
