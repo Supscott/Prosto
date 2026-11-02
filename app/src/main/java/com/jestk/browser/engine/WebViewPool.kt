@@ -57,10 +57,10 @@ class WebViewPool(
     var onWebViewCreated: ((tabId: String, webView: WebView) -> Unit)? = null
 
     class AdBlockBridge(
-        private val isEnabled: () -> Boolean
+        private val isEnabledProvider: () -> Boolean
     ) {
         @JavascriptInterface
-        fun isEnabled(): Boolean = isEnabled()
+        fun isEnabled(): Boolean = isEnabledProvider()
     }
 
     class BlobDownloadBridge(

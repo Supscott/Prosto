@@ -88,5 +88,42 @@ class AdBlockerScriptTest {
         assertThat(js).contains("parent.children.length === 1")
         assertThat(js).contains("[id^=\"adfox\"]")
         assertThat(js).contains("[class*=\"bannerContainer\"]")
+
+        // YouTube Fast-Start integrated
+        assertThat(js).contains("ytInitialPlayerResponse")
+        assertThat(js).contains("adPlacements")
+        assertThat(js).contains("adSlots")
+    }
+
+    @Test
+    fun buildYouTubeFastStartScript_containsPrunerHooksAndSkipAccelerator() {
+        val js = AdBlockerScript.buildYouTubeFastStartScript()
+
+        // Domain guard
+        assertThat(js).contains("youtube.com")
+        assertThat(js).contains("youtu.be")
+
+        // JSON pruner properties
+        assertThat(js).contains("adPlacements")
+        assertThat(js).contains("playerAds")
+        assertThat(js).contains("adSlots")
+        assertThat(js).contains("adBreakHeartbeatParams")
+
+        // Interception hooks
+        assertThat(js).contains("Object.defineProperty(window, 'ytInitialPlayerResponse'")
+        assertThat(js).contains("origParse = JSON.parse")
+        assertThat(js).contains("Response.prototype.json")
+
+        // Ad-skip acceleration
+        assertThat(js).contains(".ytp-ad-skip-button")
+        assertThat(js).contains(".ad-showing")
+        assertThat(js).contains("v.currentTime = v.duration")
+
+        // isInlinePlaybackNoAd anti-throttling & SABR backoff rewriting
+        assertThat(js).contains("isInlinePlaybackNoAd")
+        assertThat(js).contains("contentPlaybackContext")
+        assertThat(js).contains("patchBackoffField")
+        assertThat(js).contains("forceFreshSession")
+        assertThat(js).contains("sabr=1")
     }
 }

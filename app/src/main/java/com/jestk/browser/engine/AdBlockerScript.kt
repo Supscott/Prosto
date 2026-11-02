@@ -212,13 +212,363 @@ object AdBlockerScript {
     }
 
     /**
+     * Builds the YouTube Fast-Start ad bypass scriptlet.
+     * Combines multi-layer mitigations against YouTube's anti-adblock throttling and delays:
+     * 1. Prunes adPlacements, playerAds, and adSlots from JSON.parse, Response.prototype.json,
+     *    and window.ytInitialPlayerResponse.
+     * 2. Injects isInlinePlaybackNoAd: true into contentPlaybackContext across JSON.stringify,
+     *    Object.assign, fetch, and XMLHttpRequest to prevent YouTube's InnerTube API from assigning
+     *    ad slots or scheduling SABR backoffs on SPA navigations.
+     * 3. Intercepts googlevideo.com SABR streaming responses, scans for protobuf backoffTimeMs (>500ms),
+     *    rewrites the varint to 50-150ms in-place, and forces a fresh ad-free session if initial playback stalls.
+     * 4. Accelerates and auto-skips fallback ad breaks (.ad-showing, .ad-interrupting).
+     * 5. Runs an autoplay watchdog to trigger video.play() on fresh watch navigations if stalled at 0.0s.
+     */
+    fun buildYouTubeFastStartScript(): String {
+        return """
+            (function() {
+                try {
+                    var host = location.hostname || '';
+                    if (host.indexOf('youtube.com') === -1 && host.indexOf('youtu.be') === -1) {
+                        return;
+                    }
+
+                    // 1. Prune ad properties from player responses
+                    function pruneAdProps(obj) {
+                        if (!obj || typeof obj !== 'object') return obj;
+                        try {
+                            if ('adPlacements' in obj) delete obj.adPlacements;
+                            if ('playerAds' in obj) delete obj.playerAds;
+                            if ('adSlots' in obj) delete obj.adSlots;
+                            if ('adBreakHeartbeatParams' in obj) delete obj.adBreakHeartbeatParams;
+                            if (obj.playbackContext && obj.playbackContext.contentPlaybackContext) {
+                                obj.playbackContext.contentPlaybackContext.isInlinePlaybackNoAd = true;
+                            }
+                            if (obj.playerResponse && typeof obj.playerResponse === 'object') {
+                                pruneAdProps(obj.playerResponse);
+                            }
+                        } catch(e) {}
+                        return obj;
+                    }
+
+                    var _initialPlayerResp = undefined;
+                    try {
+                        Object.defineProperty(window, 'ytInitialPlayerResponse', {
+                            get: function() { return _initialPlayerResp; },
+                            set: function(val) { _initialPlayerResp = pruneAdProps(val); },
+                            configurable: true,
+                            enumerable: true
+                        });
+                    } catch(e) {}
+
+                    try {
+                        var origParse = JSON.parse;
+                        JSON.parse = function() {
+                            var res = origParse.apply(this, arguments);
+                            if (res && typeof res === 'object') {
+                                pruneAdProps(res);
+                            }
+                            return res;
+                        };
+                    } catch(e) {}
+
+                    try {
+                        if (window.Response && Response.prototype && Response.prototype.json) {
+                            var origJson = Response.prototype.json;
+                            Response.prototype.json = function() {
+                                return origJson.apply(this, arguments).then(function(data) {
+                                    if (data && typeof data === 'object') {
+                                        pruneAdProps(data);
+                                    }
+                                    return data;
+                                });
+                            };
+                        }
+                    } catch(e) {}
+
+                    // 2. Inject isInlinePlaybackNoAd into player requests (uBlock Origin / iter.ca anti-throttling)
+                    try {
+                        var origStringify = JSON.stringify;
+                        JSON.stringify = function(val, replacer, space) {
+                            if (val && typeof val === 'object') {
+                                try {
+                                    if (val.contentPlaybackContext && typeof val.contentPlaybackContext === 'object') {
+                                        val.contentPlaybackContext.isInlinePlaybackNoAd = true;
+                                    }
+                                    if (val.playbackContext && val.playbackContext.contentPlaybackContext && typeof val.playbackContext.contentPlaybackContext === 'object') {
+                                        val.playbackContext.contentPlaybackContext.isInlinePlaybackNoAd = true;
+                                    }
+                                } catch(e) {}
+                            }
+                            return origStringify.apply(this, arguments);
+                        };
+                    } catch(e) {}
+
+                    try {
+                        var realAssign = Object.assign;
+                        Object.assign = function() {
+                            var res = realAssign.apply(Object, arguments);
+                            if (arguments.length === 3 && res && typeof res.body === 'string' && res.body.indexOf('contentPlaybackContext') !== -1) {
+                                if (res.body.indexOf('"isInlinePlaybackNoAd":true') === -1) {
+                                    res.body = res.body.replace('"contentPlaybackContext":{', '"contentPlaybackContext":{"isInlinePlaybackNoAd":true,');
+                                }
+                            }
+                            return res;
+                        };
+                    } catch(e) {}
+
+                    try {
+                        if (window.XMLHttpRequest && XMLHttpRequest.prototype && XMLHttpRequest.prototype.send) {
+                            var origXhrSend = XMLHttpRequest.prototype.send;
+                            XMLHttpRequest.prototype.send = function(body) {
+                                if (body && typeof body === 'string' && body.indexOf('contentPlaybackContext') !== -1) {
+                                    if (body.indexOf('"isInlinePlaybackNoAd":true') === -1) {
+                                        body = body.replace('"contentPlaybackContext":{', '"contentPlaybackContext":{"isInlinePlaybackNoAd":true,');
+                                    }
+                                }
+                                return origXhrSend.call(this, body);
+                            };
+                        }
+                    } catch(e) {}
+
+                    // 3. SABR backoff rewriting & fresh session recovery (Brave SABR protocol fix)
+                    function patchBackoffField(bytes) {
+                        var patched = false;
+                        for (var i = 0; i < bytes.length - 2; i++) {
+                            if (bytes[i] !== 0x20) continue;
+                            var val = 0, shift = 0, end = i + 1;
+                            while (end < bytes.length && shift < 35) {
+                                val |= (bytes[end] & 0x7f) << shift;
+                                if (!(bytes[end] & 0x80)) { end++; break; }
+                                shift += 7;
+                                end++;
+                            }
+                            if (val > 500 && val < 100000) {
+                                var target = 50 + Math.floor(Math.random() * 100);
+                                var pos = i + 1, remaining = target;
+                                while (pos < end - 1) {
+                                    bytes[pos++] = (remaining & 0x7f) | 0x80;
+                                    remaining >>>= 7;
+                                }
+                                bytes[pos] = remaining & 0x7f;
+                                patched = true;
+                            }
+                        }
+                        return patched;
+                    }
+
+                    var reloadedVid = null;
+                    function forceFreshSession() {
+                        var vid = null;
+                        try {
+                            vid = new URL(window.location.href).searchParams.get('v');
+                        } catch(e) {}
+                        if (!vid || vid === reloadedVid) return;
+                        var video = document.querySelector('video');
+                        if (video && video.currentTime > 1) return;
+                        reloadedVid = vid;
+                        var player = document.querySelector('#movie_player');
+                        if (!player || typeof player.cancelPlayback !== 'function' || typeof player.loadVideoById !== 'function') return;
+
+                        try {
+                            var vd = typeof player.getVideoData === 'function' ? player.getVideoData() : null;
+                            if (vd) vd.isInlinePlaybackNoAd = true;
+                        } catch(e) {}
+
+                        player.cancelPlayback();
+                        var realLoad = player.loadVideoById.bind(player);
+                        player.loadVideoById = function() {};
+                        setTimeout(function() {
+                            try {
+                                player.loadVideoById = realLoad;
+                                player.loadVideoById(vid);
+                            } catch(e) {}
+                        }, 500);
+                    }
+
+                    function readStream(reader, earlyExitThreshold) {
+                        var chunks = [];
+                        var total = 0;
+                        return reader.read().then(function pump(result) {
+                            if (result.done) {
+                                var merged = new Uint8Array(total);
+                                for (var i = 0, off = 0; i < chunks.length; off += chunks[i].length, i++) {
+                                    merged.set(chunks[i], off);
+                                }
+                                return merged;
+                            }
+                            chunks.push(result.value);
+                            total += result.value.length;
+                            if (earlyExitThreshold && total >= earlyExitThreshold) {
+                                try { reader.cancel(); } catch(e) {}
+                                return null;
+                            }
+                            return reader.read().then(pump);
+                        });
+                    }
+
+                    try {
+                        var realFetch = window.fetch;
+                        if (typeof realFetch === 'function') {
+                            window.fetch = function(resource, init) {
+                                var url = typeof resource === 'string' ? resource : (resource && resource.url ? resource.url : '');
+
+                                if (init && init.body && typeof init.body === 'string' && init.body.indexOf('contentPlaybackContext') !== -1) {
+                                    if (init.body.indexOf('"isInlinePlaybackNoAd":true') === -1) {
+                                        init.body = init.body.replace('"contentPlaybackContext":{', '"contentPlaybackContext":{"isInlinePlaybackNoAd":true,');
+                                    }
+                                }
+
+                                if (url.indexOf('googlevideo.com') !== -1 && url.indexOf('sabr=1') !== -1) {
+                                    return realFetch.apply(this, arguments).then(function(response) {
+                                        if (!response.ok || !response.body || typeof response.body.tee !== 'function') {
+                                            return response;
+                                        }
+                                        var pass, scan, reinit;
+                                        try {
+                                            var streams = response.body.tee();
+                                            pass = streams[0];
+                                            scan = streams[1];
+                                            reinit = {
+                                                status: response.status,
+                                                statusText: response.statusText,
+                                                headers: response.headers
+                                            };
+                                        } catch(e) {
+                                            return response;
+                                        }
+
+                                        return readStream(scan.getReader(), 1000).then(function(bytes) {
+                                            if (bytes === null) {
+                                                return new Response(pass, reinit);
+                                            }
+                                            if (patchBackoffField(bytes)) {
+                                                forceFreshSession();
+                                            }
+                                            var out = new Response(bytes, reinit);
+                                            try {
+                                                Object.defineProperty(out, 'url', { value: response.url, configurable: true });
+                                                Object.defineProperty(out, 'type', { value: response.type, configurable: true });
+                                            } catch(e) {}
+                                            return out;
+                                        });
+                                    });
+                                }
+
+                                return realFetch.apply(this, arguments);
+                            };
+                        }
+                    } catch(e) {}
+
+                    // 4. Fallback ad-skip accelerator for ad overlays
+                    function skipAdSlot() {
+                        try {
+                            var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .ytp-ad-overlay-close-button, button.ytp-ad-skip-button');
+                            if (skipBtn) {
+                                skipBtn.click();
+                            }
+                            var adShowing = document.querySelector('.ad-showing, .ad-interrupting, .video-ads.ytp-ad-module');
+                            if (adShowing) {
+                                var v = document.querySelector('video');
+                                if (v && !isNaN(v.duration) && v.duration > 0 && !isNaN(v.currentTime)) {
+                                    v.currentTime = v.duration;
+                                }
+                            }
+                        } catch(e) {}
+                    }
+
+                    // 5. Autoplay & gesture watchdog on SPA navigation
+                    var userInteractedPause = false;
+                    var lastWatchUrl = location.href;
+
+                    function monitorVideo(v) {
+                        if (!v || v.__hori_yt_hooked) return;
+                        v.__hori_yt_hooked = true;
+                        v.addEventListener('timeupdate', function() {
+                            if (document.querySelector('.ad-showing, .ad-interrupting')) {
+                                skipAdSlot();
+                            }
+                        });
+                        v.addEventListener('pause', function() {
+                            if (v.currentTime > 0.5) {
+                                userInteractedPause = true;
+                            }
+                        });
+                    }
+
+                    function checkWatchPlayback() {
+                        try {
+                            if (location.href !== lastWatchUrl) {
+                                lastWatchUrl = location.href;
+                                userInteractedPause = false;
+                                reloadedVid = null;
+                            }
+                            if (location.pathname.indexOf('/watch') !== -1 && !userInteractedPause) {
+                                var v = document.querySelector('video');
+                                if (v && v.paused && v.currentTime === 0 && !v.ended) {
+                                    var p = v.play();
+                                    if (p && typeof p.catch === 'function') {
+                                        p.catch(function() {});
+                                    }
+                                }
+                            }
+                        } catch(e) {}
+                    }
+                    setInterval(checkWatchPlayback, 800);
+
+                    function initVideos() {
+                        var videos = document.querySelectorAll('video');
+                        for (var i = 0; i < videos.length; i++) {
+                            monitorVideo(videos[i]);
+                        }
+                    }
+
+                    if (document.readyState === 'loading') {
+                        document.addEventListener('DOMContentLoaded', initVideos);
+                    } else {
+                        initVideos();
+                    }
+
+                    if (window.MutationObserver && (document.documentElement || document.body)) {
+                        var ytObserver = new MutationObserver(function(mutations) {
+                            skipAdSlot();
+                            for (var i = 0; i < mutations.length; i++) {
+                                var added = mutations[i].addedNodes;
+                                if (!added) continue;
+                                for (var j = 0; j < added.length; j++) {
+                                    var n = added[j];
+                                    if (!n || n.nodeType !== 1) continue;
+                                    if (n.tagName === 'VIDEO') {
+                                        monitorVideo(n);
+                                    } else if (n.querySelectorAll) {
+                                        var vList = n.querySelectorAll('video');
+                                        for (var k = 0; k < vList.length; k++) {
+                                            monitorVideo(vList[k]);
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                        ytObserver.observe(document.documentElement || document.body, {
+                            childList: true,
+                            subtree: true
+                        });
+                    }
+                } catch(e) {}
+            })();
+        """.trimIndent()
+    }
+
+    /**
      * Builds the complete combined document start script including:
      * - Surrogates (Google AdSense, GPT, Yandex)
+     * - YouTube Fast-Start (JSON player response pruning & ad skip accelerator)
      * - Immediate style element creation
      * - MutationObserver to collapse dynamic ad containers and empty parent wrappers
      */
     fun buildDocumentStartScript(): String {
         val cssContent = buildCosmeticCss().replace("\\", "\\\\").replace("`", "\\`").replace("\n", " ")
+        val ytScript = buildYouTubeFastStartScript()
         return """
             (function() {
                 try {
@@ -323,7 +673,10 @@ object AdBlockerScript {
                         render: function() {}
                     };
 
-                    // 2. Inject Cosmetic CSS Style Tag
+                    // 2. Install YouTube Fast-Start ad bypass immediately
+                    $ytScript
+
+                    // 3. Inject Cosmetic CSS Style Tag
                     function injectStyle() {
                         if (document.getElementById('__hori_adblock_css')) return;
                         var style = document.createElement('style');

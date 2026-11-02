@@ -367,4 +367,14 @@ class WebViewPoolRobolectricTest {
         val cookieManager = android.webkit.CookieManager.getInstance()
         assertThat(cookieManager.acceptCookie()).isTrue()
     }
+
+    @Test
+    fun adBlockBridge_isEnabled_invokesProviderWithoutStackOverflow() {
+        var flag = true
+        val bridge = WebViewPool.AdBlockBridge { flag }
+
+        assertThat(bridge.isEnabled()).isTrue()
+        flag = false
+        assertThat(bridge.isEnabled()).isFalse()
+    }
 }

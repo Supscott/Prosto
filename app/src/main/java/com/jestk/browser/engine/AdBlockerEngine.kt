@@ -662,6 +662,27 @@ object AdBlockerEngine {
             )
         }
 
+        val isJson =
+            mimeTypeHint?.contains("json") == true ||
+                acceptHeader.contains("application/json") ||
+                cleanUrl.endsWith(".json") ||
+                cleanUrl.contains(".json?") ||
+                cleanUrl.contains("/pagead/id") ||
+                cleanUrl.contains("/player/ad_break") ||
+                cleanUrl.contains("/get_midroll") ||
+                cleanUrl.contains("/ad_break")
+
+        if (isJson) {
+            return WebResourceResponse(
+                "application/json",
+                "UTF-8",
+                200,
+                "OK",
+                mapOf("Access-Control-Allow-Origin" to "*"),
+                ByteArrayInputStream("{}".toByteArray(Charsets.UTF_8)),
+            )
+        }
+
         val isHtml =
             mimeTypeHint?.contains("html") == true ||
                 cleanUrl.endsWith(".html") || cleanUrl.endsWith(".htm")

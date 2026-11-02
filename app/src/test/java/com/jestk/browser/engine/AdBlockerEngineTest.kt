@@ -316,6 +316,29 @@ class AdBlockerEngineTest {
         assertThat(body).contains("<!DOCTYPE html>")
     }
 
+    @Test
+    fun createSmartBlockedResponse_returnsEmptyJsonObjectForJsonRequests() {
+        // Known ad JSON endpoints
+        val pageadResp = AdBlockerEngine.createSmartBlockedResponse("https://googleads.g.doubleclick.net/pagead/id")
+        assertThat(pageadResp.mimeType).isEqualTo("application/json")
+        assertThat(pageadResp.statusCode).isEqualTo(200)
+        assertThat(String(pageadResp.data.readBytes())).isEqualTo("{}")
+
+        val adBreakResp = AdBlockerEngine.createSmartBlockedResponse("https://youtube.com/youtubei/v1/player/ad_break")
+        assertThat(adBreakResp.mimeType).isEqualTo("application/json")
+        assertThat(adBreakResp.statusCode).isEqualTo(200)
+        assertThat(String(adBreakResp.data.readBytes())).isEqualTo("{}")
+
+        // Accept: application/json header
+        val acceptJsonResp = AdBlockerEngine.createSmartBlockedResponse(
+            "https://example.com/ad-data",
+            requestHeaders = mapOf("Accept" to "application/json, text/plain, */*")
+        )
+        assertThat(acceptJsonResp.mimeType).isEqualTo("application/json")
+        assertThat(acceptJsonResp.statusCode).isEqualTo(200)
+        assertThat(String(acceptJsonResp.data.readBytes())).isEqualTo("{}")
+    }
+
     // --- 7. Tracker Detection & Interception Counting Tests ---
 
     @Test
