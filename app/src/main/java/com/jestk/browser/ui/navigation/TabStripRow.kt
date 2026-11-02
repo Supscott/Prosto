@@ -278,7 +278,7 @@ fun TabStripRow(
         val activeTabWidthPx = with(density) { activeTabWidth.toPx() }
         val totalChipWidthPx = with(density) { totalChipWidth.toPx() }
         val inactiveTabWidthPx = with(density) { 38.dp.toPx() }
-        val tabSpacingPx = with(density) { 5.dp.toPx() }
+        val tabSpacingPx = with(density) { 3.dp.toPx() }
         val hysteresisPx = with(density) { 4.dp.toPx() }
 
         val layoutMetrics =
@@ -500,7 +500,7 @@ fun TabStripRow(
             userScrollEnabled = !dragState.isDragging && !dragState.isSettling,
             contentPadding = PaddingValues(start = 5.dp, end = 46.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             itemsIndexed(
                 items = dragState.currentTabs,
