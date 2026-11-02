@@ -14,7 +14,13 @@
 - **Unit test target**: Always run `rtk ./gradlew testDebugUnitTest`. Never run bare `./gradlew test`, as `testReleaseUnitTest` fails without Robolectric release configuration.
 - **Invariants**: Always verify `python3 tools/check_invariants.py` passes before finalizing changes.
 
-### 3. Architectural Rules & Gotchas
+### 3. Post-Implementation Reflection & Retrospective (Анализ работы и ретроспектива)
+- After successfully implementing and verifying non-trivial fixes or features, conduct a brief retrospective analysis of the work done:
+  - **Friction & Bottlenecks**: Identify what slowed down investigation or testing (e.g., ambiguous repro steps, long test feedback loops, obscure platform quirks).
+  - **Mechanical Prevention**: Consider if this category of bug or regression can be prevented mechanically in the future (e.g., via `tools/check_invariants.py`, unit test invariants, or architectural seams).
+  - **Process / Tooling Enhancements**: Suggest or implement concrete improvements to scripts, guidelines, or invariant checks so future tasks are faster and safer.
+
+### 4. Architectural Rules & Gotchas
 
 #### Favicon Subsystem
 - **Single Source of Truth**: The only valid event for receiving a website's favicon is `WebChromeClient.onReceivedIcon(view, icon)`.
