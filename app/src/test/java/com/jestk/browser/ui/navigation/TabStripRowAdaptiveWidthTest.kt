@@ -97,11 +97,32 @@ class TabStripRowAdaptiveWidthTest {
     }
 
     @Test
-    fun webTabWithLongTitleAndShortDomain_adaptsToShortDomain() {
+    fun webTabWithConciseTitleAndDomain_adaptsWidthSnuglyAroundContent() {
         val dockWidth = 360.dp
         val maxAllowedWidthDp = (dockWidth * 0.45f).value // 162.dp
 
-        // X.com with actual website title "X. It’s what’s happening / X"
+        // VK with concise title "VK" and concise domain "vk.com"
+        val tabs = listOf(
+            Tab(id = "tab1", title = "VK", url = "https://vk.com", isActive = true),
+            Tab(id = "tab2", title = "Tab 2", url = "https://example.com", isActive = false),
+        )
+        render(tabs = tabs, activeTabId = "tab1", dockWidth = dockWidth)
+
+        val pillNode = composeRule.onNodeWithTag("tab_tab1", useUnmergedTree = true)
+        val bounds = pillNode.fetchSemanticsNode().boundsInRoot
+        val pillWidthDp = bounds.width / 3f
+
+        // Should adapt to concise content and be well below maxAllowedWidthDp (162.dp), around 110-120 dp
+        assertThat(pillWidthDp).isAtLeast(80f)
+        assertThat(pillWidthDp).isLessThan(maxAllowedWidthDp - 30f)
+    }
+
+    @Test
+    fun webTabWithLongTitle_expandsUpToMaximumWidth() {
+        val dockWidth = 360.dp
+        val maxAllowedWidthDp = (dockWidth * 0.45f).value // 162.dp
+
+        // X.com with long page title "X. It’s what’s happening / X"
         val fullTitle = "X. It’s what’s happening / X"
         val tabs = listOf(
             Tab(id = "tab1", title = fullTitle, url = "https://x.com", isActive = true),
@@ -113,9 +134,8 @@ class TabStripRowAdaptiveWidthTest {
         val bounds = pillNode.fetchSemanticsNode().boundsInRoot
         val pillWidthDp = bounds.width / 3f
 
-        // Should adapt to short domain ("x.com") and be well below maxAllowedWidthDp (162.dp), around 110-115 dp
-        assertThat(pillWidthDp).isAtLeast(80f)
-        assertThat(pillWidthDp).isLessThan(maxAllowedWidthDp - 30f)
+        // When title is long, the active tab must use available space up to 45% maximum width
+        assertThat(pillWidthDp).isWithin(2f).of(maxAllowedWidthDp)
     }
 
     @Test

@@ -46,9 +46,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -379,31 +384,45 @@ private fun FadingSingleLineText(
     text: String,
     style: TextStyle,
     color: Color,
+    modifier: Modifier = Modifier,
+    fadeWidth: Dp = 20.dp,
 ) {
     var overflows by remember(text) { mutableStateOf(false) }
-    val textStyle =
-        if (overflows) {
-            style.copy(
-                brush =
-                    Brush.horizontalGradient(
-                        colorStops =
-                            arrayOf(
-                                0f to color,
-                                0.8f to color,
-                                1f to color.copy(alpha = 0f),
-                            ),
-                    ),
-            )
-        } else {
-            style.copy(color = color)
-        }
 
     Text(
         text = text,
-        style = textStyle,
+        style = style.copy(color = color),
         maxLines = 1,
         overflow = TextOverflow.Clip,
-        onTextLayout = { overflows = it.hasVisualOverflow },
+        onTextLayout = { layoutResult ->
+            overflows = layoutResult.hasVisualOverflow
+        },
+        modifier =
+            modifier.then(
+                if (overflows) {
+                    Modifier
+                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .drawWithContent {
+                            drawContent()
+                            val fadePx = fadeWidth.toPx()
+                            val startX = (size.width - fadePx).coerceAtLeast(0f)
+                            drawRect(
+                                brush =
+                                    Brush.horizontalGradient(
+                                        0f to Color.Black,
+                                        1f to Color.Transparent,
+                                        startX = startX,
+                                        endX = size.width,
+                                    ),
+                                topLeft = Offset(startX, 0f),
+                                size = Size(size.width - startX, size.height),
+                                blendMode = BlendMode.DstIn,
+                            )
+                        }
+                } else {
+                    Modifier
+                },
+            ),
     )
 }
 
