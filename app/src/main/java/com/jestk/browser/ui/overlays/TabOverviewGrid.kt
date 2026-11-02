@@ -50,6 +50,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -144,7 +145,8 @@ internal fun computeOverviewItems(
     val processedFolderIds = mutableSetOf<String>()
 
     fun addFolderItems(folder: TabFolder, memberTabs: List<Tab>) {
-        if (folder.id in expandedFolderIds) {
+        val isExpanded = folder.id in expandedFolderIds || searchQuery.isNotBlank()
+        if (isExpanded) {
             items.add(OverviewGridItem.FolderHeader(folder, memberTabs))
             memberTabs.forEachIndexed { index, tab ->
                 items.add(OverviewGridItem.FolderTabCard(folder, tab, index, memberTabs.size))
@@ -220,6 +222,8 @@ fun TabOverviewGrid(
     var isSearchVisible by remember { mutableStateOf(false) }
     var tabSearchQuery by remember { mutableStateOf("") }
     val searchFocusRequester = remember { FocusRequester() }
+
+    val currentUiState by rememberUpdatedState(uiState)
 
     BackHandler(enabled = isSearchVisible) {
         isSearchVisible = false
@@ -555,7 +559,7 @@ fun TabOverviewGrid(
                                     }
 
                                     val tabId = downKey.removePrefix("tab_")
-                                    val draggedTab = uiState.tabs.find { it.id == tabId }
+                                    val draggedTab = currentUiState.tabs.find { it.id == tabId }
                                     val sourceFolderId = draggedTab?.folderId
                                     draggedTabId = tabId
                                     dragProxyPosition = longPress.position
@@ -601,36 +605,44 @@ fun TabOverviewGrid(
                                         }
 
                                         val dropTarget = currentHoverKey
-                                        if (sourceFolderId != null) {
-                                            if (shouldRemoveTabFromFolderOnDrop(
-                                                    sourceFolderId = sourceFolderId,
-                                                    dropTargetKey = dropTarget,
-                                                    dropPosition = dragProxyPosition,
-                                                    tabs = uiState.tabs,
-                                                    visibleItems = gridState.layoutInfo.visibleItemsInfo,
-                                                )
-                                            ) {
-                                                vibration.tick()
-                                                onEvent(BrowserUiEvent.RemoveTabFromFolder(tabId))
-                                            }
-                                        } else if (dropTarget != null) {
-                                            if (dropTarget.startsWith("tab_")) {
-                                                val targetTabId = dropTarget.removePrefix("tab_")
-                                                val targetTab = uiState.tabs.find { it.id == targetTabId }
-                                                vibration.tick()
-                                                if (targetTab?.folderId != null) {
-                                                    onEvent(BrowserUiEvent.AddTabToFolder(tabId = tabId, folderId = targetTab.folderId))
-                                                } else {
-                                                    onEvent(BrowserUiEvent.CreateFolderFromTabs(tabId1 = tabId, tabId2 = targetTabId))
-                                                }
-                                            } else if (dropTarget.startsWith("folder_")) {
+                                        if (dropTarget != null) {
+                                            if (dropTarget.startsWith("folder_")) {
                                                 val targetFolderId = if (dropTarget.startsWith("folder_header_")) {
                                                     dropTarget.removePrefix("folder_header_")
                                                 } else {
                                                     dropTarget.removePrefix("folder_")
                                                 }
+                                                if (targetFolderId != sourceFolderId) {
+                                                    vibration.tick()
+                                                    onEvent(BrowserUiEvent.AddTabToFolder(tabId = tabId, folderId = targetFolderId))
+                                                }
+                                            } else if (dropTarget.startsWith("tab_")) {
+                                                val targetTabId = dropTarget.removePrefix("tab_")
+                                                val targetTab = currentUiState.tabs.find { it.id == targetTabId }
+                                                if (targetTab?.folderId != null) {
+                                                    if (targetTab.folderId != sourceFolderId) {
+                                                        vibration.tick()
+                                                        onEvent(BrowserUiEvent.AddTabToFolder(tabId = tabId, folderId = targetTab.folderId))
+                                                    }
+                                                } else if (sourceFolderId != null) {
+                                                    vibration.tick()
+                                                    onEvent(BrowserUiEvent.RemoveTabFromFolder(tabId))
+                                                } else {
+                                                    vibration.tick()
+                                                    onEvent(BrowserUiEvent.CreateFolderFromTabs(tabId1 = tabId, tabId2 = targetTabId))
+                                                }
+                                            }
+                                        } else if (sourceFolderId != null) {
+                                            if (shouldRemoveTabFromFolderOnDrop(
+                                                    sourceFolderId = sourceFolderId,
+                                                    dropTargetKey = dropTarget,
+                                                    dropPosition = dragProxyPosition,
+                                                    tabs = currentUiState.tabs,
+                                                    visibleItems = gridState.layoutInfo.visibleItemsInfo,
+                                                )
+                                            ) {
                                                 vibration.tick()
-                                                onEvent(BrowserUiEvent.AddTabToFolder(tabId = tabId, folderId = targetFolderId))
+                                                onEvent(BrowserUiEvent.RemoveTabFromFolder(tabId))
                                             }
                                         }
                                     } finally {

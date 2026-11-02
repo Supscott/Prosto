@@ -673,15 +673,7 @@ internal class TabCoordinator(
         val remainingTabs = currentTabs.filter { it.id != tabId }
 
         closingTab?.folderId?.let { folderId ->
-            val remainingInFolder = remainingTabs.filter { it.folderId == folderId }
-            if (remainingInFolder.isEmpty()) {
-                updateUiState { state ->
-                    state.copy(folders = state.folders.filter { it.id != folderId })
-                }
-                scope.launch(ioDispatcher) {
-                    tabFolderRepository?.deleteFolder(folderId)
-                }
-            }
+            checkAndPruneEmptyFolder(folderId, remainingTabs)
         }
 
         if (!wasActive) {
@@ -1442,11 +1434,18 @@ internal class TabCoordinator(
 
         if (folderId != null) {
             val remainingInFolder = currentTabs.filter { it.folderId == folderId && it.id != tabId }
-            if (remainingInFolder.isEmpty()) {
+            checkAndPruneEmptyFolder(folderId, remainingInFolder)
+        }
+    }
+
+    private fun checkAndPruneEmptyFolder(folderId: String, remainingTabs: List<Tab>) {
+        val remainingInFolder = remainingTabs.filter { it.folderId == folderId }
+        if (remainingInFolder.isEmpty()) {
+            updateUiState { state ->
+                state.copy(folders = state.folders.filter { it.id != folderId })
+            }
+            scope.launch(ioDispatcher) {
                 tabFolderRepository?.deleteFolder(folderId)
-                updateUiState { state ->
-                    state.copy(folders = state.folders.filter { it.id != folderId })
-                }
             }
         }
     }

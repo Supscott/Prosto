@@ -266,8 +266,6 @@ fun TabStripRow(
                         val next = reordered.getOrNull(newIdx + 1)
                         val targetFolderId = when {
                             prev?.folderId != null && prev.folderId == next?.folderId -> prev.folderId
-                            next?.folderId != null && prev?.folderId != next.folderId && tab.folderId == null -> next.folderId
-                            prev?.folderId != null && next?.folderId != prev.folderId && tab.folderId == null -> prev.folderId
                             else -> null
                         }
                         if (targetFolderId != null && targetFolderId != tab.folderId) {
