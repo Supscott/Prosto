@@ -14,6 +14,10 @@ sealed interface BrowserUiEvent {
         val url: String = "",
     ) : BrowserUiEvent
 
+    data class OpenPopupTab(
+        val tabId: String,
+    ) : BrowserUiEvent
+
     data class OpenRecentTab(
         val item: com.jestk.browser.domain.model.RecentTabItem,
     ) : BrowserUiEvent

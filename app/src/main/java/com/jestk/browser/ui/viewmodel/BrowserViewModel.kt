@@ -245,6 +245,11 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.OpenPopupTab -> {
+                Log.d(TAG, "Navigation command: open popup tab for ${event.tabId}")
+                tabCoordinator.openPopupTab(event.tabId)
+            }
+
             is BrowserUiEvent.OpenRecentTab -> {
                 Log.d(TAG, "Navigation command: open recent tab ${event.item.url}")
                 tabCoordinator.openRecentTab(

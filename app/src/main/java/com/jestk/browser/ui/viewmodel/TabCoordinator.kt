@@ -470,6 +470,48 @@ internal class TabCoordinator(
         }
     }
 
+    fun openPopupTab(tabId: String) {
+        scope.launch(ioDispatcher) {
+            tabOperationMutex.withLock {
+                val created = tabRepository.createTab(url = "", title = "Loading...", id = tabId)
+                Log.d(TAG, "Created popup tab ${created.id}")
+                tabRepository.setActiveTab(created.id)
+                dismissedExternalAppDomains.remove(created.id)
+                pendingExternalAppPrompts.remove(created.id)
+                timedOutExternalAppDomains.remove(created.id)
+                webViewPool?.onTabActivated(created.id, false)
+                val baseTabs =
+                    if (getCurrentState().tabs.isEmpty()) {
+                        tabRepository.getInitialTabs().filter { it.id != created.id }
+                    } else {
+                        getCurrentState().tabs.filter { it.id != created.id }
+                    }
+                val currentTabs = baseTabs.map { it.copy(isActive = false) }
+                val updatedTabs = (currentTabs + created.copy(isActive = true)).distinctBy { it.id }
+                tabLoadingProgress[created.id] = 15
+                updateUiState {
+                    it.copy(
+                        tabs = updatedTabs,
+                        activeTabId = created.id,
+                        currentUrl = "",
+                        pageTitle = "Loading...",
+                        isLoading = true,
+                        loadingProgress = 0.15f,
+                        activeThemeColor = null,
+                        activeBottomThemeColor = null,
+                        isMenuExpanded = false,
+                        isSearchEngineSwitcherEditExpanded = false,
+                        externalAppPrompt = null,
+                        activeOverlay = OverlayType.NONE,
+                        linkContextMenuUrl = null,
+                        selectedImageUrl = null,
+                        isBottomBarVisible = true,
+                    )
+                }
+            }
+        }
+    }
+
     fun openTabInBackground(url: String) {
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {

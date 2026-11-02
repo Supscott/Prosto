@@ -251,6 +251,10 @@ class WebViewPool(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
+                    databaseEnabled = true
+                    javaScriptCanOpenWindowsAutomatically = true
+                    setSupportMultipleWindows(true)
+                    userAgentString = UserAgentSanitizer.sanitize(userAgentString)
                     mediaPlaybackRequiresUserGesture = false
                     builtInZoomControls = true
                     displayZoomControls = false
@@ -259,6 +263,10 @@ class WebViewPool(
                     cacheMode = WebSettings.LOAD_DEFAULT
                     mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                     setSupportZoom(true)
+                }
+                CookieManager.getInstance().let { cm ->
+                    cm.setAcceptCookie(true)
+                    cm.setAcceptThirdPartyCookies(this, true)
                 }
                 try {
                     val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->
@@ -291,6 +299,10 @@ class WebViewPool(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
+                    databaseEnabled = true
+                    javaScriptCanOpenWindowsAutomatically = true
+                    setSupportMultipleWindows(true)
+                    userAgentString = UserAgentSanitizer.sanitize(userAgentString)
                     mediaPlaybackRequiresUserGesture = false
                     builtInZoomControls = true
                     displayZoomControls = false
@@ -299,6 +311,10 @@ class WebViewPool(
                     cacheMode = WebSettings.LOAD_DEFAULT
                     mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                     setSupportZoom(true)
+                }
+                CookieManager.getInstance().let { cm ->
+                    cm.setAcceptCookie(true)
+                    cm.setAcceptThirdPartyCookies(this, true)
                 }
                 try {
                     val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->

@@ -4,6 +4,7 @@ import android.content.pm.ActivityInfo
 import android.os.Build
 import android.view.ViewGroup
 import android.view.WindowManager
+import android.webkit.WebView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -201,7 +202,23 @@ fun JestkApp(
                     onVideoPlayingStateChanged = { isPlaying ->
                         viewModel.onEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
                     },
-                    onFaviconReceived = handleFavicon
+                    onFaviconReceived = handleFavicon,
+                    onCreateWindowRequest = { _, _, _, resultMsg ->
+                        val transport = resultMsg?.obj as? WebView.WebViewTransport
+                        if (transport != null) {
+                            val newTabId = java.util.UUID.randomUUID().toString()
+                            val newWv = webViewPool.getOrCreateWebView(newTabId, context)
+                            transport.webView = newWv
+                            resultMsg.sendToTarget()
+                            viewModel.onEvent(BrowserUiEvent.OpenPopupTab(newTabId))
+                            true
+                        } else {
+                            false
+                        }
+                    },
+                    onCloseWindowRequest = { id ->
+                        viewModel.onEvent(BrowserUiEvent.CloseTab(id))
+                    }
                 )
             }
         }

@@ -53,6 +53,7 @@ class TabRepositoryImpl(
         url: String,
         title: String,
         isIncognito: Boolean,
+        id: String,
     ): Tab =
         withContext(ioDispatcher) {
             repositoryMutex.withLock {
@@ -61,7 +62,7 @@ class TabRepositoryImpl(
                 val nextPosition = maxPos + 1
                 val newTab =
                     Tab(
-                        id = UUID.randomUUID().toString(),
+                        id = id,
                         url = url,
                         title = title.ifEmpty { if (url.isEmpty()) "Home" else "New Tab" },
                         lastActiveTimestamp = System.currentTimeMillis(),

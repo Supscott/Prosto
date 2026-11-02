@@ -3,6 +3,7 @@ package com.jestk.browser.engine
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Message
 import android.view.View
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -17,7 +18,9 @@ class JestkWebChromeClient(
     private val onVideoPlayingStateChanged: (isPlaying: Boolean) -> Unit,
     private val onFaviconReceived: ((tabId: String, icon: Bitmap, pageUrl: String?) -> Unit)? = null,
     private val onVideoResume: (() -> Unit)? = null,
-    private val onShowFileChooser: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null
+    private val onShowFileChooser: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null,
+    private val onCreateWindowRequest: ((view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?) -> Boolean)? = null,
+    private val onCloseWindowRequest: ((tabId: String) -> Unit)? = null
 ) : WebChromeClient() {
 
     private var customView: View? = null
@@ -29,6 +32,21 @@ class JestkWebChromeClient(
         fileChooserParams: FileChooserParams?
     ): Boolean {
         return onShowFileChooser?.invoke(filePathCallback, fileChooserParams) ?: false
+    }
+
+    override fun onCreateWindow(
+        view: WebView?,
+        isDialog: Boolean,
+        isUserGesture: Boolean,
+        resultMsg: Message?
+    ): Boolean {
+        return onCreateWindowRequest?.invoke(view, isDialog, isUserGesture, resultMsg)
+            ?: super.onCreateWindow(view, isDialog, isUserGesture, resultMsg)
+    }
+
+    override fun onCloseWindow(window: WebView?) {
+        super.onCloseWindow(window)
+        onCloseWindowRequest?.invoke(tabId)
     }
 
     override fun onProgressChanged(view: WebView?, newProgress: Int) {

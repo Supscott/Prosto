@@ -73,6 +73,27 @@ object AdBlockerEngine {
             "viqeo.tv",
         )
 
+    val AUTH_SECURITY_ALLOWLIST: Set<String> =
+        setOf(
+            "arkoselabs.com",
+            "client-api.arkoselabs.com",
+            "arkose.com",
+            "challenges.cloudflare.com",
+            "hcaptcha.com",
+            "recaptcha.net",
+        )
+
+    fun isAllowlistedAuthDomain(host: String): Boolean {
+        if (host.isEmpty()) return false
+        val lowerHost = host.lowercase()
+        for (allowed in AUTH_SECURITY_ALLOWLIST) {
+            if (lowerHost == allowed || lowerHost.endsWith(".$allowed")) {
+                return true
+            }
+        }
+        return false
+    }
+
     private val blockedHosts = HostBlocklist().apply { addAll(DEFAULT_HOSTS) }
 
     @Volatile
@@ -456,6 +477,7 @@ object AdBlockerEngine {
     fun shouldBlock(parsed: ParsedUrl): Boolean {
         val host = parsed.host
         if (host.isEmpty()) return false
+        if (isAllowlistedAuthDomain(host)) return false
 
         if (blockedHosts.contains(host)) return true
 
@@ -769,6 +791,7 @@ object AdBlockerEngine {
         rawUrl: String = "",
     ): Boolean {
         if (host.isEmpty() && path.isEmpty() && rawUrl.isEmpty()) return false
+        if (isAllowlistedAuthDomain(host)) return false
 
         // Known tracker & analytics domains
         if (host.isNotEmpty()) {

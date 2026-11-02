@@ -325,4 +325,40 @@ class JestkWebChromeClientTest {
         assertThat(receivedIcon).isSameInstanceAs(bitmap)
         assertThat(receivedUrl).isEqualTo("https://example.com/test")
     }
+
+    @Test
+    fun onCreateWindow_delegatesToCallbackAndReturnsResult() {
+        var createCalled = false
+        val client = JestkWebChromeClient(
+            tabId = "tab-popup",
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onVideoPlayingStateChanged = { },
+            onCreateWindowRequest = { _, _, _, _ ->
+                createCalled = true
+                true
+            }
+        )
+
+        val result = client.onCreateWindow(null, false, true, null)
+        assertThat(result).isTrue()
+        assertThat(createCalled).isTrue()
+    }
+
+    @Test
+    fun onCloseWindow_notifiesCallbackWithTabId() {
+        var closedId: String? = null
+        val client = JestkWebChromeClient(
+            tabId = "tab-to-close",
+            onProgressChanged = { _, _ -> },
+            onTitleReceived = { _, _ -> },
+            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onVideoPlayingStateChanged = { },
+            onCloseWindowRequest = { closedId = it }
+        )
+
+        client.onCloseWindow(null)
+        assertThat(closedId).isEqualTo("tab-to-close")
+    }
 }

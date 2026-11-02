@@ -346,4 +346,25 @@ class WebViewPoolRobolectricTest {
         // WebView remains valid and active
         assertThat(webView.url).isNull()
     }
+
+    @Test
+    fun getOrCreateWebView_configuresSanitizedUserAgent_andStorageSettings() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val webView = webViewPool.getOrCreateWebView("tab-test-settings", activity)
+
+        assertThat(webView.settings.userAgentString).doesNotContain("; wv")
+        assertThat(webView.settings.userAgentString).doesNotContain("Version/4.0")
+        assertThat(webView.settings.domStorageEnabled).isTrue()
+        assertThat(webView.settings.databaseEnabled).isTrue()
+        assertThat(webView.settings.javaScriptCanOpenWindowsAutomatically).isTrue()
+    }
+
+    @Test
+    fun getOrCreateWebView_enablesCookies() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        webViewPool.getOrCreateWebView("tab-test-cookies", activity)
+
+        val cookieManager = android.webkit.CookieManager.getInstance()
+        assertThat(cookieManager.acceptCookie()).isTrue()
+    }
 }

@@ -9,7 +9,12 @@ interface TabRepository {
     suspend fun getInitialTabs(): List<Tab>
     suspend fun getTabById(id: String): Tab?
     fun getTabByIdFlow(id: String): Flow<Tab?>
-    suspend fun createTab(url: String = "", title: String = "New Tab", isIncognito: Boolean = false): Tab
+    suspend fun createTab(
+        url: String = "",
+        title: String = "New Tab",
+        isIncognito: Boolean = false,
+        id: String = java.util.UUID.randomUUID().toString()
+    ): Tab
     suspend fun updateTab(tab: Tab)
     suspend fun updateTabDetails(id: String, url: String, title: String, canGoBack: Boolean, canGoForward: Boolean)
     suspend fun updateSnapshot(id: String, snapshotPath: String)

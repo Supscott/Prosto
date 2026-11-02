@@ -963,4 +963,18 @@ class TabCoordinatorTest {
             assertThat(updatedActiveTab?.themeColor).isEqualTo(newTopColor)
             assertThat(updatedActiveTab?.bottomThemeColor).isEqualTo(bottomColor)
         }
+
+    @Test
+    fun openPopupTab_createsNewActiveTabWithSpecifiedId() =
+        runTest {
+            val popupTabId = "popup-tab-123"
+            coordinator.openPopupTab(popupTabId)
+            advanceUntilIdle()
+
+            assertThat(uiState.activeTabId).isEqualTo(popupTabId)
+            val popupTab = uiState.tabs.find { it.id == popupTabId }
+            assertThat(popupTab).isNotNull()
+            assertThat(popupTab?.isActive).isTrue()
+            assertThat(uiState.isLoading).isTrue()
+        }
 }

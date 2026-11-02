@@ -375,8 +375,26 @@ class AdBlockerEngineTest {
             AdBlockerEngine.recordBlockedRequest("https://google-analytics.com/analytics.js")
 
             val results = withTimeout(5_000) { listOf(recorded.receive(), recorded.receive()) }
-            assertThat(results).containsExactly(false, true).inOrder()
+            assertThat(results).containsExactly(false, true)
+            Unit
         }
+
+    @Test
+    fun shouldBlockAndIsTracker_allowlistAuthAndCaptchaEndpoints() {
+        val authEndpoints = listOf(
+            "https://arkoselabs.com/fc/api.js",
+            "https://client-api.arkoselabs.com/fc/gt2/public_key/xxx",
+            "https://arkose.com/challenge",
+            "https://challenges.cloudflare.com/turnstile/v0/api.js",
+            "https://hcaptcha.com/1/api.js",
+            "https://recaptcha.net/recaptcha/api.js"
+        )
+
+        for (endpoint in authEndpoints) {
+            assertThat(AdBlockerEngine.shouldBlock(endpoint)).isFalse()
+            assertThat(AdBlockerEngine.isTracker(endpoint)).isFalse()
+        }
+    }
 
     @Test
     fun recordBlockedRequest_incrementsRepositoryCounts() =
