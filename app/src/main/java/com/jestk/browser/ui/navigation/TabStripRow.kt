@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -140,6 +141,7 @@ fun TabStripRow(
     centerPillBg: Color = if (isDark) DarkDockSurface else Color.White,
     centerPillBorder: BorderStroke? = null,
     circleBtnBg: Color = Color.Transparent,
+    lazyListState: LazyListState = rememberLazyListState(),
 ) {
     val context = LocalContext.current
     val density = LocalDensity.current
@@ -241,7 +243,6 @@ fun TabStripRow(
         val activeTabWidth = desiredActiveTabWidth
             .coerceAtLeast(minOf(minActiveTabWidth, maxActiveTabWidth))
             .coerceAtMost(maxActiveTabWidth)
-        val lazyListState = rememberLazyListState()
 
         val displayTabs =
             remember(uiState.tabs, activeTab) {
@@ -289,7 +290,6 @@ fun TabStripRow(
 
         var contextMenuTabId by remember { mutableStateOf<String?>(null) }
         var contextMenuFolderId by remember { mutableStateOf<String?>(null) }
-        var expandScrollJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
         val dockItems = remember(dragState.currentTabs, uiState.folders) {
             computeDockItems(dragState.currentTabs, uiState.folders)

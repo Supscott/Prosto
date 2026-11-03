@@ -270,6 +270,71 @@ class TabStripRowFolderTest {
         assertThat(toggleEvent?.fromDock).isTrue()
     }
 
+    @Test
+    fun tabStripRow_expandingFolderInDock_scrollsFolderToLeftEdge() {
+        val folder = TabFolder(id = "f1", title = "Work", color = 0xFF2196F3.toInt(), isCollapsed = true)
+        val tabs = listOf(
+            Tab(id = "tab1", title = "Tab 1", url = "https://example1.com"),
+            Tab(id = "tab2", title = "Tab 2", url = "https://example2.com"),
+            Tab(id = "tab3", title = "Tab 3", url = "https://example3.com"),
+            Tab(id = "tab4", title = "Tab 4", url = "https://example4.com"),
+            Tab(id = "tab5", title = "Tab 5", url = "https://example5.com"),
+            Tab(id = "tabF1", title = "Work 1", url = "https://work1.com", folderId = "f1"),
+            Tab(id = "tabF2", title = "Work 2", url = "https://work2.com", folderId = "f1"),
+        ) + (1..15).map { i ->
+            Tab(id = "tabAfter$i", title = "After $i", url = "https://after$i.com")
+        }
+
+        var listState: androidx.compose.foundation.lazy.LazyListState? = null
+        val active = tabs.first()
+        testUiState.value = BrowserUiState(
+            tabs = tabs,
+            folders = listOf(folder),
+            activeTabId = "tab1",
+            currentUrl = active.url,
+            pageTitle = active.title,
+        )
+        composeRule.setContent {
+            val state = testUiState.value ?: return@setContent
+            val lState = androidx.compose.foundation.lazy.rememberLazyListState()
+            listState = lState
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                CompositionLocalProvider(LocalVibrationFeedback provides testVibration) {
+                    Box(
+                        modifier = Modifier
+                            .width(400.dp)
+                            .height(50.dp),
+                    ) {
+                        TabStripRow(
+                            uiState = state,
+                            onEvent = { events.add(it) },
+                            lazyListState = lState,
+                        )
+                    }
+                }
+            }
+        }
+        composeRule.waitForIdle()
+
+        assertThat(listState!!.firstVisibleItemIndex).isEqualTo(0)
+
+        // Click collapsed folder in dock
+        composeRule.onNodeWithTag("folder_indicator_f1").performClick()
+        val toggleEvent = events.filterIsInstance<BrowserUiEvent.ToggleFolderCollapse>().firstOrNull()
+        assertThat(toggleEvent).isNotNull()
+        assertThat(toggleEvent?.folderId).isEqualTo("f1")
+        assertThat(toggleEvent?.fromDock).isTrue()
+
+        // Simulate ViewModel updating the folder to expanded (isCollapsed = false)
+        val expandedFolder = folder.copy(isCollapsed = false)
+        testUiState.value = testUiState.value!!.copy(folders = listOf(expandedFolder))
+        composeRule.waitForIdle()
+
+        // In dockItems, tabs 1..5 occupy indexes 0..4; folder f1 is at index 5.
+        // It must be scrolled to the left edge (firstVisibleItemIndex == 5).
+        assertThat(listState!!.firstVisibleItemIndex).isEqualTo(5)
+    }
+
     // --- 4. FolderContextMenu Tests ---
 
     @Test
