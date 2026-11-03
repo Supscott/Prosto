@@ -70,11 +70,5 @@ fun computeDockItems(
         }
     }
 
-    for (folder in folders) {
-        if (folder.id !in seenFolders) {
-            result.add(DockItem.FolderItem(folder = folder, hasVisibleTabs = false))
-        }
-    }
-
     return result
 }

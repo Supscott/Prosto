@@ -1,5 +1,11 @@
 package com.jestk.browser.ui.navigation
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,10 +23,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -44,16 +54,33 @@ fun getContrastingFolderContentColor(bgColor: Color): Color {
  * - When [folder.title] is blank: 38dp circle with folder color and directional arrow.
  * - When [folder.title] is not blank: rounded chip with folder color, title, and directional arrow.
  * - Directional arrow points left (←) when expanded and right (→) when collapsed.
+ * - When [isBlinking] is true: plays a slow pulsating blink animation (alpha 1.0f <-> 0.4f, 300ms cycle).
  */
 @Composable
 fun FolderDockIndicator(
     folder: TabFolder,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isBlinking: Boolean = false,
 ) {
     val folderBgColor = Color(folder.color)
     val contentColor = getContrastingFolderContentColor(folderBgColor)
     val typography = LocalProstoTypography.current
+
+    val blinkAlpha by if (isBlinking) {
+        val transition = rememberInfiniteTransition(label = "folder_dock_blink")
+        transition.animateFloat(
+            initialValue = 1.0f,
+            targetValue = 0.4f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse,
+            ),
+            label = "blink_alpha",
+        )
+    } else {
+        remember { mutableFloatStateOf(1.0f) }
+    }
 
     val arrowIcon = if (folder.isCollapsed) {
         Icons.AutoMirrored.Filled.ArrowForward
@@ -64,12 +91,16 @@ fun FolderDockIndicator(
         if (folder.isCollapsed) R.string.folder_expand else R.string.folder_collapse
     )
 
+    val blinkModifier = modifier.graphicsLayer {
+        this.alpha = if (isBlinking) blinkAlpha else 1.0f
+    }
+
     if (folder.title.isBlank()) {
         Surface(
             shape = CircleShape,
             color = folderBgColor,
             shadowElevation = 0.dp,
-            modifier = modifier
+            modifier = blinkModifier
                 .size(38.dp)
                 .clip(CircleShape)
                 .testTag("folder_indicator_${folder.id}")
@@ -94,7 +125,7 @@ fun FolderDockIndicator(
             shape = CircleShape,
             color = folderBgColor,
             shadowElevation = 0.dp,
-            modifier = modifier
+            modifier = blinkModifier
                 .height(38.dp)
                 .clip(CircleShape)
                 .testTag("folder_indicator_${folder.id}")

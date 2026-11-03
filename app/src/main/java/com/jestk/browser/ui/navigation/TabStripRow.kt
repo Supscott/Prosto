@@ -281,6 +281,11 @@ fun TabStripRow(
                 },
                 onRemoveTab = { tabId -> onEvent(BrowserUiEvent.CloseTab(tabId)) },
                 foldersProvider = { uiState.folders },
+                onToggleFolderCollapse = { folderId ->
+                    onEvent(BrowserUiEvent.ToggleFolderCollapse(folderId, fromDock = true))
+                },
+                onHoverVibration = { vibration.tick() },
+                onSpringLoadVibration = { vibration.confirm() },
                 coroutineScope = coroutineScope,
             )
 
@@ -445,13 +450,14 @@ fun TabStripRow(
                 val viewportWidthPx =
                     layoutInfo.viewportSize.width.takeIf { it > 0 }?.toFloat() ?: totalChipWidthPx
 
-                val currentDragIndex = dragState.currentTabs.indexOfFirst { it.id == draggingTabId }
+                val currentDragIndex = dragState.getSlotIndex(draggingTabId, dragState.currentTabs, layoutMetrics)
+                val lastDockIndex = layoutInfo.totalItemsCount - 1
                 val canScrollBackward =
                     lazyListState.canScrollBackward &&
                         (currentDragIndex > 0 || lazyListState.firstVisibleItemScrollOffset > 0)
                 val canScrollForward =
                     lazyListState.canScrollForward &&
-                        currentDragIndex in 0 until dragState.currentTabs.lastIndex
+                        currentDragIndex in 0 until lastDockIndex
 
                 val scrollDelta = computeAutoScrollDelta(
                     itemStartInViewport = itemStartInViewport,
@@ -602,16 +608,18 @@ fun TabStripRow(
                                     alpha = if (isFolderElevated) 0f else 1f
                                 }
                                 .drawBehind {
-                                    val lineY = size.height - 3.dp.toPx()
-                                    val startX = 4.dp.toPx()
-                                    val endX = if (item.hasVisibleTabs) size.width + tabSpacingPx else size.width - 4.dp.toPx()
-                                    drawLine(
-                                        color = folderColor,
-                                        start = Offset(startX, lineY),
-                                        end = Offset(endX, lineY),
-                                        strokeWidth = 2.5.dp.toPx(),
-                                        cap = StrokeCap.Round,
-                                    )
+                                    if (!folder.isCollapsed && item.hasVisibleTabs) {
+                                        val lineY = size.height - 3.dp.toPx()
+                                        val startX = 4.dp.toPx()
+                                        val endX = size.width + tabSpacingPx
+                                        drawLine(
+                                            color = folderColor,
+                                            start = Offset(startX, lineY),
+                                            end = Offset(endX, lineY),
+                                            strokeWidth = 2.5.dp.toPx(),
+                                            cap = StrokeCap.Round,
+                                        )
+                                    }
                                 },
                             contentAlignment = Alignment.Center,
                         ) {
@@ -623,6 +631,7 @@ fun TabStripRow(
                                     }
                                     onEvent(BrowserUiEvent.ToggleFolderCollapse(folder.id, fromDock = true))
                                 },
+                                isBlinking = dragState.hoveredFolderId == folder.id,
                             )
 
                             FolderContextMenu(

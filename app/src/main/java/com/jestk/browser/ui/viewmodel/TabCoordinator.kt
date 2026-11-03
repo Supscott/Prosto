@@ -1424,15 +1424,17 @@ internal class TabCoordinator(
             if (activeTab != null && activeTab.folderId == folderId) {
                 val currentTabs = state.tabs
                 val activeIndex = currentTabs.indexOfFirst { it.id == activeTabId }
-                val outsideTabs = currentTabs.filter { it.folderId != folderId }
+                val eligibleTabs = currentTabs.filter { tab ->
+                    tab.folderId != folderId && (tab.folderId == null || getCurrentState().getFolder(tab.folderId)?.isCollapsed == false)
+                }
 
-                if (outsideTabs.isEmpty()) {
+                if (eligibleTabs.isEmpty()) {
                     tabOperationMutex.withLock {
                         val created = tabRepository.createTab(url = "", title = "Home")
                         activateNewTabState(created, "", "Home", null, isWebLoading = false, isHome = true)
                     }
                 } else {
-                    val nearestTab = outsideTabs.minByOrNull { tab ->
+                    val nearestTab = eligibleTabs.minByOrNull { tab ->
                         val tabIdx = currentTabs.indexOf(tab)
                         kotlin.math.abs(tabIdx - activeIndex)
                     }

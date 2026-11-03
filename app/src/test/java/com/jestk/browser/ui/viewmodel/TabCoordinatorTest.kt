@@ -1251,4 +1251,79 @@ class TabCoordinatorTest {
             assertThat(uiState.getFolder(folder.id)?.isCollapsed).isFalse()
             assertThat(tabFolderRepo.getFolderById(folder.id)?.isCollapsed).isFalse()
         }
+
+    @Test
+    fun toggleFolderCollapse_fromDock_whenAdjacentFolderCollapsed_switchesToEligibleTabWithoutExpandingAdjacentFolder() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab0.com")
+            advanceUntilIdle()
+            val tab0Id = uiState.activeTabId!!
+
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            val folderB = coordinator.createFolder(tab1Id, color = 1)
+            advanceUntilIdle()
+
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+            val tab2Id = uiState.activeTabId!!
+
+            val folderA = coordinator.createFolder(tab2Id, color = 2)
+            advanceUntilIdle()
+            assertThat(uiState.activeTabId).isEqualTo(tab2Id)
+
+            // Collapse folderB while tab2 in folderA is active
+            coordinator.toggleFolderCollapse(folderB.id, fromDock = true)
+            advanceUntilIdle()
+            assertThat(uiState.getFolder(folderB.id)?.isCollapsed).isTrue()
+
+            // Current tabs order: tab0 (outside), tab1 (folderB, collapsed), tab2 (folderA, open & active)
+            // tab1 is adjacent to tab2 (distance 1), tab0 is further away (distance 2).
+            // When closing folderA from dock, it must NOT pick tab1 (which would expand folderB).
+            // It must pick tab0 (outside and eligible).
+            coordinator.toggleFolderCollapse(folderA.id, fromDock = true)
+            advanceUntilIdle()
+
+            assertThat(uiState.getFolder(folderA.id)?.isCollapsed).isTrue()
+            assertThat(uiState.getFolder(folderB.id)?.isCollapsed).isTrue()
+            assertThat(uiState.activeTabId).isEqualTo(tab0Id)
+        }
+
+    @Test
+    fun toggleFolderCollapse_fromDock_whenAllOtherTabsInCollapsedFolders_opensHomeTab() =
+        runTest(testDispatcher) {
+            coordinator.openNewTab("https://tab1.com")
+            advanceUntilIdle()
+            val tab1Id = uiState.activeTabId!!
+
+            val folderB = coordinator.createFolder(tab1Id, color = 1)
+            advanceUntilIdle()
+
+            coordinator.openNewTab("https://tab2.com")
+            advanceUntilIdle()
+            val tab2Id = uiState.activeTabId!!
+
+            val folderA = coordinator.createFolder(tab2Id, color = 2)
+            advanceUntilIdle()
+            assertThat(uiState.activeTabId).isEqualTo(tab2Id)
+
+            // Collapse folderB while tab2 in folderA is active
+            coordinator.toggleFolderCollapse(folderB.id, fromDock = true)
+            advanceUntilIdle()
+            assertThat(uiState.getFolder(folderB.id)?.isCollapsed).isTrue()
+
+            // Close folderA from dock when the only other tab (tab1) is inside collapsed folderB
+            coordinator.toggleFolderCollapse(folderA.id, fromDock = true)
+            advanceUntilIdle()
+
+            assertThat(uiState.getFolder(folderA.id)?.isCollapsed).isTrue()
+            assertThat(uiState.getFolder(folderB.id)?.isCollapsed).isTrue()
+            assertThat(uiState.activeTabId).isNotEqualTo(tab1Id)
+            assertThat(uiState.activeTabId).isNotEqualTo(tab2Id)
+            val newActive = uiState.activeTab
+            assertThat(newActive?.folderId).isNull()
+            assertThat(newActive?.title).isEqualTo("Home")
+        }
 }

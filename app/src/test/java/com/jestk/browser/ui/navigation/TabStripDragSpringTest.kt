@@ -315,12 +315,12 @@ class TabStripDragSpringTest {
             activeTabId = "tab1"
         )
 
-        // Index 0 starts at 0px
-        assertEquals(0f, state.getSlotStart(0, sampleTabs, metrics), 0.001f)
-        // Index 1 starts after active tab (148px + 5px = 153px)
-        assertEquals(153f, state.getSlotStart(1, sampleTabs, metrics), 0.001f)
-        // Index 2 starts after inactive tab (153px + 38px + 5px = 196px)
-        assertEquals(196f, state.getSlotStart(2, sampleTabs, metrics), 0.001f)
+        // The first slot starts at 0px
+        assertEquals(0f, state.getSlotStart(sampleTabs[0].id, sampleTabs, metrics), 0.001f)
+        // The second slot starts after the active tab (148px + 5px = 153px)
+        assertEquals(153f, state.getSlotStart(sampleTabs[1].id, sampleTabs, metrics), 0.001f)
+        // The third slot starts after an inactive tab (153px + 38px + 5px = 196px)
+        assertEquals(196f, state.getSlotStart(sampleTabs[2].id, sampleTabs, metrics), 0.001f)
     }
 
     @Test

@@ -178,21 +178,11 @@ internal fun dragTabToViewportPosition(
     }
 
     val visibleItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == tabId } ?: return
-    val isFolder = tabId.startsWith("folder_")
-    val oldIndex = if (isFolder) {
-        val fId = tabId.removePrefix("folder_")
-        dragState.currentTabs.indexOfFirst { it.folderId == fId }
-    } else {
-        dragState.currentTabs.indexOfFirst { it.id == tabId }
-    }
+    val oldIndex = dragState.getSlotIndex(tabId, dragState.currentTabs, metrics)
     if (oldIndex < 0) return
 
     val firstVisibleIndex = lazyListState.firstVisibleItemIndex
-    val oldSlotStart = if (isFolder) {
-        dragState.getFolderSlotStart(tabId.removePrefix("folder_"), dragState.currentTabs, metrics)
-    } else {
-        dragState.getSlotStart(oldIndex, dragState.currentTabs, metrics)
-    }
+    val oldSlotStart = dragState.getSlotStart(tabId, dragState.currentTabs, metrics)
     val boundedVisualStart =
         visualStartPx.coerceIn(
             -edgeSlackPx,
@@ -210,20 +200,12 @@ internal fun dragTabToViewportPosition(
         )
     }
 
-    val newIndex = if (isFolder) {
-        val fId = tabId.removePrefix("folder_")
-        dragState.currentTabs.indexOfFirst { it.folderId == fId }
-    } else {
-        dragState.currentTabs.indexOfFirst { it.id == tabId }
-    }
+    val newIndex = dragState.getSlotIndex(tabId, dragState.currentTabs, metrics)
     if (newIndex < 0) return
-    val newSlotStart = if (isFolder) {
-        dragState.getFolderSlotStart(tabId.removePrefix("folder_"), dragState.currentTabs, metrics)
-    } else {
-        dragState.getSlotStart(newIndex, dragState.currentTabs, metrics)
-    }
+    val newSlotStart = dragState.getSlotStart(tabId, dragState.currentTabs, metrics)
     val draggedItemBecameFirst = newIndex < oldIndex && newIndex <= firstVisibleIndex
     if (draggedItemBecameFirst && !dragState.isOverRemoveZone) {
+        // Slot indices are LazyRow indices: the dock renders one item per visible slot.
         lazyListState.requestScrollToItem(newIndex)
     }
     val newItemOffset =

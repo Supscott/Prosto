@@ -18,6 +18,7 @@ import com.jestk.browser.domain.model.TabFolder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.Collections
 
@@ -75,18 +76,32 @@ internal fun computeAutoScrollDelta(
  * Provides smooth dragging, immediate slot swapping with vibration feedback,
  * and spring-driven release settlement back to translation 0f and scale 1.0f.
  */
+internal const val SPRING_LOAD_HOVER_TIMEOUT_MS = 650L
+
 internal class TabStripDragState(
     initialTabs: List<Tab>,
     val coroutineScope: CoroutineScope,
     val onReorder: (List<Tab>) -> Unit,
     val onRemoveTab: (String) -> Unit = {},
     val foldersProvider: () -> List<TabFolder> = { emptyList() },
+    val onToggleFolderCollapse: (String) -> Unit = {},
+    val onHoverVibration: () -> Unit = {},
+    val onSpringLoadVibration: () -> Unit = {},
 ) {
     var currentTabs by mutableStateOf(initialTabs)
         private set
 
     var draggingTabId by mutableStateOf<String?>(null)
         private set
+
+    var hoveredFolderId by mutableStateOf<String?>(null)
+        internal set
+
+    var springLoadedFolderId by mutableStateOf<String?>(null)
+        internal set
+
+    private var springLoadJob: Job? = null
+    private var draggedTabOriginalFolderId: String? = null
 
     var settlingTabId by mutableStateOf<String?>(null)
         private set
@@ -132,7 +147,7 @@ internal class TabStripDragState(
 
     private enum class SwapDirection { LEFT, RIGHT }
     private var lastSwapDirection: SwapDirection? = null
-    private var lastSwapReverseTargetIndex: Int = -1
+    private var lastSwapReverseTargetKey: String? = null
     private var swapBumpJob: Job? = null
 
     private var settleJob: Job? = null
@@ -151,7 +166,7 @@ internal class TabStripDragState(
 
     private fun resetSwapState() {
         lastSwapDirection = null
-        lastSwapReverseTargetIndex = -1
+        lastSwapReverseTargetKey = null
         swapBumpJob?.cancel()
         swapBumpJob = null
         if (swapScaleBump.value != 0f) {
@@ -162,6 +177,10 @@ internal class TabStripDragState(
     }
 
     fun cancelSettlingImmediately() {
+        springLoadJob?.cancel()
+        springLoadJob = null
+        hoveredFolderId = null
+        springLoadedFolderId = null
         if (isSettling) {
             settleJob?.cancel()
             settleJob = null
@@ -206,12 +225,52 @@ internal class TabStripDragState(
             cancelSettlingImmediately()
         }
         draggingTabId = tabId
+        draggedTabOriginalFolderId = currentTabs.find { it.id == tabId }?.folderId
         dragOffsetPx = 0f
         dragOffsetYPx = 0f
         lastVisualXPx = initialVisualX
         isOverRemoveZone = false
         isDragging = true
+        hoveredFolderId = null
+        springLoadedFolderId = null
+        springLoadJob?.cancel()
+        springLoadJob = null
         resetSwapState()
+    }
+
+    fun updateClosedFolderHover(hoveredFolderId: String?) {
+        if (this.hoveredFolderId == hoveredFolderId) return
+        this.hoveredFolderId = hoveredFolderId
+        springLoadJob?.cancel()
+        springLoadJob = null
+
+        if (hoveredFolderId != null) {
+            onHoverVibration()
+            springLoadJob = coroutineScope.launch {
+                delay(SPRING_LOAD_HOVER_TIMEOUT_MS)
+                if (isDragging && draggingTabId != null && this@TabStripDragState.hoveredFolderId == hoveredFolderId) {
+                    springLoadedFolderId = hoveredFolderId
+                    this@TabStripDragState.hoveredFolderId = null
+                    onSpringLoadVibration()
+                    onToggleFolderCollapse(hoveredFolderId)
+                }
+            }
+        }
+    }
+
+    fun onSpringLoadedFolderExited() {
+        val folderId = springLoadedFolderId ?: return
+        springLoadedFolderId = null
+        val draggedId = draggingTabId
+        if (draggedId != null) {
+            val idx = currentTabs.indexOfFirst { it.id == draggedId }
+            if (idx >= 0 && currentTabs[idx].folderId == folderId) {
+                val mutable = currentTabs.toMutableList()
+                mutable[idx] = mutable[idx].copy(folderId = draggedTabOriginalFolderId)
+                currentTabs = mutable
+            }
+        }
+        onToggleFolderCollapse(folderId)
     }
 
     fun updateDragOffset(offsetPx: Float, offsetYPx: Float = dragOffsetYPx) {
@@ -251,53 +310,121 @@ internal class TabStripDragState(
         return metrics.getItemWidth(tab.id, defaultWidth)
     }
 
-    internal fun getSlotStart(
-        index: Int,
-        tabs: List<Tab>,
-        metrics: TabStripLayoutMetrics,
-    ): Float {
-        var start = 0f
-        val seenFolders = mutableSetOf<String>()
-        for (i in 0 until index.coerceIn(0, tabs.size)) {
-            val tab = tabs[i]
-            val fId = tab.folderId
-            if (fId != null && fId !in seenFolders) {
-                seenFolders.add(fId)
-                val folderWidth = metrics.getItemWidth("folder_$fId", metrics.inactiveTabWidthPx)
-                start += folderWidth + metrics.spacingPx
-            }
-            start += getTabWidth(tab, metrics) + metrics.spacingPx
-        }
-        if (index in tabs.indices) {
-            val fId = tabs[index].folderId
-            if (fId != null && fId !in seenFolders) {
-                val folderWidth = metrics.getItemWidth("folder_$fId", metrics.inactiveTabWidthPx)
-                start += folderWidth + metrics.spacingPx
-            }
-        }
-        return start
+    /**
+     * One visible slot in the dock: a standalone tab, a folder indicator, or one member tab of
+     * an expanded folder. [tabIds] lists every tab the slot stands for, so a collapsed folder is
+     * a single slot that owns all of its member tabs.
+     */
+    internal data class DockSlot(
+        val key: String,
+        val folderId: String?,
+        val isFolderItem: Boolean,
+        val isCollapsedFolder: Boolean,
+        val tabIds: List<String>,
+        val startPx: Float,
+        val widthPx: Float,
+    ) {
+        val endPx: Float get() = startPx + widthPx
     }
 
-    internal fun getFolderSlotStart(
-        folderId: String,
+    /**
+     * Builds the visible dock geometry in exactly the order [computeDockItems] renders it.
+     *
+     * Swap decisions must never target a tab that is hidden inside a collapsed folder, so every
+     * decision is expressed against these slots instead of the flat tab list.
+     */
+    internal fun dockSlots(
         tabs: List<Tab>,
         metrics: TabStripLayoutMetrics,
-    ): Float {
-        val firstTabIdx = tabs.indexOfFirst { it.folderId == folderId }
-        if (firstTabIdx < 0) return 0f
-        var start = 0f
-        val seenFolders = mutableSetOf<String>()
-        for (i in 0 until firstTabIdx) {
-            val tab = tabs[i]
-            val fId = tab.folderId
-            if (fId != null && fId !in seenFolders) {
-                seenFolders.add(fId)
-                val folderWidth = metrics.getItemWidth("folder_$fId", metrics.inactiveTabWidthPx)
-                start += folderWidth + metrics.spacingPx
+    ): List<DockSlot> {
+        val allFolders = foldersProvider()
+        val slots = mutableListOf<DockSlot>()
+        val emittedFolders = mutableSetOf<String>()
+        var cursor = 0f
+
+        for (tab in tabs) {
+            val folderId = tab.folderId
+            val folder = folderId?.let { id ->
+                metrics.folderProvider?.invoke(id) ?: allFolders.firstOrNull { it.id == id }
             }
-            start += getTabWidth(tab, metrics) + metrics.spacingPx
+
+            if (folderId == null || folder == null) {
+                val width = getTabWidth(tab, metrics)
+                slots += DockSlot(
+                    key = tab.id,
+                    folderId = null,
+                    isFolderItem = false,
+                    isCollapsedFolder = false,
+                    tabIds = listOf(tab.id),
+                    startPx = cursor,
+                    widthPx = width,
+                )
+                cursor += width + metrics.spacingPx
+                continue
+            }
+
+            if (!emittedFolders.add(folderId)) continue
+
+            val memberIds = tabs.filter { it.folderId == folderId }.map { it.id }
+            val folderWidth = metrics.getItemWidth("folder_$folderId", metrics.inactiveTabWidthPx)
+            slots += DockSlot(
+                key = "folder_$folderId",
+                folderId = folderId,
+                isFolderItem = true,
+                isCollapsedFolder = folder.isCollapsed,
+                tabIds = memberIds,
+                startPx = cursor,
+                widthPx = folderWidth,
+            )
+            cursor += folderWidth + metrics.spacingPx
+
+            if (folder.isCollapsed) continue
+
+            for (memberId in memberIds) {
+                val memberTab = tabs.first { it.id == memberId }
+                val width = getTabWidth(memberTab, metrics)
+                slots += DockSlot(
+                    key = memberId,
+                    folderId = folderId,
+                    isFolderItem = false,
+                    isCollapsedFolder = false,
+                    tabIds = listOf(memberId),
+                    startPx = cursor,
+                    widthPx = width,
+                )
+                cursor += width + metrics.spacingPx
+            }
         }
-        return start
+
+        return slots
+    }
+
+    internal fun getSlotStart(
+        key: String,
+        tabs: List<Tab>,
+        metrics: TabStripLayoutMetrics,
+    ): Float = dockSlots(tabs, metrics).firstOrNull { it.key == key }?.startPx ?: 0f
+
+    internal fun getSlotIndex(
+        key: String,
+        tabs: List<Tab>,
+        metrics: TabStripLayoutMetrics,
+    ): Int = dockSlots(tabs, metrics).indexOfFirst { it.key == key }
+
+    /** Visible region owned by [folderId]: the indenting indicator plus its rendered members. */
+    private fun groupBounds(
+        slots: List<DockSlot>,
+        folderId: String,
+    ): Pair<Float, Float>? {
+        var start: Float? = null
+        var end: Float? = null
+        for (slot in slots) {
+            if (slot.folderId != folderId) continue
+            if (start == null) start = slot.startPx
+            end = slot.endPx
+        }
+        val groupStart = start ?: return null
+        return groupStart to (end ?: groupStart)
     }
 
     fun onDrag(
@@ -312,152 +439,171 @@ internal class TabStripDragState(
             return
         }
 
-        if (!tabId.startsWith("folder_")) {
-            val currentIndex = currentTabs.indexOfFirst { it.id == tabId }
-            if (currentIndex == -1) return
+        val slots = dockSlots(currentTabs, metrics)
+        val draggedSlotIndex = slots.indexOfFirst { it.key == tabId }
+        if (draggedSlotIndex < 0) return
+        val draggedSlot = slots[draggedSlotIndex]
+        val visualStart = draggedSlot.startPx + dragOffsetPx
+        val visualEnd = visualStart + draggedSlot.widthPx
+        val visualCenter = visualStart + 0.5f * draggedSlot.widthPx
 
-            val draggedTab = currentTabs[currentIndex]
-            val draggedWidth = getTabWidth(draggedTab, metrics)
-            val currentSlotStart = getSlotStart(currentIndex, currentTabs, metrics)
-            val visualStart = currentSlotStart + dragOffsetPx
-            val visualEnd = visualStart + draggedWidth
-            val visualCenter = visualStart + 0.5f * draggedWidth
+        if (draggedSlot.isFolderItem) {
+            // A dragged folder moves as one group and never splits another folder's group.
+            val draggedFolderId = draggedSlot.folderId ?: return
+            val folderTabs = currentTabs.filter { it.folderId == draggedFolderId }
+            val ownGroupLastSlotIndex = slots.indexOfLast { it.folderId == draggedFolderId }
 
-            // Check swap right
-            if (currentIndex < currentTabs.lastIndex) {
-                val targetIndex = currentIndex + 1
-                val targetTab = currentTabs[targetIndex]
-                val targetWidth = getTabWidth(targetTab, metrics)
-                val targetSlotStart = getSlotStart(targetIndex, currentTabs, metrics)
-                val isReverseSwap = lastSwapDirection == SwapDirection.LEFT && targetIndex == lastSwapReverseTargetIndex
+            val rightSlot = slots.getOrNull(ownGroupLastSlotIndex + 1)
+            if (rightSlot != null) {
+                val isReverseSwap = lastSwapDirection == SwapDirection.LEFT && rightSlot.key == lastSwapReverseTargetKey
                 val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
-
-                val canSwapRight = if (draggedWidth > targetWidth) {
-                    val targetTriggerX = targetSlotStart + 0.5f * targetWidth + hysteresisMargin
-                    visualEnd > targetTriggerX
-                } else {
-                    val targetCenter = targetSlotStart + 0.5f * targetWidth
-                    val targetTriggerX = targetCenter + hysteresisMargin
-                    visualCenter > targetTriggerX
-                }
-
-                if (canSwapRight) {
+                val rightTriggerX =
+                    rightSlot.folderId?.let { groupBounds(slots, it)?.second }
+                        ?: (rightSlot.startPx + 0.5f * rightSlot.widthPx)
+                if (visualCenter > rightTriggerX + hysteresisMargin) {
                     val mutable = currentTabs.toMutableList()
-                    val oldTab = mutable.removeAt(currentIndex)
-                    val updatedTab = oldTab.copy(folderId = targetTab.folderId)
-                    mutable.add(targetIndex, updatedTab)
+                    mutable.removeAll { it.folderId == draggedFolderId }
+                    val anchorIndex = mutable.indexOfFirst { it.id == rightSlot.tabIds.last() }
+                    val insertIndex = if (anchorIndex >= 0) anchorIndex + 1 else mutable.size
+                    mutable.addAll(insertIndex.coerceIn(0, mutable.size), folderTabs)
                     currentTabs = mutable
-                    val newSlotStart = getSlotStart(targetIndex, mutable, metrics)
-                    dragOffsetPx = visualStart - newSlotStart
+                    dragOffsetPx = visualStart - getSlotStart(tabId, mutable, metrics)
                     lastSwapDirection = SwapDirection.RIGHT
-                    lastSwapReverseTargetIndex = currentIndex
+                    lastSwapReverseTargetKey = rightSlot.key
                     triggerSwapFeedback(onSwapVibration)
                     return
                 }
             }
 
-            // Check swap left
-            if (currentIndex > 0) {
-                val targetIndex = currentIndex - 1
-                val targetTab = currentTabs[targetIndex]
-                val targetWidth = getTabWidth(targetTab, metrics)
-                val targetSlotStart = getSlotStart(targetIndex, currentTabs, metrics)
-                val targetSlotEnd = targetSlotStart + targetWidth
-                val isReverseSwap = lastSwapDirection == SwapDirection.RIGHT && targetIndex == lastSwapReverseTargetIndex
+            val leftSlot = slots.getOrNull(draggedSlotIndex - 1)
+            if (leftSlot != null) {
+                val isReverseSwap = lastSwapDirection == SwapDirection.RIGHT && leftSlot.key == lastSwapReverseTargetKey
                 val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
-
-                val canSwapLeft = if (draggedWidth > targetWidth) {
-                    val targetTriggerX = targetSlotEnd - 0.5f * targetWidth - hysteresisMargin
-                    visualStart < targetTriggerX
-                } else {
-                    val targetCenter = targetSlotStart + 0.5f * targetWidth
-                    val targetTriggerX = targetCenter - hysteresisMargin
-                    visualCenter < targetTriggerX
-                }
-
-                if (canSwapLeft) {
+                val leftTriggerX =
+                    leftSlot.folderId?.let { groupBounds(slots, it)?.first }
+                        ?: (leftSlot.startPx + 0.5f * leftSlot.widthPx)
+                if (visualCenter < leftTriggerX - hysteresisMargin) {
                     val mutable = currentTabs.toMutableList()
-                    val oldTab = mutable.removeAt(currentIndex)
-                    val updatedTab = oldTab.copy(folderId = targetTab.folderId)
-                    mutable.add(targetIndex, updatedTab)
+                    mutable.removeAll { it.folderId == draggedFolderId }
+                    val anchorIndex = mutable.indexOfFirst { it.id == leftSlot.tabIds.first() }
+                    val insertIndex = if (anchorIndex >= 0) anchorIndex else 0
+                    mutable.addAll(insertIndex.coerceIn(0, mutable.size), folderTabs)
                     currentTabs = mutable
-                    val newSlotStart = getSlotStart(targetIndex, mutable, metrics)
-                    dragOffsetPx = visualStart - newSlotStart
+                    dragOffsetPx = visualStart - getSlotStart(tabId, mutable, metrics)
                     lastSwapDirection = SwapDirection.LEFT
-                    lastSwapReverseTargetIndex = currentIndex
+                    lastSwapReverseTargetKey = leftSlot.key
                     triggerSwapFeedback(onSwapVibration)
                     return
                 }
             }
-        } else {
-            // Dragging a folder
-            val folderId = tabId.removePrefix("folder_")
-            val folderTabs = currentTabs.filter { it.folderId == folderId }
-            if (folderTabs.isEmpty()) return
+            return
+        }
 
-            val firstIdx = currentTabs.indexOfFirst { it.folderId == folderId }
-            val lastIdx = currentTabs.indexOfLast { it.folderId == folderId }
-            val folderWidth = metrics.getItemWidth(tabId, metrics.inactiveTabWidthPx)
-            val currentSlotStart = getFolderSlotStart(folderId, currentTabs, metrics)
-            val visualStart = currentSlotStart + dragOffsetPx
-            val visualCenter = visualStart + 0.5f * folderWidth
+        // A collapsed folder is one visible slot: hover and spring-load it while the dragged tab
+        // covers it, but never reorder into it - its member tabs are not rendered.
+        val hoveredClosedFolder = slots.firstOrNull { slot ->
+            slot.isFolderItem &&
+                slot.isCollapsedFolder &&
+                visualCenter >= slot.startPx &&
+                visualCenter <= slot.endPx
+        }
 
-            // Check swap right: swap with the item after the folder
-            if (lastIdx < currentTabs.lastIndex) {
-                val targetIndex = lastIdx + 1
-                val targetTab = currentTabs[targetIndex]
-                val targetWidth = getTabWidth(targetTab, metrics)
-                val targetSlotStart = getSlotStart(targetIndex, currentTabs, metrics)
-                val isReverseSwap = lastSwapDirection == SwapDirection.LEFT && targetIndex == lastSwapReverseTargetIndex
-                val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
-                val canSwapRight = visualCenter > (targetSlotStart + 0.5f * targetWidth + hysteresisMargin)
+        if (hoveredClosedFolder != null) {
+            updateClosedFolderHover(hoveredClosedFolder.folderId)
+            return
+        } else if (hoveredFolderId != null) {
+            updateClosedFolderHover(null)
+        }
 
-                if (canSwapRight) {
-                    val mutable = currentTabs.toMutableList()
-                    mutable.removeAll(folderTabs)
-                    val newInsertIdx = mutable.indexOfFirst { it.id == targetTab.id }
-                    if (newInsertIdx >= 0) {
-                        mutable.addAll(newInsertIdx + 1, folderTabs)
-                    } else {
-                        mutable.addAll(folderTabs)
-                    }
-                    currentTabs = mutable
-                    val newSlotStart = getFolderSlotStart(folderId, mutable, metrics)
-                    dragOffsetPx = visualStart - newSlotStart
-                    lastSwapDirection = SwapDirection.RIGHT
-                    lastSwapReverseTargetIndex = firstIdx
-                    triggerSwapFeedback(onSwapVibration)
-                    return
+        // Leave a spring-loaded folder once the dragged tab clears its visible region.
+        val springId = springLoadedFolderId
+        if (springId != null) {
+            val springBounds = groupBounds(slots, springId)
+            if (springBounds != null &&
+                (
+                    visualCenter < springBounds.first - metrics.hysteresisPx ||
+                        visualCenter > springBounds.second + metrics.hysteresisPx
+                )
+            ) {
+                onSpringLoadedFolderExited()
+            }
+        }
+
+        // Swap right. The indicator of an expanded folder is a container, not a target: the tab
+        // swaps with its first visible member. A collapsed folder's indicator is crossed as one
+        // indivisible group, which is what keeps the tab draggable across it.
+        var rightSlot = slots.getOrNull(draggedSlotIndex + 1)
+        if (rightSlot != null && rightSlot.isFolderItem && !rightSlot.isCollapsedFolder) {
+            rightSlot = slots.getOrNull(draggedSlotIndex + 2) ?: rightSlot
+        }
+        if (rightSlot != null) {
+            val tabFlatIndex = currentTabs.indexOfFirst { it.id == tabId }
+            val isReverseSwap = lastSwapDirection == SwapDirection.LEFT && rightSlot.key == lastSwapReverseTargetKey
+            val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
+            val canSwapRight = when {
+                rightSlot.isFolderItem -> {
+                    val groupEnd = rightSlot.folderId?.let { groupBounds(slots, it)?.second } ?: rightSlot.endPx
+                    visualCenter > groupEnd + hysteresisMargin
                 }
+                draggedSlot.widthPx > rightSlot.widthPx ->
+                    visualEnd > rightSlot.startPx + 0.5f * rightSlot.widthPx + hysteresisMargin
+                else -> visualCenter > rightSlot.startPx + 0.5f * rightSlot.widthPx + hysteresisMargin
             }
 
-            // Check swap left: swap with the item before the folder
-            if (firstIdx > 0) {
-                val targetIndex = firstIdx - 1
-                val targetTab = currentTabs[targetIndex]
-                val targetWidth = getTabWidth(targetTab, metrics)
-                val targetSlotStart = getSlotStart(targetIndex, currentTabs, metrics)
-                val isReverseSwap = lastSwapDirection == SwapDirection.RIGHT && targetIndex == lastSwapReverseTargetIndex
-                val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
-                val canSwapLeft = visualCenter < (targetSlotStart + 0.5f * targetWidth - hysteresisMargin)
-
-                if (canSwapLeft) {
-                    val mutable = currentTabs.toMutableList()
-                    mutable.removeAll(folderTabs)
-                    val newInsertIdx = mutable.indexOfFirst { it.id == targetTab.id }
-                    if (newInsertIdx >= 0) {
-                        mutable.addAll(newInsertIdx, folderTabs)
-                    } else {
-                        mutable.addAll(0, folderTabs)
-                    }
-                    currentTabs = mutable
-                    val newSlotStart = getFolderSlotStart(folderId, mutable, metrics)
-                    dragOffsetPx = visualStart - newSlotStart
-                    lastSwapDirection = SwapDirection.LEFT
-                    lastSwapReverseTargetIndex = firstIdx
-                    triggerSwapFeedback(onSwapVibration)
-                    return
+            if (tabFlatIndex >= 0 && canSwapRight) {
+                val mutable = currentTabs.toMutableList()
+                val oldTab = mutable.removeAt(tabFlatIndex)
+                val updatedTab = oldTab.copy(folderId = if (rightSlot.isFolderItem) null else rightSlot.folderId)
+                val firstTargetIndex = currentTabs.indexOfFirst { it.id == rightSlot.tabIds.first() }
+                val lastTargetIndex = currentTabs.indexOfFirst { it.id == rightSlot.tabIds.last() }
+                val insertIndex = when {
+                    firstTargetIndex < 0 || lastTargetIndex < 0 -> mutable.size
+                    tabFlatIndex < firstTargetIndex -> lastTargetIndex
+                    else -> lastTargetIndex + 1
                 }
+                mutable.add(insertIndex.coerceIn(0, mutable.size), updatedTab)
+                currentTabs = mutable
+                dragOffsetPx = visualStart - getSlotStart(tabId, mutable, metrics)
+                lastSwapDirection = SwapDirection.RIGHT
+                lastSwapReverseTargetKey = rightSlot.key
+                triggerSwapFeedback(onSwapVibration)
+                return
+            }
+        }
+
+        // Swap left. Crossing a folder indicator always means leaving that folder, never joining it.
+        val leftSlot = slots.getOrNull(draggedSlotIndex - 1)
+        if (leftSlot != null) {
+            val tabFlatIndex = currentTabs.indexOfFirst { it.id == tabId }
+            val isReverseSwap = lastSwapDirection == SwapDirection.RIGHT && leftSlot.key == lastSwapReverseTargetKey
+            val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
+            val canSwapLeft = when {
+                leftSlot.isFolderItem -> {
+                    val groupStart = leftSlot.folderId?.let { groupBounds(slots, it)?.first } ?: leftSlot.startPx
+                    visualCenter < groupStart - hysteresisMargin
+                }
+                draggedSlot.widthPx > leftSlot.widthPx ->
+                    visualStart < leftSlot.endPx - 0.5f * leftSlot.widthPx - hysteresisMargin
+                else -> visualCenter < leftSlot.startPx + 0.5f * leftSlot.widthPx - hysteresisMargin
+            }
+
+            if (tabFlatIndex >= 0 && canSwapLeft) {
+                val mutable = currentTabs.toMutableList()
+                val oldTab = mutable.removeAt(tabFlatIndex)
+                val updatedTab = oldTab.copy(folderId = if (leftSlot.isFolderItem) null else leftSlot.folderId)
+                val firstTargetIndex = currentTabs.indexOfFirst { it.id == leftSlot.tabIds.first() }
+                val insertIndex = when {
+                    firstTargetIndex < 0 -> 0
+                    tabFlatIndex < firstTargetIndex -> firstTargetIndex - 1
+                    else -> firstTargetIndex
+                }
+                mutable.add(insertIndex.coerceIn(0, mutable.size), updatedTab)
+                currentTabs = mutable
+                dragOffsetPx = visualStart - getSlotStart(tabId, mutable, metrics)
+                lastSwapDirection = SwapDirection.LEFT
+                lastSwapReverseTargetKey = leftSlot.key
+                triggerSwapFeedback(onSwapVibration)
+                return
             }
         }
     }
@@ -529,6 +675,69 @@ internal class TabStripDragState(
     ) {
         val tabId = draggingTabId ?: return
         if (!isDragging) return
+
+        val currentHovered = hoveredFolderId
+        if (currentHovered != null) {
+            springLoadJob?.cancel()
+            springLoadJob = null
+            hoveredFolderId = null
+
+            val draggedTab = currentTabs.firstOrNull { it.id == tabId }
+            if (draggedTab != null) {
+                val mutable = currentTabs.toMutableList()
+                mutable.removeAll { it.id == tabId }
+                val lastIdx = mutable.indexOfLast { it.folderId == currentHovered }
+                val updatedTab = draggedTab.copy(folderId = currentHovered)
+                if (lastIdx >= 0) {
+                    mutable.add(lastIdx + 1, updatedTab)
+                } else {
+                    val allFolders = foldersProvider()
+                    val folderIdx = allFolders.indexOfFirst { it.id == currentHovered }
+                    val nextFolderWithTabs = allFolders.drop(folderIdx + 1).firstOrNull { f ->
+                        mutable.any { it.folderId == f.id }
+                    }
+                    val insertIdx = if (nextFolderWithTabs != null) {
+                        mutable.indexOfFirst { it.folderId == nextFolderWithTabs.id }
+                    } else {
+                        mutable.size
+                    }
+                    mutable.add(insertIdx, updatedTab)
+                }
+                currentTabs = mutable
+            }
+        }
+
+        val springId = springLoadedFolderId
+        if (springId != null) {
+            springLoadedFolderId = null
+            val droppedTab = currentTabs.firstOrNull { it.id == tabId }
+            if (droppedTab != null && droppedTab.folderId != springId) {
+                // Drop occurred inside the spring-opened folder before swapping with a member tab
+                val mutable = currentTabs.toMutableList()
+                val oldIdx = mutable.indexOfFirst { it.id == tabId }
+                if (oldIdx >= 0) {
+                    val removed = mutable.removeAt(oldIdx)
+                    val updatedTab = removed.copy(folderId = springId)
+                    val lastFolderTabIdx = mutable.indexOfLast { it.folderId == springId }
+                    val insertIdx = if (lastFolderTabIdx >= 0) {
+                        lastFolderTabIdx + 1
+                    } else {
+                        val allFolders = foldersProvider()
+                        val folderIdx = allFolders.indexOfFirst { it.id == springId }
+                        val nextFolderWithTabs = allFolders.drop(folderIdx + 1).firstOrNull { f ->
+                            mutable.any { it.folderId == f.id }
+                        }
+                        if (nextFolderWithTabs != null) {
+                            mutable.indexOfFirst { it.folderId == nextFolderWithTabs.id }
+                        } else {
+                            mutable.size
+                        }
+                    }
+                    mutable.add(insertIdx.coerceIn(0, mutable.size), updatedTab)
+                    currentTabs = mutable
+                }
+            }
+        }
 
         if (isOverRemoveZone) {
             isDragging = false
@@ -670,6 +879,11 @@ internal class TabStripDragState(
         val tabId = draggingTabId ?: return
         if (!isDragging) return
 
+        hoveredFolderId = null
+        springLoadJob?.cancel()
+        springLoadJob = null
+        onSpringLoadedFolderExited()
+
         val finalOffset = dragOffsetPx
         val finalOffsetY = dragOffsetYPx
         val startScale = if (isReleasedActive) 1.05f else 1.08f
@@ -741,11 +955,17 @@ internal fun rememberTabStripDragState(
     onReorder: (List<Tab>) -> Unit,
     onRemoveTab: (String) -> Unit = {},
     foldersProvider: () -> List<TabFolder> = { emptyList() },
+    onToggleFolderCollapse: (String) -> Unit = {},
+    onHoverVibration: () -> Unit = {},
+    onSpringLoadVibration: () -> Unit = {},
     coroutineScope: CoroutineScope = rememberCoroutineScope(),
 ): TabStripDragState {
     val currentOnReorder by rememberUpdatedState(onReorder)
     val currentOnRemoveTab by rememberUpdatedState(onRemoveTab)
     val currentFoldersProvider by rememberUpdatedState(foldersProvider)
+    val currentOnToggleFolderCollapse by rememberUpdatedState(onToggleFolderCollapse)
+    val currentOnHoverVibration by rememberUpdatedState(onHoverVibration)
+    val currentOnSpringLoadVibration by rememberUpdatedState(onSpringLoadVibration)
     return remember {
         TabStripDragState(
             initialTabs = initialTabs,
@@ -753,6 +973,9 @@ internal fun rememberTabStripDragState(
             onReorder = { currentOnReorder(it) },
             onRemoveTab = { currentOnRemoveTab(it) },
             foldersProvider = { currentFoldersProvider() },
+            onToggleFolderCollapse = { currentOnToggleFolderCollapse(it) },
+            onHoverVibration = { currentOnHoverVibration() },
+            onSpringLoadVibration = { currentOnSpringLoadVibration() },
         )
     }
 }
