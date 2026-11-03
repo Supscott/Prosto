@@ -2,6 +2,8 @@ package com.jestk.browser.ui.overlays
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -54,6 +56,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
@@ -63,6 +66,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.changedToUp
@@ -575,8 +579,21 @@ fun TabOverviewGrid(
                             }
                         },
                     ) { item ->
+                        val isDragged = item.key == reorderState.draggedKey
+                        val hoverScale by animateFloatAsState(
+                            targetValue = if (reorderState.hoverGroupingKey == item.key) 0.96f else 1f,
+                            animationSpec = tween(120),
+                            label = "overviewHoverScale",
+                        )
                         Box(
-                            modifier = Modifier.animateItem(),
+                            modifier =
+                                Modifier
+                                    .animateItem()
+                                    .graphicsLayer {
+                                        scaleX = hoverScale
+                                        scaleY = hoverScale
+                                    }
+                                    .alpha(if (isDragged) 0f else 1f),
                         ) {
                             when (item) {
                                 is OverviewGridItem.TabCard -> {
@@ -688,146 +705,13 @@ fun TabOverviewGrid(
                     )
                 }
 
-                // Floating Visual Proxy during drag
-                if (reorderState.isDragging && reorderState.draggedKey != null) {
-                    val draggedKey = reorderState.draggedKey!!
-                    val dragProxyPosition = reorderState.dragProxyPosition
-                    if (draggedKey.startsWith("tab_")) {
-                        val tabId = draggedKey.removePrefix("tab_")
-                        val draggedTab = activeTabs.find { it.id == tabId }
-                        if (draggedTab != null) {
-                            val proxyWidth = 100.dp
-                            val proxyHeight = 100.dp * 16 / 9
-                            val proxyWidthPx = with(density) { proxyWidth.toPx() }
-                            val proxyHeightPx = with(density) { proxyHeight.toPx() }
-
-                            Surface(
-                                shape = ProstoShapes.Card,
-                                color = if (isDark) DarkSurface else Color.White,
-                                border = BorderStroke(2.dp, ProstoBrandPrimary),
-                                shadowElevation = 12.dp,
-                                modifier =
-                                    Modifier
-                                        .offset {
-                                            IntOffset(
-                                                x = (dragProxyPosition.x - proxyWidthPx / 2f).roundToInt(),
-                                                y = (dragProxyPosition.y - proxyHeightPx / 2f).roundToInt(),
-                                            )
-                                        }
-                                        .size(width = proxyWidth, height = proxyHeight)
-                                        .clip(ProstoShapes.Card)
-                                        .testTag("drag_proxy"),
-                            ) {
-                                Column(modifier = Modifier.fillMaxSize()) {
-                                    Row(
-                                        modifier =
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .height(28.dp)
-                                                .background(if (isDark) DarkSurfaceVariant else ProstoCanvasFloor)
-                                                .padding(horizontal = 6.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                                    ) {
-                                        SiteFavicon(
-                                            faviconUrl = draggedTab.faviconUrl,
-                                            imageSize = 12.dp,
-                                            containerSize = 14.dp,
-                                            shape = CircleShape,
-                                            placeholder = {
-                                                Icon(
-                                                    imageVector = Icons.Default.Public,
-                                                    contentDescription = null,
-                                                    tint = ProstoMutedSlate.copy(alpha = 0.5f),
-                                                    modifier = Modifier.size(12.dp),
-                                                )
-                                            },
-                                        )
-                                        Text(
-                                            text = draggedTab.title.ifEmpty { "Tab" },
-                                            style = LocalProstoTypography.current.labelMd.copy(fontSize = 10.sp),
-                                            color = if (isDark) DarkOnSurface else ProstoDarkText,
-                                            maxLines = 1,
-                                            overflow = TextOverflow.Ellipsis,
-                                        )
-                                    }
-                                    Box(
-                                        modifier =
-                                            Modifier
-                                                .fillMaxWidth()
-                                                .weight(1f)
-                                                .background(if (isDark) DarkBackground else ProstoCanvasFloor),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        val file = draggedTab.snapshotPath?.let { File(it) }
-                                        if (file != null && file.exists()) {
-                                            AsyncImage(
-                                                model = file,
-                                                contentDescription = draggedTab.title,
-                                                contentScale = ContentScale.Crop,
-                                                modifier = Modifier.fillMaxSize(),
-                                            )
-                                        } else {
-                                            Icon(
-                                                imageVector = Icons.Default.Public,
-                                                contentDescription = null,
-                                                tint = ProstoMutedSlate.copy(alpha = 0.40f),
-                                                modifier = Modifier.size(24.dp),
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } else if (draggedKey.startsWith("folder_") || draggedKey.startsWith("folder_header_")) {
-                        val folderId = if (draggedKey.startsWith("folder_header_")) {
-                            draggedKey.removePrefix("folder_header_")
-                        } else {
-                            draggedKey.removePrefix("folder_")
-                        }
-                        val folder = activeFolders.find { it.id == folderId }
-                        if (folder != null) {
-                            val proxyWidth = 120.dp
-                            val proxyHeight = 44.dp
-                            val proxyWidthPx = with(density) { proxyWidth.toPx() }
-                            val proxyHeightPx = with(density) { proxyHeight.toPx() }
-
-                            Surface(
-                                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp),
-                                color = Color(folder.color),
-                                border = BorderStroke(2.dp, Color.White),
-                                shadowElevation = 12.dp,
-                                modifier =
-                                    Modifier
-                                        .offset {
-                                            IntOffset(
-                                                x = (dragProxyPosition.x - proxyWidthPx / 2f).roundToInt(),
-                                                y = (dragProxyPosition.y - proxyHeightPx / 2f).roundToInt(),
-                                            )
-                                        }
-                                        .size(width = proxyWidth, height = proxyHeight)
-                                        .clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp))
-                                        .testTag("drag_proxy"),
-                            ) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                                    contentAlignment = Alignment.CenterStart,
-                                ) {
-                                    Text(
-                                        text = folder.title.ifBlank { "Folder" },
-                                        style = LocalProstoTypography.current.labelMd.copy(
-                                            fontSize = 13.sp,
-                                            fontWeight = FontWeight.Bold,
-                                        ),
-                                        color = Color.White,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
+                // Floating ghost of the picked-up card; the real item is hidden while dragging.
+                TabOverviewDragGhost(
+                    reorderState = reorderState,
+                    tabs = activeTabs,
+                    folders = activeFolders,
+                    isDark = isDark,
+                )
             }
         }
 

@@ -300,7 +300,7 @@ class TabOverviewGridReorderTest {
     }
 
     @Test
-    fun dragTabIntoGapBetweenCards_reordersInsteadOfGrouping() {
+    fun dragTabPastTargetFarEdge_reordersInsteadOfGrouping() {
         val events = mutableListOf<BrowserUiEvent>()
         val tabs = listOf(
             Tab(id = "t1", url = "https://one.com", title = "Tab One", folderId = null),
@@ -322,11 +322,8 @@ class TabOverviewGridReorderTest {
         val t1Node = composeTestRule.onNodeWithTag("tab_card_t1", useUnmergedTree = true).fetchSemanticsNode()
         val t2Node = composeTestRule.onNodeWithTag("tab_card_t2", useUnmergedTree = true).fetchSemanticsNode()
         val t1Center = t1Node.boundsInRoot.center - gridBounds.topLeft
-        // Move past t2 to the next empty column slot (right of t2) to reorder without grouping
-        val pastT2 = Offset(
-            x = t2Node.boundsInRoot.right + 20 - gridBounds.topLeft.x,
-            y = t1Center.y,
-        )
+        // Push past t2's far edge: that is what turns grouping into a move
+        val pastT2FarEdge = (t2Node.boundsInRoot.center - gridBounds.topLeft) + Offset(20f, 0f)
 
         gridNode.performTouchInput {
             down(t1Center)
@@ -334,7 +331,11 @@ class TabOverviewGridReorderTest {
         composeTestRule.mainClock.advanceTimeBy(700)
 
         gridNode.performTouchInput {
-            moveTo(pastT2)
+            moveTo(t1Center + Offset(12f, 0f))
+        }
+        composeTestRule.mainClock.advanceTimeBy(32)
+        gridNode.performTouchInput {
+            moveTo(pastT2FarEdge)
         }
         composeTestRule.mainClock.advanceTimeBy(100)
         gridNode.performTouchInput {
@@ -352,7 +353,7 @@ class TabOverviewGridReorderTest {
     }
 
     @Test
-    fun dragTabOntoTab_hoverLongerThan450ms_groupsIntoFolder() {
+    fun dragTabOntoTabNearZone_createsFolder() {
         val events = mutableListOf<BrowserUiEvent>()
         val tabs = listOf(
             Tab(id = "t1", url = "https://one.com", title = "Tab One", folderId = null),
@@ -381,11 +382,15 @@ class TabOverviewGridReorderTest {
         }
         composeTestRule.mainClock.advanceTimeBy(700)
 
-        // Move to t2 and hover steadily for >= 450 ms (500 ms)
+        // Settle inside t2's near zone, short of its far edge
         gridNode.performTouchInput {
-            moveTo(t2Center)
+            moveTo(t1Center + Offset(12f, 0f))
         }
-        composeTestRule.mainClock.advanceTimeBy(500)
+        composeTestRule.mainClock.advanceTimeBy(32)
+        gridNode.performTouchInput {
+            moveTo(t2Center - Offset(20f, 0f))
+        }
+        composeTestRule.mainClock.advanceTimeBy(200)
         gridNode.performTouchInput {
             up()
         }
@@ -421,16 +426,20 @@ class TabOverviewGridReorderTest {
         val gridBounds = gridNode.fetchSemanticsNode().boundsInRoot
         val folderCenter = composeTestRule.onNodeWithTag("folder_card_f1", useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot.center - gridBounds.topLeft
-        val t1Center = composeTestRule.onNodeWithTag("tab_card_t1", useUnmergedTree = true)
-            .fetchSemanticsNode().boundsInRoot.center - gridBounds.topLeft
+        val t1Bounds = composeTestRule.onNodeWithTag("tab_card_t1", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.translate(-gridBounds.topLeft)
 
-        // Drag folder_f1 before t1
+        // Drag folder_f1 past t1's far (left) edge so the gesture is a move
         gridNode.performTouchInput {
             down(folderCenter)
         }
         composeTestRule.mainClock.advanceTimeBy(700)
         gridNode.performTouchInput {
-            moveTo(t1Center)
+            moveTo(folderCenter + Offset(12f, 0f))
+        }
+        composeTestRule.mainClock.advanceTimeBy(32)
+        gridNode.performTouchInput {
+            moveTo(Offset(t1Bounds.left + 10f, t1Bounds.center.y))
         }
         composeTestRule.mainClock.advanceTimeBy(100)
         gridNode.performTouchInput {
@@ -470,16 +479,20 @@ class TabOverviewGridReorderTest {
         val gridBounds = gridNode.fetchSemanticsNode().boundsInRoot
         val headerCenter = composeTestRule.onNodeWithTag("folder_in_grid_header_f1", useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot.center - gridBounds.topLeft
-        val t1Center = composeTestRule.onNodeWithTag("tab_card_t1", useUnmergedTree = true)
-            .fetchSemanticsNode().boundsInRoot.center - gridBounds.topLeft
+        val t1Bounds = composeTestRule.onNodeWithTag("tab_card_t1", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.translate(-gridBounds.topLeft)
 
-        // Drag folder header before t1
+        // Drag the folder header past t1's far (top) edge so the gesture is a move
         gridNode.performTouchInput {
             down(headerCenter)
         }
         composeTestRule.mainClock.advanceTimeBy(700)
         gridNode.performTouchInput {
-            moveTo(t1Center)
+            moveTo(headerCenter + Offset(12f, 0f))
+        }
+        composeTestRule.mainClock.advanceTimeBy(32)
+        gridNode.performTouchInput {
+            moveTo(Offset(t1Bounds.center.x, t1Bounds.top + 10f))
         }
         composeTestRule.mainClock.advanceTimeBy(100)
         gridNode.performTouchInput {
@@ -523,13 +536,17 @@ class TabOverviewGridReorderTest {
         val t3Center = composeTestRule.onNodeWithTag("tab_card_t3", useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot.center - gridBounds.topLeft
 
-        // Drag t1 out onto t3
+        // Drag t1 out onto t3, past t3's far (bottom) edge
         gridNode.performTouchInput {
             down(t1Center)
         }
         composeTestRule.mainClock.advanceTimeBy(700)
         gridNode.performTouchInput {
-            moveTo(t3Center)
+            moveTo(t1Center + Offset(12f, 0f))
+        }
+        composeTestRule.mainClock.advanceTimeBy(32)
+        gridNode.performTouchInput {
+            moveTo(t3Center + Offset(0f, 12f))
         }
         composeTestRule.mainClock.advanceTimeBy(100)
         gridNode.performTouchInput {
@@ -577,13 +594,17 @@ class TabOverviewGridReorderTest {
         val t2Center = composeTestRule.onNodeWithTag("tab_card_t2", useUnmergedTree = true)
             .fetchSemanticsNode().boundsInRoot.center - gridBounds.topLeft
 
-        // Drag standalone t1 into open folder over t2 without 450ms hover (< 450ms, e.g. 100ms)
+        // Drag standalone t1 into the open folder, keeping it inside t2's near zone
         gridNode.performTouchInput {
             down(t1Center)
         }
         composeTestRule.mainClock.advanceTimeBy(700)
         gridNode.performTouchInput {
-            moveTo(t2Center)
+            moveTo(t1Center + Offset(12f, 0f))
+        }
+        composeTestRule.mainClock.advanceTimeBy(32)
+        gridNode.performTouchInput {
+            moveTo(t2Center - Offset(0f, 12f))
         }
         composeTestRule.mainClock.advanceTimeBy(100)
         gridNode.performTouchInput {
@@ -595,5 +616,57 @@ class TabOverviewGridReorderTest {
         assertThat(addEvent).isNotNull()
         assertThat(addEvent?.tabId).isEqualTo("t1")
         assertThat(addEvent?.folderId).isEqualTo("f1")
+    }
+
+    @Test
+    fun dragFolderOntoFolderNearZone_mergesFolders() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val warm = TabFolder(id = "f1", title = "Warm", color = 0xFF2196F3.toInt())
+        val work = TabFolder(id = "f2", title = "Work", color = 0xFFE91E63.toInt())
+        val tabs = listOf(
+            Tab(id = "t1", url = "https://one.com", title = "Tab One", folderId = "f1"),
+            Tab(id = "t2", url = "https://two.com", title = "Tab Two", folderId = "f2"),
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                TabOverviewGrid(
+                    uiState = BrowserUiState(tabs = tabs, folders = listOf(warm, work), activeTabId = "t1"),
+                    onEvent = { events.add(it) },
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+
+        val gridNode = composeTestRule.onNodeWithTag("overview_grid")
+        val gridBounds = gridNode.fetchSemanticsNode().boundsInRoot
+        val f1Center = composeTestRule.onNodeWithTag("folder_card_f1", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.center - gridBounds.topLeft
+        val f2Center = composeTestRule.onNodeWithTag("folder_card_f2", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.center - gridBounds.topLeft
+
+        // Settle inside f2's near zone: that means "merge", not "move"
+        gridNode.performTouchInput {
+            down(f1Center)
+        }
+        composeTestRule.mainClock.advanceTimeBy(700)
+        gridNode.performTouchInput {
+            moveTo(f1Center + Offset(12f, 0f))
+        }
+        composeTestRule.mainClock.advanceTimeBy(32)
+        gridNode.performTouchInput {
+            moveTo(f2Center - Offset(20f, 0f))
+        }
+        composeTestRule.mainClock.advanceTimeBy(32)
+        gridNode.performTouchInput {
+            up()
+        }
+        composeTestRule.waitForIdle()
+
+        val reorderEvent = events.filterIsInstance<BrowserUiEvent.ReorderTabs>().firstOrNull()
+        assertThat(reorderEvent).isNotNull()
+        assertThat(reorderEvent?.orderedTabs?.map { it.id }).containsExactly("t2", "t1").inOrder()
+        assertThat(reorderEvent?.orderedTabs?.map { it.folderId }).containsExactly("f2", "f2").inOrder()
+        assertThat(reorderEvent?.orderedFolders?.map { it.id }).containsExactly("f2")
     }
 }
