@@ -52,6 +52,7 @@ Welcome to the **Prosto** project. This file provides operational rules, archite
 - **Domain Layer Purity**: Domain layer must remain free of Android framework UI types (`android.view.*`, `android.widget.*`, `android.graphics.*`) and Compose types. Domain models must remain pure Kotlin.
 
 ### Code Hygiene & Localization
+- **English-Only Documentation & Artifacts**: All project documentation, architectural decision records (ADRs), technical plans, task artifacts, code comments, and commit messages must be written strictly in English. Russian is reserved exclusively for user-facing localization resources (`res/values-ru/strings.xml`) and conversational dialogue when addressed by the user in Russian.
 - **UI Localization (Zero Hardcoded Strings)**: Never hardcode user-facing strings in composables or dialogs. Every string must exist in both `res/values/strings.xml` and `res/values-ru/strings.xml`, accessed via `stringResource(R.string.*)`.
 - **Zero Dead Code Policy**: Do not leave commented-out code blocks in source files. Delete dead code completely.
 - **Modularity**: Keep UI files focused (<400–500 LOC). Separate reusable state holders, popups, and auxiliary rows into dedicated files.

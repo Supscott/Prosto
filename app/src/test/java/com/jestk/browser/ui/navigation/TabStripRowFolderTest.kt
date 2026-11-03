@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.MonotonicFrameClock
 import androidx.compose.runtime.mutableStateOf
+import kotlinx.coroutines.test.runTest
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotDisplayed
@@ -38,6 +40,15 @@ class TabStripRowFolderTest {
 
     @get:Rule
     val composeRule = createComposeRule()
+
+    private val testFrameClock = object : MonotonicFrameClock {
+        private var time = 0L
+        override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R {
+            kotlinx.coroutines.delay(16)
+            time += 16_000_000L
+            return onFrame(time)
+        }
+    }
 
     private val events = mutableListOf<BrowserUiEvent>()
     private val testVibration = object : VibrationFeedback {
@@ -407,6 +418,82 @@ class TabStripRowFolderTest {
 
         // Slot 2 (tab3): preceded by tab1, folder_f1, and tab2 (38 + 4) = 126 + 42 = 168
         assertThat(dragState.getSlotStart(2, tabs, metrics)).isEqualTo(168f)
+    }
+
+    @Test
+    fun tabStripDragState_dragTabIntoFolder_adoptsFolderId() = runTest(testFrameClock) {
+        val folder = TabFolder(id = "f1", title = "Work", color = 0xFF2196F3.toInt())
+        val tabs = listOf(
+            Tab(id = "tab1", title = "Tab 1", url = "https://example.com"),
+            Tab(id = "tab2", title = "Work 1", url = "https://work.com", folderId = "f1"),
+        )
+        val metrics = TabStripLayoutMetrics(
+            activeTabWidthPx = 38f,
+            inactiveTabWidthPx = 38f,
+            spacingPx = 4f,
+            folderProvider = { folder },
+        )
+        val dragState = TabStripDragState(
+            initialTabs = tabs,
+            coroutineScope = this,
+            onReorder = {},
+        )
+        dragState.onDragStart("tab1", initialVisualX = 0f)
+        dragState.onDrag("tab1", deltaX = 100f, metrics = metrics)
+
+        assertThat(dragState.currentTabs[1].id).isEqualTo("tab1")
+        assertThat(dragState.currentTabs[1].folderId).isEqualTo("f1")
+    }
+
+    @Test
+    fun tabStripDragState_dragTabOutOfFolder_clearsFolderId() = runTest(testFrameClock) {
+        val folder = TabFolder(id = "f1", title = "Work", color = 0xFF2196F3.toInt())
+        val tabs = listOf(
+            Tab(id = "tab1", title = "Standalone", url = "https://example.com"),
+            Tab(id = "tab2", title = "Work 1", url = "https://work.com", folderId = "f1"),
+        )
+        val metrics = TabStripLayoutMetrics(
+            activeTabWidthPx = 38f,
+            inactiveTabWidthPx = 38f,
+            spacingPx = 4f,
+            folderProvider = { folder },
+        )
+        val dragState = TabStripDragState(
+            initialTabs = tabs,
+            coroutineScope = this,
+            onReorder = {},
+        )
+        dragState.onDragStart("tab2", initialVisualX = 126f)
+        dragState.onDrag("tab2", deltaX = -120f, metrics = metrics)
+
+        assertThat(dragState.currentTabs[0].id).isEqualTo("tab2")
+        assertThat(dragState.currentTabs[0].folderId).isNull()
+    }
+
+    @Test
+    fun tabStripDragState_dragFolder_reordersEntireFolderBlock() = runTest(testFrameClock) {
+        val folder = TabFolder(id = "f1", title = "Work", color = 0xFF2196F3.toInt())
+        val tabs = listOf(
+            Tab(id = "tab1", title = "Work 1", url = "https://work.com", folderId = "f1"),
+            Tab(id = "tab2", title = "Work 2", url = "https://jira.com", folderId = "f1"),
+            Tab(id = "tab3", title = "Standalone", url = "https://other.com"),
+        )
+        val metrics = TabStripLayoutMetrics(
+            activeTabWidthPx = 38f,
+            inactiveTabWidthPx = 38f,
+            spacingPx = 4f,
+            itemWidthProvider = { if (it == "folder_f1") 38f else null },
+            folderProvider = { folder },
+        )
+        val dragState = TabStripDragState(
+            initialTabs = tabs,
+            coroutineScope = this,
+            onReorder = {},
+        )
+        dragState.onDragStart("folder_f1", initialVisualX = 0f)
+        dragState.onDrag("folder_f1", deltaX = 150f, metrics = metrics)
+
+        assertThat(dragState.currentTabs.map { it.id }).containsExactly("tab3", "tab1", "tab2").inOrder()
     }
 
     // --- 7. Visual Preview Test ---

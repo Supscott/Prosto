@@ -165,27 +165,28 @@ class TabOverviewGridFolderTest {
             Tab(id = "4", url = "https://news.ycombinator.com", title = "Hacker News", folderId = null),
         )
 
-        // 1. Search by folder name "Productivity"
+        // 1. Search by folder name "Productivity" (auto-expands matching folder)
         val itemsFolderMatch = computeOverviewItems(
             tabs = tabs,
             folders = listOf(folder1, folder2),
             searchQuery = "Productivity",
         )
-        assertThat(itemsFolderMatch).hasSize(1)
-        val folderItem1 = itemsFolderMatch[0] as OverviewGridItem.FolderCard
-        assertThat(folderItem1.folder.id).isEqualTo("f1")
-        assertThat(folderItem1.tabs).hasSize(2)
+        assertThat(itemsFolderMatch).hasSize(3) // 1 Header + 2 Tab cards
+        val header1 = itemsFolderMatch[0] as OverviewGridItem.FolderHeader
+        assertThat(header1.folder.id).isEqualTo("f1")
+        assertThat(header1.tabs).hasSize(2)
 
-        // 2. Search by tab title inside folder "Slack"
+        // 2. Search by tab title inside folder "Slack" (auto-expands with matched tab)
         val itemsTabMatch = computeOverviewItems(
             tabs = tabs,
             folders = listOf(folder1, folder2),
             searchQuery = "Slack",
         )
-        assertThat(itemsTabMatch).hasSize(1)
-        val folderItem2 = itemsTabMatch[0] as OverviewGridItem.FolderCard
-        assertThat(folderItem2.folder.id).isEqualTo("f1")
-        assertThat(folderItem2.tabs.map { it.id }).containsExactly("2")
+        assertThat(itemsTabMatch).hasSize(2) // 1 Header + 1 Tab card
+        val header2 = itemsTabMatch[0] as OverviewGridItem.FolderHeader
+        assertThat(header2.folder.id).isEqualTo("f1")
+        val tabCard = itemsTabMatch[1] as OverviewGridItem.FolderTabCard
+        assertThat(tabCard.tab.id).isEqualTo("2")
 
         // 3. Search standalone tab "Hacker"
         val itemsStandalone = computeOverviewItems(

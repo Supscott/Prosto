@@ -417,6 +417,7 @@ class TabStripRowDragTest {
 
         // Release to confirm removal
         composeRule.onRoot().performTouchInput { up() }
+        composeRule.mainClock.advanceTimeBy(16)
 
         // Immediately after release, the tab must not linger in the dock items
         composeRule.onNodeWithTag("tab_tab2").assertDoesNotExist()

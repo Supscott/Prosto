@@ -60,10 +60,6 @@ internal fun rememberTabStripDragReorderModifier(
             val longPress = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
 
             currentVibration.confirm()
-            if (tabId.startsWith("folder_")) {
-                currentOnLongPress(tabId)
-                return@awaitEachGesture
-            }
             val pointerId = longPress.id
             var totalDragX = 0f
             var totalDragY = 0f
@@ -172,7 +168,7 @@ internal fun dragTabToViewportPosition(
     onEnterRemoveZone: () -> Unit = {},
     onExitRemoveZone: () -> Unit = {},
 ) {
-    if (removeThresholdPx > 0f) {
+    if (removeThresholdPx > 0f && !tabId.startsWith("folder_")) {
         dragState.updateVerticalDrag(
             offsetY = dragOffsetYPx,
             removeThresholdPx = removeThresholdPx,
@@ -182,11 +178,21 @@ internal fun dragTabToViewportPosition(
     }
 
     val visibleItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == tabId } ?: return
-    val oldIndex = dragState.currentTabs.indexOfFirst { it.id == tabId }
+    val isFolder = tabId.startsWith("folder_")
+    val oldIndex = if (isFolder) {
+        val fId = tabId.removePrefix("folder_")
+        dragState.currentTabs.indexOfFirst { it.folderId == fId }
+    } else {
+        dragState.currentTabs.indexOfFirst { it.id == tabId }
+    }
     if (oldIndex < 0) return
 
     val firstVisibleIndex = lazyListState.firstVisibleItemIndex
-    val oldSlotStart = dragState.getSlotStart(oldIndex, dragState.currentTabs, metrics)
+    val oldSlotStart = if (isFolder) {
+        dragState.getFolderSlotStart(tabId.removePrefix("folder_"), dragState.currentTabs, metrics)
+    } else {
+        dragState.getSlotStart(oldIndex, dragState.currentTabs, metrics)
+    }
     val boundedVisualStart =
         visualStartPx.coerceIn(
             -edgeSlackPx,
@@ -204,15 +210,24 @@ internal fun dragTabToViewportPosition(
         )
     }
 
-    val newIndex = dragState.currentTabs.indexOfFirst { it.id == tabId }
+    val newIndex = if (isFolder) {
+        val fId = tabId.removePrefix("folder_")
+        dragState.currentTabs.indexOfFirst { it.folderId == fId }
+    } else {
+        dragState.currentTabs.indexOfFirst { it.id == tabId }
+    }
     if (newIndex < 0) return
-    val newSlotStart = dragState.getSlotStart(newIndex, dragState.currentTabs, metrics)
-    val draggedTabBecameFirst = newIndex < oldIndex && newIndex <= firstVisibleIndex
-    if (draggedTabBecameFirst && !dragState.isOverRemoveZone) {
+    val newSlotStart = if (isFolder) {
+        dragState.getFolderSlotStart(tabId.removePrefix("folder_"), dragState.currentTabs, metrics)
+    } else {
+        dragState.getSlotStart(newIndex, dragState.currentTabs, metrics)
+    }
+    val draggedItemBecameFirst = newIndex < oldIndex && newIndex <= firstVisibleIndex
+    if (draggedItemBecameFirst && !dragState.isOverRemoveZone) {
         lazyListState.requestScrollToItem(newIndex)
     }
     val newItemOffset =
-        if (draggedTabBecameFirst && !dragState.isOverRemoveZone) {
+        if (draggedItemBecameFirst && !dragState.isOverRemoveZone) {
             0f
         } else {
             itemLayoutOffsetPx + newSlotStart - oldSlotStart

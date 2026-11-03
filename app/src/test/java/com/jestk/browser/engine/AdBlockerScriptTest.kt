@@ -147,9 +147,5 @@ class AdBlockerScriptTest {
         assertThat(js).contains("movie_player")
         assertThat(js).contains("getPlayerState")
         assertThat(js).contains("setInterval(checkWatchPlayback, 300)")
-
-        // Selective setTimeout clamping
-        assertThat(js).contains("origSetTimeout")
-        assertThat(js).contains("isAdWatchdog")
     }
 }

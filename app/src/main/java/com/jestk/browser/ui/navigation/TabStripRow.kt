@@ -50,7 +50,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -110,8 +112,12 @@ import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.LocalVibrationFeedback
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import java.net.URI
 
 /**
@@ -261,20 +267,19 @@ fun TabStripRow(
                 initialTabs = displayTabs,
                 onReorder = { reordered ->
                     for (tab in reordered) {
-                        val newIdx = reordered.indexOf(tab)
-                        val prev = reordered.getOrNull(newIdx - 1)
-                        val next = reordered.getOrNull(newIdx + 1)
-                        val targetFolderId = when {
-                            prev?.folderId != null && prev.folderId == next?.folderId -> prev.folderId
-                            else -> null
-                        }
-                        if (targetFolderId != null && targetFolderId != tab.folderId) {
-                            onEvent(BrowserUiEvent.AddTabToFolder(tab.id, targetFolderId))
+                        val original = displayTabs.find { it.id == tab.id }
+                        if (original != null && original.folderId != tab.folderId) {
+                            if (tab.folderId != null) {
+                                onEvent(BrowserUiEvent.AddTabToFolder(tab.id, tab.folderId))
+                            } else {
+                                onEvent(BrowserUiEvent.RemoveTabFromFolder(tab.id))
+                            }
                         }
                     }
                     onEvent(BrowserUiEvent.ReorderTabs(reordered))
                 },
                 onRemoveTab = { tabId -> onEvent(BrowserUiEvent.CloseTab(tabId)) },
+                foldersProvider = { uiState.folders },
                 coroutineScope = coroutineScope,
             )
 
@@ -284,10 +289,12 @@ fun TabStripRow(
 
         var contextMenuTabId by remember { mutableStateOf<String?>(null) }
         var contextMenuFolderId by remember { mutableStateOf<String?>(null) }
+        var expandScrollJob by remember { mutableStateOf<Job?>(null) }
 
         val dockItems = remember(dragState.currentTabs, uiState.folders) {
             computeDockItems(dragState.currentTabs, uiState.folders)
         }
+        val currentDockItems by rememberUpdatedState(dockItems)
 
         val activeIndex =
             remember(dragState.currentTabs, uiState.activeTabId, uiState.activeTabIndex) {
@@ -326,7 +333,7 @@ fun TabStripRow(
         var lastCenteredActiveTabId by remember { mutableStateOf<String?>(null) }
         var lastActiveOverlay by remember { mutableStateOf<OverlayType?>(null) }
 
-        LaunchedEffect(uiState.activeTabId, uiState.activeOverlay, dockItems) {
+        LaunchedEffect(uiState.activeTabId, uiState.activeOverlay) {
             val activeTabId = uiState.activeTabId
             val currentOverlay = uiState.activeOverlay
             val overlayDismissed = lastActiveOverlay == OverlayType.TAB_GRID && currentOverlay != OverlayType.TAB_GRID
@@ -335,7 +342,7 @@ fun TabStripRow(
             if (currentOverlay != OverlayType.TAB_GRID && activeTabId != null) {
                 if (activeTabId != lastCenteredActiveTabId || overlayDismissed) {
                     val targetIndex =
-                        dockItems.indexOfFirst { it.key == activeTabId }
+                        currentDockItems.indexOfFirst { it.key == activeTabId }
                             .takeIf { it >= 0 }
                             ?: dragState.currentTabs.indexOfFirst { it.id == activeTabId }
                                 .takeIf { it >= 0 }
@@ -548,16 +555,28 @@ fun TabStripRow(
                     is DockItem.FolderItem -> {
                         val folder = item.folder
                         val folderColor = Color(folder.color)
+                        val isFolderElevated = dragState.draggingTabId == item.key || dragState.settlingTabId == item.key
+
+                        val folderPlacementModifier =
+                            if (isFolderElevated) {
+                                Modifier
+                            } else {
+                                Modifier.animateItem(
+                                    placementSpec =
+                                        spring(
+                                            stiffness = Spring.StiffnessMedium,
+                                            dampingRatio = Spring.DampingRatioLowBouncy,
+                                        ),
+                                )
+                            }
 
                         Box(
                             modifier = Modifier
                                 .fillMaxHeight()
-                                .animateItem(
-                                    placementSpec = spring(
-                                        stiffness = Spring.StiffnessMedium,
-                                        dampingRatio = Spring.DampingRatioLowBouncy,
-                                    ),
-                                )
+                                .then(folderPlacementModifier)
+                                .graphicsLayer {
+                                    alpha = if (isFolderElevated) 0f else 1f
+                                }
                                 .drawBehind {
                                     val lineY = size.height - 3.dp.toPx()
                                     val startX = 4.dp.toPx()
@@ -575,7 +594,22 @@ fun TabStripRow(
                             FolderDockIndicator(
                                 folder = folder,
                                 onClick = {
+                                    val willExpand = folder.isCollapsed
                                     onEvent(BrowserUiEvent.ToggleFolderCollapse(folder.id, fromDock = true))
+                                    if (willExpand) {
+                                        expandScrollJob?.cancel()
+                                        expandScrollJob = coroutineScope.launch {
+                                            snapshotFlow { dockItems }
+                                                .filter { items ->
+                                                    items.any { it is DockItem.FolderItem && it.folder.id == folder.id && !it.folder.isCollapsed }
+                                                }
+                                                .first()
+                                            val idx = dockItems.indexOfFirst { it is DockItem.FolderItem && it.folder.id == folder.id }
+                                            if (idx >= 0) {
+                                                lazyListState.animateScrollToItem(idx, 0)
+                                            }
+                                        }
+                                    }
                                 },
                             )
 
@@ -745,8 +779,18 @@ fun TabStripRow(
         )
 
         // Floating Dragged / Settling Tab Overlay (outside LazyRow to prevent clipping above dock)
-        val elevatedTabId = dragState.draggingTabId ?: dragState.settlingTabId
-        val elevatedTab = if (elevatedTabId != null) dragState.currentTabs.firstOrNull { it.id == elevatedTabId } else null
+        val elevatedKey = dragState.draggingTabId ?: dragState.settlingTabId
+        val elevatedTab = if (elevatedKey != null && !elevatedKey.startsWith("folder_")) {
+            dragState.currentTabs.firstOrNull { it.id == elevatedKey }
+        } else {
+            null
+        }
+        val elevatedFolder = if (elevatedKey != null && elevatedKey.startsWith("folder_")) {
+            val fId = elevatedKey.removePrefix("folder_")
+            uiState.folders.firstOrNull { it.id == fId }
+        } else {
+            null
+        }
         if (elevatedTab != null) {
             val isDraggingThis = dragState.draggingTabId == elevatedTab.id
             val isSettlingThis = dragState.settlingTabId == elevatedTab.id
@@ -897,6 +941,51 @@ fun TabStripRow(
                     onMenuDismiss = {},
                 )
             }
+        }
+
+        if (elevatedFolder != null) {
+            val isDraggingThis = dragState.draggingTabId == elevatedKey
+            val isSettlingThis = dragState.settlingTabId == elevatedKey
+
+            val itemScale =
+                when {
+                    isDraggingThis -> 1.08f
+                    isSettlingThis -> dragState.settleScaleAnim.value
+                    else -> 1.0f
+                }
+            val effectiveScale = itemScale + if (isDraggingThis) dragState.swapScaleBump.value else 0f
+
+            val overlayX =
+                when {
+                    isDraggingThis -> dragState.lastVisualXPx
+                    isSettlingThis -> {
+                        val slotItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == elevatedKey }
+                        val slotOffset = slotItem?.offset?.toFloat() ?: dragState.lastVisualXPx
+                        slotOffset + dragState.settleOffsetAnim.value
+                    }
+                    else -> 0f
+                }
+            val overlayY =
+                when {
+                    isDraggingThis -> dragState.dragOffsetYPx
+                    isSettlingThis -> dragState.settleOffsetYAnim.value
+                    else -> 0f
+                }
+
+            FolderDockIndicator(
+                folder = elevatedFolder,
+                onClick = {},
+                modifier =
+                    Modifier
+                        .zIndex(20f)
+                        .graphicsLayer {
+                            translationX = overlayX
+                            translationY = overlayY
+                            scaleX = effectiveScale
+                            scaleY = effectiveScale
+                            shadowElevation = 8.dp.toPx()
+                        },
+            )
         }
 
         // Floating Vanishing Tab Overlay during removal release animation

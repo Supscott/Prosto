@@ -80,6 +80,7 @@ internal class TabStripDragState(
     val coroutineScope: CoroutineScope,
     val onReorder: (List<Tab>) -> Unit,
     val onRemoveTab: (String) -> Unit = {},
+    val foldersProvider: () -> List<TabFolder> = { emptyList() },
 ) {
     var currentTabs by mutableStateOf(initialTabs)
         private set
@@ -277,6 +278,28 @@ internal class TabStripDragState(
         return start
     }
 
+    internal fun getFolderSlotStart(
+        folderId: String,
+        tabs: List<Tab>,
+        metrics: TabStripLayoutMetrics,
+    ): Float {
+        val firstTabIdx = tabs.indexOfFirst { it.folderId == folderId }
+        if (firstTabIdx < 0) return 0f
+        var start = 0f
+        val seenFolders = mutableSetOf<String>()
+        for (i in 0 until firstTabIdx) {
+            val tab = tabs[i]
+            val fId = tab.folderId
+            if (fId != null && fId !in seenFolders) {
+                seenFolders.add(fId)
+                val folderWidth = metrics.getItemWidth("folder_$fId", metrics.inactiveTabWidthPx)
+                start += folderWidth + metrics.spacingPx
+            }
+            start += getTabWidth(tab, metrics) + metrics.spacingPx
+        }
+        return start
+    }
+
     fun onDrag(
         tabId: String,
         deltaX: Float,
@@ -288,86 +311,153 @@ internal class TabStripDragState(
         if (isOverRemoveZone) {
             return
         }
-        val currentIndex = currentTabs.indexOfFirst { it.id == tabId }
-        if (currentIndex == -1) return
 
-        val draggedTab = currentTabs[currentIndex]
-        val draggedWidth = getTabWidth(draggedTab, metrics)
-        val currentSlotStart = getSlotStart(currentIndex, currentTabs, metrics)
-        val visualStart = currentSlotStart + dragOffsetPx
-        val visualEnd = visualStart + draggedWidth
-        val visualCenter = visualStart + 0.5f * draggedWidth
+        if (!tabId.startsWith("folder_")) {
+            val currentIndex = currentTabs.indexOfFirst { it.id == tabId }
+            if (currentIndex == -1) return
 
-        // Check swap right
-        if (currentIndex < currentTabs.lastIndex) {
-            val targetIndex = currentIndex + 1
-            val targetTab = currentTabs[targetIndex]
-            val targetWidth = getTabWidth(targetTab, metrics)
-            val targetSlotStart = currentSlotStart + draggedWidth + metrics.spacingPx
-            val isReverseSwap = lastSwapDirection == SwapDirection.LEFT && targetIndex == lastSwapReverseTargetIndex
-            val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
+            val draggedTab = currentTabs[currentIndex]
+            val draggedWidth = getTabWidth(draggedTab, metrics)
+            val currentSlotStart = getSlotStart(currentIndex, currentTabs, metrics)
+            val visualStart = currentSlotStart + dragOffsetPx
+            val visualEnd = visualStart + draggedWidth
+            val visualCenter = visualStart + 0.5f * draggedWidth
 
-            val canSwapRight = if (draggedWidth > targetWidth) {
-                // Wide active tab moving right: triggers as soon as its leading edge enters 50% of target slot
-                val targetTriggerX = targetSlotStart + 0.5f * targetWidth + hysteresisMargin
-                visualEnd > targetTriggerX
-            } else {
-                // Inactive tab moving right onto active tab (or same size): triggers when its center crosses target center
-                val targetCenter = targetSlotStart + 0.5f * targetWidth
-                val targetTriggerX = targetCenter + hysteresisMargin
-                visualCenter > targetTriggerX
+            // Check swap right
+            if (currentIndex < currentTabs.lastIndex) {
+                val targetIndex = currentIndex + 1
+                val targetTab = currentTabs[targetIndex]
+                val targetWidth = getTabWidth(targetTab, metrics)
+                val targetSlotStart = getSlotStart(targetIndex, currentTabs, metrics)
+                val isReverseSwap = lastSwapDirection == SwapDirection.LEFT && targetIndex == lastSwapReverseTargetIndex
+                val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
+
+                val canSwapRight = if (draggedWidth > targetWidth) {
+                    val targetTriggerX = targetSlotStart + 0.5f * targetWidth + hysteresisMargin
+                    visualEnd > targetTriggerX
+                } else {
+                    val targetCenter = targetSlotStart + 0.5f * targetWidth
+                    val targetTriggerX = targetCenter + hysteresisMargin
+                    visualCenter > targetTriggerX
+                }
+
+                if (canSwapRight) {
+                    val mutable = currentTabs.toMutableList()
+                    val oldTab = mutable.removeAt(currentIndex)
+                    val updatedTab = oldTab.copy(folderId = targetTab.folderId)
+                    mutable.add(targetIndex, updatedTab)
+                    currentTabs = mutable
+                    val newSlotStart = getSlotStart(targetIndex, mutable, metrics)
+                    dragOffsetPx = visualStart - newSlotStart
+                    lastSwapDirection = SwapDirection.RIGHT
+                    lastSwapReverseTargetIndex = currentIndex
+                    triggerSwapFeedback(onSwapVibration)
+                    return
+                }
             }
 
-            if (canSwapRight) {
-                val mutable = currentTabs.toMutableList()
-                Collections.swap(mutable, currentIndex, targetIndex)
-                currentTabs = mutable
+            // Check swap left
+            if (currentIndex > 0) {
+                val targetIndex = currentIndex - 1
+                val targetTab = currentTabs[targetIndex]
+                val targetWidth = getTabWidth(targetTab, metrics)
+                val targetSlotStart = getSlotStart(targetIndex, currentTabs, metrics)
+                val targetSlotEnd = targetSlotStart + targetWidth
+                val isReverseSwap = lastSwapDirection == SwapDirection.RIGHT && targetIndex == lastSwapReverseTargetIndex
+                val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
 
-                val newSlotStart = currentSlotStart + targetWidth + metrics.spacingPx
-                dragOffsetPx = visualStart - newSlotStart
+                val canSwapLeft = if (draggedWidth > targetWidth) {
+                    val targetTriggerX = targetSlotEnd - 0.5f * targetWidth - hysteresisMargin
+                    visualStart < targetTriggerX
+                } else {
+                    val targetCenter = targetSlotStart + 0.5f * targetWidth
+                    val targetTriggerX = targetCenter - hysteresisMargin
+                    visualCenter < targetTriggerX
+                }
 
-                lastSwapDirection = SwapDirection.RIGHT
-                lastSwapReverseTargetIndex = currentIndex
-
-                triggerSwapFeedback(onSwapVibration)
-                return
+                if (canSwapLeft) {
+                    val mutable = currentTabs.toMutableList()
+                    val oldTab = mutable.removeAt(currentIndex)
+                    val updatedTab = oldTab.copy(folderId = targetTab.folderId)
+                    mutable.add(targetIndex, updatedTab)
+                    currentTabs = mutable
+                    val newSlotStart = getSlotStart(targetIndex, mutable, metrics)
+                    dragOffsetPx = visualStart - newSlotStart
+                    lastSwapDirection = SwapDirection.LEFT
+                    lastSwapReverseTargetIndex = currentIndex
+                    triggerSwapFeedback(onSwapVibration)
+                    return
+                }
             }
-        }
+        } else {
+            // Dragging a folder
+            val folderId = tabId.removePrefix("folder_")
+            val folderTabs = currentTabs.filter { it.folderId == folderId }
+            if (folderTabs.isEmpty()) return
 
-        // Check swap left
-        if (currentIndex > 0) {
-            val targetIndex = currentIndex - 1
-            val targetTab = currentTabs[targetIndex]
-            val targetWidth = getTabWidth(targetTab, metrics)
-            val targetSlotStart = currentSlotStart - (targetWidth + metrics.spacingPx)
-            val targetSlotEnd = targetSlotStart + targetWidth
-            val isReverseSwap = lastSwapDirection == SwapDirection.RIGHT && targetIndex == lastSwapReverseTargetIndex
-            val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
+            val firstIdx = currentTabs.indexOfFirst { it.folderId == folderId }
+            val lastIdx = currentTabs.indexOfLast { it.folderId == folderId }
+            val folderWidth = metrics.getItemWidth(tabId, metrics.inactiveTabWidthPx)
+            val currentSlotStart = getFolderSlotStart(folderId, currentTabs, metrics)
+            val visualStart = currentSlotStart + dragOffsetPx
+            val visualCenter = visualStart + 0.5f * folderWidth
 
-            val canSwapLeft = if (draggedWidth > targetWidth) {
-                // Wide active tab moving left: triggers as soon as its leading edge enters 50% of target slot
-                val targetTriggerX = targetSlotEnd - 0.5f * targetWidth - hysteresisMargin
-                visualStart < targetTriggerX
-            } else {
-                // Inactive tab moving left onto active tab (or same size): triggers when its center crosses target center
-                val targetCenter = targetSlotStart + 0.5f * targetWidth
-                val targetTriggerX = targetCenter - hysteresisMargin
-                visualCenter < targetTriggerX
+            // Check swap right: swap with the item after the folder
+            if (lastIdx < currentTabs.lastIndex) {
+                val targetIndex = lastIdx + 1
+                val targetTab = currentTabs[targetIndex]
+                val targetWidth = getTabWidth(targetTab, metrics)
+                val targetSlotStart = getSlotStart(targetIndex, currentTabs, metrics)
+                val isReverseSwap = lastSwapDirection == SwapDirection.LEFT && targetIndex == lastSwapReverseTargetIndex
+                val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
+                val canSwapRight = visualCenter > (targetSlotStart + 0.5f * targetWidth + hysteresisMargin)
+
+                if (canSwapRight) {
+                    val mutable = currentTabs.toMutableList()
+                    mutable.removeAll(folderTabs)
+                    val newInsertIdx = mutable.indexOfFirst { it.id == targetTab.id }
+                    if (newInsertIdx >= 0) {
+                        mutable.addAll(newInsertIdx + 1, folderTabs)
+                    } else {
+                        mutable.addAll(folderTabs)
+                    }
+                    currentTabs = mutable
+                    val newSlotStart = getFolderSlotStart(folderId, mutable, metrics)
+                    dragOffsetPx = visualStart - newSlotStart
+                    lastSwapDirection = SwapDirection.RIGHT
+                    lastSwapReverseTargetIndex = firstIdx
+                    triggerSwapFeedback(onSwapVibration)
+                    return
+                }
             }
 
-            if (canSwapLeft) {
-                val mutable = currentTabs.toMutableList()
-                Collections.swap(mutable, currentIndex, targetIndex)
-                currentTabs = mutable
+            // Check swap left: swap with the item before the folder
+            if (firstIdx > 0) {
+                val targetIndex = firstIdx - 1
+                val targetTab = currentTabs[targetIndex]
+                val targetWidth = getTabWidth(targetTab, metrics)
+                val targetSlotStart = getSlotStart(targetIndex, currentTabs, metrics)
+                val isReverseSwap = lastSwapDirection == SwapDirection.RIGHT && targetIndex == lastSwapReverseTargetIndex
+                val hysteresisMargin = if (isReverseSwap) metrics.hysteresisPx else 0f
+                val canSwapLeft = visualCenter < (targetSlotStart + 0.5f * targetWidth - hysteresisMargin)
 
-                val newSlotStart = targetSlotStart
-                dragOffsetPx = visualStart - newSlotStart
-
-                lastSwapDirection = SwapDirection.LEFT
-                lastSwapReverseTargetIndex = currentIndex
-
-                triggerSwapFeedback(onSwapVibration)
-                return
+                if (canSwapLeft) {
+                    val mutable = currentTabs.toMutableList()
+                    mutable.removeAll(folderTabs)
+                    val newInsertIdx = mutable.indexOfFirst { it.id == targetTab.id }
+                    if (newInsertIdx >= 0) {
+                        mutable.addAll(newInsertIdx, folderTabs)
+                    } else {
+                        mutable.addAll(0, folderTabs)
+                    }
+                    currentTabs = mutable
+                    val newSlotStart = getFolderSlotStart(folderId, mutable, metrics)
+                    dragOffsetPx = visualStart - newSlotStart
+                    lastSwapDirection = SwapDirection.LEFT
+                    lastSwapReverseTargetIndex = firstIdx
+                    triggerSwapFeedback(onSwapVibration)
+                    return
+                }
             }
         }
     }
@@ -454,6 +544,7 @@ internal class TabStripDragState(
                 onReorder(remainingTabs)
             }
 
+            removingTab = removedTab
             // Immediately drop tab from dock list so LazyRow closes the gap without leaving a ghost icon
             currentTabs = remainingTabs
             onRemoveTab(tabId)
@@ -461,8 +552,6 @@ internal class TabStripDragState(
             val startScale = currentScale ?: 0.60f
             val startAlpha = currentAlpha ?: 0.45f
             val startY = dragOffsetYPx
-
-            removingTab = removedTab
             removingVisualX = lastVisualXPx
 
             removeJob?.cancel()
@@ -651,16 +740,19 @@ internal fun rememberTabStripDragState(
     initialTabs: List<Tab>,
     onReorder: (List<Tab>) -> Unit,
     onRemoveTab: (String) -> Unit = {},
+    foldersProvider: () -> List<TabFolder> = { emptyList() },
     coroutineScope: CoroutineScope = rememberCoroutineScope(),
 ): TabStripDragState {
     val currentOnReorder by rememberUpdatedState(onReorder)
     val currentOnRemoveTab by rememberUpdatedState(onRemoveTab)
+    val currentFoldersProvider by rememberUpdatedState(foldersProvider)
     return remember {
         TabStripDragState(
             initialTabs = initialTabs,
             coroutineScope = coroutineScope,
             onReorder = { currentOnReorder(it) },
             onRemoveTab = { currentOnRemoveTab(it) },
+            foldersProvider = { currentFoldersProvider() },
         )
     }
 }
