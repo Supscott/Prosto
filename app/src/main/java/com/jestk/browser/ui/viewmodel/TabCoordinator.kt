@@ -893,10 +893,43 @@ internal class TabCoordinator(
     }
 
     fun reorderTabs(orderedTabs: List<Tab>) {
-        Log.d(TAG, "Reordering ${orderedTabs.size} tabs")
-        updateUiState { it.copy(tabs = orderedTabs) }
+        reorderTabsAndFolders(orderedTabs, null)
+    }
+
+    fun reorderTabsAndFolders(
+        orderedTabs: List<Tab>,
+        orderedFolders: List<TabFolder>? = null,
+    ) {
+        Log.d(TAG, "Reordering ${orderedTabs.size} tabs and ${orderedFolders?.size ?: 0} folders")
+        val prevTabs = getCurrentState().tabs
+        val changedFolderIdTabs = orderedTabs.filter { newTab ->
+            val oldTab = prevTabs.find { it.id == newTab.id }
+            oldTab != null && oldTab.folderId != newTab.folderId
+        }
+
+        updateUiState { state ->
+            var newState = state.copy(tabs = orderedTabs)
+            if (orderedFolders != null) {
+                newState = newState.copy(folders = orderedFolders)
+            }
+            newState
+        }
+
         scope.launch(ioDispatcher) {
+            changedFolderIdTabs.forEach { tab ->
+                tabRepository.updateFolderId(tab.id, tab.folderId)
+            }
             tabRepository.reorderTabs(orderedTabs)
+            if (orderedFolders != null) {
+                tabFolderRepository?.updateFolderPositions(orderedFolders)
+            }
+            val remainingFolderIds = orderedTabs.mapNotNull { it.folderId }.toSet()
+            val allFolders = orderedFolders ?: getCurrentState().folders
+            for (folder in allFolders) {
+                if (folder.id !in remainingFolderIds) {
+                    checkAndPruneEmptyFolder(folder.id, orderedTabs)
+                }
+            }
         }
     }
 

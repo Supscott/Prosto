@@ -142,4 +142,5 @@
     <string name="folder_collapse">Collapse folder</string>
     <string name="folder_expand">Expand folder</string>
     <string name="folder_tabs_count">%d tabs</string>
+    <string name="folder_edit_action">Edit folder</string>
 </resources>

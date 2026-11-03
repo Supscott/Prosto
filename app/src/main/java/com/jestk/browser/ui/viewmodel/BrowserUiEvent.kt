@@ -6,6 +6,7 @@ import com.jestk.browser.domain.model.InsecureNavigationTarget
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.ThemeMode
 
 sealed interface BrowserUiEvent {
@@ -34,6 +35,7 @@ sealed interface BrowserUiEvent {
 
     data class ReorderTabs(
         val orderedTabs: List<Tab>,
+        val orderedFolders: List<TabFolder>? = null,
     ) : BrowserUiEvent
 
     data object SwipeNextTab : BrowserUiEvent

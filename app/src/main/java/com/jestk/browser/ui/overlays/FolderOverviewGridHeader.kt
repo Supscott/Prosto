@@ -1,7 +1,7 @@
 package com.jestk.browser.ui.overlays
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.LazyGridItemInfo
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -202,7 +204,8 @@ internal fun shouldRemoveTabFromFolderOnDropFromBounds(
 
     val folderItems = visibleItems.filter { item ->
         item.key == "folder_header_$sourceFolderId" ||
-            tabs.find { "tab_${it.id}" == item.key }?.folderId == sourceFolderId
+            tabs.find { "tab_${it.id}" == item.key }?.folderId == sourceFolderId ||
+            item.key.toString().startsWith("folder_spacer_${sourceFolderId}_")
     }
 
     if (folderItems.isEmpty()) {
@@ -227,9 +230,10 @@ internal fun FolderOverviewGridHeader(
     folder: TabFolder,
     tabCount: Int,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     isSticky: Boolean = false,
+    onOpenEditSheet: () -> Unit = {},
 ) {
     val folderColor = Color(folder.color)
     val contentColor = getContrastingFolderContentColor(folderColor)
@@ -246,6 +250,7 @@ internal fun FolderOverviewGridHeader(
     val tag = if (isSticky) "folder_sticky_header_${folder.id}" else "folder_in_grid_header_${folder.id}"
     val titleTag = if (isSticky) "folder_sticky_header_title_${folder.id}" else "folder_header_title_${folder.id}"
     val arrowTag = if (isSticky) "folder_sticky_header_arrow_${folder.id}" else "folder_header_arrow_${folder.id}"
+    val editTag = if (isSticky) "folder_sticky_header_edit_${folder.id}" else "folder_header_edit_${folder.id}"
 
     Surface(
         shape = shape,
@@ -255,10 +260,7 @@ internal fun FolderOverviewGridHeader(
             .fillMaxWidth()
             .height(44.dp)
             .clip(shape)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
+            .clickable(onClick = onClick)
             .testTag(tag),
     ) {
         Row(
@@ -281,14 +283,32 @@ internal fun FolderOverviewGridHeader(
                     .weight(1f)
                     .testTag(titleTag),
             )
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowUp,
-                contentDescription = stringResource(R.string.folder_collapse),
-                tint = contentColor,
-                modifier = Modifier
-                    .size(22.dp)
-                    .testTag(arrowTag),
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                IconButton(
+                    onClick = onOpenEditSheet,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .testTag(editTag),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = stringResource(R.string.folder_edit_action),
+                        tint = contentColor,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowUp,
+                    contentDescription = stringResource(R.string.folder_collapse),
+                    tint = contentColor,
+                    modifier = Modifier
+                        .size(22.dp)
+                        .testTag(arrowTag),
+                )
+            }
         }
     }
 }

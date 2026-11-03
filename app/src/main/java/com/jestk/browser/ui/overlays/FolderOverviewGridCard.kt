@@ -1,10 +1,9 @@
 package com.jestk.browser.ui.overlays
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,15 +41,13 @@ import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.components.SiteFavicon
+import com.jestk.browser.ui.navigation.getContrastingFolderContentColor
 import com.jestk.browser.ui.theme.DarkBackground
-import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
-import com.jestk.browser.ui.theme.ProstoCanvasFloor
-import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
 import java.io.File
@@ -58,15 +55,13 @@ import java.io.File
 /**
  * A collapsed folder preview card in the tab overview grid.
  *
- * Conforms to Prosto Canvas design system (solid surface, elevation shadow, rim borders, NO blur).
- * Features:
+ * Conforms to Prosto Canvas design system (matching open folder style):
+ * - Solid folder color header strip with contrasting text color
+ * - Translucent folder color body (alpha = 0.15f / 0.22f) under 2x2 tab previews
  * - 9:16 aspect ratio
- * - Header with folder color badge and title / tab count
- * - Internal 2x2 grid with mini-previews of up to 4 member tabs
- * - When tabs > 4: 4th slot displays "+N" overflow badge (where N = totalTabs - 3)
+ * - When tabs > 4: 4th slot displays "+N" overflow badge
  * - When tabs < 4: remaining slots display subtly muted empty placeholders
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun FolderOverviewGridCard(
     folder: TabFolder,
@@ -77,12 +72,12 @@ internal fun FolderOverviewGridCard(
     isHovered: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    val baseCardBg = if (isDark) DarkSurface else Color.White
     val folderColor = Color(folder.color)
+    val contentColor = getContrastingFolderContentColor(folderColor)
     val borderStroke = if (isHovered) {
-        BorderStroke(2.5.dp, folderColor)
+        BorderStroke(2.5.dp, contentColor)
     } else {
-        ProstoBorders.cardBorder(isDark)
+        BorderStroke(1.dp, contentColor.copy(alpha = 0.25f))
     }
     val elevation = if (isHovered) 8.dp else 2.dp
 
@@ -92,53 +87,35 @@ internal fun FolderOverviewGridCard(
 
     Surface(
         shape = ProstoShapes.Card,
-        color = baseCardBg,
+        color = folderColor,
         border = borderStroke,
         shadowElevation = elevation,
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(9f / 16f)
             .clip(ProstoShapes.Card)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-            )
+            .clickable(onClick = onClick)
             .testTag("folder_card_${folder.id}"),
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header Strip (Folder Color Badge + Title)
-            val headerBg = if (isDark) {
-                DarkSurfaceVariant.copy(alpha = 0.50f)
-            } else {
-                ProstoCanvasFloor
-            }
-
+            // Header Strip (Folder Color with subtle shade + Contrasting Title)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(38.dp)
-                    .background(headerBg)
-                    .padding(horizontal = 10.dp),
+                    .background(Color.Black.copy(alpha = 0.08f))
+                    .padding(horizontal = 10.dp)
+                    .testTag("folder_header_${folder.id}"),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                // Folder Color Badge
-                Box(
-                    modifier = Modifier
-                        .size(12.dp)
-                        .clip(CircleShape)
-                        .background(folderColor)
-                        .testTag("folder_badge_${folder.id}"),
-                )
-
-                // Title
                 Text(
                     text = displayTitle,
                     style = LocalProstoTypography.current.labelMd.copy(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                     ),
-                    color = if (isDark) DarkOnSurface else ProstoDarkText,
+                    color = contentColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier
@@ -147,7 +124,7 @@ internal fun FolderOverviewGridCard(
                 )
             }
 
-            // 2x2 Grid of Previews
+            // 2x2 Grid of Previews on top of the solid folder color surface
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -163,7 +140,7 @@ internal fun FolderOverviewGridCard(
                 ) {
                     FolderSlotPreview(
                         slotIndex = 0,
-                        folderId = folder.id,
+                        folder = folder,
                         tabs = tabs,
                         isDark = isDark,
                         modifier = Modifier
@@ -172,7 +149,7 @@ internal fun FolderOverviewGridCard(
                     )
                     FolderSlotPreview(
                         slotIndex = 1,
-                        folderId = folder.id,
+                        folder = folder,
                         tabs = tabs,
                         isDark = isDark,
                         modifier = Modifier
@@ -188,7 +165,7 @@ internal fun FolderOverviewGridCard(
                 ) {
                     FolderSlotPreview(
                         slotIndex = 2,
-                        folderId = folder.id,
+                        folder = folder,
                         tabs = tabs,
                         isDark = isDark,
                         modifier = Modifier
@@ -197,7 +174,7 @@ internal fun FolderOverviewGridCard(
                     )
                     FolderSlotPreview(
                         slotIndex = 3,
-                        folderId = folder.id,
+                        folder = folder,
                         tabs = tabs,
                         isDark = isDark,
                         modifier = Modifier
@@ -213,13 +190,15 @@ internal fun FolderOverviewGridCard(
 @Composable
 private fun FolderSlotPreview(
     slotIndex: Int,
-    folderId: String,
+    folder: TabFolder,
     tabs: List<Tab>,
     isDark: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val slotShape = RoundedCornerShape(6.dp)
-    val slotBorder = ProstoBorders.cardBorder(isDark)
+    val folderColor = Color(folder.color)
+    val contentColor = getContrastingFolderContentColor(folderColor)
+    val slotBorder = BorderStroke(1.dp, contentColor.copy(alpha = 0.20f))
 
     if (slotIndex < tabs.size) {
         val tab = tabs[slotIndex]
@@ -228,9 +207,9 @@ private fun FolderSlotPreview(
         Box(
             modifier = modifier
                 .clip(slotShape)
-                .background(if (isDark) DarkBackground else ProstoCanvasFloor)
+                .background(if (isDark) DarkSurface else Color.White)
                 .border(slotBorder, slotShape)
-                .testTag("folder_slot_${folderId}_$slotIndex"),
+                .testTag("folder_slot_${folder.id}_$slotIndex"),
             contentAlignment = Alignment.Center,
         ) {
             val file = tab.snapshotPath?.let { File(it) }
@@ -252,8 +231,8 @@ private fun FolderSlotPreview(
                         Icon(
                             imageVector = Icons.Default.Public,
                             contentDescription = null,
-                            tint = ProstoMutedSlate.copy(alpha = 0.5f),
-                            modifier = Modifier.size(14.dp),
+                            tint = ProstoMutedSlate.copy(alpha = 0.40f),
+                            modifier = Modifier.size(12.dp),
                         )
                     },
                 )
@@ -262,7 +241,7 @@ private fun FolderSlotPreview(
                     imageVector = Icons.Default.Public,
                     contentDescription = null,
                     tint = ProstoMutedSlate.copy(alpha = 0.40f),
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(14.dp),
                 )
             }
 
@@ -271,29 +250,35 @@ private fun FolderSlotPreview(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.55f))
-                        .testTag("folder_overflow_${folderId}"),
+                        .background(Color.Black.copy(alpha = 0.50f))
+                        .testTag("folder_overflow_${folder.id}"),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
                         text = "+$overflowCount",
-                        color = Color.White,
                         style = LocalProstoTypography.current.labelMd.copy(
-                            fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
                         ),
+                        color = Color.White,
                         textAlign = TextAlign.Center,
                     )
                 }
             }
         }
     } else {
+        // Empty slot placeholder - subtle translucent plaque on folder color
+        val emptySlotBg = if (contentColor == Color.White) {
+            Color.White.copy(alpha = 0.24f)
+        } else {
+            Color.Black.copy(alpha = 0.12f)
+        }
         Box(
             modifier = modifier
                 .clip(slotShape)
-                .background(if (isDark) DarkSurfaceVariant.copy(alpha = 0.20f) else ProstoCanvasFloor.copy(alpha = 0.50f))
+                .background(emptySlotBg)
                 .border(slotBorder, slotShape)
-                .testTag("folder_empty_slot_${folderId}_$slotIndex"),
+                .testTag("folder_empty_slot_${folder.id}_$slotIndex"),
         )
     }
 }
@@ -318,7 +303,6 @@ fun FolderOverviewGridCardLightPreview() {
                 ),
                 isDark = false,
                 onClick = {},
-                onLongClick = {},
             )
         }
     }
@@ -331,17 +315,19 @@ fun FolderOverviewGridCardDarkPreview() {
         Box(modifier = Modifier.padding(8.dp)) {
             FolderOverviewGridCard(
                 folder = TabFolder(
-                    id = "f2",
-                    title = "Design",
-                    color = 0xFF10B981.toInt(),
+                    id = "f1",
+                    title = "Work",
+                    color = 0xFF2196F3.toInt(),
                 ),
                 tabs = listOf(
-                    Tab(id = "1", url = "https://figma.com", title = "Figma"),
-                    Tab(id = "2", url = "https://dribbble.com", title = "Dribbble"),
+                    Tab(id = "1", url = "https://kotlinlang.org", title = "Kotlin"),
+                    Tab(id = "2", url = "https://github.com", title = "GitHub"),
+                    Tab(id = "3", url = "https://android.com", title = "Android"),
+                    Tab(id = "4", url = "https://google.com", title = "Google"),
+                    Tab(id = "5", url = "https://news.ycombinator.com", title = "HN"),
                 ),
                 isDark = true,
                 onClick = {},
-                onLongClick = {},
             )
         }
     }

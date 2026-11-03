@@ -301,7 +301,7 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.ReorderTabs -> {
-                tabCoordinator.reorderTabs(event.orderedTabs)
+                tabCoordinator.reorderTabsAndFolders(event.orderedTabs, event.orderedFolders)
             }
 
             is BrowserUiEvent.SwipeNextTab -> {

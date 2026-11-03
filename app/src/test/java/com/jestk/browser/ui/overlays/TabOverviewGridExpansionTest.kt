@@ -425,6 +425,177 @@ class TabOverviewGridExpansionTest {
     }
 
     @Test
+    fun computeOverviewItems_expandedFolderWithNonMultipleOf3Tabs_appendsSpacers() {
+        val folder = TabFolder(id = "f1", title = "Folder 1", color = 0xFF2196F3.toInt())
+        val tabs1 = listOf(
+            Tab(id = "t1", url = "https://t1.com", title = "T1", folderId = "f1"),
+            Tab(id = "ext1", url = "https://ext1.com", title = "Ext1", folderId = null),
+        )
+        // Case 1: 1 tab in folder -> 3 - (1 % 3) = 2 spacers
+        val items1 = computeOverviewItems(tabs1, listOf(folder), searchQuery = "", expandedFolderIds = setOf("f1"))
+        // Expected: FolderHeader, FolderTabCard(t1), FolderSpacer(f1, 0), FolderSpacer(f1, 1), TabCard(ext1)
+        assertThat(items1).hasSize(5)
+        assertThat(items1[0]).isInstanceOf(OverviewGridItem.FolderHeader::class.java)
+        assertThat(items1[1]).isInstanceOf(OverviewGridItem.FolderTabCard::class.java)
+        assertThat(items1[2]).isEqualTo(OverviewGridItem.FolderSpacer("f1", 0))
+        assertThat(items1[3]).isEqualTo(OverviewGridItem.FolderSpacer("f1", 1))
+        assertThat(items1[4]).isEqualTo(OverviewGridItem.TabCard(tabs1[1]))
+
+        // Case 2: 2 tabs in folder -> 3 - (2 % 3) = 1 spacer
+        val tabs2 = listOf(
+            Tab(id = "t1", url = "https://t1.com", title = "T1", folderId = "f1"),
+            Tab(id = "t2", url = "https://t2.com", title = "T2", folderId = "f1"),
+            Tab(id = "ext1", url = "https://ext1.com", title = "Ext1", folderId = null),
+        )
+        val items2 = computeOverviewItems(tabs2, listOf(folder), searchQuery = "", expandedFolderIds = setOf("f1"))
+        // Expected: FolderHeader, FolderTabCard(t1), FolderTabCard(t2), FolderSpacer(f1, 0), TabCard(ext1)
+        assertThat(items2).hasSize(5)
+        assertThat(items2[0]).isInstanceOf(OverviewGridItem.FolderHeader::class.java)
+        assertThat(items2[1]).isInstanceOf(OverviewGridItem.FolderTabCard::class.java)
+        assertThat(items2[2]).isInstanceOf(OverviewGridItem.FolderTabCard::class.java)
+        assertThat(items2[3]).isEqualTo(OverviewGridItem.FolderSpacer("f1", 0))
+        assertThat(items2[4]).isEqualTo(OverviewGridItem.TabCard(tabs2[2]))
+
+        // Case 3: 3 tabs in folder -> 0 spacers
+        val tabs3 = listOf(
+            Tab(id = "t1", url = "https://t1.com", title = "T1", folderId = "f1"),
+            Tab(id = "t2", url = "https://t2.com", title = "T2", folderId = "f1"),
+            Tab(id = "t3", url = "https://t3.com", title = "T3", folderId = "f1"),
+            Tab(id = "ext1", url = "https://ext1.com", title = "Ext1", folderId = null),
+        )
+        val items3 = computeOverviewItems(tabs3, listOf(folder), searchQuery = "", expandedFolderIds = setOf("f1"))
+        assertThat(items3).hasSize(5) // Header + 3 tabs + 1 ext
+        assertThat(items3.filterIsInstance<OverviewGridItem.FolderSpacer>()).isEmpty()
+        assertThat(items3[4]).isEqualTo(OverviewGridItem.TabCard(tabs3[3]))
+    }
+
+    @Test
+    fun expandedFolder_with1Or2Tabs_rendersSpacersAndPlacesSubsequentItemsOnNextRow() {
+        val folder1 = TabFolder(id = "f1", title = "Work", color = 0xFF2196F3.toInt())
+        val folder2 = TabFolder(id = "f2", title = "Social", color = 0xFF10B981.toInt())
+        val tabs = listOf(
+            Tab(id = "t1", url = "https://one.com", title = "Tab One", folderId = "f1"),
+            Tab(id = "ext1", url = "https://ext1.com", title = "Ext One", folderId = null),
+            Tab(id = "t2", url = "https://two.com", title = "Tab Two", folderId = "f2"),
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                TabOverviewGrid(
+                    uiState = BrowserUiState(
+                        tabs = tabs,
+                        folders = listOf(folder1, folder2),
+                        activeTabId = "t1",
+                    ),
+                    onEvent = {},
+                )
+            }
+        }
+
+        composeTestRule.waitForIdle()
+
+        // Initially collapsed: tap folder1 card to expand
+        composeTestRule.onNodeWithTag("folder_card_f1").performClick()
+        composeTestRule.waitForIdle()
+
+        // Spacers exist for folder f1 (1 tab -> 2 spacers)
+        composeTestRule.onNodeWithTag("folder_spacer_f1_0").assertExists()
+        composeTestRule.onNodeWithTag("folder_spacer_f1_1").assertExists()
+
+        // Check layout coordinates: ext1 and f2 must be on subsequent row below t1
+        val t1Bounds = composeTestRule.onNodeWithTag("tab_card_t1", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val ext1Bounds = composeTestRule.onNodeWithTag("tab_card_ext1", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        val f2Bounds = composeTestRule.onNodeWithTag("folder_card_f2", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+
+        // ext1 top is strictly below or equal to t1 bottom (next row)
+        assertThat(ext1Bounds.top).isAtLeast(t1Bounds.bottom)
+        // f2 is also on the next row alongside ext1
+        assertThat(f2Bounds.top).isAtLeast(t1Bounds.bottom)
+        assertThat(f2Bounds.top).isEqualTo(ext1Bounds.top)
+    }
+
+    @Test
+    fun folderUnderlayBounds_withSpacers_neverEncompassesExternalItemsOnNextRow() {
+        val folderKeys = setOf("tab_t1", "folder_spacer_f1_0", "folder_spacer_f1_1")
+        val visibleItems = listOf(
+            GridItemBounds(key = "folder_header_f1", offset = IntOffset(16, 20), size = IntSize(900, 100)),
+            GridItemBounds(key = "tab_t1", offset = IntOffset(16, 140), size = IntSize(280, 500)),
+            GridItemBounds(key = "folder_spacer_f1_0", offset = IntOffset(306, 140), size = IntSize(280, 500)),
+            GridItemBounds(key = "folder_spacer_f1_1", offset = IntOffset(596, 140), size = IntSize(280, 500)),
+            // External tab on the next row
+            GridItemBounds(key = "tab_ext1", offset = IntOffset(16, 660), size = IntSize(280, 500)),
+            // External folder on the next row
+            GridItemBounds(key = "folder_f2", offset = IntOffset(306, 660), size = IntSize(280, 500)),
+        )
+
+        val bounds = calculateFolderUnderlayBoundsFromBounds(
+            visibleItems = visibleItems,
+            folderTabKeys = folderKeys,
+            gridWidth = 1000f,
+            horizontalMarginPx = 10f,
+            verticalPaddingPx = 6f,
+        )
+
+        assertThat(bounds).isNotNull()
+        // Underlay encompasses rows of the folder: from 140 - 6 to 140 + 500 + 6 = 646
+        assertThat(bounds?.minY).isEqualTo(134f)
+        assertThat(bounds?.maxY).isEqualTo(646f)
+
+        // External items on next row start at Y = 660, which is strictly > bounds.maxY (646f)
+        val ext1Item = visibleItems.first { it.key == "tab_ext1" }
+        val f2Item = visibleItems.first { it.key == "folder_f2" }
+        assertThat(ext1Item.offset.y.toFloat()).isGreaterThan(bounds!!.maxY)
+        assertThat(f2Item.offset.y.toFloat()).isGreaterThan(bounds.maxY)
+    }
+
+    @Test
+    fun folderSpacer_cannotBeDraggedOrLongPressed() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val folder = TabFolder(id = "f1", title = "Work", color = 0xFF2196F3.toInt())
+        val tabs = listOf(
+            Tab(id = "t1", url = "https://one.com", title = "Tab One", folderId = "f1"),
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                TabOverviewGrid(
+                    uiState = BrowserUiState(
+                        tabs = tabs,
+                        folders = listOf(folder),
+                        activeTabId = "t1",
+                    ),
+                    onEvent = { events.add(it) },
+                )
+            }
+        }
+
+        composeTestRule.waitForIdle()
+
+        // Expand folder
+        composeTestRule.onNodeWithTag("folder_card_f1").performClick()
+        composeTestRule.waitForIdle()
+
+        val spacerNode = composeTestRule.onNodeWithTag("folder_spacer_f1_0")
+        spacerNode.assertExists()
+
+        // Long press on spacer should not open edit folder sheet or trigger drag proxy
+        spacerNode.performTouchInput {
+            down(center)
+        }
+        composeTestRule.mainClock.advanceTimeBy(700)
+        spacerNode.performTouchInput {
+            up()
+        }
+        composeTestRule.waitForIdle()
+
+        composeTestRule.onNodeWithTag("drag_proxy").assertDoesNotExist()
+        assertThat(events.filterIsInstance<BrowserUiEvent.OpenEditFolderSheet>()).isEmpty()
+    }
+
+    @Test
     fun renderTabOverviewGridExpansionPreviews() {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()

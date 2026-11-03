@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -79,7 +80,7 @@ class TabOverviewGridFolderTest {
         composeTestRule.waitForIdle()
 
         composeTestRule.onNodeWithText("Research", useUnmergedTree = true).assertIsDisplayed()
-        composeTestRule.onNodeWithTag("folder_badge_f1", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithTag("folder_header_f1", useUnmergedTree = true).assertExists()
         composeTestRule.onNodeWithTag("folder_slot_f1_0", useUnmergedTree = true).assertExists()
         composeTestRule.onNodeWithTag("folder_slot_f1_1", useUnmergedTree = true).assertExists()
         composeTestRule.onNodeWithTag("folder_slot_f1_2", useUnmergedTree = true).assertExists()
@@ -165,28 +166,37 @@ class TabOverviewGridFolderTest {
             Tab(id = "4", url = "https://news.ycombinator.com", title = "Hacker News", folderId = null),
         )
 
-        // 1. Search by folder name "Productivity" (auto-expands matching folder)
+        // 1. Search by folder name "Productivity" (auto-expands matching folder with row spacer padding)
         val itemsFolderMatch = computeOverviewItems(
             tabs = tabs,
             folders = listOf(folder1, folder2),
             searchQuery = "Productivity",
         )
-        assertThat(itemsFolderMatch).hasSize(3) // 1 Header + 2 Tab cards
+        assertThat(itemsFolderMatch).hasSize(4) // 1 Header + 2 Tab cards + 1 Spacer
         val header1 = itemsFolderMatch[0] as OverviewGridItem.FolderHeader
         assertThat(header1.folder.id).isEqualTo("f1")
         assertThat(header1.tabs).hasSize(2)
+        val spacer1 = itemsFolderMatch[3] as OverviewGridItem.FolderSpacer
+        assertThat(spacer1.folderId).isEqualTo("f1")
+        assertThat(spacer1.index).isEqualTo(0)
 
-        // 2. Search by tab title inside folder "Slack" (auto-expands with matched tab)
+        // 2. Search by tab title inside folder "Slack" (auto-expands with matched tab + 2 spacers)
         val itemsTabMatch = computeOverviewItems(
             tabs = tabs,
             folders = listOf(folder1, folder2),
             searchQuery = "Slack",
         )
-        assertThat(itemsTabMatch).hasSize(2) // 1 Header + 1 Tab card
+        assertThat(itemsTabMatch).hasSize(4) // 1 Header + 1 Tab card + 2 Spacers
         val header2 = itemsTabMatch[0] as OverviewGridItem.FolderHeader
         assertThat(header2.folder.id).isEqualTo("f1")
         val tabCard = itemsTabMatch[1] as OverviewGridItem.FolderTabCard
         assertThat(tabCard.tab.id).isEqualTo("2")
+        val tabSpacer0 = itemsTabMatch[2] as OverviewGridItem.FolderSpacer
+        val tabSpacer1 = itemsTabMatch[3] as OverviewGridItem.FolderSpacer
+        assertThat(tabSpacer0.folderId).isEqualTo("f1")
+        assertThat(tabSpacer0.index).isEqualTo(0)
+        assertThat(tabSpacer1.folderId).isEqualTo("f1")
+        assertThat(tabSpacer1.index).isEqualTo(1)
 
         // 3. Search standalone tab "Hacker"
         val itemsStandalone = computeOverviewItems(
@@ -241,7 +251,7 @@ class TabOverviewGridFolderTest {
         gridNode.performTouchInput {
             moveTo(t2Center)
         }
-        composeTestRule.mainClock.advanceTimeBy(50)
+        composeTestRule.mainClock.advanceTimeBy(500)
 
         gridNode.performTouchInput {
             up()
@@ -293,7 +303,7 @@ class TabOverviewGridFolderTest {
         gridNode.performTouchInput {
             moveTo(folderCenter)
         }
-        composeTestRule.mainClock.advanceTimeBy(50)
+        composeTestRule.mainClock.advanceTimeBy(500)
 
         gridNode.performTouchInput {
             up()
@@ -313,18 +323,41 @@ class TabOverviewGridFolderTest {
 
         val composeView = ComposeView(activity).apply {
             setContent {
-                Column(
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(Color(0xFF9EACB8))
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(20.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    Text("Light Theme - Collapsed Folder Card", fontSize = 13.sp, color = Color.Black)
-                    FolderOverviewGridCardLightPreview()
-
-                    Text("Dark Theme - Collapsed Folder Card", fontSize = 13.sp, color = Color.White)
-                    FolderOverviewGridCardDarkPreview()
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Light (5 tabs)", fontSize = 12.sp, color = Color.Black)
+                        Box(modifier = Modifier.size(120.dp, 213.dp)) {
+                            FolderOverviewGridCardLightPreview()
+                        }
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Dark (5 tabs)", fontSize = 12.sp, color = Color.White)
+                        Box(modifier = Modifier.size(120.dp, 213.dp)) {
+                            FolderOverviewGridCardDarkPreview()
+                        }
+                    }
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Empty Slots", fontSize = 12.sp, color = Color.Black)
+                        Box(modifier = Modifier.size(120.dp, 213.dp)) {
+                            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                                FolderOverviewGridCard(
+                                    folder = TabFolder(id = "f2", title = "Social", color = 0xFF8B5CF6.toInt()),
+                                    tabs = listOf(
+                                        Tab(id = "1", url = "https://x.com", title = "X"),
+                                        Tab(id = "2", url = "https://reddit.com", title = "Reddit"),
+                                    ),
+                                    isDark = false,
+                                    onClick = {},
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -332,7 +365,7 @@ class TabOverviewGridFolderTest {
         activity.setContentView(composeView)
 
         val width = 440
-        val height = 900
+        val height = 280
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),

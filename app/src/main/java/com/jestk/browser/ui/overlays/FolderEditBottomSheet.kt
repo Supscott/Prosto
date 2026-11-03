@@ -69,6 +69,8 @@ import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
 
+private const val MAX_FOLDER_NAME_LENGTH = 12
+
 /**
  * Drag handle pill matching Prosto Canvas aesthetic: 36.dp x 4.dp with ProstoShapes.Pill shape.
  */
@@ -137,7 +139,7 @@ fun FolderEditBottomSheetContent(
     isEditing: Boolean = false,
     showDragHandle: Boolean = false,
 ) {
-    var title by remember(initialTitle) { mutableStateOf(initialTitle) }
+    var title by remember(initialTitle) { mutableStateOf(initialTitle.take(MAX_FOLDER_NAME_LENGTH)) }
     var selectedColor by remember(initialColor) { mutableIntStateOf(initialColor) }
 
     val focusRequester = remember { FocusRequester() }
@@ -245,7 +247,11 @@ fun FolderEditBottomSheetContent(
             ) {
                 BasicTextField(
                     value = title,
-                    onValueChange = { title = it },
+                    onValueChange = {
+                        if (it.length <= MAX_FOLDER_NAME_LENGTH) {
+                            title = it
+                        }
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .focusRequester(focusRequester),
@@ -261,7 +267,7 @@ fun FolderEditBottomSheetContent(
                     keyboardActions = KeyboardActions(
                         onDone = {
                             keyboardController?.hide()
-                            onSave(title.trim(), selectedColor)
+                            onSave(title.trim().take(MAX_FOLDER_NAME_LENGTH), selectedColor)
                         },
                     ),
                     decorationBox = { innerTextField ->
@@ -345,7 +351,7 @@ fun FolderEditBottomSheetContent(
         Button(
             onClick = {
                 keyboardController?.hide()
-                onSave(title.trim(), selectedColor)
+                onSave(title.trim().take(MAX_FOLDER_NAME_LENGTH), selectedColor)
             },
             modifier = Modifier
                 .fillMaxWidth()
