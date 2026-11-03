@@ -2379,8 +2379,13 @@ class BrowserViewModelTest {
             assertThat(viewModel.uiState.value.cleanPlayerVideoId).isNull()
             // Active tab navigated to the requested YouTube URL
             assertThat(viewModel.uiState.value.currentUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
-            // Subsequent other video URLs will be intercepted as normal
+            // The same video URL continues to be bypassed across onPageStarted, redirects, or SPA replaceState
+            assertThat(viewModel.shouldInterceptForCleanPlayer("https://m.youtube.com/watch?v=dQw4w9WgXcQ")).isFalse()
+            assertThat(viewModel.shouldInterceptForCleanPlayer("https://m.youtube.com/watch?v=dQw4w9WgXcQ&feature=share")).isFalse()
+
+            // Subsequent other video URLs clear the bypass and are intercepted as normal
             assertThat(viewModel.shouldInterceptForCleanPlayer("https://m.youtube.com/watch?v=12345678901")).isTrue()
+            assertThat(viewModel.shouldInterceptForCleanPlayer("https://m.youtube.com/watch?v=dQw4w9WgXcQ")).isTrue()
         }
 
     @Test

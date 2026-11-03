@@ -78,6 +78,8 @@
     <string name="clean_player_subtitle">Просмотр без рекламы и задержек</string>
     <string name="clean_player_close">Закрыть плеер</string>
     <string name="clean_player_open_on_site">Открыть на YouTube</string>
+    <string name="clean_player_restricted_title">Воспроизведение ограничено</string>
+    <string name="clean_player_restricted_summary">Автор запретил просмотр этого видео на сторонних сайтах. Откройте его на YouTube.</string>
     <string name="clean_player_setting_title">Чистый плеер YouTube</string>
     <string name="clean_player_setting_summary">Воспроизводить видео YouTube в чистом плеере без рекламы и ожидания</string>
     <string name="privacy_status_protected">Защищено</string>

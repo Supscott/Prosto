@@ -78,6 +78,16 @@ class YouTubeUrlHelperTest {
     }
 
     @Test
+    fun buildEmbedHtml_containsStrictOriginReferrerAndIframe() {
+        val html = YouTubeUrlHelper.buildEmbedHtml("dQw4w9WgXcQ", 45)
+        assertThat(html).contains("referrerpolicy=\"strict-origin-when-cross-origin\"")
+        assertThat(html).contains("name=\"referrer\" content=\"strict-origin-when-cross-origin\"")
+        assertThat(html).contains("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ")
+        assertThat(html).contains("&start=45")
+        assertThat(html).contains("CleanPlayerBridge")
+    }
+
+    @Test
     fun buildOriginalWatchUrl_generatesMobileWatchUrl() {
         assertThat(YouTubeUrlHelper.buildOriginalWatchUrl("dQw4w9WgXcQ"))
             .isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")

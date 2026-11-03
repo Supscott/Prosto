@@ -155,9 +155,11 @@ class BrowserViewModel(
         if (!_uiState.value.settings.isCleanYouTubePlayerEnabled) return false
         val videoId = YouTubeUrlHelper.extractVideoId(url) ?: return false
         if (videoId == bypassCleanPlayerVideoId) {
-            bypassCleanPlayerVideoId = null
+            // Video was explicitly opened on YouTube; do not intercept it during loading/SPA states
             return false
         }
+        // A different video is being navigated to; clear bypass and intercept it
+        bypassCleanPlayerVideoId = null
         return true
     }
 

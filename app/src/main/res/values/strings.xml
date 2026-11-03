@@ -78,6 +78,8 @@
     <string name="clean_player_subtitle">Distraction-free &amp; ad-free playback</string>
     <string name="clean_player_close">Close player</string>
     <string name="clean_player_open_on_site">Open on YouTube</string>
+    <string name="clean_player_restricted_title">Playback Restricted</string>
+    <string name="clean_player_restricted_summary">The owner has disabled playback on other websites. Open on YouTube to watch.</string>
     <string name="clean_player_setting_title">Clean YouTube Player</string>
     <string name="clean_player_setting_summary">Watch YouTube videos in a distraction-free player without ads or buffering</string>
     <string name="privacy_status_protected">Protected</string>

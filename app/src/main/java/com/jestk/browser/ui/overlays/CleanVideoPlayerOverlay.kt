@@ -1,13 +1,18 @@
 package com.jestk.browser.ui.overlays
 
 import android.annotation.SuppressLint
+import android.os.Handler
+import android.os.Looper
 import android.view.ViewGroup
+import android.webkit.CookieManager
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -15,6 +20,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -23,8 +29,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,17 +52,32 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.jestk.browser.R
 import com.jestk.browser.util.YouTubeUrlHelper
+
+private class CleanPlayerBridge(
+    private val onPlaybackError: (Int) -> Unit,
+) {
+    @JavascriptInterface
+    fun onPlaybackError(errorCode: Int) {
+        Handler(Looper.getMainLooper()).post {
+            onPlaybackError.invoke(errorCode)
+        }
+    }
+}
 
 /**
  * An immersive, distraction-free player overlay for YouTube videos.
  *
- * Runs `youtube-nocookie.com/embed/<id>?autoplay=1` in a dedicated, isolated WebView to completely
- * bypass the in-page ad-watchdog buffering delays.
+ * Runs `youtube-nocookie.com/embed/<id>?autoplay=1` inside a privacy-enhanced HTML5 container
+ * loaded with a strict-origin referrer policy to completely prevent Error 153 and ad-watchdog buffering.
  */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
@@ -69,6 +94,22 @@ fun CleanVideoPlayerOverlay(
     }
 
     var playerWebView by remember { mutableStateOf<WebView?>(null) }
+    var isPlaybackRestricted by remember { mutableStateOf(false) }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, playerWebView) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> playerWebView?.onPause()
+                Lifecycle.Event.ON_RESUME -> playerWebView?.onResume()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     DisposableEffect(Unit) {
         onDispose {
@@ -184,6 +225,17 @@ fun CleanVideoPlayerOverlay(
                             settings.useWideViewPort = true
                             settings.loadWithOverviewMode = true
 
+                            try {
+                                CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
+                            } catch (_: Throwable) {}
+
+                            val bridge = CleanPlayerBridge { errorCode ->
+                                if (errorCode == 101 || errorCode == 150 || errorCode == 153) {
+                                    isPlaybackRestricted = true
+                                }
+                            }
+                            addJavascriptInterface(bridge, "CleanPlayerBridge")
+
                             webViewClient = object : WebViewClient() {
                                 override fun shouldOverrideUrlLoading(
                                     view: WebView?,
@@ -200,19 +252,82 @@ fun CleanVideoPlayerOverlay(
 
                             webChromeClient = object : WebChromeClient() {}
 
-                            val embedUrl = YouTubeUrlHelper.buildCleanEmbedUrl(videoId, startSeconds)
-                            loadUrl(embedUrl)
+                            val embedHtml = YouTubeUrlHelper.buildEmbedHtml(videoId, startSeconds)
+                            loadDataWithBaseURL("https://www.youtube-nocookie.com", embedHtml, "text/html", "UTF-8", null)
                             playerWebView = this
                         }
                     },
                     update = { wv ->
-                        val currentUrl = wv.url.orEmpty()
-                        if (!currentUrl.contains(videoId)) {
-                            val newUrl = YouTubeUrlHelper.buildCleanEmbedUrl(videoId, startSeconds)
-                            wv.loadUrl(newUrl)
+                        // If videoId changes while open
+                        val currentTag = wv.tag as? String
+                        if (currentTag != videoId) {
+                            wv.tag = videoId
+                            isPlaybackRestricted = false
+                            val newHtml = YouTubeUrlHelper.buildEmbedHtml(videoId, startSeconds)
+                            wv.loadDataWithBaseURL("https://www.youtube-nocookie.com", newHtml, "text/html", "UTF-8", null)
                         }
                     },
                 )
+
+                // Restriction notification fallback
+                if (isPlaybackRestricted) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth(0.88f)
+                            .padding(16.dp),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFF1E293B),
+                        ),
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(20.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = Color(0xFFF59E0B),
+                                modifier = Modifier.size(36.dp),
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = stringResource(R.string.clean_player_restricted_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White,
+                                textAlign = TextAlign.Center,
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = stringResource(R.string.clean_player_restricted_summary),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = Color(0xFFCBD5E1),
+                                textAlign = TextAlign.Center,
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Button(
+                                onClick = { onOpenOnWeb(originalUrl) },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFEF4444),
+                                    contentColor = Color.White,
+                                ),
+                                shape = RoundedCornerShape(20.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = stringResource(R.string.clean_player_open_on_site))
+                            }
+                        }
+                    }
+                }
             }
         }
     }

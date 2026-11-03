@@ -123,6 +123,52 @@ object YouTubeUrlHelper {
     }
 
     /**
+     * Builds an HTML wrapper page hosting the privacy-enhanced iframe with strict-origin referrer policy.
+     * This avoids Error 153 ("Video player configuration error") caused by raw top-level WebView loads
+     * lacking valid referrer and origin headers.
+     */
+    fun buildEmbedHtml(videoId: String, startSeconds: Int = 0): String {
+        val startParam = if (startSeconds > 0) "&start=$startSeconds" else ""
+        val embedUrl = "https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1$startParam"
+        return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset="utf-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+              <meta name="referrer" content="strict-origin-when-cross-origin">
+              <style>
+                * { box-sizing: border-box; }
+                html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+                iframe { width: 100%; height: 100%; border: 0; }
+              </style>
+            </head>
+            <body>
+              <iframe
+                id="player"
+                src="$embedUrl"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowfullscreen
+                referrerpolicy="strict-origin-when-cross-origin">
+              </iframe>
+              <script>
+                window.addEventListener('message', function(e) {
+                  try {
+                    var data = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+                    if (data && data.event === 'onError' && (data.info === 101 || data.info === 150 || data.info === 153)) {
+                      if (window.CleanPlayerBridge && typeof window.CleanPlayerBridge.onPlaybackError === 'function') {
+                        window.CleanPlayerBridge.onPlaybackError(data.info);
+                      }
+                    }
+                  } catch(err) {}
+                });
+              </script>
+            </body>
+            </html>
+        """.trimIndent()
+    }
+
+    /**
      * Builds the original web URL for "Open on YouTube".
      */
     fun buildOriginalWatchUrl(videoId: String, startSeconds: Int = 0): String {

@@ -289,12 +289,36 @@ fun TabStripRow(
 
         var contextMenuTabId by remember { mutableStateOf<String?>(null) }
         var contextMenuFolderId by remember { mutableStateOf<String?>(null) }
-        var expandScrollJob by remember { mutableStateOf<Job?>(null) }
+        var expandScrollJob by remember { mutableStateOf<kotlinx.coroutines.Job?>(null) }
 
         val dockItems = remember(dragState.currentTabs, uiState.folders) {
             computeDockItems(dragState.currentTabs, uiState.folders)
         }
         val currentDockItems by rememberUpdatedState(dockItems)
+
+        var previousCollapsedFolderIds by remember {
+            mutableStateOf(uiState.folders.filter { it.isCollapsed }.map { it.id }.toSet())
+        }
+        var folderToLeftAlignId by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(dockItems) {
+            val currentFolders = uiState.folders
+            val newlyExpandedFolderId = folderToLeftAlignId ?: currentFolders.firstOrNull { folder ->
+                !folder.isCollapsed && folder.id in previousCollapsedFolderIds
+            }?.id
+
+            previousCollapsedFolderIds = currentFolders.filter { it.isCollapsed }.map { it.id }.toSet()
+            folderToLeftAlignId = null
+
+            if (newlyExpandedFolderId != null) {
+                val idx = dockItems.indexOfFirst { it is DockItem.FolderItem && it.folder.id == newlyExpandedFolderId }
+                if (idx >= 0) {
+                    coroutineScope.launch {
+                        lazyListState.animateScrollToItem(idx, 0)
+                    }
+                }
+            }
+        }
 
         val activeIndex =
             remember(dragState.currentTabs, uiState.activeTabId, uiState.activeTabIndex) {
@@ -594,22 +618,10 @@ fun TabStripRow(
                             FolderDockIndicator(
                                 folder = folder,
                                 onClick = {
-                                    val willExpand = folder.isCollapsed
-                                    onEvent(BrowserUiEvent.ToggleFolderCollapse(folder.id, fromDock = true))
-                                    if (willExpand) {
-                                        expandScrollJob?.cancel()
-                                        expandScrollJob = coroutineScope.launch {
-                                            snapshotFlow { dockItems }
-                                                .filter { items ->
-                                                    items.any { it is DockItem.FolderItem && it.folder.id == folder.id && !it.folder.isCollapsed }
-                                                }
-                                                .first()
-                                            val idx = dockItems.indexOfFirst { it is DockItem.FolderItem && it.folder.id == folder.id }
-                                            if (idx >= 0) {
-                                                lazyListState.animateScrollToItem(idx, 0)
-                                            }
-                                        }
+                                    if (folder.isCollapsed) {
+                                        folderToLeftAlignId = folder.id
                                     }
+                                    onEvent(BrowserUiEvent.ToggleFolderCollapse(folder.id, fromDock = true))
                                 },
                             )
 
