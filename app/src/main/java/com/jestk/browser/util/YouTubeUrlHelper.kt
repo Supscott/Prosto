@@ -129,7 +129,7 @@ object YouTubeUrlHelper {
      */
     fun buildEmbedHtml(videoId: String, startSeconds: Int = 0): String {
         val startParam = if (startSeconds > 0) "&start=$startSeconds" else ""
-        val embedUrl = "https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1$startParam"
+        val embedUrl = "https://www.youtube-nocookie.com/embed/$videoId?autoplay=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1&fs=1$startParam"
         return """
             <!DOCTYPE html>
             <html>
@@ -147,8 +147,8 @@ object YouTubeUrlHelper {
               <iframe
                 id="player"
                 src="$embedUrl"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowfullscreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                allowfullscreen="true"
                 referrerpolicy="strict-origin-when-cross-origin">
               </iframe>
               <script>

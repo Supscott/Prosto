@@ -84,6 +84,9 @@ class YouTubeUrlHelperTest {
         assertThat(html).contains("name=\"referrer\" content=\"strict-origin-when-cross-origin\"")
         assertThat(html).contains("https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ")
         assertThat(html).contains("&start=45")
+        assertThat(html).contains("&fs=1")
+        assertThat(html).contains("fullscreen")
+        assertThat(html).contains("allowfullscreen=\"true\"")
         assertThat(html).contains("CleanPlayerBridge")
     }
 

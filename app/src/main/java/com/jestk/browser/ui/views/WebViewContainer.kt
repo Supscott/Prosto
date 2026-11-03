@@ -68,7 +68,8 @@ fun WebViewContainer(
     webViewPool: WebViewPool,
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    shouldInterceptForCleanPlayer: (String) -> Boolean = { false },
 ) {
     val isDark = LocalIsDarkTheme.current
     val vibration = LocalVibrationFeedback.current
@@ -301,11 +302,15 @@ fun WebViewContainer(
                     },
                     isCleanPlayerEnabled = { currentUiState.settings.isCleanYouTubePlayerEnabled },
                     onCleanPlayerRequested = { url ->
-                        val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
-                        if (videoId != null) {
-                            val startSeconds = com.jestk.browser.util.YouTubeUrlHelper.extractStartTimeSeconds(url)
-                            currentOnEvent(BrowserUiEvent.OpenCleanPlayer(videoId, url, startSeconds))
-                            true
+                        if (shouldInterceptForCleanPlayer(url)) {
+                            val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
+                            if (videoId != null) {
+                                val startSeconds = com.jestk.browser.util.YouTubeUrlHelper.extractStartTimeSeconds(url)
+                                currentOnEvent(BrowserUiEvent.OpenCleanPlayer(videoId, url, startSeconds))
+                                true
+                            } else {
+                                false
+                            }
                         } else {
                             false
                         }

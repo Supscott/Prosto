@@ -462,6 +462,7 @@ fun JestkApp(
                         webViewPool = webViewPool,
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
+                        shouldInterceptForCleanPlayer = viewModel::shouldInterceptForCleanPlayer,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
