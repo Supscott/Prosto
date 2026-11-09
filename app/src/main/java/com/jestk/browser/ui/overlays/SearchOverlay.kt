@@ -109,6 +109,13 @@ fun SearchOverlay(
     val coroutineScope = rememberCoroutineScope()
     var isDropdownOpen by remember { mutableStateOf(initialDropdownOpen) }
     val effectiveIsImeVisible = isImeVisible ?: WindowInsets.isImeVisible
+    var isKeyboardHiddenLocally by remember { mutableStateOf(false) }
+
+    LaunchedEffect(effectiveIsImeVisible) {
+        if (effectiveIsImeVisible) {
+            isKeyboardHiddenLocally = false
+        }
+    }
 
     val carouselState =
         rememberSearchEngineCarouselState(
@@ -203,7 +210,7 @@ fun SearchOverlay(
         ) {
             val scrollState = rememberScrollState()
 
-            val currentIsImeVisible by rememberUpdatedState(effectiveIsImeVisible)
+            val currentIsImeVisible by rememberUpdatedState(effectiveIsImeVisible && !isKeyboardHiddenLocally)
             val currentOnEvent by rememberUpdatedState(onEvent)
             val currentIsDropdownOpen by rememberUpdatedState(isDropdownOpen)
             val dismissThresholdPx = with(density) { 40.dp.toPx() }
@@ -400,6 +407,7 @@ fun SearchOverlay(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
                             onClick = {
+                                isKeyboardHiddenLocally = false
                                 focusRequester.requestFocus()
                                 keyboardController?.show()
                             },
@@ -410,6 +418,7 @@ fun SearchOverlay(
                 HeroSearchInputField(
                     textFieldValue = textFieldValue,
                     onValueChange = { newValue ->
+                        isKeyboardHiddenLocally = false
                         val matchedEngine =
                             uiState.searchEngines.firstOrNull { engine ->
                                 !engine.shortcut.isNullOrBlank() &&
@@ -490,11 +499,13 @@ fun SearchOverlay(
                         onEvent(BrowserUiEvent.DismissOverlay)
                     },
                     onClear = {
+                        isKeyboardHiddenLocally = false
                         suppressAutocomplete = false
                         textFieldValue = TextFieldValue("", TextRange.Zero)
                         onEvent(BrowserUiEvent.UpdateSearchQuery(""))
                     },
                     onVoiceResult = { spokenText ->
+                        isKeyboardHiddenLocally = false
                         suppressAutocomplete = true
                         textFieldValue =
                             TextFieldValue(
@@ -510,8 +521,10 @@ fun SearchOverlay(
                     onSwipeDown = {
                         if (isDropdownOpen) {
                             isDropdownOpen = false
-                        } else {
+                        } else if (effectiveIsImeVisible && !isKeyboardHiddenLocally) {
+                            isKeyboardHiddenLocally = true
                             keyboardController?.hide()
+                        } else {
                             onEvent(BrowserUiEvent.DismissOverlay)
                         }
                     },

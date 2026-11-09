@@ -1,5 +1,8 @@
 package com.jestk.browser.ui.overlays
 
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -13,6 +16,7 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
@@ -626,5 +630,165 @@ class SearchOverlayInputTest {
 
         // Overlay should remain open (not dismissed) and be ready for typing
         assertTrue("Tapping search bar should not dismiss overlay", events.filterIsInstance<BrowserUiEvent.DismissOverlay>().isEmpty())
+    }
+
+    @Test
+    fun searchOverlay_swipeDownOnSearchBar_whenImeVisible_hidesKeyboardWithoutDismissingOverlay() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val testKeyboardController = TestSoftwareKeyboardController()
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+        )
+
+        composeTestRule.setContent {
+            CompositionLocalProvider(
+                LocalSoftwareKeyboardController provides testKeyboardController
+            ) {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    SearchOverlay(
+                        uiState = state,
+                        onEvent = { events.add(it) },
+                        isImeVisible = true
+                    )
+                }
+            }
+        }
+
+        // First swipe down on search bar with keyboard visible
+        composeTestRule.onNodeWithText("Search with Google").performTouchInput {
+            swipeDown(startY = top + 4f, endY = bottom - 4f, durationMillis = 150)
+        }
+
+        composeTestRule.waitForIdle()
+
+        // Verifies keyboard hide was requested, but overlay was NOT dismissed
+        assertEquals("Soft keyboard hide must be called", 1, testKeyboardController.hideCallCount)
+        val dismissEventsAfterFirstSwipe = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertTrue("Overlay must NOT be dismissed on first downward swipe when IME is visible", dismissEventsAfterFirstSwipe.isEmpty())
+
+        // Second swipe down with keyboard now hidden
+        composeTestRule.onNodeWithText("Search with Google").performTouchInput {
+            swipeDown(startY = top + 4f, endY = bottom - 4f, durationMillis = 150)
+        }
+
+        composeTestRule.waitForIdle()
+
+        // Verifies overlay is dismissed on second downward swipe
+        val dismissEventsAfterSecondSwipe = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertEquals("Overlay must be dismissed on downward swipe once keyboard is hidden", 1, dismissEventsAfterSecondSwipe.size)
+    }
+
+    @Test
+    fun searchOverlay_swipeDownOnSearchBar_whenImeCollapsed_dismissesOverlay() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) },
+                    isImeVisible = false
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Search with Google").performTouchInput {
+            swipeDown(startY = top + 4f, endY = bottom - 4f, durationMillis = 150)
+        }
+
+        composeTestRule.waitForIdle()
+
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertEquals("Overlay must be dismissed when swiping down with IME collapsed", 1, dismissEvents.size)
+    }
+
+    @Test
+    fun searchOverlay_swipeDownOnSearchBar_whenDropdownOpen_closesDropdownWithoutDismissingOverlay() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE),
+            searchEngines = engines
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) },
+                    initialDropdownOpen = true,
+                    isImeVisible = true
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Edit Search Engines").assertExists()
+
+        composeTestRule.onNodeWithText("Search with Google").performTouchInput {
+            swipeDown(startY = top + 4f, endY = bottom - 4f, durationMillis = 150)
+        }
+
+        composeTestRule.waitForIdle()
+
+        // Dropdown sheet should be closed
+        composeTestRule.onNodeWithContentDescription("Edit Search Engines").assertDoesNotExist()
+
+        // Overlay should NOT be dismissed
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertTrue("Downward swipe when dropdown is open must only close dropdown, not dismiss overlay", dismissEvents.isEmpty())
+    }
+
+    @Test
+    fun searchOverlay_continuousDragDownOnSearchBar_whenImeVisible_dismissesOverlay() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val testKeyboardController = TestSoftwareKeyboardController()
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+        )
+
+        composeTestRule.setContent {
+            CompositionLocalProvider(
+                LocalSoftwareKeyboardController provides testKeyboardController
+            ) {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    SearchOverlay(
+                        uiState = state,
+                        onEvent = { events.add(it) },
+                        isImeVisible = true
+                    )
+                }
+            }
+        }
+
+        // Long continuous downward drag starting at top of pill and extending downward 120dp
+        composeTestRule.onNodeWithText("Search with Google").performTouchInput {
+            swipeDown(startY = top, endY = top + 120.dp.toPx(), durationMillis = 250)
+        }
+
+        composeTestRule.waitForIdle()
+
+        assertEquals("Keyboard hide must be called during continuous drag", 1, testKeyboardController.hideCallCount)
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertEquals("Overlay must be dismissed when continued downward drag exceeds continuous threshold", 1, dismissEvents.size)
+    }
+
+    private class TestSoftwareKeyboardController : SoftwareKeyboardController {
+        var hideCallCount = 0
+        var showCallCount = 0
+
+        override fun hide() {
+            hideCallCount++
+        }
+
+        override fun show() {
+            showCallCount++
+        }
     }
 }

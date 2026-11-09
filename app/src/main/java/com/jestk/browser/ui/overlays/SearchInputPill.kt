@@ -6,7 +6,8 @@ import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -211,12 +212,13 @@ internal fun HeroSearchInputField(
 }
 
 /**
- * Detects a downward swipe on the search bar and reports it at most once per gesture.
+ * Detects a downward swipe on the search bar.
  *
  * Applied after the horizontal gesture modifiers, it lets a horizontal drag keep the touch
  * slop race (the vertical detector cancels itself), so engine cycling is untouched, and it
  * never claims a tap. The callback fires as soon as a short downward drag crosses the
- * threshold, so the gesture does not have to travel the full height of the bar.
+ * initial threshold (24.dp). If the downward drag continues further past the continuous
+ * threshold (80.dp), a second action is triggered (transitioning from keyboard hide to overlay dismissal).
  */
 @Composable
 internal fun Modifier.swipeDownToDismiss(
@@ -225,34 +227,44 @@ internal fun Modifier.swipeDownToDismiss(
 ): Modifier {
     val currentOnSwipeDown by rememberUpdatedState(onSwipeDown)
     val thresholdPx = with(density) { 24.dp.toPx() }
+    val continuousThresholdPx = with(density) { 80.dp.toPx() }
 
     return this.pointerInput(density) {
-        var totalDragY = 0f
-        var triggered = false
+        awaitEachGesture {
+            val down = awaitFirstDown(requireUnconsumed = false)
+            var totalDragY = 0f
+            var firstTriggered = false
+            var secondTriggered = false
 
-        detectVerticalDragGestures(
-            onDragStart = {
-                totalDragY = 0f
-                triggered = false
-            },
-            onDragEnd = {
-                if (!triggered && totalDragY >= thresholdPx) {
-                    triggered = true
-                    currentOnSwipeDown()
+            while (true) {
+                val event = awaitPointerEvent()
+                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) {
+                    if (!firstTriggered && totalDragY >= thresholdPx) {
+                        firstTriggered = true
+                        currentOnSwipeDown()
+                    } else if (firstTriggered && !secondTriggered && totalDragY >= continuousThresholdPx) {
+                        secondTriggered = true
+                        currentOnSwipeDown()
+                    }
+                    break
                 }
-            },
-            onDragCancel = {
-                totalDragY = 0f
-                triggered = false
-            },
-            onVerticalDrag = { change, dragAmount ->
-                totalDragY += dragAmount
-                if (!triggered && totalDragY >= thresholdPx) {
-                    triggered = true
+                val dragY = change.position.y - change.previousPosition.y
+                if (dragY < 0f && totalDragY <= 0f) {
+                    totalDragY = 0f
+                } else {
+                    totalDragY += dragY
+                }
+                if (!firstTriggered && totalDragY >= thresholdPx) {
+                    firstTriggered = true
+                    change.consume()
+                    currentOnSwipeDown()
+                } else if (firstTriggered && !secondTriggered && totalDragY >= continuousThresholdPx) {
+                    secondTriggered = true
                     change.consume()
                     currentOnSwipeDown()
                 }
-            },
-        )
+            }
+        }
     }
 }
