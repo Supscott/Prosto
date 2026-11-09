@@ -7,14 +7,17 @@ import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.RecentTabItem
+import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
+import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
+import com.jestk.browser.domain.repository.WorkspaceRepository
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewPool
@@ -72,7 +75,14 @@ internal class TabCoordinator(
     internal val timedOutExternalAppDomains: MutableMap<String, MutableSet<String>> = ConcurrentHashMap(),
     internal val tabBottomThemeColors: ConcurrentHashMap<String, Int> = ConcurrentHashMap(),
     private val tabFolderRepository: TabFolderRepository? = null,
+    private val workspaceRepository: WorkspaceRepository? = null,
 ) {
+    @Volatile
+    private var cachedAllTabs: List<Tab> = emptyList()
+
+    @Volatile
+    private var cachedAllFolders: List<TabFolder> = emptyList()
+
     fun handleExternalAppOffered(
         tabId: String,
         prompt: ExternalAppPrompt,
@@ -160,6 +170,7 @@ internal class TabCoordinator(
     ) {
         tabOperationMutex.withLock {
             val initialTabs = tabRepository.getInitialTabs()
+            cachedAllTabs = initialTabs
 
             // Prepopulate tabThemeColors cache from DB-persisted colors
             initialTabs.forEach { tab ->
@@ -193,21 +204,24 @@ internal class TabCoordinator(
                 return@withLock
             }
 
+            val activeWorkspaceId = getCurrentState().activeWorkspaceId
+            val workspaceTabs = initialTabs.filter { it.workspaceId == activeWorkspaceId }
+
             val activeTab: Tab =
-                if (initialTabs.isEmpty()) {
-                    val newTab = tabRepository.createTab(url = "", title = "Home")
+                if (workspaceTabs.isEmpty()) {
+                    val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = activeWorkspaceId)
                     tabRepository.setActiveTab(newTab.id)
                     newTab.copy(isActive = true)
                 } else {
                     val found =
-                        initialTabs.find { it.isActive }
-                            ?: initialTabs.maxByOrNull { it.lastActiveTimestamp }
-                            ?: initialTabs.first()
+                        workspaceTabs.find { it.isActive }
+                            ?: workspaceTabs.maxByOrNull { it.lastActiveTimestamp }
+                            ?: workspaceTabs.first()
                     tabRepository.setActiveTab(found.id)
                     found.copy(isActive = true)
                 }
 
-            val currentTabs = tabRepository.getInitialTabs()
+            val currentTabs = tabRepository.getInitialTabs().filter { it.workspaceId == activeWorkspaceId }
             val rawTabsWithActive = if (currentTabs.isEmpty()) listOf(activeTab) else currentTabs
             val tabsWithActive = rawTabsWithActive.map { tab ->
                 val tabFavicon = tab.faviconUrl
@@ -274,10 +288,44 @@ internal class TabCoordinator(
     }
 
     fun observeDatabaseFlows() {
+        workspaceRepository?.let { repo ->
+            scope.launch(ioDispatcher) {
+                repo.getAllWorkspaces().collectLatest { wsList ->
+                    val effective = if (wsList.isNotEmpty()) wsList else Workspace.DEFAULT_WORKSPACES
+                    updateUiState { state ->
+                        val activeId = if (effective.any { it.id == state.activeWorkspaceId }) {
+                            state.activeWorkspaceId
+                        } else {
+                            effective.first().id
+                        }
+                        state.copy(
+                            workspaces = effective,
+                            activeWorkspaceId = activeId,
+                        )
+                    }
+                }
+            }
+        }
+
+        tabFolderRepository?.let { repo ->
+            scope.launch(ioDispatcher) {
+                repo.getAllFolders().collectLatest { allFolders ->
+                    cachedAllFolders = allFolders
+                    updateUiState { state ->
+                        state.copy(folders = allFolders.filter { it.workspaceId == state.activeWorkspaceId })
+                    }
+                }
+            }
+        }
+
         scope.launch(ioDispatcher) {
-            tabRepository.getAllTabs().collectLatest { tabs ->
+            tabRepository.getAllTabs().collectLatest { allTabs ->
+                cachedAllTabs = allTabs
+                val activeWorkspaceId = getCurrentState().activeWorkspaceId
+                val tabs = allTabs.filter { it.workspaceId == activeWorkspaceId }
                 updateUiState { state ->
-                    if (state.tabs.any { it.id == state.activeTabId } && tabs.none { it.id == state.activeTabId }) {
+                    val currentTabInCurrentWorkspace = state.tabs.find { it.id == state.activeTabId && it.workspaceId == state.activeWorkspaceId }
+                    if (currentTabInCurrentWorkspace != null && tabs.none { it.id == state.activeTabId }) {
                         return@updateUiState state
                     }
                     val activeId = if (tabs.any { it.id == state.activeTabId }) {
@@ -326,8 +374,8 @@ internal class TabCoordinator(
                     val isHome = currentTab?.url.isNullOrEmpty() || currentTab?.url == "about:blank"
                     val activeColor = if (activeId != null) tabThemeColors[activeId] else null
                     val activeBottomColor = if (activeId != null) tabBottomThemeColors[activeId] else null
-                    val resolvedUrl = if (isSameAsActive) state.currentUrl else (currentTab?.url ?: state.currentUrl)
-                    val resolvedTitle = if (isSameAsActive) state.pageTitle else (currentTab?.title ?: state.pageTitle)
+                    val resolvedUrl = if (isSameAsActive) state.currentUrl else (currentTab?.url ?: if (activeId == null) "" else state.currentUrl)
+                    val resolvedTitle = if (isSameAsActive) state.pageTitle else (currentTab?.title ?: if (activeId == null) "" else state.pageTitle)
                     state.copy(
                         tabs = enrichedTabs,
                         activeTabId = activeId,
@@ -379,13 +427,14 @@ internal class TabCoordinator(
     fun openNewTabForSearch(onSearchOpened: () -> Unit) {
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
-                val created = tabRepository.createTab(url = "", title = "Search")
+                val activeWorkspaceId = getCurrentState().activeWorkspaceId
+                val created = tabRepository.createTab(url = "", title = "Search", workspaceId = activeWorkspaceId)
                 Log.d(TAG, "Created search tab ${created.id}")
                 tabRepository.setActiveTab(created.id)
                 webViewPool?.onTabActivated(created.id, false)
                 val baseTabs =
                     if (getCurrentState().tabs.isEmpty()) {
-                        tabRepository.getInitialTabs().filter { it.id != created.id }
+                        tabRepository.getInitialTabs().filter { it.id != created.id && it.workspaceId == activeWorkspaceId }
                     } else {
                         getCurrentState().tabs.filter { it.id != created.id }
                     }
@@ -430,9 +479,10 @@ internal class TabCoordinator(
             tabRepository.updateFavicon(created.id, cachedFavicon)
         }
         webViewPool?.onTabActivated(created.id, false)
+        val activeWorkspaceId = getCurrentState().activeWorkspaceId
         val baseTabs =
             if (getCurrentState().tabs.isEmpty()) {
-                tabRepository.getInitialTabs().filter { it.id != created.id }
+                tabRepository.getInitialTabs().filter { it.id != created.id && it.workspaceId == activeWorkspaceId }
             } else {
                 getCurrentState().tabs.filter { it.id != created.id }
             }
@@ -466,7 +516,8 @@ internal class TabCoordinator(
                 val isHome = url.isEmpty() || url == "about:blank"
                 val title = if (isHome) "Home" else ""
                 val cachedFavicon = if (!isHome) FaviconManager.getCachedFaviconForUrl(url) else null
-                val created = tabRepository.createTab(url = url, title = title)
+                val activeWorkspaceId = getCurrentState().activeWorkspaceId
+                val created = tabRepository.createTab(url = url, title = title, workspaceId = activeWorkspaceId)
                 Log.d(TAG, "Created tab ${created.id} for $url")
                 val isWebLoading = !isHome && url.isNotEmpty()
                 activateNewTabState(created, url, title, cachedFavicon, isWebLoading, isHome)
@@ -480,7 +531,8 @@ internal class TabCoordinator(
     fun openPopupTab(tabId: String) {
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
-                val created = tabRepository.createTab(url = "", title = "", id = tabId)
+                val activeWorkspaceId = getCurrentState().activeWorkspaceId
+                val created = tabRepository.createTab(url = "", title = "", id = tabId, workspaceId = activeWorkspaceId)
                 Log.d(TAG, "Created popup tab ${created.id}")
                 activateNewTabState(created, "", "", null, isWebLoading = true, isHome = false)
             }
@@ -494,14 +546,15 @@ internal class TabCoordinator(
                 val cachedFavicon = if (url.isNotEmpty() && url != "about:blank") {
                     FaviconManager.getCachedFaviconForUrl(url)
                 } else null
-                val created = tabRepository.createTab(url = url, title = title)
+                val activeWorkspaceId = getCurrentState().activeWorkspaceId
+                val created = tabRepository.createTab(url = url, title = title, workspaceId = activeWorkspaceId)
                 Log.d(TAG, "Created background tab ${created.id} for $url")
                 if (cachedFavicon != null) {
                     tabRepository.updateFavicon(created.id, cachedFavicon)
                 }
                 val baseTabs =
                     if (getCurrentState().tabs.isEmpty()) {
-                        tabRepository.getInitialTabs().filter { it.id != created.id }
+                        tabRepository.getInitialTabs().filter { it.id != created.id && it.workspaceId == activeWorkspaceId }
                     } else {
                         getCurrentState().tabs.filter { it.id != created.id }
                     }
@@ -722,7 +775,7 @@ internal class TabCoordinator(
                 tabOperationMutex.withLock {
                     val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
                     tabRepository.closeTab(tabId)
-                    val newTab = tabRepository.createTab(url = "", title = "Home")
+                    val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = getCurrentState().activeWorkspaceId)
                     tabRepository.setActiveTab(newTab.id)
                     webViewPool?.onTabActivated(newTab.id, false)
                     tabLoadingProgress[newTab.id] = 100
@@ -781,6 +834,7 @@ internal class TabCoordinator(
                         url = tabToRestore.url,
                         title = tabToRestore.title,
                         isIncognito = tabToRestore.isIncognito,
+                        workspaceId = tabToRestore.workspaceId,
                     )
                 Log.d(TAG, "Restored closed tab as ${created.id} (url=${tabToRestore.url})")
                 tabToRestore.snapshotPath?.let { tabRepository.updateSnapshot(created.id, it) }
@@ -858,7 +912,7 @@ internal class TabCoordinator(
             FaviconManager.deleteAllFavicons()
             tabOperationMutex.withLock {
                 tabRepository.closeAllTabs()
-                val newTab = tabRepository.createTab(url = "", title = "Home")
+                val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = getCurrentState().activeWorkspaceId)
                 tabRepository.setActiveTab(newTab.id)
                 webViewPool?.onTabActivated(newTab.id, false)
                 tabLoadingProgress[newTab.id] = 100
@@ -1119,7 +1173,8 @@ internal class TabCoordinator(
                 canGoForward = tab?.canGoForward ?: false,
             )
             if (url.isNotEmpty() && !url.startsWith("about:")) {
-                historyRepository.recordVisit(url, displayTitle)
+                val effectiveWorkspaceId = tab?.workspaceId ?: getCurrentState().activeWorkspaceId
+                historyRepository.recordVisit(url, displayTitle, workspaceId = effectiveWorkspaceId)
                 recentTabRepository?.recordRecentTab(
                     url = url,
                     title = displayTitle,
@@ -1162,7 +1217,8 @@ internal class TabCoordinator(
                 canGoForward = tab?.canGoForward ?: false,
             )
             if (url.isNotEmpty() && !url.startsWith("about:")) {
-                historyRepository.recordVisit(url, trimmedTitle)
+                val effectiveWorkspaceId = tab?.workspaceId ?: getCurrentState().activeWorkspaceId
+                historyRepository.recordVisit(url, trimmedTitle, workspaceId = effectiveWorkspaceId)
                 recentTabRepository?.recordRecentTab(
                     url = url,
                     title = trimmedTitle,
@@ -1371,6 +1427,7 @@ internal class TabCoordinator(
             color = color,
             isCollapsed = false,
             position = nextPosition,
+            workspaceId = getCurrentState().activeWorkspaceId,
         )
         tabFolderRepository?.insertFolder(folder)
         tabRepository.updateFolderId(tabId, folderId)
@@ -1515,7 +1572,8 @@ internal class TabCoordinator(
     fun createTabInFolder(folderId: String) {
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
-                val created = tabRepository.createTab(url = "", title = "Home")
+                val activeWorkspaceId = getCurrentState().activeWorkspaceId
+                val created = tabRepository.createTab(url = "", title = "Home", workspaceId = activeWorkspaceId)
                 tabRepository.updateFolderId(created.id, folderId)
                 val tabWithFolder = created.copy(folderId = folderId)
 
@@ -1532,7 +1590,7 @@ internal class TabCoordinator(
                 // Insert tab after the last tab of this folder if exists
                 val baseTabs =
                     if (getCurrentState().tabs.isEmpty()) {
-                        tabRepository.getInitialTabs().filter { it.id != created.id }
+                        tabRepository.getInitialTabs().filter { it.id != created.id && it.workspaceId == activeWorkspaceId }
                     } else {
                         getCurrentState().tabs.filter { it.id != created.id }
                     }
@@ -1572,6 +1630,126 @@ internal class TabCoordinator(
                         selectedImageUrl = null,
                         isBottomBarVisible = true,
                     )
+                }
+            }
+        }
+    }
+
+    fun switchWorkspace(targetWorkspaceId: String) {
+        if (getCurrentState().activeWorkspaceId == targetWorkspaceId) return
+        scope.launch(ioDispatcher) {
+            tabOperationMutex.withLock {
+                val allTabs = if (cachedAllTabs.isNotEmpty()) cachedAllTabs else tabRepository.getInitialTabs()
+                val targetTabs = allTabs.filter { it.workspaceId == targetWorkspaceId }
+                val allFolders = if (cachedAllFolders.isNotEmpty()) cachedAllFolders else (tabFolderRepository?.getAllFoldersSync() ?: emptyList())
+                val targetFolders = allFolders.filter { it.workspaceId == targetWorkspaceId }
+
+                if (targetTabs.isEmpty()) {
+                    val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = targetWorkspaceId)
+                    tabRepository.setActiveTab(newTab.id)
+                    webViewPool?.onTabActivated(newTab.id, false)
+                    tabLoadingProgress[newTab.id] = 100
+                    val activeTab = newTab.copy(isActive = true)
+                    updateUiState { state ->
+                        state.copy(
+                            activeWorkspaceId = targetWorkspaceId,
+                            tabs = listOf(activeTab),
+                            folders = targetFolders,
+                            activeTabId = activeTab.id,
+                            currentUrl = "",
+                            pageTitle = "Home",
+                            isLoading = false,
+                            loadingProgress = 0f,
+                            canGoBack = false,
+                            canGoForward = false,
+                            activeThemeColor = null,
+                            activeBottomThemeColor = null,
+                            activeOverlay = OverlayType.HOME,
+                            activeScreen = ScreenType.NONE,
+                        )
+                    }
+                } else {
+                    val targetActive = targetTabs.find { it.isActive }
+                        ?: targetTabs.maxByOrNull { it.lastActiveTimestamp }
+                        ?: targetTabs.first()
+
+                    tabRepository.setActiveTab(targetActive.id)
+                    updateUiState { state ->
+                        state.copy(
+                            activeWorkspaceId = targetWorkspaceId,
+                            folders = targetFolders,
+                            activeScreen = ScreenType.NONE,
+                        )
+                    }
+                    activateTabInternal(
+                        selected = targetActive,
+                        tabsList = targetTabs,
+                        keepOverlayIfTabGrid = false,
+                    )
+                }
+            }
+        }
+    }
+
+    fun moveTabToWorkspace(tabId: String, targetWorkspaceId: String) {
+        scope.launch(ioDispatcher) {
+            tabOperationMutex.withLock {
+                val tab = tabRepository.getTabById(tabId) ?: return@withLock
+                if (tab.workspaceId == targetWorkspaceId) return@withLock
+
+                val sourceWorkspaceId = tab.workspaceId
+                val isCurrentActive = (getCurrentState().activeTabId == tabId)
+                val currentUiTabs = getCurrentState().tabs
+
+                // Move tab in DB: update workspaceId and clear folderId
+                tabRepository.updateWorkspaceId(id = tabId, workspaceId = targetWorkspaceId, folderId = null)
+
+                // Prune folder in source workspace if needed
+                tab.folderId?.let { oldFolderId ->
+                    val remainingSource = currentUiTabs.filter { it.id != tabId }
+                    checkAndPruneEmptyFolder(oldFolderId, remainingSource)
+                }
+
+                if (sourceWorkspaceId == getCurrentState().activeWorkspaceId) {
+                    val remainingTabs = currentUiTabs.filter { it.id != tabId }
+                    if (isCurrentActive) {
+                        if (remainingTabs.isEmpty()) {
+                            val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = sourceWorkspaceId)
+                            tabRepository.setActiveTab(newTab.id)
+                            webViewPool?.onTabActivated(newTab.id, false)
+                            tabLoadingProgress[newTab.id] = 100
+                            updateUiState { state ->
+                                state.copy(
+                                    tabs = listOf(newTab.copy(isActive = true)),
+                                    activeTabId = newTab.id,
+                                    currentUrl = "",
+                                    pageTitle = "Home",
+                                    isLoading = false,
+                                    loadingProgress = 0f,
+                                    activeThemeColor = null,
+                                    activeBottomThemeColor = null,
+                                    activeOverlay = OverlayType.HOME,
+                                )
+                            }
+                        } else {
+                            val closedIdx = currentUiTabs.indexOfFirst { it.id == tabId }
+                            val nextActive = if (closedIdx > 0) {
+                                currentUiTabs[closedIdx - 1]
+                            } else {
+                                remainingTabs.first()
+                            }
+                            tabRepository.setActiveTab(nextActive.id)
+                            activateTabInternal(
+                                selected = nextActive,
+                                tabsList = remainingTabs,
+                                keepOverlayIfTabGrid = true,
+                            )
+                        }
+                    } else {
+                        updateUiState { state ->
+                            state.copy(tabs = state.tabs.filterNot { it.id == tabId })
+                        }
+                    }
                 }
             }
         }

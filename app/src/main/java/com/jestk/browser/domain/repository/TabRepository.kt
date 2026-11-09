@@ -1,6 +1,7 @@
 package com.jestk.browser.domain.repository
 
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.Workspace
 import kotlinx.coroutines.flow.Flow
 
 interface TabRepository {
@@ -13,7 +14,8 @@ interface TabRepository {
         url: String = "",
         title: String = "New Tab",
         isIncognito: Boolean = false,
-        id: String = java.util.UUID.randomUUID().toString()
+        id: String = java.util.UUID.randomUUID().toString(),
+        workspaceId: String = Workspace.DEFAULT_PERSONAL_ID,
     ): Tab
     suspend fun updateTab(tab: Tab)
     suspend fun updateTabDetails(id: String, url: String, title: String, canGoBack: Boolean, canGoForward: Boolean)
@@ -28,5 +30,6 @@ interface TabRepository {
     suspend fun reorderTabs(orderedTabs: List<Tab>)
     suspend fun updateFolderId(tabId: String, folderId: String?)
     suspend fun clearFolderId(folderId: String)
+    suspend fun updateWorkspaceId(id: String, workspaceId: String, folderId: String? = null)
     suspend fun clearRecentTabs() {}
 }

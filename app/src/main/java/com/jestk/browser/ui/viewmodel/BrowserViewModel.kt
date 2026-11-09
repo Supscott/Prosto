@@ -22,6 +22,7 @@ import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
+import com.jestk.browser.domain.repository.WorkspaceRepository
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.download.HoriDownloadManager
 import com.jestk.browser.engine.update.AppUpdateManager
@@ -54,6 +55,7 @@ class BrowserViewModel(
     private val webViewPool: WebViewPool? = null,
     private val appUpdateManager: AppUpdateManager? = null,
     val tabFolderRepository: TabFolderRepository? = null,
+    val workspaceRepository: WorkspaceRepository? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val currentTimeProvider: () -> Long = { System.currentTimeMillis() },
 ) : ViewModel() {
@@ -126,6 +128,7 @@ class BrowserViewModel(
             scope = viewModelScope,
             ioDispatcher = ioDispatcher,
             tabFolderRepository = tabFolderRepository,
+            workspaceRepository = workspaceRepository,
         )
 
     init {
@@ -174,6 +177,7 @@ class BrowserViewModel(
 
     private suspend fun restoreSession() {
         Log.d(TAG, "Restoring session")
+        workspaceRepository?.ensureDefaultWorkspaces()
         val initialSettings = settingsRepository.getCurrentSettings()
         _uiState.update { it.copy(isFeedbackCardVisible = calculateFeedbackCardVisible(initialSettings)) }
         val currentEngines =
@@ -191,13 +195,6 @@ class BrowserViewModel(
         tabCoordinator.observeDatabaseFlows()
         searchCoordinator.observeDatabaseFlows()
         downloadCoordinator.observeDatabaseFlows()
-        tabFolderRepository?.let { repo ->
-            viewModelScope.launch(ioDispatcher) {
-                repo.getAllFolders().collect { folders ->
-                    _uiState.update { it.copy(folders = folders) }
-                }
-            }
-        }
         viewModelScope.launch(ioDispatcher) {
             settingsRepository.getBlockedAdsCount().collect { count ->
                 _uiState.update { it.copy(blockedAdsCount = count) }
@@ -316,6 +313,17 @@ class BrowserViewModel(
             is BrowserUiEvent.UndoCloseTab -> {
                 Log.d(TAG, "Navigation command: undo close tab")
                 tabCoordinator.undoCloseTab()
+            }
+
+            is BrowserUiEvent.SwitchWorkspace -> {
+                Log.d(TAG, "Workspace command: switch workspace to ${event.workspaceId}")
+                tabCoordinator.switchWorkspace(event.workspaceId)
+                searchCoordinator.updateHistorySuggestions(_uiState.value.searchQuery)
+            }
+
+            is BrowserUiEvent.MoveTabToWorkspace -> {
+                Log.d(TAG, "Workspace command: move tab ${event.tabId} to ${event.targetWorkspaceId}")
+                tabCoordinator.moveTabToWorkspace(event.tabId, event.targetWorkspaceId)
             }
 
             is BrowserUiEvent.DismissUndoTabCloseSnackbar -> {
@@ -1426,5 +1434,13 @@ class BrowserViewModel(
                 _navigationCommands.tryEmit(NavigationCommand.ExitApp)
             }
         }
+    }
+
+    fun switchWorkspace(workspaceId: String) {
+        onEvent(BrowserUiEvent.SwitchWorkspace(workspaceId))
+    }
+
+    fun moveTabToWorkspace(tabId: String, targetWorkspaceId: String) {
+        onEvent(BrowserUiEvent.MoveTabToWorkspace(tabId, targetWorkspaceId))
     }
 }

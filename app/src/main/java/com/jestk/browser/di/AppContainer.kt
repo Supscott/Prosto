@@ -129,6 +129,7 @@ class DefaultAppContainer(
                 BrowserViewModel(
                     tabRepository = tabRepository,
                     tabFolderRepository = tabFolderRepository,
+                    workspaceRepository = workspaceRepository,
                     historyRepository = historyRepository,
                     favoriteRepository = favoriteRepository,
                     settingsRepository = settingsRepository,

@@ -69,13 +69,15 @@ internal class SearchCoordinator(
     fun updateHistorySuggestions(query: String) {
         historyJob?.cancel()
         historyJob = scope.launch(ioDispatcher) {
-            val isExpanded = getCurrentState().isSearchHistoryExpanded
+            val currentState = getCurrentState()
+            val isExpanded = currentState.isSearchHistoryExpanded
+            val activeWorkspaceId = currentState.activeWorkspaceId
             if (isExpanded) {
                 updateUiState { it.copy(isLoadingMoreHistory = false) }
                 val initialPage = if (query.isBlank()) {
-                    historyRepository.getPagedHistory(limit = HISTORY_PAGE_SIZE, offset = 0)
+                    historyRepository.getPagedHistory(limit = HISTORY_PAGE_SIZE, offset = 0, workspaceId = activeWorkspaceId)
                 } else {
-                    historyRepository.searchHistoryPaged(query = query, limit = HISTORY_PAGE_SIZE, offset = 0)
+                    historyRepository.searchHistoryPaged(query = query, limit = HISTORY_PAGE_SIZE, offset = 0, workspaceId = activeWorkspaceId)
                 }
                 updateUiState {
                     it.copy(
@@ -86,9 +88,9 @@ internal class SearchCoordinator(
                 }
             } else {
                 val historyFlow = if (query.isBlank()) {
-                    historyRepository.getRecentHistory(10)
+                    historyRepository.getRecentHistory(10, workspaceId = activeWorkspaceId)
                 } else {
-                    historyRepository.searchHistory(query)
+                    historyRepository.searchHistory(query, workspaceId = activeWorkspaceId)
                 }
                 historyFlow.collectLatest { results ->
                     updateUiState {
@@ -112,13 +114,15 @@ internal class SearchCoordinator(
         updateUiState { it.copy(isLoadingMoreHistory = true) }
         scope.launch(ioDispatcher) {
             try {
-                val currentSuggestions = getCurrentState().searchHistorySuggestions
-                val query = getCurrentState().searchQuery
+                val currentState = getCurrentState()
+                val currentSuggestions = currentState.searchHistorySuggestions
+                val query = currentState.searchQuery
+                val activeWorkspaceId = currentState.activeWorkspaceId
                 val offset = currentSuggestions.size
                 val nextPage = if (query.isBlank()) {
-                    historyRepository.getPagedHistory(limit = HISTORY_PAGE_SIZE, offset = offset)
+                    historyRepository.getPagedHistory(limit = HISTORY_PAGE_SIZE, offset = offset, workspaceId = activeWorkspaceId)
                 } else {
-                    historyRepository.searchHistoryPaged(query = query, limit = HISTORY_PAGE_SIZE, offset = offset)
+                    historyRepository.searchHistoryPaged(query = query, limit = HISTORY_PAGE_SIZE, offset = offset, workspaceId = activeWorkspaceId)
                 }
 
                 updateUiState { state ->
@@ -148,6 +152,7 @@ internal class SearchCoordinator(
     }
 
     fun clearAllHistory(onClearRecentTabs: suspend () -> Unit) {
+        val activeWorkspaceId = getCurrentState().activeWorkspaceId
         updateUiState {
             it.copy(
                 recentTabs = emptyList(),
@@ -157,7 +162,7 @@ internal class SearchCoordinator(
             )
         }
         scope.launch(ioDispatcher) {
-            historyRepository.clearHistory()
+            historyRepository.clearHistory(activeWorkspaceId)
             onClearRecentTabs()
         }
     }

@@ -14,9 +14,13 @@ import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
+import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.engine.download.DownloadProgressInfo
 
 data class BrowserUiState(
+    // Workspaces
+    val workspaces: List<Workspace> = Workspace.DEFAULT_WORKSPACES,
+    val activeWorkspaceId: String = Workspace.DEFAULT_PERSONAL_ID,
     // Tabs & Sessions
     val tabs: List<Tab> = emptyList(),
     val folders: List<TabFolder> = emptyList(),
@@ -92,6 +96,9 @@ data class BrowserUiState(
 ) {
     val visibleSearchPageEngines: List<SearchEngine>
         get() = searchEngines.filter { it.id !in settings.hiddenSearchPageEngineIds }
+
+    val activeWorkspace: Workspace?
+        get() = workspaces.find { it.id == activeWorkspaceId } ?: workspaces.firstOrNull()
 
     val activeTab: Tab?
         get() = tabs.find { it.id == activeTabId }

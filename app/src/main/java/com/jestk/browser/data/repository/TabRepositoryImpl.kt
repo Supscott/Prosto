@@ -54,10 +54,14 @@ class TabRepositoryImpl(
         title: String,
         isIncognito: Boolean,
         id: String,
+        workspaceId: String,
     ): Tab =
         withContext(ioDispatcher) {
             repositoryMutex.withLock {
-                tabDao.getTabByUrl(url, isIncognito)?.let { return@withLock it.toDomain() }
+                val existing = tabDao.getTabByUrl(url, isIncognito)
+                if (existing != null && existing.workspaceId == workspaceId) {
+                    return@withLock existing.toDomain()
+                }
                 val maxPos = tabDao.getMaxPosition() ?: -1
                 val nextPosition = maxPos + 1
                 val newTab =
@@ -72,6 +76,7 @@ class TabRepositoryImpl(
                         isActive = false,
                         canGoBack = false,
                         canGoForward = false,
+                        workspaceId = workspaceId,
                     )
                 tabDao.insertTab(newTab.toEntity())
                 newTab
@@ -148,6 +153,11 @@ class TabRepositoryImpl(
     override suspend fun clearFolderId(folderId: String) =
         withContext(ioDispatcher) {
             tabDao.clearFolderId(folderId)
+        }
+
+    override suspend fun updateWorkspaceId(id: String, workspaceId: String, folderId: String?) =
+        withContext(ioDispatcher) {
+            tabDao.updateWorkspaceId(id, workspaceId, folderId)
         }
 
     override suspend fun clearRecentTabs() =
