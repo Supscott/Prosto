@@ -1,5 +1,6 @@
 package com.jestk.browser.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -9,7 +10,8 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["position"]),
         Index(value = ["lastActiveTimestamp"]),
-        Index(value = ["folderId"])
+        Index(value = ["folderId"]),
+        Index(value = ["workspaceId"])
     ]
 )
 data class TabEntity(
@@ -26,5 +28,7 @@ data class TabEntity(
     val isActive: Boolean = false,
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
-    val folderId: String? = null
+    val folderId: String? = null,
+    @ColumnInfo(defaultValue = "'default_personal'")
+    val workspaceId: String = "default_personal"
 )

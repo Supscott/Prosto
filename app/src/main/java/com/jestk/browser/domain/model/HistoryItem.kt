@@ -6,5 +6,6 @@ data class HistoryItem @JvmOverloads constructor(
     val title: String = "",
     val timestamp: Long = System.currentTimeMillis(),
     val visitCount: Int = 1,
-    val faviconUrl: String? = null
+    val faviconUrl: String? = null,
+    val workspaceId: String = Workspace.DEFAULT_PERSONAL_ID,
 )

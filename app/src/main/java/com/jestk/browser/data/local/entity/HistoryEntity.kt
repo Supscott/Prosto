@@ -1,5 +1,6 @@
 package com.jestk.browser.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -9,7 +10,8 @@ import androidx.room.PrimaryKey
     indices = [
         Index(value = ["timestamp"]),
         Index(value = ["url"]),
-        Index(value = ["url", "timestamp"])
+        Index(value = ["url", "timestamp"]),
+        Index(value = ["workspaceId"])
     ]
 )
 data class HistoryEntity(
@@ -19,5 +21,7 @@ data class HistoryEntity(
     val title: String,
     val timestamp: Long = System.currentTimeMillis(),
     val visitCount: Int = 1,
-    val faviconUrl: String? = null
+    val faviconUrl: String? = null,
+    @ColumnInfo(defaultValue = "'default_personal'")
+    val workspaceId: String = "default_personal"
 )
