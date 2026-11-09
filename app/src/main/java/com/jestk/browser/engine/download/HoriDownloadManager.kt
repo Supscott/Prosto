@@ -126,12 +126,13 @@ class HoriDownloadManager(
         val fileName = customFileName ?: DownloadFileNameResolver.resolveFileName(url, contentDisposition, mimeType)
         val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         val targetFile = DownloadFileNameResolver.resolveUniqueFile(downloadDir, fileName)
+        val resolvedMime = DownloadFileNameResolver.resolveMimeType(targetFile.name, mimeType)
 
         val id = downloadRepository.recordDownload(
             url = url,
             fileName = targetFile.name,
             filePath = targetFile.absolutePath,
-            mimeType = mimeType,
+            mimeType = resolvedMime,
             contentLength = contentLength,
             status = DownloadStatus.PENDING,
             bytesDownloaded = 0L,
@@ -143,7 +144,7 @@ class HoriDownloadManager(
                 id = id,
                 fileName = targetFile.name,
                 filePath = targetFile.absolutePath,
-                mimeType = mimeType,
+                mimeType = resolvedMime,
                 status = DownloadStatus.PENDING,
                 bytesDownloaded = 0L,
                 totalBytes = if (contentLength > 0L) contentLength else 0L
@@ -350,8 +351,9 @@ class HoriDownloadManager(
                 // Update content disposition or mime if server gave better info
                 val respDisposition = response.header("Content-Disposition")
                 val respMime = response.header("Content-Type")?.substringBefore(';')?.trim()
-                if (!respMime.isNullOrBlank() && item.mimeType.isNullOrBlank()) {
-                    item = item.copy(mimeType = respMime)
+                val initialResolvedMime = DownloadFileNameResolver.resolveMimeType(item.fileName, respMime ?: item.mimeType)
+                if (initialResolvedMime != item.mimeType) {
+                    item = item.copy(mimeType = initialResolvedMime)
                 }
 
                 // If server redirected to a better filename via Content-Disposition, refine filename
@@ -361,7 +363,12 @@ class HoriDownloadManager(
                         val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
                         val newFinalFile = DownloadFileNameResolver.resolveUniqueFile(downloadDir, serverSuggestedName)
                         targetDestinationFile = newFinalFile
-                        item = item.copy(fileName = newFinalFile.name, filePath = newFinalFile.absolutePath)
+                        val updatedMime = DownloadFileNameResolver.resolveMimeType(newFinalFile.name, respMime ?: item.mimeType)
+                        item = item.copy(
+                            fileName = newFinalFile.name,
+                            filePath = newFinalFile.absolutePath,
+                            mimeType = updatedMime
+                        )
                         downloadRepository.updateFilePath(id, newFinalFile.name, newFinalFile.absolutePath)
                     }
                 }
@@ -505,11 +512,12 @@ class HoriDownloadManager(
         }
 
         val metaMime = metadata.substringBefore(';').trim().ifEmpty { null }
-        val resolvedMime = metaMime ?: mimeType ?: "text/plain"
+        val rawMime = metaMime ?: mimeType ?: "text/plain"
 
-        val fileName = DownloadFileNameResolver.resolveFileName("data:$resolvedMime", contentDisposition, resolvedMime)
+        val fileName = DownloadFileNameResolver.resolveFileName("data:$rawMime", contentDisposition, rawMime)
         val downloadDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
         val targetFile = DownloadFileNameResolver.resolveUniqueFile(downloadDir, fileName)
+        val resolvedMime = DownloadFileNameResolver.resolveMimeType(targetFile.name, rawMime)
 
         val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
         tempFile.outputStream().use { it.write(bytes) }

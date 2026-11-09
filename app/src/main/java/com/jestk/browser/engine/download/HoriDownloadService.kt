@@ -279,7 +279,7 @@ class HoriDownloadService : Service() {
     private fun showCompletedNotification(item: DownloadItem) {
         Log.d(TAG, "Download ${item.id} completed: ${item.fileName}")
         val file = File(item.filePath)
-        val openIntent = createOpenFileIntent(file, item.mimeType)
+        val openIntent = createOpenFileIntent(file, item.fileName, item.mimeType)
         val openPendingIntent =
             PendingIntent.getActivity(
                 this,
@@ -362,6 +362,7 @@ class HoriDownloadService : Service() {
 
     private fun createOpenFileIntent(
         file: File,
+        fileName: String,
         mimeType: String?,
     ): Intent {
         val uri: Uri =
@@ -371,8 +372,9 @@ class HoriDownloadService : Service() {
                 Log.w(TAG, "FileProvider URI unavailable for downloaded file, falling back to file URI", e)
                 Uri.fromFile(file)
             }
+        val resolvedMime = DownloadFileNameResolver.resolveMimeType(fileName, mimeType)
         return Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, mimeType ?: "*/*")
+            setDataAndType(uri, resolvedMime)
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
         }
     }

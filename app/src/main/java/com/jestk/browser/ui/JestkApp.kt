@@ -122,6 +122,7 @@ import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.viewmodel.isSameDomain
 import com.jestk.browser.ui.views.HomeScreen
 import com.jestk.browser.ui.views.WebViewContainer
+import com.jestk.browser.util.DownloadFileOpener
 import com.jestk.browser.util.YouTubeUrlHelper
 import com.jestk.browser.util.findActivity
 import kotlinx.coroutines.flow.collectLatest
@@ -702,7 +703,8 @@ fun JestkApp(
                         ),
             ) {
                 val download = uiState.lastDownloadNotification
-                val fileName = download?.fileName?.ifEmpty { "file" } ?: "file"
+                val defaultFileName = stringResource(R.string.download_default_filename)
+                val fileName = download?.fileName?.ifEmpty { defaultFileName } ?: defaultFileName
 
                 LaunchedEffect(uiState.showDownloadSnackbar, download?.id, download?.timestamp) {
                     if (uiState.showDownloadSnackbar) {
@@ -731,7 +733,11 @@ fun JestkApp(
                         )
                         val isCompleted = download?.status == com.jestk.browser.domain.model.DownloadStatus.COMPLETED
                         Text(
-                            text = if (isCompleted) "Downloaded $fileName" else "Downloading $fileName",
+                            text = if (isCompleted) {
+                                stringResource(R.string.download_completed_notification, fileName)
+                            } else {
+                                stringResource(R.string.download_in_progress_notification, fileName)
+                            },
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                             color = if (isDark) DarkOnSurface else ProstoDarkText,
                             maxLines = 1,
@@ -739,12 +745,20 @@ fun JestkApp(
                             modifier = Modifier.weight(1f, fill = false),
                         )
                         Text(
-                            text = if (isCompleted) "Open" else "Details",
+                            text = if (isCompleted) {
+                                stringResource(R.string.download_action_open)
+                            } else {
+                                stringResource(R.string.download_action_details)
+                            },
                             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = ProstoBrandPrimary),
                             modifier =
                                 Modifier
                                     .clickable {
-                                        viewModel.onEvent(BrowserUiEvent.OpenDownloads)
+                                        if (isCompleted) {
+                                            download?.let { DownloadFileOpener.openDownloadedFile(context, it) }
+                                        } else {
+                                            viewModel.onEvent(BrowserUiEvent.OpenDownloads)
+                                        }
                                         viewModel.onEvent(BrowserUiEvent.DismissDownloadSnackbar)
                                     }.padding(horizontal = 4.dp, vertical = 2.dp),
                         )

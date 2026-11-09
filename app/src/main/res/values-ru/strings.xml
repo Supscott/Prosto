@@ -223,4 +223,16 @@
     <string name="snackbar_tab_closed_title">%1$s: %2$s</string>
     <string name="switch_to_tab_with_title">%1$s: %2$s</string>
     <string name="full_screen_exit_hint">Чтобы выйти из полноэкранного режима, потяните вниз</string>
+    <string name="download_completed_notification">Загружено %1$s</string>
+    <string name="download_in_progress_notification">Загрузка %1$s</string>
+    <string name="download_action_open">Открыть</string>
+    <string name="download_action_details">Подробнее</string>
+    <string name="download_default_filename">файл</string>
+    <string name="download_file_not_found">Файл не существует: %1$s</string>
+    <string name="download_no_app_to_open">Нет приложения для открытия этого файла</string>
+    <string name="download_cannot_open">Не удалось открыть файл</string>
+    <string name="download_install_unknown_apps_prompt">Разрешите установку неизвестных приложений для установки этого APK</string>
+    <string name="download_open_with">Открыть с помощью</string>
+    <string name="downloads_in_progress_hint">Загрузка выполняется…</string>
+    <string name="downloads_failed_retry_hint">Не удалось скачать. Нажмите повтор для перезапуска.</string>
 </resources>

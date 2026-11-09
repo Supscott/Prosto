@@ -93,4 +93,49 @@ class DownloadFileNameResolverTest {
         val nextUnique = DownloadFileNameResolver.resolveUniqueFile(dir, "song.mp3")
         assertThat(nextUnique.name).isEqualTo("song (2).mp3")
     }
+
+    @Test
+    fun resolveMimeType_forcesApkMimeType_whenExtensionIsApkAndServerMimeIsOctetStream() {
+        val resolved = DownloadFileNameResolver.resolveMimeType(
+            fileName = "app-release.apk",
+            mimeType = "application/octet-stream",
+        )
+        assertThat(resolved).isEqualTo(DownloadFileNameResolver.MIME_TYPE_APK)
+    }
+
+    @Test
+    fun resolveMimeType_forcesApkMimeType_caseInsensitiveWithoutServerMime() {
+        val resolved = DownloadFileNameResolver.resolveMimeType(
+            fileName = "TEST_BUILD.APK",
+            mimeType = null,
+        )
+        assertThat(resolved).isEqualTo(DownloadFileNameResolver.MIME_TYPE_APK)
+    }
+
+    @Test
+    fun resolveMimeType_preservesSpecificServerMime_forNonApk() {
+        val resolved = DownloadFileNameResolver.resolveMimeType(
+            fileName = "report.pdf",
+            mimeType = "application/pdf",
+        )
+        assertThat(resolved).isEqualTo("application/pdf")
+    }
+
+    @Test
+    fun resolveMimeType_infersMimeFromExtension_whenServerMimeIsOctetStream() {
+        val resolved = DownloadFileNameResolver.resolveMimeType(
+            fileName = "archive.zip",
+            mimeType = "application/octet-stream",
+        )
+        assertThat(resolved).isEqualTo("application/zip")
+    }
+
+    @Test
+    fun resolveMimeType_fallsBackToOctetStream_forUnknownExtension() {
+        val resolved = DownloadFileNameResolver.resolveMimeType(
+            fileName = "unknown_payload",
+            mimeType = "application/octet-stream",
+        )
+        assertThat(resolved).isEqualTo("application/octet-stream")
+    }
 }
