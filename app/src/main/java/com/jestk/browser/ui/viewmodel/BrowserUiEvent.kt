@@ -485,6 +485,8 @@ sealed interface BrowserUiEvent {
     ) : BrowserUiEvent
 
     // Workspaces
+    data object OpenWorkspacesOverview : BrowserUiEvent
+
     data class SwitchWorkspace(
         val workspaceId: String,
     ) : BrowserUiEvent
