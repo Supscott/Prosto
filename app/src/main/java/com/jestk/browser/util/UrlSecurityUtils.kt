@@ -121,12 +121,59 @@ object UrlSecurityUtils {
         return OAUTH_AUTH_HOSTS.any { lower == it || lower.endsWith(".$it") }
     }
 
+    private val TWO_PART_TLDS = setOf(
+        "co.uk", "org.uk", "gov.uk", "ac.uk",
+        "com.ru", "net.ru", "org.ru", "pp.ru", "spb.ru", "msk.ru",
+        "com.ua", "net.ua", "org.ua",
+        "co.jp", "ne.jp", "ac.jp",
+        "com.br", "com.au", "net.au", "org.au", "co.nz", "co.za", "com.tr",
+    )
+
+    fun getBaseDomain(host: String): String {
+        val cleanHost = host.lowercase().removePrefix("www.").trim()
+        if (cleanHost.isEmpty()) return ""
+        val parts = cleanHost.split('.')
+        if (parts.size <= 2) return cleanHost
+        if (parts.all { it.all { c -> c.isDigit() } }) return cleanHost
+
+        val lastTwo = "${parts[parts.size - 2]}.${parts.last()}"
+        val isTwoPartTld = lastTwo in TWO_PART_TLDS
+        val takeParts = if (isTwoPartTld && parts.size >= 3) 3 else 2
+        return parts.takeLast(takeParts).joinToString(".")
+    }
+
     fun isSameSite(url1: String, url2: String): Boolean {
         val host1 = extractHost(url1).removePrefix("www.")
         val host2 = extractHost(url2).removePrefix("www.")
         if (host1.isEmpty() || host2.isEmpty()) return false
         if (host1 == host2) return true
         if (host1.endsWith(".$host2") || host2.endsWith(".$host1")) return true
+
+        val base1 = getBaseDomain(host1)
+        val base2 = getBaseDomain(host2)
+        if (base1.isNotEmpty() && base1 == base2) return true
+
+        // Treat Google properties & Google Analytics as same-site in first-party Google contexts
+        if ((isGoogleDomain(base1) && host2 == "google-analytics.com") ||
+            (isGoogleDomain(base2) && host1 == "google-analytics.com")
+        ) {
+            return true
+        }
+
+        // Treat Yandex national domains (ya.ru, yandex.ru, yandex.com, etc.) as same-site
+        if (isYandexDomain(base1) && isYandexDomain(base2)) {
+            return true
+        }
+
         return false
+    }
+
+    private fun isGoogleDomain(domain: String): Boolean {
+        return domain == "google.com" || domain.startsWith("google.") || domain == "google-analytics.com"
+    }
+
+    private fun isYandexDomain(domain: String): Boolean {
+        return domain == "ya.ru" || domain == "yandex.ru" || domain == "yandex.com" ||
+            domain == "yandex.by" || domain == "yandex.kz" || domain == "yandex.uz"
     }
 }

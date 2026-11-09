@@ -780,4 +780,47 @@ class JestkWebViewClientTest {
         assertThat(blocked).isFalse()
         assertThat(invoked).isFalse()
     }
+
+    @Test
+    fun shouldInterceptRequest_permitsFirstPartyTelemetryWhileBlockingThirdPartyAndAds() {
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = NestedWebView(context).apply {
+            loadedUrl = "https://yandex.ru"
+        }
+
+        fun createRequest(url: String): android.webkit.WebResourceRequest = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse(url)
+            override fun isForMainFrame(): Boolean = false
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = false
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        // 1. First-party telemetry (mc.yandex.ru from yandex.ru): permitted (not intercepted)
+        val fpTelemetryResponse = client.shouldInterceptRequest(webView, createRequest("https://mc.yandex.ru/metrika/tag.js"))
+        assertThat(fpTelemetryResponse).isNull()
+
+        // 2. First-party explicit ad (an.yandex.ru from yandex.ru): intercepted & blocked
+        val fpAdResponse = client.shouldInterceptRequest(webView, createRequest("https://an.yandex.ru/page"))
+        assertThat(fpAdResponse).isNotNull()
+
+        // 3. Third-party ad (doubleclick.net from yandex.ru): intercepted & blocked
+        val tpAdResponse = client.shouldInterceptRequest(webView, createRequest("https://doubleclick.net/ad.js"))
+        assertThat(tpAdResponse).isNotNull()
+
+        // 4. If loaded on a third-party site (example.com), mc.yandex.ru IS intercepted & blocked
+        webView.loadedUrl = "https://example.com"
+        val tpTelemetryResponse = client.shouldInterceptRequest(webView, createRequest("https://mc.yandex.ru/metrika/tag.js"))
+        assertThat(tpTelemetryResponse).isNotNull()
+    }
 }
