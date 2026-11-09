@@ -4,8 +4,10 @@ import android.app.Activity
 import android.content.Context
 import android.content.MutableContextWrapper
 import android.os.Looper
+import android.webkit.WebSettings
 import android.widget.FrameLayout
 import androidx.test.core.app.ApplicationProvider
+import androidx.webkit.UserAgentMetadata
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.R
 import org.junit.Before
@@ -346,6 +348,71 @@ class WebViewPoolRobolectricTest {
 
         // WebView remains valid and active
         assertThat(webView.url).isNull()
+    }
+
+    @Test
+    fun getOrCreateWebView_whenUserAgentMetadataSupported_appliesMetadataWithSanitizedUserAgent() {
+        var appliedSettings: WebSettings? = null
+        var appliedMetadata: UserAgentMetadata? = null
+
+        webViewPool.isUserAgentMetadataSupported = { true }
+        webViewPool.userAgentMetadataApplier = { settings, metadata ->
+            appliedSettings = settings
+            appliedMetadata = metadata
+        }
+
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val webView = webViewPool.getOrCreateWebView("tab-hints-supported", activity)
+
+        assertThat(appliedSettings).isNotNull()
+        assertThat(appliedSettings).isSameInstanceAs(webView.settings)
+        assertThat(appliedMetadata).isNotNull()
+
+        val metadata = appliedMetadata!!
+        assertThat(metadata.isMobile).isTrue()
+        assertThat(metadata.platform).isEqualTo("Android")
+        assertThat(metadata.architecture).isEmpty()
+        assertThat(metadata.model).isEmpty()
+
+        val brands = metadata.brandVersionList
+        assertThat(brands).hasSize(3)
+
+        val brandMap = brands.associate { it.brand to it.majorVersion }
+        val chromeMajor = UserAgentMetadataProvider.extractChromeMajorVersion(webView.settings.userAgentString)
+        assertThat(brandMap).containsEntry("Chromium", chromeMajor)
+        assertThat(brandMap).containsEntry("Google Chrome", chromeMajor)
+        assertThat(brandMap).containsEntry("Not(A:Brand)", "99")
+    }
+
+    @Test
+    fun getOrCreateWebView_whenUserAgentMetadataNotSupported_doesNotInvokeApplierAndDegradesGracefully() {
+        var applierInvoked = false
+
+        webViewPool.isUserAgentMetadataSupported = { false }
+        webViewPool.userAgentMetadataApplier = { _, _ ->
+            applierInvoked = true
+        }
+
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val webView = webViewPool.getOrCreateWebView("tab-hints-unsupported", activity)
+
+        assertThat(applierInvoked).isFalse()
+        assertThat(webView).isNotNull()
+        assertThat(webView.settings.userAgentString).doesNotContain("; wv")
+    }
+
+    @Test
+    fun getOrCreateWebView_whenUserAgentMetadataApplierThrows_degradesGracefullyWithoutCrashing() {
+        webViewPool.isUserAgentMetadataSupported = { true }
+        webViewPool.userAgentMetadataApplier = { _, _ ->
+            throw UnsupportedOperationException("Simulated webkit boundary interface missing")
+        }
+
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val webView = webViewPool.getOrCreateWebView("tab-hints-throws", activity)
+
+        assertThat(webView).isNotNull()
+        assertThat(webViewPool.getWebView("tab-hints-throws")).isSameInstanceAs(webView)
     }
 
     @Test

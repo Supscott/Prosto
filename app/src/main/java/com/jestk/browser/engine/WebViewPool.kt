@@ -20,6 +20,7 @@ import android.webkit.URLUtil
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.Toast
+import androidx.webkit.UserAgentMetadata
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
@@ -59,6 +60,14 @@ class WebViewPool(
     var isCleanPlayerEnabled: (() -> Boolean)? = null
     var onCleanPlayerRequested: ((url: String) -> Boolean)? = null
     var onWebViewCreated: ((tabId: String, webView: WebView) -> Unit)? = null
+
+    internal var isUserAgentMetadataSupported: () -> Boolean = {
+        WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA)
+    }
+
+    internal var userAgentMetadataApplier: (WebSettings, UserAgentMetadata) -> Unit = { settings, metadata ->
+        WebSettingsCompat.setUserAgentMetadata(settings, metadata)
+    }
 
     class AdBlockBridge(
         private val isEnabledProvider: () -> Boolean,
@@ -300,6 +309,7 @@ class WebViewPool(
                 }
                 setupDownloadListener(this)
                 setupAdBlocker(this)
+                applyUserAgentMetadata(settings)
             }
 
             currentIsDark?.let { applyThemeMode(webView, it) }
@@ -347,6 +357,7 @@ class WebViewPool(
                 }
                 setupDownloadListener(this)
                 setupAdBlocker(this)
+                applyUserAgentMetadata(settings)
             }
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
             pool[tabId] = fallbackWebView
@@ -380,6 +391,17 @@ class WebViewPool(
                 )
             } catch (t: Throwable) {
                 Log.w(TAG, "Failed to add document start script for ad blocking", t)
+            }
+        }
+    }
+
+    internal fun applyUserAgentMetadata(settings: WebSettings) {
+        if (isUserAgentMetadataSupported()) {
+            try {
+                val metadata = UserAgentMetadataProvider.buildMetadata(settings.userAgentString)
+                userAgentMetadataApplier(settings, metadata)
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to apply user agent metadata", t)
             }
         }
     }
