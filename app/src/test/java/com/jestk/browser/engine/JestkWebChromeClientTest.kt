@@ -90,34 +90,10 @@ class JestkWebChromeClientTest {
     }
 
     @Test
-    fun onShowCustomView_threeArgs_respectsPortraitOrientation() {
+    fun onShowCustomView_threeArgs_preservesUnspecifiedOrientationWithoutForcedRotation() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val testView = View(context)
-        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-
-        val client = JestkWebChromeClient(
-            tabId = "tab-1",
-            onProgressChanged = { _, _ -> },
-            onTitleReceived = { _, _ -> },
-            onFullscreenCustomViewChanged = { _, _, orientation ->
-                receivedOrientation = orientation
-            },
-            onVideoPlayingStateChanged = { }
-        )
-
-        val callback = WebChromeClient.CustomViewCallback { }
-
-        @Suppress("DEPRECATION")
-        client.onShowCustomView(testView, ActivityInfo.SCREEN_ORIENTATION_PORTRAIT, callback)
-
-        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT)
-    }
-
-    @Test
-    fun onShowCustomView_threeArgs_mapsLandscapeToSensorLandscape() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val testView = View(context)
-        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
         val client = JestkWebChromeClient(
             tabId = "tab-1",
@@ -134,7 +110,7 @@ class JestkWebChromeClientTest {
         @Suppress("DEPRECATION")
         client.onShowCustomView(testView, ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE, callback)
 
-        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
     }
 
     @Test

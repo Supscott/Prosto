@@ -87,7 +87,7 @@
             android:exported="true"
             android:windowSoftInputMode="adjustResize"
             android:supportsPictureInPicture="true"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize">
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|smallestScreenSize|navigation|keyboard">
             
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

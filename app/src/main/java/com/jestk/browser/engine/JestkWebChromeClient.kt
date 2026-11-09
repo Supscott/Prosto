@@ -67,11 +67,6 @@ class JestkWebChromeClient(
     }
 
     override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
-        onShowCustomView(view, ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED, callback)
-    }
-
-    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
-    override fun onShowCustomView(view: View?, requestedOrientation: Int, callback: CustomViewCallback?) {
         if (customView != null) {
             if (customView === view) {
                 customViewCallback = callback ?: customViewCallback
@@ -88,19 +83,16 @@ class JestkWebChromeClient(
         customViewCallback = callback
         customView?.keepScreenOn = true
 
-        val orientation = when (requestedOrientation) {
-            ActivityInfo.SCREEN_ORIENTATION_PORTRAIT,
-            ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT,
-            ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE,
-            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE,
-            ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-            else -> ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-        }
-
-        onFullscreenCustomViewChanged(view, true, orientation)
+        onFullscreenCustomViewChanged(view, true, ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
         onVideoPlayingStateChanged(true)
         onVideoResume?.invoke()
+    }
+
+    @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+    override fun onShowCustomView(view: View?, requestedOrientation: Int, callback: CustomViewCallback?) {
+        // Follow DuckDuckGo Android: never force landscape or window orientation flip on fullscreen video.
+        // Preserving SCREEN_ORIENTATION_UNSPECIFIED keeps the decoder surface alive without rebuffering.
+        onShowCustomView(view, callback)
     }
 
     override fun onHideCustomView() {

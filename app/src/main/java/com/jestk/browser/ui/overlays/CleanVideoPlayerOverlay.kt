@@ -104,15 +104,6 @@ fun CleanVideoPlayerOverlay(
     var customView by remember { mutableStateOf<android.view.View?>(null) }
     var customViewCallback by remember { mutableStateOf<WebChromeClient.CustomViewCallback?>(null) }
 
-    val isShort = remember(originalUrl) {
-        originalUrl.contains("/shorts/", ignoreCase = true) || originalUrl.contains("/shorts", ignoreCase = true)
-    }
-    val targetOrientation = if (isShort) {
-        ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-    } else {
-        ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-    }
-
     val exitFullscreen: () -> Unit = {
         try {
             customViewCallback?.onCustomViewHidden()
@@ -142,7 +133,6 @@ fun CleanVideoPlayerOverlay(
         val insetsController = WindowCompat.getInsetsController(window, window.decorView)
 
         if (customView != null) {
-            activity.requestedOrientation = targetOrientation
             insetsController.hide(WindowInsetsCompat.Type.systemBars())
             insetsController.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE

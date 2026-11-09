@@ -409,14 +409,9 @@ fun JestkApp(
         }
 
         val isFullscreenVideo = uiState.isFullscreenCustomView
-        val requestedOrientation = uiState.fullscreenRequestedOrientation
-        LaunchedEffect(isFullscreenVideo, requestedOrientation) {
-            val activity = context.findActivity() ?: return@LaunchedEffect
-            if (isFullscreenVideo) {
-                if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
-                    activity.requestedOrientation = requestedOrientation
-                }
-            } else {
+        LaunchedEffect(isFullscreenVideo) {
+            if (!isFullscreenVideo) {
+                val activity = context.findActivity() ?: return@LaunchedEffect
                 activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             }
         }
