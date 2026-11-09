@@ -228,9 +228,10 @@ class JestkWebViewClient(
         if (adBlockerActive || trackingActive) {
             val url = request.url?.toString()
             val parsedUrl = AdBlockerEngine.parseUrl(url)
-            if (parsedUrl != null && AdBlockerEngine.shouldBlock(parsedUrl)) {
+            val pageUrl = (view as? NestedWebView)?.loadedUrl ?: view?.url
+            if (parsedUrl != null && AdBlockerEngine.shouldBlock(parsedUrl, pageUrl)) {
                 val validUrl = url.orEmpty()
-                val isTracker = AdBlockerEngine.isTracker(parsedUrl)
+                val isTracker = AdBlockerEngine.isTracker(parsedUrl, pageUrl)
                 val shouldBlock = (isTracker && trackingActive) || (!isTracker && adBlockerActive)
                 if (shouldBlock) {
                     onBlockedResource?.invoke(validUrl, isTracker)

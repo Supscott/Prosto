@@ -698,6 +698,68 @@ class AdBlockerEngineTest {
         return AdBlockerEngine.isBlockedPath(host, path)
     }
 
+    // --- First-party Context-Aware Request Filtering Tests ---
+
+    @Test
+    fun shouldBlock_firstPartyAnalytics_isAllowed() {
+        // Yandex Metrika allowed from yandex.ru
+        assertThat(AdBlockerEngine.shouldBlock("https://mc.yandex.ru/metrika/tag.js", "https://yandex.ru")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://mc.yandex.ru/watch/12345", "https://yandex.ru")).isFalse()
+        // Yandex Metrika allowed from sibling subdomains (e.g. mail.yandex.ru, news.yandex.ru)
+        assertThat(AdBlockerEngine.shouldBlock("https://mc.yandex.ru/metrika/tag.js", "https://mail.yandex.ru")).isFalse()
+        // First-party internal analytics / stats endpoint
+        assertThat(AdBlockerEngine.shouldBlock("https://yandex.ru/api/stats/session", "https://yandex.ru")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://vk.com/api/stats", "https://vk.com")).isFalse()
+    }
+
+    @Test
+    fun shouldBlock_thirdPartyAnalytics_isBlocked() {
+        // Yandex Metrika blocked from third-party sites
+        assertThat(AdBlockerEngine.shouldBlock("https://mc.yandex.ru/metrika/tag.js", "https://example.com")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://mc.yandex.ru/watch/12345", "https://example.com")).isTrue()
+        // Google Analytics blocked from third-party sites
+        assertThat(AdBlockerEngine.shouldBlock("https://google-analytics.com/analytics.js", "https://example.com")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://scorecardresearch.com/beacon.js", "https://example.com")).isTrue()
+    }
+
+    @Test
+    fun shouldBlock_firstPartyExplicitAdSubdomain_isBlocked() {
+        // Explicit ad subdomains are blocked even when same-site
+        assertThat(AdBlockerEngine.shouldBlock("https://an.yandex.ru/page", "https://yandex.ru")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://ads.vk.com/banner", "https://vk.com")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://ad.mail.ru/static/ads-async.js", "https://mail.ru")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://adfox.yandex.ru/banner", "https://yandex.ru")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://banner.example.com/ad.png", "https://example.com")).isTrue()
+    }
+
+    @Test
+    fun shouldBlock_firstPartyExplicitAdPath_isBlocked() {
+        // Explicit ad paths are blocked even on first-party domains
+        assertThat(AdBlockerEngine.shouldBlock("https://yandex.ru/ads/system/context.js", "https://yandex.ru")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://vk.com/ads/system/test.js", "https://vk.com")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://example.com/banner/300x250.jpg", "https://example.com")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://example.com/static/ads.js", "https://example.com")).isTrue()
+    }
+
+    @Test
+    fun shouldBlock_contextFree_retainsStrictBlocking() {
+        // When documentUrl is null, fallback to deterministic global evaluation
+        assertThat(AdBlockerEngine.shouldBlock("https://mc.yandex.ru/metrika/tag.js")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://an.yandex.ru/page")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://doubleclick.net/ad.js")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://yandex.ru/search/?text=recipes")).isFalse()
+    }
+
+    @Test
+    fun isTracker_withDocumentUrl_distinguishesContext() {
+        // Same-site: first-party telemetry is not flagged as a cross-site tracker
+        assertThat(AdBlockerEngine.isTracker("https://mc.yandex.ru/metrika/tag.js", "https://yandex.ru")).isFalse()
+        // Third-party: telemetry is flagged as a tracker
+        assertThat(AdBlockerEngine.isTracker("https://mc.yandex.ru/metrika/tag.js", "https://example.com")).isTrue()
+        // Context-free: retains default behavior
+        assertThat(AdBlockerEngine.isTracker("https://mc.yandex.ru/metrika/tag.js")).isTrue()
+    }
+
     private class RecordingSettingsRepository : com.jestk.browser.domain.repository.SettingsRepository {
         var adsIncremented = 0L
         var trackersIncremented = 0L

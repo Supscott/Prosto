@@ -6,6 +6,7 @@ import android.util.Base64
 import android.util.Log
 import android.webkit.WebResourceResponse
 import com.jestk.browser.domain.repository.BlockedRequestStats
+import com.jestk.browser.util.UrlSecurityUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -486,16 +487,28 @@ object AdBlockerEngine {
         return ParsedUrl(host = host, path = path, rawUrl = url)
     }
 
-    fun shouldBlock(url: String?): Boolean {
+    fun shouldBlock(url: String?, documentUrl: String? = null): Boolean {
         if (url.isNullOrBlank()) return false
         val parsed = parseUrl(url) ?: return false
-        return shouldBlock(parsed)
+        return shouldBlock(parsed, documentUrl)
     }
 
-    fun shouldBlock(parsed: ParsedUrl): Boolean {
+    fun shouldBlock(parsed: ParsedUrl, documentUrl: String? = null): Boolean {
         val host = parsed.host
         if (host.isEmpty()) return false
         if (isAllowlistedAuthDomain(host)) return false
+
+        val isFirstParty = !documentUrl.isNullOrBlank() && UrlSecurityUtils.isSameSite(documentUrl, parsed.rawUrl)
+
+        if (isFirstParty) {
+            // In first-party context, keep blocking explicit ad subdomains and ad banner paths,
+            // but exempt telemetry, analytics, beacons, and first-party API endpoints.
+            val path = parsed.path
+            if (isExplicitAdHost(host) || isExplicitAdPath(host, path)) {
+                return true
+            }
+            return false
+        }
 
         if (blockedHosts.contains(host)) return true
 
@@ -517,6 +530,88 @@ object AdBlockerEngine {
         // Check path rules for multi-purpose search engines/portals serving ads under subpaths
         val path = parsed.path
         if (path.isNotEmpty() && isBlockedPath(host, path)) {
+            return true
+        }
+
+        return false
+    }
+
+    internal fun isExplicitAdHost(host: String): Boolean {
+        if (host.isEmpty()) return false
+        val clean = host.lowercase().removePrefix("www.").trim()
+
+        if (clean.startsWith("ad.") ||
+            clean.startsWith("ads.") ||
+            clean.startsWith("an.") ||
+            clean.startsWith("banner.") ||
+            clean.startsWith("banners.") ||
+            clean.startsWith("adfox.") ||
+            clean.startsWith("yabs.") ||
+            clean.startsWith("awaps.") ||
+            clean.startsWith("bs.") ||
+            clean.startsWith("reklama.") ||
+            clean.startsWith("ssp.") ||
+            clean.startsWith("target.")
+        ) {
+            return true
+        }
+
+        val parts = clean.split('.')
+        if (parts.size >= 3) {
+            for (i in 0 until parts.size - 2) {
+                val p = parts[i]
+                if (p == "ad" || p == "ads" || p == "an" || p == "banner" ||
+                    p == "banners" || p == "adfox" || p == "yabs" || p == "awaps" ||
+                    p == "bs" || p == "reklama" || p == "ssp" || p == "target"
+                ) {
+                    return true
+                }
+            }
+        }
+
+        if (clean == "adfox.ru" || clean.endsWith(".adfox.ru") ||
+            clean == "adriver.ru" || clean.endsWith(".adriver.ru") ||
+            clean == "doubleclick.net" || clean.endsWith(".doubleclick.net") ||
+            clean == "googleadservices.com" || clean.endsWith(".googleadservices.com") ||
+            clean == "googlesyndication.com" || clean.endsWith(".googlesyndication.com") ||
+            clean == "criteo.com" || clean.endsWith(".criteo.com") ||
+            clean == "criteo.net" || clean.endsWith(".criteo.net") ||
+            clean == "taboola.com" || clean.endsWith(".taboola.com") ||
+            clean == "outbrain.com" || clean.endsWith(".outbrain.com") ||
+            clean == "adnxs.com" || clean.endsWith(".adnxs.com") ||
+            clean == "rubiconproject.com" || clean.endsWith(".rubiconproject.com") ||
+            clean == "pubmatic.com" || clean.endsWith(".pubmatic.com") ||
+            clean == "openx.net" || clean.endsWith(".openx.net") ||
+            clean == "moatads.com" || clean.endsWith(".moatads.com") ||
+            clean == "hybrid.ai" || clean.endsWith(".hybrid.ai") ||
+            clean == "buzzoola.com" || clean.endsWith(".buzzoola.com") ||
+            clean == "bidvol.com" || clean.endsWith(".bidvol.com") ||
+            clean == "videonow.ru" || clean.endsWith(".videonow.ru") ||
+            clean == "viqeo.tv" || clean.endsWith(".viqeo.tv")
+        ) {
+            return true
+        }
+
+        return false
+    }
+
+    internal fun isExplicitAdPath(host: String, path: String): Boolean {
+        if (path.isEmpty()) return false
+        val lowerPath = path.lowercase()
+
+        if (isBlockedPath(host, path)) return true
+
+        if (lowerPath.startsWith("/ads/") ||
+            lowerPath.contains("/ads/") ||
+            lowerPath.startsWith("/banner") ||
+            lowerPath.contains("/banner/") ||
+            lowerPath.contains("/banners/") ||
+            lowerPath.endsWith("/ads.js") ||
+            lowerPath.contains("/ads.js") ||
+            lowerPath.endsWith("/ad.js") ||
+            lowerPath.endsWith("/advert.js") ||
+            lowerPath.contains("ads-async.js")
+        ) {
             return true
         }
 
@@ -854,24 +949,27 @@ object AdBlockerEngine {
      * Determines whether a given URL belongs to an analytics, tracker, telemetry, or beacon service.
      * Examples: google-analytics.com, mc.yandex.ru, scorecardresearch.com, quantserve.com, adfstat, metrika, beacon, pixel, etc.
      */
-    fun isTracker(url: String): Boolean {
+    fun isTracker(url: String, documentUrl: String? = null): Boolean {
         if (url.isBlank()) return false
         val parsed = parseUrl(url) ?: return false
-        return isTracker(parsed)
+        return isTracker(parsed, documentUrl)
     }
 
     @JvmName("isTrackerNullable")
-    fun isTracker(url: String?): Boolean {
+    fun isTracker(url: String?, documentUrl: String? = null): Boolean {
         if (url.isNullOrBlank()) return false
         val parsed = parseUrl(url) ?: return false
-        return isTracker(parsed)
+        return isTracker(parsed, documentUrl)
     }
 
-    fun isTracker(parsed: ParsedUrl): Boolean {
-        return isTracker(parsed.host, parsed.path, parsed.rawUrl)
+    fun isTracker(parsed: ParsedUrl, documentUrl: String? = null): Boolean {
+        if (!documentUrl.isNullOrBlank() && UrlSecurityUtils.isSameSite(documentUrl, parsed.rawUrl)) {
+            return false
+        }
+        return isTrackerHostAndPath(parsed.host, parsed.path, parsed.rawUrl)
     }
 
-    fun isTracker(
+    internal fun isTrackerHostAndPath(
         host: String,
         path: String,
         rawUrl: String = "",
