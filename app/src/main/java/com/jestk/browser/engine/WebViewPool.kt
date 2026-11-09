@@ -21,6 +21,8 @@ import android.webkit.URLUtil
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.Toast
+import androidx.webkit.Profile
+import androidx.webkit.ProfileStore
 import androidx.webkit.UserAgentMetadata
 import androidx.webkit.WebSettingsCompat
 import androidx.webkit.WebViewCompat
@@ -78,6 +80,32 @@ class WebViewPool(
         WebSettingsCompat.setUserAgentMetadata(settings, metadata)
     }
 
+    internal var isMultiProfileSupported: () -> Boolean = {
+        WebViewFeature.isFeatureSupported(WebViewFeature.MULTI_PROFILE)
+    }
+
+    internal var profileProvider: (String) -> Profile? = { profileName ->
+        try {
+            ProfileStore.getInstance().getOrCreateProfile(profileName)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to get or create profile $profileName", t)
+            null
+        }
+    }
+
+    internal var profileApplier: (WebView, String) -> Unit = { webView, profileName ->
+        WebViewCompat.setProfile(webView, profileName)
+    }
+
+    internal var profileDeleter: (String) -> Boolean = { profileName ->
+        try {
+            ProfileStore.getInstance().deleteProfile(profileName)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to delete profile $profileName", t)
+            false
+        }
+    }
+
     class AdBlockBridge(
         private val isEnabledProvider: () -> Boolean,
         private val onCleanPlayerRequested: ((url: String) -> Boolean)? = null,
@@ -124,8 +152,11 @@ class WebViewPool(
     }
 
     private val pool = ConcurrentHashMap<String, WebView>()
+    private val tabProfiles = ConcurrentHashMap<String, String>()
     private val _loadedTabIds = MutableStateFlow<Set<String>>(emptySet())
     val loadedTabIds: StateFlow<Set<String>> = _loadedTabIds.asStateFlow()
+
+    fun getProfileForTab(tabId: String): String? = tabProfiles[tabId]
 
     private fun updateLoadedTabIds() {
         _loadedTabIds.value = pool.keys.toSet()
@@ -267,8 +298,57 @@ class WebViewPool(
     }
 
 
+    fun deleteProfile(profileName: String): Boolean {
+        val tabsToRemove = tabProfiles.entries
+            .filter { it.value == profileName }
+            .map { it.key }
+        tabsToRemove.forEach { removeWebView(it) }
+
+        if (!isMultiProfileSupported()) {
+            return false
+        }
+
+        return try {
+            profileDeleter(profileName)
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to delete profile $profileName", t)
+            false
+        }
+    }
+
+    internal fun configureProfileAndCookies(webView: WebView, profileName: String?) {
+        if (profileName != null && isMultiProfileSupported()) {
+            try {
+                val profile = profileProvider(profileName)
+                profileApplier(webView, profileName)
+                val cm = try {
+                    profile?.cookieManager ?: CookieManager.getInstance()
+                } catch (_: Throwable) {
+                    CookieManager.getInstance()
+                }
+                try {
+                    cm.setAcceptCookie(true)
+                    cm.setAcceptThirdPartyCookies(webView, true)
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Failed to set cookie acceptance on profile $profileName", t)
+                }
+                return
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to assign profile $profileName", t)
+            }
+        }
+        CookieManager.getInstance().let { cm ->
+            cm.setAcceptCookie(true)
+            cm.setAcceptThirdPartyCookies(webView, true)
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
-    fun getOrCreateWebView(tabId: String, context: Context? = null): WebView {
+    fun getOrCreateWebView(
+        tabId: String,
+        context: Context? = null,
+        profileName: String? = null
+    ): WebView {
         touchLru(tabId)
         val activity = context?.findActivity()
         val isActivityDestroyed = activity != null && (activity.isDestroyed || activity.isFinishing)
@@ -280,14 +360,20 @@ class WebViewPool(
 
         val existing = pool[tabId]
         if (existing != null) {
-            try {
-                val wrapper = existing.context as? MutableContextWrapper
-                if (wrapper != null && wrapper.baseContext != targetContext) {
-                    wrapper.baseContext = targetContext
+            val existingProfile = tabProfiles[tabId]
+            if (profileName == existingProfile) {
+                try {
+                    val wrapper = existing.context as? MutableContextWrapper
+                    if (wrapper != null && wrapper.baseContext != targetContext) {
+                        wrapper.baseContext = targetContext
+                    }
+                    return existing
+                } catch (t: Throwable) {
+                    Log.w(TAG, "Failed to reuse existing WebView for tab $tabId, recreating", t)
+                    removeWebView(tabId)
                 }
-                return existing
-            } catch (t: Throwable) {
-                Log.w(TAG, "Failed to reuse existing WebView for tab $tabId, recreating", t)
+            } else {
+                Log.d(TAG, "Profile mismatch for tab $tabId ($existingProfile != $profileName), recreating")
                 removeWebView(tabId)
             }
         }
@@ -315,10 +401,7 @@ class WebViewPool(
                     mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                     setSupportZoom(true)
                 }
-                CookieManager.getInstance().let { cm ->
-                    cm.setAcceptCookie(true)
-                    cm.setAcceptThirdPartyCookies(this, true)
-                }
+                configureProfileAndCookies(this, profileName)
                 try {
                     val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->
                         activeScope().launch(Dispatchers.Main) {
@@ -337,6 +420,11 @@ class WebViewPool(
             currentIsDark?.let { applyThemeMode(webView, it) }
 
             pool[tabId] = webView
+            if (profileName != null) {
+                tabProfiles[tabId] = profileName
+            } else {
+                tabProfiles.remove(tabId)
+            }
             updateLoadedTabIds()
             trimPool(tabId)
             Log.d(TAG, "Created WebView for tab $tabId")
@@ -364,10 +452,7 @@ class WebViewPool(
                     mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                     setSupportZoom(true)
                 }
-                CookieManager.getInstance().let { cm ->
-                    cm.setAcceptCookie(true)
-                    cm.setAcceptThirdPartyCookies(this, true)
-                }
+                configureProfileAndCookies(this, profileName)
                 try {
                     val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->
                         activeScope().launch(Dispatchers.Main) {
@@ -384,6 +469,11 @@ class WebViewPool(
             }
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
             pool[tabId] = fallbackWebView
+            if (profileName != null) {
+                tabProfiles[tabId] = profileName
+            } else {
+                tabProfiles.remove(tabId)
+            }
             updateLoadedTabIds()
             trimPool(tabId)
             Log.d(TAG, "Created fallback WebView for tab $tabId")
@@ -686,6 +776,7 @@ class WebViewPool(
         if (activeTabId == tabId) {
             activeTabId = null
         }
+        tabProfiles.remove(tabId)
         val webView = pool.remove(tabId) ?: return
         updateLoadedTabIds()
         Log.d(TAG, "Removing WebView for tab $tabId")
@@ -719,6 +810,7 @@ class WebViewPool(
         lruOrder.clear()
         mediaPlayingTabs.clear()
         activeTabId = null
+        tabProfiles.clear()
         val keys = pool.keys().toList()
         keys.forEach { removeWebView(it) }
         pool.clear()
