@@ -4,6 +4,7 @@ import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
@@ -11,6 +12,7 @@ import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeUp
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
@@ -428,5 +430,201 @@ class SearchOverlayInputTest {
         // Typing forward 'l' resets suppression and finds "gitlab.com"
         composeTestRule.onNodeWithText("git").performTextInput("l")
         composeTestRule.onNodeWithText("gitlab.com").assertExists()
+    }
+
+    @Test
+    fun searchOverlay_swipeDownOnHistoryContainer_whenImeCollapsed_dismissesOverlay() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE),
+            searchHistorySuggestions = listOf(
+                HistoryItem(
+                    id = 1L,
+                    url = "https://google.com/search?q=jetpack+compose",
+                    title = "Jetpack Compose",
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) },
+                    isImeVisible = false
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("search_history_scroll_container", useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithTag("search_history_scroll_container", useUnmergedTree = true).performTouchInput {
+            swipeDown(startY = top + 10f, endY = bottom - 10f, durationMillis = 200)
+        }
+
+        composeTestRule.waitForIdle()
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertEquals("Expected overlay to be dismissed on downward drag with IME collapsed", 1, dismissEvents.size)
+    }
+
+    @Test
+    fun searchOverlay_shortSwipeDownOnHistoryContainer_doesNotDismiss() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) },
+                    isImeVisible = false
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("search_history_scroll_container", useUnmergedTree = true).performTouchInput {
+            swipeDown(startY = centerY - 20f, endY = centerY + 20f, durationMillis = 150)
+        }
+
+        composeTestRule.waitForIdle()
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertTrue("A downward drag below threshold must not dismiss overlay", dismissEvents.isEmpty())
+    }
+
+    @Test
+    fun searchOverlay_swipeDownOnHistoryContainer_whenImeVisible_doesNotDismissOverlay() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) },
+                    isImeVisible = true
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("search_history_scroll_container", useUnmergedTree = true).performTouchInput {
+            swipeDown(startY = top + 10f, endY = bottom - 10f, durationMillis = 200)
+        }
+
+        composeTestRule.waitForIdle()
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertTrue("Downward drag when IME is visible should track keyboard, not dismiss overlay", dismissEvents.isEmpty())
+    }
+
+    @Test
+    fun searchOverlay_swipeUpOnHistoryContainer_doesNotDismissOverlay() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) },
+                    isImeVisible = false
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("search_history_scroll_container", useUnmergedTree = true).performTouchInput {
+            swipeUp(startY = bottom - 10f, endY = top + 10f, durationMillis = 200)
+        }
+
+        composeTestRule.waitForIdle()
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertTrue("Upward drag must never dismiss overlay", dismissEvents.isEmpty())
+    }
+
+    @Test
+    fun searchOverlay_swipeDownOnHistoryContainer_whenDropdownOpen_closesDropdownWithoutDismissingOverlay() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE),
+            searchEngines = engines
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) },
+                    initialDropdownOpen = true,
+                    isImeVisible = false
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Edit Search Engines").assertExists()
+
+        composeTestRule.onNodeWithTag("search_history_scroll_container", useUnmergedTree = true).performTouchInput {
+            swipeDown(startY = top + 10f, endY = bottom - 10f, durationMillis = 200)
+        }
+
+        composeTestRule.waitForIdle()
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Dropdown should be closed (Edit Search Engines no longer in view)
+        composeTestRule.onNodeWithContentDescription("Edit Search Engines").assertDoesNotExist()
+
+        // Overlay should NOT be dismissed because the swipe was consumed to close dropdown
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertTrue("Downward drag when dropdown is open should only close dropdown, not dismiss overlay", dismissEvents.isEmpty())
+    }
+
+    @Test
+    fun searchOverlay_tapSearchBar_requestsFocusAndShowsKeyboard() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Search with Google").assertExists()
+        composeTestRule.onNodeWithText("Search with Google").performClick()
+        composeTestRule.waitForIdle()
+
+        org.robolectric.shadows.ShadowLooper.idleMainLooper()
+        org.robolectric.shadows.ShadowLooper.runUiThreadTasksIncludingDelayedTasks()
+
+        // Overlay should remain open (not dismissed) and be ready for typing
+        assertTrue("Tapping search bar should not dismiss overlay", events.filterIsInstance<BrowserUiEvent.DismissOverlay>().isEmpty())
     }
 }

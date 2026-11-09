@@ -13,12 +13,16 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imeNestedScroll
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -31,17 +35,24 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.BrowserSettings
@@ -81,12 +92,14 @@ private fun historyItemQuery(item: HistoryItem): String {
  * - Search engine selector carousel button ([SearchEngineSelectorButton])
  * - Search engine dropdown management sheet ([SearchEngineDropdownCard])
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SearchOverlay(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
     initialDropdownOpen: Boolean = false,
+    isImeVisible: Boolean? = null,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
@@ -95,6 +108,7 @@ fun SearchOverlay(
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
     var isDropdownOpen by remember { mutableStateOf(initialDropdownOpen) }
+    val effectiveIsImeVisible = isImeVisible ?: WindowInsets.isImeVisible
 
     val carouselState =
         rememberSearchEngineCarouselState(
@@ -189,6 +203,54 @@ fun SearchOverlay(
         ) {
             val scrollState = rememberScrollState()
 
+            val currentIsImeVisible by rememberUpdatedState(effectiveIsImeVisible)
+            val currentOnEvent by rememberUpdatedState(onEvent)
+            val currentIsDropdownOpen by rememberUpdatedState(isDropdownOpen)
+            val dismissThresholdPx = with(density) { 40.dp.toPx() }
+
+            val nestedScrollConnection = remember(density) {
+                object : NestedScrollConnection {
+                    private var accumulatedDragY = 0f
+                    private var isDismissTriggered = false
+
+                    override fun onPostScroll(
+                        consumed: Offset,
+                        available: Offset,
+                        source: NestedScrollSource,
+                    ): Offset {
+                        if (source == NestedScrollSource.UserInput && !currentIsImeVisible && scrollState.value == 0) {
+                            if (available.y > 0f) {
+                                accumulatedDragY += available.y
+                                if (accumulatedDragY >= dismissThresholdPx && !isDismissTriggered) {
+                                    isDismissTriggered = true
+                                    if (currentIsDropdownOpen) {
+                                        isDropdownOpen = false
+                                    } else {
+                                        keyboardController?.hide()
+                                        currentOnEvent(BrowserUiEvent.DismissOverlay)
+                                    }
+                                }
+                            } else if (available.y < 0f) {
+                                accumulatedDragY = 0f
+                            }
+                        }
+                        return Offset.Zero
+                    }
+
+                    override suspend fun onPreFling(available: Velocity): Velocity {
+                        accumulatedDragY = 0f
+                        isDismissTriggered = false
+                        return Velocity.Zero
+                    }
+
+                    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
+                        accumulatedDragY = 0f
+                        isDismissTriggered = false
+                        return Velocity.Zero
+                    }
+                }
+            }
+
             var prevSize by remember { mutableIntStateOf(uiState.searchHistorySuggestions.size) }
             var prevMaxValue by remember { mutableIntStateOf(0) }
 
@@ -242,6 +304,9 @@ fun SearchOverlay(
                     Modifier
                         .weight(1f)
                         .fillMaxWidth()
+                        .testTag("search_history_scroll_container")
+                        .nestedScroll(nestedScrollConnection)
+                        .imeNestedScroll()
                         .verticalScroll(scrollState)
                         .padding(bottom = 8.dp),
                 verticalArrangement = Arrangement.Bottom,
@@ -334,7 +399,10 @@ fun SearchOverlay(
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
-                            onClick = {}, // Intercept dismiss clicks
+                            onClick = {
+                                focusRequester.requestFocus()
+                                keyboardController?.show()
+                            },
                         ),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
