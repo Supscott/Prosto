@@ -75,7 +75,7 @@ class JestkWebViewClient(
         // hidden-iframe "Open in app" technique and still need to reach the resolver.
         if (!request.isForMainFrame && isWebUrl(url)) return false
 
-        if (request.isForMainFrame && isBlockedAdNavigation(url, view)) return true
+        if (request.isForMainFrame && isBlockedAdNavigation(url, view, request.hasGesture())) return true
 
         // Warn before loading cleartext HTTP websites in the main frame
         if (request.isForMainFrame && checkInsecureHttpNavigation(url)) return true
@@ -104,7 +104,7 @@ class JestkWebViewClient(
                 return true
             }
         }
-        if (isBlockedAdNavigation(validUrl, view)) return true
+        if (isBlockedAdNavigation(validUrl, view, hasGesture = true)) return true
         if (checkInsecureHttpNavigation(validUrl)) return true
         return handleExternalNavigation(view, validUrl, userInitiated = true)
     }
@@ -123,6 +123,7 @@ class JestkWebViewClient(
     private fun isBlockedAdNavigation(
         url: String,
         view: WebView?,
+        hasGesture: Boolean = true,
     ): Boolean {
         if (!isWebUrl(url)) return false
         if (isStaticAsset(url)) return false
@@ -140,7 +141,7 @@ class JestkWebViewClient(
         }
 
         // 2. Cross-domain ad redirect / popup check
-        if (redirectProtectionActive) {
+        if (redirectProtectionActive && !hasGesture) {
             val nestedView = view as? NestedWebView
             val openerUrl = nestedView?.openerUrl
             val currentUrl = nestedView?.loadedUrl ?: openerUrl ?: view?.url
