@@ -6,6 +6,7 @@ import com.jestk.browser.data.local.entity.SettingEntity
 import com.jestk.browser.data.local.entity.SettingKeys
 import com.jestk.browser.data.local.entity.TabEntity
 import com.jestk.browser.data.local.entity.TabFolderEntity
+import com.jestk.browser.data.local.entity.WorkspaceEntity
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
@@ -13,6 +14,7 @@ import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.domain.model.Workspace
 
 fun TabEntity.toDomain(): Tab =
     Tab(
@@ -29,6 +31,7 @@ fun TabEntity.toDomain(): Tab =
         canGoBack = canGoBack,
         canGoForward = canGoForward,
         folderId = folderId,
+        workspaceId = workspaceId,
     )
 
 fun Tab.toEntity(): TabEntity =
@@ -46,6 +49,7 @@ fun Tab.toEntity(): TabEntity =
         canGoBack = canGoBack,
         canGoForward = canGoForward,
         folderId = folderId,
+        workspaceId = workspaceId,
     )
 
 fun TabFolderEntity.toDomain(): TabFolder =
@@ -56,6 +60,7 @@ fun TabFolderEntity.toDomain(): TabFolder =
         isCollapsed = isCollapsed,
         position = position,
         createdAt = createdAt,
+        workspaceId = workspaceId,
     )
 
 fun TabFolder.toEntity(): TabFolderEntity =
@@ -66,6 +71,7 @@ fun TabFolder.toEntity(): TabFolderEntity =
         isCollapsed = isCollapsed,
         position = position,
         createdAt = createdAt,
+        workspaceId = workspaceId,
     )
 
 fun HistoryEntity.toDomain(): HistoryItem =
@@ -76,6 +82,7 @@ fun HistoryEntity.toDomain(): HistoryItem =
         timestamp = timestamp,
         visitCount = visitCount,
         faviconUrl = faviconUrl,
+        workspaceId = workspaceId,
     )
 
 fun HistoryItem.toEntity(): HistoryEntity =
@@ -86,6 +93,27 @@ fun HistoryItem.toEntity(): HistoryEntity =
         timestamp = timestamp,
         visitCount = visitCount,
         faviconUrl = faviconUrl,
+        workspaceId = workspaceId,
+    )
+
+fun WorkspaceEntity.toDomain(): Workspace =
+    Workspace(
+        id = id,
+        name = name,
+        color = color,
+        position = position,
+        profileName = profileName,
+        createdAt = createdAt,
+    )
+
+fun Workspace.toEntity(): WorkspaceEntity =
+    WorkspaceEntity(
+        id = id,
+        name = name,
+        color = color,
+        position = position,
+        profileName = profileName,
+        createdAt = createdAt,
     )
 
 fun FavoriteEntity.toDomain(): FavoriteItem =

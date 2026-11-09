@@ -19,10 +19,13 @@ import com.jestk.browser.data.local.entity.SettingEntity
 import com.jestk.browser.data.local.dao.RecentTabDao
 import com.jestk.browser.data.local.dao.SearchEngineDao
 import com.jestk.browser.data.local.dao.TabFolderDao
+import com.jestk.browser.data.local.dao.WorkspaceDao
 import com.jestk.browser.data.local.entity.RecentTabEntity
 import com.jestk.browser.data.local.entity.SearchEngineEntity
 import com.jestk.browser.data.local.entity.TabEntity
 import com.jestk.browser.data.local.entity.TabFolderEntity
+import com.jestk.browser.data.local.entity.WorkspaceEntity
+import com.jestk.browser.domain.model.Workspace
 
 @Database(
     entities = [
@@ -33,9 +36,10 @@ import com.jestk.browser.data.local.entity.TabFolderEntity
         RecentTabEntity::class,
         DownloadEntity::class,
         SearchEngineEntity::class,
-        TabFolderEntity::class
+        TabFolderEntity::class,
+        WorkspaceEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -49,6 +53,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun recentTabDao(): RecentTabDao
     abstract fun downloadDao(): DownloadDao
     abstract fun searchEngineDao(): SearchEngineDao
+    abstract fun workspaceDao(): WorkspaceDao
 
     companion object {
         private const val DATABASE_NAME = "jestk_browser.db"
@@ -81,6 +86,48 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `workspaces` (
+                        `id` TEXT NOT NULL,
+                        `name` TEXT NOT NULL,
+                        `color` INTEGER NOT NULL,
+                        `position` INTEGER NOT NULL,
+                        `profileName` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`id`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_workspaces_position` ON `workspaces` (`position`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_workspaces_createdAt` ON `workspaces` (`createdAt`)")
+                db.execSQL("ALTER TABLE `tabs` ADD COLUMN `workspaceId` TEXT NOT NULL DEFAULT 'default_personal'")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tabs_workspaceId` ON `tabs` (`workspaceId`)")
+                db.execSQL("ALTER TABLE `tab_folders` ADD COLUMN `workspaceId` TEXT NOT NULL DEFAULT 'default_personal'")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_tab_folders_workspaceId` ON `tab_folders` (`workspaceId`)")
+                db.execSQL("ALTER TABLE `history` ADD COLUMN `workspaceId` TEXT NOT NULL DEFAULT 'default_personal'")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_history_workspaceId` ON `history` (`workspaceId`)")
+                seedDefaultWorkspaces(db)
+            }
+        }
+
+        fun seedDefaultWorkspaces(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                INSERT OR IGNORE INTO `workspaces` (`id`, `name`, `color`, `position`, `profileName`, `createdAt`)
+                VALUES ('${Workspace.DEFAULT_PERSONAL_ID}', 'Personal', ${Workspace.DEFAULT_PERSONAL.color}, 0, '${Workspace.DEFAULT_PERSONAL_ID}', 0)
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT OR IGNORE INTO `workspaces` (`id`, `name`, `color`, `position`, `profileName`, `createdAt`)
+                VALUES ('${Workspace.DEFAULT_WORK_ID}', 'Work', ${Workspace.DEFAULT_WORK.color}, 1, '${Workspace.DEFAULT_WORK_ID}', 0)
+                """.trimIndent()
+            )
+        }
+
         @Volatile
         private var instance: AppDatabase? = null
 
@@ -91,7 +138,13 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                .addMigrations(MIGRATION_7_8, MIGRATION_8_9)
+                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addCallback(object : RoomDatabase.Callback() {
+                    override fun onCreate(db: SupportSQLiteDatabase) {
+                        super.onCreate(db)
+                        seedDefaultWorkspaces(db)
+                    }
+                })
                 .fallbackToDestructiveMigrationOnDowngrade()
                 .build()
                 .also { instance = it }
@@ -103,6 +156,12 @@ abstract class AppDatabase : RoomDatabase() {
                 context.applicationContext,
                 AppDatabase::class.java
             )
+            .addCallback(object : RoomDatabase.Callback() {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    super.onCreate(db)
+                    seedDefaultWorkspaces(db)
+                }
+            })
             .allowMainThreadQueries()
             .build()
         }

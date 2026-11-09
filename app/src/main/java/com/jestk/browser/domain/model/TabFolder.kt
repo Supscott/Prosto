@@ -6,7 +6,8 @@ data class TabFolder(
     val color: Int,
     val isCollapsed: Boolean = false,
     val position: Int = 0,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val workspaceId: String = Workspace.DEFAULT_PERSONAL_ID,
 ) {
     companion object {
         // Curated 8-color Prosto aesthetic palette (ARGB Ints)

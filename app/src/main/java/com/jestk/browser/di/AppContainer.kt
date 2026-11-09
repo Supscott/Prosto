@@ -14,6 +14,7 @@ import com.jestk.browser.data.repository.SettingsBlockedRequestStats
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabFolderRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
+import com.jestk.browser.data.repository.WorkspaceRepositoryImpl
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
@@ -22,6 +23,7 @@ import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
+import com.jestk.browser.domain.repository.WorkspaceRepository
 import com.jestk.browser.engine.AdBlockerEngine
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
@@ -34,6 +36,7 @@ interface AppContainer {
     val database: AppDatabase
     val tabRepository: TabRepository
     val tabFolderRepository: TabFolderRepository
+    val workspaceRepository: WorkspaceRepository
     val historyRepository: HistoryRepository
     val favoriteRepository: FavoriteRepository
     val settingsRepository: SettingsRepository
@@ -88,6 +91,10 @@ class DefaultAppContainer(
 
     override val tabFolderRepository: TabFolderRepository by lazy {
         TabFolderRepositoryImpl(database.tabFolderDao())
+    }
+
+    override val workspaceRepository: WorkspaceRepository by lazy {
+        WorkspaceRepositoryImpl(database.workspaceDao())
     }
 
     override val historyRepository: HistoryRepository by lazy {

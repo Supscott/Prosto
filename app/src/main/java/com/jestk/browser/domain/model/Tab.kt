@@ -15,6 +15,7 @@ data class Tab @JvmOverloads constructor(
     val themeColor: Int? = null,
     val bottomThemeColor: Int? = null,
     val folderId: String? = null,
+    val workspaceId: String = Workspace.DEFAULT_PERSONAL_ID,
 ) {
     val topThemeColor: Int? get() = themeColor
 }
