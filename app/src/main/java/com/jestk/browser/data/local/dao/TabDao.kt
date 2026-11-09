@@ -147,4 +147,7 @@ interface TabDao {
 
     @Query("UPDATE tabs SET folderId = NULL WHERE folderId = :folderId")
     suspend fun clearFolderId(folderId: String)
+
+    @Query("UPDATE tabs SET workspaceId = :workspaceId, folderId = :folderId WHERE id = :id")
+    suspend fun updateWorkspaceId(id: String, workspaceId: String, folderId: String? = null)
 }

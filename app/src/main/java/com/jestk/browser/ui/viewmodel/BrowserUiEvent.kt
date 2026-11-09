@@ -483,6 +483,16 @@ sealed interface BrowserUiEvent {
     data class CreateTabInFolder(
         val folderId: String,
     ) : BrowserUiEvent
+
+    // Workspaces
+    data class SwitchWorkspace(
+        val workspaceId: String,
+    ) : BrowserUiEvent
+
+    data class MoveTabToWorkspace(
+        val tabId: String,
+        val targetWorkspaceId: String,
+    ) : BrowserUiEvent
 }
 
 enum class ExternalAppDismissReason {

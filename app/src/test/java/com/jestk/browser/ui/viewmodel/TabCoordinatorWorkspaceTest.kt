@@ -1,0 +1,334 @@
+package com.jestk.browser.ui.viewmodel
+
+import android.content.Context
+import androidx.arch.core.executor.testing.InstantTaskExecutorRule
+import androidx.test.core.app.ApplicationProvider
+import com.google.common.truth.Truth.assertThat
+import com.jestk.browser.data.local.AppDatabase
+import com.jestk.browser.data.local.entity.TabEntity
+import com.jestk.browser.data.local.entity.TabFolderEntity
+import com.jestk.browser.data.repository.FavoriteRepositoryImpl
+import com.jestk.browser.data.repository.HistoryRepositoryImpl
+import com.jestk.browser.data.repository.RecentTabRepositoryImpl
+import com.jestk.browser.data.repository.SettingsRepositoryImpl
+import com.jestk.browser.data.repository.TabFolderRepositoryImpl
+import com.jestk.browser.data.repository.TabRepositoryImpl
+import com.jestk.browser.data.repository.WorkspaceRepositoryImpl
+import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.TabFolder
+import com.jestk.browser.domain.model.Workspace
+import com.jestk.browser.engine.FaviconManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class TabCoordinatorWorkspaceTest {
+    @get:Rule
+    val instantTaskExecutorRule = InstantTaskExecutorRule()
+
+    private val testDispatcher = StandardTestDispatcher()
+    private val testScope = TestScope(testDispatcher)
+    private lateinit var db: AppDatabase
+    private lateinit var tabRepo: TabRepositoryImpl
+    private lateinit var tabFolderRepo: TabFolderRepositoryImpl
+    private lateinit var workspaceRepo: WorkspaceRepositoryImpl
+    private lateinit var historyRepo: HistoryRepositoryImpl
+    private lateinit var favoriteRepo: FavoriteRepositoryImpl
+    private lateinit var recentTabRepo: RecentTabRepositoryImpl
+
+    private var uiState = BrowserUiState()
+    private val tabThemeColors = ConcurrentHashMap<String, Int>()
+    private val tabLoadingProgress = ConcurrentHashMap<String, Int>()
+    private val tabMutex = Mutex()
+    private val navigationCommands = mutableListOf<NavigationCommand>()
+
+    private lateinit var coordinator: TabCoordinator
+    private lateinit var webViewPool: com.jestk.browser.engine.WebViewPool
+
+    @Before
+    fun setup() {
+        Dispatchers.setMain(testDispatcher)
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        FaviconManager.init(context)
+        db = AppDatabase.createInMemory(context)
+        tabRepo = TabRepositoryImpl(db.tabDao(), testDispatcher)
+        tabFolderRepo = TabFolderRepositoryImpl(db.tabFolderDao(), testDispatcher)
+        workspaceRepo = WorkspaceRepositoryImpl(db.workspaceDao(), testDispatcher)
+        historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
+        favoriteRepo = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher)
+        recentTabRepo = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher)
+        webViewPool = com.jestk.browser.engine.WebViewPool(context)
+
+        coordinator = TabCoordinator(
+            tabRepository = tabRepo,
+            recentTabRepository = recentTabRepo,
+            favoriteRepository = favoriteRepo,
+            historyRepository = historyRepo,
+            webViewPool = webViewPool,
+            tabOperationMutex = tabMutex,
+            tabThemeColors = tabThemeColors,
+            getCurrentState = { uiState },
+            updateUiState = { transform -> uiState = transform(uiState) },
+            emitNavigation = { navigationCommands.add(it) },
+            scope = testScope,
+            ioDispatcher = testDispatcher,
+            tabLoadingProgress = tabLoadingProgress,
+            tabFolderRepository = tabFolderRepo,
+            workspaceRepository = workspaceRepo,
+        )
+    }
+
+    @After
+    @Throws(IOException::class)
+    fun teardown() {
+        webViewPool.clearAll()
+        FaviconManager.deleteAllFavicons()
+        Dispatchers.resetMain()
+        db.close()
+    }
+
+    @Test
+    fun initialState_hasDefaultWorkspacesAndActivePersonalWorkspace() {
+        assertThat(uiState.workspaces).hasSize(2)
+        assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
+        assertThat(uiState.activeWorkspace?.id).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
+        assertThat(uiState.activeWorkspace?.name).isEqualTo("Personal")
+    }
+
+    @Test
+    fun observeDatabaseFlows_filtersTabsAndFoldersByActiveWorkspaceId() =
+        runTest(testDispatcher) {
+            // Seed DB with personal and work tabs & folders
+            db.tabDao().insertTab(
+                TabEntity(id = "p1", url = "https://personal1.com", title = "P1", position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
+            )
+            db.tabDao().insertTab(
+                TabEntity(id = "p2", url = "https://personal2.com", title = "P2", position = 1, workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+            )
+            db.tabDao().insertTab(
+                TabEntity(id = "w1", url = "https://work1.com", title = "W1", position = 2, workspaceId = Workspace.DEFAULT_WORK_ID)
+            )
+            db.tabDao().insertTab(
+                TabEntity(id = "w2", url = "https://work2.com", title = "W2", position = 3, workspaceId = Workspace.DEFAULT_WORK_ID)
+            )
+
+            db.tabFolderDao().insertFolder(
+                TabFolderEntity(id = "f_personal", title = "Personal Folder", color = 1, position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+            )
+            db.tabFolderDao().insertFolder(
+                TabFolderEntity(id = "f_work", title = "Work Folder", color = 2, position = 1, workspaceId = Workspace.DEFAULT_WORK_ID)
+            )
+
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            // uiState must expose only items belonging to DEFAULT_PERSONAL_ID
+            assertThat(uiState.tabs.map { it.id }).containsExactly("p1", "p2")
+            assertThat(uiState.folders.map { it.id }).containsExactly("f_personal")
+            assertThat(uiState.activeTabId).isEqualTo("p1")
+        }
+
+    @Test
+    fun switchWorkspace_switchesActiveWorkspaceAndExposesTargetTabs() =
+        runTest(testDispatcher) {
+            db.tabDao().insertTab(
+                TabEntity(id = "p1", url = "https://personal1.com", title = "P1", position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
+            )
+            db.tabDao().insertTab(
+                TabEntity(id = "w1", url = "https://work1.com", title = "W1", position = 1, workspaceId = Workspace.DEFAULT_WORK_ID, lastActiveTimestamp = 1000L)
+            )
+            db.tabDao().insertTab(
+                TabEntity(id = "w2", url = "https://work2.com", title = "W2", position = 2, workspaceId = Workspace.DEFAULT_WORK_ID, lastActiveTimestamp = 2000L)
+            )
+            db.tabFolderDao().insertFolder(
+                TabFolderEntity(id = "f_personal", title = "Personal Folder", color = 1, position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+            )
+            db.tabFolderDao().insertFolder(
+                TabFolderEntity(id = "f_work", title = "Work Folder", color = 2, position = 1, workspaceId = Workspace.DEFAULT_WORK_ID)
+            )
+
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            // Switch to work workspace
+            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
+            assertThat(uiState.activeWorkspace?.name).isEqualTo("Work")
+            assertThat(uiState.tabs.map { it.id }).containsExactly("w1", "w2")
+            assertThat(uiState.folders.map { it.id }).containsExactly("f_work")
+            // Tab w2 had higher lastActiveTimestamp (2000 > 1000) so it should be active
+            assertThat(uiState.activeTabId).isEqualTo("w2")
+            assertThat(uiState.activeTab?.url).isEqualTo("https://work2.com")
+        }
+
+    @Test
+    fun switchWorkspace_whenTargetWorkspaceEmpty_createsHomeTab() =
+        runTest(testDispatcher) {
+            db.tabDao().insertTab(
+                TabEntity(id = "p1", url = "https://personal.com", title = "Personal", position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
+            )
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            assertThat(uiState.tabs.map { it.id }).containsExactly("p1")
+
+            // Switch to empty Work workspace
+            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
+            assertThat(uiState.tabs).hasSize(1)
+            val workTab = uiState.tabs.first()
+            assertThat(workTab.workspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
+            assertThat(workTab.title).isEqualTo("Home")
+            assertThat(workTab.url).isEmpty()
+            assertThat(uiState.activeTabId).isEqualTo(workTab.id)
+        }
+
+    @Test
+    fun moveTabToWorkspace_movesTabAndActivatesNextTabInSource() =
+        runTest(testDispatcher) {
+            db.tabDao().insertTab(
+                TabEntity(id = "p1", url = "https://p1.com", title = "Tab 1", position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
+            )
+            db.tabDao().insertTab(
+                TabEntity(id = "p2", url = "https://p2.com", title = "Tab 2", position = 1, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = false)
+            )
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            assertThat(uiState.tabs.map { it.id }).containsExactly("p1", "p2")
+            assertThat(uiState.activeTabId).isEqualTo("p1")
+
+            // Move active tab p1 to Work workspace
+            coordinator.moveTabToWorkspace("p1", Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            // p1 removed from personal workspace UI tabs, p2 becomes active
+            assertThat(uiState.tabs.map { it.id }).containsExactly("p2")
+            assertThat(uiState.activeTabId).isEqualTo("p2")
+
+            // In DB, p1 has workspaceId = DEFAULT_WORK_ID and folderId = null
+            val dbTab1 = tabRepo.getTabById("p1")
+            assertThat(dbTab1).isNotNull()
+            assertThat(dbTab1?.workspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
+            assertThat(dbTab1?.folderId).isNull()
+
+            // Switch to Work workspace and verify p1 is present
+            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.tabs.map { it.id }).containsExactly("p1")
+            assertThat(uiState.activeTabId).isEqualTo("p1")
+        }
+
+    @Test
+    fun moveTabToWorkspace_whenLastTabMoved_createsHomeTabInSource() =
+        runTest(testDispatcher) {
+            db.tabDao().insertTab(
+                TabEntity(id = "only_tab", url = "https://only.com", title = "Only Tab", position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
+            )
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            assertThat(uiState.tabs.map { it.id }).containsExactly("only_tab")
+
+            coordinator.moveTabToWorkspace("only_tab", Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            // Source workspace should now have a fresh Home tab
+            assertThat(uiState.tabs).hasSize(1)
+            val newHomeTab = uiState.tabs.first()
+            assertThat(newHomeTab.id).isNotEqualTo("only_tab")
+            assertThat(newHomeTab.workspaceId).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
+            assertThat(newHomeTab.title).isEqualTo("Home")
+            assertThat(uiState.activeTabId).isEqualTo(newHomeTab.id)
+        }
+
+    @Test
+    fun history_savingAndQueriesAreScopedToWorkspace() =
+        runTest(testDispatcher) {
+            // Record visit in Personal workspace
+            historyRepo.recordVisit("https://personal-site.com", "Personal Site", Workspace.DEFAULT_PERSONAL_ID)
+            // Record visit in Work workspace
+            historyRepo.recordVisit("https://work-portal.com", "Work Portal", Workspace.DEFAULT_WORK_ID)
+
+            // Query personal history
+            val personalHistory = historyRepo.getPagedHistory(limit = 10, offset = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+            assertThat(personalHistory.map { it.url }).containsExactly("https://personal-site.com")
+
+            // Query work history
+            val workHistory = historyRepo.getPagedHistory(limit = 10, offset = 0, workspaceId = Workspace.DEFAULT_WORK_ID)
+            assertThat(workHistory.map { it.url }).containsExactly("https://work-portal.com")
+
+            // Search scoped to personal
+            val searchPersonal = historyRepo.searchHistoryPaged(query = "site", limit = 10, offset = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+            assertThat(searchPersonal.map { it.url }).containsExactly("https://personal-site.com")
+
+            // Search scoped to work
+            val searchWork = historyRepo.searchHistoryPaged(query = "site", limit = 10, offset = 0, workspaceId = Workspace.DEFAULT_WORK_ID)
+            assertThat(searchWork).isEmpty()
+        }
+
+    @Test
+    fun browserViewModel_switchWorkspaceAndMoveTabEvents_coordinateCorrectly() =
+        runTest(testDispatcher) {
+            val viewModel = BrowserViewModel(
+                tabRepository = tabRepo,
+                historyRepository = historyRepo,
+                favoriteRepository = favoriteRepo,
+                settingsRepository = SettingsRepositoryImpl(db.settingDao(), testDispatcher),
+                recentTabRepository = recentTabRepo,
+                tabFolderRepository = tabFolderRepo,
+                workspaceRepository = workspaceRepo,
+                ioDispatcher = testDispatcher,
+            )
+            advanceUntilIdle()
+
+            // After cold boot, personal workspace has 1 home tab
+            val personalHomeTab = viewModel.uiState.value.tabs.first()
+            assertThat(viewModel.uiState.value.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
+            assertThat(personalHomeTab.workspaceId).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
+
+            // Switch to work workspace via ViewModel event
+            viewModel.onEvent(BrowserUiEvent.SwitchWorkspace(Workspace.DEFAULT_WORK_ID))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
+            assertThat(viewModel.uiState.value.tabs).hasSize(1)
+            val workHomeTab = viewModel.uiState.value.tabs.first()
+            assertThat(workHomeTab.workspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
+
+            // Move workHomeTab to Personal workspace
+            viewModel.onEvent(BrowserUiEvent.MoveTabToWorkspace(workHomeTab.id, Workspace.DEFAULT_PERSONAL_ID))
+            advanceUntilIdle()
+
+            // Source workspace (Work) now has a new Home tab because its only tab was moved
+            val newWorkTab = viewModel.uiState.value.tabs.first()
+            assertThat(newWorkTab.id).isNotEqualTo(workHomeTab.id)
+
+            // Switch to Personal workspace and verify workHomeTab was moved there
+            viewModel.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.tabs.map { it.id }).contains(workHomeTab.id)
+        }
+}

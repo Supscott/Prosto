@@ -16,46 +16,56 @@ interface HistoryDao {
         """
         SELECT h.* FROM history AS h
         INNER JOIN (
-            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+            SELECT url, MAX(timestamp) AS max_ts FROM history WHERE workspaceId = :workspaceId GROUP BY url
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
+        WHERE h.workspaceId = :workspaceId
         GROUP BY h.url
         ORDER BY h.timestamp DESC, h.id DESC
     """,
     )
-    fun getAllHistoryFlow(): Flow<List<HistoryEntity>>
+    fun getAllHistoryFlow(workspaceId: String = "default_personal"): Flow<List<HistoryEntity>>
 
     @Query(
         """
         SELECT h.* FROM history AS h
         INNER JOIN (
-            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+            SELECT url, MAX(timestamp) AS max_ts FROM history WHERE workspaceId = :workspaceId GROUP BY url
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
-        GROUP BY h.url
-        ORDER BY h.timestamp DESC, h.id DESC
-        LIMIT :limit
-    """,
-    )
-    fun getRecentHistoryFlow(limit: Int = 20): Flow<List<HistoryEntity>>
-
-    @Query(
-        """
-        SELECT h.* FROM history AS h
-        INNER JOIN (
-            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
-        ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
+        WHERE h.workspaceId = :workspaceId
         GROUP BY h.url
         ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit
     """,
     )
-    suspend fun getRecentHistory(limit: Int = 20): List<HistoryEntity>
+    fun getRecentHistoryFlow(
+        limit: Int = 20,
+        workspaceId: String = "default_personal",
+    ): Flow<List<HistoryEntity>>
 
     @Query(
         """
         SELECT h.* FROM history AS h
         INNER JOIN (
-            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+            SELECT url, MAX(timestamp) AS max_ts FROM history WHERE workspaceId = :workspaceId GROUP BY url
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
+        WHERE h.workspaceId = :workspaceId
+        GROUP BY h.url
+        ORDER BY h.timestamp DESC, h.id DESC
+        LIMIT :limit
+    """,
+    )
+    suspend fun getRecentHistory(
+        limit: Int = 20,
+        workspaceId: String = "default_personal",
+    ): List<HistoryEntity>
+
+    @Query(
+        """
+        SELECT h.* FROM history AS h
+        INNER JOIN (
+            SELECT url, MAX(timestamp) AS max_ts FROM history WHERE workspaceId = :workspaceId GROUP BY url
+        ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
+        WHERE h.workspaceId = :workspaceId
         GROUP BY h.url
         ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit OFFSET :offset
@@ -64,15 +74,16 @@ interface HistoryDao {
     suspend fun getPagedHistory(
         limit: Int = 20,
         offset: Int = 0,
+        workspaceId: String = "default_personal",
     ): List<HistoryEntity>
 
     @Query(
         """
         SELECT h.* FROM history AS h
         INNER JOIN (
-            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+            SELECT url, MAX(timestamp) AS max_ts FROM history WHERE workspaceId = :workspaceId GROUP BY url
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
-        WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
+        WHERE h.workspaceId = :workspaceId AND (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
         GROUP BY h.url
         ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit
@@ -81,15 +92,16 @@ interface HistoryDao {
     fun searchHistoryFlow(
         query: String,
         limit: Int = 15,
+        workspaceId: String = "default_personal",
     ): Flow<List<HistoryEntity>>
 
     @Query(
         """
         SELECT h.* FROM history AS h
         INNER JOIN (
-            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+            SELECT url, MAX(timestamp) AS max_ts FROM history WHERE workspaceId = :workspaceId GROUP BY url
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
-        WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
+        WHERE h.workspaceId = :workspaceId AND (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
         GROUP BY h.url
         ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit
@@ -98,15 +110,16 @@ interface HistoryDao {
     suspend fun searchHistory(
         query: String,
         limit: Int = 15,
+        workspaceId: String = "default_personal",
     ): List<HistoryEntity>
 
     @Query(
         """
         SELECT h.* FROM history AS h
         INNER JOIN (
-            SELECT url, MAX(timestamp) AS max_ts FROM history GROUP BY url
+            SELECT url, MAX(timestamp) AS max_ts FROM history WHERE workspaceId = :workspaceId GROUP BY url
         ) AS latest ON h.url = latest.url AND h.timestamp = latest.max_ts
-        WHERE (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
+        WHERE h.workspaceId = :workspaceId AND (h.title LIKE '%' || :query || '%' OR h.url LIKE '%' || :query || '%')
         GROUP BY h.url
         ORDER BY h.timestamp DESC, h.id DESC
         LIMIT :limit OFFSET :offset
@@ -116,13 +129,14 @@ interface HistoryDao {
         query: String,
         limit: Int = 20,
         offset: Int = 0,
+        workspaceId: String = "default_personal",
     ): List<HistoryEntity>
 
-    @Query("SELECT * FROM history WHERE url = :url ORDER BY timestamp DESC, id DESC LIMIT 1")
-    suspend fun getRecentByUrl(url: String): HistoryEntity?
+    @Query("SELECT * FROM history WHERE url = :url AND workspaceId = :workspaceId ORDER BY timestamp DESC, id DESC LIMIT 1")
+    suspend fun getRecentByUrl(url: String, workspaceId: String = "default_personal"): HistoryEntity?
 
-    @Query("SELECT COUNT(*) FROM history")
-    suspend fun getHistoryCount(): Int
+    @Query("SELECT COUNT(*) FROM history WHERE workspaceId = :workspaceId")
+    suspend fun getHistoryCount(workspaceId: String = "default_personal"): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertHistory(item: HistoryEntity): Long
@@ -138,9 +152,10 @@ interface HistoryDao {
     suspend fun recordVisit(
         url: String,
         title: String,
+        workspaceId: String = "default_personal",
     ) {
         if (url.isBlank() || url.startsWith("about:")) return
-        val existing = getRecentByUrl(url)
+        val existing = getRecentByUrl(url, workspaceId)
         val now = System.currentTimeMillis()
         val effectiveTitle = if (title.isNotBlank()) title else url
         if (existing != null) {
@@ -152,6 +167,7 @@ interface HistoryDao {
                     title = effectiveTitle,
                     timestamp = now,
                     visitCount = 1,
+                    workspaceId = workspaceId,
                 ),
             )
         }
@@ -165,6 +181,9 @@ interface HistoryDao {
 
     @Query("DELETE FROM history WHERE timestamp < :cutoffTimestamp")
     suspend fun deleteHistoryBefore(cutoffTimestamp: Long)
+
+    @Query("DELETE FROM history WHERE workspaceId = :workspaceId")
+    suspend fun clearHistoryByWorkspace(workspaceId: String = "default_personal")
 
     @Query("DELETE FROM history")
     suspend fun clearAllHistory()

@@ -16,34 +16,34 @@ class HistoryRepositoryImpl(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : HistoryRepository {
 
-    override fun getAllHistory(): Flow<List<HistoryItem>> =
-        historyDao.getAllHistoryFlow()
+    override fun getAllHistory(workspaceId: String): Flow<List<HistoryItem>> =
+        historyDao.getAllHistoryFlow(workspaceId)
             .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
-    override fun getRecentHistory(limit: Int): Flow<List<HistoryItem>> =
-        historyDao.getRecentHistoryFlow(limit)
+    override fun getRecentHistory(limit: Int, workspaceId: String): Flow<List<HistoryItem>> =
+        historyDao.getRecentHistoryFlow(limit, workspaceId)
             .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
-    override fun searchHistory(query: String): Flow<List<HistoryItem>> =
-        historyDao.searchHistoryFlow(query)
+    override fun searchHistory(query: String, workspaceId: String): Flow<List<HistoryItem>> =
+        historyDao.searchHistoryFlow(query, workspaceId = workspaceId)
             .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
-    override suspend fun getPagedHistory(limit: Int, offset: Int): List<HistoryItem> =
+    override suspend fun getPagedHistory(limit: Int, offset: Int, workspaceId: String): List<HistoryItem> =
         withContext(ioDispatcher) {
-            historyDao.getPagedHistory(limit, offset).map { it.toDomain() }
+            historyDao.getPagedHistory(limit, offset, workspaceId).map { it.toDomain() }
         }
 
-    override suspend fun searchHistoryPaged(query: String, limit: Int, offset: Int): List<HistoryItem> =
+    override suspend fun searchHistoryPaged(query: String, limit: Int, offset: Int, workspaceId: String): List<HistoryItem> =
         withContext(ioDispatcher) {
-            historyDao.searchHistoryPaged(query, limit, offset).map { it.toDomain() }
+            historyDao.searchHistoryPaged(query, limit, offset, workspaceId).map { it.toDomain() }
         }
 
-    override suspend fun recordVisit(url: String, title: String) = withContext(ioDispatcher) {
+    override suspend fun recordVisit(url: String, title: String, workspaceId: String) = withContext(ioDispatcher) {
         if (url.isNotBlank() && !url.startsWith("about:")) {
-            historyDao.recordVisit(url, title)
+            historyDao.recordVisit(url, title, workspaceId)
         }
     }
 
@@ -53,7 +53,11 @@ class HistoryRepositoryImpl(
 
     override suspend fun deleteHistoryItem(id: Long) = deleteHistory(id)
 
-    override suspend fun clearHistory() = withContext(ioDispatcher) {
-        historyDao.clearAllHistory()
+    override suspend fun clearHistory(workspaceId: String?) = withContext(ioDispatcher) {
+        if (workspaceId != null) {
+            historyDao.clearHistoryByWorkspace(workspaceId)
+        } else {
+            historyDao.clearAllHistory()
+        }
     }
 }
