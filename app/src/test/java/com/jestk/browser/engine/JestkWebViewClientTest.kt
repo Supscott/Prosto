@@ -913,5 +913,4 @@ class JestkWebViewClientTest {
         clientDisabled.onPageFinished(webView, "https://example.com")
         assertThat(evaluatedScripts.any { it.contains("data-hori-consent-handled") }).isFalse()
     }
-    }
 }
