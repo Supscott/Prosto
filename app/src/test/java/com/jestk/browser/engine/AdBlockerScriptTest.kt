@@ -143,10 +143,8 @@ class AdBlockerScriptTest {
         // Recursive array pruning in pruneAdProps
         assertThat(js).contains("Array.isArray(obj)")
 
-        // Player watchdog and responsive interval
-        assertThat(js).contains("movie_player")
-        assertThat(js).contains("getPlayerState")
-        assertThat(js).contains("setInterval(checkWatchPlayback, 300)")
+        // Zero intrusive watchdog or periodic polling
+        assertThat(js).doesNotContain("setInterval(checkWatchPlayback")
     }
 
     @Test
