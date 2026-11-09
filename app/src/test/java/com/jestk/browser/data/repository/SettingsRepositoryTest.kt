@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.data.local.AppDatabase
+import com.jestk.browser.data.local.entity.SettingEntity
+import com.jestk.browser.data.local.entity.SettingKeys
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.domain.repository.SettingsRepository
@@ -74,6 +76,15 @@ class SettingsRepositoryTest {
         }
 
     @Test
+    fun setAdRedirectProtectionEnabled_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setAdRedirectProtectionEnabled(false)
+
+            val settings = repository.getSettings().first()
+            assertThat(settings.isAdRedirectProtectionEnabled).isFalse()
+        }
+
+    @Test
     fun setCleanYouTubePlayerEnabled_persistsAndEmits() =
         runTest(testDispatcher) {
             repository.setCleanYouTubePlayerEnabled(false)
@@ -81,6 +92,32 @@ class SettingsRepositoryTest {
             val settings = repository.getSettings().first()
             assertThat(settings.isCleanYouTubePlayerEnabled).isFalse()
             assertThat(repository.getCurrentSettings().isCleanYouTubePlayerEnabled).isFalse()
+        }
+
+    @Test
+    fun cleanPlayerDefaultsToDisabled() =
+        runTest(testDispatcher) {
+            assertThat(repository.getCurrentSettings().isCleanYouTubePlayerEnabled).isFalse()
+        }
+
+    @Test
+    fun forcedMigration_resetsTrueOnce() =
+        runTest(testDispatcher) {
+            db.settingDao().setSetting(SettingEntity(SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED, "true"))
+
+            val migrated = repository.getCurrentSettings()
+            assertThat(migrated.isCleanYouTubePlayerEnabled).isFalse()
+            assertThat(db.settingDao().getSetting(SettingKeys.CLEAN_PLAYER_FORCED_OFF_V1)).isEqualTo("1")
+        }
+
+    @Test
+    fun forcedMigration_doesNotRevertUserOptIn() =
+        runTest(testDispatcher) {
+            repository.getCurrentSettings()
+            repository.setCleanYouTubePlayerEnabled(true)
+
+            val reEnabled = repository.getCurrentSettings()
+            assertThat(reEnabled.isCleanYouTubePlayerEnabled).isTrue()
         }
 
     @Test

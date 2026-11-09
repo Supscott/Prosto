@@ -7,6 +7,7 @@ import android.os.Looper
 import android.widget.FrameLayout
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import com.jestk.browser.R
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -355,7 +356,6 @@ class WebViewPoolRobolectricTest {
         assertThat(webView.settings.userAgentString).doesNotContain("; wv")
         assertThat(webView.settings.userAgentString).doesNotContain("Version/4.0")
         assertThat(webView.settings.domStorageEnabled).isTrue()
-        assertThat(webView.settings.databaseEnabled).isTrue()
         assertThat(webView.settings.javaScriptCanOpenWindowsAutomatically).isTrue()
     }
 
@@ -394,5 +394,13 @@ class WebViewPoolRobolectricTest {
         val result = bridge.openCleanPlayer("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
         assertThat(result).isTrue()
         assertThat(requestedUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
+    }
+
+    @Test
+    fun getOrCreateWebView_configuresMixedContentCompatibilityMode() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val webView = webViewPool.getOrCreateWebView("tab-compat", activity)
+        assertThat(webView.settings.mixedContentMode)
+            .isEqualTo(android.webkit.WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE)
     }
 }

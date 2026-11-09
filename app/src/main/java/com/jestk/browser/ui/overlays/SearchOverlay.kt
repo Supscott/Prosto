@@ -439,6 +439,14 @@ fun SearchOverlay(
                     },
                     carouselState = carouselState,
                     density = density,
+                    onSwipeDown = {
+                        if (isDropdownOpen) {
+                            isDropdownOpen = false
+                        } else {
+                            keyboardController?.hide()
+                            onEvent(BrowserUiEvent.DismissOverlay)
+                        }
+                    },
                     modifier = Modifier.weight(1f),
                 )
 

@@ -1,5 +1,6 @@
 package com.jestk.browser.util
 
+import com.jestk.browser.R
 import java.io.File
 
 /**
@@ -13,7 +14,7 @@ fun File.atomicMoveTo(targetFile: File): Boolean {
         copyTo(targetFile, overwrite = true)
         delete()
         true
-    } catch (_: Throwable) {
+    } catch (_: Exception) {
         false
     }
 }

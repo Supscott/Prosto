@@ -72,6 +72,8 @@
     <string name="search_providers_summary">Choose engines shown on search results</string>
     <string name="ad_blocker_title">Ad Blocker</string>
     <string name="ad_blocker_summary">Eliminates banners and popups</string>
+    <string name="ad_redirect_protection_title">Block ad redirects &amp; popups</string>
+    <string name="ad_redirect_protection_summary">Prevent unwanted popups and redirects to foreign websites</string>
     <string name="tracking_protection_title">Tracking Protection</string>
     <string name="tracking_protection_summary">Prevents cross-site tracking</string>
     <string name="clean_player_title">Clean Player</string>
@@ -81,7 +83,9 @@
     <string name="clean_player_restricted_title">Playback Restricted</string>
     <string name="clean_player_restricted_summary">The owner has disabled playback on other websites. Open on YouTube to watch.</string>
     <string name="clean_player_setting_title">Clean YouTube Player</string>
-    <string name="clean_player_setting_summary">Watch YouTube videos in a distraction-free player without ads or buffering</string>
+    <string name="clean_player_setting_summary">Automatically open YouTube videos in a clean player</string>
+    <string name="clean_player_fab_label">Clean player</string>
+    <string name="clean_player_fab_content_desc">Open in clean player</string>
     <string name="privacy_status_protected">Protected</string>
     <string name="about_app_website_title">Prosto Web Browser</string>
     <string name="about_app_website_summary">Fast, fluid, and gesture-driven</string>
@@ -108,6 +112,12 @@
     <string name="insecure_site_warning_message">The connection to %1$s is not encrypted. Passwords, messages, or payment info could be intercepted.</string>
     <string name="insecure_site_continue_button">Continue anyway</string>
     <string name="insecure_site_go_back_button">Go back</string>
+    <string name="blocked_ad_navigation_title">Blocked ad navigation</string>
+    <string name="blocked_ad_navigation_message">We blocked a navigation to %1$s that looks like an advertisement. Stay on the current page or continue anyway.</string>
+    <string name="blocked_ad_navigation_continue_button">Continue anyway</string>
+    <string name="blocked_ad_navigation_stay_button">Stay here</string>
+    <string name="blocked_ad_navigation_proceed">Proceed</string>
+    <string name="blocked_ad_navigation_stay">Stay</string>
 
     <!-- Feedback & Community Rating -->
     <string name="feedback_card_title">Enjoying Prosto?</string>
@@ -141,6 +151,69 @@
     <string name="tab_context_remove_from_folder">Remove from folder</string>
     <string name="folder_collapse">Collapse folder</string>
     <string name="folder_expand">Expand folder</string>
-    <string name="folder_tabs_count">%d tabs</string>
+    <plurals name="folder_tabs_count">
+        <item quantity="one">%d tab</item>
+        <item quantity="other">%d tabs</item>
+    </plurals>
     <string name="folder_edit_action">Edit folder</string>
+    <!-- Localization completeness pass -->
+    <string name="action_done">Done</string>
+    <string name="action_back">Back</string>
+    <string name="action_close">Close</string>
+    <string name="action_more">More</string>
+    <string name="action_new_tab">New Tab</string>
+    <string name="tab_home_title">Home</string>
+    <string name="tab_loading_title">Loading…</string>
+    <string name="a11y_remove_tab">Remove Tab</string>
+    <string name="a11y_close_tab">Close tab</string>
+    <string name="a11y_secure_connection">Secure Connection</string>
+    <string name="a11y_selected">Selected</string>
+    <string name="a11y_reorder">Reorder</string>
+    <string name="a11y_edit_provider">Edit Provider</string>
+    <string name="a11y_delete_provider">Delete Provider</string>
+    <string name="a11y_edit_search_engines">Edit Search Engines</string>
+    <string name="a11y_edit_search_providers">Edit Search Providers</string>
+    <string name="search_providers_short">Search Providers</string>
+    <string name="a11y_voice_search">Voice Search</string>
+    <string name="a11y_voice_input">Voice Input</string>
+    <string name="a11y_scan_qr">Scan QR</string>
+    <string name="a11y_add_favorite">Add Favorite</string>
+    <string name="a11y_feedback_icon">Feedback icon</string>
+    <string name="a11y_download">Download</string>
+    <string name="a11y_pause_download">Pause download</string>
+    <string name="a11y_resume_download">Resume download</string>
+    <string name="a11y_cancel_download">Cancel download</string>
+    <string name="a11y_retry_download">Retry download</string>
+    <string name="a11y_delete_download">Delete download</string>
+    <string name="a11y_close_mini_player">Close Mini Player</string>
+    <string name="a11y_search_engine_selector">Search engine selector</string>
+    <string name="a11y_insert_in_search">Insert in search</string>
+    <string name="home_greeting">Where to next?</string>
+    <string name="home_search_hint">Search with %1$s or enter URL</string>
+    <string name="home_bookmark_tab">Bookmark Tab</string>
+    <string name="home_recently_closed">Recently Closed</string>
+    <string name="home_recent_total">Total %1$d</string>
+    <string name="home_protection_active">Protection Active</string>
+    <string name="downloads_title">Downloads</string>
+    <string name="downloads_empty_title">No downloads yet</string>
+    <string name="downloads_empty_summary">Files downloaded from websites will appear here</string>
+    <string name="downloads_speed">%1$s/s</string>
+    <string name="downloads_paused">Paused · %1$s</string>
+    <string name="downloads_failed">Download failed</string>
+    <plurals name="downloads_count">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
+    <string name="tabs_overview_title">Tabs Overview</string>
+    <string name="tabs_overview_filter_hint">Filter tabs by title or URL…</string>
+    <string name="tabs_overview_close_all">Close All</string>
+    <string name="tabs_overview_search">Search in tabs</string>
+    <string name="search_history_empty">Recent queries will appear here</string>
+    <string name="folder_overflow_count">+%1$d</string>
+    <string name="dock_swipe_up_hint">Swipe up to search</string>
+    <string name="dock_menu">Menu</string>
+    <string name="search_engine_shortcut_compact">(%1$s)</string>
+    <string name="search_engine_shortcut_value">Shortcut: %1$s</string>
+    <string name="snackbar_tab_closed_title">%1$s: %2$s</string>
+    <string name="switch_to_tab_with_title">%1$s: %2$s</string>
 </resources>

@@ -6,6 +6,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import com.jestk.browser.R
 import com.jestk.browser.data.local.entity.HistoryEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -117,7 +118,7 @@ interface HistoryDao {
         offset: Int = 0,
     ): List<HistoryEntity>
 
-    @Query("SELECT * FROM history WHERE url = :url ORDER BY timestamp DESC LIMIT 1")
+    @Query("SELECT * FROM history WHERE url = :url ORDER BY timestamp DESC, id DESC LIMIT 1")
     suspend fun getRecentByUrl(url: String): HistoryEntity?
 
     @Query("SELECT COUNT(*) FROM history")

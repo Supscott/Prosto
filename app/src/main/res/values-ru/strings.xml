@@ -72,6 +72,8 @@
     <string name="search_providers_summary">Выбор поисковиков на странице результатов</string>
     <string name="ad_blocker_title">Блокировка рекламы</string>
     <string name="ad_blocker_summary">Блокирует баннеры и всплывающие окна</string>
+    <string name="ad_redirect_protection_title">Блокировать рекламные переходы и всплывающие окна</string>
+    <string name="ad_redirect_protection_summary">Предотвращать нежелательные переходы и всплывающие окна на сторонние сайты</string>
     <string name="tracking_protection_title">Защита от отслеживания</string>
     <string name="tracking_protection_summary">Предотвращает межсайтовое отслеживание</string>
     <string name="clean_player_title">Чистый плеер</string>
@@ -81,7 +83,9 @@
     <string name="clean_player_restricted_title">Воспроизведение ограничено</string>
     <string name="clean_player_restricted_summary">Автор запретил просмотр этого видео на сторонних сайтах. Откройте его на YouTube.</string>
     <string name="clean_player_setting_title">Чистый плеер YouTube</string>
-    <string name="clean_player_setting_summary">Воспроизводить видео YouTube в чистом плеере без рекламы и ожидания</string>
+    <string name="clean_player_setting_summary">Автоматически открывать видео YouTube в чистом плеере</string>
+    <string name="clean_player_fab_label">Чистый плеер</string>
+    <string name="clean_player_fab_content_desc">Открыть в чистом плеере</string>
     <string name="privacy_status_protected">Защищено</string>
     <string name="about_app_website_title">Браузер Prosto</string>
     <string name="about_app_website_summary">Быстрый, плавный и управляемый жестами</string>
@@ -108,6 +112,12 @@
     <string name="insecure_site_warning_message">Подключение к сайту %1$s не зашифровано. Пароли, сообщения и платёжные данные могут быть перехвачены.</string>
     <string name="insecure_site_continue_button">Всё равно перейти</string>
     <string name="insecure_site_go_back_button">Назад</string>
+    <string name="blocked_ad_navigation_title">Рекламный переход заблокирован</string>
+    <string name="blocked_ad_navigation_message">Мы заблокировали переход на %1$s, который выглядит как реклама. Оставайтесь на текущей странице или перейдите всё равно.</string>
+    <string name="blocked_ad_navigation_continue_button">Всё равно перейти</string>
+    <string name="blocked_ad_navigation_stay_button">Остаться здесь</string>
+    <string name="blocked_ad_navigation_proceed">Перейти</string>
+    <string name="blocked_ad_navigation_stay">Остаться</string>
 
     <!-- Feedback & Community Rating -->
     <string name="feedback_card_title">Поделитесь впечатлениями</string>
@@ -141,6 +151,73 @@
     <string name="tab_context_remove_from_folder">Удалить из папки</string>
     <string name="folder_collapse">Свернуть папку</string>
     <string name="folder_expand">Развернуть папку</string>
-    <string name="folder_tabs_count">%d вкладок</string>
+    <plurals name="folder_tabs_count">
+        <item quantity="one">%d вкладка</item>
+        <item quantity="few">%d вкладки</item>
+        <item quantity="many">%d вкладок</item>
+        <item quantity="other">%d вкладки</item>
+    </plurals>
     <string name="folder_edit_action">Редактировать папку</string>
+    <!-- Localization completeness pass -->
+    <string name="action_done">Готово</string>
+    <string name="action_back">Назад</string>
+    <string name="action_close">Закрыть</string>
+    <string name="action_more">Ещё</string>
+    <string name="action_new_tab">Новая вкладка</string>
+    <string name="tab_home_title">Главная</string>
+    <string name="tab_loading_title">Загрузка…</string>
+    <string name="a11y_remove_tab">Закрыть вкладку</string>
+    <string name="a11y_close_tab">Закрыть вкладку</string>
+    <string name="a11y_secure_connection">Защищённое соединение</string>
+    <string name="a11y_selected">Выбрано</string>
+    <string name="a11y_reorder">Переместить</string>
+    <string name="a11y_edit_provider">Изменить источник</string>
+    <string name="a11y_delete_provider">Удалить источник</string>
+    <string name="a11y_edit_search_engines">Изменить поисковые системы</string>
+    <string name="a11y_edit_search_providers">Изменить поисковые системы</string>
+    <string name="search_providers_short">Поисковые системы</string>
+    <string name="a11y_voice_search">Голосовой поиск</string>
+    <string name="a11y_voice_input">Голосовой ввод</string>
+    <string name="a11y_scan_qr">Сканировать QR</string>
+    <string name="a11y_add_favorite">Добавить в избранное</string>
+    <string name="a11y_feedback_icon">Значок обратной связи</string>
+    <string name="a11y_download">Скачать</string>
+    <string name="a11y_pause_download">Приостановить загрузку</string>
+    <string name="a11y_resume_download">Продолжить загрузку</string>
+    <string name="a11y_cancel_download">Отменить загрузку</string>
+    <string name="a11y_retry_download">Повторить загрузку</string>
+    <string name="a11y_delete_download">Удалить загрузку</string>
+    <string name="a11y_close_mini_player">Закрыть мини-плеер</string>
+    <string name="a11y_search_engine_selector">Выбор поисковой системы</string>
+    <string name="a11y_insert_in_search">Вставить в поиск</string>
+    <string name="home_greeting">Куда дальше?</string>
+    <string name="home_search_hint">Ищите в %1$s или введите URL</string>
+    <string name="home_bookmark_tab">В закладки</string>
+    <string name="home_recently_closed">Недавно закрытые</string>
+    <string name="home_recent_total">Всего %1$d</string>
+    <string name="home_protection_active">Защита активна</string>
+    <string name="downloads_title">Загрузки</string>
+    <string name="downloads_empty_title">Пока нет загрузок</string>
+    <string name="downloads_empty_summary">Файлы, скачанные с сайтов, появятся здесь</string>
+    <string name="downloads_speed">%1$s/с</string>
+    <string name="downloads_paused">Приостановлено · %1$s</string>
+    <string name="downloads_failed">Не удалось скачать</string>
+    <plurals name="downloads_count">
+        <item quantity="one">%d файл</item>
+        <item quantity="few">%d файла</item>
+        <item quantity="many">%d файлов</item>
+        <item quantity="other">%d файла</item>
+    </plurals>
+    <string name="tabs_overview_title">Обзор вкладок</string>
+    <string name="tabs_overview_filter_hint">Фильтр по заголовку или URL…</string>
+    <string name="tabs_overview_close_all">Закрыть все</string>
+    <string name="tabs_overview_search">Поиск по вкладкам</string>
+    <string name="search_history_empty">Здесь появятся недавние запросы</string>
+    <string name="folder_overflow_count">+%1$d</string>
+    <string name="dock_swipe_up_hint">Смахните вверх для поиска</string>
+    <string name="dock_menu">Меню</string>
+    <string name="search_engine_shortcut_compact">(%1$s)</string>
+    <string name="search_engine_shortcut_value">Быстрый вызов: %1$s</string>
+    <string name="snackbar_tab_closed_title">%1$s: %2$s</string>
+    <string name="switch_to_tab_with_title">%1$s: %2$s</string>
 </resources>

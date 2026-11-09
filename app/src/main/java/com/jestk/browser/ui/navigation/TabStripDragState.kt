@@ -73,7 +73,7 @@ internal fun computeAutoScrollDelta(
  * State controller managing drag & drop tab reordering and tactile spring release physics
  * in [TabStripRow].
  *
- * Provides smooth dragging, immediate slot swapping with vibration feedback,
+ * Provides smooth dragging, immediate slot swapping with a scale bump,
  * and spring-driven release settlement back to translation 0f and scale 1.0f.
  */
 internal const val SPRING_LOAD_HOVER_TIMEOUT_MS = 650L
@@ -431,7 +431,6 @@ internal class TabStripDragState(
         tabId: String,
         deltaX: Float,
         metrics: TabStripLayoutMetrics,
-        onSwapVibration: () -> Unit = {}
     ) {
         if (!isDragging || draggingTabId != tabId) return
         dragOffsetPx += deltaX
@@ -470,7 +469,7 @@ internal class TabStripDragState(
                     dragOffsetPx = visualStart - getSlotStart(tabId, mutable, metrics)
                     lastSwapDirection = SwapDirection.RIGHT
                     lastSwapReverseTargetKey = rightSlot.key
-                    triggerSwapFeedback(onSwapVibration)
+                    triggerSwapBump()
                     return
                 }
             }
@@ -492,7 +491,7 @@ internal class TabStripDragState(
                     dragOffsetPx = visualStart - getSlotStart(tabId, mutable, metrics)
                     lastSwapDirection = SwapDirection.LEFT
                     lastSwapReverseTargetKey = leftSlot.key
-                    triggerSwapFeedback(onSwapVibration)
+                    triggerSwapBump()
                     return
                 }
             }
@@ -566,7 +565,7 @@ internal class TabStripDragState(
                 dragOffsetPx = visualStart - getSlotStart(tabId, mutable, metrics)
                 lastSwapDirection = SwapDirection.RIGHT
                 lastSwapReverseTargetKey = rightSlot.key
-                triggerSwapFeedback(onSwapVibration)
+                triggerSwapBump()
                 return
             }
         }
@@ -602,14 +601,13 @@ internal class TabStripDragState(
                 dragOffsetPx = visualStart - getSlotStart(tabId, mutable, metrics)
                 lastSwapDirection = SwapDirection.LEFT
                 lastSwapReverseTargetKey = leftSlot.key
-                triggerSwapFeedback(onSwapVibration)
+                triggerSwapBump()
                 return
             }
         }
     }
 
-    private fun triggerSwapFeedback(onSwapVibration: () -> Unit) {
-        onSwapVibration()
+    private fun triggerSwapBump() {
         swapBumpJob?.cancel()
         swapBumpJob = coroutineScope.launch {
             swapScaleBump.snapTo(0.06f)
@@ -632,7 +630,6 @@ internal class TabStripDragState(
         spacingPx: Float,
         activeTabId: String? = null,
         hysteresisPx: Float = 10f,
-        onSwapVibration: () -> Unit = {}
     ) {
         onDrag(
             tabId = tabId,
@@ -644,7 +641,6 @@ internal class TabStripDragState(
                 activeTabId = activeTabId,
                 hysteresisPx = hysteresisPx
             ),
-            onSwapVibration = onSwapVibration
         )
     }
 
@@ -652,7 +648,6 @@ internal class TabStripDragState(
         tabId: String,
         deltaX: Float,
         swapThreshold: Float,
-        onSwapVibration: () -> Unit = {}
     ) {
         onDrag(
             tabId = tabId,
@@ -662,7 +657,6 @@ internal class TabStripDragState(
             spacingPx = 0f,
             activeTabId = null,
             hysteresisPx = 0f,
-            onSwapVibration = onSwapVibration
         )
     }
 

@@ -61,6 +61,7 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +69,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkError
@@ -230,7 +232,7 @@ fun ActiveTabPill(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Home,
-                            contentDescription = "Home",
+                            contentDescription = stringResource(R.string.tab_home_title),
                             tint = iconTint,
                             modifier = Modifier.size(17.dp),
                         )
@@ -256,7 +258,7 @@ fun ActiveTabPill(
                             } else {
                                 Icon(
                                     imageVector = Icons.Default.Lock,
-                                    contentDescription = "Secure Connection",
+                                    contentDescription = stringResource(R.string.a11y_secure_connection),
                                     tint = iconTint,
                                     modifier = Modifier.size(15.dp),
                                 )
@@ -315,7 +317,7 @@ fun ActiveTabPill(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = "Close tab",
+                        contentDescription = stringResource(R.string.a11y_close_tab),
                         tint = closeTint,
                         modifier = Modifier.size(13.dp),
                     )
@@ -338,7 +340,7 @@ fun ActiveTabPill(
                     if (crossAlpha > 0f) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Remove Tab",
+                            contentDescription = stringResource(R.string.a11y_remove_tab),
                             tint = closeTint,
                             modifier = Modifier
                                 .size(16.dp)
@@ -353,7 +355,7 @@ fun ActiveTabPill(
                             if (isHome) {
                                 Icon(
                                     imageVector = Icons.Default.Home,
-                                    contentDescription = "Home",
+                                    contentDescription = stringResource(R.string.tab_home_title),
                                     tint = iconTint,
                                     modifier = Modifier.size(18.dp),
                                 )

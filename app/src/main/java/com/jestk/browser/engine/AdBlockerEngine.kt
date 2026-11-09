@@ -164,7 +164,7 @@ object AdBlockerEngine {
             val buffer = ArrayList<String>(1000)
             lines.forEach { line ->
                 val trimmed = line.trim()
-                if (trimmed.isNotEmpty()) {
+                if (trimmed.isNotEmpty() && !trimmed.startsWith("#") && !trimmed.startsWith("!")) {
                     buffer.add(trimmed)
                     if (buffer.size >= 1000) {
                         blockedHosts.addAll(buffer)
@@ -247,6 +247,24 @@ object AdBlockerEngine {
 
         val afterCaretStart = caretIndex + 1
         if (afterCaretStart < end && line[afterCaretStart] != '$') return null
+
+        if (afterCaretStart < end) {
+            val options = line.substring(afterCaretStart + 1)
+            if (options.contains("badfilter") || options.contains("app=")) {
+                return null
+            }
+            if (options.contains("domain=")) {
+                val domainOpt = options.split(",").find { it.startsWith("domain=") }
+                if (domainOpt != null) {
+                    val targets = domainOpt.removePrefix("domain=").split("|")
+                    // If any domain target is positive (does not start with '~'), this rule is
+                    // scoped only to specific sites and must not be treated as a global domain block rule.
+                    if (targets.any { !it.startsWith("~") }) {
+                        return null
+                    }
+                }
+            }
+        }
 
         var domainStart = start + 2
         var domainEnd = caretIndex
@@ -676,6 +694,31 @@ object AdBlockerEngine {
         if (isBeaconOrAnalytics) {
             return WebResourceResponse(
                 "text/plain",
+                "UTF-8",
+                204,
+                "No Content",
+                corsHeaders,
+                ByteArrayInputStream(ByteArray(0)),
+            )
+        }
+
+        val isMedia =
+            mimeTypeHint?.startsWith("video/") == true ||
+                mimeTypeHint?.startsWith("audio/") == true ||
+                acceptHeader.contains("video/") ||
+                acceptHeader.contains("audio/") ||
+                cleanUrl.endsWith(".mp4") || cleanUrl.endsWith(".webm") ||
+                cleanUrl.endsWith(".m3u8") || cleanUrl.endsWith(".ts") ||
+                cleanUrl.endsWith(".mp3") || cleanUrl.endsWith(".ogg") ||
+                cleanUrl.endsWith(".m4a") || cleanUrl.endsWith(".m4v") ||
+                cleanUrl.contains(".mp4?") || cleanUrl.contains(".m3u8?") ||
+                cleanUrl.contains(".webm?")
+
+        if (isMedia) {
+            val isAudio = mimeTypeHint?.startsWith("audio/") == true ||
+                cleanUrl.endsWith(".mp3") || cleanUrl.endsWith(".ogg") || cleanUrl.endsWith(".m4a")
+            return WebResourceResponse(
+                if (isAudio) "audio/mpeg" else "video/mp4",
                 "UTF-8",
                 204,
                 "No Content",

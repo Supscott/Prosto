@@ -117,6 +117,61 @@ def check_no_continuous_effect_keys():
     return errors
 
 
+def _resource_keys(path):
+    content = path.read_text(encoding="utf-8")
+    strings = set(re.findall(r'<string name="([^"]+)"', content))
+    plurals = set(re.findall(r'<plurals name="([^"]+)"', content))
+    return strings, plurals
+
+
+def check_localization_parity():
+    """Verify every user-facing string exists in both locales.
+
+    The Russian and English bundles drifted silently while 79 literals bypassed resources
+    entirely; a key that exists in one locale only renders as the default language.
+    """
+    values_en = MAIN_DIR / "res" / "values" / "strings.xml"
+    values_ru = MAIN_DIR / "res" / "values-ru" / "strings.xml"
+    if not values_en.exists() or not values_ru.exists():
+        return ["string resource bundles not found"]
+
+    en_strings, en_plurals = _resource_keys(values_en)
+    ru_strings, ru_plurals = _resource_keys(values_ru)
+    errors = []
+    for key in sorted(en_strings - ru_strings):
+        errors.append(f"values/strings.xml: string '{key}' is missing from values-ru")
+    for key in sorted(ru_strings - en_strings):
+        errors.append(f"values-ru/strings.xml: string '{key}' has no English counterpart")
+    for key in sorted(en_plurals - ru_plurals):
+        errors.append(f"values/strings.xml: plurals '{key}' are missing from values-ru")
+    for key in sorted(ru_plurals - en_plurals):
+        errors.append(f"values-ru/strings.xml: plurals '{key}' have no English counterpart")
+    return errors
+
+
+def check_no_hardcoded_ui_strings():
+    """Verify user-facing text and accessibility labels come from localized resources.
+
+    A literal cannot be translated, so every one of them is a mixed-language screen for
+    non-English users. Glyph-only separators are not language and are allowed.
+    """
+    errors = []
+    pattern = re.compile(r'\b(text|contentDescription)\s*=\s*"([^"]*)"')
+    allowed = {"", "·"}
+    for file in (MAIN_DIR / "java").rglob("*.kt"):
+        content = file.read_text(encoding="utf-8")
+        for lineno, line in enumerate(content.splitlines(), 1):
+            if line.lstrip().startswith("//"):
+                continue
+            for match in pattern.finditer(line):
+                if match.group(2) not in allowed:
+                    errors.append(
+                        f"{file.relative_to(ROOT)}:{lineno}: hardcoded {match.group(1)} "
+                        f"literal {match.group(2)!r}"
+                    )
+    return errors
+
+
 def main():
     all_errors = []
     all_errors.extend(check_no_blur())
@@ -125,6 +180,8 @@ def main():
     all_errors.extend(check_stable_favicon_paths())
     all_errors.extend(check_webview_client_no_favicon())
     all_errors.extend(check_no_continuous_effect_keys())
+    all_errors.extend(check_localization_parity())
+    all_errors.extend(check_no_hardcoded_ui_strings())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -132,7 +189,10 @@ def main():
             print(f"  FAIL: {err}")
         return 1
 
-    print("All architectural invariants satisfied (No Blur, WebKit Crash Resilience, Domain Purity, Favicon Safety).")
+    print(
+        "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
+        "Domain Purity, Favicon Safety, Localization)."
+    )
     return 0
 
 

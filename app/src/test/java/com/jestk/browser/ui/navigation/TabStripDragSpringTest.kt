@@ -66,7 +66,6 @@ class TabStripDragSpringTest {
 
     @Test
     fun onDrag_movesOffsetAndSwapsTabs() = runTest(testFrameClock) {
-        var vibrationCount = 0
         val state = TabStripDragState(
             initialTabs = sampleTabs,
             coroutineScope = this,
@@ -80,26 +79,22 @@ class TabStripDragSpringTest {
             tabId = "tab1",
             deltaX = 50f,
             swapThreshold = 44f,
-            onSwapVibration = { vibrationCount++ }
         )
 
         // tab1 and tab2 should be swapped
         assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
         // dragOffsetPx should have 44px subtracted (50 - 44 = 6)
         assertEquals(6f, state.dragOffsetPx, 0.001f)
-        assertEquals(1, vibrationCount)
 
         // Drag left by -50px (total offset = 6 - 50 = -44 -> triggers swap left)
         state.onDrag(
             tabId = "tab1",
             deltaX = -52f,
             swapThreshold = 44f,
-            onSwapVibration = { vibrationCount++ }
         )
 
         // tab1 swaps back to index 0
         assertEquals(listOf("tab1", "tab2", "tab3"), state.currentTabs.map { it.id })
-        assertEquals(2, vibrationCount)
     }
 
     @Test
@@ -325,7 +320,6 @@ class TabStripDragSpringTest {
 
     @Test
     fun onDrag_dynamicActiveAndInactiveSlotDistance_adjustsOffsetByActualDistance() = runTest(testFrameClock) {
-        var vibrationCount = 0
         val state = TabStripDragState(
             initialTabs = sampleTabs, // tab1: active (148px), tab2: inactive (38px), tab3: inactive (38px)
             coroutineScope = this,
@@ -349,7 +343,6 @@ class TabStripDragSpringTest {
             tabId = "tab1",
             deltaX = 25f,
             metrics = metrics,
-            onSwapVibration = { vibrationCount++ }
         )
 
         // tab1 and tab2 should be swapped
@@ -357,7 +350,6 @@ class TabStripDragSpringTest {
         // New slot of tab1 is index 1 (starts at 38 + 5 = 43px). Visual position was 25px.
         // dragOffsetPx = 25 - 43 = -18px. Visual position preserved under finger with zero jump!
         assertEquals(-18f, state.dragOffsetPx, 0.001f)
-        assertEquals(1, vibrationCount)
 
         // Drag tab1 left slightly (-5px -> offset = -23px, visualStart = 20px).
         // Reverse trigger requires visualStart < 38 - 19 - 4 = 15px. So 20px does NOT trigger reverse swap (hysteresis protection).
@@ -365,17 +357,14 @@ class TabStripDragSpringTest {
             tabId = "tab1",
             deltaX = -5f,
             metrics = metrics,
-            onSwapVibration = { vibrationCount++ }
         )
         assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
-        assertEquals(1, vibrationCount)
 
         // Drag tab1 left further past the hysteresis boundary (-7f -> offset = -30f, visualStart = 13px < 15px -> triggers reverse swap).
         state.onDrag(
             tabId = "tab1",
             deltaX = -7f,
             metrics = metrics,
-            onSwapVibration = { vibrationCount++ }
         )
 
         // tab1 swaps back to index 0
@@ -383,12 +372,10 @@ class TabStripDragSpringTest {
         // New slot of tab1 is index 0 (starts at 0px). Visual position was 43 + (-30) = 13px.
         // dragOffsetPx = 13 - 0 = 13px.
         assertEquals(13f, state.dragOffsetPx, 0.001f)
-        assertEquals(2, vibrationCount)
     }
 
     @Test
     fun onDrag_inactiveTabEnteringActiveTab_swapsWhenCrossingActiveTabCenter() = runTest(testFrameClock) {
-        var vibrationCount = 0
         val state = TabStripDragState(
             initialTabs = sampleTabs, // tab1: active (148px), tab2: inactive (38px), tab3: inactive (38px)
             coroutineScope = this,
@@ -412,32 +399,26 @@ class TabStripDragSpringTest {
             tabId = "tab2",
             deltaX = -60f,
             metrics = metrics,
-            onSwapVibration = { vibrationCount++ }
         )
         assertEquals(listOf("tab1", "tab2", "tab3"), state.currentTabs.map { it.id })
-        assertEquals(0, vibrationCount)
 
         // Dragging left further by -40px (total delta = -100px, visualCenter = 172 - 100 = 72px < 74px) crosses center -> triggers swap!
         state.onDrag(
             tabId = "tab2",
             deltaX = -40f,
             metrics = metrics,
-            onSwapVibration = { vibrationCount++ }
         )
         assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
-        assertEquals(1, vibrationCount)
         // Visual position preserved: visualStart = 153 - 100 = 53px. New slot 0 is at 0px -> dragOffsetPx = 53px.
         assertEquals(53f, state.dragOffsetPx, 0.001f)
 
-        // Subsequent drag events while hovering in slot 0 must NOT trigger oscillation / infinite vibration!
+        // Subsequent drag events while hovering in slot 0 must NOT trigger oscillation / repeated swaps.
         state.onDrag(
             tabId = "tab2",
             deltaX = -1f,
             metrics = metrics,
-            onSwapVibration = { vibrationCount++ }
         )
         assertEquals(listOf("tab2", "tab1", "tab3"), state.currentTabs.map { it.id })
-        assertEquals(1, vibrationCount) // Vibration count must stay 1, no machine gun tick!
     }
 
     @Test

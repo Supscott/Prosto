@@ -22,7 +22,7 @@ val Manrope: FontFamily =
             Font(R.font.manrope_semibold, FontWeight.SemiBold),
             Font(R.font.manrope_bold, FontWeight.Bold),
         )
-    } catch (_: Throwable) {
+    } catch (_: Exception) {
         FontFamily.SansSerif
     }
 
@@ -37,7 +37,7 @@ val Inter: FontFamily =
             Font(R.font.inter_semibold, FontWeight.SemiBold),
             Font(R.font.inter_bold, FontWeight.Bold),
         )
-    } catch (_: Throwable) {
+    } catch (_: Exception) {
         FontFamily.SansSerif
     }
 

@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import com.jestk.browser.R
 import com.jestk.browser.data.local.dao.RecentTabDao
 import com.jestk.browser.data.local.dao.TabDao
 import com.jestk.browser.data.local.entity.RecentTabEntity
@@ -91,6 +92,24 @@ class RecentTabDaoTest {
         assertThat(recents).hasSize(1)
         assertThat(recents[0].url).isEqualTo("https://example.com")
         assertThat(recents[0].snapshotPath).isEqualTo("/path/to/snap.jpg")
+    }
+
+    @Test
+    fun getRecentTabs_equalTimestamps_haveDeterministicOrder() = runTest {
+        // Identical millisecond timestamps are routine during restore, so row order must not
+        // depend on SQLite's unspecified ordering.
+        recentTabDao.upsertRecentTab(
+            RecentTabEntity(url = "https://a.com", title = "A", lastVisitedTimestamp = 5000L)
+        )
+        recentTabDao.upsertRecentTab(
+            RecentTabEntity(url = "https://b.com", title = "B", lastVisitedTimestamp = 5000L)
+        )
+
+        val firstRead = recentTabDao.getRecentTabs(10).map { it.url }
+        val secondRead = recentTabDao.getRecentTabs(10).map { it.url }
+
+        assertThat(firstRead).isEqualTo(secondRead)
+        assertThat(firstRead).containsExactly("https://b.com", "https://a.com").inOrder()
     }
 
     @Test

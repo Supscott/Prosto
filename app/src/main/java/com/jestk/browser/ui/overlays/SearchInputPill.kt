@@ -6,6 +6,7 @@ import android.speech.RecognizerIntent
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -27,12 +28,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -67,6 +71,7 @@ internal fun HeroSearchInputField(
     density: Density = LocalDensity.current,
     onSwipeLeft: () -> Unit = {},
     onSwipeRight: () -> Unit = {},
+    onSwipeDown: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -108,6 +113,7 @@ internal fun HeroSearchInputField(
         modifier = modifier
             .height(52.dp)
             .then(gestureModifier)
+            .swipeDownToDismiss(density = density, onSwipeDown = onSwipeDown)
     ) {
         Row(
             modifier = Modifier
@@ -194,12 +200,59 @@ internal fun HeroSearchInputField(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Mic,
-                        contentDescription = "Voice Input",
+                        contentDescription = stringResource(R.string.a11y_voice_input),
                         tint = ProstoMutedSlate,
                         modifier = Modifier.size(20.dp)
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * Detects a downward swipe on the search bar and reports it at most once per gesture.
+ *
+ * Applied after the horizontal gesture modifiers, it lets a horizontal drag keep the touch
+ * slop race (the vertical detector cancels itself), so engine cycling is untouched, and it
+ * never claims a tap. The callback fires as soon as a short downward drag crosses the
+ * threshold, so the gesture does not have to travel the full height of the bar.
+ */
+@Composable
+internal fun Modifier.swipeDownToDismiss(
+    density: Density,
+    onSwipeDown: () -> Unit,
+): Modifier {
+    val currentOnSwipeDown by rememberUpdatedState(onSwipeDown)
+    val thresholdPx = with(density) { 24.dp.toPx() }
+
+    return this.pointerInput(density) {
+        var totalDragY = 0f
+        var triggered = false
+
+        detectVerticalDragGestures(
+            onDragStart = {
+                totalDragY = 0f
+                triggered = false
+            },
+            onDragEnd = {
+                if (!triggered && totalDragY >= thresholdPx) {
+                    triggered = true
+                    currentOnSwipeDown()
+                }
+            },
+            onDragCancel = {
+                totalDragY = 0f
+                triggered = false
+            },
+            onVerticalDrag = { change, dragAmount ->
+                totalDragY += dragAmount
+                if (!triggered && totalDragY >= thresholdPx) {
+                    triggered = true
+                    change.consume()
+                    currentOnSwipeDown()
+                }
+            },
+        )
     }
 }

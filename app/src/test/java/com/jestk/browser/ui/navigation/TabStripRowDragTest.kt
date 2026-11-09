@@ -563,6 +563,39 @@ class TabStripRowDragTest {
         assertThat(centeredTab8Node.boundsInRoot.right).isAtMost(dockRight)
     }
 
+    @Test
+    fun longPressLeftmostInactiveTab_opensContextMenu() {
+        render(tabs = fourTabs(activeIndex = 2), activeTabId = "tab3")
+        longPressTab("tab_tab1")
+
+        composeRule.onNodeWithText("Close tab").assertExists()
+    }
+
+    @Test
+    fun longPressLeftmostActiveTab_opensContextMenu() {
+        render(tabs = fourTabs(activeIndex = 0), activeTabId = "tab1")
+        longPressTab("tab_tab1")
+
+        composeRule.onNodeWithText("Close tab").assertExists()
+    }
+
+    @Test
+    fun longPressTabWithoutDragging_vibrates() {
+        render(tabs = fourTabs(activeIndex = 2), activeTabId = "tab3")
+
+        longPressTab("tab_tab1")
+
+        assertThat(vibrationConfirms).isAtLeast(1)
+    }
+
+    private fun longPressTab(tag: String) {
+        val start = composeRule.onNodeWithTag(tag, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot.center
+        composeRule.onRoot().performTouchInput { down(start) }
+        composeRule.mainClock.advanceTimeBy(700)
+        composeRule.onRoot().performTouchInput { up() }
+        composeRule.mainClock.advanceTimeBy(300)
+    }
+
     private fun findNode(tag: String): androidx.compose.ui.semantics.SemanticsNode? =
         composeRule.onAllNodesWithTag(tag, useUnmergedTree = true)
             .fetchSemanticsNodes()

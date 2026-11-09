@@ -4,13 +4,14 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import com.jestk.browser.R
 import com.jestk.browser.data.local.entity.DownloadEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface DownloadDao {
 
-    @Query("SELECT * FROM downloads ORDER BY timestamp DESC")
+    @Query("SELECT * FROM downloads ORDER BY timestamp DESC, id DESC")
     fun getAllDownloadsFlow(): Flow<List<DownloadEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -28,7 +29,7 @@ interface DownloadDao {
     @Query("UPDATE downloads SET filePath = :filePath, fileName = :fileName WHERE id = :id")
     suspend fun updateFilePath(id: Long, fileName: String, filePath: String)
 
-    @Query("SELECT * FROM downloads WHERE status IN ('PENDING', 'DOWNLOADING', 'PAUSED') ORDER BY timestamp ASC")
+    @Query("SELECT * FROM downloads WHERE status IN ('PENDING', 'DOWNLOADING', 'PAUSED') ORDER BY timestamp ASC, id ASC")
     suspend fun getActiveOrPendingDownloads(): List<DownloadEntity>
 
     @Query("DELETE FROM downloads WHERE id = :id")

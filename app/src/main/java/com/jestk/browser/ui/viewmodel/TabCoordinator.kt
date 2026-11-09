@@ -2,6 +2,7 @@ package com.jestk.browser.ui.viewmodel
 
 import android.net.Uri
 import android.util.Log
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.model.OverlayType
@@ -42,7 +43,7 @@ internal fun isSameDomain(url1: String?, url2: String?): Boolean {
         val host1 = uri1.host?.lowercase()?.removePrefix("www.")
         val host2 = uri2.host?.lowercase()?.removePrefix("www.")
         !host1.isNullOrBlank() && host1 == host2
-    } catch (e: Throwable) {
+    } catch (e: Exception) {
         Log.w(TAG, "Failed to compare URL hosts", e)
         false
     }

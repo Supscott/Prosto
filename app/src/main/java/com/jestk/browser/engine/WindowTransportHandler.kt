@@ -16,11 +16,13 @@ object WindowTransportHandler {
         resultMsg: Message?,
         context: Context,
         webViewPool: WebViewPool,
+        openerUrl: String? = null,
         onPopupOpened: (tabId: String) -> Unit
     ): Boolean {
         val transport = resultMsg?.obj as? WebView.WebViewTransport ?: return false
         val newTabId = UUID.randomUUID().toString()
         val newWv = webViewPool.getOrCreateWebView(newTabId, context)
+        (newWv as? NestedWebView)?.openerUrl = openerUrl
         transport.webView = newWv
         if (resultMsg.target != null) {
             resultMsg.sendToTarget()

@@ -49,6 +49,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.onClick
@@ -62,6 +63,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import coil.decode.SvgDecoder
 import coil.request.ImageRequest
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
@@ -447,6 +449,7 @@ internal fun SearchEngineSelectorButton(
     )
 
     val restingShiftPx = with(density) { (-11).dp.toPx() } * arrowAlpha
+    val selectorDescription = stringResource(R.string.a11y_search_engine_selector)
 
     Surface(
         shape = CircleShape,
@@ -459,7 +462,7 @@ internal fun SearchEngineSelectorButton(
                 .height(52.dp)
                 .semantics(mergeDescendants = true) {
                     role = Role.Button
-                    contentDescription = "Search engine selector"
+                    contentDescription = selectorDescription
                     onClick {
                         onClick()
                         true

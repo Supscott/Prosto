@@ -38,6 +38,7 @@ class SettingsBlockedRequestStatsTest {
         override suspend fun setThemeMode(mode: com.jestk.browser.domain.model.ThemeMode) {}
         override suspend fun setSearchEngine(engine: com.jestk.browser.domain.model.SearchEngine) {}
         override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
+        override suspend fun setAdRedirectProtectionEnabled(enabled: Boolean) {}
         override suspend fun setTrackingProtectionEnabled(enabled: Boolean) {}
         override suspend fun setOpenInAppsEnabled(enabled: Boolean) {}
         override suspend fun setAutoUpdateEnabled(enabled: Boolean) {}

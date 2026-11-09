@@ -574,4 +574,210 @@ class JestkWebViewClientTest {
         assertThat(intercepted).isTrue()
         assertThat(requestedCleanPlayerUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
     }
+
+    @Test
+    fun shouldOverrideUrlLoading_blocksAdNavigationMainFrame_andInvokesCallback() {
+        var blockedTabId: String? = null
+        var blockedUrl: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onBlockedAdNavigation = { id, url ->
+                blockedTabId = id
+                blockedUrl = url
+            }
+        )
+
+        fun mainFrameRequest(url: String, mainFrame: Boolean = true) = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse(url)
+            override fun isForMainFrame(): Boolean = mainFrame
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = true
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        val blocked = client.shouldOverrideUrlLoading(null, mainFrameRequest("https://doubleclick.net/click"))
+        assertThat(blocked).isTrue()
+        assertThat(blockedTabId).isEqualTo("tab_1")
+        assertThat(blockedUrl).isEqualTo("https://doubleclick.net/click")
+
+        blockedTabId = null
+        blockedUrl = null
+        val allowed = client.shouldOverrideUrlLoading(null, mainFrameRequest("https://example.com/page"))
+        assertThat(allowed).isFalse()
+        assertThat(blockedTabId).isNull()
+        assertThat(blockedUrl).isNull()
+
+        // Subframe web navigations must pass through even if the host is blocked.
+        val subframe = client.shouldOverrideUrlLoading(null, mainFrameRequest("https://doubleclick.net/click", mainFrame = false))
+        assertThat(subframe).isFalse()
+        assertThat(blockedTabId).isNull()
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_allowsAdNavigation_whenAdBlockerDisabled() {
+        var invoked = false
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onBlockedAdNavigation = { _, _ -> invoked = true }
+        )
+        val request = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse("https://doubleclick.net/click")
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = true
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+        val blocked = client.shouldOverrideUrlLoading(null, request)
+        assertThat(blocked).isFalse()
+        assertThat(invoked).isFalse()
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_blocksCrossDomainAdRedirect_whenRedirectProtectionEnabled() {
+        var blockedTabId: String? = null
+        var blockedUrl: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            isAdRedirectProtectionEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onBlockedAdNavigation = { id, url ->
+                blockedTabId = id
+                blockedUrl = url
+            }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = NestedWebView(context).apply {
+            loadedUrl = "https://r-34.xyz/post/1"
+        }
+
+        fun request(url: String) = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse(url)
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = true
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        // Cross-domain ad redirect from r-34.xyz to casino
+        val blocked = client.shouldOverrideUrlLoading(webView, request("https://vulkan-casino-777.xyz/click"))
+        assertThat(blocked).isTrue()
+        assertThat(blockedTabId).isEqualTo("tab_1")
+        assertThat(blockedUrl).isEqualTo("https://vulkan-casino-777.xyz/click")
+
+        // Same-site navigation allowed
+        blockedTabId = null
+        blockedUrl = null
+        val sameSite = client.shouldOverrideUrlLoading(webView, request("https://sub.r-34.xyz/post/2"))
+        assertThat(sameSite).isFalse()
+        assertThat(blockedTabId).isNull()
+
+        // Outbound from search engine allowed
+        webView.loadedUrl = "https://www.google.com/search?q=kotlin"
+        val fromSearch = client.shouldOverrideUrlLoading(webView, request("https://kotlinlang.org/docs/home.html"))
+        assertThat(fromSearch).isFalse()
+        assertThat(blockedTabId).isNull()
+
+        // OAuth sign-in allowed
+        webView.loadedUrl = "https://my-app.com"
+        val oauth = client.shouldOverrideUrlLoading(webView, request("https://accounts.google.com/o/oauth2/v2/auth"))
+        assertThat(oauth).isFalse()
+        assertThat(blockedTabId).isNull()
+
+        // Cross-domain popup with openerUrl blocked
+        val popupWebView = NestedWebView(context).apply {
+            openerUrl = "https://r-34.xyz/post/1"
+        }
+        val popupBlocked = client.shouldOverrideUrlLoading(popupWebView, request("https://ad-network-tracking.xyz/land"))
+        assertThat(popupBlocked).isTrue()
+        assertThat(blockedTabId).isEqualTo("tab_1")
+        assertThat(blockedUrl).isEqualTo("https://ad-network-tracking.xyz/land")
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_allowsAdNavigation_whenUrlInAllowedBypassList() {
+        val targetUrl = "https://vulkan-casino-777.xyz/click"
+        val allowedUrls = mutableSetOf(targetUrl)
+        var invoked = false
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            isAdRedirectProtectionEnabled = { true },
+            isAllowedAdNavigation = { url -> allowedUrls.contains(url) },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onBlockedAdNavigation = { _, _ -> invoked = true }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = NestedWebView(context).apply {
+            loadedUrl = "https://r-34.xyz/post/1"
+        }
+
+        val request = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse(targetUrl)
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = true
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        val blocked = client.shouldOverrideUrlLoading(webView, request)
+        assertThat(blocked).isFalse()
+        assertThat(invoked).isFalse()
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_allowsStaticAsset_evenWhenCrossDomain() {
+        val targetUrl = "https://kstatic.to/covers/123.jpg"
+        var invoked = false
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            isAdRedirectProtectionEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onBlockedAdNavigation = { _, _ -> invoked = true }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = NestedWebView(context).apply {
+            loadedUrl = "https://kagane.moe/books/42"
+        }
+
+        val request = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse(targetUrl)
+            override fun isForMainFrame(): Boolean = false
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = false
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        val blocked = client.shouldOverrideUrlLoading(webView, request)
+        assertThat(blocked).isFalse()
+        assertThat(invoked).isFalse()
+    }
 }

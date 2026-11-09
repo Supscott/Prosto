@@ -30,7 +30,18 @@ class SettingsRepositoryImpl(
             val themeStr = settingDao.getSetting(SettingKeys.THEME_MODE)
             val searchStr = settingDao.getSetting(SettingKeys.SEARCH_ENGINE)
             val adBlockerStr = settingDao.getSetting(SettingKeys.AD_BLOCKER_ENABLED)
+            val adRedirectStr = settingDao.getSetting(SettingKeys.AD_REDIRECT_PROTECTION_ENABLED)
             val cleanPlayerStr = settingDao.getSetting(SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED)
+            val cleanPlayerMigratedStr = settingDao.getSetting(SettingKeys.CLEAN_PLAYER_FORCED_OFF_V1)
+            val cleanPlayerMigrated = cleanPlayerMigratedStr == "1"
+            val cleanPlayerResolved =
+                if (cleanPlayerMigrated) {
+                    cleanPlayerStr?.toBooleanStrictOrNull() ?: false
+                } else {
+                    settingDao.setSetting(SettingEntity(SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED, "false"))
+                    settingDao.setSetting(SettingEntity(SettingKeys.CLEAN_PLAYER_FORCED_OFF_V1, "1"))
+                    false
+                }
             val trackingProtectionStr = settingDao.getSetting(SettingKeys.TRACKING_PROTECTION_ENABLED)
             val hiddenStr = settingDao.getSetting(SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES)
             val openInAppsStr = settingDao.getSetting(SettingKeys.OPEN_IN_APPS_ENABLED)
@@ -45,7 +56,8 @@ class SettingsRepositoryImpl(
             val search =
                 searchStr?.let { runCatching { SearchEngine.valueOf(it) }.getOrDefault(SearchEngine.DUCKDUCKGO) } ?: SearchEngine.DUCKDUCKGO
             val adBlocker = adBlockerStr?.toBooleanStrictOrNull() ?: true
-            val cleanPlayer = cleanPlayerStr?.toBooleanStrictOrNull() ?: true
+            val adRedirect = adRedirectStr?.toBooleanStrictOrNull() ?: true
+            val cleanPlayer = cleanPlayerResolved
             val trackingProtection = trackingProtectionStr?.toBooleanStrictOrNull() ?: true
             val openInApps = openInAppsStr?.toBooleanStrictOrNull() ?: true
             val autoUpdate = autoUpdateStr?.toBooleanStrictOrNull() ?: true
@@ -70,6 +82,7 @@ class SettingsRepositoryImpl(
                 themeMode = theme,
                 searchEngine = search,
                 isAdBlockerEnabled = adBlocker,
+                isAdRedirectProtectionEnabled = adRedirect,
                 isCleanYouTubePlayerEnabled = cleanPlayer,
                 isTrackingProtectionEnabled = trackingProtection,
                 hiddenSearchPageEngineIds = hiddenEngines,
@@ -96,6 +109,11 @@ class SettingsRepositoryImpl(
     override suspend fun setAdBlockerEnabled(enabled: Boolean) =
         withContext(ioDispatcher) {
             settingDao.setSetting(SettingEntity(SettingKeys.AD_BLOCKER_ENABLED, enabled.toString()))
+        }
+
+    override suspend fun setAdRedirectProtectionEnabled(enabled: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.AD_REDIRECT_PROTECTION_ENABLED, enabled.toString()))
         }
 
     override suspend fun setCleanYouTubePlayerEnabled(enabled: Boolean) =

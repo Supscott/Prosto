@@ -313,14 +313,14 @@ fun TabOverviewGrid(
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                        contentDescription = "Back",
+                        contentDescription = stringResource(R.string.action_back),
                         tint = ProstoBrandPrimary,
                         modifier = Modifier.size(20.dp),
                     )
                 }
 
                 Text(
-                    text = "Tabs Overview",
+                    text = stringResource(R.string.tabs_overview_title),
                     style = LocalProstoTypography.current.headlineSm,
                     color = if (isDark) DarkOnSurface else ProstoDarkText,
                 )
@@ -397,7 +397,7 @@ fun TabOverviewGrid(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Search,
-                            contentDescription = "Search in tabs",
+                            contentDescription = stringResource(R.string.tabs_overview_search),
                             tint = if (isSearchVisible) ProstoBrandPrimary else ProstoMutedSlate,
                             modifier = Modifier.size(22.dp),
                         )
@@ -418,7 +418,7 @@ fun TabOverviewGrid(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "New Tab",
+                            contentDescription = stringResource(R.string.action_new_tab),
                             tint = Color.White,
                             modifier = Modifier.size(22.dp),
                         )
@@ -482,7 +482,7 @@ fun TabOverviewGrid(
                                 ) {
                                     if (tabSearchQuery.isEmpty()) {
                                         Text(
-                                            text = "Filter tabs by title or URL...",
+                                            text = stringResource(R.string.tabs_overview_filter_hint),
                                             style = LocalProstoTypography.current.bodyMd,
                                             color = ProstoMutedSlate,
                                             maxLines = 1,
@@ -730,7 +730,7 @@ fun TabOverviewGrid(
                 onClick = { onEvent(BrowserUiEvent.CloseAllTabs) },
             ) {
                 Text(
-                    text = "Close All",
+                    text = stringResource(R.string.tabs_overview_close_all),
                     color = MaterialTheme.colorScheme.error,
                     style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.SemiBold),
                 )
@@ -752,7 +752,7 @@ fun TabOverviewGrid(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "Done",
+                        text = stringResource(R.string.action_done),
                         color = ProstoBrandPrimary,
                         style =
                             LocalProstoTypography.current.labelMd.copy(

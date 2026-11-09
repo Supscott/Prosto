@@ -353,6 +353,7 @@ class BrowserViewModelTest {
             viewModel.onEvent(BrowserUiEvent.SetThemeMode(ThemeMode.DARK))
             viewModel.onEvent(BrowserUiEvent.SetSearchEngine(SearchEngine.GOOGLE))
             viewModel.onEvent(BrowserUiEvent.SetAdBlockerEnabled(false))
+            viewModel.onEvent(BrowserUiEvent.SetAdRedirectProtectionEnabled(false))
             viewModel.onEvent(BrowserUiEvent.SetTrackingProtectionEnabled(false))
             viewModel.onEvent(BrowserUiEvent.SetVibrationEnabled(false))
             viewModel.onEvent(BrowserUiEvent.SetGrayUnloadedTabsEnabled(false))
@@ -362,6 +363,7 @@ class BrowserViewModelTest {
             assertThat(state.settings.themeMode).isEqualTo(ThemeMode.DARK)
             assertThat(state.settings.searchEngine).isEqualTo(SearchEngine.GOOGLE)
             assertThat(state.settings.isAdBlockerEnabled).isFalse()
+            assertThat(state.settings.isAdRedirectProtectionEnabled).isFalse()
             assertThat(state.settings.isTrackingProtectionEnabled).isFalse()
             assertThat(state.settings.isVibrationEnabled).isFalse()
             assertThat(state.settings.isGrayUnloadedTabsEnabled).isFalse()
@@ -2368,6 +2370,8 @@ class BrowserViewModelTest {
         runTest(testDispatcher) {
             val viewModel = createViewModel()
             advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.SetCleanYouTubePlayerEnabled(true))
+            advanceUntilIdle()
 
             viewModel.onEvent(BrowserUiEvent.OpenCleanPlayer("dQw4w9WgXcQ", "https://m.youtube.com/watch?v=dQw4w9WgXcQ", 0))
             advanceUntilIdle()
@@ -2393,12 +2397,27 @@ class BrowserViewModelTest {
         runTest(testDispatcher) {
             val viewModel = createViewModel()
             advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.SetCleanYouTubePlayerEnabled(true))
+            advanceUntilIdle()
 
             viewModel.onEvent(BrowserUiEvent.LoadUrl("https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=30s"))
             advanceUntilIdle()
 
             assertThat(viewModel.uiState.value.cleanPlayerVideoId).isEqualTo("dQw4w9WgXcQ")
             assertThat(viewModel.uiState.value.cleanPlayerStartSeconds).isEqualTo(30)
+        }
+
+    @Test
+    fun cleanPlayer_loadUrl_doesNotInterceptByDefault() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=30s"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.cleanPlayerVideoId).isNull()
+            assertThat(viewModel.uiState.value.currentUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ&t=30s")
         }
 
     @Test

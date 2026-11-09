@@ -9,6 +9,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.swipeLeft
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
@@ -120,6 +122,97 @@ class SearchOverlayInputTest {
 
         val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
         assertEquals(1, dismissEvents.size)
+    }
+
+    @Test
+    fun searchOverlay_swipeDownOnSearchBar_dismissesOverlay() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Search with Google").performTouchInput {
+            swipeDown(startY = top + 4f, endY = bottom - 4f, durationMillis = 150)
+        }
+
+        composeTestRule.waitForIdle()
+
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertEquals(1, dismissEvents.size)
+    }
+
+    @Test
+    fun searchOverlay_shortSwipeDownOnSearchBar_doesNotDismiss() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Search with Google").performTouchInput {
+            swipeDown(startY = centerY - 10f, endY = centerY + 10f, durationMillis = 150)
+        }
+
+        composeTestRule.waitForIdle()
+
+        assertTrue(
+            "A downward drag below the threshold must not dismiss the overlay",
+            events.filterIsInstance<BrowserUiEvent.DismissOverlay>().isEmpty()
+        )
+    }
+
+    @Test
+    fun searchOverlay_horizontalSwipeOnSearchBar_stillCyclesEngines() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.DUCKDUCKGO),
+            searchEngines = engines
+        )
+
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = state,
+                    onEvent = { events.add(it) }
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Search with DuckDuckGo").performTouchInput {
+            swipeLeft(startX = right - 4f, endX = left + 4f, durationMillis = 200)
+        }
+
+        composeTestRule.waitForIdle()
+
+        assertTrue(
+            "Expected the engine carousel to switch engine",
+            events.filterIsInstance<BrowserUiEvent.SetSearchEngine>().isNotEmpty()
+        )
+        assertTrue(
+            "A horizontal swipe must not dismiss the overlay",
+            events.filterIsInstance<BrowserUiEvent.DismissOverlay>().isEmpty()
+        )
     }
 
     @Test

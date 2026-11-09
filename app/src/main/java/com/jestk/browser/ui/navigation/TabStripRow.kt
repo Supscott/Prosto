@@ -489,7 +489,6 @@ fun TabStripRow(
                             totalChipWidthPx = totalChipWidthPx,
                             rightPinnedOffsetPx = rightPinnedOffsetPx,
                             edgeSlackPx = edgeSlackPx,
-                            onSwapVibration = { vibration.tick() },
                         )
                     }
                 }
@@ -1040,7 +1039,7 @@ fun TabStripRow(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Remove Tab",
+                            contentDescription = stringResource(R.string.a11y_remove_tab),
                             tint = normalTint,
                             modifier = Modifier.size(16.dp),
                         )
@@ -1112,7 +1111,7 @@ fun InactiveTabButton(
             if (crossAlpha > 0f) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Remove Tab",
+                    contentDescription = stringResource(R.string.a11y_remove_tab),
                     tint = normalTint,
                     modifier = Modifier
                         .size(16.dp)
@@ -1127,7 +1126,7 @@ fun InactiveTabButton(
                     if (isHome) {
                         Icon(
                             imageVector = Icons.Default.Home,
-                            contentDescription = "Home",
+                            contentDescription = stringResource(R.string.tab_home_title),
                             tint = normalTint,
                             modifier = Modifier.size(18.dp),
                         )
@@ -1225,7 +1224,7 @@ fun AddTabDockButton(
         ) {
             Icon(
                 imageVector = Icons.Default.Add,
-                contentDescription = "New Tab",
+                contentDescription = stringResource(R.string.action_new_tab),
                 tint = normalTint,
                 modifier = Modifier.size(18.dp),
             )

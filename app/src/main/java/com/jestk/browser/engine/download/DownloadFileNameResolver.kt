@@ -3,6 +3,7 @@ package com.jestk.browser.engine.download
 import android.net.Uri
 import android.util.Log
 import android.webkit.MimeTypeMap
+import com.jestk.browser.R
 import java.io.File
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
@@ -150,14 +151,14 @@ object DownloadFileNameResolver {
                     if (decoded.isNotBlank()) {
                         return File(decoded).name
                     }
-                } catch (e: Throwable) {
+                } catch (e: Exception) {
                     Log.w(TAG, "Failed to decode RFC 5987 filename with charset $charsetName", e)
                     try {
                         val fallback = URLDecoder.decode(rawValue, StandardCharsets.UTF_8.name())
                         if (fallback.isNotBlank()) {
                             return File(fallback).name
                         }
-                    } catch (fallbackError: Throwable) {
+                    } catch (fallbackError: Exception) {
                         Log.w(TAG, "Failed to decode RFC 5987 filename with the UTF-8 fallback", fallbackError)
                     }
                 }
@@ -197,7 +198,7 @@ object DownloadFileNameResolver {
             } else {
                 null
             }
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             Log.w(TAG, "Failed to parse file name from URL, falling back to the last path segment", e)
             val afterSlash = url.substringBefore('#').substringBefore('?').substringAfterLast('/')
             if (afterSlash.isNotBlank()) afterSlash else null

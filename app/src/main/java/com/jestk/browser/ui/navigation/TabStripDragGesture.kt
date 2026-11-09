@@ -2,7 +2,6 @@ package com.jestk.browser.ui.navigation
 
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -16,6 +15,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.util.LocalVibrationFeedback
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 
 /**
@@ -57,10 +57,30 @@ internal fun rememberTabStripDragReorderModifier(
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             val tabId = lazyListState.tabIdAt(down.position.x, tabSpacingPx) ?: return@awaitEachGesture
-            val longPress = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
+
+            // The long press is awaited on the Initial pass: tab items host clickable children
+            // that consume Main-pass events, and awaitLongPressOrCancellation() bails out on a
+            // consumed change, which made the context menu silently never open for some tabs.
+            var cancelledBeforeLongPress = false
+            val longPressTimedOut =
+                withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        val change = event.changes.firstOrNull { it.id == down.id }
+                        val movedPastSlop =
+                            change != null &&
+                                (abs(change.position.x - down.position.x) > touchSlop ||
+                                    abs(change.position.y - down.position.y) > touchSlop)
+                        if (change == null || !change.pressed || movedPastSlop) {
+                            cancelledBeforeLongPress = true
+                            break
+                        }
+                    }
+                } == null
+            if (!longPressTimedOut || cancelledBeforeLongPress) return@awaitEachGesture
 
             currentVibration.confirm()
-            val pointerId = longPress.id
+            val pointerId = down.id
             var totalDragX = 0f
             var totalDragY = 0f
             var isDragging = false
@@ -122,7 +142,6 @@ internal fun rememberTabStripDragReorderModifier(
                             edgeSlackPx = edgeSlackPx,
                             dragOffsetYPx = change.position.y - startTouchY,
                             removeThresholdPx = removeThresholdPx,
-                            onSwapVibration = { currentVibration.tick() },
                             onEnterRemoveZone = { currentVibration.tick() },
                             onExitRemoveZone = { currentVibration.tick() },
                         )
@@ -164,7 +183,6 @@ internal fun dragTabToViewportPosition(
     edgeSlackPx: Float,
     dragOffsetYPx: Float = 0f,
     removeThresholdPx: Float = 0f,
-    onSwapVibration: () -> Unit,
     onEnterRemoveZone: () -> Unit = {},
     onExitRemoveZone: () -> Unit = {},
 ) {
@@ -196,7 +214,6 @@ internal fun dragTabToViewportPosition(
             tabId = tabId,
             deltaX = deltaX,
             metrics = metrics,
-            onSwapVibration = onSwapVibration,
         )
     }
 

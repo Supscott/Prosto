@@ -37,10 +37,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.ui.overlays.SearchEngineBadge
 import com.jestk.browser.ui.components.ProstoToggleSwitch
@@ -144,7 +146,7 @@ internal fun SearchEngineSwitcherEditButton(
         ) {
             Icon(
                 imageVector = Icons.Default.Edit,
-                contentDescription = "Edit Search Providers",
+                contentDescription = stringResource(R.string.a11y_edit_search_providers),
                 tint = iconTint,
                 modifier = Modifier.size(15.dp)
             )
@@ -197,7 +199,7 @@ internal fun SearchEngineSwitcherEditPopup(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Search Providers",
+                        text = stringResource(R.string.search_providers_short),
                         style = LocalProstoTypography.current.labelMd.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 13.sp
@@ -210,7 +212,7 @@ internal fun SearchEngineSwitcherEditPopup(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
+                            contentDescription = stringResource(R.string.action_close),
                             tint = ProstoMutedSlate,
                             modifier = Modifier.size(16.dp)
                         )

@@ -318,7 +318,9 @@ fun CleanVideoPlayerOverlay(
 
                                 try {
                                     CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
-                                } catch (_: Throwable) {}
+                                } catch (e: Exception) {
+                                    android.util.Log.w("CleanVideoPlayer", "Player setup failed", e)
+                                }
 
                                 val bridge = CleanPlayerBridge { errorCode ->
                                     if (errorCode == 101 || errorCode == 150 || errorCode == 153) {

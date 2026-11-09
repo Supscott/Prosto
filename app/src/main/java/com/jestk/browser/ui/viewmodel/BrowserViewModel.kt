@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jestk.browser.domain.model.BlockedAdNavigationPrompt
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.FeedbackPromptState
 import com.jestk.browser.domain.model.InsecureHttpPrompt
@@ -604,6 +605,13 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.SetAdRedirectProtectionEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(isAdRedirectProtectionEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setAdRedirectProtectionEnabled(event.enabled)
+                }
+            }
+
             is BrowserUiEvent.SetCleanYouTubePlayerEnabled -> {
                 _uiState.update { it.copy(settings = it.settings.copy(isCleanYouTubePlayerEnabled = event.enabled)) }
                 viewModelScope.launch(ioDispatcher) {
@@ -1017,6 +1025,48 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.ShowBlockedAdNavigation -> {
+                Log.d(TAG, "Showing blocked ad navigation for ${event.url}")
+                _uiState.update {
+                    it.copy(
+                        blockedAdNavigation = BlockedAdNavigationPrompt(
+                            url = event.url,
+                            tabId = event.tabId,
+                        ),
+                        activeOverlay = OverlayType.NONE,
+                        isMenuExpanded = false,
+                    )
+                }
+            }
+
+            is BrowserUiEvent.AllowBlockedAdNavigation -> {
+                val prompt = _uiState.value.blockedAdNavigation
+                if (prompt != null) {
+                    _uiState.update {
+                        it.copy(
+                            blockedAdNavigation = null,
+                            allowedAdNavigationUrls = it.allowedAdNavigationUrls + prompt.url,
+                        )
+                    }
+                    if (prompt.tabId != _uiState.value.activeTabId) {
+                        tabCoordinator.selectTab(prompt.tabId)
+                    }
+                    tabCoordinator.navigateToUrl(prompt.url, null)
+                }
+            }
+
+            is BrowserUiEvent.DismissBlockedAdNavigation -> {
+                val prompt = _uiState.value.blockedAdNavigation
+                _uiState.update { it.copy(blockedAdNavigation = null) }
+                if (prompt != null) {
+                    val tab = _uiState.value.tabs.find { it.id == prompt.tabId }
+                    val isEmptyPopup = tab == null || tab.url.isBlank() || tab.url == "about:blank"
+                    if (isEmptyPopup && tab != null) {
+                        tabCoordinator.closeTab(prompt.tabId)
+                    }
+                }
+            }
+
             is BrowserUiEvent.CreateFolderFromTabs -> {
                 viewModelScope.launch {
                     tabCoordinator.createFolderFromTabs(
@@ -1258,6 +1308,10 @@ class BrowserViewModel(
         }
         if (current.insecureHttpPrompt != null) {
             onEvent(BrowserUiEvent.DismissInsecureHttpWarning)
+            return
+        }
+        if (current.blockedAdNavigation != null) {
+            onEvent(BrowserUiEvent.DismissBlockedAdNavigation)
             return
         }
         if (current.isSearchEngineSwitcherEditExpanded) {

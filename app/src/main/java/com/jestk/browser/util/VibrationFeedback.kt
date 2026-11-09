@@ -10,6 +10,7 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
+import com.jestk.browser.R
 
 /**
  * App-wide vibration feedback.
@@ -74,7 +75,7 @@ class VibratorVibrationFeedback internal constructor(
                 } else {
                     VibrationEffect.createOneShot(fallbackDurationMs, VibrationEffect.DEFAULT_AMPLITUDE)
                 }
-            } catch (_: Throwable) {
+            } catch (_: Exception) {
                 VibrationEffect.createOneShot(fallbackDurationMs, VibrationEffect.DEFAULT_AMPLITUDE)
             }
 
@@ -94,11 +95,11 @@ class VibratorVibrationFeedback internal constructor(
                 @Suppress("DEPRECATION")
                 vibrator?.vibrate(effect, attributes)
             }
-        } catch (_: Throwable) {
+        } catch (_: Exception) {
             try {
                 val fallbackEffect = VibrationEffect.createOneShot(fallbackDurationMs, VibrationEffect.DEFAULT_AMPLITUDE)
                 vibrator?.vibrate(fallbackEffect)
-            } catch (_: Throwable) {
+            } catch (_: Exception) {
                 // Ignore device-specific vibrator exceptions
             }
         }

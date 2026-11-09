@@ -86,6 +86,12 @@ private fun OpenTabSwitchCapsule(
     val textColor = if (isDark) DarkOnSurface else ProstoDarkText
     val switchLabel = stringResource(R.string.switch_to_tab)
     val actionDesc = stringResource(R.string.switch_to_open_tab)
+    val tabDescription =
+        stringResource(
+            R.string.switch_to_tab_with_title,
+            actionDesc,
+            tab.title.ifEmpty { cleanDomain },
+        )
 
     Surface(
         shape = CircleShape,
@@ -96,7 +102,7 @@ private fun OpenTabSwitchCapsule(
             .height(44.dp)
             .widthIn(min = 160.dp, max = 260.dp)
             .clickable(onClick = onClick)
-            .semantics { contentDescription = "$actionDesc: ${tab.title.ifEmpty { cleanDomain }}" },
+            .semantics { contentDescription = tabDescription },
     ) {
         Row(
             modifier = Modifier

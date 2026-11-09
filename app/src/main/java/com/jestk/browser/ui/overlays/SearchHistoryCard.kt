@@ -206,7 +206,7 @@ internal fun InsetGroupedHistoryCard(
                         ) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Insert in search",
+                                contentDescription = stringResource(R.string.a11y_insert_in_search),
                                 tint = ProstoMutedSlate,
                                 modifier = Modifier
                                     .size(16.dp)
@@ -266,7 +266,7 @@ internal fun HistoryEmptyCard(isDark: Boolean) {
                 color = if (isDark) DarkOnSurface else ProstoDarkText
             )
             Text(
-                text = "Recent queries will appear here",
+                text = stringResource(R.string.search_history_empty),
                 style = LocalProstoTypography.current.bodySm.copy(fontSize = 11.sp),
                 color = ProstoMutedSlate
             )

@@ -31,9 +31,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.jestk.browser.R
 import kotlin.math.roundToInt
 
 @Composable
@@ -98,7 +100,7 @@ fun FloatingVideoMiniPlayer(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Close Mini Player",
+                    contentDescription = stringResource(R.string.a11y_close_mini_player),
                     tint = Color.White,
                     modifier = Modifier.size(16.dp)
                 )

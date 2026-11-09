@@ -223,6 +223,10 @@ sealed interface BrowserUiEvent {
         val enabled: Boolean,
     ) : BrowserUiEvent
 
+    data class SetAdRedirectProtectionEnabled(
+        val enabled: Boolean,
+    ) : BrowserUiEvent
+
     data class SetCleanYouTubePlayerEnabled(
         val enabled: Boolean,
     ) : BrowserUiEvent
@@ -407,6 +411,16 @@ sealed interface BrowserUiEvent {
 
     data object DismissInsecureHttpWarning : BrowserUiEvent
 
+    // Blocked Ad Navigation
+    data class ShowBlockedAdNavigation(
+        val url: String,
+        val tabId: String,
+    ) : BrowserUiEvent
+
+    data object AllowBlockedAdNavigation : BrowserUiEvent
+
+    data object DismissBlockedAdNavigation : BrowserUiEvent
+
     // Feedback & Community Rating
     data object DismissFeedbackPrompt : BrowserUiEvent
 
@@ -425,25 +439,46 @@ sealed interface BrowserUiEvent {
         val color: Int? = null,
     ) : BrowserUiEvent
 
-    data class OpenCreateFolderSheet(val tabId: String) : BrowserUiEvent
+    data class OpenCreateFolderSheet(
+        val tabId: String,
+    ) : BrowserUiEvent
 
-    data class OpenEditFolderSheet(val folderId: String) : BrowserUiEvent
+    data class OpenEditFolderSheet(
+        val folderId: String,
+    ) : BrowserUiEvent
 
-    data class SaveFolder(val title: String, val color: Int) : BrowserUiEvent
+    data class SaveFolder(
+        val title: String,
+        val color: Int,
+    ) : BrowserUiEvent
 
     data object DismissFolderSheet : BrowserUiEvent
 
-    data class ToggleFolderCollapse(val folderId: String, val fromDock: Boolean = true) : BrowserUiEvent
+    data class ToggleFolderCollapse(
+        val folderId: String,
+        val fromDock: Boolean = true,
+    ) : BrowserUiEvent
 
-    data class CloseFolder(val folderId: String) : BrowserUiEvent
+    data class CloseFolder(
+        val folderId: String,
+    ) : BrowserUiEvent
 
-    data class UngroupFolder(val folderId: String) : BrowserUiEvent
+    data class UngroupFolder(
+        val folderId: String,
+    ) : BrowserUiEvent
 
-    data class AddTabToFolder(val tabId: String, val folderId: String) : BrowserUiEvent
+    data class AddTabToFolder(
+        val tabId: String,
+        val folderId: String,
+    ) : BrowserUiEvent
 
-    data class RemoveTabFromFolder(val tabId: String) : BrowserUiEvent
+    data class RemoveTabFromFolder(
+        val tabId: String,
+    ) : BrowserUiEvent
 
-    data class CreateTabInFolder(val folderId: String) : BrowserUiEvent
+    data class CreateTabInFolder(
+        val folderId: String,
+    ) : BrowserUiEvent
 }
 
 enum class ExternalAppDismissReason {

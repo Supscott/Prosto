@@ -35,11 +35,16 @@ class JestkWebViewClient(
     private val isInsecureHostAllowed: ((host: String) -> Boolean)? = null,
     private val isCleanPlayerEnabled: (() -> Boolean)? = null,
     private val onCleanPlayerRequested: ((url: String) -> Boolean)? = null,
+    private val onBlockedAdNavigation: ((tabId: String, url: String) -> Unit)? = null,
+    private val isAdRedirectProtectionEnabled: (() -> Boolean)? = null,
+    private val isAllowedAdNavigation: ((url: String) -> Boolean)? = null,
 ) : WebViewClient() {
-
     private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
+    override fun onRenderProcessGone(
+        view: WebView?,
+        detail: RenderProcessGoneDetail?,
+    ): Boolean {
         android.util.Log.e("JestkWebViewClient", "Chromium render process gone for tab $tabId (didCrash=${detail?.didCrash()})")
         (view?.parent as? android.view.ViewGroup)?.removeView(view)
         view?.destroy()
@@ -48,7 +53,7 @@ class JestkWebViewClient(
 
     override fun shouldOverrideUrlLoading(
         view: WebView?,
-        request: WebResourceRequest?
+        request: WebResourceRequest?,
     ): Boolean {
         if (request == null) return false
         val url = request.url?.toString().orEmpty()
@@ -56,7 +61,9 @@ class JestkWebViewClient(
 
         // YouTube Clean Player interceptor for main frame navigations
         if (request.isForMainFrame && isCleanPlayerEnabled?.invoke() == true) {
-            val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
+            val videoId =
+                com.jestk.browser.util.YouTubeUrlHelper
+                    .extractVideoId(url)
             if (videoId != null && onCleanPlayerRequested?.invoke(url) == true) {
                 return true
             }
@@ -66,6 +73,8 @@ class JestkWebViewClient(
         // hidden-iframe "Open in app" technique and still need to reach the resolver.
         if (!request.isForMainFrame && isWebUrl(url)) return false
 
+        if (request.isForMainFrame && isBlockedAdNavigation(url, view)) return true
+
         // Warn before loading cleartext HTTP websites in the main frame
         if (request.isForMainFrame && checkInsecureHttpNavigation(url)) return true
 
@@ -73,22 +82,84 @@ class JestkWebViewClient(
             view = view,
             url = url,
             allowFallbackNavigation = request.isForMainFrame,
-            userInitiated = request.hasGesture()
+            userInitiated = request.hasGesture(),
         )
     }
 
     @Deprecated("Deprecated in Java")
-    override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+    override fun shouldOverrideUrlLoading(
+        view: WebView?,
+        url: String?,
+    ): Boolean {
         val validUrl = url.orEmpty()
         if (validUrl.isBlank()) return false
+        if (isStaticAsset(validUrl)) return false
         if (isCleanPlayerEnabled?.invoke() == true) {
-            val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(validUrl)
+            val videoId =
+                com.jestk.browser.util.YouTubeUrlHelper
+                    .extractVideoId(validUrl)
             if (videoId != null && onCleanPlayerRequested?.invoke(validUrl) == true) {
                 return true
             }
         }
+        if (isBlockedAdNavigation(validUrl, view)) return true
         if (checkInsecureHttpNavigation(validUrl)) return true
         return handleExternalNavigation(view, validUrl, userInitiated = true)
+    }
+
+    private fun isStaticAsset(url: String): Boolean {
+        val clean = url.substringBefore('?').substringBefore('#').lowercase()
+        return clean.endsWith(".jpg") || clean.endsWith(".jpeg") || clean.endsWith(".png") ||
+            clean.endsWith(".gif") || clean.endsWith(".webp") || clean.endsWith(".svg") ||
+            clean.endsWith(".ico") || clean.endsWith(".mp4") || clean.endsWith(".webm") ||
+            clean.endsWith(".mp3") || clean.endsWith(".ogg") || clean.endsWith(".m4a") ||
+            clean.endsWith(".m3u8") || clean.endsWith(".ts") || clean.endsWith(".css") ||
+            clean.endsWith(".js") || clean.contains("/image/") || clean.contains("/covers/") ||
+            clean.contains("/assets/")
+    }
+
+    private fun isBlockedAdNavigation(
+        url: String,
+        view: WebView?,
+    ): Boolean {
+        if (!isWebUrl(url)) return false
+        if (isStaticAsset(url)) return false
+        if (isAllowedAdNavigation?.invoke(url) == true) return false
+
+        val adBlockActive = isAdBlockerEnabled()
+        val redirectProtectionActive = isAdRedirectProtectionEnabled?.invoke() ?: true
+        if (!adBlockActive && !redirectProtectionActive) return false
+
+        // 1. Direct blocklist match (always blocked when ad blocker active)
+        if (adBlockActive && AdBlockerEngine.shouldBlock(url)) {
+            onBlockedAdNavigation?.invoke(tabId, url)
+            AdBlockerEngine.recordBlockedRequest(false)
+            return true
+        }
+
+        // 2. Cross-domain ad redirect / popup check
+        if (redirectProtectionActive) {
+            val nestedView = view as? NestedWebView
+            val openerUrl = nestedView?.openerUrl
+            val currentUrl = nestedView?.loadedUrl ?: openerUrl ?: view?.url
+            if (!currentUrl.isNullOrBlank() && currentUrl != "about:blank") {
+                val currentHost = UrlSecurityUtils.extractHost(currentUrl)
+                val targetHost = UrlSecurityUtils.extractHost(url)
+                if (currentHost.isNotEmpty() && targetHost.isNotEmpty()) {
+                    val sameSite = UrlSecurityUtils.isSameSite(currentUrl, url)
+                    val isSearch = UrlSecurityUtils.isSearchEngineHost(currentHost)
+                    val isAuth = UrlSecurityUtils.isAuthOrSecurityHost(targetHost)
+
+                    if (!sameSite && !isSearch && !isAuth) {
+                        onBlockedAdNavigation?.invoke(tabId, url)
+                        AdBlockerEngine.recordBlockedRequest(false)
+                        return true
+                    }
+                }
+            }
+        }
+
+        return false
     }
 
     private fun checkInsecureHttpNavigation(url: String): Boolean {
@@ -116,7 +187,7 @@ class JestkWebViewClient(
         view: WebView?,
         url: String,
         allowFallbackNavigation: Boolean = true,
-        userInitiated: Boolean = false
+        userInitiated: Boolean = false,
     ): Boolean {
         val isEnabled = isOpenInAppsEnabled?.invoke() ?: true
         if (!isEnabled) {
@@ -129,15 +200,18 @@ class JestkWebViewClient(
                 onExternalAppOffered?.invoke(tabId, resolution.prompt, userInitiated)
                 resolution.isCustomScheme
             }
+
             is ExternalAppResolution.BrowserFallback -> {
                 if (allowFallbackNavigation) {
                     view?.loadUrl(resolution.url)
                 }
                 true
             }
+
             is ExternalAppResolution.UnresolvableScheme -> {
                 true
             }
+
             is ExternalAppResolution.NoApp -> {
                 false
             }
@@ -146,7 +220,7 @@ class JestkWebViewClient(
 
     override fun shouldInterceptRequest(
         view: WebView?,
-        request: WebResourceRequest?
+        request: WebResourceRequest?,
     ): WebResourceResponse? {
         if (request == null) return null
         val adBlockerActive = isAdBlockerEnabled()
@@ -163,7 +237,7 @@ class JestkWebViewClient(
                     AdBlockerEngine.recordBlockedRequest(isTracker)
                     return AdBlockerEngine.createSmartBlockedResponse(
                         url = url,
-                        requestHeaders = request.requestHeaders
+                        requestHeaders = request.requestHeaders,
                     )
                 }
             }
@@ -171,7 +245,10 @@ class JestkWebViewClient(
         return super.shouldInterceptRequest(view, request)
     }
 
-    private fun checkExternalAppOffer(view: WebView?, url: String) {
+    private fun checkExternalAppOffer(
+        view: WebView?,
+        url: String,
+    ) {
         if (isOpenInAppsEnabled?.invoke() == false) return
         val context = view?.context ?: return
         val resolution = ExternalAppResolver.resolve(context, url, tabId)
@@ -180,7 +257,11 @@ class JestkWebViewClient(
         }
     }
 
-    private fun notifyThemeColors(tabId: String, topColor: Int?, bottomColor: Int? = null) {
+    private fun notifyThemeColors(
+        tabId: String,
+        topColor: Int?,
+        bottomColor: Int? = null,
+    ) {
         if (onThemeColorsDetected != null) {
             onThemeColorsDetected.invoke(tabId, topColor, bottomColor)
         } else {
@@ -188,13 +269,19 @@ class JestkWebViewClient(
         }
     }
 
-    override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+    override fun onPageStarted(
+        view: WebView?,
+        url: String?,
+        favicon: Bitmap?,
+    ) {
         super.onPageStarted(view, url, favicon)
         val validUrl = url.orEmpty()
         if (validUrl.isEmpty() || validUrl == "about:blank") return
 
         if (isCleanPlayerEnabled?.invoke() == true) {
-            val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(validUrl)
+            val videoId =
+                com.jestk.browser.util.YouTubeUrlHelper
+                    .extractVideoId(validUrl)
             if (videoId != null && onCleanPlayerRequested?.invoke(validUrl) == true) {
                 view?.stopLoading()
                 return
@@ -223,7 +310,10 @@ class JestkWebViewClient(
         }
     }
 
-    override fun onPageFinished(view: WebView?, url: String?) {
+    override fun onPageFinished(
+        view: WebView?,
+        url: String?,
+    ) {
         super.onPageFinished(view, url)
         val validUrl = url.orEmpty()
         if (validUrl.isEmpty() || validUrl == "about:blank") return
@@ -247,7 +337,7 @@ class JestkWebViewClient(
                         if (!validUrl.contains("apple.com", ignoreCase = true)) {
                             notifyThemeColors(tabId, topColor, bottomColor)
                         }
-                    }
+                    },
                 ) { path ->
                     if (path != null) {
                         onSnapshotReady(tabId, path)
@@ -257,7 +347,10 @@ class JestkWebViewClient(
         }
     }
 
-    private fun injectColorScheme(webView: WebView, isDark: Boolean) {
+    private fun injectColorScheme(
+        webView: WebView,
+        isDark: Boolean,
+    ) {
         val js = buildColorSchemeScript(isDark)
         try {
             webView.evaluateJavascript(js, null)
@@ -266,8 +359,12 @@ class JestkWebViewClient(
         }
     }
 
-    fun extractThemeColor(webView: WebView, isPageStarted: Boolean = false) {
-        val js = """
+    fun extractThemeColor(
+        webView: WebView,
+        isPageStarted: Boolean = false,
+    ) {
+        val js =
+            """
             (function() {
                 try {
                     var host = location.hostname || '';
@@ -343,7 +440,7 @@ class JestkWebViewClient(
                     return '';
                 }
             })()
-        """.trimIndent()
+            """.trimIndent()
         webView.evaluateJavascript(js) { rawResult ->
             val parsedColor = parseCssColor(rawResult)
             if (parsedColor != null) {
@@ -352,7 +449,11 @@ class JestkWebViewClient(
         }
     }
 
-    override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+    override fun doUpdateVisitedHistory(
+        view: WebView?,
+        url: String?,
+        isReload: Boolean,
+    ) {
         super.doUpdateVisitedHistory(view, url, isReload)
         val validUrl = url.orEmpty()
         if (validUrl.isNotBlank() && validUrl != "about:blank") {
@@ -374,22 +475,30 @@ class JestkWebViewClient(
          * Loads [url] into [webView], routing custom schemes and intent URLs through the
          * configured [JestkWebViewClient] when applicable.
          */
-        fun loadUrlOrHandleExternal(webView: WebView, url: String) {
+        fun loadUrlOrHandleExternal(
+            webView: WebView,
+            url: String,
+        ) {
             val client = webView.webViewClient as? JestkWebViewClient
-            val handledAsExternal = client != null &&
-                !isWebUrl(url) &&
-                client.handleExternalNavigation(webView, url)
+            val handledAsExternal =
+                client != null &&
+                    !isWebUrl(url) &&
+                    client.handleExternalNavigation(webView, url)
             if (!handledAsExternal) {
                 webView.loadUrl(url)
             }
         }
 
         fun isWebUrl(url: String): Boolean {
-            val scheme = try {
-                android.net.Uri.parse(url).scheme?.lowercase()
-            } catch (t: Throwable) {
-                null
-            }
+            val scheme =
+                try {
+                    android.net.Uri
+                        .parse(url)
+                        .scheme
+                        ?.lowercase()
+                } catch (t: Throwable) {
+                    null
+                }
             return scheme == "http" || scheme == "https"
         }
 
@@ -401,7 +510,8 @@ class JestkWebViewClient(
             if (raw.isNullOrBlank()) return null
             val clean = raw.trim().removeSurrounding("\"").trim()
             if (clean.isEmpty() || clean == "null" || clean.equals("transparent", ignoreCase = true) ||
-                clean == "rgba(0, 0, 0, 0)" || clean == "rgba(0,0,0,0)") {
+                clean == "rgba(0, 0, 0, 0)" || clean == "rgba(0,0,0,0)"
+            ) {
                 return null
             }
             if (clean.startsWith("#")) {
@@ -414,6 +524,7 @@ class JestkWebViewClient(
                             val b = hex[2].toString().repeat(2).toInt(16)
                             android.graphics.Color.rgb(r, g, b)
                         }
+
                         4 -> {
                             val r = hex[0].toString().repeat(2).toInt(16)
                             val g = hex[1].toString().repeat(2).toInt(16)
@@ -421,7 +532,11 @@ class JestkWebViewClient(
                             val a = hex[3].toString().repeat(2).toInt(16)
                             if (a < 25) null else android.graphics.Color.rgb(r, g, b)
                         }
-                        6 -> android.graphics.Color.parseColor(clean)
+
+                        6 -> {
+                            android.graphics.Color.parseColor(clean)
+                        }
+
                         8 -> {
                             // CSS hex #RRGGBBAA -> Android Color expects #AARRGGBB
                             val rr = clean.substring(1, 3).toInt(16)
@@ -430,7 +545,10 @@ class JestkWebViewClient(
                             val aa = clean.substring(7, 9).toInt(16)
                             if (aa < 25) null else android.graphics.Color.rgb(rr, gg, bb)
                         }
-                        else -> null
+
+                        else -> {
+                            null
+                        }
                     }
                 } catch (t: Throwable) {
                     Log.w("HoriEngine", "Failed to parse CSS hex color: $clean", t)
@@ -445,16 +563,21 @@ class JestkWebViewClient(
                         val r = parts[0].toInt().coerceIn(0, 255)
                         val g = parts[1].toInt().coerceIn(0, 255)
                         val b = parts[2].toInt().coerceIn(0, 255)
-                        val a = if (parts.size >= 4) {
-                            val alphaFloat = parts[3].toFloatOrNull() ?: 1f
-                            if (alphaFloat <= 1.0f) {
-                                (alphaFloat * 255).toInt().coerceIn(0, 255)
+                        val a =
+                            if (parts.size >= 4) {
+                                val alphaFloat = parts[3].toFloatOrNull() ?: 1f
+                                if (alphaFloat <= 1.0f) {
+                                    (alphaFloat * 255).toInt().coerceIn(0, 255)
+                                } else {
+                                    alphaFloat.toInt().coerceIn(0, 255)
+                                }
                             } else {
-                                alphaFloat.toInt().coerceIn(0, 255)
+                                255
                             }
-                        } else 255
                         if (a < 25) null else android.graphics.Color.rgb(r, g, b)
-                    } else null
+                    } else {
+                        null
+                    }
                 } catch (t: Throwable) {
                     Log.w("HoriEngine", "Failed to parse CSS rgb color: $clean", t)
                     null

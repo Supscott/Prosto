@@ -177,7 +177,7 @@ fun HomeScreen(
         ) {
             // Hero Greeting
             Text(
-                text = "Where to next?",
+                text = stringResource(R.string.home_greeting),
                 style = LocalProstoTypography.current.headlineXl,
                 color = if (isDark) DarkOnSurface else ProstoDarkText,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
@@ -335,7 +335,7 @@ private fun HeroSearchCapsule(
 
             // Placeholder Text
             Text(
-                text = "Search with $searchEngineName or enter URL",
+                text = stringResource(R.string.home_search_hint, searchEngineName),
                 style = LocalProstoTypography.current.bodyMd,
                 color = ProstoMutedSlate,
                 maxLines = 1,
@@ -354,7 +354,7 @@ private fun HeroSearchCapsule(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Mic,
-                        contentDescription = "Voice Search",
+                        contentDescription = stringResource(R.string.a11y_voice_search),
                         tint = ProstoMutedSlate,
                         modifier = Modifier.size(20.dp),
                     )
@@ -366,7 +366,7 @@ private fun HeroSearchCapsule(
                 ) {
                     Icon(
                         imageVector = Icons.Default.QrCodeScanner,
-                        contentDescription = "Scan QR",
+                        contentDescription = stringResource(R.string.a11y_scan_qr),
                         tint = ProstoMutedSlate,
                         modifier = Modifier.size(20.dp),
                     )
@@ -400,7 +400,7 @@ private fun FavoritesSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Favorites",
+                text = stringResource(R.string.favorites_title),
                 style = LocalProstoTypography.current.headlineSm,
                 color = if (isDark) DarkOnSurface else ProstoDarkText,
             )
@@ -415,7 +415,7 @@ private fun FavoritesSection(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Bookmark Tab",
+                        text = stringResource(R.string.home_bookmark_tab),
                         style = LocalProstoTypography.current.bodySm.copy(fontWeight = FontWeight.SemiBold),
                         color = ProstoBrandPrimary,
                     )
@@ -709,7 +709,7 @@ private fun AddFavoriteButton(
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
-                    contentDescription = "Add Favorite",
+                    contentDescription = stringResource(R.string.a11y_add_favorite),
                     tint = ProstoBrandPrimary,
                     modifier = Modifier.size(20.dp),
                 )
@@ -748,13 +748,13 @@ private fun RecentTabsSection(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Recently Closed",
+                text = stringResource(R.string.home_recently_closed),
                 style = LocalProstoTypography.current.headlineSm,
                 color = if (isDark) DarkOnSurface else ProstoDarkText,
             )
 
             Text(
-                text = "Total ${recentTabs.size}",
+                text = stringResource(R.string.home_recent_total, recentTabs.size),
                 style = LocalProstoTypography.current.labelMd,
                 color = ProstoMutedSlate,
             )
@@ -822,7 +822,7 @@ private fun MoreHistoryCard(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = "More",
+                    contentDescription = stringResource(R.string.action_more),
                     tint = ProstoBrandPrimary,
                     modifier = Modifier.size(20.dp),
                 )
@@ -831,7 +831,7 @@ private fun MoreHistoryCard(
             Spacer(modifier = Modifier.height(10.dp))
 
             Text(
-                text = "More",
+                text = stringResource(R.string.action_more),
                 style =
                     LocalProstoTypography.current.headlineSm.copy(
                         fontSize = 13.sp,
@@ -842,7 +842,7 @@ private fun MoreHistoryCard(
             )
 
             Text(
-                text = "All History",
+                text = stringResource(R.string.expand_history),
                 style = LocalProstoTypography.current.bodySm.copy(fontSize = 10.sp),
                 color = ProstoMutedSlate,
                 textAlign = TextAlign.Center,
@@ -1066,7 +1066,7 @@ fun FeedbackPromptCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Favorite,
-                            contentDescription = "Feedback icon",
+                            contentDescription = stringResource(R.string.a11y_feedback_icon),
                             tint = ProstoBrandPrimary,
                             modifier = Modifier.size(24.dp).testTag("feedback_card_icon"),
                         )
@@ -1224,7 +1224,7 @@ fun PrivacyProtectionCard(
                 }
 
                 Text(
-                    text = "Protection Active",
+                    text = stringResource(R.string.home_protection_active),
                     style = LocalProstoTypography.current.headlineSm.copy(fontSize = 15.sp, fontWeight = FontWeight.Bold),
                     color = if (isDark) DarkOnSurface else ProstoDarkText,
                 )

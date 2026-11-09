@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -82,7 +83,7 @@ internal fun FolderOverviewGridCard(
     val elevation = if (isHovered) 8.dp else 2.dp
 
     val displayTitle = folder.title.ifBlank {
-        stringResource(R.string.folder_tabs_count, tabs.size)
+        pluralStringResource(R.plurals.folder_tabs_count, tabs.size, tabs.size)
     }
 
     Surface(
@@ -255,7 +256,7 @@ private fun FolderSlotPreview(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "+$overflowCount",
+                        text = stringResource(R.string.folder_overflow_count, overflowCount),
                         style = LocalProstoTypography.current.labelMd.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 12.sp,

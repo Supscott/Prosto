@@ -50,11 +50,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
@@ -436,7 +438,7 @@ internal fun SearchEngineDropdownCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
-                            contentDescription = "Edit Search Engines",
+                            contentDescription = stringResource(R.string.a11y_edit_search_engines),
                             tint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
                             modifier = Modifier.size(18.dp)
                         )
@@ -448,7 +450,7 @@ internal fun SearchEngineDropdownCard(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Add,
-                            contentDescription = "Add Search Engine",
+                            contentDescription = stringResource(R.string.add_search_engine_title),
                             tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                             modifier = Modifier.size(20.dp)
                         )
@@ -469,7 +471,7 @@ internal fun SearchEngineDropdownCard(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
-                            text = "Done",
+                            text = stringResource(R.string.action_done),
                             style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.Bold),
                             color = if (isDark) DarkPrimary else ProstoBrandPrimary
                         )
@@ -696,7 +698,7 @@ internal fun ReorderableSearchEngineRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.DragHandle,
-                        contentDescription = "Reorder",
+                        contentDescription = stringResource(R.string.a11y_reorder),
                         tint = if (isLifted) {
                             if (isDark) DarkPrimary else ProstoBrandPrimary
                         } else {
@@ -713,7 +715,7 @@ internal fun ReorderableSearchEngineRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit Provider",
+                        contentDescription = stringResource(R.string.a11y_edit_provider),
                         tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                         modifier = Modifier.size(16.dp)
                     )
@@ -756,7 +758,7 @@ internal fun ReorderableSearchEngineRow(
                 if (isSelected) {
                     Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = "Selected",
+                        contentDescription = stringResource(R.string.a11y_selected),
                         tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                         modifier = Modifier.size(18.dp)
                     )
@@ -771,7 +773,7 @@ internal fun ReorderableSearchEngineRow(
                 ) {
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,
-                        contentDescription = "Delete Provider",
+                        contentDescription = stringResource(R.string.a11y_delete_provider),
                         tint = if (canDelete) Color(0xFFEF4444) else if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1),
                         modifier = Modifier.size(18.dp)
                     )

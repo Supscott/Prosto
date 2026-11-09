@@ -45,6 +45,7 @@ import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
@@ -188,7 +189,7 @@ fun SettingsTopBar(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                contentDescription = "Back",
+                contentDescription = stringResource(R.string.action_back),
                 tint = ProstoBrandPrimary,
                 modifier = Modifier.size(20.dp),
             )
@@ -206,7 +207,7 @@ fun SettingsTopBar(
         ) {
             Icon(
                 imageVector = Icons.Default.Close,
-                contentDescription = "Close",
+                contentDescription = stringResource(R.string.action_close),
                 tint = ProstoMutedSlate,
                 modifier = Modifier.size(20.dp),
             )
@@ -408,7 +409,7 @@ fun SettingsContent(
                                         )
                                         if (engine.shortcut != null) {
                                             Text(
-                                                text = "(${engine.shortcut})",
+                                                text = stringResource(R.string.search_engine_shortcut_compact, engine.shortcut),
                                                 style = LocalProstoTypography.current.labelSm,
                                                 color = ProstoMutedSlate,
                                             )
@@ -416,7 +417,7 @@ fun SettingsContent(
                                         if (isSelected) {
                                             Icon(
                                                 imageVector = Icons.Default.Check,
-                                                contentDescription = "Selected",
+                                                contentDescription = stringResource(R.string.a11y_selected),
                                                 tint = ProstoBrandPrimary,
                                                 modifier = Modifier.size(16.dp),
                                             )
@@ -528,6 +529,21 @@ fun SettingsContent(
                 summary = stringResource(R.string.ad_blocker_summary),
                 checked = uiState.settings.isAdBlockerEnabled,
                 onCheckedChange = { onEvent(BrowserUiEvent.SetAdBlockerEnabled(it)) },
+                isDark = isDark,
+            )
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 56.dp),
+            )
+
+            // Ad Redirect & Popup Protection Row
+            SettingToggleRow(
+                icon = Icons.Default.Security,
+                title = stringResource(R.string.ad_redirect_protection_title),
+                summary = stringResource(R.string.ad_redirect_protection_summary),
+                checked = uiState.settings.isAdRedirectProtectionEnabled,
+                onCheckedChange = { onEvent(BrowserUiEvent.SetAdRedirectProtectionEnabled(it)) },
                 isDark = isDark,
             )
 
@@ -1106,7 +1122,7 @@ fun SearchPageProvidersDialog(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Close",
+                            contentDescription = stringResource(R.string.action_close),
                             tint = ProstoMutedSlate,
                             modifier = Modifier.size(18.dp),
                         )
@@ -1160,7 +1176,7 @@ fun SearchPageProvidersDialog(
                                     )
                                     if (engine.shortcut != null) {
                                         Text(
-                                            text = "Shortcut: ${engine.shortcut}",
+                                            text = stringResource(R.string.search_engine_shortcut_value, engine.shortcut),
                                             style = LocalProstoTypography.current.labelSm,
                                             color = ProstoMutedSlate,
                                         )

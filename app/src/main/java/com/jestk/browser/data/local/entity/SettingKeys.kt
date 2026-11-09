@@ -13,7 +13,9 @@ object SettingKeys {
     const val SKIPPED_UPDATE_VERSION = "skipped_update_version"
     const val GRAY_UNLOADED_TABS_ENABLED = "gray_unloaded_tabs_enabled"
     const val TRACKING_PROTECTION_ENABLED = "tracking_protection_enabled"
+    const val AD_REDIRECT_PROTECTION_ENABLED = "ad_redirect_protection_enabled"
     const val CLEAN_YOUTUBE_PLAYER_ENABLED = "clean_youtube_player_enabled"
+    const val CLEAN_PLAYER_FORCED_OFF_V1 = "clean_player_forced_off_v1"
     const val FEEDBACK_PROMPT_STATE = "feedback_prompt_state"
     const val FEEDBACK_PROMPT_SNOOZED_UNTIL = "feedback_prompt_snoozed_until"
 }

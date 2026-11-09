@@ -15,6 +15,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -297,6 +298,13 @@ fun WebViewContainer(
                     onInsecureHttpWarning = { id, url ->
                         currentOnEvent(BrowserUiEvent.ShowInsecureHttpWarning(url = url, tabId = id))
                     },
+                    onBlockedAdNavigation = { id, url ->
+                        currentOnEvent(BrowserUiEvent.ShowBlockedAdNavigation(url = url, tabId = id))
+                    },
+                    isAdRedirectProtectionEnabled = { currentUiState.settings.isAdRedirectProtectionEnabled },
+                    isAllowedAdNavigation = { url ->
+                        currentUiState.allowedAdNavigationUrls.contains(url)
+                    },
                     isInsecureHostAllowed = { host ->
                         currentUiState.allowedInsecureHosts.contains(host.lowercase().trim())
                     },
@@ -334,11 +342,12 @@ fun WebViewContainer(
                             ?: wv.context.findActivity() as? FileChooserHandler
                         handler?.openFileChooser(callback, params) ?: false
                     },
-                    onCreateWindowRequest = { _, _, _, resultMsg ->
+                    onCreateWindowRequest = { originView, _, _, resultMsg ->
                         com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
                             resultMsg = resultMsg,
                             context = wv.context,
                             webViewPool = webViewPool,
+                            openerUrl = originView?.url ?: wv.url,
                             onPopupOpened = { currentOnEvent(BrowserUiEvent.OpenPopupTab(it)) }
                         )
                     },
@@ -576,7 +585,7 @@ fun WebViewContainer(
 private fun WebView.safeResume() {
     try {
         onResume()
-    } catch (t: Throwable) {
+    } catch (t: Exception) {
         android.util.Log.w("WebViewContainer", "Failed to resume WebView", t)
     }
 }

@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -238,7 +239,7 @@ internal fun FolderOverviewGridHeader(
     val folderColor = Color(folder.color)
     val contentColor = getContrastingFolderContentColor(folderColor)
     val displayTitle = folder.title.ifBlank {
-        stringResource(R.string.folder_tabs_count, tabCount)
+        pluralStringResource(R.plurals.folder_tabs_count, tabCount, tabCount)
     }
 
     val shape = if (isSticky) {

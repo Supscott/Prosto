@@ -89,3 +89,12 @@ provider is present (previews, isolated tests), and `VibratorVibrationFeedback` 
   `SideEffect` only runs when its enclosing composition recomposes, and a composition that
   reads the preference only *inside* the effect is never invalidated by it - the flag would
   stay stale until something unrelated forced a recomposition.
+
+## Amendment 2026-11-06 - the dock swap pulse is removed
+
+Item 2 above (swapping adjacent tab slots during drag-and-drop) no longer vibrates.
+Reordering a tab across several dock slots fired one pulse per crossed slot, so a single drag
+produced a burst of buzzes that made the gesture feel stuttery, and there was no way to stop
+it short of turning off all tactile feedback. The per-swap scale bump animation remains as the
+acknowledgement of a reorder. The long-press, removal, closed-folder hover and spring-load
+pulses are unchanged.

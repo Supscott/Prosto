@@ -52,11 +52,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.DownloadStatus
 import com.jestk.browser.domain.model.ThemeMode
@@ -120,14 +123,14 @@ fun DownloadsScreen(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.ArrowBackIos,
-                    contentDescription = "Back",
+                    contentDescription = stringResource(R.string.action_back),
                     tint = if (isDark) DarkOnSurface else ProstoDarkText,
                     modifier = Modifier.size(20.dp),
                 )
             }
 
             Text(
-                text = "Downloads",
+                text = stringResource(R.string.downloads_title),
                 style = LocalProstoTypography.current.headlineSm,
                 color = if (isDark) DarkOnSurface else ProstoDarkText,
             )
@@ -138,7 +141,7 @@ fun DownloadsScreen(
             ) {
                 Icon(
                     imageVector = Icons.Default.Close,
-                    contentDescription = "Close",
+                    contentDescription = stringResource(R.string.action_close),
                     tint = ProstoMutedSlate,
                     modifier = Modifier.size(22.dp),
                 )
@@ -154,7 +157,7 @@ fun DownloadsScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Downloads",
+                text = stringResource(R.string.downloads_title),
                 style = LocalProstoTypography.current.headlineLg,
                 color = if (isDark) DarkOnSurface else ProstoDarkText,
             )
@@ -165,7 +168,7 @@ fun DownloadsScreen(
                     color = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
                 ) {
                     Text(
-                        text = "${uiState.downloads.size} ${if (uiState.downloads.size == 1) "file" else "files"}",
+                        text = pluralStringResource(R.plurals.downloads_count, uiState.downloads.size, uiState.downloads.size),
                         style =
                             LocalProstoTypography.current.labelSm.copy(
                                 fontWeight = FontWeight.SemiBold,
@@ -263,7 +266,7 @@ private fun DownloadsEmptyState(
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = "No downloads yet",
+            text = stringResource(R.string.downloads_empty_title),
             style = LocalProstoTypography.current.headlineSm,
             color = if (isDark) DarkOnSurface else ProstoDarkText,
         )
@@ -271,7 +274,7 @@ private fun DownloadsEmptyState(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Files downloaded from websites will appear here",
+            text = stringResource(R.string.downloads_empty_summary),
             style = LocalProstoTypography.current.bodyMd,
             color = ProstoMutedSlate,
         )
@@ -364,7 +367,7 @@ private fun DownloadItemCard(
                                     color = ProstoMutedSlate,
                                 )
                                 Text(
-                                    text = "${formatFileSize(progressInfo.speedBytesPerSec)}/s",
+                                    text = stringResource(R.string.downloads_speed, formatFileSize(progressInfo.speedBytesPerSec)),
                                     style =
                                         LocalProstoTypography.current.bodySm.copy(
                                             fontWeight = FontWeight.Medium,
@@ -377,7 +380,7 @@ private fun DownloadItemCard(
                         isPaused -> {
                             val progressText = formatProgressText(bytesDownloaded, totalBytes)
                             Text(
-                                text = "Paused · $progressText",
+                                text = stringResource(R.string.downloads_paused, progressText),
                                 style =
                                     LocalProstoTypography.current.bodySm.copy(
                                         fontWeight = FontWeight.SemiBold,
@@ -388,7 +391,7 @@ private fun DownloadItemCard(
 
                         isFailed -> {
                             Text(
-                                text = "Download failed",
+                                text = stringResource(R.string.downloads_failed),
                                 style =
                                     LocalProstoTypography.current.bodySm.copy(
                                         fontWeight = FontWeight.SemiBold,
@@ -472,7 +475,7 @@ private fun DownloadItemCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Pause,
-                                contentDescription = "Pause download",
+                                contentDescription = stringResource(R.string.a11y_pause_download),
                                 tint = ProstoBrandPrimary,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -483,7 +486,7 @@ private fun DownloadItemCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Cancel download",
+                                contentDescription = stringResource(R.string.a11y_cancel_download),
                                 tint = ProstoMutedSlate,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -497,7 +500,7 @@ private fun DownloadItemCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Resume download",
+                                contentDescription = stringResource(R.string.a11y_resume_download),
                                 tint = ProstoBrandPrimary,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -508,7 +511,7 @@ private fun DownloadItemCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Close,
-                                contentDescription = "Cancel download",
+                                contentDescription = stringResource(R.string.a11y_cancel_download),
                                 tint = ProstoMutedSlate,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -522,7 +525,7 @@ private fun DownloadItemCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Refresh,
-                                contentDescription = "Retry download",
+                                contentDescription = stringResource(R.string.a11y_retry_download),
                                 tint = ProstoBrandPrimary,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -533,7 +536,7 @@ private fun DownloadItemCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.DeleteOutline,
-                                contentDescription = "Delete download",
+                                contentDescription = stringResource(R.string.a11y_delete_download),
                                 tint = ProstoMutedSlate,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -547,7 +550,7 @@ private fun DownloadItemCard(
                         ) {
                             Icon(
                                 imageVector = Icons.Default.DeleteOutline,
-                                contentDescription = "Delete download",
+                                contentDescription = stringResource(R.string.a11y_delete_download),
                                 tint = ProstoMutedSlate,
                                 modifier = Modifier.size(20.dp),
                             )

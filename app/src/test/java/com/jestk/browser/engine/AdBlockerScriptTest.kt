@@ -148,4 +148,11 @@ class AdBlockerScriptTest {
         assertThat(js).contains("getPlayerState")
         assertThat(js).contains("setInterval(checkWatchPlayback, 300)")
     }
+
+    @Test
+    fun buildDocumentStartScript_containsClickjackingOverlayNeutralizer() {
+        val script = AdBlockerScript.buildDocumentStartScript()
+        assertThat(script).contains("neutralizeClickjackingOverlays")
+        assertThat(script).contains("pointer-events")
+    }
 }

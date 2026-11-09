@@ -8,6 +8,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.webkit.WebView
+import com.jestk.browser.R
 import com.jestk.browser.util.atomicMoveTo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -173,7 +174,7 @@ object SnapshotEngine {
                 canvas.scale(scale, scale)
                 webView.draw(canvas)
             }
-        } catch (e: Throwable) {
+        } catch (e: Exception) {
             Log.w(TAG, "Failed to capture canvas for tab $tabId", e)
             onComplete(null)
             return
@@ -216,7 +217,7 @@ object SnapshotEngine {
                 mainHandler.post { onComplete(targetFile.absolutePath) }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to write snapshot file for tab $tabId", e)
-                try { thumbnailBitmap.recycle() } catch (recycleError: Throwable) {
+                try { thumbnailBitmap.recycle() } catch (recycleError: Exception) {
                     Log.d(TAG, "Best-effort bitmap recycle failed for tab $tabId", recycleError)
                 }
                 mainHandler.post { onComplete(null) }

@@ -673,6 +673,39 @@ object AdBlockerScript {
                         } catch(e) {}
                     }
 
+                    // Check if redirect protection is active via bridge
+                    var redirectProtectionActive = true;
+                    if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.isRedirectProtectionEnabled === 'function') {
+                        try {
+                            redirectProtectionActive = window.HoriAdBlockBridge.isRedirectProtectionEnabled();
+                        } catch(e) {}
+                    }
+
+                    if (redirectProtectionActive) {
+                        try {
+                            var origWindowOpen = window.open;
+                            window.open = function(url, target, features) {
+                                try {
+                                    if (url && typeof url === 'string') {
+                                        var currentHost = (location.hostname || '').toLowerCase();
+                                        var a = document.createElement('a');
+                                        a.href = url;
+                                        var targetHost = (a.hostname || '').toLowerCase();
+                                        if (targetHost && currentHost && targetHost !== currentHost &&
+                                            !targetHost.endsWith('.' + currentHost) && !currentHost.endsWith('.' + targetHost)) {
+                                            var isSearch = targetHost.indexOf('google.') !== -1 || targetHost.indexOf('yandex.') !== -1;
+                                            var isAuth = targetHost.indexOf('oauth') !== -1 || targetHost.indexOf('passport') !== -1;
+                                            if (!isSearch && !isAuth) {
+                                                return null;
+                                            }
+                                        }
+                                    }
+                                } catch(e) {}
+                                return origWindowOpen.apply(this, arguments);
+                            };
+                        } catch(e) {}
+                    }
+
                     // 1. Install YouTube Fast-Start protection immediately regardless of toggle
                     // to prevent artificial 10-15s buffering and SABR backoffs on YouTube:
                     $ytScript
@@ -829,6 +862,35 @@ object AdBlockerScript {
                                     var matches = node.querySelectorAll(AD_SELECTOR);
                                     for (var j = 0; j < matches.length; j++) {
                                         collapseElement(matches[j]);
+                                    }
+                                }
+                            }
+                            if (redirectProtectionActive) {
+                                neutralizeClickjackingOverlays();
+                            }
+                        } catch(err) {}
+                    }
+
+                    function neutralizeClickjackingOverlays() {
+                        try {
+                            var nodes = document.querySelectorAll('div, a, span');
+                            var vw = window.innerWidth || (document.documentElement ? document.documentElement.clientWidth : 0);
+                            var vh = window.innerHeight || (document.documentElement ? document.documentElement.clientHeight : 0);
+                            if (vw <= 0 || vh <= 0) return;
+                            for (var i = 0; i < nodes.length; i++) {
+                                var el = nodes[i];
+                                if (el.tagName === 'BODY' || el.tagName === 'HTML') continue;
+                                var style = window.getComputedStyle(el);
+                                if ((style.position === 'fixed' || style.position === 'absolute') && parseInt(style.zIndex, 10) >= 999) {
+                                    var rect = el.getBoundingClientRect();
+                                    if (rect.width >= vw * 0.7 && rect.height >= vh * 0.7) {
+                                        var op = parseFloat(style.opacity);
+                                        var bg = style.backgroundColor || '';
+                                        var isTransparent = isNaN(op) || op <= 0.1 || bg === 'transparent' || bg.indexOf('rgba(0, 0, 0, 0)') !== -1 || bg.indexOf('rgba(0,0,0,0)') !== -1;
+                                        if (isTransparent && !el.textContent.trim()) {
+                                            el.style.setProperty('display', 'none', 'important');
+                                            el.style.setProperty('pointer-events', 'none', 'important');
+                                        }
                                     }
                                 }
                             }

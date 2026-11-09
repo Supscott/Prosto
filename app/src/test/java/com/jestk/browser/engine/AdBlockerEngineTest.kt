@@ -314,6 +314,40 @@ class AdBlockerEngineTest {
     }
 
     @Test
+    fun createSmartBlockedResponse_returns204NoContentForMediaStreams() {
+        val mp4Resp = AdBlockerEngine.createSmartBlockedResponse("https://example.com/ad_video.mp4")
+        assertThat(mp4Resp.statusCode).isEqualTo(204)
+        assertThat(mp4Resp.reasonPhrase).isEqualTo("No Content")
+        assertThat(mp4Resp.mimeType).isEqualTo("video/mp4")
+        assertThat(mp4Resp.data.read()).isEqualTo(-1)
+
+        val webmResp = AdBlockerEngine.createSmartBlockedResponse(
+            "https://example.com/stream",
+            mimeTypeHint = "video/webm",
+        )
+        assertThat(webmResp.statusCode).isEqualTo(204)
+        assertThat(webmResp.mimeType).isEqualTo("video/mp4")
+
+        val m3u8Resp = AdBlockerEngine.createSmartBlockedResponse("https://example.com/ad_chunk.m3u8?token=123")
+        assertThat(m3u8Resp.statusCode).isEqualTo(204)
+    }
+
+    @Test
+    fun extractDomainFromAbpRule_rejectsDomainRestrictedRules() {
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||b-cdn.net^\$domain=bunkr.cr|bunkr.si")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||cloudfront.net^\$domain=buffsports.io")).isNull()
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||doubleclick.net^\$third-party")).isEqualTo("doubleclick.net")
+        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||adfox.ru^")).isEqualTo("adfox.ru")
+    }
+
+    @Test
+    fun shouldBlock_allowsLegitimateCdnDomains() {
+        assertThat(AdBlockerEngine.shouldBlock("https://r34xyz.b-cdn.net/posts/1349/1349708/1349708.thumbnail.jpg")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://d111111abcdef8.cloudfront.net/images/hero.webp")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlock("https://my-app.workers.dev/api/data")).isFalse()
+    }
+
+    @Test
     fun createSmartBlockedResponse_returnsEmptyHtmlForFrames() {
         val response = AdBlockerEngine.createSmartBlockedResponse("https://example.com/ad_frame.html")
         assertThat(response.mimeType).isEqualTo("text/html")
@@ -462,6 +496,8 @@ class AdBlockerEngineTest {
                     override suspend fun setSearchEngine(engine: com.jestk.browser.domain.model.SearchEngine) {}
 
                     override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
+
+                    override suspend fun setAdRedirectProtectionEnabled(enabled: Boolean) {}
 
                     override suspend fun setTrackingProtectionEnabled(enabled: Boolean) {}
 
@@ -675,6 +711,8 @@ class AdBlockerEngineTest {
         override suspend fun setSearchEngine(engine: com.jestk.browser.domain.model.SearchEngine) {}
 
         override suspend fun setAdBlockerEnabled(enabled: Boolean) {}
+
+        override suspend fun setAdRedirectProtectionEnabled(enabled: Boolean) {}
 
         override suspend fun setTrackingProtectionEnabled(enabled: Boolean) {}
 

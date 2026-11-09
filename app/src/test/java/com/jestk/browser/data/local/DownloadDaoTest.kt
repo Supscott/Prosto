@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import com.jestk.browser.R
 import com.jestk.browser.data.local.dao.DownloadDao
 import com.jestk.browser.data.local.entity.DownloadEntity
 import kotlinx.coroutines.flow.first
@@ -57,6 +58,37 @@ class DownloadDaoTest {
         assertThat(downloads[0].fileName).isEqualTo("test.pdf")
         assertThat(downloads[0].downloadId).isEqualTo(42L)
         assertThat(downloads[0].contentLength).isEqualTo(1024L)
+    }
+
+    @Test
+    fun getAllDownloads_equalTimestamps_haveDeterministicOrder() = runTest {
+        val firstId = downloadDao.insertDownload(
+            DownloadEntity(
+                url = "https://example.com/first.bin",
+                fileName = "first.bin",
+                filePath = "/path/first.bin",
+                mimeType = "application/octet-stream",
+                contentLength = 10L,
+                timestamp = 7000L
+            )
+        )
+        val secondId = downloadDao.insertDownload(
+            DownloadEntity(
+                url = "https://example.com/second.bin",
+                fileName = "second.bin",
+                filePath = "/path/second.bin",
+                mimeType = "application/octet-stream",
+                contentLength = 10L,
+                timestamp = 7000L
+            )
+        )
+
+        val firstRead = downloadDao.getAllDownloadsFlow().first().map { it.fileName }
+        val secondRead = downloadDao.getAllDownloadsFlow().first().map { it.fileName }
+
+        assertThat(secondId).isGreaterThan(firstId)
+        assertThat(firstRead).isEqualTo(secondRead)
+        assertThat(firstRead).containsExactly("second.bin", "first.bin").inOrder()
     }
 
     @Test

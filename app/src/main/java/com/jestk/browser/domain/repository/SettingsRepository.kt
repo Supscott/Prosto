@@ -16,6 +16,8 @@ interface SettingsRepository {
 
     suspend fun setAdBlockerEnabled(enabled: Boolean)
 
+    suspend fun setAdRedirectProtectionEnabled(enabled: Boolean)
+
     suspend fun setCleanYouTubePlayerEnabled(enabled: Boolean) {}
 
     suspend fun setTrackingProtectionEnabled(enabled: Boolean)

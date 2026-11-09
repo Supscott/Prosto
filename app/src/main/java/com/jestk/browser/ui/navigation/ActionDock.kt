@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -55,6 +56,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
@@ -223,7 +225,7 @@ fun ActionDockMenuButton(
     ) {
         Icon(
             imageVector = Icons.Default.Menu,
-            contentDescription = "Menu",
+            contentDescription = stringResource(R.string.dock_menu),
             tint = if (isExpanded) activeTint else normalTint,
             modifier = Modifier.size(20.dp),
         )
@@ -246,7 +248,7 @@ fun SwipeUpHint(
             android.os.Build.FINGERPRINT == "robolectric" ||
                 try {
                     Class.forName("org.robolectric.Robolectric") != null
-                } catch (_: Throwable) {
+                } catch (_: Exception) {
                     false
                 }
         }
@@ -290,12 +292,12 @@ fun SwipeUpHint(
         ) {
             Icon(
                 imageVector = Icons.Default.KeyboardArrowUp,
-                contentDescription = "Swipe up to search",
+                contentDescription = stringResource(R.string.dock_swipe_up_hint),
                 tint = if (isDark) ProstoAccent else ProstoBrandPrimary,
                 modifier = Modifier.size(16.dp),
             )
             Text(
-                text = "Swipe up to search",
+                text = stringResource(R.string.dock_swipe_up_hint),
                 style =
                     typography.labelSm.copy(
                         fontWeight = FontWeight.Medium,

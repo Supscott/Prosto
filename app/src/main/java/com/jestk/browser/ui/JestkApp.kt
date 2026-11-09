@@ -9,6 +9,8 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -83,6 +85,7 @@ import com.jestk.browser.ui.overlays.AddFavoriteDialog
 import com.jestk.browser.ui.overlays.CleanVideoPlayerOverlay
 import com.jestk.browser.ui.overlays.FeedbackBottomSheet
 import com.jestk.browser.ui.overlays.FolderEditBottomSheet
+import com.jestk.browser.ui.overlays.BlockedAdNavigationBanner
 import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
@@ -649,8 +652,9 @@ fun JestkApp(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
+                        val closedMessage = "$closedText: $tabTitle"
                         Text(
-                            text = "$closedText: $tabTitle",
+                            text = closedMessage,
                             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
                             color = if (isDark) DarkOnSurface else ProstoDarkText,
                             maxLines = 1,
@@ -668,7 +672,7 @@ fun JestkApp(
                         )
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Dismiss",
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.outline,
                             modifier =
                                 Modifier
@@ -726,7 +730,7 @@ fun JestkApp(
                     ) {
                         Icon(
                             imageVector = Icons.Default.Download,
-                            contentDescription = "Download",
+                            contentDescription = null,
                             tint = ProstoBrandPrimary,
                             modifier = Modifier.size(18.dp),
                         )
@@ -751,7 +755,7 @@ fun JestkApp(
                         )
                         Icon(
                             imageVector = Icons.Default.Close,
-                            contentDescription = "Dismiss",
+                            contentDescription = null,
                             tint = MaterialTheme.colorScheme.outline,
                             modifier =
                                 Modifier
@@ -859,6 +863,43 @@ fun JestkApp(
                     onSkip = { viewModel.onEvent(BrowserUiEvent.SkipUpdate) },
                     isDark = isDark,
                 )
+            }
+
+            // Blocked Ad Navigation Floating Banner
+            val blockedNav = uiState.blockedAdNavigation
+            AnimatedVisibility(
+                visible = blockedNav != null,
+                enter = slideInVertically(
+                    initialOffsetY = { it + 200 },
+                    animationSpec = spring(
+                        dampingRatio = 0.58f,
+                        stiffness = Spring.StiffnessMediumLow,
+                    ),
+                ) + fadeIn(animationSpec = tween(120)),
+                exit = slideOutVertically(
+                    targetOffsetY = { it + 200 },
+                    animationSpec = tween(180, easing = FastOutSlowInEasing),
+                ) + fadeOut(animationSpec = tween(150)),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(
+                        bottom = snackbarBaseBottomOffset +
+                            (if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) 56.dp else 0.dp) +
+                            (if (uiState.showDownloadSnackbar && uiState.lastDownloadNotification != null) 56.dp else 0.dp) +
+                            8.dp,
+                        start = 16.dp,
+                        end = 16.dp,
+                    ),
+            ) {
+                if (blockedNav != null) {
+                    BlockedAdNavigationBanner(
+                        isDark = isDark,
+                        url = blockedNav.url,
+                        onDismiss = { viewModel.onEvent(BrowserUiEvent.DismissBlockedAdNavigation) },
+                        onConfirm = { viewModel.onEvent(BrowserUiEvent.AllowBlockedAdNavigation) },
+                    )
+                }
             }
 
             // Link Context Menu Floating Modal

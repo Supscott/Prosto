@@ -8,6 +8,7 @@ import android.os.Environment
 import android.util.Base64
 import android.util.Log
 import android.webkit.CookieManager
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.DownloadStatus
 import com.jestk.browser.domain.repository.DownloadRepository
@@ -535,7 +536,9 @@ class HoriDownloadManager(
                     arrayOf(resolvedMime),
                     null
                 )
-            } catch (e: Throwable) {
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
                 Log.w(TAG, "MediaStore indexing failed for data URL download", e)
             }
         }

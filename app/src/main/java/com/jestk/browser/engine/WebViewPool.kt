@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.MutableContextWrapper
+import com.jestk.browser.R
 import com.jestk.browser.util.findActivity
 import android.net.Uri
 import android.os.Environment
@@ -54,6 +55,7 @@ class WebViewPool(
 
     var onDownloadStarted: ((DownloadItem) -> Unit)? = null
     var isAdBlockerEnabled: (() -> Boolean)? = null
+    var isAdRedirectProtectionEnabled: (() -> Boolean)? = null
     var isCleanPlayerEnabled: (() -> Boolean)? = null
     var onCleanPlayerRequested: ((url: String) -> Boolean)? = null
     var onWebViewCreated: ((tabId: String, webView: WebView) -> Unit)? = null
@@ -62,11 +64,15 @@ class WebViewPool(
         private val isEnabledProvider: () -> Boolean,
         private val onCleanPlayerRequested: ((url: String) -> Boolean)? = null,
         private val isCleanPlayerEnabledProvider: (() -> Boolean)? = null,
+        private val isRedirectProtectionEnabledProvider: (() -> Boolean)? = null,
     ) {
-        constructor(isEnabledProvider: () -> Boolean) : this(isEnabledProvider, null, null)
+        constructor(isEnabledProvider: () -> Boolean) : this(isEnabledProvider, null, null, null)
 
         @JavascriptInterface
         fun isEnabled(): Boolean = isEnabledProvider()
+
+        @JavascriptInterface
+        fun isRedirectProtectionEnabled(): Boolean = isRedirectProtectionEnabledProvider?.invoke() ?: true
 
         @JavascriptInterface
         fun isCleanPlayerEnabled(): Boolean = isCleanPlayerEnabledProvider?.invoke() ?: false
@@ -266,7 +272,6 @@ class WebViewPool(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    databaseEnabled = true
                     javaScriptCanOpenWindowsAutomatically = true
                     setSupportMultipleWindows(true)
                     userAgentString = UserAgentSanitizer.sanitize(userAgentString)
@@ -276,7 +281,7 @@ class WebViewPool(
                     loadWithOverviewMode = true
                     useWideViewPort = true
                     cacheMode = WebSettings.LOAD_DEFAULT
-                    mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                     setSupportZoom(true)
                 }
                 CookieManager.getInstance().let { cm ->
@@ -314,7 +319,6 @@ class WebViewPool(
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
-                    databaseEnabled = true
                     javaScriptCanOpenWindowsAutomatically = true
                     setSupportMultipleWindows(true)
                     userAgentString = UserAgentSanitizer.sanitize(userAgentString)
@@ -324,7 +328,7 @@ class WebViewPool(
                     loadWithOverviewMode = true
                     useWideViewPort = true
                     cacheMode = WebSettings.LOAD_DEFAULT
-                    mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                     setSupportZoom(true)
                 }
                 CookieManager.getInstance().let { cm ->
@@ -360,6 +364,7 @@ class WebViewPool(
                 isEnabledProvider = { isAdBlockerEnabled?.invoke() ?: true },
                 onCleanPlayerRequested = { url -> onCleanPlayerRequested?.invoke(url) ?: false },
                 isCleanPlayerEnabledProvider = { isCleanPlayerEnabled?.invoke() ?: true },
+                isRedirectProtectionEnabledProvider = { isAdRedirectProtectionEnabled?.invoke() ?: true },
             )
             webView.addJavascriptInterface(bridge, "HoriAdBlockBridge")
         } catch (t: Throwable) {
