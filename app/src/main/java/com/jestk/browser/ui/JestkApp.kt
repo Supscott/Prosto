@@ -520,16 +520,18 @@ fun JestkApp(
                 animationSpec = tween(durationMillis = if (isBottomBarVisible) 220 else 180, easing = FastOutSlowInEasing),
                 label = "BottomBarAlpha",
             )
+            val effectiveBottomBarSlide = if (uiState.isFullscreenCustomView) 120.dp else bottomBarSlideOffset
+            val effectiveBottomBarAlpha = if (uiState.isFullscreenCustomView) 0f else bottomBarAlpha
 
-            if (bottomBarAlpha > 0f) {
+            if (effectiveBottomBarAlpha > 0f) {
                 UnifiedBottomBar(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .graphicsLayer {
-                            translationY = bottomBarSlideOffset.toPx()
-                            alpha = bottomBarAlpha
+                            translationY = effectiveBottomBarSlide.toPx()
+                            alpha = effectiveBottomBarAlpha
                         },
                 )
             }

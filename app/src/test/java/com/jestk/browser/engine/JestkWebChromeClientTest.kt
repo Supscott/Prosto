@@ -235,7 +235,7 @@ class JestkWebChromeClientTest {
     }
 
     @Test
-    fun resumeVideoPlayback_evaluatesJavascriptOnWebView() {
+    fun resumeVideoPlayback_invokesResumeCallback() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val webView = android.webkit.WebView(context)
         var resumeCallbackCalled = false
