@@ -27,16 +27,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -47,7 +52,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -241,6 +249,13 @@ fun JestkApp(
                     onVideoPlayingStateChanged = { isPlaying ->
                         viewModel.onEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
                     },
+                    onVideoResume = {
+                        val resumeScript = "(function(){ try { var p = document.getElementById('movie_player') || document.querySelector('.html5-video-player'); if (p && typeof p.playVideo === 'function') { p.playVideo(); } var v = document.querySelector('video'); if (v && v.paused) { var res = v.play(); if (res && res.catch) res.catch(function(){}); } } catch(e){} })()"
+                        wv.post {
+                            wv.evaluateJavascript(resumeScript, null)
+                            wv.postDelayed({ wv.evaluateJavascript(resumeScript, null) }, 250)
+                        }
+                    },
                     onFaviconReceived = handleFavicon,
                     onCreateWindowRequest = { _, _, _, resultMsg ->
                         com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
@@ -397,9 +412,17 @@ fun JestkApp(
         }
 
         val isFullscreenVideo = uiState.isFullscreenCustomView
-        LaunchedEffect(isFullscreenVideo) {
-            if (!isFullscreenVideo) {
-                val activity = context.findActivity() ?: return@LaunchedEffect
+        val requestedOrientation = uiState.fullscreenRequestedOrientation
+        LaunchedEffect(isFullscreenVideo, requestedOrientation) {
+            val activity = context.findActivity() ?: return@LaunchedEffect
+            if (isFullscreenVideo) {
+                val targetOrientation = if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+                    requestedOrientation
+                } else {
+                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                }
+                activity.requestedOrientation = targetOrientation
+            } else {
                 activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             }
         }
@@ -413,12 +436,6 @@ fun JestkApp(
                     insetsController.show(WindowInsetsCompat.Type.systemBars())
                     insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
                     window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        val attrs = window.attributes
-                        attrs.layoutInDisplayCutoutMode =
-                            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
-                        window.attributes = attrs
-                    }
                 }
             }
         }
@@ -1076,6 +1093,47 @@ fun JestkApp(
                         },
                         modifier = Modifier.fillMaxSize(),
                     )
+
+                    var showExitHint by remember { mutableStateOf(true) }
+                    LaunchedEffect(Unit) {
+                        delay(3500)
+                        showExitHint = false
+                    }
+
+                    AnimatedVisibility(
+                        visible = showExitHint,
+                        enter = fadeIn(animationSpec = tween(300)) + slideInVertically(animationSpec = tween(300)) { -it },
+                        exit = fadeOut(animationSpec = tween(400)) + slideOutVertically(animationSpec = tween(400)) { -it },
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .statusBarsPadding()
+                            .padding(top = 16.dp),
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.Black.copy(alpha = 0.8f),
+                            contentColor = Color.White,
+                            shadowElevation = 8.dp,
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.KeyboardArrowDown,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.9f),
+                                    modifier = Modifier.size(18.dp),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.full_screen_exit_hint),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White,
+                                )
+                            }
+                        }
+                    }
                 }
             }
 

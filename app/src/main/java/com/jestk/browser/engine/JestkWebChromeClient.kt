@@ -2,6 +2,7 @@ package com.jestk.browser.engine
 
 import android.content.pm.ActivityInfo
 import android.graphics.Bitmap
+import android.graphics.Color
 import android.net.Uri
 import android.os.Message
 import android.view.View
@@ -66,6 +67,12 @@ class JestkWebChromeClient(
         icon?.let { onFaviconReceived?.invoke(tabId, it, pageUrl) }
     }
 
+    override fun getDefaultVideoPoster(): Bitmap? {
+        // Return 1x1 transparent bitmap (matching DuckDuckGo BrowserChromeClient) to suppress
+        // Android WebView's default gray box and oval play icon poster overlay.
+        return Bitmap.createBitmap(intArrayOf(Color.TRANSPARENT), 1, 1, Bitmap.Config.ARGB_8888)
+    }
+
     override fun onShowCustomView(view: View?, callback: CustomViewCallback?) {
         if (customView != null) {
             if (customView === view) {
@@ -90,8 +97,6 @@ class JestkWebChromeClient(
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
     override fun onShowCustomView(view: View?, requestedOrientation: Int, callback: CustomViewCallback?) {
-        // Follow DuckDuckGo Android: never force landscape or window orientation flip on fullscreen video.
-        // Preserving SCREEN_ORIENTATION_UNSPECIFIED keeps the decoder surface alive without rebuffering.
         onShowCustomView(view, callback)
     }
 

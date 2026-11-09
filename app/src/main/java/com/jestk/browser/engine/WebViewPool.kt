@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.MutableContextWrapper
+import android.content.pm.ActivityInfo
 import com.jestk.browser.R
 import com.jestk.browser.util.findActivity
 import android.net.Uri
@@ -82,8 +83,10 @@ class WebViewPool(
         private val onCleanPlayerRequested: ((url: String) -> Boolean)? = null,
         private val isCleanPlayerEnabledProvider: (() -> Boolean)? = null,
         private val isRedirectProtectionEnabledProvider: (() -> Boolean)? = null,
+        private val onOrientationLockRequested: ((orientation: String?) -> Unit)? = null,
+        private val onOrientationUnlockRequested: (() -> Unit)? = null,
     ) {
-        constructor(isEnabledProvider: () -> Boolean) : this(isEnabledProvider, null, null, null)
+        constructor(isEnabledProvider: () -> Boolean) : this(isEnabledProvider, null, null, null, null, null)
 
         @JavascriptInterface
         fun isEnabled(): Boolean = isEnabledProvider()
@@ -98,6 +101,16 @@ class WebViewPool(
         fun openCleanPlayer(url: String): Boolean {
             if (isCleanPlayerEnabledProvider?.invoke() != true) return false
             return onCleanPlayerRequested?.invoke(url) ?: false
+        }
+
+        @JavascriptInterface
+        fun lockOrientation(orientation: String?) {
+            onOrientationLockRequested?.invoke(orientation)
+        }
+
+        @JavascriptInterface
+        fun unlockOrientation() {
+            onOrientationUnlockRequested?.invoke()
         }
     }
 
@@ -386,6 +399,24 @@ class WebViewPool(
                 onCleanPlayerRequested = { url -> onCleanPlayerRequested?.invoke(url) ?: false },
                 isCleanPlayerEnabledProvider = { isCleanPlayerEnabled?.invoke() ?: true },
                 isRedirectProtectionEnabledProvider = { isAdRedirectProtectionEnabled?.invoke() ?: true },
+                onOrientationLockRequested = { orientation ->
+                    val act = webView.context.findActivity() ?: return@AdBlockBridge
+                    act.runOnUiThread {
+                        val target = when (orientation) {
+                            "portrait", "portrait-primary" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                            "portrait-secondary" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
+                            "landscape-secondary" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
+                            else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                        }
+                        act.requestedOrientation = target
+                    }
+                },
+                onOrientationUnlockRequested = {
+                    val act = webView.context.findActivity() ?: return@AdBlockBridge
+                    act.runOnUiThread {
+                        act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    }
+                }
             )
             webView.addJavascriptInterface(bridge, "HoriAdBlockBridge")
         } catch (t: Throwable) {

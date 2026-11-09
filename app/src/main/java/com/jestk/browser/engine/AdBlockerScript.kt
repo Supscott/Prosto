@@ -574,6 +574,50 @@ object AdBlockerScript {
                         window.__hori_adblock_initialized = true;
                     }
 
+                    // ScreenOrientation API bridge for Android WebView (DuckDuckGo web-compat standard)
+                    try {
+                        if (globalThis.ScreenOrientation && globalThis.ScreenOrientation.prototype) {
+                            var patchedLock = function(orientation) {
+                                try {
+                                    if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.lockOrientation === 'function') {
+                                        window.HoriAdBlockBridge.lockOrientation(orientation || 'landscape');
+                                    }
+                                } catch(e) {}
+                                return Promise.resolve();
+                            };
+                            try {
+                                patchedLock.toString = function() { return 'function lock() { [native code] }'; };
+                            } catch(e) {}
+                            try {
+                                Object.defineProperty(globalThis.ScreenOrientation.prototype, 'lock', {
+                                    value: patchedLock,
+                                    writable: true,
+                                    configurable: true,
+                                    enumerable: false
+                                });
+                            } catch(e) {}
+
+                            var patchedUnlock = function() {
+                                try {
+                                    if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.unlockOrientation === 'function') {
+                                        window.HoriAdBlockBridge.unlockOrientation();
+                                    }
+                                } catch(e) {}
+                            };
+                            try {
+                                patchedUnlock.toString = function() { return 'function unlock() { [native code] }'; };
+                            } catch(e) {}
+                            try {
+                                Object.defineProperty(globalThis.ScreenOrientation.prototype, 'unlock', {
+                                    value: patchedUnlock,
+                                    writable: true,
+                                    configurable: true,
+                                    enumerable: false
+                                });
+                            } catch(e) {}
+                        }
+                    } catch(e) {}
+
                     // Check if ad blocking is active via bridge
                     var adBlockerActive = true;
                     if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.isEnabled === 'function') {

@@ -2,6 +2,7 @@ package com.jestk.browser.ui.overlays
 
 import android.annotation.SuppressLint
 import android.content.pm.ActivityInfo
+import android.graphics.Bitmap
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -137,23 +138,11 @@ fun CleanVideoPlayerOverlay(
             insetsController.systemBarsBehavior =
                 WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val attrs = window.attributes
-                attrs.layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                window.attributes = attrs
-            }
         } else {
             activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
             insetsController.show(WindowInsetsCompat.Type.systemBars())
             insetsController.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                val attrs = window.attributes
-                attrs.layoutInDisplayCutoutMode =
-                    WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
-                window.attributes = attrs
-            }
         }
     }
 
@@ -337,6 +326,10 @@ fun CleanVideoPlayerOverlay(
                                 }
 
                                 webChromeClient = object : WebChromeClient() {
+                                    override fun getDefaultVideoPoster(): Bitmap? {
+                                        return Bitmap.createBitmap(intArrayOf(android.graphics.Color.TRANSPARENT), 1, 1, Bitmap.Config.ARGB_8888)
+                                    }
+
                                     override fun onShowCustomView(
                                         view: android.view.View?,
                                         callback: CustomViewCallback?,

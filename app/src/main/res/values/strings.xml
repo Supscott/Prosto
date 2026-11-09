@@ -218,4 +218,5 @@
     <string name="search_engine_shortcut_value">Shortcut: %1$s</string>
     <string name="snackbar_tab_closed_title">%1$s: %2$s</string>
     <string name="switch_to_tab_with_title">%1$s: %2$s</string>
+    <string name="full_screen_exit_hint">Pull down to exit full screen</string>
 </resources>
