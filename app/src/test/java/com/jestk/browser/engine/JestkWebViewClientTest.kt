@@ -667,11 +667,11 @@ class JestkWebViewClientTest {
             loadedUrl = "https://r-34.xyz/post/1"
         }
 
-        fun request(url: String) = object : android.webkit.WebResourceRequest {
+        fun request(url: String, hasGesture: Boolean = false) = object : android.webkit.WebResourceRequest {
             override fun getUrl(): android.net.Uri = android.net.Uri.parse(url)
             override fun isForMainFrame(): Boolean = true
             override fun isRedirect(): Boolean = false
-            override fun hasGesture(): Boolean = true
+            override fun hasGesture(): Boolean = hasGesture
             override fun getMethod(): String = "GET"
             override fun getRequestHeaders(): Map<String, String> = emptyMap()
         }
@@ -779,6 +779,122 @@ class JestkWebViewClientTest {
         val blocked = client.shouldOverrideUrlLoading(webView, request)
         assertThat(blocked).isFalse()
         assertThat(invoked).isFalse()
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_allowsLegitimateCrossDomainLinkClick_whenUserGesturePresent() {
+        var blockedTabId: String? = null
+        var blockedUrl: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            isAdRedirectProtectionEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onBlockedAdNavigation = { id, url ->
+                blockedTabId = id
+                blockedUrl = url
+            }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = NestedWebView(context).apply {
+            loadedUrl = "https://github.com/kotlin/kotlin"
+        }
+
+        val request = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse("https://kotlinlang.org/docs/home.html")
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = true
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        val blocked = client.shouldOverrideUrlLoading(webView, request)
+        // Legitimate link click must NOT be blocked
+        assertThat(blocked).isFalse()
+        assertThat(blockedTabId).isNull()
+        assertThat(blockedUrl).isNull()
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_blocksKnownAdUrls_regardlessOfGesture() {
+        var blockedCount = 0
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            isAdRedirectProtectionEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onBlockedAdNavigation = { _, _ -> blockedCount++ }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = NestedWebView(context).apply {
+            loadedUrl = "https://example.com/article"
+        }
+
+        fun createAdRequest(hasGesture: Boolean) = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse("https://doubleclick.net/pagead/imgad")
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = hasGesture
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        // 1. With user gesture: still blocked because it is a known ad domain
+        val blockedWithGesture = client.shouldOverrideUrlLoading(webView, createAdRequest(hasGesture = true))
+        assertThat(blockedWithGesture).isTrue()
+        assertThat(blockedCount).isEqualTo(1)
+
+        // 2. Without user gesture: also blocked
+        val blockedWithoutGesture = client.shouldOverrideUrlLoading(webView, createAdRequest(hasGesture = false))
+        assertThat(blockedWithoutGesture).isTrue()
+        assertThat(blockedCount).isEqualTo(2)
+    }
+
+    @Test
+    fun shouldOverrideUrlLoading_blocksUnsolicitedScriptRedirect_whenNoGesture() {
+        var blockedTabId: String? = null
+        var blockedUrl: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            isAdRedirectProtectionEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onBlockedAdNavigation = { id, url ->
+                blockedTabId = id
+                blockedUrl = url
+            }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = NestedWebView(context).apply {
+            loadedUrl = "https://suspicious-origin.com/landing"
+        }
+
+        val request = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse("https://unsolicited-destination.com/click")
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = false
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        val blocked = client.shouldOverrideUrlLoading(webView, request)
+        assertThat(blocked).isTrue()
+        assertThat(blockedTabId).isEqualTo("tab_1")
+        assertThat(blockedUrl).isEqualTo("https://unsolicited-destination.com/click")
     }
 
     @Test
