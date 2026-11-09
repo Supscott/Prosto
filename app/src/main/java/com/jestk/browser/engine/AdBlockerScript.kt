@@ -634,35 +634,6 @@ object AdBlockerScript {
                         } catch(e) {}
                     }
 
-                    if (redirectProtectionActive) {
-                        try {
-                            var origWindowOpen = window.open;
-                            var patchedOpen = function(url, target, features) {
-                                try {
-                                    if (url && typeof url === 'string') {
-                                        var currentHost = (location.hostname || '').toLowerCase();
-                                        var a = document.createElement('a');
-                                        a.href = url;
-                                        var targetHost = (a.hostname || '').toLowerCase();
-                                        if (targetHost && currentHost && targetHost !== currentHost &&
-                                            !targetHost.endsWith('.' + currentHost) && !currentHost.endsWith('.' + targetHost)) {
-                                            var isSearch = targetHost.indexOf('google.') !== -1 || targetHost.indexOf('yandex.') !== -1;
-                                            var isAuth = targetHost.indexOf('oauth') !== -1 || targetHost.indexOf('passport') !== -1;
-                                            if (!isSearch && !isAuth) {
-                                                return null;
-                                            }
-                                        }
-                                    }
-                                } catch(e) {}
-                                return origWindowOpen.apply(this, arguments);
-                            };
-                            try {
-                                patchedOpen.toString = function() { return 'function open() { [native code] }'; };
-                            } catch(e) {}
-                            window.open = patchedOpen;
-                        } catch(e) {}
-                    }
-
                     // 1. Install YouTube Fast-Start protection immediately regardless of toggle
                     // to prevent artificial 10-15s buffering and SABR backoffs on YouTube:
                     $ytScript
