@@ -172,6 +172,36 @@ def check_no_hardcoded_ui_strings():
     return errors
 
 
+def check_security_challenge_protection():
+    """Verify security challenge domains are exempted from content scripts and client hints are pure."""
+    errors = []
+    ad_blocker_engine = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "AdBlockerEngine.kt"
+    ad_blocker_script = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "AdBlockerScript.kt"
+    ua_metadata_provider = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "UserAgentMetadataProvider.kt"
+
+    if ad_blocker_engine.exists():
+        content = ad_blocker_engine.read_text(encoding="utf-8")
+        if "challenges.cloudflare.com" not in content or "cloudflare.com" not in content:
+            errors.append(f"{ad_blocker_engine.relative_to(ROOT)}: AUTH_SECURITY_ALLOWLIST missing Cloudflare domains")
+
+    if ad_blocker_script.exists():
+        content = ad_blocker_script.read_text(encoding="utf-8")
+        if "challenges.cloudflare.com" not in content or "cloudflarecaptcha.com" not in content:
+            errors.append(f"{ad_blocker_script.relative_to(ROOT)}: missing security challenge domain guards")
+
+    if WEB_CLIENT.exists():
+        content = WEB_CLIENT.read_text(encoding="utf-8")
+        if "challenge-platform" not in content or "isAllowlistedAuthDomain" not in content:
+            errors.append(f"{WEB_CLIENT.relative_to(ROOT)}: missing security challenge checks in script injection")
+
+    if ua_metadata_provider.exists():
+        content = ua_metadata_provider.read_text(encoding="utf-8")
+        if "buildOrUpdateMetadata" not in content:
+            errors.append(f"{ua_metadata_provider.relative_to(ROOT)}: missing buildOrUpdateMetadata method")
+
+    return errors
+
+
 def main():
     all_errors = []
     all_errors.extend(check_no_blur())
@@ -182,6 +212,7 @@ def main():
     all_errors.extend(check_no_continuous_effect_keys())
     all_errors.extend(check_localization_parity())
     all_errors.extend(check_no_hardcoded_ui_strings())
+    all_errors.extend(check_security_challenge_protection())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -191,7 +222,7 @@ def main():
 
     print(
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
-        "Domain Purity, Favicon Safety, Localization)."
+        "Domain Purity, Favicon Safety, Localization, Security Challenge Protection)."
     )
     return 0
 

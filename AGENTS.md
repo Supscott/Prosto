@@ -28,6 +28,7 @@ Welcome to the **Prosto** project. This file provides operational rules, archite
 - **Visual UI Previews**: Run `rtk tools/preview.sh <TestName>` (e.g. `rtk tools/preview.sh BottomBarPreviewTest`) to render Compose previews to PNG in `build/` using Robolectric native graphics without deploying to a physical device.
 - **Unit test target**: Always run `rtk ./gradlew testDebugUnitTest`. Never run bare `./gradlew test`, as `testReleaseUnitTest` fails without Robolectric release configuration.
 - **Invariants**: Always verify `python3 tools/check_invariants.py` passes before finalizing changes.
+- **On-Device WebView Debugging**: See [`.agent/skills/adb-webview-testing/SKILL.md`](file:///Users/ilya/CODING/browser/.agent/skills/adb-webview-testing/SKILL.md) for ADB port forwarding, CDP WebSocket tracing, cookie/storage inspection, and headless Chrome DevTools commands.
 
 ### 3. Post-Implementation Reflection & Retrospective (Анализ работы и ретроспектива)
 - After successfully implementing and verifying non-trivial fixes or features, conduct a brief retrospective analysis of the work done:
@@ -50,6 +51,11 @@ Welcome to the **Prosto** project. This file provides operational rules, archite
 - **No stale closures**: In `WebViewContainer`, do not use unkeyed `remember { ... }` blocks that capture volatile outer composition values (`currentTab`, `targetUrl`). Prefer `rememberUpdatedState` or look up current tab dynamically from `currentUiState.tabs.find { it.id == id }`.
 - **No Blur**: Strict prohibition on `Modifier.blur()` and `dev.chrisbanes.haze` across the entire app. Live `WebView` inside `GraphicsLayer` or dynamic blur causes severe screen flicker on Android 12+.
 - **Domain Layer Purity**: Domain layer must remain free of Android framework UI types (`android.view.*`, `android.widget.*`, `android.graphics.*`) and Compose types. Domain models must remain pure Kotlin.
+
+### Anti-Bot & Content Scripts Standards (Cloudflare / Turnstile / WAF)
+- **UserAgentMetadata Purity**: Never construct synthetic brand lists or artificial GREASE versions from scratch. Mirror DuckDuckGo: read native `WebSettingsCompat.getUserAgentMetadata(settings)`, keep Chromium's genuine GREASE brand, versions, and entropy fields untouched, and only map `"Android WebView"` -> `"Google Chrome"`.
+- **Security Challenge Exemption**: Never inject ad-blocking, auto-consent, or user scripts into authentication and security challenge domains (`challenges.cloudflare.com`, `cloudflarecaptcha.com`, `/cdn-cgi/challenge-platform`).
+- **DOM Stealth & Function Integrity**: Never leave enumerable custom properties on `window` (use `Object.defineProperty(..., { enumerable: false })`). Any monkey-patched native method (e.g. `window.open`) must have `toString()` returning `"function name() { [native code] }"`.
 
 ### Code Hygiene & Localization
 - **English-Only Documentation & Artifacts**: All project documentation, architectural decision records (ADRs), technical plans, task artifacts, code comments, and commit messages must be written strictly in English. Russian is reserved exclusively for user-facing localization resources (`res/values-ru/strings.xml`) and conversational dialogue when addressed by the user in Russian.

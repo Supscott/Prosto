@@ -1,6 +1,7 @@
 package com.jestk.browser.engine
 
 import android.graphics.Bitmap
+import android.net.Uri
 import android.util.Log
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
@@ -297,12 +298,17 @@ class JestkWebViewClient(
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
             val isDark = isDarkTheme?.invoke() ?: false
             injectColorScheme(wv, isDark)
-            if (isAdBlockerEnabled()) {
-                AdBlockerScript.injectAdBlocker(wv)
-            }
-            val autoConsentActive = (isAutoConsentEnabled ?: isAdBlockerEnabled).invoke()
-            if (autoConsentActive) {
-                AdBlockerScript.injectAutoConsent(wv)
+            val host = runCatching { Uri.parse(validUrl).host.orEmpty() }.getOrDefault("")
+            val isSecurityChallenge = AdBlockerEngine.isAllowlistedAuthDomain(host) ||
+                validUrl.contains("/cdn-cgi/challenge-platform", ignoreCase = true)
+            if (!isSecurityChallenge) {
+                if (isAdBlockerEnabled()) {
+                    AdBlockerScript.injectAdBlocker(wv)
+                }
+                val autoConsentActive = (isAutoConsentEnabled ?: isAdBlockerEnabled).invoke()
+                if (autoConsentActive) {
+                    AdBlockerScript.injectAutoConsent(wv)
+                }
             }
             if (validUrl.contains("apple.com", ignoreCase = true)) {
                 notifyThemeColors(tabId, android.graphics.Color.parseColor("#161617"), android.graphics.Color.parseColor("#161617"))
@@ -329,12 +335,17 @@ class JestkWebViewClient(
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
             isDarkTheme?.invoke()?.let { isDark -> injectColorScheme(wv, isDark) }
-            if (isAdBlockerEnabled()) {
-                AdBlockerScript.injectAdBlocker(wv)
-            }
-            val autoConsentActive = (isAutoConsentEnabled ?: isAdBlockerEnabled).invoke()
-            if (autoConsentActive) {
-                AdBlockerScript.injectAutoConsent(wv)
+            val host = runCatching { Uri.parse(validUrl).host.orEmpty() }.getOrDefault("")
+            val isSecurityChallenge = AdBlockerEngine.isAllowlistedAuthDomain(host) ||
+                validUrl.contains("/cdn-cgi/challenge-platform", ignoreCase = true)
+            if (!isSecurityChallenge) {
+                if (isAdBlockerEnabled()) {
+                    AdBlockerScript.injectAdBlocker(wv)
+                }
+                val autoConsentActive = (isAutoConsentEnabled ?: isAdBlockerEnabled).invoke()
+                if (autoConsentActive) {
+                    AdBlockerScript.injectAutoConsent(wv)
+                }
             }
             wv.post {
                 extractThemeColor(wv, isPageStarted = false)

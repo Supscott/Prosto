@@ -466,6 +466,8 @@ class AdBlockerEngineTest {
             "https://client-api.arkoselabs.com/fc/gt2/public_key/xxx",
             "https://arkose.com/challenge",
             "https://challenges.cloudflare.com/turnstile/v0/api.js",
+            "https://cloudflare.com/cdn-cgi/challenge-platform/h/b/orchestrate",
+            "https://ca1.cloudflarecaptcha.com/challenge",
             "https://hcaptcha.com/1/api.js",
             "https://recaptcha.net/recaptcha/api.js"
         )

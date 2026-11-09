@@ -662,8 +662,26 @@ object AdBlockerScript {
         return """
             (function() {
                 try {
+                    var h = (location.hostname || '').toLowerCase();
+                    var p = (location.pathname || '').toLowerCase();
+                    if (h === 'challenges.cloudflare.com' || h.endsWith('.challenges.cloudflare.com') ||
+                        h === 'cloudflare.com' || h.endsWith('.cloudflare.com') ||
+                        h === 'cloudflarecaptcha.com' || h.endsWith('.cloudflarecaptcha.com') ||
+                        h === 'hcaptcha.com' || h.endsWith('.hcaptcha.com') ||
+                        h === 'recaptcha.net' || h.endsWith('.recaptcha.net') ||
+                        h === 'arkoselabs.com' || h.endsWith('.arkoselabs.com') ||
+                        p.indexOf('/cdn-cgi/challenge-platform') !== -1 ||
+                        window._cf_chl_opt ||
+                        (document && (document.getElementById('challenge-stage') || document.getElementById('challenge-form')))) {
+                        return;
+                    }
+
                     if (window.__hori_adblock_initialized) return;
-                    window.__hori_adblock_initialized = true;
+                    try {
+                        Object.defineProperty(window, '__hori_adblock_initialized', { value: true, enumerable: false, configurable: true });
+                    } catch(e) {
+                        window.__hori_adblock_initialized = true;
+                    }
 
                     // Check if ad blocking is active via bridge
                     var adBlockerActive = true;
@@ -684,7 +702,7 @@ object AdBlockerScript {
                     if (redirectProtectionActive) {
                         try {
                             var origWindowOpen = window.open;
-                            window.open = function(url, target, features) {
+                            var patchedOpen = function(url, target, features) {
                                 try {
                                     if (url && typeof url === 'string') {
                                         var currentHost = (location.hostname || '').toLowerCase();
@@ -703,6 +721,10 @@ object AdBlockerScript {
                                 } catch(e) {}
                                 return origWindowOpen.apply(this, arguments);
                             };
+                            try {
+                                patchedOpen.toString = function() { return 'function open() { [native code] }'; };
+                            } catch(e) {}
+                            window.open = patchedOpen;
                         } catch(e) {}
                     }
 
@@ -972,8 +994,26 @@ object AdBlockerScript {
         return """
             (function() {
                 try {
+                    var h = (location.hostname || '').toLowerCase();
+                    var p = (location.pathname || '').toLowerCase();
+                    if (h === 'challenges.cloudflare.com' || h.endsWith('.challenges.cloudflare.com') ||
+                        h === 'cloudflare.com' || h.endsWith('.cloudflare.com') ||
+                        h === 'cloudflarecaptcha.com' || h.endsWith('.cloudflarecaptcha.com') ||
+                        h === 'hcaptcha.com' || h.endsWith('.hcaptcha.com') ||
+                        h === 'recaptcha.net' || h.endsWith('.recaptcha.net') ||
+                        h === 'arkoselabs.com' || h.endsWith('.arkoselabs.com') ||
+                        p.indexOf('/cdn-cgi/challenge-platform') !== -1 ||
+                        window._cf_chl_opt ||
+                        (document && (document.getElementById('challenge-stage') || document.getElementById('challenge-form')))) {
+                        return;
+                    }
+
                     if (window.__hori_autoconsent_initialized) return;
-                    window.__hori_autoconsent_initialized = true;
+                    try {
+                        Object.defineProperty(window, '__hori_autoconsent_initialized', { value: true, enumerable: false, configurable: true });
+                    } catch(e) {
+                        window.__hori_autoconsent_initialized = true;
+                    }
 
                     var CMP_CONTAINER_SELECTORS = [
                         '#onetrust-consent-sdk',

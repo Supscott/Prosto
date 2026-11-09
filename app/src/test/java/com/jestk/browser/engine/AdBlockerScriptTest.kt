@@ -214,4 +214,28 @@ class AdBlockerScriptTest {
         assertThat(script).contains("childList")
         assertThat(script).contains("subtree")
     }
+
+    @Test
+    fun buildDocumentStartScript_whitelistsCloudflareAndSecurityChallenges() {
+        val script = AdBlockerScript.buildDocumentStartScript()
+        assertThat(script).contains("challenges.cloudflare.com")
+        assertThat(script).contains("cloudflarecaptcha.com")
+        assertThat(script).contains("hcaptcha.com")
+        assertThat(script).contains("recaptcha.net")
+        assertThat(script).contains("/cdn-cgi/challenge-platform")
+        assertThat(script).contains("_cf_chl_opt")
+        assertThat(script).contains("challenge-stage")
+    }
+
+    @Test
+    fun buildAutoConsentScript_whitelistsCloudflareAndSecurityChallenges() {
+        val script = AdBlockerScript.buildAutoConsentScript()
+        assertThat(script).contains("challenges.cloudflare.com")
+        assertThat(script).contains("cloudflarecaptcha.com")
+        assertThat(script).contains("hcaptcha.com")
+        assertThat(script).contains("recaptcha.net")
+        assertThat(script).contains("/cdn-cgi/challenge-platform")
+        assertThat(script).contains("_cf_chl_opt")
+        assertThat(script).contains("challenge-stage")
+    }
 }

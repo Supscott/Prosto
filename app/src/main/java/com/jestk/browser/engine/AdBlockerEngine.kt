@@ -80,6 +80,8 @@ object AdBlockerEngine {
             "client-api.arkoselabs.com",
             "arkose.com",
             "challenges.cloudflare.com",
+            "cloudflare.com",
+            "cloudflarecaptcha.com",
             "hcaptcha.com",
             "recaptcha.net",
         )

@@ -36,3 +36,10 @@ Retired lessons that are permanently guarded by automated tests, assertions, or 
 - **Cause:** A regex that consumes the closing parenthesis of rgba() while rewriting colors drops it, and a follow-up repair that matches across newlines relocates that parenthesis into an unrelated declaration. The stylesheet still parses, so the breakage only surfaces as mis-rendered CSS.
 - **Do:** Rewrite colors with a pattern that preserves the closing parenthesis (or re-emit it in the same replacement), then diff the compiled rule set of the previous and new build - comparing the property list of every selector exposes the damage immediately.
 - **Don't:** Don't repair a corrupted stylesheet with a newline-capable regex; restore the original file and redo the transform with a parser or a non-consuming pattern.
+
+## Retired Lesson: Live WebView inside Compose GraphicsLayer or blur shader causes frame flicker on Android 12+ (SDK 31+)
+- **Graduated On:** 2026-11-09
+- **Graduation Reason:** Enforced mechanically by tools/check_invariants.py (check_no_blur)
+- **Cause:** Modifiers recording into a `GraphicsLayer` (e.g. blur or render nodes) force Chromium's asynchronous hardware draw functor to re-record through an offscreen `RenderNode` each frame, causing severe screen flicker and stale frames.
+- **Do:** Keep live `WebView` strictly outside any `GraphicsLayer`, offscreen render node, or dynamic blur modifiers; use solid surface fallbacks with elevation for overlays positioned above web content.
+- **Don't:** Place a live `WebView` inside a Compose `GraphicsLayer`, offscreen render node, or dynamic blur shader.

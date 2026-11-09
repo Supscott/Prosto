@@ -65,6 +65,14 @@ class WebViewPool(
         WebViewFeature.isFeatureSupported(WebViewFeature.USER_AGENT_METADATA)
     }
 
+    internal var userAgentMetadataGetter: (WebSettings) -> UserAgentMetadata? = { settings ->
+        try {
+            WebSettingsCompat.getUserAgentMetadata(settings)
+        } catch (_: Throwable) {
+            null
+        }
+    }
+
     internal var userAgentMetadataApplier: (WebSettings, UserAgentMetadata) -> Unit = { settings, metadata ->
         WebSettingsCompat.setUserAgentMetadata(settings, metadata)
     }
@@ -278,12 +286,13 @@ class WebViewPool(
             val webView = NestedWebView(contextWrapper).apply {
                 isFocusable = true
                 isFocusableInTouchMode = true
+                val rawUserAgent = settings.userAgentString
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
                     javaScriptCanOpenWindowsAutomatically = true
                     setSupportMultipleWindows(true)
-                    userAgentString = UserAgentSanitizer.sanitize(userAgentString)
+                    userAgentString = UserAgentSanitizer.sanitize(rawUserAgent)
                     mediaPlaybackRequiresUserGesture = false
                     builtInZoomControls = true
                     displayZoomControls = false
@@ -309,7 +318,7 @@ class WebViewPool(
                 }
                 setupDownloadListener(this)
                 setupAdBlocker(this)
-                applyUserAgentMetadata(settings)
+                applyUserAgentMetadata(settings, rawUserAgent)
             }
 
             currentIsDark?.let { applyThemeMode(webView, it) }
@@ -326,12 +335,13 @@ class WebViewPool(
             val fallbackWebView = NestedWebView(contextWrapper).apply {
                 isFocusable = true
                 isFocusableInTouchMode = true
+                val rawFallbackUserAgent = settings.userAgentString
                 settings.apply {
                     javaScriptEnabled = true
                     domStorageEnabled = true
                     javaScriptCanOpenWindowsAutomatically = true
                     setSupportMultipleWindows(true)
-                    userAgentString = UserAgentSanitizer.sanitize(userAgentString)
+                    userAgentString = UserAgentSanitizer.sanitize(rawFallbackUserAgent)
                     mediaPlaybackRequiresUserGesture = false
                     builtInZoomControls = true
                     displayZoomControls = false
@@ -357,7 +367,7 @@ class WebViewPool(
                 }
                 setupDownloadListener(this)
                 setupAdBlocker(this)
-                applyUserAgentMetadata(settings)
+                applyUserAgentMetadata(settings, rawFallbackUserAgent)
             }
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
             pool[tabId] = fallbackWebView
@@ -395,10 +405,15 @@ class WebViewPool(
         }
     }
 
-    internal fun applyUserAgentMetadata(settings: WebSettings) {
+    internal fun applyUserAgentMetadata(settings: WebSettings, rawUserAgent: String? = null) {
         if (isUserAgentMetadataSupported()) {
             try {
-                val metadata = UserAgentMetadataProvider.buildMetadata(settings.userAgentString)
+                val currentMetadata = userAgentMetadataGetter(settings)
+                val metadata = UserAgentMetadataProvider.buildOrUpdateMetadata(
+                    currentMetadata = currentMetadata,
+                    userAgent = settings.userAgentString,
+                    rawUserAgent = rawUserAgent
+                )
                 userAgentMetadataApplier(settings, metadata)
             } catch (t: Throwable) {
                 Log.w(TAG, "Failed to apply user agent metadata", t)
