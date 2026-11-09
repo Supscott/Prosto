@@ -390,16 +390,12 @@ fun WebViewContainer(
         label = "WebViewContainerBottomBg"
     )
 
-    val contentModifier = if (uiState.isFullscreenCustomView) {
-        Modifier.fillMaxSize()
-    } else {
-        Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .padding(bottom = bottomPadding)
-            .navigationBarsPadding()
-            .imePadding()
-    }
+    val contentModifier = Modifier
+        .fillMaxSize()
+        .statusBarsPadding()
+        .padding(bottom = bottomPadding)
+        .navigationBarsPadding()
+        .imePadding()
 
     val siteBackgroundBrush = remember(animatedTopBg, animatedBottomBg) {
         Brush.verticalGradient(

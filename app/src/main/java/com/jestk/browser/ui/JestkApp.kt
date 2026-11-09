@@ -387,23 +387,11 @@ fun JestkApp(
                     insetsController.systemBarsBehavior =
                         WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
                     window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        val attrs = window.attributes
-                        attrs.layoutInDisplayCutoutMode =
-                            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
-                        window.attributes = attrs
-                    }
                 } else {
                     insetsController.show(WindowInsetsCompat.Type.systemBars())
                     insetsController.systemBarsBehavior =
                         WindowInsetsControllerCompat.BEHAVIOR_DEFAULT
                     window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                        val attrs = window.attributes
-                        attrs.layoutInDisplayCutoutMode =
-                            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
-                        window.attributes = attrs
-                    }
                 }
             }
         }

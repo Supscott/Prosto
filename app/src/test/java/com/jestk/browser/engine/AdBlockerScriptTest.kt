@@ -133,12 +133,12 @@ class AdBlockerScriptTest {
         assertThat(js).contains("v.playbackRate = 16.0")
         assertThat(js).contains("v.currentTime = v.duration")
 
-        // isInlinePlaybackNoAd anti-throttling & XHR / fetch / text interception
-        assertThat(js).contains("isInlinePlaybackNoAd")
-        assertThat(js).contains("contentPlaybackContext")
+        // XHR / text interception without intrusive player watchdog or inline spoofing
         assertThat(js).contains("Response.prototype.text")
         assertThat(js).contains("XMLHttpRequest.prototype")
         assertThat(js).contains("pruneRawText")
+        assertThat(js).doesNotContain("isInlinePlaybackNoAd")
+        assertThat(js).doesNotContain("checkWatchPlayback")
 
         // Recursive array pruning in pruneAdProps
         assertThat(js).contains("Array.isArray(obj)")

@@ -223,11 +223,7 @@ object AdBlockerScript {
      *    - JSON.parse
      *    - Response.prototype.json and Response.prototype.text
      *    - XMLHttpRequest.prototype.responseText and response
-     * 3. Injects isInlinePlaybackNoAd: true into contentPlaybackContext across JSON.stringify,
-     *    Object.assign, fetch, and XMLHttpRequest to prevent YouTube's InnerTube API from assigning
-     *    ad slots on SPA navigations.
-     * 4. Accelerates and auto-skips fallback ad breaks (.ad-showing video, .ad-interrupting video).
-     * 5. Runs an autoplay watchdog to trigger video.play() on fresh watch navigations if stalled at 0.0s.
+     * 3. Accelerates and auto-skips fallback ad breaks (.ad-showing video, .ad-interrupting video).
      */
     fun buildYouTubeFastStartScript(): String {
         return """
@@ -317,9 +313,6 @@ object AdBlockerScript {
                             if ('playerAds' in obj) delete obj.playerAds;
                             if ('adSlots' in obj) delete obj.adSlots;
                             if ('adBreakHeartbeatParams' in obj) delete obj.adBreakHeartbeatParams;
-                            if (obj.playbackContext && obj.playbackContext.contentPlaybackContext) {
-                                obj.playbackContext.contentPlaybackContext.isInlinePlaybackNoAd = true;
-                            }
                             if (obj.playerResponse && typeof obj.playerResponse === 'object') {
                                 pruneAdProps(obj.playerResponse, depth + 1);
                             }
@@ -427,43 +420,6 @@ object AdBlockerScript {
                         }
                     } catch(e) {}
 
-                    // 2. Inject isInlinePlaybackNoAd into player requests (uBlock Origin / iter.ca anti-throttling)
-                    try {
-                        var origStringify = JSON.stringify;
-                        JSON.stringify = function(val, replacer, space) {
-                            if (val && typeof val === 'object') {
-                                try {
-                                    if (val.contentPlaybackContext && typeof val.contentPlaybackContext === 'object') {
-                                        val.contentPlaybackContext.isInlinePlaybackNoAd = true;
-                                    }
-                                    if (val.playbackContext && val.playbackContext.contentPlaybackContext && typeof val.playbackContext.contentPlaybackContext === 'object') {
-                                        val.playbackContext.contentPlaybackContext.isInlinePlaybackNoAd = true;
-                                    }
-                                } catch(e) {}
-                            }
-                            return origStringify.apply(this, arguments);
-                        };
-                    } catch(e) {}
-
-                    try {
-                        var realAssign = Object.assign;
-                        Object.assign = function() {
-                            var res = realAssign.apply(Object, arguments);
-                            try {
-                                if (res && typeof res === 'object') {
-                                    if (typeof res.body === 'string' && res.body.indexOf('contentPlaybackContext') !== -1) {
-                                        if (res.body.indexOf('"isInlinePlaybackNoAd":true') === -1) {
-                                            res.body = res.body.replace('"contentPlaybackContext":{', '"contentPlaybackContext":{"isInlinePlaybackNoAd":true,');
-                                        }
-                                    } else if (res.contentPlaybackContext && typeof res.contentPlaybackContext === 'object') {
-                                        res.contentPlaybackContext.isInlinePlaybackNoAd = true;
-                                    }
-                                }
-                            } catch(e) {}
-                            return res;
-                        };
-                    } catch(e) {}
-
                     try {
                         if (window.XMLHttpRequest && XMLHttpRequest.prototype) {
                             var origXhrOpen = XMLHttpRequest.prototype.open;
@@ -471,18 +427,6 @@ object AdBlockerScript {
                                 this.__yt_url = typeof url === 'string' ? url : '';
                                 return origXhrOpen.apply(this, arguments);
                             };
-
-                            if (XMLHttpRequest.prototype.send) {
-                                var origXhrSend = XMLHttpRequest.prototype.send;
-                                XMLHttpRequest.prototype.send = function(body) {
-                                    if (body && typeof body === 'string' && body.indexOf('contentPlaybackContext') !== -1) {
-                                        if (body.indexOf('"isInlinePlaybackNoAd":true') === -1) {
-                                            body = body.replace('"contentPlaybackContext":{', '"contentPlaybackContext":{"isInlinePlaybackNoAd":true,');
-                                        }
-                                    }
-                                    return origXhrSend.call(this, body);
-                                };
-                            }
 
                             var origDescText = Object.getOwnPropertyDescriptor(XMLHttpRequest.prototype, 'responseText');
                             if (origDescText && origDescText.get) {
@@ -522,21 +466,7 @@ object AdBlockerScript {
                         }
                     } catch(e) {}
 
-                    try {
-                        var realFetch = window.fetch;
-                        if (typeof realFetch === 'function') {
-                            window.fetch = function(resource, init) {
-                                if (init && init.body && typeof init.body === 'string' && init.body.indexOf('contentPlaybackContext') !== -1) {
-                                    if (init.body.indexOf('"isInlinePlaybackNoAd":true') === -1) {
-                                        init.body = init.body.replace('"contentPlaybackContext":{', '"contentPlaybackContext":{"isInlinePlaybackNoAd":true,');
-                                    }
-                                }
-                                return realFetch.apply(this, arguments);
-                            };
-                        }
-                    } catch(e) {}
-
-                    // 3. Fallback ad-skip accelerator for ad overlays (desktop & mobile)
+                    // 2. Fallback ad-skip accelerator for ad overlays (desktop & mobile)
                     function skipAdSlot() {
                         try {
                             var skipBtn = document.querySelector('.ytp-ad-skip-button, .ytp-ad-skip-button-modern, .ytp-skip-ad-button, .ytp-ad-overlay-close-button, button.ytp-ad-skip-button, button[aria-label*="Skip"], button[class*="ytp-ad-skip-button"]');
@@ -552,16 +482,10 @@ object AdBlockerScript {
                                     if (!isNaN(v.duration) && v.duration > 0 && !isNaN(v.currentTime)) {
                                         v.currentTime = v.duration;
                                     }
-                                    var p = v.play();
-                                    if (p && typeof p.catch === 'function') p.catch(function() {});
                                 } catch(e) {}
                             }
                         } catch(e) {}
                     }
-
-                    // 4. Autoplay & gesture watchdog on SPA navigation
-                    var userInteractedPause = false;
-                    var lastWatchUrl = location.href;
 
                     function monitorVideo(v) {
                         if (!v || v.__hori_yt_hooked) return;
@@ -571,40 +495,7 @@ object AdBlockerScript {
                                 skipAdSlot();
                             }
                         });
-                        v.addEventListener('pause', function() {
-                            if (v.currentTime > 0.5) {
-                                userInteractedPause = true;
-                            }
-                        });
                     }
-
-                    function checkWatchPlayback() {
-                        try {
-                            if (location.href !== lastWatchUrl) {
-                                lastWatchUrl = location.href;
-                                userInteractedPause = false;
-                            }
-                            if (location.pathname.indexOf('/watch') !== -1 && !userInteractedPause) {
-                                var v = document.querySelector('video');
-                                var player = document.getElementById('movie_player') || document.querySelector('.html5-video-player');
-                                if (player && typeof player.getPlayerState === 'function') {
-                                    var state = player.getPlayerState();
-                                    if ((state === -1 || state === 3 || (state === 2 && (!v || v.currentTime === 0))) && !document.querySelector('.ad-showing, .ad-interrupting')) {
-                                        if (typeof player.playVideo === 'function') {
-                                            player.playVideo();
-                                        }
-                                    }
-                                }
-                                if (v && v.paused && v.currentTime === 0 && !v.ended && !document.querySelector('.ad-showing, .ad-interrupting')) {
-                                    var p = v.play();
-                                    if (p && typeof p.catch === 'function') {
-                                        p.catch(function() {});
-                                    }
-                                }
-                            }
-                        } catch(e) {}
-                    }
-                    setInterval(checkWatchPlayback, 300);
 
                     function initVideos() {
                         var videos = document.querySelectorAll('video');
