@@ -155,6 +155,14 @@ class AdBlockerScriptTest {
     }
 
     @Test
+    fun buildDocumentStartScript_doesNotMonkeyPatchWindowOpen() {
+        val script = AdBlockerScript.buildDocumentStartScript()
+        assertThat(script).doesNotContain("window.open =")
+        assertThat(script).doesNotContain("origWindowOpen")
+        assertThat(script).doesNotContain("patchedOpen")
+    }
+
+    @Test
     fun buildAutoConsentScript_containsLoopGuardAndHandlingFlag() {
         val script = AdBlockerScript.buildAutoConsentScript()
         assertThat(script).contains("data-hori-consent-handled")
