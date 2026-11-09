@@ -227,6 +227,10 @@ sealed interface BrowserUiEvent {
         val enabled: Boolean,
     ) : BrowserUiEvent
 
+    data class SetAutoConsentEnabled(
+        val enabled: Boolean,
+    ) : BrowserUiEvent
+
     data class SetCleanYouTubePlayerEnabled(
         val enabled: Boolean,
     ) : BrowserUiEvent

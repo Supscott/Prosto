@@ -155,4 +155,63 @@ class AdBlockerScriptTest {
         assertThat(script).contains("neutralizeClickjackingOverlays")
         assertThat(script).contains("pointer-events")
     }
+
+    @Test
+    fun buildAutoConsentScript_containsLoopGuardAndHandlingFlag() {
+        val script = AdBlockerScript.buildAutoConsentScript()
+        assertThat(script).contains("data-hori-consent-handled")
+        assertThat(script).contains("__hori_autoconsent_initialized")
+    }
+
+    @Test
+    fun buildAutoConsentScript_containsKeyCmpSelectors() {
+        val script = AdBlockerScript.buildAutoConsentScript()
+        // OneTrust
+        assertThat(script).contains("onetrust")
+        // Cookiebot
+        assertThat(script).contains("CybotCookiebotDialog")
+        // Didomi
+        assertThat(script).contains("didomi")
+        // Quantcast
+        assertThat(script).contains("qc-cmp2")
+        // Iubenda
+        assertThat(script).contains("iubenda")
+        // Yandex / generic cookie banners
+        assertThat(script).contains("cookie")
+    }
+
+    @Test
+    fun buildAutoConsentScript_containsPriorityHierarchyAndMultiLingualMatchers() {
+        val script = AdBlockerScript.buildAutoConsentScript()
+        // Priority 1: Reject All / Отклонить все
+        assertThat(script).contains("reject all")
+        assertThat(script).contains("отклонить")
+        assertThat(script).contains("refuse")
+        assertThat(script).contains("deny")
+
+        // Priority 2: Necessary only / Только необходимые
+        assertThat(script).contains("necessary")
+        assertThat(script).contains("только необходимые")
+        assertThat(script).contains("essential")
+    }
+
+    @Test
+    fun buildAutoConsentScript_containsScrollUnlockAndModalLockSanitizer() {
+        val script = AdBlockerScript.buildAutoConsentScript()
+        // Scroll restoration
+        assertThat(script).contains("overflow")
+        assertThat(script).contains("touch-action")
+        assertThat(script).contains("document.documentElement")
+        assertThat(script).contains("document.body")
+        // Class removal
+        assertThat(script).contains("modal-open")
+    }
+
+    @Test
+    fun buildAutoConsentScript_observesDynamicMutations() {
+        val script = AdBlockerScript.buildAutoConsentScript()
+        assertThat(script).contains("MutationObserver")
+        assertThat(script).contains("childList")
+        assertThat(script).contains("subtree")
+    }
 }

@@ -552,6 +552,21 @@ fun SettingsContent(
                 modifier = Modifier.padding(start = 56.dp),
             )
 
+            // Auto-dismiss Cookie Banners Row
+            SettingToggleRow(
+                icon = Icons.Default.VerifiedUser,
+                title = stringResource(R.string.pref_auto_consent_title),
+                summary = stringResource(R.string.pref_auto_consent_summary),
+                checked = uiState.settings.autoConsentEnabled,
+                onCheckedChange = { onEvent(BrowserUiEvent.SetAutoConsentEnabled(it)) },
+                isDark = isDark,
+            )
+
+            HorizontalDivider(
+                color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+                modifier = Modifier.padding(start = 56.dp),
+            )
+
             // Tracking Protection Row
             SettingToggleRow(
                 icon = Icons.Default.Shield,

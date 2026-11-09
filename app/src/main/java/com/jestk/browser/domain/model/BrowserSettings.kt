@@ -5,6 +5,7 @@ data class BrowserSettings(
     val searchEngine: SearchEngine = SearchEngine.DUCKDUCKGO,
     val isAdBlockerEnabled: Boolean = true,
     val isAdRedirectProtectionEnabled: Boolean = true,
+    val autoConsentEnabled: Boolean = true,
     val isCleanYouTubePlayerEnabled: Boolean = false,
     val isTrackingProtectionEnabled: Boolean = true,
     val hiddenSearchPageEngineIds: Set<String> = emptySet(),
@@ -18,4 +19,7 @@ data class BrowserSettings(
 ) {
     val adBlockerEnabled: Boolean
         get() = isAdBlockerEnabled
+
+    val isAutoConsentEnabled: Boolean
+        get() = autoConsentEnabled
 }

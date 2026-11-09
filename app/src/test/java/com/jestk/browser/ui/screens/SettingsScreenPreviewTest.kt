@@ -70,6 +70,21 @@ class SettingsScreenPreviewTest {
     }
 
     @Test
+    fun settingsScreen_showsAutoConsentToggle() {
+        composeRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SettingsScreen(
+                    uiState = BrowserUiState(activeScreen = ScreenType.SETTINGS, isDefaultBrowser = false),
+                    onEvent = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Auto-dismiss cookie banners").assertExists()
+        composeRule.onNodeWithText("Automatically reject tracking cookies and dismiss consent popups").assertExists()
+    }
+
+    @Test
     fun settingsScreen_showsFeedbackOptionAndTriggersEvent() {
         var capturedEvent: BrowserUiEvent? = null
         composeRule.setContent {

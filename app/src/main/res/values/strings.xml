@@ -74,6 +74,8 @@
     <string name="ad_blocker_summary">Eliminates banners and popups</string>
     <string name="ad_redirect_protection_title">Block ad redirects &amp; popups</string>
     <string name="ad_redirect_protection_summary">Prevent unwanted popups and redirects to foreign websites</string>
+    <string name="pref_auto_consent_title">Auto-dismiss cookie banners</string>
+    <string name="pref_auto_consent_summary">Automatically reject tracking cookies and dismiss consent popups</string>
     <string name="tracking_protection_title">Tracking Protection</string>
     <string name="tracking_protection_summary">Prevents cross-site tracking</string>
     <string name="clean_player_title">Clean Player</string>

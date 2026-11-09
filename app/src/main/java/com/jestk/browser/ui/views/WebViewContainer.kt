@@ -302,6 +302,7 @@ fun WebViewContainer(
                         currentOnEvent(BrowserUiEvent.ShowBlockedAdNavigation(url = url, tabId = id))
                     },
                     isAdRedirectProtectionEnabled = { currentUiState.settings.isAdRedirectProtectionEnabled },
+                    isAutoConsentEnabled = { currentUiState.settings.autoConsentEnabled },
                     isAllowedAdNavigation = { url ->
                         currentUiState.allowedAdNavigationUrls.contains(url)
                     },

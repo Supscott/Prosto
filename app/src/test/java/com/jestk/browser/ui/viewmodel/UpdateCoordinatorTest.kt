@@ -272,6 +272,9 @@ class UpdateCoordinatorTest {
         override suspend fun setAdRedirectProtectionEnabled(enabled: Boolean) {
             settings.value = settings.value.copy(isAdRedirectProtectionEnabled = enabled)
         }
+        override suspend fun setAutoConsentEnabled(enabled: Boolean) {
+            settings.value = settings.value.copy(autoConsentEnabled = enabled)
+        }
         override suspend fun setTrackingProtectionEnabled(enabled: Boolean) {}
         override suspend fun setHiddenSearchPageEngineIds(hiddenIds: Set<String>) {}
         override suspend fun setOpenInAppsEnabled(enabled: Boolean) {}

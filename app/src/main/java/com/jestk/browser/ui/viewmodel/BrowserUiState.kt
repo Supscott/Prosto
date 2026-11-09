@@ -99,6 +99,9 @@ data class BrowserUiState(
     val activeTabIndex: Int
         get() = if (tabs.isEmpty()) 0 else tabs.indexOfFirst { it.id == activeTabId }.coerceIn(0, tabs.lastIndex)
 
+    val autoConsentEnabled: Boolean
+        get() = settings.autoConsentEnabled
+
     val bottomBarVisible: Boolean
         get() = isBottomBarVisible
 

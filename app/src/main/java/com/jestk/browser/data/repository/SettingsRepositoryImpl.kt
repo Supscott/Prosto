@@ -31,6 +31,7 @@ class SettingsRepositoryImpl(
             val searchStr = settingDao.getSetting(SettingKeys.SEARCH_ENGINE)
             val adBlockerStr = settingDao.getSetting(SettingKeys.AD_BLOCKER_ENABLED)
             val adRedirectStr = settingDao.getSetting(SettingKeys.AD_REDIRECT_PROTECTION_ENABLED)
+            val autoConsentStr = settingDao.getSetting(SettingKeys.AUTO_CONSENT_ENABLED)
             val cleanPlayerStr = settingDao.getSetting(SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED)
             val cleanPlayerMigratedStr = settingDao.getSetting(SettingKeys.CLEAN_PLAYER_FORCED_OFF_V1)
             val cleanPlayerMigrated = cleanPlayerMigratedStr == "1"
@@ -57,6 +58,7 @@ class SettingsRepositoryImpl(
                 searchStr?.let { runCatching { SearchEngine.valueOf(it) }.getOrDefault(SearchEngine.DUCKDUCKGO) } ?: SearchEngine.DUCKDUCKGO
             val adBlocker = adBlockerStr?.toBooleanStrictOrNull() ?: true
             val adRedirect = adRedirectStr?.toBooleanStrictOrNull() ?: true
+            val autoConsent = autoConsentStr?.toBooleanStrictOrNull() ?: true
             val cleanPlayer = cleanPlayerResolved
             val trackingProtection = trackingProtectionStr?.toBooleanStrictOrNull() ?: true
             val openInApps = openInAppsStr?.toBooleanStrictOrNull() ?: true
@@ -83,6 +85,7 @@ class SettingsRepositoryImpl(
                 searchEngine = search,
                 isAdBlockerEnabled = adBlocker,
                 isAdRedirectProtectionEnabled = adRedirect,
+                autoConsentEnabled = autoConsent,
                 isCleanYouTubePlayerEnabled = cleanPlayer,
                 isTrackingProtectionEnabled = trackingProtection,
                 hiddenSearchPageEngineIds = hiddenEngines,
@@ -114,6 +117,11 @@ class SettingsRepositoryImpl(
     override suspend fun setAdRedirectProtectionEnabled(enabled: Boolean) =
         withContext(ioDispatcher) {
             settingDao.setSetting(SettingEntity(SettingKeys.AD_REDIRECT_PROTECTION_ENABLED, enabled.toString()))
+        }
+
+    override suspend fun setAutoConsentEnabled(enabled: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.AUTO_CONSENT_ENABLED, enabled.toString()))
         }
 
     override suspend fun setCleanYouTubePlayerEnabled(enabled: Boolean) =
