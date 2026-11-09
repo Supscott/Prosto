@@ -210,9 +210,15 @@ fun UnifiedBottomBar(
                             .weight(1f)
                             .height(50.dp)
                             .testTag("dock_capsule")
-                            .swipeUpToSearch(density) {
-                                currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
-                            }
+                            .dockLiftGestureModifier(
+                                density = density,
+                                onSwipeUpSearch = {
+                                    currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                                },
+                                onLiftWorkspaces = {
+                                    currentOnEvent(BrowserUiEvent.OpenWorkspacesOverview)
+                                },
+                            )
                     ) {
                         // Tactile Floating Capsule Dock Surface (clipped cleanly to stadium capsule)
                         Box(
