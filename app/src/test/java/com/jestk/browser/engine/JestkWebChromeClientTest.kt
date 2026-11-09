@@ -168,10 +168,9 @@ class JestkWebChromeClientTest {
     }
 
     @Test
-    fun onShowCustomView_triggersVideoResumptionCallback() {
+    fun onShowCustomView_keepsScreenOnAndSetsShowing() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val view = View(context)
-        var resumeCallbackCalled = false
 
         val client = JestkWebChromeClient(
             tabId = "tab-1",
@@ -179,19 +178,17 @@ class JestkWebChromeClientTest {
             onTitleReceived = { _, _ -> },
             onFullscreenCustomViewChanged = { _, _, _ -> },
             onVideoPlayingStateChanged = { },
-            onVideoResume = { resumeCallbackCalled = true }
         )
 
         client.onShowCustomView(view) { }
-        assertThat(resumeCallbackCalled).isTrue()
+        assertThat(client.isCustomViewShowing()).isTrue()
         assertThat(view.keepScreenOn).isTrue()
     }
 
     @Test
-    fun onShowCustomView_sameView_triggersVideoResumption() {
+    fun onShowCustomView_sameView_preservesActiveCustomView() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val view = View(context)
-        var resumeCount = 0
 
         val client = JestkWebChromeClient(
             tabId = "tab-1",
@@ -199,35 +196,14 @@ class JestkWebChromeClientTest {
             onTitleReceived = { _, _ -> },
             onFullscreenCustomViewChanged = { _, _, _ -> },
             onVideoPlayingStateChanged = { },
-            onVideoResume = { resumeCount++ }
         )
 
         client.onShowCustomView(view) { }
-        assertThat(resumeCount).isEqualTo(1)
+        assertThat(client.isCustomViewShowing()).isTrue()
 
-        // Calling onShowCustomView with the same view should re-trigger resumption check
+        // Calling onShowCustomView with the same view should keep custom view active
         client.onShowCustomView(view) { }
-        assertThat(resumeCount).isEqualTo(2)
-    }
-
-    @Test
-    fun resumeVideoPlayback_invokesResumeCallback() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        val webView = android.webkit.WebView(context)
-        var resumeCallbackCalled = false
-
-        val client = JestkWebChromeClient(
-            tabId = "tab-1",
-            webView = webView,
-            onProgressChanged = { _, _ -> },
-            onTitleReceived = { _, _ -> },
-            onFullscreenCustomViewChanged = { _, _, _ -> },
-            onVideoPlayingStateChanged = { },
-            onVideoResume = { resumeCallbackCalled = true }
-        )
-
-        client.resumeVideoPlayback()
-        assertThat(resumeCallbackCalled).isTrue()
+        assertThat(client.isCustomViewShowing()).isTrue()
     }
 
     @Test

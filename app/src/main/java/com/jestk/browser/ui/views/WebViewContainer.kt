@@ -339,13 +339,6 @@ fun WebViewContainer(
                     onVideoPlayingStateChanged = { isPlaying ->
                         currentOnEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
                     },
-                    onVideoResume = {
-                        val resumeScript = "(function(){ try { var p = document.getElementById('movie_player') || document.querySelector('.html5-video-player'); if (p && typeof p.playVideo === 'function') { p.playVideo(); } var v = document.querySelector('video'); if (v && v.paused) { var res = v.play(); if (res && res.catch) res.catch(function(){}); } } catch(e){} })()"
-                        wv.post {
-                            wv.evaluateJavascript(resumeScript, null)
-                            wv.postDelayed({ wv.evaluateJavascript(resumeScript, null) }, 250)
-                        }
-                    },
                     onFaviconReceived = handleFavicon,
                     onShowFileChooser = { callback, params ->
                         val handler = act as? FileChooserHandler

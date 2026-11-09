@@ -249,13 +249,6 @@ fun JestkApp(
                     onVideoPlayingStateChanged = { isPlaying ->
                         viewModel.onEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
                     },
-                    onVideoResume = {
-                        val resumeScript = "(function(){ try { var p = document.getElementById('movie_player') || document.querySelector('.html5-video-player'); if (p && typeof p.playVideo === 'function') { p.playVideo(); } var v = document.querySelector('video'); if (v && v.paused) { var res = v.play(); if (res && res.catch) res.catch(function(){}); } } catch(e){} })()"
-                        wv.post {
-                            wv.evaluateJavascript(resumeScript, null)
-                            wv.postDelayed({ wv.evaluateJavascript(resumeScript, null) }, 250)
-                        }
-                    },
                     onFaviconReceived = handleFavicon,
                     onCreateWindowRequest = { _, _, _, resultMsg ->
                         com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
@@ -416,14 +409,13 @@ fun JestkApp(
         LaunchedEffect(isFullscreenVideo, requestedOrientation) {
             val activity = context.findActivity() ?: return@LaunchedEffect
             if (isFullscreenVideo) {
-                val targetOrientation = if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
-                    requestedOrientation
-                } else {
-                    ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                if (requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+                    activity.requestedOrientation = requestedOrientation
                 }
-                activity.requestedOrientation = targetOrientation
             } else {
-                activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                if (activity.requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+                    activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
             }
         }
 

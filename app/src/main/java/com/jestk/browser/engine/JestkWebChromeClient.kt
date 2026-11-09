@@ -18,7 +18,6 @@ class JestkWebChromeClient(
     private val onFullscreenCustomViewChanged: (view: View?, isFullscreen: Boolean, requestedOrientation: Int) -> Unit,
     private val onVideoPlayingStateChanged: (isPlaying: Boolean) -> Unit,
     private val onFaviconReceived: ((tabId: String, icon: Bitmap, pageUrl: String?) -> Unit)? = null,
-    private val onVideoResume: (() -> Unit)? = null,
     private val onShowFileChooser: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null,
     private val onCreateWindowRequest: ((view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?) -> Boolean)? = null,
     private val onCloseWindowRequest: ((tabId: String) -> Unit)? = null,
@@ -77,7 +76,6 @@ class JestkWebChromeClient(
         if (customView != null) {
             if (customView === view) {
                 customViewCallback = callback ?: customViewCallback
-                onVideoResume?.invoke()
                 return
             }
             // A custom view is already active; dismiss the duplicate request and preserve the active view
@@ -92,7 +90,6 @@ class JestkWebChromeClient(
 
         onFullscreenCustomViewChanged(view, true, ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
         onVideoPlayingStateChanged(true)
-        onVideoResume?.invoke()
     }
 
     @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
@@ -114,10 +111,6 @@ class JestkWebChromeClient(
     }
 
     fun isCustomViewShowing(): Boolean = customView != null
-
-    fun resumeVideoPlayback() {
-        onVideoResume?.invoke()
-    }
 
     companion object {
         fun resolveOrientationFromAspectRatio(videoWidth: Int, videoHeight: Int): Int {

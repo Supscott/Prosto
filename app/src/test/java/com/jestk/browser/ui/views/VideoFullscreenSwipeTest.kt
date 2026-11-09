@@ -205,23 +205,22 @@ class VideoFullscreenSwipeTest {
     }
 
     @Test
-    fun customView_keepsScreenOn_andRegistersPlaybackResumption() {
+    fun customView_keepsScreenOn_andRegistersFullscreenState() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val testView = View(context)
-        var resumptionCalled = false
+        var isFullscreenReported = false
 
         val client = JestkWebChromeClient(
             tabId = "tab-test",
             onProgressChanged = { _, _ -> },
             onTitleReceived = { _, _ -> },
-            onFullscreenCustomViewChanged = { _, _, _ -> },
+            onFullscreenCustomViewChanged = { _, isFs, _ -> isFullscreenReported = isFs },
             onVideoPlayingStateChanged = { },
-            onVideoResume = { resumptionCalled = true }
         )
 
         client.onShowCustomView(testView) { }
 
         assertThat(testView.keepScreenOn).isTrue()
-        assertThat(resumptionCalled).isTrue()
+        assertThat(isFullscreenReported).isTrue()
     }
 }
