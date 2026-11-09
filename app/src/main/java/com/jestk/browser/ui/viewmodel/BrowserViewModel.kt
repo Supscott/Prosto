@@ -483,6 +483,9 @@ class BrowserViewModel(
 
             is BrowserUiEvent.OnPageFinished -> {
                 tabCoordinator.handlePageFinished(event.tabId, event.url, event.title)
+                if (bypassCleanPlayerVideoId != null && YouTubeUrlHelper.extractVideoId(event.url) == bypassCleanPlayerVideoId) {
+                    bypassCleanPlayerVideoId = null
+                }
             }
 
             is BrowserUiEvent.OnTitleReceived -> {

@@ -29,6 +29,7 @@ Welcome to the **Prosto** project. This file provides operational rules, archite
 - **Unit test target**: Always run `rtk ./gradlew testDebugUnitTest`. Never run bare `./gradlew test`, as `testReleaseUnitTest` fails without Robolectric release configuration.
 - **Invariants**: Always verify `python3 tools/check_invariants.py` passes before finalizing changes.
 - **On-Device WebView Debugging**: See [`.agent/skills/adb-webview-testing/SKILL.md`](file:///Users/ilya/CODING/browser/.agent/skills/adb-webview-testing/SKILL.md) for ADB port forwarding, CDP WebSocket tracing, cookie/storage inspection, and headless Chrome DevTools commands.
+- **DuckDuckGo Android Reference**: See [`.agent/skills/duckduckgo-reference/SKILL.md`](file:///Users/ilya/CODING/browser/.agent/skills/duckduckgo-reference/SKILL.md) for module paths, GitHub lookup recipes, and adaptation guidelines when implementing WebView edge cases, web compatibility, or privacy features.
 
 ### 3. Post-Implementation Reflection & Retrospective (Анализ работы и ретроспектива)
 - After successfully implementing and verifying non-trivial fixes or features, conduct a brief retrospective analysis of the work done:

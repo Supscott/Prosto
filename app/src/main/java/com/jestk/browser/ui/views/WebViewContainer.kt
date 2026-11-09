@@ -86,17 +86,19 @@ fun WebViewContainer(
     val surfaceColor = (if (isDark) DarkSurface else Color.White).toArgb()
 
     val isImeVisible = WindowInsets.isImeVisible
+    val isFullscreen = uiState.isFullscreenCustomView
     val targetBottomPadding = when {
-        uiState.isFullscreenCustomView -> 0.dp
+        isFullscreen -> 0.dp
         isImeVisible -> 0.dp
         !uiState.isBottomBarVisible -> 0.dp
         else -> 62.dp
     }
-    val bottomPadding by animateDpAsState(
+    val animatedBottomPadding by animateDpAsState(
         targetValue = targetBottomPadding,
         animationSpec = tween(durationMillis = 260, easing = FastOutSlowInEasing),
         label = "WebViewBottomPadding"
     )
+    val bottomPadding = if (isFullscreen) 0.dp else animatedBottomPadding
 
     val setupWebViewLongClick: (WebView) -> Unit = remember {
         { wv ->

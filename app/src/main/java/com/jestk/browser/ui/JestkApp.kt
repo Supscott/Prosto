@@ -1009,12 +1009,6 @@ fun JestkApp(
                 val velocityThresholdPx = remember(density) { with(density) { 1000.dp.toPx() } }
                 val minDragDistancePx = remember(density) { with(density) { 20.dp.toPx() } }
 
-                LaunchedEffect(customView) {
-                    val activeId = uiState.activeTabId
-                    val webView = activeId?.let { webViewPool.getWebView(it) }
-                    (webView?.webChromeClient as? JestkWebChromeClient)?.resumeVideoPlayback()
-                }
-
                 Box(
                     modifier =
                         Modifier
@@ -1094,9 +1088,6 @@ fun JestkApp(
                                     ViewGroup.LayoutParams.MATCH_PARENT,
                                 )
                             view.keepScreenOn = true
-                        },
-                        onReset = { view ->
-                            (view.parent as? ViewGroup)?.removeView(view)
                         },
                         modifier = Modifier.fillMaxSize(),
                     )

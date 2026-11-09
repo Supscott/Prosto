@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 class JestkWebChromeClientTest {
 
     @Test
-    fun onShowCustomView_twoArgs_defaultsToSensorLandscape() {
+    fun onShowCustomView_twoArgs_defaultsToUnspecifiedOrientation() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val testView = View(context)
         var receivedView: View? = null
@@ -48,7 +48,7 @@ class JestkWebChromeClientTest {
         assertThat(client.isCustomViewShowing()).isTrue()
         assertThat(isFullscreenState).isTrue()
         assertThat(receivedView).isSameInstanceAs(testView)
-        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
         assertThat(testView.keepScreenOn).isTrue()
         assertThat(videoPlayingState).isTrue()
 
@@ -65,7 +65,7 @@ class JestkWebChromeClientTest {
     }
 
     @Test
-    fun onShowCustomView_twoArgs_shortsUrl_defaultsToSensorPortrait() {
+    fun onShowCustomView_twoArgs_preservesNaturalOrientation() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val webView = NestedWebView(context).apply {
             loadedUrl = "https://m.youtube.com/shorts/12345"
@@ -86,7 +86,7 @@ class JestkWebChromeClientTest {
 
         client.onShowCustomView(testView) { }
 
-        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT)
+        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
     }
 
     @Test
@@ -322,13 +322,13 @@ class JestkWebChromeClientTest {
     }
 
     @Test
-    fun onShowCustomView_normalVideoUrl_defaultsToSensorLandscape() {
+    fun onShowCustomView_normalVideoUrl_defaultsToUnspecifiedOrientation() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val webView = NestedWebView(context).apply {
             loadedUrl = "https://m.youtube.com/watch?v=dQw4w9WgXcQ"
         }
         val testView = View(context)
-        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        var receivedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
 
         val client = JestkWebChromeClient(
             tabId = "tab-youtube",
@@ -343,7 +343,7 @@ class JestkWebChromeClientTest {
 
         client.onShowCustomView(testView) { }
 
-        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
+        assertThat(receivedOrientation).isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
     }
 
     @Test

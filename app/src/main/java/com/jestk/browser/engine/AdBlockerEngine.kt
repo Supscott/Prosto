@@ -981,6 +981,7 @@ object AdBlockerEngine {
 
         // Exempt essential YouTube player playback telemetry from tracking suppression
         if (host == "youtube.com" || host.endsWith(".youtube.com") ||
+            host == "youtube-nocookie.com" || host.endsWith(".youtube-nocookie.com") ||
             host == "googlevideo.com" || host.endsWith(".googlevideo.com")
         ) {
             if (path.startsWith("/api/stats/") || path.startsWith("/stats/") || path.contains("playback")) {

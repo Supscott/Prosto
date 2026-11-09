@@ -2418,6 +2418,28 @@ class BrowserViewModelTest {
         }
 
     @Test
+    fun cleanPlayer_onPageFinished_resetsBypassAfterNavigationCompletes() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.SetCleanYouTubePlayerEnabled(true))
+            advanceUntilIdle()
+
+            val activeTabId = viewModel.uiState.value.activeTabId!!
+            viewModel.onEvent(BrowserUiEvent.OpenCleanPlayerOnWeb("https://m.youtube.com/watch?v=dQw4w9WgXcQ"))
+            advanceUntilIdle()
+
+            assertThat(viewModel.shouldInterceptForCleanPlayer("https://m.youtube.com/watch?v=dQw4w9WgXcQ")).isFalse()
+
+            // When page finishes loading on the native site
+            viewModel.onEvent(BrowserUiEvent.OnPageFinished(activeTabId, "https://m.youtube.com/watch?v=dQw4w9WgXcQ", "Title"))
+            advanceUntilIdle()
+
+            // The bypass is now cleared for future new visits
+            assertThat(viewModel.shouldInterceptForCleanPlayer("https://m.youtube.com/watch?v=dQw4w9WgXcQ")).isTrue()
+        }
+
+    @Test
     fun cleanPlayer_loadUrl_interceptsYouTubeVideoWhenEnabled() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()
