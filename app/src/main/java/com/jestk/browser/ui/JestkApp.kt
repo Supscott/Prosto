@@ -328,8 +328,11 @@ fun JestkApp(
         }
     }
 
+    val activeWorkspaceColor = uiState.activeWorkspace?.color?.let { Color(it) }
+
     JestkBrowserTheme(
         themeMode = uiState.settings.themeMode,
+        workspaceColor = activeWorkspaceColor,
     ) {
         val isDark = LocalIsDarkTheme.current
         val currentContext = LocalContext.current
@@ -639,7 +642,7 @@ fun JestkApp(
                 Surface(
                     shape = ProstoShapes.Pill,
                     color = if (isDark) DarkSurface else Color.White,
-                    border = ProstoBorders.floatingBorder(isDark),
+                    border = ProstoBorders.floatingBorder(isDark, workspaceColor = activeWorkspaceColor),
                     shadowElevation = 8.dp,
                     modifier = Modifier.wrapContentSize(),
                 ) {
@@ -657,9 +660,10 @@ fun JestkApp(
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
                         )
+                        val undoAccent = activeWorkspaceColor ?: ProstoBrandPrimary
                         Text(
                             text = undoText,
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = ProstoBrandPrimary),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = undoAccent),
                             modifier =
                                 Modifier
                                     .clickable {
@@ -713,10 +717,11 @@ fun JestkApp(
                     }
                 }
 
+                val downloadAccent = activeWorkspaceColor ?: ProstoBrandPrimary
                 Surface(
                     shape = ProstoShapes.Pill,
                     color = if (isDark) DarkSurface else Color.White,
-                    border = ProstoBorders.floatingBorder(isDark),
+                    border = ProstoBorders.floatingBorder(isDark, workspaceColor = activeWorkspaceColor),
                     shadowElevation = 8.dp,
                     modifier = Modifier.wrapContentSize(),
                 ) {
@@ -728,7 +733,7 @@ fun JestkApp(
                         Icon(
                             imageVector = Icons.Default.Download,
                             contentDescription = null,
-                            tint = ProstoBrandPrimary,
+                            tint = downloadAccent,
                             modifier = Modifier.size(18.dp),
                         )
                         val isCompleted = download?.status == com.jestk.browser.domain.model.DownloadStatus.COMPLETED
@@ -750,7 +755,7 @@ fun JestkApp(
                             } else {
                                 stringResource(R.string.download_action_details)
                             },
-                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = ProstoBrandPrimary),
+                            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = downloadAccent),
                             modifier =
                                 Modifier
                                     .clickable {

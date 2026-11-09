@@ -231,4 +231,9 @@
     <string name="download_open_with">Open with</string>
     <string name="downloads_in_progress_hint">Download in progress…</string>
     <string name="downloads_failed_retry_hint">Download failed. Tap retry to restart.</string>
+    <string name="a11y_open_workspaces">Switch workspace</string>
+    <string name="workspaces_title">Workspaces</string>
+    <string name="workspace_personal">Personal</string>
+    <string name="workspace_work">Work</string>
+    <string name="move_to_workspace">Move to workspace…</string>
 </resources>

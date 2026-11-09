@@ -315,6 +315,10 @@ class BrowserViewModel(
                 tabCoordinator.undoCloseTab()
             }
 
+            is BrowserUiEvent.OpenWorkspacesOverview -> {
+                Log.d(TAG, "Workspace command: open workspaces overview")
+            }
+
             is BrowserUiEvent.SwitchWorkspace -> {
                 Log.d(TAG, "Workspace command: switch workspace to ${event.workspaceId}")
                 tabCoordinator.switchWorkspace(event.workspaceId)

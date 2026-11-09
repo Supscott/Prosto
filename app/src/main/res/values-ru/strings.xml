@@ -235,4 +235,9 @@
     <string name="download_open_with">Открыть с помощью</string>
     <string name="downloads_in_progress_hint">Загрузка выполняется…</string>
     <string name="downloads_failed_retry_hint">Не удалось скачать. Нажмите повтор для перезапуска.</string>
+    <string name="a11y_open_workspaces">Переключить пространство</string>
+    <string name="workspaces_title">Пространства</string>
+    <string name="workspace_personal">Личное</string>
+    <string name="workspace_work">Рабочее</string>
+    <string name="move_to_workspace">Переместить в пространство…</string>
 </resources>

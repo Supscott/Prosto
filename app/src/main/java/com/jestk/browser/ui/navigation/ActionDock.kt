@@ -13,6 +13,7 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -61,6 +62,7 @@ import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.LocalActiveWorkspaceColor
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoAccent
 import com.jestk.browser.ui.theme.ProstoBorders
@@ -207,8 +209,10 @@ fun ActionDockMenuButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     backgroundColor: Color = if (isDark) DarkSurface else ProstoCardSurface,
+    border: BorderStroke? = null,
 ) {
-    val activeTint = if (isDark) ProstoAccent else ProstoBrandPrimary
+    val workspaceColor = LocalActiveWorkspaceColor.current
+    val activeTint = workspaceColor ?: if (isDark) ProstoAccent else ProstoBrandPrimary
     val normalTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
 
     Box(
@@ -219,6 +223,7 @@ fun ActionDockMenuButton(
                     shape = ProstoShapes.Card,
                     isDark = isDark,
                     backgroundColor = backgroundColor,
+                    border = border,
                     elevation = 10.dp,
                 ).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,

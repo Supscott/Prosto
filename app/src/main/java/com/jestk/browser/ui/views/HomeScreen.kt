@@ -91,6 +91,7 @@ import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.ui.theme.LocalActiveWorkspaceColor
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
@@ -154,6 +155,8 @@ fun HomeScreen(
 
     val scrollState = rememberScrollState()
     val isDark = LocalIsDarkTheme.current
+    val activeWorkspace = uiState.activeWorkspace
+    val workspaceColor = activeWorkspace?.let { Color(it.color) } ?: LocalActiveWorkspaceColor.current
     var isDefaultBrowserDismissed by rememberSaveable { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -165,6 +168,25 @@ fun HomeScreen(
                     .prostoSkyBackground(isDark = isDark),
         )
 
+        // Subtle ambient workspace tint gradient (Arc mobile styling, NO BLUR)
+        if (workspaceColor != null) {
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    workspaceColor.copy(alpha = if (isDark) 0.10f else 0.06f),
+                                    Color.Transparent,
+                                ),
+                                startY = 0f,
+                                endY = 1200f,
+                            ),
+                        ),
+            )
+        }
+
         // Layer 2: Scrolling foreground content
         Column(
             modifier =
@@ -175,13 +197,29 @@ fun HomeScreen(
                     .verticalScroll(scrollState)
                     .padding(top = 16.dp, bottom = 120.dp),
         ) {
-            // Hero Greeting
-            Text(
-                text = stringResource(R.string.home_greeting),
-                style = LocalProstoTypography.current.headlineXl,
-                color = if (isDark) DarkOnSurface else ProstoDarkText,
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-            )
+            // Active Workspace Title / Hero Greeting
+            val workspaceTitle = activeWorkspace?.name ?: stringResource(R.string.home_greeting)
+            val titleColor = workspaceColor ?: (if (isDark) DarkOnSurface else ProstoDarkText)
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier =
+                    Modifier
+                        .testTag("workspace_title")
+                        .clickable(
+                            onClickLabel = stringResource(R.string.a11y_open_workspaces),
+                            onClick = { onEvent(BrowserUiEvent.OpenWorkspacesOverview) },
+                        )
+                        .padding(horizontal = 20.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    text = workspaceTitle,
+                    style = LocalProstoTypography.current.headlineXl,
+                    color = titleColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
 
             Spacer(modifier = Modifier.height(12.dp))
 

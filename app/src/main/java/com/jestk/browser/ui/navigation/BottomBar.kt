@@ -6,6 +6,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.systemGestureExclusion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,7 +22,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.tooling.preview.Preview
@@ -30,7 +33,9 @@ import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.ui.theme.LocalActiveWorkspaceColor
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
+import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.theme.prostoFloatingSurface
 import com.jestk.browser.ui.theme.prostoSkyBackground
@@ -57,11 +62,54 @@ fun UnifiedBottomBar(
     val isDark = LocalIsDarkTheme.current
     val isHome = uiState.isHome
 
-    // Dock container: 80% opacity in both light (white) and dark (#0D1824)
-    val dockBg = if (isDark) DarkDockSurface.copy(alpha = 0.80f) else Color.White.copy(alpha = 0.80f)
-    // Active tab capsule: 100% solid for crisp shadow casting and matching reference
-    val activePillBg = if (isDark) DarkDockSurface else Color.White
-    val activePillBorder: androidx.compose.foundation.BorderStroke? = null
+    val workspaceColor = uiState.activeWorkspace?.let { Color(it.color) }
+        ?: LocalActiveWorkspaceColor.current
+
+    // Dock container: 80% opacity in both light (white) and dark (#0D1824) with workspace color tint
+    val baseDockBg = if (isDark) DarkDockSurface.copy(alpha = 0.80f) else Color.White.copy(alpha = 0.80f)
+    val dockBg = if (workspaceColor != null) {
+        val tintAlpha = if (isDark) 0.14f else 0.10f
+        workspaceColor.copy(alpha = tintAlpha).compositeOver(baseDockBg)
+    } else {
+        baseDockBg
+    }
+
+    // Active tab capsule: 100% solid with subtle workspace tint for crisp shadow casting and Arc style
+    val baseActivePillBg = if (isDark) DarkDockSurface else Color.White
+    val activePillBg = if (workspaceColor != null) {
+        val pillTintAlpha = if (isDark) 0.08f else 0.04f
+        workspaceColor.copy(alpha = pillTintAlpha).compositeOver(baseActivePillBg)
+    } else {
+        baseActivePillBg
+    }
+
+    val activePillBorder: BorderStroke? = if (workspaceColor != null) {
+        BorderStroke(
+            1.dp,
+            Brush.verticalGradient(
+                colors = if (isDark) {
+                    listOf(
+                        workspaceColor.copy(alpha = 0.45f),
+                        workspaceColor.copy(alpha = 0.15f),
+                    )
+                } else {
+                    listOf(
+                        workspaceColor.copy(alpha = 0.35f),
+                        workspaceColor.copy(alpha = 0.10f),
+                    )
+                }
+            )
+        )
+    } else {
+        null
+    }
+
+    val dockBorder: BorderStroke? = if (workspaceColor != null) {
+        ProstoBorders.floatingBorder(isDark = isDark, workspaceColor = workspaceColor)
+    } else {
+        null
+    }
+
     val circleBtnBg = Color.Transparent
 
     Box(
@@ -174,6 +222,7 @@ fun UnifiedBottomBar(
                                     shape = ProstoShapes.Dock,
                                     isDark = isDark,
                                     backgroundColor = dockBg,
+                                    border = dockBorder,
                                     elevation = 10.dp,
                                     clip = true,
                                 )
@@ -196,6 +245,7 @@ fun UnifiedBottomBar(
                         isExpanded = uiState.isMenuExpanded,
                         isDark = isDark,
                         backgroundColor = dockBg,
+                        border = dockBorder,
                         onClick = {
                             onEvent(BrowserUiEvent.ToggleMenu())
                         }

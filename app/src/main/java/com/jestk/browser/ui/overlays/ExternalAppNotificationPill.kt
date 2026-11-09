@@ -49,6 +49,7 @@ import com.jestk.browser.R
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.LocalActiveWorkspaceColor
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
@@ -104,11 +105,13 @@ fun ExternalAppNotificationPill(
 
     val density = LocalDensity.current
     val dismissThresholdPx = with(density) { 90.dp.toPx() }
+    val workspaceColor = LocalActiveWorkspaceColor.current
+    val accentColor = workspaceColor ?: ProstoBrandPrimary
 
     Surface(
         shape = ProstoShapes.Pill,
         color = if (isDark) DarkSurface else Color.White,
-        border = ProstoBorders.floatingBorder(isDark),
+        border = ProstoBorders.floatingBorder(isDark, workspaceColor = workspaceColor),
         shadowElevation = 8.dp,
         modifier = modifier
             .wrapContentSize()
@@ -190,7 +193,7 @@ fun ExternalAppNotificationPill(
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
                     contentDescription = null,
-                    tint = ProstoBrandPrimary,
+                    tint = accentColor,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -216,7 +219,7 @@ fun ExternalAppNotificationPill(
                 text = stringResource(R.string.external_app_open_action),
                 style = MaterialTheme.typography.labelLarge.copy(
                     fontWeight = FontWeight.Bold,
-                    color = ProstoBrandPrimary
+                    color = accentColor
                 ),
                 modifier = Modifier
                     .clickable { currentOnOpen() }

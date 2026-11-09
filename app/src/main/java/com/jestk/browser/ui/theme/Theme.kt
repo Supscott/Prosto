@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.ThemeMode
@@ -89,6 +90,7 @@ val DarkColorScheme =
     )
 
 val LocalIsDarkTheme = compositionLocalOf { false }
+val LocalActiveWorkspaceColor = compositionLocalOf<Color?> { null }
 
 @Composable
 fun isAppDarkTheme(themeMode: ThemeMode = ThemeMode.SYSTEM): Boolean =
@@ -105,6 +107,7 @@ fun isAppDarkTheme(themeMode: ThemeMode = ThemeMode.SYSTEM): Boolean =
 @Composable
 fun JestkBrowserTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
+    workspaceColor: Color? = null,
     content: @Composable () -> Unit,
 ) {
     val darkTheme = isAppDarkTheme(themeMode)
@@ -113,6 +116,7 @@ fun JestkBrowserTheme(
     CompositionLocalProvider(
         LocalIsDarkTheme provides darkTheme,
         LocalProstoTypography provides ProstoTextStyles,
+        LocalActiveWorkspaceColor provides workspaceColor,
     ) {
         MaterialTheme(
             colorScheme = colorScheme,
@@ -181,29 +185,50 @@ object ProstoBorders {
 
     /**
      * Level 2 floating rim highlight: 1px solid rgba(255, 255, 255, 0.8) vertical gradient in light mode,
-     * subtle slate rim in dark mode.
+     * subtle slate rim in dark mode, with adaptive workspace color tint when provided.
      */
     fun floatingBorder(
         isDark: Boolean = false,
         width: Dp = 1.dp,
+        workspaceColor: Color? = null,
     ): BorderStroke {
         val brush =
             if (isDark) {
-                Brush.verticalGradient(
-                    colors =
-                        listOf(
-                            Color(0xFF3E4D4A).copy(alpha = 0.70f),
-                            Color(0xFF2A3A37).copy(alpha = 0.40f),
-                        ),
-                )
+                if (workspaceColor != null) {
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                workspaceColor.copy(alpha = 0.40f).compositeOver(Color(0xFF3E4D4A).copy(alpha = 0.70f)),
+                                workspaceColor.copy(alpha = 0.15f).compositeOver(Color(0xFF2A3A37).copy(alpha = 0.40f)),
+                            ),
+                    )
+                } else {
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                Color(0xFF3E4D4A).copy(alpha = 0.70f),
+                                Color(0xFF2A3A37).copy(alpha = 0.40f),
+                            ),
+                    )
+                }
             } else {
-                Brush.verticalGradient(
-                    colors =
-                        listOf(
-                            Color.White.copy(alpha = 0.85f),
-                            Color.White.copy(alpha = 0.40f),
-                        ),
-                )
+                if (workspaceColor != null) {
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                workspaceColor.copy(alpha = 0.35f).compositeOver(Color.White.copy(alpha = 0.85f)),
+                                workspaceColor.copy(alpha = 0.12f).compositeOver(Color.White.copy(alpha = 0.40f)),
+                            ),
+                    )
+                } else {
+                    Brush.verticalGradient(
+                        colors =
+                            listOf(
+                                Color.White.copy(alpha = 0.85f),
+                                Color.White.copy(alpha = 0.40f),
+                            ),
+                    )
+                }
             }
         return BorderStroke(width, brush)
     }
@@ -257,12 +282,13 @@ fun Modifier.prostoFloatingSurface(
     shape: Shape = ProstoShapes.Dock,
     isDark: Boolean = false,
     backgroundColor: Color? = null,
+    border: BorderStroke? = null,
     borderWidth: Dp = 1.dp,
     elevation: Dp = 10.dp,
     clip: Boolean = true,
 ): Modifier {
     val bg = backgroundColor ?: if (isDark) DarkSurface else Color.White
-    val border = ProstoBorders.floatingBorder(isDark = isDark, width = borderWidth)
+    val resolvedBorder = border ?: ProstoBorders.floatingBorder(isDark = isDark, width = borderWidth)
     val base = this
         .shadow(
             elevation = elevation,
@@ -271,7 +297,7 @@ fun Modifier.prostoFloatingSurface(
             ambientColor = if (isDark) Color.Black else Color.Black.copy(alpha = 0.85f),
             spotColor = Color.Black,
         ).background(color = bg, shape = shape)
-        .border(border = border, shape = shape)
+        .border(border = resolvedBorder, shape = shape)
     return if (clip) base.clip(shape) else base
 }
 
