@@ -612,6 +612,13 @@ class BrowserViewModel(
                 }
             }
 
+            is BrowserUiEvent.SetAutoConsentEnabled -> {
+                _uiState.update { it.copy(settings = it.settings.copy(autoConsentEnabled = event.enabled)) }
+                viewModelScope.launch(ioDispatcher) {
+                    settingsRepository.setAutoConsentEnabled(event.enabled)
+                }
+            }
+
             is BrowserUiEvent.SetCleanYouTubePlayerEnabled -> {
                 _uiState.update { it.copy(settings = it.settings.copy(isCleanYouTubePlayerEnabled = event.enabled)) }
                 viewModelScope.launch(ioDispatcher) {

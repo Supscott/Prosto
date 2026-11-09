@@ -823,4 +823,95 @@ class JestkWebViewClientTest {
         val tpTelemetryResponse = client.shouldInterceptRequest(webView, createRequest("https://mc.yandex.ru/metrika/tag.js"))
         assertThat(tpTelemetryResponse).isNotNull()
     }
+
+    @Test
+    fun onPageFinished_whenAutoConsentEnabled_injectsAutoConsentScript() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val evaluatedScripts = mutableListOf<String>()
+        val webView = object : android.webkit.WebView(context) {
+            override fun evaluateJavascript(script: String, resultCallback: android.webkit.ValueCallback<String>?) {
+                evaluatedScripts.add(script)
+                resultCallback?.onReceiveValue("")
+            }
+        }
+
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            isAutoConsentEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> }
+        )
+
+        client.onPageFinished(webView, "https://example.com")
+        assertThat(evaluatedScripts.any { it.contains("data-hori-consent-handled") }).isTrue()
+    }
+
+    @Test
+    fun onPageFinished_whenAutoConsentDisabled_doesNotInjectAutoConsentScript() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val evaluatedScripts = mutableListOf<String>()
+        val webView = object : android.webkit.WebView(context) {
+            override fun evaluateJavascript(script: String, resultCallback: android.webkit.ValueCallback<String>?) {
+                evaluatedScripts.add(script)
+                resultCallback?.onReceiveValue("")
+            }
+        }
+
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            isAutoConsentEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> }
+        )
+
+        client.onPageFinished(webView, "https://example.com")
+        assertThat(evaluatedScripts.any { it.contains("data-hori-consent-handled") }).isFalse()
+    }
+
+    @Test
+    fun onPageFinished_whenAutoConsentNull_defaultsToAdBlockerEnabled() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val evaluatedScripts = mutableListOf<String>()
+        val webView = object : android.webkit.WebView(context) {
+            override fun evaluateJavascript(script: String, resultCallback: android.webkit.ValueCallback<String>?) {
+                evaluatedScripts.add(script)
+                resultCallback?.onReceiveValue("")
+            }
+        }
+
+        val clientEnabled = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { true },
+            isAutoConsentEnabled = null,
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> }
+        )
+
+        clientEnabled.onPageFinished(webView, "https://example.com")
+        assertThat(evaluatedScripts.any { it.contains("data-hori-consent-handled") }).isTrue()
+
+        evaluatedScripts.clear()
+
+        val clientDisabled = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            isAutoConsentEnabled = null,
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> }
+        )
+
+        clientDisabled.onPageFinished(webView, "https://example.com")
+        assertThat(evaluatedScripts.any { it.contains("data-hori-consent-handled") }).isFalse()
+    }
+    }
 }

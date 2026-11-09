@@ -357,6 +357,7 @@ class BrowserViewModelTest {
             viewModel.onEvent(BrowserUiEvent.SetTrackingProtectionEnabled(false))
             viewModel.onEvent(BrowserUiEvent.SetVibrationEnabled(false))
             viewModel.onEvent(BrowserUiEvent.SetGrayUnloadedTabsEnabled(false))
+            viewModel.onEvent(BrowserUiEvent.SetAutoConsentEnabled(false))
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
@@ -367,6 +368,30 @@ class BrowserViewModelTest {
             assertThat(state.settings.isTrackingProtectionEnabled).isFalse()
             assertThat(state.settings.isVibrationEnabled).isFalse()
             assertThat(state.settings.isGrayUnloadedTabsEnabled).isFalse()
+            assertThat(state.settings.isAutoConsentEnabled).isFalse()
+            assertThat(state.autoConsentEnabled).isFalse()
+        }
+
+    @Test
+    fun setAutoConsentEnabled_updatesStateAndPersists() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.settings.isAutoConsentEnabled).isTrue()
+            assertThat(viewModel.uiState.value.autoConsentEnabled).isTrue()
+
+            viewModel.onEvent(BrowserUiEvent.SetAutoConsentEnabled(false))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.settings.isAutoConsentEnabled).isFalse()
+            assertThat(viewModel.uiState.value.autoConsentEnabled).isFalse()
+
+            viewModel.onEvent(BrowserUiEvent.SetAutoConsentEnabled(true))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.settings.isAutoConsentEnabled).isTrue()
+            assertThat(viewModel.uiState.value.autoConsentEnabled).isTrue()
         }
 
     @Test

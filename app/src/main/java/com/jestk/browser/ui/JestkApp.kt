@@ -214,6 +214,7 @@ fun JestkApp(
                         viewModel.isInsecureHostAllowed(host)
                     },
                     isCleanPlayerEnabled = { viewModel.uiState.value.settings.isCleanYouTubePlayerEnabled },
+                    isAutoConsentEnabled = { viewModel.uiState.value.settings.autoConsentEnabled },
                     onCleanPlayerRequested = { url ->
                         if (viewModel.shouldInterceptForCleanPlayer(url)) {
                             val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)

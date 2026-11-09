@@ -277,6 +277,26 @@ class SettingsRepositoryTest {
         }
 
     @Test
+    fun autoConsentDefaultsToEnabled() =
+        runTest(testDispatcher) {
+            assertThat(repository.getCurrentSettings().isAutoConsentEnabled).isTrue()
+            assertThat(repository.getCurrentSettings().autoConsentEnabled).isTrue()
+            assertThat(repository.getSettings().first().isAutoConsentEnabled).isTrue()
+        }
+
+    @Test
+    fun setAutoConsentEnabled_persistsAndEmits() =
+        runTest(testDispatcher) {
+            repository.setAutoConsentEnabled(false)
+
+            assertThat(repository.getSettings().first().isAutoConsentEnabled).isFalse()
+            assertThat(repository.getCurrentSettings().isAutoConsentEnabled).isFalse()
+
+            repository.setAutoConsentEnabled(true)
+            assertThat(repository.getCurrentSettings().isAutoConsentEnabled).isTrue()
+        }
+
+    @Test
     fun feedbackPromptDefaultsToVisible() =
         runTest(testDispatcher) {
             val settings = repository.getCurrentSettings()

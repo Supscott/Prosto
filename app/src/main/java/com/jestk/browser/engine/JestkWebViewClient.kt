@@ -38,6 +38,7 @@ class JestkWebViewClient(
     private val onBlockedAdNavigation: ((tabId: String, url: String) -> Unit)? = null,
     private val isAdRedirectProtectionEnabled: (() -> Boolean)? = null,
     private val isAllowedAdNavigation: ((url: String) -> Boolean)? = null,
+    private val isAutoConsentEnabled: (() -> Boolean)? = null,
 ) : WebViewClient() {
     private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -299,6 +300,10 @@ class JestkWebViewClient(
             if (isAdBlockerEnabled()) {
                 AdBlockerScript.injectAdBlocker(wv)
             }
+            val autoConsentActive = (isAutoConsentEnabled ?: isAdBlockerEnabled).invoke()
+            if (autoConsentActive) {
+                AdBlockerScript.injectAutoConsent(wv)
+            }
             if (validUrl.contains("apple.com", ignoreCase = true)) {
                 notifyThemeColors(tabId, android.graphics.Color.parseColor("#161617"), android.graphics.Color.parseColor("#161617"))
             } else if (validUrl.contains("youtube.com", ignoreCase = true) && isDark) {
@@ -326,6 +331,10 @@ class JestkWebViewClient(
             isDarkTheme?.invoke()?.let { isDark -> injectColorScheme(wv, isDark) }
             if (isAdBlockerEnabled()) {
                 AdBlockerScript.injectAdBlocker(wv)
+            }
+            val autoConsentActive = (isAutoConsentEnabled ?: isAdBlockerEnabled).invoke()
+            if (autoConsentActive) {
+                AdBlockerScript.injectAutoConsent(wv)
             }
             wv.post {
                 extractThemeColor(wv, isPageStarted = false)

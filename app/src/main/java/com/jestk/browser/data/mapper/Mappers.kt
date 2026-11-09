@@ -122,6 +122,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
 
     val isAdBlockerEnabled = map[SettingKeys.AD_BLOCKER_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isAdRedirectProtectionEnabled = map[SettingKeys.AD_REDIRECT_PROTECTION_ENABLED]?.toBooleanStrictOrNull() ?: true
+    val autoConsentEnabled = map[SettingKeys.AUTO_CONSENT_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isCleanYouTubePlayerEnabled = map[SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED]?.toBooleanStrictOrNull() ?: false
     val isTrackingProtectionEnabled = map[SettingKeys.TRACKING_PROTECTION_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isOpenInAppsEnabled = map[SettingKeys.OPEN_IN_APPS_ENABLED]?.toBooleanStrictOrNull() ?: true
@@ -149,6 +150,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
         searchEngine = searchEngine,
         isAdBlockerEnabled = isAdBlockerEnabled,
         isAdRedirectProtectionEnabled = isAdRedirectProtectionEnabled,
+        autoConsentEnabled = autoConsentEnabled,
         isCleanYouTubePlayerEnabled = isCleanYouTubePlayerEnabled,
         isTrackingProtectionEnabled = isTrackingProtectionEnabled,
         hiddenSearchPageEngineIds = hiddenEngines,
