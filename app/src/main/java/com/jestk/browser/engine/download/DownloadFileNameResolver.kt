@@ -11,6 +11,9 @@ import java.util.regex.Pattern
 
 object DownloadFileNameResolver {
 
+    const val MIME_TYPE_APK = "application/vnd.android.package-archive"
+    const val MIME_TYPE_OCTET_STREAM = "application/octet-stream"
+
     private const val TAG = "DownloadFileNameResolver"
 
     private val ILLEGAL_CHARS = Regex("[\\\\/:*?\"<>|\\r\\n\\t\\u0000-\\u001f]")
@@ -109,6 +112,28 @@ object DownloadFileNameResolver {
         sanitized = fixOrAppendExtension(sanitized, mimeType, url)
 
         return sanitized.ifBlank { "download_${System.currentTimeMillis()}" }
+    }
+
+    /**
+     * Resolves the effective MIME type for [fileName] given an optional [mimeType].
+     * Enforces [MIME_TYPE_APK] for any .apk file, even if the server supplied application/octet-stream.
+     */
+    fun resolveMimeType(fileName: String, mimeType: String? = null): String {
+        if (fileName.endsWith(".apk", ignoreCase = true)) {
+            return MIME_TYPE_APK
+        }
+        val cleanMime = mimeType?.substringBefore(';')?.trim()?.lowercase()
+        if (!cleanMime.isNullOrBlank() && cleanMime != MIME_TYPE_OCTET_STREAM && cleanMime != "*/*") {
+            return cleanMime
+        }
+        val ext = fileName.substringAfterLast('.', "").lowercase()
+        if (ext.isNotEmpty()) {
+            val mapped = MIME_TO_EXT_MAP.entries.firstOrNull { it.value == ext }?.key
+            if (mapped != null) return mapped
+            val fromSystem = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
+            if (!fromSystem.isNullOrBlank()) return fromSystem
+        }
+        return cleanMime?.ifBlank { null } ?: "*/*"
     }
 
     /**

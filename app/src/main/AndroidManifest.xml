@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Vibration feedback for gestures (tab drag, long press, engine carousel). -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Package installation for downloaded APK files -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <queries>
         <!-- Popular external apps for deep linking and open-in-app prompts -->

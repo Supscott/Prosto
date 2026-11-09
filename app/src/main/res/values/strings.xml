@@ -219,4 +219,16 @@
     <string name="snackbar_tab_closed_title">%1$s: %2$s</string>
     <string name="switch_to_tab_with_title">%1$s: %2$s</string>
     <string name="full_screen_exit_hint">Pull down to exit full screen</string>
+    <string name="download_completed_notification">Downloaded %1$s</string>
+    <string name="download_in_progress_notification">Downloading %1$s</string>
+    <string name="download_action_open">Open</string>
+    <string name="download_action_details">Details</string>
+    <string name="download_default_filename">file</string>
+    <string name="download_file_not_found">File does not exist: %1$s</string>
+    <string name="download_no_app_to_open">No app available to open this file</string>
+    <string name="download_cannot_open">Cannot open file</string>
+    <string name="download_install_unknown_apps_prompt">Allow installing unknown apps to install this APK</string>
+    <string name="download_open_with">Open with</string>
+    <string name="downloads_in_progress_hint">Download in progress…</string>
+    <string name="downloads_failed_retry_hint">Download failed. Tap retry to restart.</string>
 </resources>
