@@ -293,6 +293,9 @@ class HoriDownloadManager(
             _activeDownloads.update { it + (id to progressInfo) }
             onProgress(progressInfo)
 
+            // Closed in the outer finally, so no error path leaks the connection.
+            var openResponse: okhttp3.Response? = null
+            var restartFromScratch = false
             try {
                 val requestBuilder = Request.Builder().url(item.url)
 
@@ -316,14 +319,14 @@ class HoriDownloadManager(
                 }
 
                 val response = client.newCall(requestBuilder.build()).execute()
+                openResponse = response
                 val responseCode = response.code
 
                 if (responseCode == 416 && isResume) {
-                    // Range not satisfiable -> restart from beginning
+                    // Range not satisfiable -> restart from the beginning once this job has ended:
+                    // calling performDownload from here would hit the "already active" guard.
                     partFile.delete()
-                    downloadedBytes = 0L
-                    response.close()
-                    performDownload(id, referer, userAgent, onProgress, onComplete, onError)
+                    restartFromScratch = true
                     return@launch
                 }
 
@@ -338,9 +341,8 @@ class HoriDownloadManager(
                 var totalBytes = if (isPartial) {
                     downloadedBytes + (if (responseContentLength > 0L) responseContentLength else 0L)
                 } else {
-                    if (!isResume) {
-                        downloadedBytes = 0L
-                    }
+                    // A full (200) response replaces the part file, so counting restarts at zero.
+                    downloadedBytes = 0L
                     if (responseContentLength > 0L) responseContentLength else item.totalBytes
                 }
 
@@ -482,7 +484,11 @@ class HoriDownloadManager(
                 }
                 onError(id, errorMsg)
             } finally {
+                openResponse?.let { runCatching { it.close() } }
                 activeJobs.remove(id)
+                if (restartFromScratch) {
+                    performDownload(id, referer, userAgent, onProgress, onComplete, onError)
+                }
             }
         }
 

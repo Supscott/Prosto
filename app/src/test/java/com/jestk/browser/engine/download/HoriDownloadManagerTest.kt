@@ -450,6 +450,63 @@ class HoriDownloadManagerTest {
         finalDestinationFile.delete()
     }
 
+    @Test
+    fun performDownload_whenResumeIsRejectedWith416_restartsFromScratchAndCompletes() = testScope.runTest {
+        // Review finding DL-1: the restart used to be a silent no-op, leaving the row DOWNLOADING forever.
+        val fullContent = "complete payload after restart"
+        val requests = mutableListOf<String?>()
+        val mockClient = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                val request = chain.request()
+                val range = request.header("Range")
+                requests += range
+                val code = if (range != null) 416 else 200
+                val body = (if (code == 200) fullContent else "").toByteArray().toResponseBody("application/octet-stream".toMediaType())
+                Response.Builder()
+                    .request(request)
+                    .protocol(Protocol.HTTP_1_1)
+                    .code(code)
+                    .message(if (code == 200) "OK" else "Range Not Satisfiable")
+                    .header("Content-Length", body.contentLength().toString())
+                    .body(body)
+                    .build()
+            }
+            .build()
+        val manager = HoriDownloadManager(
+            context = context,
+            downloadRepository = fakeRepository,
+            ioDispatcher = testDispatcher,
+            okHttpClient = mockClient
+        )
+
+        val target = File(tempFolder.root, "resumed.bin")
+        File("${target.absolutePath}.crdownload").writeText("stale partial bytes")
+        val downloadId = fakeRepository.recordDownload(
+            url = "https://example.com/file.bin",
+            fileName = "resumed.bin",
+            filePath = target.absolutePath,
+            mimeType = "application/octet-stream",
+            contentLength = fullContent.length.toLong(),
+            status = DownloadStatus.PAUSED,
+            bytesDownloaded = 19L,
+            totalBytes = fullContent.length.toLong()
+        )
+
+        var completedItem: DownloadItem? = null
+        manager.performDownload(
+            id = downloadId,
+            onProgress = {},
+            onComplete = { completedItem = it },
+            onError = { _, _ -> }
+        )
+        advanceUntilIdle()
+
+        assertThat(requests).containsExactly("bytes=19-", null).inOrder()
+        assertThat(completedItem?.status).isEqualTo(DownloadStatus.COMPLETED)
+        assertThat(File(completedItem!!.filePath).readText()).isEqualTo(fullContent)
+        File(completedItem!!.filePath).delete()
+    }
+
     /**
      * In-memory fake implementation of [DownloadRepository] for unit testing.
      */
