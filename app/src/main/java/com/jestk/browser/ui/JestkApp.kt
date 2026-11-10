@@ -447,7 +447,7 @@ fun JestkApp(
             val isOverviewOpen = uiState.isWorkspacesOverviewVisible || uiState.activeOverlay == OverlayType.TAB_GRID
             if (isOverviewOpen) {
                 val currentTab = uiState.activeTab
-                if (currentTab != null && (uiState.isHome || currentTab.url.isEmpty() || currentTab.url == "about:blank")) {
+                if (currentTab != null && (uiState.isHome || currentTab.isHomeTab)) {
                     SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
                         if (path != null) {
                             viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))
@@ -455,6 +455,21 @@ fun JestkApp(
                     }
                 }
             }
+        }
+
+        var wasHomeScreen by remember { androidx.compose.runtime.mutableStateOf(showHomeScreen) }
+        LaunchedEffect(showHomeScreen) {
+            if (wasHomeScreen && !showHomeScreen) {
+                val currentTab = uiState.activeTab
+                if (currentTab != null) {
+                    SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
+                        if (path != null) {
+                            viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))
+                        }
+                    }
+                }
+            }
+            wasHomeScreen = showHomeScreen
         }
 
         DisposableEffect(Unit) {
@@ -476,7 +491,7 @@ fun JestkApp(
             { event ->
                 if (event is BrowserUiEvent.OpenWorkspacesOverview || event is BrowserUiEvent.OpenTabGrid) {
                     val currentTab = uiState.activeTab
-                    if (currentTab != null && (uiState.isHome || currentTab.url.isEmpty() || currentTab.url == "about:blank")) {
+                    if (currentTab != null && (uiState.isHome || currentTab.isHomeTab)) {
                         SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
                             if (path != null) {
                                 viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))

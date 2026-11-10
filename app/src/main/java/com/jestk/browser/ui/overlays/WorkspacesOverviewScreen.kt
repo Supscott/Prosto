@@ -266,10 +266,10 @@ fun WorkspacesOverviewScreen(
                 ) { page ->
                     val isCentered = page == pagerState.currentPage
                     val enterScale = if (isCentered) {
-                        androidx.compose.ui.util.lerp(1.35f, 1f, enterProgress.value)
+                        androidx.compose.ui.util.lerp(1.47f, 1f, enterProgress.value)
                     } else 1f
                     val dismissScale = if (isCentered) {
-                        androidx.compose.ui.util.lerp(1f, 1.35f, dismissFraction)
+                        androidx.compose.ui.util.lerp(1f, 1.47f, dismissFraction)
                     } else 1f
                     val effectiveScale = if (dismissOffsetY.value > 0f) dismissScale else enterScale
 

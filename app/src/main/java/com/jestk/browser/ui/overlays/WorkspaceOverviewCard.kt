@@ -177,7 +177,7 @@ fun WorkspaceOverviewCard(
             }
 
             // Tab Preview Section
-            val isHome = activeTab != null && (activeTab.url.isBlank() || activeTab.url == "about:blank" || activeTab.title == "Home")
+            val isHome = activeTab?.isHomeTab == true
 
             Box(
                 modifier = Modifier
@@ -360,101 +360,6 @@ fun AddWorkspaceCard(
                 style = typography.labelMd.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
                 color = if (isDark) DarkOnSurface else ProstoDarkText,
             )
-        }
-    }
-}
-
-/**
- * Stylized vector silhouette mockup of the Home screen (Prosto pill, search bar, favorites grid)
- * displayed when no Home snapshot has been captured to disk yet.
- */
-@Composable
-private fun HomeMockupPreview(
-    isDark: Boolean,
-    workspaceColor: Color,
-    modifier: Modifier = Modifier,
-) {
-    val pillBg = if (isDark) DarkSurfaceVariant.copy(alpha = 0.7f) else Color.White
-    val borderCol = ProstoBorders.hairlineBorder(isDark)
-
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp, vertical = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        // Mockup brand emblem
-        Box(
-            modifier = Modifier
-                .width(44.dp)
-                .height(8.dp)
-                .background(workspaceColor.copy(alpha = 0.85f), ProstoShapes.Pill),
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // Mockup search bar silhouette
-        Row(
-            modifier = Modifier
-                .fillMaxWidth(0.85f)
-                .height(34.dp)
-                .background(pillBg, ProstoShapes.Dock)
-                .border(borderCol.width, borderCol.brush, ProstoShapes.Dock)
-                .padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(14.dp)
-                    .clip(CircleShape)
-                    .background(ProstoMutedSlate.copy(alpha = 0.4f)),
-            )
-            Box(
-                modifier = Modifier
-                    .width(70.dp)
-                    .height(6.dp)
-                    .background(ProstoMutedSlate.copy(alpha = 0.25f), ProstoShapes.Pill),
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // Mockup favorites grid (2 rows x 4 items)
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            repeat(2) { row ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    repeat(4) { col ->
-                        val tileAlpha = if (row == 0 && col < 2) 0.6f else 0.3f
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .background(
-                                    if (isDark) DarkSurfaceVariant.copy(alpha = tileAlpha)
-                                    else ProstoPaleBlue.copy(alpha = tileAlpha),
-                                    RoundedCornerShape(8.dp),
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (row == 0 && col == 0) workspaceColor.copy(alpha = 0.7f)
-                                        else ProstoMutedSlate.copy(alpha = 0.35f),
-                                    ),
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }
