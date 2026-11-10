@@ -390,10 +390,12 @@ internal fun rememberTabOverviewReorderModifier(
     folders: List<TabFolder>,
     onEvent: (BrowserUiEvent) -> Unit,
     reorderState: TabOverviewReorderState,
+    onTabLongPress: ((String) -> Unit)? = null,
 ): Modifier {
     val currentTabs by rememberUpdatedState(tabs)
     val currentFolders by rememberUpdatedState(folders)
     val currentOnEvent by rememberUpdatedState(onEvent)
+    val currentOnTabLongPress by rememberUpdatedState(onTabLongPress)
     val vibration = LocalVibrationFeedback.current
     val currentVibration by rememberUpdatedState(vibration)
     val density = LocalDensity.current
@@ -473,10 +475,13 @@ internal fun rememberTabOverviewReorderModifier(
                 }
 
                 if (!isDragging) {
-                    // Stationary long press: open the folder edit sheet for folders.
+                    // Stationary long press: open the folder edit sheet for folders, or tab context menu for tabs.
                     val folderId = folderIdOf(downKey)
                     if (folderId != null) {
                         currentOnEvent(BrowserUiEvent.OpenEditFolderSheet(folderId))
+                    } else if (downKey.startsWith("tab_")) {
+                        val tabId = downKey.removePrefix("tab_")
+                        currentOnTabLongPress?.invoke(tabId)
                     }
                 } else {
                     reorderState.onDragEnd(

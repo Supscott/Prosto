@@ -141,6 +141,8 @@ fun ActiveTabPill(
     onCreateFolder: (() -> Unit)? = null,
     onAddToFolder: ((String) -> Unit)? = null,
     onRemoveFromFolder: (() -> Unit)? = null,
+    availableWorkspaces: List<com.jestk.browser.domain.model.Workspace> = emptyList(),
+    onMoveToWorkspace: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val typography = LocalProstoTypography.current
@@ -402,6 +404,8 @@ fun ActiveTabPill(
                 onCreateFolder = onCreateFolder,
                 onAddToFolder = onAddToFolder,
                 onRemoveFromFolder = onRemoveFromFolder,
+                availableWorkspaces = availableWorkspaces,
+                onMoveToWorkspace = onMoveToWorkspace,
             )
         }
     }

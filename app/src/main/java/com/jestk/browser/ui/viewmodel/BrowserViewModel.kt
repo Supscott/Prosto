@@ -317,12 +317,38 @@ class BrowserViewModel(
 
             is BrowserUiEvent.OpenWorkspacesOverview -> {
                 Log.d(TAG, "Workspace command: open workspaces overview")
+                _uiState.update { it.copy(activeOverlay = OverlayType.WORKSPACES) }
+            }
+
+            is BrowserUiEvent.CloseWorkspacesOverview -> {
+                Log.d(TAG, "Workspace command: close workspaces overview")
+                if (_uiState.value.activeOverlay == OverlayType.WORKSPACES) {
+                    _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
+                }
             }
 
             is BrowserUiEvent.SwitchWorkspace -> {
                 Log.d(TAG, "Workspace command: switch workspace to ${event.workspaceId}")
                 tabCoordinator.switchWorkspace(event.workspaceId)
                 searchCoordinator.updateHistorySuggestions(_uiState.value.searchQuery)
+                if (_uiState.value.activeOverlay == OverlayType.WORKSPACES) {
+                    _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
+                }
+            }
+
+            is BrowserUiEvent.CreateWorkspace -> {
+                Log.d(TAG, "Workspace command: create workspace ${event.name}")
+                tabCoordinator.createWorkspace(event.name, event.color)
+            }
+
+            is BrowserUiEvent.UpdateWorkspace -> {
+                Log.d(TAG, "Workspace command: update workspace ${event.workspace.id}")
+                tabCoordinator.updateWorkspace(event.workspace)
+            }
+
+            is BrowserUiEvent.DeleteWorkspace -> {
+                Log.d(TAG, "Workspace command: delete workspace ${event.workspaceId}")
+                tabCoordinator.deleteWorkspace(event.workspaceId)
             }
 
             is BrowserUiEvent.MoveTabToWorkspace -> {

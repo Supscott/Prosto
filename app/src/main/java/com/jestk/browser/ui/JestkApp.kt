@@ -101,6 +101,7 @@ import com.jestk.browser.ui.overlays.LinkContextMenuModal
 import com.jestk.browser.ui.overlays.SearchOverlay
 import com.jestk.browser.ui.overlays.TabOverviewGrid
 import com.jestk.browser.ui.overlays.UpdateNotificationCard
+import com.jestk.browser.ui.overlays.WorkspacesOverviewScreen
 import com.jestk.browser.ui.screens.DownloadsScreen
 import com.jestk.browser.ui.screens.SettingsScreen
 import com.jestk.browser.ui.pip.FloatingVideoMiniPlayer
@@ -560,6 +561,22 @@ fun JestkApp(
                 TabOverviewGrid(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
+                )
+            }
+
+            AnimatedVisibility(
+                visible = uiState.isWorkspacesOverviewVisible,
+                enter =
+                    fadeIn(tween(220, easing = FastOutSlowInEasing)) +
+                        slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 4 },
+                exit =
+                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
+                        slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 4 },
+            ) {
+                WorkspacesOverviewScreen(
+                    uiState = uiState,
+                    onEvent = viewModel::onEvent,
+                    modifier = Modifier.fillMaxSize(),
                 )
             }
 

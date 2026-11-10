@@ -240,4 +240,30 @@
     <string name="workspace_personal">Личное</string>
     <string name="workspace_work">Рабочее</string>
     <string name="move_to_workspace">Переместить в пространство…</string>
+    <string name="workspace_add">Новое пространство</string>
+    <string name="workspace_edit">Редактировать пространство</string>
+    <string name="workspace_name_label">Название пространства</string>
+    <string name="workspace_name_placeholder">Название пространства</string>
+    <string name="workspace_clear_name">Очистить название</string>
+    <string name="workspace_color_label">Цвет</string>
+    <string name="workspace_save">Сохранить</string>
+    <string name="workspace_create">Создать</string>
+    <string name="workspace_delete">Удалить пространство</string>
+    <string name="workspace_delete_confirm_title">Удалить пространство?</string>
+    <string name="workspace_delete_confirm_message">Все вкладки в этом пространстве будут закрыты. Это действие нельзя отменить.</string>
+    <string name="workspace_delete_cancel">Отмена</string>
+    <string name="workspace_delete_confirm">Удалить</string>
+    <string name="workspace_cannot_delete_last">Нельзя удалить последнее пространство</string>
+    <string name="workspace_active_badge">Активно</string>
+    <string name="workspace_options">Параметры пространства</string>
+    <string name="workspace_no_tabs">Нет открытых вкладок</string>
+    <plurals name="workspace_tabs_count">
+        <item quantity="one">%d вкладка</item>
+        <item quantity="few">%d вкладки</item>
+        <item quantity="many">%d вкладок</item>
+        <item quantity="other">%d вкладки</item>
+    </plurals>
+    <string name="tab_context_move_to_workspace">Переместить в пространство…</string>
+    <string name="tab_context_move_to_workspace_title">Переместить в пространство</string>
+    <string name="share_link">Поделиться ссылкой</string>
 </resources>

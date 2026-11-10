@@ -254,6 +254,7 @@ fun TabOverviewGrid(
     var expandedFolderIds by remember { mutableStateOf(setOf<String>()) }
     val gridState = rememberLazyGridState()
 
+    var contextMenuTabId by remember { mutableStateOf<String?>(null) }
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     val reorderState = remember { TabOverviewReorderState(coroutineScope) }
     val reorderModifier = rememberTabOverviewReorderModifier(
@@ -262,6 +263,7 @@ fun TabOverviewGrid(
         folders = uiState.folders,
         onEvent = onEvent,
         reorderState = reorderState,
+        onTabLongPress = { tabId -> contextMenuTabId = tabId },
     )
 
     val activeTabs = if (reorderState.isDragging && reorderState.workingTabs.isNotEmpty()) {
@@ -762,6 +764,29 @@ fun TabOverviewGrid(
                     )
                 }
             }
+        }
+
+        val contextTab = uiState.tabs.find { it.id == contextMenuTabId }
+        if (contextTab != null) {
+            val targetWorkspaces = remember(uiState.workspaces, contextTab.workspaceId) {
+                uiState.workspaces.filter { it.id != contextTab.workspaceId }
+            }
+            TabGridContextMenuBottomSheet(
+                tab = contextTab,
+                isDark = isDark,
+                availableWorkspaces = targetWorkspaces,
+                onMoveToWorkspace = { targetWsId ->
+                    onEvent(BrowserUiEvent.MoveTabToWorkspace(contextTab.id, targetWsId))
+                    contextMenuTabId = null
+                },
+                onCloseTab = {
+                    onEvent(BrowserUiEvent.CloseTab(contextTab.id))
+                    contextMenuTabId = null
+                },
+                onDismiss = {
+                    contextMenuTabId = null
+                },
+            )
         }
     }
 }

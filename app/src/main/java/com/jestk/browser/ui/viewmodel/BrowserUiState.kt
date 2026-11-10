@@ -23,6 +23,7 @@ data class BrowserUiState(
     val activeWorkspaceId: String = Workspace.DEFAULT_PERSONAL_ID,
     // Tabs & Sessions
     val tabs: List<Tab> = emptyList(),
+    val allTabs: List<Tab> = emptyList(),
     val folders: List<TabFolder> = emptyList(),
     val recentTabs: List<com.jestk.browser.domain.model.RecentTabItem> = emptyList(),
     val activeTabId: String? = null,
@@ -137,6 +138,9 @@ data class BrowserUiState(
 
     val isDownloadsVisible: Boolean
         get() = activeScreen == ScreenType.DOWNLOADS || activeOverlay == OverlayType.DOWNLOADS
+
+    val isWorkspacesOverviewVisible: Boolean
+        get() = activeOverlay == OverlayType.WORKSPACES
 
     val searchPageMatch: Pair<SearchEngine, String>?
         get() {

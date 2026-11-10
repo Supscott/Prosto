@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
@@ -95,6 +96,7 @@ import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
+import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.DarkError
@@ -740,6 +742,8 @@ fun TabStripRow(
                                     onCreateFolder = { onEvent(BrowserUiEvent.OpenCreateFolderSheet(tab.id)) },
                                     onAddToFolder = { folderId -> onEvent(BrowserUiEvent.AddTabToFolder(tab.id, folderId)) },
                                     onRemoveFromFolder = { onEvent(BrowserUiEvent.RemoveTabFromFolder(tab.id)) },
+                                    availableWorkspaces = uiState.workspaces.filter { it.id != tab.workspaceId },
+                                    onMoveToWorkspace = { wsId -> onEvent(BrowserUiEvent.MoveTabToWorkspace(tab.id, wsId)) },
                                 )
                             } else {
                                 val isTabLoaded = uiState.isTabLoaded(tab.id)
@@ -776,6 +780,8 @@ fun TabStripRow(
                                     onCreateFolder = { onEvent(BrowserUiEvent.OpenCreateFolderSheet(tab.id)) },
                                     onAddToFolder = { folderId -> onEvent(BrowserUiEvent.AddTabToFolder(tab.id, folderId)) },
                                     onRemoveFromFolder = { onEvent(BrowserUiEvent.RemoveTabFromFolder(tab.id)) },
+                                    availableWorkspaces = uiState.workspaces.filter { it.id != tab.workspaceId },
+                                    onMoveToWorkspace = { wsId -> onEvent(BrowserUiEvent.MoveTabToWorkspace(tab.id, wsId)) },
                                 )
                             }
                         }
@@ -1075,6 +1081,8 @@ fun InactiveTabButton(
     onCreateFolder: (() -> Unit)? = null,
     onAddToFolder: ((String) -> Unit)? = null,
     onRemoveFromFolder: (() -> Unit)? = null,
+    availableWorkspaces: List<Workspace> = emptyList(),
+    onMoveToWorkspace: ((String) -> Unit)? = null,
 ) {
     val context = LocalContext.current
     val typography = LocalProstoTypography.current
@@ -1189,6 +1197,8 @@ fun InactiveTabButton(
                 onCreateFolder = onCreateFolder,
                 onAddToFolder = onAddToFolder,
                 onRemoveFromFolder = onRemoveFromFolder,
+                availableWorkspaces = availableWorkspaces,
+                onMoveToWorkspace = onMoveToWorkspace,
             )
         }
     }
@@ -1315,6 +1325,8 @@ fun TabContextMenu(
     onCreateFolder: (() -> Unit)? = null,
     onAddToFolder: ((folderId: String) -> Unit)? = null,
     onRemoveFromFolder: (() -> Unit)? = null,
+    availableWorkspaces: List<Workspace> = emptyList(),
+    onMoveToWorkspace: ((workspaceId: String) -> Unit)? = null,
 ) {
     if (!expanded) return
 
@@ -1326,6 +1338,7 @@ fun TabContextMenu(
     val density = LocalDensity.current
     val typography = LocalProstoTypography.current
     var showFolderPicker by remember { mutableStateOf(false) }
+    var showWorkspacePicker by remember { mutableStateOf(false) }
 
     val popupPositionProvider = remember(density) {
         TabContextMenuPositionProvider(density)
@@ -1368,7 +1381,59 @@ fun TabContextMenu(
                     modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    if (showFolderPicker) {
+                    if (showWorkspacePicker) {
+                        PopupMenuItem(
+                            icon = Icons.AutoMirrored.Filled.ArrowBack,
+                            label = stringResource(R.string.tab_context_move_to_workspace_title),
+                            isActive = false,
+                            isDark = isDark,
+                            onClick = { showWorkspacePicker = false },
+                            modifier = Modifier.testTag("tab_context_workspace_back"),
+                        )
+
+                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
+                        availableWorkspaces.forEachIndexed { idx, ws ->
+                            Surface(
+                                shape = RoundedCornerShape(12.dp),
+                                color = Color.Transparent,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(48.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .clickable {
+                                        onDismissRequest()
+                                        onMoveToWorkspace?.invoke(ws.id)
+                                    }
+                                    .testTag("tab_context_pick_workspace_${ws.id}"),
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .padding(horizontal = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(ws.color)),
+                                    )
+                                    Text(
+                                        text = ws.name,
+                                        style = typography.bodyMd.copy(fontWeight = FontWeight.Medium),
+                                        color = if (isDark) Color(0xFFF1F5F9) else ProstoDarkText,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                    )
+                                }
+                            }
+                            if (idx < availableWorkspaces.lastIndex) {
+                                HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                            }
+                        }
+                    } else if (showFolderPicker) {
                         PopupMenuItem(
                             icon = Icons.AutoMirrored.Filled.ArrowBack,
                             label = stringResource(R.string.tab_context_add_to_folder),
@@ -1440,7 +1505,7 @@ fun TabContextMenu(
                         // Close Tab
                         PopupMenuItem(
                             icon = Icons.Default.Close,
-                            label = "Close tab",
+                            label = stringResource(R.string.a11y_close_tab),
                             isActive = false,
                             isDark = isDark,
                             onClick = {
@@ -1450,6 +1515,22 @@ fun TabContextMenu(
                         )
 
                         HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
+                        // Move to Workspace
+                        if (availableWorkspaces.isNotEmpty() && onMoveToWorkspace != null) {
+                            PopupMenuItem(
+                                icon = Icons.AutoMirrored.Filled.ArrowForward,
+                                label = stringResource(R.string.tab_context_move_to_workspace),
+                                isActive = false,
+                                isDark = isDark,
+                                onClick = {
+                                    showWorkspacePicker = true
+                                },
+                                modifier = Modifier.testTag("tab_context_move_to_workspace"),
+                            )
+
+                            HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                        }
 
                         // Folder options
                         if (folderId == null) {
@@ -1502,7 +1583,7 @@ fun TabContextMenu(
                         // Copy URL
                         PopupMenuItem(
                             icon = Icons.Default.ContentCopy,
-                            label = "Copy URL",
+                            label = stringResource(R.string.copy_link_url),
                             isActive = false,
                             isDark = isDark,
                             onClick = {
@@ -1516,7 +1597,7 @@ fun TabContextMenu(
                         // Add to Favorites
                         PopupMenuItem(
                             icon = Icons.Default.Bookmark,
-                            label = "Add to Favorites",
+                            label = stringResource(R.string.add_favorite_dialog_title),
                             isActive = false,
                             isDark = isDark,
                             onClick = {
@@ -1531,7 +1612,7 @@ fun TabContextMenu(
 
                             PopupMenuItem(
                                 icon = Icons.Default.Share,
-                                label = "Share Link",
+                                label = stringResource(R.string.share_link),
                                 isActive = false,
                                 isDark = isDark,
                                 onClick = {

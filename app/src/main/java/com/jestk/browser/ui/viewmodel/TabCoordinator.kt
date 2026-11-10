@@ -268,6 +268,7 @@ internal class TabCoordinator(
             updateUiState { state ->
                 state.copy(
                     tabs = tabsWithActive,
+                    allTabs = initialTabs,
                     activeTabId = activeTab.id,
                     currentUrl = activeTab.url,
                     pageTitle = activeTab.title,
@@ -326,7 +327,7 @@ internal class TabCoordinator(
                 updateUiState { state ->
                     val currentTabInCurrentWorkspace = state.tabs.find { it.id == state.activeTabId && it.workspaceId == state.activeWorkspaceId }
                     if (currentTabInCurrentWorkspace != null && tabs.none { it.id == state.activeTabId }) {
-                        return@updateUiState state
+                        return@updateUiState state.copy(allTabs = allTabs)
                     }
                     val activeId = if (tabs.any { it.id == state.activeTabId }) {
                         state.activeTabId
@@ -378,6 +379,7 @@ internal class TabCoordinator(
                     val resolvedTitle = if (isSameAsActive) state.pageTitle else (currentTab?.title ?: if (activeId == null) "" else state.pageTitle)
                     state.copy(
                         tabs = enrichedTabs,
+                        allTabs = allTabs,
                         activeTabId = activeId,
                         currentUrl = resolvedUrl,
                         pageTitle = resolvedTitle,
@@ -1639,54 +1641,126 @@ internal class TabCoordinator(
         if (getCurrentState().activeWorkspaceId == targetWorkspaceId) return
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
-                val allTabs = if (cachedAllTabs.isNotEmpty()) cachedAllTabs else tabRepository.getInitialTabs()
-                val targetTabs = allTabs.filter { it.workspaceId == targetWorkspaceId }
-                val allFolders = if (cachedAllFolders.isNotEmpty()) cachedAllFolders else (tabFolderRepository?.getAllFoldersSync() ?: emptyList())
-                val targetFolders = allFolders.filter { it.workspaceId == targetWorkspaceId }
+                switchWorkspaceInternal(targetWorkspaceId)
+            }
+        }
+    }
 
-                if (targetTabs.isEmpty()) {
-                    val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = targetWorkspaceId)
-                    tabRepository.setActiveTab(newTab.id)
-                    webViewPool?.onTabActivated(newTab.id, false)
-                    tabLoadingProgress[newTab.id] = 100
-                    val activeTab = newTab.copy(isActive = true)
-                    updateUiState { state ->
-                        state.copy(
-                            activeWorkspaceId = targetWorkspaceId,
-                            tabs = listOf(activeTab),
-                            folders = targetFolders,
-                            activeTabId = activeTab.id,
-                            currentUrl = "",
-                            pageTitle = "Home",
-                            isLoading = false,
-                            loadingProgress = 0f,
-                            canGoBack = false,
-                            canGoForward = false,
-                            activeThemeColor = null,
-                            activeBottomThemeColor = null,
-                            activeOverlay = OverlayType.HOME,
-                            activeScreen = ScreenType.NONE,
-                        )
-                    }
-                } else {
-                    val targetActive = targetTabs.find { it.isActive }
-                        ?: targetTabs.maxByOrNull { it.lastActiveTimestamp }
-                        ?: targetTabs.first()
+    private suspend fun switchWorkspaceInternal(targetWorkspaceId: String, preserveOverview: Boolean = false) {
+        val allTabs = if (cachedAllTabs.isNotEmpty()) cachedAllTabs else tabRepository.getInitialTabs()
+        val targetTabs = allTabs.filter { it.workspaceId == targetWorkspaceId }
+        val allFolders = if (cachedAllFolders.isNotEmpty()) cachedAllFolders else (tabFolderRepository?.getAllFoldersSync() ?: emptyList())
+        val targetFolders = allFolders.filter { it.workspaceId == targetWorkspaceId }
 
-                    tabRepository.setActiveTab(targetActive.id)
-                    updateUiState { state ->
-                        state.copy(
-                            activeWorkspaceId = targetWorkspaceId,
-                            folders = targetFolders,
-                            activeScreen = ScreenType.NONE,
-                        )
-                    }
-                    activateTabInternal(
-                        selected = targetActive,
-                        tabsList = targetTabs,
-                        keepOverlayIfTabGrid = false,
-                    )
+        val overlay = if (preserveOverview) OverlayType.WORKSPACES else null
+
+        if (targetTabs.isEmpty()) {
+            val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = targetWorkspaceId)
+            tabRepository.setActiveTab(newTab.id)
+            webViewPool?.onTabActivated(newTab.id, false)
+            tabLoadingProgress[newTab.id] = 100
+            val activeTab = newTab.copy(isActive = true)
+            updateUiState { state ->
+                state.copy(
+                    activeWorkspaceId = targetWorkspaceId,
+                    tabs = listOf(activeTab),
+                    folders = targetFolders,
+                    activeTabId = activeTab.id,
+                    currentUrl = "",
+                    pageTitle = "Home",
+                    isLoading = false,
+                    loadingProgress = 0f,
+                    canGoBack = false,
+                    canGoForward = false,
+                    activeThemeColor = null,
+                    activeBottomThemeColor = null,
+                    activeOverlay = overlay ?: OverlayType.HOME,
+                    activeScreen = ScreenType.NONE,
+                )
+            }
+        } else {
+            val targetActive = targetTabs.find { it.isActive }
+                ?: targetTabs.maxByOrNull { it.lastActiveTimestamp }
+                ?: targetTabs.first()
+
+            tabRepository.setActiveTab(targetActive.id)
+            updateUiState { state ->
+                state.copy(
+                    activeWorkspaceId = targetWorkspaceId,
+                    folders = targetFolders,
+                    activeScreen = ScreenType.NONE,
+                )
+            }
+            activateTabInternal(
+                selected = targetActive,
+                tabsList = targetTabs,
+                keepOverlayIfTabGrid = false,
+            )
+            if (overlay != null) {
+                updateUiState { it.copy(activeOverlay = overlay) }
+            }
+        }
+    }
+
+    fun createWorkspace(name: String, color: Int) {
+        scope.launch(ioDispatcher) {
+            val currentWorkspaces = workspaceRepository?.getAllWorkspacesSync() ?: getCurrentState().workspaces
+            val id = "ws_${System.currentTimeMillis()}_${java.util.UUID.randomUUID().toString().take(6)}"
+            val position = (currentWorkspaces.maxOfOrNull { it.position } ?: 0) + 1
+            val workspace = Workspace(
+                id = id,
+                name = name.trim().ifEmpty { "Workspace ${position + 1}" },
+                color = color,
+                position = position,
+                profileName = id,
+                createdAt = System.currentTimeMillis(),
+            )
+            workspaceRepository?.insertWorkspace(workspace)
+        }
+    }
+
+    fun updateWorkspace(workspace: Workspace) {
+        scope.launch(ioDispatcher) {
+            workspaceRepository?.updateWorkspace(workspace)
+        }
+    }
+
+    fun deleteWorkspace(workspaceId: String) {
+        scope.launch(ioDispatcher) {
+            tabOperationMutex.withLock {
+                val currentWorkspaces = workspaceRepository?.getAllWorkspacesSync() ?: getCurrentState().workspaces
+                if (currentWorkspaces.size <= 1) return@withLock // Cannot delete the last workspace
+
+                val wasActive = (getCurrentState().activeWorkspaceId == workspaceId)
+                val nextWorkspace = currentWorkspaces.firstOrNull { it.id != workspaceId }
+
+                if (wasActive && nextWorkspace != null) {
+                    val wasInOverview = (getCurrentState().activeOverlay == OverlayType.WORKSPACES)
+                    switchWorkspaceInternal(nextWorkspace.id, preserveOverview = wasInOverview)
                 }
+
+                // Close and clean up all tabs in the deleted workspace
+                val allTabs = if (cachedAllTabs.isNotEmpty()) cachedAllTabs else tabRepository.getInitialTabs()
+                val tabsToDelete = allTabs.filter { it.workspaceId == workspaceId }
+                tabsToDelete.forEach { tab ->
+                    tabThemeColors.remove(tab.id)
+                    tabBottomThemeColors.remove(tab.id)
+                    tabLoadingProgress.remove(tab.id)
+                    dismissedExternalAppDomains.remove(tab.id)
+                    pendingExternalAppPrompts.remove(tab.id)
+                    timedOutExternalAppDomains.remove(tab.id)
+                    webViewPool?.removeWebView(tab.id)
+                    tabRepository.deleteTab(tab.id)
+                }
+
+                // Clean up folders in the deleted workspace
+                val allFolders = if (cachedAllFolders.isNotEmpty()) cachedAllFolders else (tabFolderRepository?.getAllFoldersSync() ?: emptyList())
+                allFolders.filter { it.workspaceId == workspaceId }.forEach { folder ->
+                    tabFolderRepository?.deleteFolder(folder.id)
+                }
+
+                // Delete workspace itself
+                workspaceRepository?.deleteWorkspace(workspaceId)
             }
         }
     }

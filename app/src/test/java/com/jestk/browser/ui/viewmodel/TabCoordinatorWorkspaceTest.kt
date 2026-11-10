@@ -331,4 +331,156 @@ class TabCoordinatorWorkspaceTest {
 
             assertThat(viewModel.uiState.value.tabs.map { it.id }).contains(workHomeTab.id)
         }
+
+    @Test
+    fun createWorkspace_addsWorkspaceToRepositoryAndFlowUpdatesWorkspaces() =
+        runTest(testDispatcher) {
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            val initialCount = uiState.workspaces.size
+            coordinator.createWorkspace("Research", 0xFF10B981.toInt())
+            advanceUntilIdle()
+
+            assertThat(uiState.workspaces).hasSize(initialCount + 1)
+            val created = uiState.workspaces.find { it.name == "Research" }
+            assertThat(created).isNotNull()
+            assertThat(created?.color).isEqualTo(0xFF10B981.toInt())
+            assertThat(created?.id).startsWith("ws_")
+        }
+
+    @Test
+    fun updateWorkspace_updatesNameAndColor() =
+        runTest(testDispatcher) {
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            val personal = uiState.workspaces.first { it.id == Workspace.DEFAULT_PERSONAL_ID }
+            val updated = personal.copy(name = "Personal Renamed", color = 0xFFFF6F61.toInt())
+            coordinator.updateWorkspace(updated)
+            advanceUntilIdle()
+
+            val found = uiState.workspaces.find { it.id == Workspace.DEFAULT_PERSONAL_ID }
+            assertThat(found?.name).isEqualTo("Personal Renamed")
+            assertThat(found?.color).isEqualTo(0xFFFF6F61.toInt())
+        }
+
+    @Test
+    fun deleteWorkspace_guardsAgainstDeletingLastWorkspace() =
+        runTest(testDispatcher) {
+            // First delete Work workspace
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            coordinator.deleteWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.workspaces).hasSize(1)
+            val onlyWorkspaceId = uiState.workspaces.first().id
+
+            // Attempt to delete the last remaining workspace
+            coordinator.deleteWorkspace(onlyWorkspaceId)
+            advanceUntilIdle()
+
+            // Must still have 1 workspace
+            assertThat(uiState.workspaces).hasSize(1)
+            assertThat(uiState.workspaces.first().id).isEqualTo(onlyWorkspaceId)
+        }
+
+    @Test
+    fun deleteWorkspace_deletesNonActiveWorkspaceAndClosesItsTabs() =
+        runTest(testDispatcher) {
+            db.tabDao().insertTab(
+                TabEntity(id = "p1", url = "https://personal.com", title = "P1", position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
+            )
+            db.tabDao().insertTab(
+                TabEntity(id = "w1", url = "https://work1.com", title = "W1", position = 1, workspaceId = Workspace.DEFAULT_WORK_ID)
+            )
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            // Personal is active. Delete Work workspace.
+            coordinator.deleteWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            // Work workspace deleted
+            assertThat(uiState.workspaces.map { it.id }).doesNotContain(Workspace.DEFAULT_WORK_ID)
+            // Work tab w1 deleted from DB
+            assertThat(tabRepo.getTabById("w1")).isNull()
+            // Personal workspace and tab remain
+            assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
+            assertThat(uiState.tabs.map { it.id }).containsExactly("p1")
+        }
+
+    @Test
+    fun deleteWorkspace_deletesActiveWorkspace_switchesToAnotherWorkspaceAndClosesTabs() =
+        runTest(testDispatcher) {
+            db.tabDao().insertTab(
+                TabEntity(id = "p1", url = "https://personal.com", title = "P1", position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
+            )
+            db.tabDao().insertTab(
+                TabEntity(id = "w1", url = "https://work1.com", title = "W1", position = 1, workspaceId = Workspace.DEFAULT_WORK_ID)
+            )
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            // Switch to Work workspace
+            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+            assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
+
+            // Delete active Work workspace
+            coordinator.deleteWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            // Switched to Personal
+            assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
+            assertThat(uiState.workspaces.map { it.id }).doesNotContain(Workspace.DEFAULT_WORK_ID)
+            assertThat(tabRepo.getTabById("w1")).isNull()
+        }
+
+    @Test
+    fun browserViewModel_workspaceCrudAndOverviewEvents_coordinateCorrectly() =
+        runTest(testDispatcher) {
+            val viewModel = BrowserViewModel(
+                tabRepository = tabRepo,
+                historyRepository = historyRepo,
+                favoriteRepository = favoriteRepo,
+                settingsRepository = SettingsRepositoryImpl(db.settingDao(), testDispatcher),
+                recentTabRepository = recentTabRepo,
+                tabFolderRepository = tabFolderRepo,
+                workspaceRepository = workspaceRepo,
+                ioDispatcher = testDispatcher,
+            )
+            advanceUntilIdle()
+
+            // Test Overview events
+            assertThat(viewModel.uiState.value.isWorkspacesOverviewVisible).isFalse()
+            viewModel.onEvent(BrowserUiEvent.OpenWorkspacesOverview)
+            assertThat(viewModel.uiState.value.isWorkspacesOverviewVisible).isTrue()
+            assertThat(viewModel.uiState.value.activeOverlay).isEqualTo(com.jestk.browser.domain.model.OverlayType.WORKSPACES)
+
+            viewModel.onEvent(BrowserUiEvent.CloseWorkspacesOverview)
+            assertThat(viewModel.uiState.value.isWorkspacesOverviewVisible).isFalse()
+
+            // Test CreateWorkspace event
+            viewModel.onEvent(BrowserUiEvent.CreateWorkspace("Test Space", 0xFF00BCD4.toInt()))
+            advanceUntilIdle()
+
+            val created = viewModel.uiState.value.workspaces.find { it.name == "Test Space" }
+            assertThat(created).isNotNull()
+
+            // Test UpdateWorkspace event
+            val updated = created!!.copy(name = "Updated Space")
+            viewModel.onEvent(BrowserUiEvent.UpdateWorkspace(updated))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.workspaces.find { it.id == created.id }?.name).isEqualTo("Updated Space")
+
+            // Test DeleteWorkspace event
+            viewModel.onEvent(BrowserUiEvent.DeleteWorkspace(created.id))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.workspaces.map { it.id }).doesNotContain(created.id)
+        }
 }

@@ -8,6 +8,7 @@ import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.domain.model.Workspace
 
 sealed interface BrowserUiEvent {
     // Tab Management
@@ -487,7 +488,22 @@ sealed interface BrowserUiEvent {
     // Workspaces
     data object OpenWorkspacesOverview : BrowserUiEvent
 
+    data object CloseWorkspacesOverview : BrowserUiEvent
+
     data class SwitchWorkspace(
+        val workspaceId: String,
+    ) : BrowserUiEvent
+
+    data class CreateWorkspace(
+        val name: String,
+        val color: Int,
+    ) : BrowserUiEvent
+
+    data class UpdateWorkspace(
+        val workspace: Workspace,
+    ) : BrowserUiEvent
+
+    data class DeleteWorkspace(
         val workspaceId: String,
     ) : BrowserUiEvent
 

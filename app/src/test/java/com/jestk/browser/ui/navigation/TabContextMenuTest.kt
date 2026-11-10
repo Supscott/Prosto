@@ -265,4 +265,65 @@ class TabContextMenuTest {
         // so no shadow overlays onto the dock surface below
         assertEquals(630f, rect.bottom, 0.001f)
     }
+
+    @Test
+    fun tabContextMenu_whenWorkspacesAvailable_showsMoveToWorkspaceItem() {
+        val targetWorkspace = com.jestk.browser.domain.model.Workspace(
+            id = "work",
+            name = "Work Space",
+            color = 0xFFF59E0B.toInt(),
+        )
+        var selectedWorkspaceId: String? = null
+
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVibrationFeedback provides testVibration) {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    TabContextMenu(
+                        expanded = true,
+                        onDismissRequest = {},
+                        isDark = false,
+                        onCloseTab = {},
+                        onCopyUrl = {},
+                        onAddFavorite = {},
+                        availableWorkspaces = listOf(targetWorkspace),
+                        onMoveToWorkspace = { selectedWorkspaceId = it },
+                    )
+                }
+            }
+        }
+
+        // Must show "Move to workspace…" option
+        composeTestRule.onNodeWithText("Move to workspace…").assertExists()
+        composeTestRule.onNodeWithText("Move to workspace…").performClick()
+        composeTestRule.waitForIdle()
+
+        // After clicking, workspace picker shows the target workspace
+        composeTestRule.onNodeWithText("Work Space").assertExists()
+        composeTestRule.onNodeWithText("Work Space").performClick()
+        composeTestRule.waitForIdle()
+
+        assertEquals("work", selectedWorkspaceId)
+    }
+
+    @Test
+    fun tabContextMenu_whenWorkspacesEmpty_doesNotShowMoveToWorkspaceItem() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVibrationFeedback provides testVibration) {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    TabContextMenu(
+                        expanded = true,
+                        onDismissRequest = {},
+                        isDark = false,
+                        onCloseTab = {},
+                        onCopyUrl = {},
+                        onAddFavorite = {},
+                        availableWorkspaces = emptyList(),
+                        onMoveToWorkspace = {},
+                    )
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithText("Move to workspace…").assertDoesNotExist()
+    }
 }

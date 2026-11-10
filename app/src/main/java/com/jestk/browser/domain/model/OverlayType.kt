@@ -6,5 +6,6 @@ enum class OverlayType {
     SEARCH,
     TAB_GRID,
     SETTINGS,
-    DOWNLOADS
+    DOWNLOADS,
+    WORKSPACES,
 }

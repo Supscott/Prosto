@@ -236,4 +236,28 @@
     <string name="workspace_personal">Personal</string>
     <string name="workspace_work">Work</string>
     <string name="move_to_workspace">Move to workspace…</string>
+    <string name="workspace_add">New workspace</string>
+    <string name="workspace_edit">Edit workspace</string>
+    <string name="workspace_name_label">Workspace name</string>
+    <string name="workspace_name_placeholder">Workspace name</string>
+    <string name="workspace_clear_name">Clear name</string>
+    <string name="workspace_color_label">Color</string>
+    <string name="workspace_save">Save</string>
+    <string name="workspace_create">Create</string>
+    <string name="workspace_delete">Delete workspace</string>
+    <string name="workspace_delete_confirm_title">Delete workspace?</string>
+    <string name="workspace_delete_confirm_message">All tabs in this workspace will be closed. This cannot be undone.</string>
+    <string name="workspace_delete_cancel">Cancel</string>
+    <string name="workspace_delete_confirm">Delete</string>
+    <string name="workspace_cannot_delete_last">Cannot delete the last workspace</string>
+    <string name="workspace_active_badge">Active</string>
+    <string name="workspace_options">Workspace options</string>
+    <string name="workspace_no_tabs">No open tabs</string>
+    <plurals name="workspace_tabs_count">
+        <item quantity="one">%d tab</item>
+        <item quantity="other">%d tabs</item>
+    </plurals>
+    <string name="tab_context_move_to_workspace">Move to workspace…</string>
+    <string name="tab_context_move_to_workspace_title">Move to workspace</string>
+    <string name="share_link">Share link</string>
 </resources>
