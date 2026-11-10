@@ -8,7 +8,6 @@ analytics.google.com
 facebook.net
 connect.facebook.net
 pixel.facebook.com
-graph.facebook.com
 ads.twitter.com
 static.ads-twitter.com
 criteo.com

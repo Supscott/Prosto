@@ -148,10 +148,12 @@ class AdBlockerScriptTest {
     }
 
     @Test
-    fun buildDocumentStartScript_containsClickjackingOverlayNeutralizer() {
+    fun buildDocumentStartScript_doesNotScanThePageForOverlays() {
+        // A full-page getComputedStyle scan on every mutation froze heavy pages and hid the tap
+        // layers of video players and maps (review finding AB-5).
         val script = AdBlockerScript.buildDocumentStartScript()
-        assertThat(script).contains("neutralizeClickjackingOverlays")
-        assertThat(script).contains("pointer-events")
+        assertThat(script).doesNotContain("neutralizeClickjackingOverlays")
+        assertThat(script).doesNotContain("querySelectorAll('div, a, span')")
     }
 
     @Test

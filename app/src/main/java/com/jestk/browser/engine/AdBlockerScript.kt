@@ -626,14 +626,6 @@ object AdBlockerScript {
                         } catch(e) {}
                     }
 
-                    // Check if redirect protection is active via bridge
-                    var redirectProtectionActive = true;
-                    if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.isRedirectProtectionEnabled === 'function') {
-                        try {
-                            redirectProtectionActive = window.HoriAdBlockBridge.isRedirectProtectionEnabled();
-                        } catch(e) {}
-                    }
-
                     // 1. Install YouTube Fast-Start protection immediately regardless of toggle
                     // to prevent artificial 10-15s buffering and SABR backoffs on YouTube:
                     $ytScript
@@ -793,35 +785,6 @@ object AdBlockerScript {
                                     }
                                 }
                             }
-                            if (redirectProtectionActive) {
-                                neutralizeClickjackingOverlays();
-                            }
-                        } catch(err) {}
-                    }
-
-                    function neutralizeClickjackingOverlays() {
-                        try {
-                            var nodes = document.querySelectorAll('div, a, span');
-                            var vw = window.innerWidth || (document.documentElement ? document.documentElement.clientWidth : 0);
-                            var vh = window.innerHeight || (document.documentElement ? document.documentElement.clientHeight : 0);
-                            if (vw <= 0 || vh <= 0) return;
-                            for (var i = 0; i < nodes.length; i++) {
-                                var el = nodes[i];
-                                if (el.tagName === 'BODY' || el.tagName === 'HTML') continue;
-                                var style = window.getComputedStyle(el);
-                                if ((style.position === 'fixed' || style.position === 'absolute') && parseInt(style.zIndex, 10) >= 999) {
-                                    var rect = el.getBoundingClientRect();
-                                    if (rect.width >= vw * 0.7 && rect.height >= vh * 0.7) {
-                                        var op = parseFloat(style.opacity);
-                                        var bg = style.backgroundColor || '';
-                                        var isTransparent = isNaN(op) || op <= 0.1 || bg === 'transparent' || bg.indexOf('rgba(0, 0, 0, 0)') !== -1 || bg.indexOf('rgba(0,0,0,0)') !== -1;
-                                        if (isTransparent && !el.textContent.trim()) {
-                                            el.style.setProperty('display', 'none', 'important');
-                                            el.style.setProperty('pointer-events', 'none', 'important');
-                                        }
-                                    }
-                                }
-                            }
                         } catch(err) {}
                     }
 
@@ -932,6 +895,13 @@ object AdBlockerScript {
                         '.qc-cmp-cleanslate',
                         '.iubenda-cs-container',
                         '[data-testid="gdpr-popup"]',
+                        '#truste-consent-track',
+                        '#cmpbox'
+                    ];
+
+                    // Generic banners are only clicked through, never hidden: the selectors are
+                    // broad enough to match unrelated page elements.
+                    var GENERIC_BANNER_SELECTORS = [
                         '[class*="cookie-warning"]',
                         '[class*="cookie-banner"]',
                         '[class*="cookie_banner"]',
@@ -941,9 +911,7 @@ object AdBlockerScript {
                         '[class*="cookie-consent"]',
                         '[class*="cookie_consent"]',
                         '[class*="CookieConsent"]',
-                        '[id*="cookie-consent"]',
-                        '[aria-label*="cookie" i]',
-                        '[aria-label*="consent" i]'
+                        '[id*="cookie-consent"]'
                     ];
 
                     var REJECT_SELECTORS = [
@@ -955,7 +923,6 @@ object AdBlockerScript {
                         'button[id*="didomi-notice-disagree"]',
                         '.iubenda-cs-reject-btn',
                         'button.iubenda-cs-reject-btn',
-                        'button[mode="secondary"]',
                         'button[mode="disagree"]',
                         'button[id*="reject" i]',
                         'button[class*="reject" i]',
@@ -987,8 +954,7 @@ object AdBlockerScript {
                         '[class*="cookie"][class*="backdrop"]',
                         '[class*="consent"][class*="backdrop"]',
                         '[class*="cookie-overlay"]',
-                        '[class*="cookie_overlay"]',
-                        'div.modal-backdrop'
+                        '[class*="cookie_overlay"]'
                     ];
 
                     var PRIORITY_1_TEXTS = [
@@ -1027,7 +993,6 @@ object AdBlockerScript {
                                 el.style.setProperty('overflow', 'auto', 'important');
                                 el.style.setProperty('overflow-y', 'auto', 'important');
                                 el.style.setProperty('overflow-x', 'auto', 'important');
-                                el.style.setProperty('position', 'static', 'important');
                                 el.style.setProperty('touch-action', 'auto', 'important');
                                 el.style.removeProperty('max-height');
                                 el.style.removeProperty('height');
@@ -1078,7 +1043,7 @@ object AdBlockerScript {
                         return null;
                     }
 
-                    function processContainer(container) {
+                    function processContainer(container, allowHideFallback) {
                         if (!container) return false;
                         if (container.getAttribute('data-hori-consent-handled') === 'true') return false;
 
@@ -1130,7 +1095,8 @@ object AdBlockerScript {
                             return true;
                         }
 
-                        // Priority 3: Fallback DOM hiding + Scroll Unlock
+                        // Priority 3: Fallback DOM hiding + Scroll Unlock (known CMPs only)
+                        if (!allowHideFallback) return false;
                         container.setAttribute('data-hori-consent-handled', 'true');
                         container.style.setProperty('display', 'none', 'important');
                         container.style.setProperty('visibility', 'hidden', 'important');
@@ -1144,12 +1110,15 @@ object AdBlockerScript {
                     function scanPage() {
                         try {
                             var handledAny = false;
-                            for (var i = 0; i < CMP_CONTAINER_SELECTORS.length; i++) {
-                                var sel = CMP_CONTAINER_SELECTORS[i];
-                                var matched = document.querySelectorAll(sel);
-                                for (var m = 0; m < matched.length; m++) {
-                                    if (processContainer(matched[m])) {
-                                        handledAny = true;
+                            var groups = [[CMP_CONTAINER_SELECTORS, true], [GENERIC_BANNER_SELECTORS, false]];
+                            for (var g = 0; g < groups.length; g++) {
+                                var selectors = groups[g][0];
+                                for (var i = 0; i < selectors.length; i++) {
+                                    var matched = document.querySelectorAll(selectors[i]);
+                                    for (var m = 0; m < matched.length; m++) {
+                                        if (processContainer(matched[m], groups[g][1])) {
+                                            handledAny = true;
+                                        }
                                     }
                                 }
                             }

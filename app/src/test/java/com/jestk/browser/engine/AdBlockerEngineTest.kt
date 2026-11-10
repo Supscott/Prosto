@@ -27,92 +27,6 @@ class AdBlockerEngineTest {
         AdBlockerEngine.resetForTests()
     }
 
-    // --- 1. ABP Rule Extraction Tests ---
-
-    @Test
-    fun extractDomainFromAbpRule_extractsCleanDomain() {
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||doubleclick.net^"))
-            .isEqualTo("doubleclick.net")
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||googleadservices.com^"))
-            .isEqualTo("googleadservices.com")
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||analytics-consent-manager.azureedge.net^"))
-            .isEqualTo("analytics-consent-manager.azureedge.net")
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||ccpa.sp-prod.net^"))
-            .isEqualTo("ccpa.sp-prod.net")
-    }
-
-    @Test
-    fun extractDomainFromAbpRule_extractsDomainWithOptions() {
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||demand.supply^\$script"))
-            .isEqualTo("demand.supply")
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||0i0i0i0.com^\$document"))
-            .isEqualTo("0i0i0i0.com")
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||acconsento.click^\$third-party"))
-            .isEqualTo("acconsento.click")
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||app.livemarketshoppers.com^\$script,third-party"))
-            .isEqualTo("app.livemarketshoppers.com")
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||axept.io^\$third-party,domain=~axeptio.eu"))
-            .isEqualTo("axept.io")
-    }
-
-    @Test
-    fun extractDomainFromAbpRule_caseInsensitive() {
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||DOUBLECLICK.NET^"))
-            .isEqualTo("doubleclick.net")
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||AdServer.Example.COM^\$script"))
-            .isEqualTo("adserver.example.com")
-    }
-
-    @Test
-    fun extractDomainFromAbpRule_ignoresCommentsAndHeaders() {
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("! Title: EasyList")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("! *** easylist_general_block.txt ***")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("[Adblock Plus 2.0]")).isNull()
-    }
-
-    @Test
-    fun extractDomainFromAbpRule_ignoresWhitelistAndElementHidingRules() {
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("@@||doubleclick.net^")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("@@||example.com^\$document")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("example.com##.ad-banner")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("example.com#?#.ad-banner")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("##.cookie-banner")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("#?#.cookie-modal")).isNull()
-    }
-
-    @Test
-    fun extractDomainFromAbpRule_ignoresPathRulesAndWildcards() {
-        // Path after caret or slash before caret
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||dev.to/bb/sidebar_left^")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||cacheserve.*/promodisplay/")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||media.max.com/*/dash.mpd^\$domain=cnn.com")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||domain.com^something/path")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||util-*.simply-hentai.com^")).isNull()
-    }
-
-    @Test
-    fun extractDomainFromAbpRule_ignoresInvalidOrMalformedLines() {
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("   ")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||^")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||nodot^")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||.starts-with-dot.com^")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||ends-with-dot.com.^")).isNull()
-    }
-
-    @Test
-    fun extractDomainFromHostsLine_parsesStandardHostsFormats() {
-        assertThat(AdBlockerEngine.extractDomainFromHostsLine("127.0.0.1 doubleclick.net"))
-            .isEqualTo("doubleclick.net")
-        assertThat(AdBlockerEngine.extractDomainFromHostsLine("0.0.0.0 tracker.com"))
-            .isEqualTo("tracker.com")
-        assertThat(AdBlockerEngine.extractDomainFromHostsLine("adservice.google.com"))
-            .isEqualTo("adservice.google.com")
-        assertThat(AdBlockerEngine.extractDomainFromHostsLine("# Comment line")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromHostsLine("")).isNull()
-    }
-
     // --- 2. Cold Start Instant Readiness Tests ---
 
     @Test
@@ -330,14 +244,6 @@ class AdBlockerEngineTest {
 
         val m3u8Resp = AdBlockerEngine.createSmartBlockedResponse("https://example.com/ad_chunk.m3u8?token=123")
         assertThat(m3u8Resp.statusCode).isEqualTo(204)
-    }
-
-    @Test
-    fun extractDomainFromAbpRule_rejectsDomainRestrictedRules() {
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||b-cdn.net^\$domain=bunkr.cr|bunkr.si")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||cloudfront.net^\$domain=buffsports.io")).isNull()
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||doubleclick.net^\$third-party")).isEqualTo("doubleclick.net")
-        assertThat(AdBlockerEngine.extractDomainFromAbpRule("||adfox.ru^")).isEqualTo("adfox.ru")
     }
 
     @Test
@@ -731,7 +637,6 @@ class AdBlockerEngineTest {
         assertThat(AdBlockerEngine.shouldBlock("https://ads.vk.com/banner", "https://vk.com")).isTrue()
         assertThat(AdBlockerEngine.shouldBlock("https://ad.mail.ru/static/ads-async.js", "https://mail.ru")).isTrue()
         assertThat(AdBlockerEngine.shouldBlock("https://adfox.yandex.ru/banner", "https://yandex.ru")).isTrue()
-        assertThat(AdBlockerEngine.shouldBlock("https://banner.example.com/ad.png", "https://example.com")).isTrue()
     }
 
     @Test
@@ -739,7 +644,6 @@ class AdBlockerEngineTest {
         // Explicit ad paths are blocked even on first-party domains
         assertThat(AdBlockerEngine.shouldBlock("https://yandex.ru/ads/system/context.js", "https://yandex.ru")).isTrue()
         assertThat(AdBlockerEngine.shouldBlock("https://vk.com/ads/system/test.js", "https://vk.com")).isTrue()
-        assertThat(AdBlockerEngine.shouldBlock("https://example.com/banner/300x250.jpg", "https://example.com")).isTrue()
         assertThat(AdBlockerEngine.shouldBlock("https://example.com/static/ads.js", "https://example.com")).isTrue()
     }
 
@@ -760,6 +664,53 @@ class AdBlockerEngineTest {
         assertThat(AdBlockerEngine.isTracker("https://mc.yandex.ru/metrika/tag.js", "https://example.com")).isTrue()
         // Context-free: retains default behavior
         assertThat(AdBlockerEngine.isTracker("https://mc.yandex.ru/metrika/tag.js")).isTrue()
+    }
+
+    // --- Regression tests for the review findings AB-1 / AB-2 (real shipped asset) ---
+
+    @Test
+    fun shippedList_neverBlocksSharedInfrastructureOrLinkServices() =
+        runBlocking {
+            AdBlockerEngine.initialize(context).join()
+
+            // Hosts that EasyList only blocks on specific sites (positive domain= option).
+            assertThat(AdBlockerEngine.shouldBlock("https://my-bucket.s3.amazonaws.com/photo.jpg", "https://example.com/")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://i.imgur.com/abc.jpg", "https://reddit.com/")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://cdn.jwplayer.com/libraries/x.js", "https://news.example/")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://files.wordpress.com/2024/a.jpg", "https://blog.example/")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://players.brightcove.net/1/player.js", "https://news.example/")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://graph.facebook.com/v19.0/me", "https://app.example/")).isFalse()
+            // Link shorteners opened by a tap.
+            assertThat(AdBlockerEngine.shouldBlockNavigation("https://t.co/abc")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlockNavigation("https://bit.ly/abc")).isFalse()
+        }
+
+    @Test
+    fun shouldBlock_neverBlocksASiteOnItself() =
+        runBlocking {
+            AdBlockerEngine.initialize(context).join()
+
+            // Former label/path heuristics blocked these sites on their own pages.
+            assertThat(AdBlockerEngine.shouldBlock("https://www.target.com/c/electronics", "https://www.target.com/")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://bs.to/serie/x", "https://bs.to/")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://avito.ru/ads/123", "https://avito.ru/")).isFalse()
+            assertThat(AdBlockerEngine.shouldBlock("https://example.com/banners/logo.png", "https://example.com/")).isFalse()
+            // Visiting an ad network's own site loads its own resources.
+            assertThat(AdBlockerEngine.shouldBlock("https://cdn.taboola.com/site.css", "https://www.taboola.com/")).isFalse()
+            // The same host is still blocked when embedded elsewhere.
+            assertThat(AdBlockerEngine.shouldBlock("https://cdn.taboola.com/libtrc/x.js", "https://news.example/")).isTrue()
+        }
+
+    @Test
+    fun shouldBlock_thirdPartyOnlyHosts_areAllowedFirstParty() {
+        AdBlockerEngine.loadPrecompiledDomainsFromStream("widgets.example\$third-party\n".byteInputStream())
+
+        assertThat(AdBlockerEngine.shouldBlock("https://widgets.example/w.js", "https://news.test/")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://cdn.widgets.example/w.js", "https://news.test/")).isTrue()
+        assertThat(AdBlockerEngine.shouldBlock("https://widgets.example/w.js", "https://www.widgets.example/")).isFalse()
+        // Navigations only honour hosts blocked everywhere.
+        assertThat(AdBlockerEngine.shouldBlockNavigation("https://widgets.example/")).isFalse()
+        assertThat(AdBlockerEngine.shouldBlockNavigation("https://doubleclick.net/click")).isTrue()
     }
 
     private class RecordingSettingsRepository : com.jestk.browser.domain.repository.SettingsRepository {

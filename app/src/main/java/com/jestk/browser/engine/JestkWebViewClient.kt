@@ -111,7 +111,7 @@ class JestkWebViewClient(
         if (!adBlockActive && !redirectProtectionActive) return false
 
         // 1. Direct blocklist match (always blocked when ad blocker active)
-        if (adBlockActive && AdBlockerEngine.shouldBlock(url)) {
+        if (adBlockActive && AdBlockerEngine.shouldBlockNavigation(url)) {
             onBlockedAdNavigation?.invoke(tabId, url)
             AdBlockerEngine.recordBlockedRequest(false)
             return true
@@ -206,6 +206,9 @@ class JestkWebViewClient(
         request: WebResourceRequest?,
     ): WebResourceResponse? {
         if (request == null) return null
+        // The top-level document is never blocked here: navigations are decided in
+        // shouldOverrideUrlLoading, and blocking the document only produces a blank page.
+        if (request.isForMainFrame) return super.shouldInterceptRequest(view, request)
         val adBlockerActive = isAdBlockerEnabled()
         val trackingActive = isTrackingProtectionEnabled?.invoke() ?: true
         if (adBlockerActive || trackingActive) {

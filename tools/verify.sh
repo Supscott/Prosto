@@ -8,6 +8,9 @@ cd "$ROOT"
 echo "==> Checking architectural invariants..."
 python3 tools/check_invariants.py
 
+echo "==> Checking that the ad-block list matches tools/filterlists..."
+python3 tools/build_adblock_list.py --check
+
 if [[ "${1:-}" == "--all" ]]; then
     echo "==> Running full test suite (testDebugUnitTest)..."
     ./gradlew testDebugUnitTest
