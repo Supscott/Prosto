@@ -37,15 +37,23 @@ class JestkWebViewClient(
     private val isAdRedirectProtectionEnabled: (() -> Boolean)? = null,
     private val isAllowedAdNavigation: ((url: String) -> Boolean)? = null,
     private val isAutoConsentEnabled: (() -> Boolean)? = null,
+    private val onRenderProcessGone: ((tabId: String) -> Unit)? = null,
 ) : WebViewClient() {
 
     override fun onRenderProcessGone(
         view: WebView?,
         detail: RenderProcessGoneDetail?,
     ): Boolean {
-        android.util.Log.e("JestkWebViewClient", "Chromium render process gone for tab $tabId (didCrash=${detail?.didCrash()})")
-        (view?.parent as? android.view.ViewGroup)?.removeView(view)
-        view?.destroy()
+        Log.e("JestkWebViewClient", "Chromium render process gone for tab $tabId (didCrash=${detail?.didCrash()})")
+        // The WebView is unusable now. The pool destroys it and forgets it, so the next
+        // activation of the tab creates a fresh WebView and reloads the tab URL.
+        val handler = onRenderProcessGone
+        if (handler != null) {
+            handler(tabId)
+        } else {
+            (view?.parent as? android.view.ViewGroup)?.removeView(view)
+            view?.destroy()
+        }
         return true
     }
 
@@ -74,7 +82,7 @@ class JestkWebViewClient(
         val hasOpenerGesture = (view as? NestedWebView)?.hasOpenerUserGesture == true
         val effectiveGesture = request.hasGesture() || hasOpenerGesture
 
-        if (request.isForMainFrame && isBlockedAdNavigation(url, view, effectiveGesture)) return true
+        if (request.isForMainFrame && isBlockedAdNavigation(url, view, effectiveGesture, request.isRedirect)) return true
 
         // Warn before loading cleartext HTTP websites in the main frame
         if (request.isForMainFrame && checkInsecureHttpNavigation(url)) return true
@@ -102,6 +110,7 @@ class JestkWebViewClient(
         url: String,
         view: WebView?,
         hasGesture: Boolean = true,
+        isServerRedirect: Boolean = false,
     ): Boolean {
         if (!isWebUrl(url)) return false
         if (isStaticAsset(url)) return false
@@ -123,7 +132,9 @@ class JestkWebViewClient(
         val hasOpenerGesture = nestedView?.hasOpenerUserGesture == true
         val effectiveGesture = hasGesture || hasOpenerGesture
 
-        if (redirectProtectionActive && !effectiveGesture) {
+        // A server redirect continues a navigation that was already allowed; only script-driven
+        // cross-site jumps without a gesture are treated as ad hijacks.
+        if (redirectProtectionActive && !effectiveGesture && !isServerRedirect) {
             val openerUrl = nestedView?.openerUrl
             val currentUrl = nestedView?.loadedUrl ?: openerUrl ?: view?.url
             if (!currentUrl.isNullOrBlank() && currentUrl != "about:blank") {
@@ -132,7 +143,8 @@ class JestkWebViewClient(
                 if (currentHost.isNotEmpty() && targetHost.isNotEmpty()) {
                     val sameSite = UrlSecurityUtils.isSameSite(currentUrl, url)
                     val isSearch = UrlSecurityUtils.isSearchEngineHost(currentHost)
-                    val isAuth = UrlSecurityUtils.isAuthOrSecurityHost(targetHost)
+                    // Leaving a login page (OAuth callback) is part of the user's sign-in.
+                    val isAuth = UrlSecurityUtils.isAuthOrSecurityHost(targetHost) || isLoginPage(currentUrl)
 
                     if (!sameSite && !isSearch && !isAuth) {
                         onBlockedAdNavigation?.invoke(tabId, url)
@@ -490,6 +502,22 @@ class JestkWebViewClient(
         }
 
         fun isHttpUrl(url: String): Boolean = UrlSecurityUtils.isHttpUrl(url)
+
+        private val IDENTITY_PROVIDER_HOSTS = setOf(
+            "accounts.google.com", "appleid.apple.com", "login.microsoftonline.com", "login.live.com",
+            "oauth.vk.com", "id.vk.com", "passport.yandex.ru", "passport.yandex.com", "id.rambler.ru",
+            "auth.mail.ru", "account.mail.ru",
+        )
+
+        /** Whether [url] is a sign-in page whose script redirect back to the site must not be blocked. */
+        internal fun isLoginPage(url: String): Boolean {
+            val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
+            val host = uri.host?.lowercase()?.removePrefix("www.") ?: return false
+            if (host in IDENTITY_PROVIDER_HOSTS) return true
+            val path = uri.path.orEmpty().lowercase()
+            val isMultiPurposeHost = host == "github.com" || host == "facebook.com" || host == "m.facebook.com"
+            return isMultiPurposeHost && (path.startsWith("/login") || path.contains("/oauth"))
+        }
 
         /**
          * Cloudflare serves its "Just a moment..." interstitial on the protected site's own

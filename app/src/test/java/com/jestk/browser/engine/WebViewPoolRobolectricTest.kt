@@ -157,6 +157,21 @@ class WebViewPoolRobolectricTest {
     }
 
     @Test
+    fun discardCrashedWebView_forgetsTheTabSoTheNextActivationRecreatesIt() {
+        val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
+        val parentLayout = FrameLayout(activity)
+        val crashed = webViewPool.getOrCreateWebView("tab-crash", activity)
+        parentLayout.addView(crashed)
+
+        webViewPool.discardCrashedWebView("tab-crash")
+
+        assertThat(webViewPool.isTabLoaded("tab-crash")).isFalse()
+        assertThat(crashed.parent).isNull()
+        val recreated = webViewPool.getOrCreateWebView("tab-crash", activity)
+        assertThat(recreated).isNotSameInstanceAs(crashed)
+    }
+
+    @Test
     fun clearAll_releasesAllCachedWebViews() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
 

@@ -40,13 +40,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.jestk.browser.engine.NestedWebView
-import com.jestk.browser.engine.FaviconManager
-import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.findActivity
-import com.jestk.browser.ui.FileChooserHandler
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DynamicBarColors
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
@@ -54,8 +51,6 @@ import com.jestk.browser.ui.theme.ProstoAccent
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
-import com.jestk.browser.ui.viewmodel.isSameDomain
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -216,28 +211,17 @@ fun WebViewContainer(
     val context = LocalContext.current
     val currentActiveTabId by rememberUpdatedState(tabId)
 
-    val handleFavicon: (String, android.graphics.Bitmap, String?) -> Unit = remember {
-        { id, icon, pageUrl ->
-            scope.launch {
-                val tab = currentUiState.tabs.find { it.id == id }
-                val tabUrl = tab?.url?.takeIf { it.isNotBlank() && it != "about:blank" }
-                val webViewUrl = webViewPool.getWebView(id)?.url?.takeIf { it.isNotBlank() && it != "about:blank" }
-                val effectiveUrl = pageUrl?.takeIf { it.isNotBlank() && it != "about:blank" }
-                    ?: tabUrl
-                    ?: webViewUrl
-
-                if (tabUrl != null && effectiveUrl != null && !isSameDomain(tabUrl, effectiveUrl)) {
-                    android.util.Log.d("WebViewContainer", "Discarding mismatched favicon for tab $id: page $effectiveUrl vs tab $tabUrl")
-                    FaviconManager.cacheFaviconForDomain(effectiveUrl, icon, context)
-                    return@launch
-                }
-
-                val path = FaviconManager.saveFavicon(context, id, icon, effectiveUrl)
-                if (path != null) {
-                    currentOnEvent(BrowserUiEvent.UpdateFaviconUrl(id, path, effectiveUrl))
-                }
-            }
-        }
+    val currentIsDark by rememberUpdatedState(isDark)
+    val currentShouldInterceptForCleanPlayer by rememberUpdatedState(shouldInterceptForCleanPlayer)
+    val clientDeps = remember(webViewPool) {
+        WebViewClientDeps(
+            webViewPool = webViewPool,
+            uiState = { currentUiState },
+            onEvent = { currentOnEvent(it) },
+            isDark = { currentIsDark },
+            shouldInterceptForCleanPlayer = { currentShouldInterceptForCleanPlayer(it) },
+            scope = scope,
+        )
     }
 
     val configureWebView: (WebView, String, Context) -> Unit = remember {
@@ -265,103 +249,7 @@ fun WebViewContainer(
             }
 
             if (wv.tag != forTabId || wv.webChromeClient == null) {
-                wv.tag = forTabId
-
-                wv.webViewClient = JestkWebViewClient(
-                    tabId = forTabId,
-                    isAdBlockerEnabled = { currentUiState.settings.isAdBlockerEnabled },
-                    onPageStarted = { id, url ->
-                        currentOnEvent(BrowserUiEvent.OnPageStarted(id, url))
-                    },
-                    onPageFinished = { id, url, title ->
-                        currentOnEvent(BrowserUiEvent.OnPageFinished(id, url, title))
-                    },
-                    onNavigationStateChanged = { id, canBack, canForward ->
-                        currentOnEvent(BrowserUiEvent.OnNavigationStateChanged(id, canBack, canForward))
-                    },
-                    onSnapshotReady = { id, path -> currentOnEvent(BrowserUiEvent.OnSnapshotCaptured(id, path)) },
-                    onThemeColorDetected = { id, color ->
-                        currentOnEvent(BrowserUiEvent.OnThemeColorReceived(id, color))
-                    },
-                    onThemeColorsDetected = { id, topColor, bottomColor ->
-                        currentOnEvent(BrowserUiEvent.OnThemeColorsReceived(id, topColor, bottomColor))
-                    },
-                    isDarkTheme = { isDark },
-                    onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
-                    isOpenInAppsEnabled = { currentUiState.settings.isOpenInAppsEnabled },
-                    onExternalAppOffered = { id, prompt, userInitiated ->
-                        currentOnEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
-                    },
-                    isTrackingProtectionEnabled = { currentUiState.settings.isTrackingProtectionEnabled },
-                    onInsecureHttpWarning = { id, url ->
-                        currentOnEvent(BrowserUiEvent.ShowInsecureHttpWarning(url = url, tabId = id))
-                    },
-                    onBlockedAdNavigation = { id, url ->
-                        currentOnEvent(BrowserUiEvent.ShowBlockedAdNavigation(url = url, tabId = id))
-                    },
-                    isAdRedirectProtectionEnabled = { currentUiState.settings.isAdRedirectProtectionEnabled },
-                    isAutoConsentEnabled = { currentUiState.settings.autoConsentEnabled },
-                    isAllowedAdNavigation = { url ->
-                        currentUiState.allowedAdNavigationUrls.contains(url)
-                    },
-                    isInsecureHostAllowed = { host ->
-                        currentUiState.allowedInsecureHosts.contains(host.lowercase().trim())
-                    },
-                    isCleanPlayerEnabled = { currentUiState.settings.isCleanYouTubePlayerEnabled },
-                    onCleanPlayerRequested = { url ->
-                        if (shouldInterceptForCleanPlayer(url)) {
-                            val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
-                            if (videoId != null) {
-                                val startSeconds = com.jestk.browser.util.YouTubeUrlHelper.extractStartTimeSeconds(url)
-                                currentOnEvent(BrowserUiEvent.OpenCleanPlayer(videoId, url, startSeconds))
-                                true
-                            } else {
-                                false
-                            }
-                        } else {
-                            false
-                        }
-                    }
-                )
-
-                wv.webChromeClient = JestkWebChromeClient(
-                    tabId = forTabId,
-                    webView = wv,
-                    onProgressChanged = { id, progress -> currentOnEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
-                    onTitleReceived = { id, title -> currentOnEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
-                    onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
-                        currentOnEvent(BrowserUiEvent.SetFullscreenCustomView(view, isFullscreen, orientation))
-                    },
-                    onVideoPlayingStateChanged = { isPlaying ->
-                        currentOnEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
-                    },
-                    onFaviconReceived = handleFavicon,
-                    onShowFileChooser = { callback, params ->
-                        val handler = act as? FileChooserHandler
-                            ?: wv.context.findActivity() as? FileChooserHandler
-                        handler?.openFileChooser(callback, params) ?: false
-                    },
-                    onCreateWindowRequest = { originView, _, isUserGesture, resultMsg ->
-                        val openerTab = currentUiState.tabs.find { it.id == forTabId }
-                        val openerWorkspaceId = openerTab?.workspaceId ?: currentUiState.activeWorkspaceId
-                        val openerProfileName = currentUiState.workspaces.find { it.id == openerWorkspaceId }?.profileName
-                        com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
-                            resultMsg = resultMsg,
-                            context = wv.context,
-                            webViewPool = webViewPool,
-                            openerUrl = originView?.url ?: wv.url,
-                            profileName = openerProfileName,
-                            isUserGesture = isUserGesture,
-                            onPopupOpened = { currentOnEvent(BrowserUiEvent.OpenPopupTab(it)) }
-                        )
-                    },
-                    onCloseWindowRequest = { id ->
-                        currentOnEvent(BrowserUiEvent.CloseTab(id))
-                    },
-                    onFullscreenOrientationChanged = { orientation ->
-                        currentOnEvent(BrowserUiEvent.UpdateFullscreenOrientation(orientation))
-                    }
-                )
+                bindWebViewClients(wv, forTabId, clientDeps)
             }
         }
     }
@@ -544,18 +432,21 @@ fun WebViewContainer(
                         configureWebView(targetWebView, tabId, act)
                     }
 
+                    // Hidden tabs are paused like DuckDuckGo's onTabHidden(); the shown tab resumes.
                     for (i in 0 until tabsContainer.childCount) {
                         val child = tabsContainer.getChildAt(i)
                         if (child === targetWebView) {
                             val childVis = if (isHome) View.INVISIBLE else View.VISIBLE
+                            if (child.visibility == View.GONE) {
+                                targetWebView.safeResume()
+                            }
                             if (child.visibility != childVis) {
                                 child.visibility = childVis
                             }
                             child.bringToFront()
-                        } else {
-                            if (child.visibility != View.GONE) {
-                                child.visibility = View.GONE
-                            }
+                        } else if (child.visibility != View.GONE) {
+                            child.visibility = View.GONE
+                            (child as? WebView)?.safePause()
                         }
                     }
 
@@ -582,6 +473,14 @@ fun WebViewContainer(
                 modifier = Modifier.fillMaxSize()
             )
         }
+    }
+}
+
+private fun WebView.safePause() {
+    try {
+        onPause()
+    } catch (t: Throwable) {
+        android.util.Log.w("WebViewContainer", "Failed to pause WebView", t)
     }
 }
 

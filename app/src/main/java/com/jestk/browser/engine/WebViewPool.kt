@@ -775,6 +775,27 @@ class WebViewPool(
         }
     }
 
+    /**
+     * Forgets and destroys the WebView of [tabId] after its renderer died
+     * (`onRenderProcessGone`). Such a WebView may only be destroyed, so unlike [removeWebView]
+     * no navigation or history call is made on it.
+     */
+    fun discardCrashedWebView(tabId: String) {
+        lruOrder.remove(tabId)
+        mediaPlayingTabs.remove(tabId)
+        if (activeTabId == tabId) activeTabId = null
+        tabProfiles.remove(tabId)
+        val webView = pool.remove(tabId) ?: return
+        updateLoadedTabIds()
+        detachFromParent(webView)
+        try {
+            (webView.context as? MutableContextWrapper)?.baseContext = applicationContext
+            webView.destroy()
+        } catch (t: Throwable) {
+            Log.w(TAG, "Failed to destroy crashed WebView for tab $tabId", t)
+        }
+    }
+
     fun retainTabs(activeTabIds: Set<String>) {
         val toRemove = pool.keys().toList().filter { it !in activeTabIds }
         toRemove.forEach { removeWebView(it) }

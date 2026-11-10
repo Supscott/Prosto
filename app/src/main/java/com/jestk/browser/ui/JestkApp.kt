@@ -83,7 +83,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.isVisible
-import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
@@ -124,9 +123,11 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 import com.jestk.browser.ui.viewmodel.NavigationCommand
-import com.jestk.browser.ui.viewmodel.isSameDomain
 import com.jestk.browser.ui.views.HomeScreen
+import com.jestk.browser.ui.views.WebViewClientDeps
 import com.jestk.browser.ui.views.WebViewContainer
+import com.jestk.browser.ui.views.bindWebViewClients
+import com.jestk.browser.ui.views.openCleanPlayerIfIntercepted
 import com.jestk.browser.util.DownloadFileOpener
 import com.jestk.browser.util.YouTubeUrlHelper
 import com.jestk.browser.util.findActivity
@@ -144,6 +145,17 @@ fun JestkApp(
     val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isDark = com.jestk.browser.ui.theme.isAppDarkTheme(uiState.settings.themeMode)
+    val currentIsDark by androidx.compose.runtime.rememberUpdatedState(isDark)
+    val clientDeps = remember(webViewPool, viewModel) {
+        WebViewClientDeps(
+            webViewPool = webViewPool,
+            uiState = { viewModel.uiState.value },
+            onEvent = viewModel::onEvent,
+            isDark = { currentIsDark },
+            shouldInterceptForCleanPlayer = viewModel::shouldInterceptForCleanPlayer,
+            scope = coroutineScope,
+        )
+    }
 
     // Handle back button press hierarchy
     BackHandler {
@@ -168,127 +180,10 @@ fun JestkApp(
         }
         webViewPool.isAdBlockerEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled }
         webViewPool.isCleanPlayerEnabled = { viewModel.uiState.value.settings.isCleanYouTubePlayerEnabled }
-        webViewPool.onCleanPlayerRequested = { url ->
-            if (viewModel.shouldInterceptForCleanPlayer(url)) {
-                val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
-                if (videoId != null) {
-                    val startSeconds = com.jestk.browser.util.YouTubeUrlHelper.extractStartTimeSeconds(url)
-                    viewModel.onEvent(BrowserUiEvent.OpenCleanPlayer(videoId, url, startSeconds))
-                    true
-                } else {
-                    false
-                }
-            } else {
-                false
-            }
-        }
+        webViewPool.onCleanPlayerRequested = { url -> openCleanPlayerIfIntercepted(url, clientDeps) }
         webViewPool.onWebViewCreated = { tabId, wv ->
-            wv.tag = tabId
             if (wv.webChromeClient == null) {
-                val handleFavicon: (String, android.graphics.Bitmap, String?) -> Unit = { id, icon, pageUrl ->
-                    coroutineScope.launch {
-                        val currentTab = viewModel.uiState.value.tabs.find { it.id == id }
-                        val tabUrl = currentTab?.url?.takeIf { it.isNotBlank() && it != "about:blank" }
-                        val webViewUrl = wv.url?.takeIf { it.isNotBlank() && it != "about:blank" }
-                        val effectiveUrl = pageUrl?.takeIf { it.isNotBlank() && it != "about:blank" }
-                            ?: tabUrl
-                            ?: webViewUrl
-
-                        if (tabUrl != null && effectiveUrl != null && !isSameDomain(tabUrl, effectiveUrl)) {
-                            android.util.Log.d("JestkApp", "Discarding mismatched favicon for tab $id: page $effectiveUrl vs tab $tabUrl")
-                            FaviconManager.cacheFaviconForDomain(effectiveUrl, icon, context)
-                            return@launch
-                        }
-
-                        val path = FaviconManager.saveFavicon(context, id, icon, effectiveUrl)
-                        if (path != null) {
-                            viewModel.onEvent(BrowserUiEvent.UpdateFaviconUrl(id, path, effectiveUrl))
-                        }
-                    }
-                }
-                wv.webViewClient = JestkWebViewClient(
-                    tabId = tabId,
-                    isAdBlockerEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled },
-                    onPageStarted = { id, url -> viewModel.onEvent(BrowserUiEvent.OnPageStarted(id, url)) },
-                    onPageFinished = { id, url, title -> viewModel.onEvent(BrowserUiEvent.OnPageFinished(id, url, title)) },
-                    onNavigationStateChanged = { id, canBack, canForward -> viewModel.onEvent(BrowserUiEvent.OnNavigationStateChanged(id, canBack, canForward)) },
-                    onSnapshotReady = { id, path -> viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(id, path)) },
-                    onThemeColorDetected = { id, color -> viewModel.onEvent(BrowserUiEvent.OnThemeColorReceived(id, color)) },
-                    onThemeColorsDetected = { id, topColor, bottomColor -> viewModel.onEvent(BrowserUiEvent.OnThemeColorsReceived(id, topColor, bottomColor)) },
-                    isDarkTheme = { isDark },
-                    onTitleReceived = { id, title -> viewModel.onEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
-                    isOpenInAppsEnabled = { viewModel.uiState.value.settings.isOpenInAppsEnabled },
-                    onExternalAppOffered = { id, prompt, userInitiated ->
-                        viewModel.onEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
-                    },
-                    isTrackingProtectionEnabled = { viewModel.uiState.value.settings.isTrackingProtectionEnabled },
-                    onInsecureHttpWarning = { id, url ->
-                        viewModel.onEvent(BrowserUiEvent.ShowInsecureHttpWarning(url = url, tabId = id))
-                    },
-                    isInsecureHostAllowed = { host ->
-                        viewModel.isInsecureHostAllowed(host)
-                    },
-                    isCleanPlayerEnabled = { viewModel.uiState.value.settings.isCleanYouTubePlayerEnabled },
-                    isAutoConsentEnabled = { viewModel.uiState.value.settings.autoConsentEnabled },
-                    onBlockedAdNavigation = { id, url ->
-                        viewModel.onEvent(BrowserUiEvent.ShowBlockedAdNavigation(url = url, tabId = id))
-                    },
-                    isAdRedirectProtectionEnabled = { viewModel.uiState.value.settings.isAdRedirectProtectionEnabled },
-                    isAllowedAdNavigation = { url ->
-                        viewModel.uiState.value.allowedAdNavigationUrls.contains(url)
-                    },
-                    onCleanPlayerRequested = { url ->
-                        if (viewModel.shouldInterceptForCleanPlayer(url)) {
-                            val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
-                            if (videoId != null) {
-                                val startSeconds = com.jestk.browser.util.YouTubeUrlHelper.extractStartTimeSeconds(url)
-                                viewModel.onEvent(BrowserUiEvent.OpenCleanPlayer(videoId, url, startSeconds))
-                                true
-                            } else {
-                                false
-                            }
-                        } else {
-                            false
-                        }
-                    }
-                )
-                wv.webChromeClient = JestkWebChromeClient(
-                    tabId = tabId,
-                    webView = wv,
-                    onProgressChanged = { id, progress -> viewModel.onEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
-                    onTitleReceived = { id, title -> viewModel.onEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
-                    onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
-                        viewModel.onEvent(BrowserUiEvent.SetFullscreenCustomView(view, isFullscreen, orientation))
-                    },
-                    onVideoPlayingStateChanged = { isPlaying ->
-                        viewModel.onEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
-                    },
-                    onFaviconReceived = handleFavicon,
-                    onShowFileChooser = { callback, params ->
-                        val handler = context.findActivity() as? com.jestk.browser.ui.FileChooserHandler
-                        handler?.openFileChooser(callback, params) ?: false
-                    },
-                    onCreateWindowRequest = { originView, _, isUserGesture, resultMsg ->
-                        val currentTab = viewModel.uiState.value.tabs.find { it.id == tabId }
-                        val targetWorkspaceId = currentTab?.workspaceId ?: viewModel.uiState.value.activeWorkspaceId
-                        val targetProfileName = viewModel.uiState.value.workspaces.find { it.id == targetWorkspaceId }?.profileName
-                        com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
-                            resultMsg = resultMsg,
-                            context = context,
-                            webViewPool = webViewPool,
-                            openerUrl = originView?.url ?: wv.url,
-                            profileName = targetProfileName,
-                            isUserGesture = isUserGesture,
-                            onPopupOpened = { viewModel.onEvent(BrowserUiEvent.OpenPopupTab(it)) }
-                        )
-                    },
-                    onCloseWindowRequest = { id ->
-                        viewModel.onEvent(BrowserUiEvent.CloseTab(id))
-                    },
-                    onFullscreenOrientationChanged = { orientation ->
-                        viewModel.onEvent(BrowserUiEvent.UpdateFullscreenOrientation(orientation))
-                    }
-                )
+                bindWebViewClients(wv, tabId, clientDeps)
             }
         }
     }

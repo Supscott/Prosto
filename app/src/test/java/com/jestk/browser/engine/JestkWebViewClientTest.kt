@@ -1079,4 +1079,77 @@ class JestkWebViewClientTest {
         clientDisabled.onPageFinished(webView, "https://example.com")
         assertThat(evaluatedScripts.any { it.contains("data-hori-consent-handled") }).isFalse()
     }
+
+    // --- Review findings WV-1 / WV-5 / BOT page-script exemption ---
+
+    private fun redirectProtectedClient(onBlocked: (String) -> Unit) = JestkWebViewClient(
+        tabId = "tab_1",
+        isAdBlockerEnabled = { true },
+        isAdRedirectProtectionEnabled = { true },
+        onPageStarted = { _, _ -> },
+        onPageFinished = { _, _, _ -> },
+        onNavigationStateChanged = { _, _, _ -> },
+        onSnapshotReady = { _, _ -> },
+        onBlockedAdNavigation = { _, url -> onBlocked(url) },
+    )
+
+    private fun navigation(url: String, gesture: Boolean, redirect: Boolean) = object : android.webkit.WebResourceRequest {
+        override fun getUrl(): android.net.Uri = android.net.Uri.parse(url)
+        override fun isForMainFrame(): Boolean = true
+        override fun isRedirect(): Boolean = redirect
+        override fun hasGesture(): Boolean = gesture
+        override fun getMethod(): String = "GET"
+        override fun getRequestHeaders(): Map<String, String> = emptyMap()
+    }
+
+    @Test
+    fun redirectProtection_allowsServerRedirectsAndSignInCallbacks() {
+        val blocked = mutableListOf<String>()
+        val client = redirectProtectedClient { blocked += it }
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val webView = NestedWebView(context)
+
+        webView.loadedUrl = "https://shop.example/checkout"
+        assertThat(client.shouldOverrideUrlLoading(webView, navigation("https://bank-acs.test/3ds", gesture = false, redirect = true))).isFalse()
+
+        webView.loadedUrl = "https://accounts.google.com/signin/oauth/consent"
+        assertThat(client.shouldOverrideUrlLoading(webView, navigation("https://app.example/callback?code=1", gesture = false, redirect = false))).isFalse()
+
+        // A script-driven cross-site jump without a gesture is still treated as an ad hijack.
+        webView.loadedUrl = "https://news.example/article"
+        assertThat(client.shouldOverrideUrlLoading(webView, navigation("https://casino.test/", gesture = false, redirect = false))).isTrue()
+        assertThat(blocked).containsExactly("https://casino.test/")
+    }
+
+    @Test
+    fun isLoginPage_onlyMatchesSignInPagesOfMultiPurposeHosts() {
+        assertThat(JestkWebViewClient.isLoginPage("https://github.com/login/oauth/authorize?client_id=x")).isTrue()
+        assertThat(JestkWebViewClient.isLoginPage("https://github.com/developer/repo")).isFalse()
+        assertThat(JestkWebViewClient.isLoginPage("https://appleid.apple.com/auth/authorize")).isTrue()
+    }
+
+    @Test
+    fun isSecurityChallengePage_recognisesCloudflareInterstitialOnTheSiteDomain() {
+        assertThat(JestkWebViewClient.isSecurityChallengePage("https://shop.example/", "Just a moment...")).isTrue()
+        assertThat(JestkWebViewClient.isSecurityChallengePage("https://challenges.cloudflare.com/turnstile", "")).isTrue()
+        assertThat(JestkWebViewClient.isSecurityChallengePage("https://shop.example/", "Shop")).isFalse()
+    }
+
+    @Test
+    fun onRenderProcessGone_handsTheTabToThePoolInsteadOfDestroyingLocally() {
+        var crashedTab: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_crash",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onRenderProcessGone = { crashedTab = it },
+        )
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+
+        assertThat(client.onRenderProcessGone(android.webkit.WebView(context), null)).isTrue()
+        assertThat(crashedTab).isEqualTo("tab_crash")
+    }
 }
