@@ -10,10 +10,12 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imeNestedScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -30,17 +32,25 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -57,7 +67,9 @@ import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
+import kotlin.math.abs
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun HeroSearchInputField(
     textFieldValue: TextFieldValue,
@@ -70,6 +82,7 @@ internal fun HeroSearchInputField(
     onVoiceResult: (String) -> Unit,
     carouselState: SearchEngineCarouselState? = null,
     density: Density = LocalDensity.current,
+    nestedScrollDispatcher: NestedScrollDispatcher? = null,
     onSwipeLeft: () -> Unit = {},
     onSwipeRight: () -> Unit = {},
     onSwipeDown: () -> Unit = {},
@@ -77,6 +90,8 @@ internal fun HeroSearchInputField(
 ) {
     val context = LocalContext.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val internalDispatcher = remember { NestedScrollDispatcher() }
+    val effectiveDispatcher = nestedScrollDispatcher ?: internalDispatcher
     val speechLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -113,8 +128,17 @@ internal fun HeroSearchInputField(
         shadowElevation = 4.dp,
         modifier = modifier
             .height(52.dp)
+            .imeNestedScroll()
+            .nestedScroll(
+                connection = remember { object : NestedScrollConnection {} },
+                dispatcher = effectiveDispatcher
+            )
             .then(gestureModifier)
-            .swipeDownToDismiss(density = density, onSwipeDown = onSwipeDown)
+            .swipeDownToDismiss(
+                density = density,
+                nestedScrollDispatcher = effectiveDispatcher,
+                onSwipeDown = onSwipeDown
+            )
     ) {
         Row(
             modifier = Modifier
@@ -212,27 +236,39 @@ internal fun HeroSearchInputField(
 }
 
 /**
- * Detects a downward swipe on the search bar.
+ * Detects a downward swipe on the search bar and dispatches vertical drag deltas to the nested
+ * scroll hierarchy so the soft keyboard translates smoothly and interactively under the finger.
  *
  * Applied after the horizontal gesture modifiers, it lets a horizontal drag keep the touch
  * slop race (the vertical detector cancels itself), so engine cycling is untouched, and it
- * never claims a tap. The callback fires as soon as a short downward drag crosses the
- * initial threshold (24.dp). If the downward drag continues further past the continuous
- * threshold (80.dp), a second action is triggered (transitioning from keyboard hide to overlay dismissal).
+ * never claims a tap. As vertical deltas occur, they are dispatched to [nestedScrollDispatcher]
+ * as [NestedScrollSource.UserInput], allowing [Modifier.imeNestedScroll] to translate the soft
+ * keyboard in real time. The callback fires as soon as a downward drag crosses the initial
+ * threshold (24.dp). If the downward drag continues further past the continuous threshold
+ * (80.dp), a second action is triggered (transitioning from keyboard hide to overlay dismissal).
  */
 @Composable
 internal fun Modifier.swipeDownToDismiss(
     density: Density,
+    nestedScrollDispatcher: NestedScrollDispatcher? = null,
     onSwipeDown: () -> Unit,
 ): Modifier {
     val currentOnSwipeDown by rememberUpdatedState(onSwipeDown)
+    val currentDispatcher by rememberUpdatedState(nestedScrollDispatcher)
+    val viewConfig = LocalViewConfiguration.current
     val thresholdPx = with(density) { 24.dp.toPx() }
     val continuousThresholdPx = with(density) { 80.dp.toPx() }
 
-    return this.pointerInput(density) {
+    return this.pointerInput(density, viewConfig) {
+        val velocityTracker = VelocityTracker()
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
+            velocityTracker.resetTracking()
+            velocityTracker.addPosition(down.uptimeMillis, down.position)
+
             var totalDragY = 0f
+            var totalDragX = 0f
+            var isHorizontalDrag = false
             var firstTriggered = false
             var secondTriggered = false
 
@@ -249,20 +285,47 @@ internal fun Modifier.swipeDownToDismiss(
                     }
                     break
                 }
+
+                velocityTracker.addPosition(change.uptimeMillis, change.position)
+                val dragX = change.position.x - change.previousPosition.x
                 val dragY = change.position.y - change.previousPosition.y
-                if (dragY < 0f && totalDragY <= 0f) {
-                    totalDragY = 0f
-                } else {
-                    totalDragY += dragY
+                totalDragX += dragX
+
+                if (!isHorizontalDrag && abs(totalDragX) > viewConfig.touchSlop && abs(totalDragX) > abs(totalDragY)) {
+                    isHorizontalDrag = true
                 }
-                if (!firstTriggered && totalDragY >= thresholdPx) {
-                    firstTriggered = true
-                    change.consume()
-                    currentOnSwipeDown()
-                } else if (firstTriggered && !secondTriggered && totalDragY >= continuousThresholdPx) {
-                    secondTriggered = true
-                    change.consume()
-                    currentOnSwipeDown()
+
+                if (!isHorizontalDrag) {
+                    if (dragY < 0f && totalDragY <= 0f) {
+                        totalDragY = 0f
+                    } else {
+                        totalDragY += dragY
+                    }
+
+                    if (dragY > 0f || totalDragY > 0f) {
+                        val preConsumed = currentDispatcher?.dispatchPreScroll(
+                            available = Offset(0f, dragY),
+                            source = NestedScrollSource.UserInput
+                        ) ?: Offset.Zero
+
+                        val remaining = Offset(0f, dragY) - preConsumed
+
+                        currentDispatcher?.dispatchPostScroll(
+                            consumed = preConsumed,
+                            available = remaining,
+                            source = NestedScrollSource.UserInput
+                        )
+                    }
+
+                    if (!firstTriggered && totalDragY >= thresholdPx) {
+                        firstTriggered = true
+                        change.consume()
+                        currentOnSwipeDown()
+                    } else if (firstTriggered && !secondTriggered && totalDragY >= continuousThresholdPx) {
+                        secondTriggered = true
+                        change.consume()
+                        currentOnSwipeDown()
+                    }
                 }
             }
         }

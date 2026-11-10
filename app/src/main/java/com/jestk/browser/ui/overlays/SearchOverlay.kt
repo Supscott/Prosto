@@ -43,6 +43,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalDensity
@@ -100,6 +101,7 @@ fun SearchOverlay(
     modifier: Modifier = Modifier,
     initialDropdownOpen: Boolean = false,
     isImeVisible: Boolean? = null,
+    nestedScrollDispatcher: NestedScrollDispatcher? = null,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
@@ -518,6 +520,7 @@ fun SearchOverlay(
                     },
                     carouselState = carouselState,
                     density = density,
+                    nestedScrollDispatcher = nestedScrollDispatcher,
                     onSwipeDown = {
                         if (isDropdownOpen) {
                             isDropdownOpen = false
