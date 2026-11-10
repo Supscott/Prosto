@@ -15,8 +15,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import com.jestk.browser.R
-import com.jestk.browser.domain.model.OverlayType
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -30,7 +28,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -50,13 +47,11 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.findActivity
 import com.jestk.browser.ui.FileChooserHandler
-import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DynamicBarColors
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.ProstoAccent
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
-import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.isSameDomain

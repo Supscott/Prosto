@@ -1,7 +1,5 @@
 package com.jestk.browser.ui.viewmodel
 
-import com.jestk.browser.domain.model.DownloadItem
-import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.InsecureNavigationTarget
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.SearchEngine
@@ -90,10 +88,6 @@ sealed interface BrowserUiEvent {
 
     data object DismissDownloadSnackbar : BrowserUiEvent
 
-    data class DownloadStarted(
-        val item: DownloadItem,
-    ) : BrowserUiEvent
-
     // Web Navigation & Actions
     data class LoadUrl(
         val url: String,
@@ -153,11 +147,6 @@ sealed interface BrowserUiEvent {
         val snapshotPath: String,
     ) : BrowserUiEvent
 
-    data class OnFaviconReceived(
-        val tabId: String,
-        val icon: android.graphics.Bitmap,
-    ) : BrowserUiEvent
-
     data class UpdateFaviconUrl(
         val tabId: String,
         val faviconUrl: String?,
@@ -201,15 +190,7 @@ sealed interface BrowserUiEvent {
 
     data object LoadMoreSearchHistory : BrowserUiEvent
 
-    data class DeleteHistoryItem(
-        val id: Long,
-    ) : BrowserUiEvent
-
     data object ClearAllHistory : BrowserUiEvent
-
-    data class SelectHistorySuggestion(
-        val item: HistoryItem,
-    ) : BrowserUiEvent
 
     // Settings
     data class SetThemeMode(

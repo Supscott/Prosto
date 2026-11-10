@@ -10,7 +10,6 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
-import com.jestk.browser.R
 
 /**
  * App-wide vibration feedback.

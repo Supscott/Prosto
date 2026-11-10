@@ -11,10 +11,6 @@ import android.webkit.WebViewClient
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.util.UrlSecurityUtils
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 
 class JestkWebViewClient(
     private val tabId: String,
@@ -41,7 +37,6 @@ class JestkWebViewClient(
     private val isAllowedAdNavigation: ((url: String) -> Boolean)? = null,
     private val isAutoConsentEnabled: (() -> Boolean)? = null,
 ) : WebViewClient() {
-    private val telemetryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onRenderProcessGone(
         view: WebView?,
@@ -89,27 +84,6 @@ class JestkWebViewClient(
             allowFallbackNavigation = request.isForMainFrame,
             userInitiated = effectiveGesture,
         )
-    }
-
-    @Deprecated("Deprecated in Java")
-    override fun shouldOverrideUrlLoading(
-        view: WebView?,
-        url: String?,
-    ): Boolean {
-        val validUrl = url.orEmpty()
-        if (validUrl.isBlank()) return false
-        if (isStaticAsset(validUrl)) return false
-        if (isCleanPlayerEnabled?.invoke() == true) {
-            val videoId =
-                com.jestk.browser.util.YouTubeUrlHelper
-                    .extractVideoId(validUrl)
-            if (videoId != null && onCleanPlayerRequested?.invoke(validUrl) == true) {
-                return true
-            }
-        }
-        if (isBlockedAdNavigation(validUrl, view, hasGesture = true)) return true
-        if (checkInsecureHttpNavigation(validUrl)) return true
-        return handleExternalNavigation(view, validUrl, userInitiated = true)
     }
 
     private fun isStaticAsset(url: String): Boolean {

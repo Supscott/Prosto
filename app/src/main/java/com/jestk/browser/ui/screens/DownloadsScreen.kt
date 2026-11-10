@@ -1,6 +1,5 @@
 package com.jestk.browser.ui.screens
 
-import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -722,11 +721,6 @@ fun formatTimestamp(timestamp: Long): String {
     val sdf = SimpleDateFormat("MMM d, HH:mm", Locale.getDefault())
     return sdf.format(Date(timestamp))
 }
-
-fun openDownloadedFile(
-    context: Context,
-    download: DownloadItem,
-): Boolean = DownloadFileOpener.openDownloadedFile(context, download)
 
 @Preview(name = "DownloadsScreen Light", showBackground = true, widthDp = 412, heightDp = 800)
 @Composable

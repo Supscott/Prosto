@@ -239,40 +239,11 @@ object ProstoBorders {
         width: Dp = 1.dp,
     ): BorderStroke = cardBorder(isDark = isDark, width = width)
 
-    fun specularBorder(
-        isDark: Boolean,
-        width: Dp = 1.dp,
-    ): BorderStroke = floatingBorder(isDark = isDark, width = width)
 }
 
 // ==========================================
 // Prosto Surfaces (Crisp Solid Surfaces, No Blur)
 // ==========================================
-
-/**
- * Surface Layer (Level 1 - Cards & Lists): Pure white #FFFFFF (or dark slate) with an
- * ambient diffused dispersion shadow and subtle micro-border. NO BLUR.
- */
-fun Modifier.prostoCardSurface(
-    shape: Shape = ProstoShapes.Card,
-    isDark: Boolean = false,
-    backgroundColor: Color? = null,
-    borderWidth: Dp = 1.dp,
-    elevation: Dp = 2.dp,
-): Modifier {
-    val bg = backgroundColor ?: if (isDark) DarkSurface else ProstoCardSurface
-    val border = ProstoBorders.cardBorder(isDark = isDark, width = borderWidth)
-    return this
-        .shadow(
-            elevation = elevation,
-            shape = shape,
-            clip = false,
-            ambientColor = if (isDark) Color.Black.copy(alpha = 0.35f) else Color(0x0F0F172A),
-            spotColor = if (isDark) Color.Black.copy(alpha = 0.25f) else Color(0x0A0F172A),
-        ).background(color = bg, shape = shape)
-        .border(border = border, shape = shape)
-        .clip(shape)
-}
 
 /**
  * Floating Controls (Level 2 - Omnibox, Modals, Action Dock): Solid crisp surface

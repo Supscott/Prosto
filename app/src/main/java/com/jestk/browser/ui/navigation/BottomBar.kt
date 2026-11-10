@@ -261,7 +261,6 @@ fun UnifiedBottomBar(
                             uiState = uiState,
                             onEvent = onEvent,
                             isDark = isDark,
-                            dockBg = dockBg,
                             centerPillBg = activePillBg,
                             centerPillBorder = activePillBorder,
                             circleBtnBg = circleBtnBg
@@ -311,38 +310,6 @@ fun UnifiedBottomBar(
                 .padding(bottom = 56.dp)
         )
     }
-}
-
-/**
- * Top-level orchestrator composable for bottom bar navigation.
- */
-@Composable
-fun BottomBar(
-    uiState: BrowserUiState,
-    onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    UnifiedBottomBar(
-        uiState = uiState,
-        onEvent = onEvent,
-        modifier = modifier,
-    )
-}
-
-/**
- * Backward compatibility alias for DualTierBottomBar.
- */
-@Composable
-fun DualTierBottomBar(
-    uiState: BrowserUiState,
-    onEvent: (BrowserUiEvent) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    UnifiedBottomBar(
-        uiState = uiState,
-        onEvent = onEvent,
-        modifier = modifier
-    )
 }
 
 @Preview(name = "BottomBar Light", showBackground = true, backgroundColor = 0xFFE9F6F2)

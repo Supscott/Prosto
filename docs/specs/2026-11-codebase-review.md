@@ -295,7 +295,7 @@ navigation happens in a popup opened without a gesture; allow server redirects
   `downloadedBytes = 0` whenever the response is not `206`.
 - **DL-4 (P2)** `atomicMoveTo` result ignored (`HoriDownloadManager.kt:524`,
   `SnapshotEngine.kt:223`) — a failed move is reported as success.
-- **DATA-1 (P1)** `HistoryDao.kt:179` — `DELETE FROM history WHERE url = (SELECT url … WHERE
+- **DATA-1 (P1, resolved by deletion — see §6)** `HistoryDao.kt:179` — `DELETE FROM history WHERE url = (SELECT url … WHERE
   id = :id)` deletes that URL from **every** workspace. Add `AND workspaceId = (SELECT
   workspaceId …)`.
 - **DATA-2 (P2)** `RecentTabEntity` primary key is `url` only, although rows carry
@@ -342,67 +342,81 @@ navigation happens in a popup opened without a gesture; allow server redirects
 Device: motorola edge 60 fusion, WebView 156.0.8078.47. Probe:
 `scratchpad/probe.js` via CDP (`webview_devtools_remote_<pid>` / `chrome_devtools_remote`).
 
-_Pending — results will be filled in after the device run._
+Pages: `https://httpbin.org/headers` (server-side view) and `https://example.com/` (JS view).
+Prosto = debug build on WebView 156.0.8078.47; Chrome = 157.0.8103.50.
+
+| Signal | Prosto | Chrome | Verdict |
+|---|---|---|---|
+| `X-Requested-With` request header | `com.jestk.browser.debug` | absent | **ours, fix (BOT-4)** |
+| `Sec-CH-UA` / `userAgentData` brands, full version list | `Not:A-Brand;8`, `Chromium;156`, `Google Chrome;156` | `Not-A.Brand;99`, `Google Chrome;157`, `Chromium;157` | OK — GREASE differs per build, structure matches |
+| `User-Agent` | reduced `Android 10; K … Chrome/156.0.0.0` | same format | OK |
+| `matchMedia` toString / `instanceof MediaQueryList` | JS source / `false` | `[native code]` / `true` | **ours, fix (BOT-1)** |
+| `screen.orientation.lock` toString | JS source; own `toString` prop | `[native code]` | **ours, fix (BOT-2)** |
+| Extra `window` props vs a clean iframe | `HoriAdBlockBridge`, `JestkBlobBridge`, `__hori_adblock_initialized`, `adsbygoogle`, `googletag`, `yaContextCb`, `Ya`, `x5media`, `__jestkIsDark`, `__jestkThemeListeners`, `__jestkOrigMatchMedia`, `__hori_autoconsent_initialized` | none | **ours, fix (BOT-1/2/3)** — note `defineProperty(enumerable:false)` does not hide a name from `getOwnPropertyNames` |
+| `<style id="__hori_adblock_css">` in DOM | present | absent | ours, minor — use a nameless style or `adoptedStyleSheets` |
+| `window.chrome` | `undefined` | `{loadTimes, csi}` | WebView-inherent. Do **not** fake it (a synthetic `window.chrome` is a classic, detectable stealth artefact) |
+| `Notification` API / `permissions.query('notifications')` | missing / `denied` | `default` / `prompt` | WebView-inherent, same in DuckDuckGo |
+| `navigator.languages` | `en-GB, ru-RU, en-US` (system locales) | `en-US, en, ru` (Chrome setting) | OK — differs per user anyway |
+
+### BOT-4 · `X-Requested-With: <package>` on every request (P1)
+Android WebView sends the app's package name in `X-Requested-With` on every request. Real Chrome
+never sends it, so any WAF can tell "embedded WebView" from one header, before any JS runs.
+**Fix:** `WebSettingsCompat.setRequestedWithHeaderOriginAllowList(settings, emptySet())` when
+`WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST` is supported.
+**Verify:** `httpbin.org/headers` shows no `X-Requested-With`.
 
 ---
 
-## 6. Cleanup (dead code, duplicates) — applied in this pass
+## 6. Cleanup (dead code, duplicates) — applied
 
-Candidates (grep-verified: no production reference). Removal is pending until the uncommitted
-work in the tree is committed, so the cleanup lands as its own commit.
+Landed as a separate `refactor(cleanup)` commit; `tools/verify.sh --all` green.
 
-**Whole files:** `ui/overlays/DownloadsSheet.kt`, `ui/overlays/SettingsSheet.kt`,
-`ui/overlays/CleanPlayerFab.kt`, `ui/screens/SettingsInteractionSection.kt`.
+**Removed**
+- Files: `DownloadsSheet.kt`, `SettingsSheet.kt`, `CleanPlayerFab.kt`, `SettingsInteractionSection.kt`.
+- Composables/overloads: `ActiveTabPill(tab, displayTitle, displayDomain, …)`, `ActiveTabCenterCapsule`,
+  `BottomBar()`, `DualTierBottomBar()`, `specularBorder`, `Modifier.prostoCardSurface`,
+  `shouldRemoveTabFromFolderOnDrop`.
+- Functions: `TabCoordinator.reorderTabs`, `UpdateCoordinator.onCheckNow`, top-level
+  `DownloadsScreen.openDownloadedFile`, `UserAgentMetadataProvider.buildMetadata`,
+  `FaviconManager.getApplicationContext`, `JestkWebViewClient.telemetryScope` and the deprecated
+  `shouldOverrideUrlLoading(WebView, String)` overload (two tests moved to the request overload).
+- The whole per-item history delete chain (`BrowserUiEvent.DeleteHistoryItem` →
+  `SearchCoordinator.deleteHistoryItem` → `HistoryRepository.deleteHistory/deleteHistoryItem` →
+  `HistoryDao.deleteHistoryById/deleteHistory`). No UI ever sent the event, so **DATA-1 is resolved
+  by deletion**; a future "delete history item" feature must scope the query by `workspaceId`.
+- UI events: `OnFaviconReceived`, `DownloadStarted`, `SelectHistorySuggestion`.
+- State/model aliases: `BrowserUiState.bottomBarVisible/loadProgress`,
+  `BrowserSettings.adBlockerEnabled`, `SearchEngine.iconAssetUrl`.
+- Repository methods: `FavoriteRepository.removeFavorite`, `RecentTabRepository.updateTitle`,
+  `SettingsRepository.getAutoConsentEnabled`.
+- DAO methods: `FavoriteDao.isFavoriteFlow/updateFavorite/clearFavoritesByWorkspace/clearAllFavorites`,
+  `SettingDao.clearAllSettings/getBlockedAdsCountFlow/getBlockedTrackersCountFlow`,
+  `TabDao.getActiveTabFlow/clearActiveFlags/markActive/getTabsByFolderIdFlow`.
+- Parameters: `ActiveTabPill(onSwipeNext, onSwipePrev)`, `TabStripRow(dockBg)`,
+  `WebViewPool.updateThemeMode(context)`.
+- 40 unused colour/brush tokens in `ui/theme/Color.kt`; 9 unused string resources (both locales);
+  101 unused imports.
 
-**Functions / overloads:** `ActiveTabPill(tab, displayTitle, displayDomain, …)` overload,
-`ActiveTabCenterCapsule`, `BottomBar()`, `DualTierBottomBar()`, second
-`SearchEngineSelectorButton` overload, `shouldRemoveTabFromFolderOnDrop`, `specularBorder`,
-`prostoCardSurface`, `TabCoordinator.reorderTabs`, `UpdateCoordinator.onCheckNow`,
-`DownloadsScreen.openDownloadedFile`, `BrowserViewModel.incrementBlockedAds/Trackers`,
-`UserAgentMetadataProvider.buildMetadata`, `JestkWebViewClient.telemetryScope`, deprecated
-`shouldOverrideUrlLoading(WebView, String)`, `SearchEngineIconDownloader.downloadIcons`,
-`ExternalAppResolver.clearBrowserPackagesCache`, `FaviconManager.getApplicationContext`.
+**Kept on purpose**
+- Code used only by tests (`AdBlockerEngine.isReady/containsHost/awaitInitialization`,
+  `buildSurrogateScript`, `BrowserViewModel.incrementBlockedAds/Trackers`,
+  `FavoriteRepository.getFavoritesLimited`, `WorkspaceRepository.updateWorkspacePositions`,
+  `DownloadRepository.clearAllDownloads`, …): removing it means rewriting tests; handle when the
+  owning area is touched.
+- `workspace_personal`, `workspace_work`, `workspace_tabs_count` strings: they are the missing
+  localizations for UI-7 / DATA-6.
+- Room `Converters`: referenced by `@TypeConverters`; drop together with the annotation in a
+  schema change, not in a cleanup.
+- Raw filter lists in `assets/`: removed together with AB-3.
+- Agent false positives (still used): `TabCoordinator.reorderTabsAndFolders`,
+  `DownloadFileOpener.openDownloadedFile`.
 
-**Repository / DAO methods with zero callers:** `FavoriteDao.isFavoriteFlow/updateFavorite/
-clearFavoritesByWorkspace/clearAllFavorites`, `SettingDao.clearAllSettings/
-getBlockedAdsCountFlow/getBlockedTrackersCountFlow`, `TabDao.getActiveTabFlow/clearActiveFlags/
-markActive/getTabsByFolderIdFlow`, `SettingsRepository.getAutoConsentEnabled`,
-`RecentTabRepository.updateTitle`, `FavoriteRepository.getFavoritesLimited/removeFavorite`,
-`SearchEngineRepository.getSearchEngineByShortcut`, `WorkspaceRepository.updateWorkspacePositions`,
-`DownloadRepository.clearAllDownloads`, unused `toEntity` mappers in `Mappers.kt`.
-
-**UI events / state:** `BrowserUiEvent.OnFaviconReceived` (also carries a `Bitmap`),
-`DownloadStarted`, `DeleteHistoryItem`, `SelectHistorySuggestion`; `BrowserUiState.bottomBarVisible`,
-`loadProgress`; `BrowserSettings.adBlockerEnabled`; `SearchEngine.iconAssetUrl`.
-
-**Parameters:** `TabStripRow(dockBg)`, `onSwipeNext/onSwipePrev` chain in `ActiveTabPill`,
-`onDragEnd(currentScale, currentAlpha)`, `FolderOverviewGridCard(onLongClick)`,
-`WebViewPool.updateThemeMode(context)`.
-
-**Theme tokens:** ~45 unused colours/brushes in `ui/theme/Color.kt` (list in the sweep notes).
-
-**Resources:** `blocked_ad_navigation_title/message/continue_button/stay_button` (leftovers of
-the old dialog; the banner uses `_proceed` / `_stay`), `tab_loading_title`, `a11y_download`, `snackbar_tab_closed_title`,
-`workspace_personal`, `workspace_work`, `workspace_name_label`, `workspace_color_label`,
-`workspace_tabs_count`. Several of these are the missing localizations for UI-7/DATA-6 —
-wire them up instead of deleting.
-
-**Assets:** `EasyList.txt`, `EasyListCookie.txt`, `adblock_hosts.txt`, `.DS_Store` (with AB-3).
-
-**Test-only code in production sources** (move behind `@VisibleForTesting` or into tests):
-`AdBlockerScript.buildSurrogateScript`, `AdBlockerEngine.containsHost/isReady/
-awaitInitialization`, `AppDatabase.createInMemory` (uses `allowMainThreadQueries`).
-
-**Unused imports:** many in `ActionDock.kt`, `TabOverviewGrid.kt`, `TabStripRow.kt`,
-`ActiveTabPill.kt`, `WorkspaceOverviewCard.kt`, `TabGridContextMenuBottomSheet.kt`,
-`FolderOverviewGridCard.kt` — remove with the IDE "Optimize imports" or ktlint.
-
-**Duplicates worth merging** (in fix tickets, not the mechanical cleanup): WebView client
-builders (WV-3), ad-block surrogate JS (3 copies), host-extraction helpers (5 copies), search
-engine host lists (DATA-4), favicon domain guard in `TabCoordinator` (3 copies), close-tab
-branches in `TabCoordinator` (3 copies), swipe-to-dismiss in `BlockedAdNavigationDialog` /
+**Duplicates worth merging** (fix tickets, not mechanical cleanup): WebView client builders (WV-3),
+ad-block surrogate JS (3 copies), host-extraction helpers (5 copies), search-engine host lists
+(DATA-4), favicon domain guard in `TabCoordinator` (3 copies), close-tab branches in
+`TabCoordinator` (3 copies), swipe-to-dismiss in `BlockedAdNavigationDialog` /
 `ExternalAppNotificationPill`, thumbnail/favicon rendering in overview cards (4 copies),
-`"default_personal"` literal (25 places, `Workspace.DEFAULT_PERSONAL_ID` exists).
+`"default_personal"` literal (25 places; `Workspace.DEFAULT_PERSONAL_ID` exists).
 
 ---
 

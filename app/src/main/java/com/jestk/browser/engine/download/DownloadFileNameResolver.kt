@@ -3,7 +3,6 @@ package com.jestk.browser.engine.download
 import android.net.Uri
 import android.util.Log
 import android.webkit.MimeTypeMap
-import com.jestk.browser.R
 import java.io.File
 import java.net.URLDecoder
 import java.nio.charset.StandardCharsets

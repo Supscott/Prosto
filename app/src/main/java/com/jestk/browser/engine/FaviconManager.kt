@@ -49,8 +49,6 @@ object FaviconManager {
         }
     }
 
-    fun getApplicationContext(): Context? = applicationContext
-
     private fun ensureDomainCacheIndexed(context: Context? = applicationContext) {
         if (isDomainCacheIndexed) return
         synchronized(cacheInitMutex) {

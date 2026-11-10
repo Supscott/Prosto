@@ -39,7 +39,6 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.TabFolder
-import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkTextHighContrast
 import com.jestk.browser.ui.theme.LocalProstoTypography

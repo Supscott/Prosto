@@ -4,7 +4,6 @@ import com.jestk.browser.data.local.dao.RecentTabDao
 import com.jestk.browser.data.local.entity.RecentTabEntity
 import com.jestk.browser.data.mapper.toDomain
 import com.jestk.browser.domain.model.RecentTabItem
-import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.domain.repository.RecentTabRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -55,14 +54,6 @@ class RecentTabRepositoryImpl(
         val existing = recentTabDao.getRecentTabs(100, workspaceId).firstOrNull { it.url == url }
         if (existing != null) {
             recentTabDao.upsertRecentTab(existing.copy(faviconUrl = faviconUrl))
-        }
-    }
-
-    override suspend fun updateTitle(url: String, title: String, workspaceId: String) = withContext(ioDispatcher) {
-        if (url.isBlank() || url == "about:blank") return@withContext
-        val existing = recentTabDao.getRecentTabs(100, workspaceId).firstOrNull { it.url == url }
-        if (existing != null) {
-            recentTabDao.upsertRecentTab(existing.copy(title = title))
         }
     }
 

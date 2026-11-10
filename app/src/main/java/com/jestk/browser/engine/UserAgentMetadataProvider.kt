@@ -137,11 +137,4 @@ object UserAgentMetadataProvider {
             .setMobile(true)
             .build()
     }
-
-    fun buildMetadata(
-        userAgent: String?,
-        rawUserAgent: String? = null,
-        deviceModel: String = "",
-        osRelease: String = ""
-    ): UserAgentMetadata = buildFallbackMetadata(userAgent, rawUserAgent, deviceModel, osRelease)
 }

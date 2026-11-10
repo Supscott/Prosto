@@ -5,7 +5,6 @@ import com.jestk.browser.data.local.entity.FavoriteEntity
 import com.jestk.browser.data.mapper.toDomain
 import com.jestk.browser.data.mapper.toEntity
 import com.jestk.browser.domain.model.FavoriteItem
-import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.domain.repository.FavoriteRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -55,8 +54,6 @@ class FavoriteRepositoryImpl(
     override suspend fun deleteFavorite(id: Long) = withContext(ioDispatcher) {
         favoriteDao.deleteFavoriteById(id)
     }
-
-    override suspend fun removeFavorite(id: Long) = deleteFavorite(id)
 
     override suspend fun isFavorite(url: String, workspaceId: String): Boolean = withContext(ioDispatcher) {
         favoriteDao.getFavoriteByUrl(url, workspaceId) != null

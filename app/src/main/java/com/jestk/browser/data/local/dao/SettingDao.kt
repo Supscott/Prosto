@@ -28,9 +28,6 @@ interface SettingDao {
     @Query("DELETE FROM settings WHERE `key` = :key")
     suspend fun deleteSetting(key: String)
 
-    @Query("DELETE FROM settings")
-    suspend fun clearAllSettings()
-
     @Query("INSERT OR IGNORE INTO settings (`key`, value) VALUES (:key, '0')")
     suspend fun initSettingIfNotExists(key: String)
 
@@ -46,8 +43,4 @@ interface SettingDao {
         initSettingIfNotExists(SettingKeys.KEY_BLOCKED_TRACKERS_COUNT)
         updateIncrementSetting(SettingKeys.KEY_BLOCKED_TRACKERS_COUNT, count)
     }
-
-    fun getBlockedAdsCountFlow(): Flow<String?> = getSettingFlow(SettingKeys.KEY_BLOCKED_ADS_COUNT)
-
-    fun getBlockedTrackersCountFlow(): Flow<String?> = getSettingFlow(SettingKeys.KEY_BLOCKED_TRACKERS_COUNT)
 }

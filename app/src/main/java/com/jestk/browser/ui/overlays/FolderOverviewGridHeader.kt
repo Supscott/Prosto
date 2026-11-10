@@ -160,24 +160,6 @@ internal fun calculateFolderUnderlayBoundsFromBounds(
     return FolderUnderlayBounds(minX = minX, minY = minY, maxX = maxX, maxY = maxY)
 }
 
-/**
- * Determines whether dropping a dragged tab that belongs to [sourceFolderId] should ungroup it
- * (remove it from the folder).
- */
-internal fun shouldRemoveTabFromFolderOnDrop(
-    sourceFolderId: String?,
-    dropTargetKey: String?,
-    dropPosition: Offset,
-    tabs: List<Tab>,
-    visibleItems: List<LazyGridItemInfo>,
-): Boolean = shouldRemoveTabFromFolderOnDropFromBounds(
-    sourceFolderId = sourceFolderId,
-    dropTargetKey = dropTargetKey,
-    dropPosition = dropPosition,
-    tabs = tabs,
-    visibleItems = visibleItems.map { GridItemBounds(it.key, it.offset, it.size) },
-)
-
 internal fun shouldRemoveTabFromFolderOnDropFromBounds(
     sourceFolderId: String?,
     dropTargetKey: String?,

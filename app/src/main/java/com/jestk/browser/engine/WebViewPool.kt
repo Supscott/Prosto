@@ -5,19 +5,13 @@ import android.app.Activity
 import android.content.Context
 import android.content.MutableContextWrapper
 import android.content.pm.ActivityInfo
-import com.jestk.browser.R
 import com.jestk.browser.util.findActivity
-import android.net.Uri
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
-import android.util.Base64
 import android.util.Log
 import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
-import android.webkit.MimeTypeMap
-import android.webkit.URLUtil
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.Toast
@@ -41,8 +35,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.io.File
-import java.net.URLDecoder
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 
@@ -296,7 +288,6 @@ class WebViewPool(
             }
         }
     }
-
 
     fun deleteProfile(profileName: String): Boolean {
         val tabsToRemove = tabProfiles.entries
@@ -751,7 +742,7 @@ class WebViewPool(
         }
     }
 
-    fun updateThemeMode(isDark: Boolean, context: Context? = null) {
+    fun updateThemeMode(isDark: Boolean) {
         currentIsDark = isDark
         pool.values.forEach { webView ->
             applyThemeMode(webView, isDark)

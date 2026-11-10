@@ -5,9 +5,7 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Transaction
 import androidx.room.Update
-import com.jestk.browser.R
 import com.jestk.browser.data.local.entity.TabEntity
 import com.jestk.browser.domain.model.Workspace
 import kotlinx.coroutines.flow.Flow
@@ -40,9 +38,6 @@ interface TabDao {
 
     @Query("SELECT * FROM tabs WHERE isActive = 1 LIMIT 1")
     suspend fun getActiveTab(): TabEntity?
-
-    @Query("SELECT * FROM tabs WHERE isActive = 1 LIMIT 1")
-    fun getActiveTabFlow(): Flow<TabEntity?>
 
     @Query("SELECT COUNT(*) FROM tabs")
     suspend fun getTabsCount(): Int
@@ -104,15 +99,6 @@ interface TabDao {
         position: Int,
     )
 
-    @Query("UPDATE tabs SET isActive = 0")
-    suspend fun clearActiveFlags()
-
-    @Query("UPDATE tabs SET isActive = 1, lastActiveTimestamp = :timestamp WHERE id = :id")
-    suspend fun markActive(
-        id: String,
-        timestamp: Long,
-    )
-
     @Query(
         "UPDATE tabs SET isActive = CASE WHEN id = :activeId THEN 1 ELSE 0 END, lastActiveTimestamp = CASE WHEN id = :activeId THEN :timestamp ELSE lastActiveTimestamp END",
     )
@@ -139,9 +125,6 @@ interface TabDao {
 
     @Query("SELECT * FROM tabs WHERE folderId = :folderId ORDER BY position ASC, id ASC")
     suspend fun getTabsByFolderId(folderId: String): List<TabEntity>
-
-    @Query("SELECT * FROM tabs WHERE folderId = :folderId ORDER BY position ASC, id ASC")
-    fun getTabsByFolderIdFlow(folderId: String): Flow<List<TabEntity>>
 
     @Query("UPDATE tabs SET folderId = :folderId WHERE id = :tabId")
     suspend fun updateFolderId(tabId: String, folderId: String?)

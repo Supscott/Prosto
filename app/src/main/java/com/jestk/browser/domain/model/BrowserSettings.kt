@@ -17,9 +17,6 @@ data class BrowserSettings(
     val feedbackPromptState: FeedbackPromptState = FeedbackPromptState.VISIBLE,
     val feedbackPromptSnoozedUntil: Long = 0L,
 ) {
-    val adBlockerEnabled: Boolean
-        get() = isAdBlockerEnabled
-
     val isAutoConsentEnabled: Boolean
         get() = autoConsentEnabled
 }

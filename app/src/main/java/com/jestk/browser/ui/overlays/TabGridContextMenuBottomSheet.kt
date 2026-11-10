@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -23,7 +22,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -45,8 +43,6 @@ import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalProstoTypography
-import com.jestk.browser.ui.theme.ProstoBorders
-import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes

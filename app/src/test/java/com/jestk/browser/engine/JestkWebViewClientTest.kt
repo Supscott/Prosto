@@ -162,7 +162,7 @@ class JestkWebViewClientTest {
         val webView = android.webkit.WebView(context)
 
         // Custom unknown scheme returns true to prevent WebView error
-        val shouldOverride = client.shouldOverrideUrlLoading(webView, "unknownscheme://path")
+        val shouldOverride = client.shouldOverrideUrlLoading(webView, webRequest("unknownscheme://path", isForMainFrame = true))
         assertThat(shouldOverride).isTrue()
     }
 
@@ -181,7 +181,7 @@ class JestkWebViewClientTest {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         val webView = android.webkit.WebView(context)
 
-        val shouldOverride = client.shouldOverrideUrlLoading(webView, "https://example.com")
+        val shouldOverride = client.shouldOverrideUrlLoading(webView, webRequest("https://example.com", isForMainFrame = true))
         assertThat(shouldOverride).isFalse()
     }
 

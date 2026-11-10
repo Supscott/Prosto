@@ -4,12 +4,9 @@ import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
 
 interface SettingsRepository {
     fun getSettings(): Flow<BrowserSettings>
-
-    fun getAutoConsentEnabled(): Flow<Boolean> = getSettings().map { it.autoConsentEnabled }
 
     suspend fun getCurrentSettings(): BrowserSettings
 

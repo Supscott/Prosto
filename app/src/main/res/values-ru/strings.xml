@@ -114,10 +114,6 @@
     <string name="insecure_site_warning_message">Подключение к сайту %1$s не зашифровано. Пароли, сообщения и платёжные данные могут быть перехвачены.</string>
     <string name="insecure_site_continue_button">Всё равно перейти</string>
     <string name="insecure_site_go_back_button">Назад</string>
-    <string name="blocked_ad_navigation_title">Рекламный переход заблокирован</string>
-    <string name="blocked_ad_navigation_message">Мы заблокировали переход на %1$s, который выглядит как реклама. Оставайтесь на текущей странице или перейдите всё равно.</string>
-    <string name="blocked_ad_navigation_continue_button">Всё равно перейти</string>
-    <string name="blocked_ad_navigation_stay_button">Остаться здесь</string>
     <string name="blocked_ad_navigation_proceed">Перейти</string>
     <string name="blocked_ad_navigation_stay">Остаться</string>
 
@@ -167,7 +163,6 @@
     <string name="action_more">Ещё</string>
     <string name="action_new_tab">Новая вкладка</string>
     <string name="tab_home_title">Главная</string>
-    <string name="tab_loading_title">Загрузка…</string>
     <string name="a11y_remove_tab">Закрыть вкладку</string>
     <string name="a11y_close_tab">Закрыть вкладку</string>
     <string name="a11y_secure_connection">Защищённое соединение</string>
@@ -183,7 +178,6 @@
     <string name="a11y_scan_qr">Сканировать QR</string>
     <string name="a11y_add_favorite">Добавить в избранное</string>
     <string name="a11y_feedback_icon">Значок обратной связи</string>
-    <string name="a11y_download">Скачать</string>
     <string name="a11y_pause_download">Приостановить загрузку</string>
     <string name="a11y_resume_download">Продолжить загрузку</string>
     <string name="a11y_cancel_download">Отменить загрузку</string>
@@ -221,7 +215,6 @@
     <string name="dock_search">Поиск</string>
     <string name="search_engine_shortcut_compact">(%1$s)</string>
     <string name="search_engine_shortcut_value">Быстрый вызов: %1$s</string>
-    <string name="snackbar_tab_closed_title">%1$s: %2$s</string>
     <string name="switch_to_tab_with_title">%1$s: %2$s</string>
     <string name="full_screen_exit_hint">Чтобы выйти из полноэкранного режима, потяните вниз</string>
     <string name="download_completed_notification">Загружено %1$s</string>
@@ -244,10 +237,8 @@
     <string name="workspace_add">Новое пространство</string>
     <string name="workspace_default_title">Пространство</string>
     <string name="workspace_edit">Редактировать пространство</string>
-    <string name="workspace_name_label">Название пространства</string>
     <string name="workspace_name_placeholder">Название пространства</string>
     <string name="workspace_clear_name">Очистить название</string>
-    <string name="workspace_color_label">Цвет</string>
     <string name="workspace_save">Сохранить</string>
     <string name="workspace_create">Создать</string>
     <string name="workspace_delete">Удалить пространство</string>

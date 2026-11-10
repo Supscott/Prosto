@@ -114,10 +114,6 @@
     <string name="insecure_site_warning_message">The connection to %1$s is not encrypted. Passwords, messages, or payment info could be intercepted.</string>
     <string name="insecure_site_continue_button">Continue anyway</string>
     <string name="insecure_site_go_back_button">Go back</string>
-    <string name="blocked_ad_navigation_title">Blocked ad navigation</string>
-    <string name="blocked_ad_navigation_message">We blocked a navigation to %1$s that looks like an advertisement. Stay on the current page or continue anyway.</string>
-    <string name="blocked_ad_navigation_continue_button">Continue anyway</string>
-    <string name="blocked_ad_navigation_stay_button">Stay here</string>
     <string name="blocked_ad_navigation_proceed">Proceed</string>
     <string name="blocked_ad_navigation_stay">Stay</string>
 
@@ -165,7 +161,6 @@
     <string name="action_more">More</string>
     <string name="action_new_tab">New Tab</string>
     <string name="tab_home_title">Home</string>
-    <string name="tab_loading_title">Loading…</string>
     <string name="a11y_remove_tab">Remove Tab</string>
     <string name="a11y_close_tab">Close tab</string>
     <string name="a11y_secure_connection">Secure Connection</string>
@@ -181,7 +176,6 @@
     <string name="a11y_scan_qr">Scan QR</string>
     <string name="a11y_add_favorite">Add Favorite</string>
     <string name="a11y_feedback_icon">Feedback icon</string>
-    <string name="a11y_download">Download</string>
     <string name="a11y_pause_download">Pause download</string>
     <string name="a11y_resume_download">Resume download</string>
     <string name="a11y_cancel_download">Cancel download</string>
@@ -217,7 +211,6 @@
     <string name="dock_search">Search</string>
     <string name="search_engine_shortcut_compact">(%1$s)</string>
     <string name="search_engine_shortcut_value">Shortcut: %1$s</string>
-    <string name="snackbar_tab_closed_title">%1$s: %2$s</string>
     <string name="switch_to_tab_with_title">%1$s: %2$s</string>
     <string name="full_screen_exit_hint">Pull down to exit full screen</string>
     <string name="download_completed_notification">Downloaded %1$s</string>
@@ -240,10 +233,8 @@
     <string name="workspace_add">New workspace</string>
     <string name="workspace_default_title">Workspace</string>
     <string name="workspace_edit">Edit workspace</string>
-    <string name="workspace_name_label">Workspace name</string>
     <string name="workspace_name_placeholder">Workspace name</string>
     <string name="workspace_clear_name">Clear name</string>
-    <string name="workspace_color_label">Color</string>
     <string name="workspace_save">Save</string>
     <string name="workspace_create">Create</string>
     <string name="workspace_delete">Delete workspace</string>

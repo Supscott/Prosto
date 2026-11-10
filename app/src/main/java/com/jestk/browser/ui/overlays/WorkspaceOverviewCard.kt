@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -36,7 +35,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,7 +55,6 @@ import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoCanvasFloor
-import com.jestk.browser.ui.theme.ProstoCardSurface
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue

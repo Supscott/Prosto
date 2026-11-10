@@ -1,10 +1,8 @@
 package com.jestk.browser.ui.viewmodel
 
-import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
-import com.jestk.browser.domain.model.AppUpdate
 import com.jestk.browser.domain.model.AppUpdateUiState
 import com.jestk.browser.domain.model.compareVersions
 import com.jestk.browser.domain.repository.SettingsRepository
@@ -63,11 +61,6 @@ class UpdateCoordinator(
     fun onAutoUpdateDisabled() {
         Log.d(TAG, "onAutoUpdateDisabled: clearing update notification")
         publish(AppUpdateUiState.None)
-    }
-
-    fun onCheckNow() {
-        Log.d(TAG, "onCheckNow: triggering manual update check")
-        scope.launch(ioDispatcher) { checkForUpdate(manual = true) }
     }
 
     suspend fun checkForUpdate(manual: Boolean = false) {

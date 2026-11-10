@@ -111,12 +111,6 @@ data class BrowserUiState(
     val autoConsentEnabled: Boolean
         get() = settings.autoConsentEnabled
 
-    val bottomBarVisible: Boolean
-        get() = isBottomBarVisible
-
-    val loadProgress: Int
-        get() = (loadingProgress * 100).toInt()
-
     val isHome: Boolean
         get() =
             activeOverlay == OverlayType.HOME ||

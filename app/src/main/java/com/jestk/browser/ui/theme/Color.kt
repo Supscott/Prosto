@@ -21,11 +21,6 @@ val ProstoOnPrimaryContainer = Color(0xFF00201D)
 val ProstoAccent = Color(0xFF14A79D)
 
 val ProstoSurface = Color(0xFFFFFFFF)
-val ProstoSurfaceDim = Color(0xFFD2DDDA)
-val ProstoSurfaceBright = Color(0xFFFFFFFF)
-val ProstoSurfaceContainerLowest = Color(0xFFFFFFFF)
-val ProstoSurfaceContainerLow = Color(0xFFF2FAF7)
-val ProstoSurfaceContainer = Color(0xFFECF5F2)
 val ProstoSurfaceContainerHigh = Color(0xFFE6EFEC)
 val ProstoSurfaceContainerHighest = Color(0xFFDEE9E6)
 
@@ -35,7 +30,6 @@ val ProstoOutline = Color(0xFF6F7977)
 val ProstoOutlineVariant = Color(0xFFBEC9C6)
 val ProstoInverseSurface = Color(0xFF2B3230)
 val ProstoInverseOnSurface = Color(0xFFEFF1F0)
-val ProstoSurfaceTint = Color(0xFF087E78)
 val ProstoInversePrimary = Color(0xFF56DBCF)
 
 val ProstoSecondary = Color(0xFF4A6360)
@@ -52,16 +46,6 @@ val ProstoError = Color(0xFFBA1A1A)
 val ProstoOnError = Color(0xFFFFFFFF)
 val ProstoErrorContainer = Color(0xFFFFDAD6)
 val ProstoOnErrorContainer = Color(0xFF93000A)
-
-val ProstoPrimaryFixed = Color(0xFFA5F2E9)
-val ProstoPrimaryFixedDim = Color(0xFF83D5CB)
-val ProstoOnPrimaryFixed = Color(0xFF00201D)
-val ProstoOnPrimaryFixedVariant = Color(0xFF003732)
-
-val ProstoSecondaryFixed = Color(0xFFCCE8E3)
-val ProstoSecondaryFixedDim = Color(0xFFB1CCC8)
-val ProstoOnSecondaryFixed = Color(0xFF06201D)
-val ProstoOnSecondaryFixedVariant = Color(0xFF1D3532)
 
 // Architectural Layer Tokens
 val ProstoCanvasFloor = Color(0xFFE9F6F2) // Level 0 Base layer
@@ -95,60 +79,11 @@ val DarkOnErrorContainer = Color(0xFFFFDAD6)
 
 // Dark Palette Tokens
 val DarkDockSurface = Color(0xFF0C1A18)
-val DarkCanvasBase = Color(0xFF08100F)
 val DarkTextHighContrast = Color(0xFFF8FAFC)
-val DarkDockBackground = DarkDockSurface
-val DarkDockButton = Color(0xFF9FB0AD)
 
 // ==========================================
 // Prosto Gradients & Brushes (Calm Mint Theme)
 // ==========================================
-
-val ProstoActiveTabBorderBrush =
-    Brush.linearGradient(
-        colors =
-            listOf(
-                Color(0xFF56DBCF),
-                Color(0xFF087E78),
-            ),
-    )
-
-val ProstoAddTabGradientBrush =
-    Brush.linearGradient(
-        colors =
-            listOf(
-                Color(0xFF087E78),
-                Color(0xFF56DBCF),
-            ),
-    )
-
-val ProstoSkySwitchBrush =
-    Brush.horizontalGradient(
-        colors =
-            listOf(
-                Color(0xFF087E78),
-                Color(0xFF2BB3A8),
-                Color(0xFFA5F2E9),
-            ),
-    )
-
-val ProstoCardBorderBrush =
-    Brush.verticalGradient(
-        colors =
-            listOf(
-                Color.White.copy(alpha = 0.85f),
-                Color(0xFFDCE6E3).copy(alpha = 0.80f),
-            ),
-    )
-
-val DuckDuckGoBadgeBrush =
-    Brush.linearGradient(
-        colors =
-            listOf(
-                Color(0xFFA5F2E9),
-                Color(0xFFDFF7F3),
-            ),
-    )
 
 val CardPreviewRoseBrush =
     Brush.linearGradient(
@@ -263,25 +198,3 @@ fun Modifier.prostoSkyBackground(isDark: Boolean = false): Modifier =
         }
     }
 
-// Pastel accents mapped to the calm mint palette
-val PastelPeach = Color(0xFFB9EDE6)
-val PastelWarmOrange = Color(0xFFB9EDE6)
-val PastelRose = Color(0xFFA5F2E9)
-val PastelBlue = Color(0xFF6FD9CE)
-val PastelBlueContainer = Color(0xFF14A79D)
-val PastelPink = Color(0xFFDFF7F3)
-val PastelRaspberry = Color(0xFF087E78)
-
-// Old theme tokens backward-compatibility
-val JestkPrimary = ProstoPrimary
-val JestkOnPrimary = ProstoOnPrimary
-val JestkPrimaryContainer = ProstoPrimaryContainer
-val JestkOnPrimaryContainer = ProstoOnPrimaryContainer
-
-val LightBackground = ProstoCanvasFloor
-val LightSurface = ProstoCardSurface
-val LightSurfaceVariant = ProstoSurfaceContainerHigh
-val LightOnSurface = ProstoOnSurface
-val LightOnSurfaceVariant = ProstoOnSurfaceVariant
-val LightDockBackground = ProstoCardSurface
-val LightDockButton = ProstoMutedSlate

@@ -1,12 +1,10 @@
 package com.jestk.browser.data.local.dao
 
 import androidx.room.Dao
-import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
-import com.jestk.browser.R
 import com.jestk.browser.data.local.entity.HistoryEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -172,12 +170,6 @@ interface HistoryDao {
             )
         }
     }
-
-    @Delete
-    suspend fun deleteHistory(item: HistoryEntity)
-
-    @Query("DELETE FROM history WHERE url = (SELECT url FROM history WHERE id = :id)")
-    suspend fun deleteHistoryById(id: Long)
 
     @Query("DELETE FROM history WHERE timestamp < :cutoffTimestamp")
     suspend fun deleteHistoryBefore(cutoffTimestamp: Long)

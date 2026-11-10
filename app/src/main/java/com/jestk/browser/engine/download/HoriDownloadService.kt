@@ -26,7 +26,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import java.io.File
-import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 
 class HoriDownloadService : Service() {

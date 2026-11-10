@@ -140,17 +140,6 @@ internal class SearchCoordinator(
         }
     }
 
-    fun deleteHistoryItem(id: Long) {
-        updateUiState { state ->
-            state.copy(
-                searchHistorySuggestions = state.searchHistorySuggestions.filterNot { it.id == id },
-            )
-        }
-        scope.launch(ioDispatcher) {
-            historyRepository.deleteHistory(id)
-        }
-    }
-
     fun clearAllHistory(onClearRecentTabs: suspend () -> Unit) {
         val activeWorkspaceId = getCurrentState().activeWorkspaceId
         updateUiState {

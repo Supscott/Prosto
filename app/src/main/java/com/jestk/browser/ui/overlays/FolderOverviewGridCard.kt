@@ -44,12 +44,9 @@ import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.navigation.getContrastingFolderContentColor
-import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkSurface
-import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalProstoTypography
-import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
 import java.io.File

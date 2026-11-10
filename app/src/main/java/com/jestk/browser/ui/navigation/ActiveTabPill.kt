@@ -37,12 +37,10 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,8 +50,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -72,14 +68,12 @@ import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.components.SiteFavicon
-import com.jestk.browser.ui.theme.DarkError
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkTextHighContrast
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoAccent
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoDarkText
-import com.jestk.browser.ui.theme.ProstoError
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.util.ClipboardHelper
 
@@ -128,8 +122,6 @@ fun ActiveTabPill(
     border: BorderStroke? = null,
     isLoading: Boolean = false,
     loadingProgress: Float = 0f,
-    onSwipeNext: () -> Unit = {},
-    onSwipePrev: () -> Unit = {},
     menuExpanded: Boolean = false,
     onMenuDismiss: () -> Unit = {},
     isCompact: Boolean = false,
@@ -460,101 +452,6 @@ private fun FadingSingleLineText(
                     Modifier
                 },
             ),
-    )
-}
-
-/**
- * Convenience overload accepting [Tab] domain model.
- */
-@Composable
-fun ActiveTabPill(
-    tab: Tab,
-    displayTitle: String,
-    displayDomain: String,
-    isHome: Boolean,
-    backgroundColor: Color,
-    isDark: Boolean,
-    onOpenSearch: () -> Unit,
-    onClose: () -> Unit,
-    onAddFavorite: (String, String) -> Unit,
-    onShare: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    border: BorderStroke? = null,
-    isLoading: Boolean = false,
-    loadingProgress: Float = 0f,
-    onSwipeNext: () -> Unit = {},
-    onSwipePrev: () -> Unit = {},
-    menuExpanded: Boolean = false,
-    onMenuDismiss: () -> Unit = {},
-) {
-    ActiveTabPill(
-        title = displayTitle,
-        domain = displayDomain,
-        url = tab.url,
-        faviconUrl = tab.faviconUrl,
-        isHome = isHome,
-        backgroundColor = backgroundColor,
-        border = border,
-        isDark = isDark,
-        isLoading = isLoading,
-        loadingProgress = loadingProgress,
-        onOpenSearch = onOpenSearch,
-        onClose = onClose,
-        onAddFavorite = onAddFavorite,
-        onShare = onShare,
-        modifier = modifier,
-        onSwipeNext = onSwipeNext,
-        onSwipePrev = onSwipePrev,
-        menuExpanded = menuExpanded,
-        onMenuDismiss = onMenuDismiss,
-    )
-}
-
-/**
- * Backward compatibility alias for [ActiveTabPill].
- */
-@Composable
-fun ActiveTabCenterCapsule(
-    title: String,
-    domain: String,
-    url: String,
-    faviconUrl: String?,
-    isHome: Boolean,
-    backgroundColor: Color,
-    border: BorderStroke? = null,
-    isDark: Boolean,
-    isLoading: Boolean = false,
-    loadingProgress: Float = 0f,
-    onOpenSearch: () -> Unit,
-    onClose: () -> Unit,
-    onAddFavorite: (String, String) -> Unit,
-    onShare: (String) -> Unit,
-    modifier: Modifier = Modifier,
-    onSwipeNext: () -> Unit = {},
-    onSwipePrev: () -> Unit = {},
-    menuExpanded: Boolean = false,
-    onMenuDismiss: () -> Unit = {},
-) {
-    ActiveTabPill(
-        title = title,
-        domain = domain,
-        url = url,
-        faviconUrl = faviconUrl,
-        isHome = isHome,
-        backgroundColor = backgroundColor,
-        border = border,
-        isDark = isDark,
-        isLoading = isLoading,
-        loadingProgress = loadingProgress,
-        onOpenSearch = onOpenSearch,
-        onClose = onClose,
-        onAddFavorite = onAddFavorite,
-        onShare = onShare,
-        modifier = modifier,
-        onSwipeNext = onSwipeNext,
-        onSwipePrev = onSwipePrev,
-        menuExpanded = menuExpanded,
-        onMenuDismiss = onMenuDismiss,
     )
 }
 

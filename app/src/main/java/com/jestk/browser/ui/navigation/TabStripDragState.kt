@@ -20,7 +20,6 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.util.Collections
 
 /**
  * Encapsulates dimension metrics and hysteresis configuration for tab strip drag & drop reordering.

@@ -1,6 +1,5 @@
 package com.jestk.browser.util
 
-import com.jestk.browser.R
 import java.io.File
 
 /**

@@ -2,7 +2,6 @@ package com.jestk.browser.ui.viewmodel
 
 import android.net.Uri
 import android.util.Log
-import com.jestk.browser.R
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.model.OverlayType
@@ -1019,10 +1018,6 @@ internal class TabCoordinator(
             Log.d(TAG, "Switching to adjacent tab ${currentTabs[targetIndex].id} (delta=$delta)")
             selectTab(currentTabs[targetIndex].id)
         }
-    }
-
-    fun reorderTabs(orderedTabs: List<Tab>) {
-        reorderTabsAndFolders(orderedTabs, null)
     }
 
     fun reorderTabsAndFolders(

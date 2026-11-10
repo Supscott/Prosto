@@ -47,12 +47,6 @@ class HistoryRepositoryImpl(
         }
     }
 
-    override suspend fun deleteHistory(id: Long) = withContext(ioDispatcher) {
-        historyDao.deleteHistoryById(id)
-    }
-
-    override suspend fun deleteHistoryItem(id: Long) = deleteHistory(id)
-
     override suspend fun clearHistory(workspaceId: String?) = withContext(ioDispatcher) {
         if (workspaceId != null) {
             historyDao.clearHistoryByWorkspace(workspaceId)

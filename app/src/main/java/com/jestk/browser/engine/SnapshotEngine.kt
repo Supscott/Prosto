@@ -3,12 +3,10 @@ package com.jestk.browser.engine
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.webkit.WebView
-import com.jestk.browser.R
 import com.jestk.browser.util.atomicMoveTo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

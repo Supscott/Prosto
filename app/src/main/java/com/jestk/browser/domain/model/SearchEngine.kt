@@ -11,9 +11,6 @@ data class SearchEngine(
     val orderPosition: Int = 0,
     val isBuiltIn: Boolean = false
 ) {
-    val iconAssetUrl: String
-        get() = iconUrl
-
     val name: String
         get() = id.uppercase()
 

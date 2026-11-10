@@ -8,7 +8,6 @@ import android.os.Environment
 import android.util.Base64
 import android.util.Log
 import android.webkit.CookieManager
-import com.jestk.browser.R
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.DownloadStatus
 import com.jestk.browser.domain.repository.DownloadRepository
@@ -19,7 +18,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow

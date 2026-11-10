@@ -364,10 +364,6 @@ class BrowserViewModel(
                 dismissDownloadSnackbar()
             }
 
-            is BrowserUiEvent.DownloadStarted -> {
-                onDownloadStarted(event.item)
-            }
-
             is BrowserUiEvent.OpenOverlay -> {
                 _uiState.update { it.copy(activeOverlay = event.overlay) }
             }
@@ -537,10 +533,6 @@ class BrowserViewModel(
                 tabCoordinator.handleSnapshot(event.tabId, event.snapshotPath)
             }
 
-            is BrowserUiEvent.OnFaviconReceived -> {
-                Unit
-            }
-
             is BrowserUiEvent.UpdateFaviconUrl -> {
                 tabCoordinator.handleUpdateFavicon(event.tabId, event.faviconUrl, event.pageUrl)
             }
@@ -581,10 +573,6 @@ class BrowserViewModel(
                 _uiState.update { it.copy(isFavoritesExpanded = !it.isFavoritesExpanded) }
             }
 
-            is BrowserUiEvent.DeleteHistoryItem -> {
-                searchCoordinator.deleteHistoryItem(event.id)
-            }
-
             is BrowserUiEvent.ClearAllHistory -> {
                 searchCoordinator.clearAllHistory {
                     if (recentTabRepository != null) {
@@ -593,10 +581,6 @@ class BrowserViewModel(
                         tabRepository.clearRecentTabs()
                     }
                 }
-            }
-
-            is BrowserUiEvent.SelectHistorySuggestion -> {
-                loadUrl(event.item.url)
             }
 
             is BrowserUiEvent.ToggleSearchHistoryExpanded -> {

@@ -40,7 +40,6 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -54,7 +53,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -99,8 +97,6 @@ import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkDockSurface
-import com.jestk.browser.ui.theme.DarkError
-import com.jestk.browser.ui.theme.DarkErrorContainer
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
@@ -108,17 +104,13 @@ import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoCardSurface
 import com.jestk.browser.ui.theme.ProstoDarkText
-import com.jestk.browser.ui.theme.ProstoError
-import com.jestk.browser.ui.theme.ProstoErrorContainer
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.LocalVibrationFeedback
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.net.URI
@@ -139,7 +131,6 @@ fun TabStripRow(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
     isDark: Boolean = LocalIsDarkTheme.current,
-    dockBg: Color = if (isDark) DarkDockSurface.copy(alpha = 0.80f) else Color.White.copy(alpha = 0.80f),
     centerPillBg: Color = if (isDark) DarkDockSurface else Color.White,
     centerPillBorder: BorderStroke? = null,
     circleBtnBg: Color = Color.Transparent,

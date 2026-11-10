@@ -5,7 +5,6 @@ import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Update
 import com.jestk.browser.data.local.entity.FavoriteEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -29,9 +28,6 @@ interface FavoriteDao {
     @Query("SELECT COUNT(*) > 0 FROM favorites WHERE url = :url AND workspaceId = :workspaceId")
     suspend fun isFavorite(url: String, workspaceId: String = "default_personal"): Boolean
 
-    @Query("SELECT COUNT(*) > 0 FROM favorites WHERE url = :url AND workspaceId = :workspaceId")
-    fun isFavoriteFlow(url: String, workspaceId: String = "default_personal"): Flow<Boolean>
-
     @Query("SELECT COUNT(*) FROM favorites WHERE workspaceId = :workspaceId")
     suspend fun getFavoritesCount(workspaceId: String = "default_personal"): Int
 
@@ -41,9 +37,6 @@ interface FavoriteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertFavorite(favorite: FavoriteEntity): Long
 
-    @Update
-    suspend fun updateFavorite(favorite: FavoriteEntity)
-
     @Delete
     suspend fun deleteFavorite(favorite: FavoriteEntity)
 
@@ -52,12 +45,6 @@ interface FavoriteDao {
 
     @Query("DELETE FROM favorites WHERE url = :url AND workspaceId = :workspaceId")
     suspend fun deleteFavoriteByUrl(url: String, workspaceId: String = "default_personal")
-
-    @Query("DELETE FROM favorites WHERE workspaceId = :workspaceId")
-    suspend fun clearFavoritesByWorkspace(workspaceId: String)
-
-    @Query("DELETE FROM favorites")
-    suspend fun clearAllFavorites()
 
     @Query("UPDATE favorites SET position = :position WHERE id = :id")
     suspend fun updatePosition(id: Long, position: Int)

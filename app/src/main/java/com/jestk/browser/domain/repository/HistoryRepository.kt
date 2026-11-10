@@ -11,7 +11,5 @@ interface HistoryRepository {
     suspend fun getPagedHistory(limit: Int = 20, offset: Int = 0, workspaceId: String = Workspace.DEFAULT_PERSONAL_ID): List<HistoryItem>
     suspend fun searchHistoryPaged(query: String, limit: Int = 20, offset: Int = 0, workspaceId: String = Workspace.DEFAULT_PERSONAL_ID): List<HistoryItem>
     suspend fun recordVisit(url: String, title: String, workspaceId: String = Workspace.DEFAULT_PERSONAL_ID)
-    suspend fun deleteHistory(id: Long)
-    suspend fun deleteHistoryItem(id: Long)
     suspend fun clearHistory(workspaceId: String? = null)
 }

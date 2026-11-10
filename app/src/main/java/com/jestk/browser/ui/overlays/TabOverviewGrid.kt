@@ -4,13 +4,9 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -68,10 +64,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.changedToUp
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
@@ -82,12 +74,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.R
-import com.jestk.browser.ui.components.SiteFavicon
-import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
@@ -95,7 +84,6 @@ import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
-import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
@@ -104,7 +92,6 @@ import com.jestk.browser.ui.theme.prostoSkyBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.LocalVibrationFeedback
-import java.io.File
 import kotlin.math.roundToInt
 
 internal sealed interface OverviewGridItem {

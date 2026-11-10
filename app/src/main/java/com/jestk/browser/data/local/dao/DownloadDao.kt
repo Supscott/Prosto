@@ -4,7 +4,6 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.jestk.browser.R
 import com.jestk.browser.data.local.entity.DownloadEntity
 import kotlinx.coroutines.flow.Flow
 
