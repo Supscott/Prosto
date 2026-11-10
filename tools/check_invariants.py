@@ -202,6 +202,40 @@ def check_security_challenge_protection():
     return errors
 
 
+def check_injected_script_stealth():
+    """Keep page-visible artefacts of injected scripts out of the code (review BOT-1/2/3, WV-3).
+
+    - No replacement of window.matchMedia and no fake `fn.toString = function` "stealth": both are
+      detectable with Function.prototype.toString.call(fn).
+    - No `window.__*` names: they show up in Object.getOwnPropertyNames(window).
+    - addJavascriptInterface only where a reviewed bridge lives.
+    - JestkWebViewClient is built in one place (ui/views/WebViewClientBinder.kt).
+    - Raw filter lists stay in tools/filterlists, out of the APK.
+    """
+    errors = []
+    forbidden = {
+        "window.matchMedia =": "replaces window.matchMedia",
+        ".toString = function": "fakes a native toString",
+        "window.__": "uses a window.__* global",
+    }
+    bridge_files = {"WebViewPool.kt", "CleanVideoPlayerOverlay.kt"}
+    for file in MAIN_DIR.rglob("*.kt"):
+        content = file.read_text(encoding="utf-8")
+        rel = file.relative_to(ROOT)
+        for needle, why in forbidden.items():
+            if needle in content:
+                errors.append(f"{rel}: {why} ({needle!r})")
+        if "addJavascriptInterface(" in content and file.name not in bridge_files:
+            errors.append(f"{rel}: addJavascriptInterface outside the reviewed bridge files")
+        if file.name not in {"JestkWebViewClient.kt", "WebViewClientBinder.kt"} and re.search(r"\bJestkWebViewClient\(", content):
+            errors.append(f"{rel}: builds JestkWebViewClient outside WebViewClientBinder.kt")
+    assets = MAIN_DIR / "assets"
+    for file in assets.glob("*.txt"):
+        if file.name != "adblock_domains.txt":
+            errors.append(f"{file.relative_to(ROOT)}: raw filter list in APK assets (keep it in tools/filterlists)")
+    return errors
+
+
 def main():
     all_errors = []
     all_errors.extend(check_no_blur())
@@ -213,6 +247,7 @@ def main():
     all_errors.extend(check_localization_parity())
     all_errors.extend(check_no_hardcoded_ui_strings())
     all_errors.extend(check_security_challenge_protection())
+    all_errors.extend(check_injected_script_stealth())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -222,7 +257,7 @@ def main():
 
     print(
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
-        "Domain Purity, Favicon Safety, Localization, Security Challenge Protection)."
+        "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth)."
     )
     return 0
 

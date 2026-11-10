@@ -1,7 +1,23 @@
 # Codebase Review — Anti-Bot, Ad Blocker, WebView Core (2026-11)
 
-Status: **Findings verified, fixes not started.** Each finding has an ID; fix tickets should
-reference it (e.g. `fix(adblock): AB-1 ...`).
+Status: **P0/P1 fixed (2026-11-11), P2 items open.** Each finding has an ID; commits reference it.
+
+| ID | Status | Commit / note |
+|---|---|---|
+| AB-1, AB-2, AB-3 | fixed | `fix(adblock)` — generator `tools/build_adblock_list.py`, two-tier list, no self-blocking; regression tests on the shipped asset |
+| AB-4, AB-5 | fixed | `fix(adblock)` — auto-consent limited to known CMPs; overlay scan removed |
+| BOT-1, BOT-2 | fixed, verified on device | `fix(antibot)` — probe matches Chrome for `matchMedia`, `orientation.lock`, `JSON.parse`, no extra globals |
+| BOT-3 | mitigated | `fix(antibot)` — native caller checks; the two bridge names are still visible → move to `addWebMessageListener` (open) |
+| BOT-4 | won't fix | `X-Requested-With` cannot be disabled: `REQUESTED_WITH_HEADER_ALLOW_LIST` is unsupported on WebView 156; DuckDuckGo sends it too |
+| WV-1 | fixed, verified on device | `fix(webview)` — CDP `Page.crash` → tab recreated and reloaded |
+| WV-2 | fixed | `fix(webview)` — hidden tabs paused (DuckDuckGo parity) |
+| WV-3, WV-4, WV-5 | fixed | `fix(webview)`, `fix(antibot)` — WV-5 still worth a device check on a 3-D Secure payment |
+| WV-6 | partly fixed | WebView setup deduplicated; script injection moved to `onPageFinished`; apple.com/youtube.com theme hacks remain |
+| DL-1, DL-2, DL-3 | fixed | `fix(downloads)` — 416 regression test |
+| DATA-1 | resolved by deletion | `refactor(cleanup)` |
+| DATA-2…6, DL-4, UI-1…8 | open (P2) | see sections 4 and 6 |
+| Prevention | done | `tools/check_invariants.py` Script Stealth check; `verify.sh` checks the ad-block list; LESSONS #12 and CLAUDE.md rewritten |
+
 
 Method:
 1. Manual line-by-line read of the WebView core: `WebViewPool`, `JestkWebViewClient`,
