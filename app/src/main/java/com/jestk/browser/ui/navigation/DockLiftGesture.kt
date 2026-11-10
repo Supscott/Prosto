@@ -150,7 +150,7 @@ fun Modifier.dockLiftGestureModifier(
                             (duration < 250L && (velocityYDp < -500f || velocityY < -500f)) ||
                             velocityYDp < -500f || velocityY < fastVelocityPx || velocityY < ultraFastVelocityPx
 
-                        val isLiftEligible = isArmed || (duration >= 210L && totalDragY <= -minHoldDragPx) || totalDragY <= -thresholdPx
+                        val isLiftEligible = isArmed
 
                         if (isFastFlick) {
                             currentOnSwipeUpSearch()

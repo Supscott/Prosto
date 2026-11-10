@@ -152,32 +152,7 @@ object SnapshotEngine {
             return
         }
 
-        activeScope().launch {
-            try {
-                val snapshotsDir = File(appContext.filesDir, "snapshots").apply {
-                    if (!exists()) mkdirs()
-                }
-                val targetFile = File(snapshotsDir, "tab_${tabId}.jpg")
-                val tempFile = File(snapshotsDir, "tab_${tabId}.jpg.tmp")
-
-                FileOutputStream(tempFile).use { out ->
-                    thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
-                }
-                tempFile.atomicMoveTo(targetFile)
-                thumbnailBitmap.recycle()
-
-                Log.d(TAG, "Captured view snapshot for tab $tabId")
-                mainHandler.post { onComplete(targetFile.absolutePath) }
-            } catch (e: Exception) {
-                Log.w(TAG, "Failed to write snapshot file for tab $tabId", e)
-                try {
-                    thumbnailBitmap.recycle()
-                } catch (recycleError: Exception) {
-                    Log.d(TAG, "Best-effort bitmap recycle failed for tab $tabId", recycleError)
-                }
-                mainHandler.post { onComplete(null) }
-            }
-        }
+        saveSnapshotBitmap(thumbnailBitmap, tabId, context, onComplete)
     }
 
     fun captureSnapshot(
@@ -241,26 +216,36 @@ object SnapshotEngine {
             return
         }
 
-        activeScope().launch {
-            if (onVisualColorsSampled != null && targetWidth > 0 && targetHeight > 0) {
-                try {
-                    val topY = (10 * scale).toInt().coerceIn(0, targetHeight - 1)
-                    val bottomY = ((height - 10) * scale).toInt().coerceIn(0, targetHeight - 1)
-                    val centerX = targetWidth / 2
-                    val rawTop = thumbnailBitmap.getPixel(centerX, topY)
-                    val rawBottom = thumbnailBitmap.getPixel(centerX, bottomY)
-                    if (rawTop != 0) {
-                        val topColor = rawTop or (0xFF shl 24)
-                        val bottomColor = rawBottom or (0xFF shl 24)
-                        mainHandler.post {
-                            onVisualColorsSampled(topColor, bottomColor)
-                        }
+        if (onVisualColorsSampled != null && targetWidth > 0 && targetHeight > 0) {
+            try {
+                val topY = (10 * scale).toInt().coerceIn(0, targetHeight - 1)
+                val bottomY = ((height - 10) * scale).toInt().coerceIn(0, targetHeight - 1)
+                val centerX = targetWidth / 2
+                val rawTop = thumbnailBitmap.getPixel(centerX, topY)
+                val rawBottom = thumbnailBitmap.getPixel(centerX, bottomY)
+                if (rawTop != 0) {
+                    val topColor = rawTop or (0xFF shl 24)
+                    val bottomColor = rawBottom or (0xFF shl 24)
+                    mainHandler.post {
+                        onVisualColorsSampled(topColor, bottomColor)
                     }
-                } catch (e: Exception) {
-                    Log.d(TAG, "Best-effort color sampling failed for tab $tabId", e)
                 }
+            } catch (e: Exception) {
+                Log.d(TAG, "Best-effort color sampling failed for tab $tabId", e)
             }
+        }
 
+        saveSnapshotBitmap(thumbnailBitmap, tabId, context, onComplete)
+    }
+
+    private fun saveSnapshotBitmap(
+        thumbnailBitmap: Bitmap,
+        tabId: String,
+        context: Context,
+        onComplete: (String?) -> Unit
+    ) {
+        val appContext = context.applicationContext
+        activeScope().launch {
             try {
                 val snapshotsDir = File(appContext.filesDir, "snapshots").apply {
                     if (!exists()) mkdirs()
@@ -278,7 +263,9 @@ object SnapshotEngine {
                 mainHandler.post { onComplete(targetFile.absolutePath) }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to write snapshot file for tab $tabId", e)
-                try { thumbnailBitmap.recycle() } catch (recycleError: Exception) {
+                try {
+                    thumbnailBitmap.recycle()
+                } catch (recycleError: Exception) {
                     Log.d(TAG, "Best-effort bitmap recycle failed for tab $tabId", recycleError)
                 }
                 mainHandler.post { onComplete(null) }

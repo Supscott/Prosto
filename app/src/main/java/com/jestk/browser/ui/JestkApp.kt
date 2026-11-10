@@ -472,6 +472,22 @@ fun JestkApp(
 
         var dockDragLiftPx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
 
+        val handleUiEvent: (BrowserUiEvent) -> Unit = remember(viewModel, uiState.activeTab, uiState.isHome, view, context) {
+            { event ->
+                if (event is BrowserUiEvent.OpenWorkspacesOverview || event is BrowserUiEvent.OpenTabGrid) {
+                    val currentTab = uiState.activeTab
+                    if (currentTab != null && (uiState.isHome || currentTab.url.isEmpty() || currentTab.url == "about:blank")) {
+                        SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
+                            if (path != null) {
+                                viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))
+                            }
+                        }
+                    }
+                }
+                viewModel.onEvent(event)
+            }
+        }
+
         val appBackgroundBrush =
             remember(animatedStatusBarBg, animatedBottomBarBg) {
                 Brush.verticalGradient(
@@ -511,7 +527,7 @@ fun JestkApp(
                 if (showHomeScreen) {
                     HomeScreen(
                         uiState = uiState,
-                        onEvent = viewModel::onEvent,
+                        onEvent = handleUiEvent,
                         modifier =
                             Modifier
                                 .fillMaxSize()
@@ -563,7 +579,7 @@ fun JestkApp(
             if (effectiveBottomBarAlpha > 0f) {
                 UnifiedBottomBar(
                     uiState = uiState,
-                    onEvent = viewModel::onEvent,
+                    onEvent = handleUiEvent,
                     onDockDragOffset = { offset -> dockDragLiftPx = -offset },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)

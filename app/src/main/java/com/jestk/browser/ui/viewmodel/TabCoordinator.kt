@@ -1735,6 +1735,7 @@ internal class TabCoordinator(
             updateUiState { state ->
                 state.copy(
                     activeWorkspaceId = targetWorkspaceId,
+                    activeTabId = targetActive.id,
                     tabs = updatedTargetTabs,
                     folders = targetFolders,
                     activeScreen = ScreenType.NONE,
