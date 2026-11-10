@@ -98,6 +98,7 @@ fun WorkspaceEditBottomSheet(
     val sheetBg = if (isDark) DarkSurface else Color.White
     val typography = LocalProstoTypography.current
 
+    val defaultWorkspaceName = stringResource(R.string.workspace_default_title)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = sheetBg,
@@ -317,7 +318,7 @@ fun WorkspaceEditBottomSheet(
                     onClick = {
                         keyboardController?.hide()
                         val finalName = name.trim().ifEmpty {
-                            workspace?.name ?: "Workspace"
+                            workspace?.name ?: defaultWorkspaceName
                         }
                         onSave(finalName, selectedColor)
                     },

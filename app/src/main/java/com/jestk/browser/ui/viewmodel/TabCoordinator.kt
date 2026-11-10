@@ -1759,7 +1759,10 @@ internal class TabCoordinator(
                     tabFolderRepository?.deleteFolder(folder.id)
                 }
 
-                // Delete workspace itself
+                // Delete profile and workspace itself
+                val wsToDelete = currentWorkspaces.find { it.id == workspaceId }
+                val profileToDelete = wsToDelete?.profileName ?: workspaceId
+                webViewPool?.deleteProfile(profileToDelete)
                 workspaceRepository?.deleteWorkspace(workspaceId)
             }
         }
@@ -1776,6 +1779,7 @@ internal class TabCoordinator(
                 val currentUiTabs = getCurrentState().tabs
 
                 // Move tab in DB: update workspaceId and clear folderId
+                webViewPool?.removeWebView(tabId)
                 tabRepository.updateWorkspaceId(id = tabId, workspaceId = targetWorkspaceId, folderId = null)
 
                 // Prune folder in source workspace if needed

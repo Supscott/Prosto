@@ -1,8 +1,10 @@
 package com.jestk.browser.ui.overlays
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,6 +63,7 @@ import java.io.File
  * Android Recents-style workspace overview card displaying workspace header, active tab
  * snapshot preview, tab title/favicon bar, and open tab count.
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WorkspaceOverviewCard(
     workspace: Workspace,
@@ -89,7 +92,10 @@ fun WorkspaceOverviewCard(
         border = border,
         modifier = modifier
             .clip(ProstoShapes.Card)
-            .clickable(onClick = onSelect)
+            .combinedClickable(
+                onClick = onSelect,
+                onLongClick = onEdit,
+            )
             .testTag("workspace_card_${workspace.id}"),
     ) {
         Column(

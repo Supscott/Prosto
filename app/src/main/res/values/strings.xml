@@ -237,6 +237,7 @@
     <string name="workspace_work">Work</string>
     <string name="move_to_workspace">Move to workspace…</string>
     <string name="workspace_add">New workspace</string>
+    <string name="workspace_default_title">Workspace</string>
     <string name="workspace_edit">Edit workspace</string>
     <string name="workspace_name_label">Workspace name</string>
     <string name="workspace_name_placeholder">Workspace name</string>

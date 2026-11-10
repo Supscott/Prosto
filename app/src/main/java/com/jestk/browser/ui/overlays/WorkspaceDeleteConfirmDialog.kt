@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.jestk.browser.R
 import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
@@ -60,6 +61,16 @@ fun WorkspaceDeleteConfirmDialog(
                 )
 
                 Spacer(modifier = Modifier.height(10.dp))
+
+                if (workspaceName.isNotBlank()) {
+                    Text(
+                        text = workspaceName,
+                        style = LocalProstoTypography.current.labelMd,
+                        color = if (isDark) DarkOnSurfaceVariant else ProstoDarkText,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
 
                 Text(
                     text = stringResource(R.string.workspace_delete_confirm_message),

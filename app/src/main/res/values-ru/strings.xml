@@ -241,6 +241,7 @@
     <string name="workspace_work">Рабочее</string>
     <string name="move_to_workspace">Переместить в пространство…</string>
     <string name="workspace_add">Новое пространство</string>
+    <string name="workspace_default_title">Пространство</string>
     <string name="workspace_edit">Редактировать пространство</string>
     <string name="workspace_name_label">Название пространства</string>
     <string name="workspace_name_placeholder">Название пространства</string>

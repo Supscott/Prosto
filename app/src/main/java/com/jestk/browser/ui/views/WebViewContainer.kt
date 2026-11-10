@@ -346,11 +346,14 @@ fun WebViewContainer(
                         handler?.openFileChooser(callback, params) ?: false
                     },
                     onCreateWindowRequest = { originView, _, _, resultMsg ->
+                        val currentWsId = currentUiState.activeWorkspaceId
+                        val profileName = currentUiState.workspaces.find { it.id == currentWsId }?.profileName ?: currentWsId
                         com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
                             resultMsg = resultMsg,
                             context = wv.context,
                             webViewPool = webViewPool,
                             openerUrl = originView?.url ?: wv.url,
+                            profileName = profileName,
                             onPopupOpened = { currentOnEvent(BrowserUiEvent.OpenPopupTab(it)) }
                         )
                     },
@@ -471,7 +474,10 @@ fun WebViewContainer(
                         )
                     }
 
-                    val initialWebView = webViewPool.getOrCreateWebView(tabId, act)
+                    val profileName = currentTab?.workspaceId?.let { wsId ->
+                        currentUiState.workspaces.find { it.id == wsId }?.profileName ?: wsId
+                    }
+                    val initialWebView = webViewPool.getOrCreateWebView(tabId, act, profileName)
                     (initialWebView.parent as? ViewGroup)?.removeView(initialWebView)
                     configureWebView(initialWebView, tabId, act)
                     tabsContainer.addView(
@@ -523,7 +529,10 @@ fun WebViewContainer(
                         tabsContainer.visibility = targetVisibility
                     }
                     val act = swipeRefresh.context.findActivity() ?: swipeRefresh.context
-                    val targetWebView = webViewPool.getOrCreateWebView(tabId, act)
+                    val profileName = currentTab?.workspaceId?.let { wsId ->
+                        currentUiState.workspaces.find { it.id == wsId }?.profileName ?: wsId
+                    }
+                    val targetWebView = webViewPool.getOrCreateWebView(tabId, act, profileName)
 
                     if (targetWebView.parent !== tabsContainer) {
                         (targetWebView.parent as? ViewGroup)?.removeView(targetWebView)

@@ -253,10 +253,13 @@ fun JestkApp(
                     },
                     onFaviconReceived = handleFavicon,
                     onCreateWindowRequest = { _, _, _, resultMsg ->
+                        val currentWsId = viewModel.uiState.value.activeWorkspaceId
+                        val profileName = viewModel.uiState.value.workspaces.find { it.id == currentWsId }?.profileName ?: currentWsId
                         com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
                             resultMsg = resultMsg,
                             context = context,
                             webViewPool = webViewPool,
+                            profileName = profileName,
                             onPopupOpened = { viewModel.onEvent(BrowserUiEvent.OpenPopupTab(it)) }
                         )
                     },
@@ -279,9 +282,13 @@ fun JestkApp(
                 return@collectLatest
             }
             val activeId = viewModel.uiState.value.activeTabId ?: return@collectLatest
+            val currentTab = viewModel.uiState.value.allTabs.find { it.id == activeId } ?: viewModel.uiState.value.tabs.find { it.id == activeId }
+            val profileName = currentTab?.workspaceId?.let { wsId ->
+                viewModel.uiState.value.workspaces.find { it.id == wsId }?.profileName ?: wsId
+            }
             when (command) {
                 is NavigationCommand.LoadUrl -> {
-                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context)
+                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context, profileName)
                     com.jestk.browser.engine.JestkWebViewClient.loadUrlOrHandleExternal(webView, command.url)
                 }
 
@@ -294,7 +301,7 @@ fun JestkApp(
                 }
 
                 is NavigationCommand.Reload -> {
-                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context)
+                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context, profileName)
                     if (webView.url.isNullOrEmpty() || webView.url == "about:blank") {
                         val url = viewModel.uiState.value.currentUrl
                         if (url.isNotEmpty() && url != "about:blank") {
@@ -437,6 +444,8 @@ fun JestkApp(
             }
         }
 
+        var dockDragLiftPx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+
         val appBackgroundBrush =
             remember(animatedStatusBarBg, animatedBottomBarBg) {
                 Brush.verticalGradient(
@@ -451,7 +460,12 @@ fun JestkApp(
             modifier =
                 modifier
                     .fillMaxSize()
-                    .background(appBackgroundBrush),
+                    .background(appBackgroundBrush)
+                    .graphicsLayer {
+                        val scale = 1f - (dockDragLiftPx / 400f).coerceIn(0f, 0.06f)
+                        scaleX = scale
+                        scaleY = scale
+                    },
         ) {
             // Main Viewport: WebView Container and Home Screen (NO BLUR)
             Box(
@@ -524,6 +538,7 @@ fun JestkApp(
                 UnifiedBottomBar(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
+                    onDockDragOffset = { offset -> dockDragLiftPx = -offset },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .graphicsLayer {

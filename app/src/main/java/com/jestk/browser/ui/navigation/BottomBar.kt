@@ -56,6 +56,7 @@ fun UnifiedBottomBar(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
+    onDockDragOffset: ((Float) -> Unit)? = null,
 ) {
     val density = LocalDensity.current
     val currentOnEvent by rememberUpdatedState(onEvent)
@@ -212,6 +213,7 @@ fun UnifiedBottomBar(
                             .testTag("dock_capsule")
                             .dockLiftGestureModifier(
                                 density = density,
+                                onDragOffset = onDockDragOffset,
                                 onSwipeUpSearch = {
                                     currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
                                 },
@@ -282,11 +284,13 @@ fun BottomBar(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
+    onDockDragOffset: ((Float) -> Unit)? = null,
 ) {
     UnifiedBottomBar(
         uiState = uiState,
         onEvent = onEvent,
         modifier = modifier,
+        onDockDragOffset = onDockDragOffset,
     )
 }
 
