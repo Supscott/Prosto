@@ -2,10 +2,17 @@ package com.jestk.browser.ui.overlays
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitVerticalTouchSlopOrCancellation
+import androidx.compose.foundation.gestures.verticalDrag
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,14 +41,21 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.ui.theme.DarkBackground
@@ -76,6 +90,11 @@ fun WorkspacesOverviewScreen(
     BackHandler {
         onEvent(BrowserUiEvent.CloseWorkspacesOverview)
     }
+
+    val coroutineScope = rememberCoroutineScope()
+    val dismissOffsetY = remember { Animatable(0f) }
+    val density = LocalDensity.current
+    val dismissThresholdPx = with(density) { 56.dp.toPx() }
 
     var editingWorkspace by remember { mutableStateOf<Workspace?>(null) }
     var isNewWorkspaceSheetVisible by remember { mutableStateOf(false) }
@@ -157,13 +176,74 @@ fun WorkspacesOverviewScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
+                    .weight(1f)
+                    .testTag("workspaces_carousel_box")
+                    .graphicsLayer {
+                        translationY = dismissOffsetY.value
+                    }
+                    .pointerInput(workspaces, uiState.activeWorkspaceId) {
+                        awaitEachGesture {
+                            // CRITICAL LESSON 1: The very first statement inside awaitEachGesture must be a suspending call.
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            val velocityTracker = VelocityTracker()
+                            velocityTracker.addPosition(down.uptimeMillis, down.position)
+                            var totalDownDrag = 0f
+
+                            val drag = awaitVerticalTouchSlopOrCancellation(down.id) { change, over ->
+                                if (over > 0f) {
+                                    change.consume()
+                                    totalDownDrag += over
+                                }
+                            }
+
+                            if (drag != null && totalDownDrag > 0f) {
+                                velocityTracker.addPosition(drag.uptimeMillis, drag.position)
+                                coroutineScope.launch {
+                                    dismissOffsetY.snapTo(totalDownDrag)
+                                }
+
+                                val dragSuccess = verticalDrag(drag.id) { change ->
+                                    val amount = change.positionChange().y
+                                    velocityTracker.addPosition(change.uptimeMillis, change.position)
+                                    if (amount > 0f || totalDownDrag > 0f) {
+                                        change.consume()
+                                        totalDownDrag = (totalDownDrag + amount).coerceAtLeast(0f)
+                                        coroutineScope.launch {
+                                            dismissOffsetY.snapTo(totalDownDrag)
+                                        }
+                                    }
+                                }
+
+                                val velocityY = velocityTracker.calculateVelocity().y
+                                val shouldDismiss = totalDownDrag >= dismissThresholdPx || velocityY > 1000f
+
+                                if (dragSuccess && shouldDismiss) {
+                                    val targetIndex = pagerState.currentPage.coerceIn(0, (workspaces.size - 1).coerceAtLeast(0))
+                                    val targetWorkspace = workspaces.getOrNull(targetIndex)
+                                    if (targetWorkspace != null && targetWorkspace.id != uiState.activeWorkspaceId) {
+                                        onEvent(BrowserUiEvent.SwitchWorkspace(targetWorkspace.id))
+                                    }
+                                    onEvent(BrowserUiEvent.CloseWorkspacesOverview)
+                                } else {
+                                    coroutineScope.launch {
+                                        dismissOffsetY.animateTo(
+                                            0f,
+                                            animationSpec = spring(
+                                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                                stiffness = Spring.StiffnessMedium,
+                                            ),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    },
                 contentAlignment = Alignment.Center,
             ) {
                 HorizontalPager(
                     state = pagerState,
                     beyondViewportPageCount = 1,
-                    contentPadding = PaddingValues(horizontal = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 64.dp),
                     pageSpacing = 16.dp,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -201,7 +281,7 @@ fun WorkspacesOverviewScreen(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .fillMaxHeight(0.86f)
+                                .fillMaxHeight(0.68f)
                                 .padding(vertical = 12.dp),
                         )
                     } else {
@@ -211,7 +291,7 @@ fun WorkspacesOverviewScreen(
                             onClick = { isNewWorkspaceSheetVisible = true },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .fillMaxHeight(0.86f)
+                                .fillMaxHeight(0.68f)
                                 .padding(vertical = 12.dp),
                         )
                     }

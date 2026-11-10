@@ -94,7 +94,7 @@ fun Modifier.dockLiftGestureModifier(
                     }
 
                     val initialElapsed = drag.uptimeMillis - startTime
-                    val remainingHold = (180L - initialElapsed).coerceAtLeast(0L)
+                    val remainingHold = (210L - initialElapsed).coerceAtLeast(0L)
                     holdJob = coroutineScope.launch {
                         delay(remainingHold)
                         val velY = velocityTracker.calculateVelocity().y
@@ -105,14 +105,6 @@ fun Modifier.dockLiftGestureModifier(
                             currentVibration?.confirm()
                             currentOnLiftWorkspaces()
                         }
-                    }
-
-                    if (!triggered && totalDragY <= -thresholdPx) {
-                        triggered = true
-                        holdJob.cancel()
-                        currentHapticFeedback?.performHapticFeedback(HapticFeedbackType.LongPress)
-                        currentVibration?.confirm()
-                        currentOnLiftWorkspaces()
                     }
 
                     val dragSuccess = verticalDrag(drag.id) { change ->
@@ -130,20 +122,16 @@ fun Modifier.dockLiftGestureModifier(
                         val elapsed = change.uptimeMillis - startTime
                         val velY = velocityTracker.calculateVelocity().y
                         val isMovingFast = velY < -300f
-                        if (!triggered && totalDragY < 0f) {
-                            val passedDistance = totalDragY <= -thresholdPx
-                            val passedHold = elapsed >= 180L && totalDragY <= -minHoldDragPx && !isMovingFast
-                            if (passedDistance || passedHold) {
-                                triggered = true
-                                holdJob.cancel()
-                                currentHapticFeedback?.performHapticFeedback(HapticFeedbackType.LongPress)
-                                currentVibration?.confirm()
-                                currentOnLiftWorkspaces()
-                            }
+                        if (!triggered && totalDragY <= -minHoldDragPx && elapsed >= 210L && !isMovingFast) {
+                            triggered = true
+                            holdJob?.cancel()
+                            currentHapticFeedback?.performHapticFeedback(HapticFeedbackType.LongPress)
+                            currentVibration?.confirm()
+                            currentOnLiftWorkspaces()
                         }
                     }
 
-                    holdJob.cancel()
+                    holdJob?.cancel()
 
                     if (dragSuccess) {
                         if (!triggered) {
@@ -152,13 +140,13 @@ fun Modifier.dockLiftGestureModifier(
                             val velocityYDp = velocityY / density.density
 
                             val isFastFlick = (duration < 250L && totalDragY <= -minFlickDistancePx) ||
-                                (duration < 250L && (velocityYDp < -600f || velocityY < -500f)) ||
-                                velocityYDp < -600f || velocityY < fastVelocityPx || velocityY < ultraFastVelocityPx
+                                (duration < 250L && (velocityYDp < -500f || velocityY < -500f)) ||
+                                velocityYDp < -500f || velocityY < fastVelocityPx || velocityY < ultraFastVelocityPx
 
                             if (isFastFlick) {
                                 triggered = true
                                 currentOnSwipeUpSearch()
-                            } else if (totalDragY <= -thresholdPx) {
+                            } else if (duration >= 210L && totalDragY <= -thresholdPx) {
                                 triggered = true
                                 currentHapticFeedback?.performHapticFeedback(HapticFeedbackType.LongPress)
                                 currentVibration?.confirm()

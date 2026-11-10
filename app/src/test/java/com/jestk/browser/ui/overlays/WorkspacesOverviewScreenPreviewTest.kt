@@ -1,11 +1,13 @@
 package com.jestk.browser.ui.overlays
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
@@ -107,6 +109,32 @@ class WorkspacesOverviewScreenPreviewTest {
 
         composeTestRule.onNodeWithTag("workspaces_overview_close_button").performClick()
         assertThat(events).containsExactly(BrowserUiEvent.CloseWorkspacesOverview)
+    }
+
+    @Test
+    fun overview_swipeDown_closesOverviewAndSelectsCenteredWorkspace() {
+        val events = mutableListOf<BrowserUiEvent>()
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                WorkspacesOverviewScreen(
+                    uiState = BrowserUiState(
+                        workspaces = sampleWorkspaces,
+                        activeWorkspaceId = Workspace.DEFAULT_PERSONAL_ID,
+                        tabs = sampleTabs.filter { it.workspaceId == Workspace.DEFAULT_PERSONAL_ID },
+                        allTabs = sampleTabs,
+                    ),
+                    onEvent = { events.add(it) },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("workspaces_carousel_box").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, 200f), delayMillis = 100)
+            up()
+        }
+
+        assertThat(events).contains(BrowserUiEvent.CloseWorkspacesOverview)
     }
 
     @Test

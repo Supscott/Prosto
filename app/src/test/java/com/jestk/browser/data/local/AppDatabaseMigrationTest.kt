@@ -197,4 +197,66 @@ class AppDatabaseMigrationTest {
 
         db.close()
     }
+
+    private fun createV10Database(): SupportSQLiteDatabase {
+        val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(dbFile.name)
+            .callback(object : SupportSQLiteOpenHelper.Callback(10) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `favorites` (
+                            `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                            `url` TEXT NOT NULL,
+                            `title` TEXT NOT NULL,
+                            `position` INTEGER NOT NULL,
+                            `iconUrl` TEXT,
+                            `createdAt` INTEGER NOT NULL
+                        )
+                        """.trimIndent()
+                    )
+                    db.execSQL("CREATE INDEX IF NOT EXISTS `index_favorites_position` ON `favorites` (`position`)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS `index_favorites_url` ON `favorites` (`url`)")
+                }
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+
+        val helper = FrameworkSQLiteOpenHelperFactory().create(configuration)
+        return helper.writableDatabase
+    }
+
+    @Test
+    fun migration10To11_addsWorkspaceIdToFavorites() {
+        val db = createV10Database()
+        db.execSQL(
+            """
+            INSERT INTO `favorites` (`id`, `url`, `title`, `position`, `iconUrl`, `createdAt`)
+            VALUES (1, 'https://example.com', 'Example', 0, NULL, 1000)
+            """.trimIndent()
+        )
+
+        AppDatabase.MIGRATION_10_11.migrate(db)
+
+        val cursor = db.query("SELECT id, url, title, position, workspaceId FROM favorites WHERE id = 1")
+        assertThat(cursor.moveToFirst()).isTrue()
+        assertThat(cursor.getString(1)).isEqualTo("https://example.com")
+        assertThat(cursor.getString(2)).isEqualTo("Example")
+        assertThat(cursor.getString(4)).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
+        cursor.close()
+
+        db.execSQL(
+            """
+            INSERT INTO `favorites` (`url`, `title`, `position`, `iconUrl`, `createdAt`, `workspaceId`)
+            VALUES ('https://work-bookmark.com', 'Work Bookmark', 0, NULL, 2000, 'default_work')
+            """.trimIndent()
+        )
+        val cursorWork = db.query("SELECT workspaceId FROM favorites WHERE url = 'https://work-bookmark.com'")
+        assertThat(cursorWork.moveToFirst()).isTrue()
+        assertThat(cursorWork.getString(0)).isEqualTo("default_work")
+        cursorWork.close()
+
+        db.close()
+    }
 }

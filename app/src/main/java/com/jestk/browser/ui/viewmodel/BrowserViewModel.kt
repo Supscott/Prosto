@@ -357,12 +357,7 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.DismissUndoTabCloseSnackbar -> {
-                _uiState.update {
-                    it.copy(
-                        showUndoTabCloseSnackbar = false,
-                        recentlyClosedTab = null,
-                    )
-                }
+                tabCoordinator.clearRecentlyClosedTab()
             }
 
             is BrowserUiEvent.DismissDownloadSnackbar -> {
@@ -576,6 +571,10 @@ class BrowserViewModel(
 
             is BrowserUiEvent.RemoveFavorite -> {
                 tabCoordinator.deleteFavorite(event.id)
+            }
+
+            is BrowserUiEvent.MoveFavoriteToWorkspace -> {
+                tabCoordinator.moveFavoriteToWorkspace(event.favoriteId, event.targetWorkspaceId)
             }
 
             is BrowserUiEvent.ToggleFavoritesExpanded -> {

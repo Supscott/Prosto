@@ -94,6 +94,23 @@ class BottomBarSwipeUpTest {
     }
 
     @Test
+    fun fastUpwardDragPastDistanceThreshold_triggersSearchNotWorkspaces() {
+        setupBottomBar()
+
+        composeRule.onNodeWithTag("dock_capsule").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, -80.dp.toPx()), delayMillis = 100)
+            up()
+        }
+
+        val searchEvents = events.filterIsInstance<BrowserUiEvent.OpenSearch>()
+        val workspaceEvents = events.filterIsInstance<BrowserUiEvent.OpenWorkspacesOverview>()
+        assertThat(searchEvents).isNotEmpty()
+        assertThat(workspaceEvents).isEmpty()
+        assertThat(vibrationConfirmCalls).isEqualTo(0)
+    }
+
+    @Test
     fun upwardDragPastThreshold_triggersOpenWorkspacesOverview() {
         setupBottomBar()
 

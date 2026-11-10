@@ -124,6 +124,7 @@ fun FavoriteEntity.toDomain(): FavoriteItem =
         position = position,
         iconUrl = iconUrl,
         createdAt = createdAt,
+        workspaceId = workspaceId,
     )
 
 fun FavoriteItem.toEntity(): FavoriteEntity =
@@ -134,6 +135,7 @@ fun FavoriteItem.toEntity(): FavoriteEntity =
         position = position,
         iconUrl = iconUrl,
         createdAt = createdAt,
+        workspaceId = workspaceId,
     )
 
 fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {

@@ -6,5 +6,6 @@ data class FavoriteItem @JvmOverloads constructor(
     val url: String = "",
     val position: Int = 0,
     val iconUrl: String? = null,
-    val createdAt: Long = System.currentTimeMillis()
+    val createdAt: Long = System.currentTimeMillis(),
+    val workspaceId: String = Workspace.DEFAULT_PERSONAL_ID,
 )

@@ -39,7 +39,7 @@ import com.jestk.browser.domain.model.Workspace
         TabFolderEntity::class,
         WorkspaceEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -113,6 +113,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `favorites` ADD COLUMN `workspaceId` TEXT NOT NULL DEFAULT 'default_personal'")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_favorites_workspaceId_position` ON `favorites` (`workspaceId`, `position`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_favorites_workspaceId_url` ON `favorites` (`workspaceId`, `url`)")
+            }
+        }
+
         fun seedDefaultWorkspaces(db: SupportSQLiteDatabase) {
             db.execSQL(
                 """
@@ -138,7 +146,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
+                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

@@ -511,6 +511,11 @@ sealed interface BrowserUiEvent {
         val tabId: String,
         val targetWorkspaceId: String,
     ) : BrowserUiEvent
+
+    data class MoveFavoriteToWorkspace(
+        val favoriteId: Long,
+        val targetWorkspaceId: String,
+    ) : BrowserUiEvent
 }
 
 enum class ExternalAppDismissReason {

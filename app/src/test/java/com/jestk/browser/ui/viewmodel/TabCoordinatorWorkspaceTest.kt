@@ -483,4 +483,106 @@ class TabCoordinatorWorkspaceTest {
 
             assertThat(viewModel.uiState.value.workspaces.map { it.id }).doesNotContain(created.id)
         }
+
+    @Test
+    fun workspaceScoped_recentlyClosedTabs_isolatedPerWorkspace() =
+        runTest(testDispatcher) {
+            workspaceRepo.ensureDefaultWorkspaces()
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            // 1. Create two tabs in Personal
+            val p1 = tabRepo.createTab("https://personal1.com", "Personal 1", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+            val p2 = tabRepo.createTab("https://personal2.com", "Personal 2", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+            tabRepo.setActiveTab(p1.id)
+            advanceUntilIdle()
+
+            // 2. Close p1 in Personal -> saved as recently closed in Personal
+            coordinator.closeTab(p1.id)
+            advanceUntilIdle()
+
+            assertThat(uiState.recentlyClosedTab?.id).isEqualTo(p1.id)
+            assertThat(uiState.showUndoTabCloseSnackbar).isTrue()
+
+            // 3. Switch to Work -> Work has no recently closed tab yet
+            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.recentlyClosedTab).isNull()
+            assertThat(uiState.showUndoTabCloseSnackbar).isFalse()
+
+            // 4. Create and close a tab in Work
+            val w1 = tabRepo.createTab("https://work1.com", "Work 1", workspaceId = Workspace.DEFAULT_WORK_ID)
+            tabRepo.setActiveTab(w1.id)
+            advanceUntilIdle()
+
+            coordinator.closeTab(w1.id)
+            advanceUntilIdle()
+
+            assertThat(uiState.recentlyClosedTab?.id).isEqualTo(w1.id)
+            assertThat(uiState.showUndoTabCloseSnackbar).isTrue()
+
+            // 5. Switch back to Personal -> Personal's recently closed tab restored
+            coordinator.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.recentlyClosedTab?.id).isEqualTo(p1.id)
+            assertThat(uiState.showUndoTabCloseSnackbar).isTrue()
+
+            // 6. Undo close tab in Personal restores p1
+            coordinator.undoCloseTab()
+            advanceUntilIdle()
+
+            val restoredTab = uiState.tabs.find { it.url == "https://personal1.com" }
+            assertThat(restoredTab).isNotNull()
+            assertThat(restoredTab?.workspaceId).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
+            assertThat(uiState.recentlyClosedTab).isNull()
+            assertThat(uiState.showUndoTabCloseSnackbar).isFalse()
+        }
+
+    @Test
+    fun workspaceScoped_favorites_isolatedAndMovable() =
+        runTest(testDispatcher) {
+            workspaceRepo.ensureDefaultWorkspaces()
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            // 1. Add favorite in Personal
+            favoriteRepo.addFavorite("Personal Fav", "https://personal-fav.com", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.favorites.map { it.title }).containsExactly("Personal Fav")
+
+            // 2. Switch to Work -> favorites is empty for Work
+            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.favorites).isEmpty()
+
+            // 3. Add favorite in Work
+            favoriteRepo.addFavorite("Work Fav", "https://work-fav.com", workspaceId = Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.favorites.map { it.title }).containsExactly("Work Fav")
+
+            // 4. Switch to Personal -> shows Personal Fav only
+            coordinator.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.favorites.map { it.title }).containsExactly("Personal Fav")
+
+            // 5. Move Personal Fav to Work
+            val fav = uiState.favorites.first()
+            coordinator.moveFavoriteToWorkspace(fav.id, Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            // Now Personal favorites is empty
+            assertThat(uiState.favorites).isEmpty()
+
+            // Switch to Work -> contains both Work Fav and Personal Fav
+            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.favorites.map { it.title }).containsExactly("Work Fav", "Personal Fav")
+        }
 }

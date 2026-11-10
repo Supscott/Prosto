@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
@@ -85,6 +86,7 @@ import com.jestk.browser.R
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.components.ProstoRecentTabCard
 import com.jestk.browser.ui.theme.DarkOnSurface
@@ -302,8 +304,13 @@ fun HomeScreen(
                 isExpanded = uiState.isFavoritesExpanded,
                 canBookmarkCurrent = uiState.currentUrl.isNotEmpty() && !uiState.currentUrl.startsWith("about:"),
                 isDark = isDark,
+                workspaces = uiState.workspaces,
+                activeWorkspaceId = uiState.activeWorkspaceId,
                 onSelectUrl = { url -> onEvent(BrowserUiEvent.LoadUrl(url)) },
                 onDeleteFavorite = { id -> onEvent(BrowserUiEvent.RemoveFavorite(id)) },
+                onMoveFavoriteToWorkspace = { favId, targetWsId ->
+                    onEvent(BrowserUiEvent.MoveFavoriteToWorkspace(favId, targetWsId))
+                },
                 onBookmarkCurrent = { onEvent(BrowserUiEvent.AddCurrentTabToFavorites) },
                 onToggleExpand = { onEvent(BrowserUiEvent.ToggleFavoritesExpanded) },
                 onAddClick = {
@@ -420,8 +427,11 @@ private fun FavoritesSection(
     isExpanded: Boolean,
     canBookmarkCurrent: Boolean,
     isDark: Boolean,
+    workspaces: List<Workspace> = emptyList(),
+    activeWorkspaceId: String = "",
     onSelectUrl: (String) -> Unit,
     onDeleteFavorite: (Long) -> Unit,
+    onMoveFavoriteToWorkspace: ((Long, String) -> Unit)? = null,
     onBookmarkCurrent: () -> Unit,
     onToggleExpand: () -> Unit,
     onAddClick: () -> Unit,
@@ -523,8 +533,11 @@ private fun FavoritesSection(
                                     FavoriteSquircleCard(
                                         item = item,
                                         isDark = isDark,
+                                        workspaces = workspaces,
+                                        activeWorkspaceId = activeWorkspaceId,
                                         onClick = { onSelectUrl(item.url) },
                                         onDelete = item.id?.let { id -> { onDeleteFavorite(id) } },
+                                        onMoveToWorkspace = item.id?.let { favId -> { wsId -> onMoveFavoriteToWorkspace?.invoke(favId, wsId) } },
                                         modifier = Modifier.weight(1f),
                                     )
                                 }
@@ -594,14 +607,21 @@ private fun FavoritesSection(
 private fun FavoriteSquircleCard(
     item: PresetFavorite,
     isDark: Boolean,
+    workspaces: List<Workspace> = emptyList(),
+    activeWorkspaceId: String = "",
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     onDelete: (() -> Unit)? = null,
+    onMoveToWorkspace: ((String) -> Unit)? = null,
 ) {
     var showMenu by remember { mutableStateOf(false) }
+    var showWorkspacePicker by remember { mutableStateOf(false) }
     val clipboard = LocalClipboard.current
     val coroutineScope = rememberCoroutineScope()
     val squircleBg = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor
+    val availableWorkspaces = remember(workspaces, activeWorkspaceId) {
+        workspaces.filter { it.id != activeWorkspaceId }
+    }
 
     Box(modifier = modifier) {
         Column(
@@ -680,41 +700,91 @@ private fun FavoriteSquircleCard(
 
         DropdownMenu(
             expanded = showMenu,
-            onDismissRequest = { showMenu = false },
+            onDismissRequest = {
+                showMenu = false
+                showWorkspacePicker = false
+            },
         ) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.copy_url_action)) },
-                leadingIcon = {
-                    Icon(
-                        Icons.Default.ContentCopy,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                },
-                onClick = {
-                    showMenu = false
-                    coroutineScope.launch {
-                        val clipData = ClipData.newPlainText("URL", item.url)
-                        clipboard.setClipEntry(clipData.toClipEntry())
-                    }
-                },
-            )
-            if (item.id != null && onDelete != null) {
+            if (showWorkspacePicker) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.delete_bookmark_action), color = MaterialTheme.colorScheme.error) },
+                    text = { Text(stringResource(R.string.tab_context_move_to_workspace_title)) },
                     leadingIcon = {
                         Icon(
-                            Icons.Default.Delete,
+                            Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    },
+                    onClick = { showWorkspacePicker = false },
+                )
+                availableWorkspaces.forEach { ws ->
+                    DropdownMenuItem(
+                        text = { Text(ws.name) },
+                        leadingIcon = {
+                            Box(
+                                modifier = Modifier
+                                    .size(12.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(ws.color)),
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            showWorkspacePicker = false
+                            onMoveToWorkspace?.invoke(ws.id)
+                        },
+                    )
+                }
+            } else {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.copy_url_action)) },
+                    leadingIcon = {
+                        Icon(
+                            Icons.Default.ContentCopy,
+                            contentDescription = null,
                             modifier = Modifier.size(18.dp),
                         )
                     },
                     onClick = {
                         showMenu = false
-                        onDelete()
+                        coroutineScope.launch {
+                            val clipData = ClipData.newPlainText("URL", item.url)
+                            clipboard.setClipEntry(clipData.toClipEntry())
+                        }
                     },
                 )
+                if (item.id != null && availableWorkspaces.isNotEmpty() && onMoveToWorkspace != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.move_to_workspace)) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                        onClick = {
+                            showWorkspacePicker = true
+                        },
+                    )
+                }
+                if (item.id != null && onDelete != null) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.delete_bookmark_action), color = MaterialTheme.colorScheme.error) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp),
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            onDelete()
+                        },
+                    )
+                }
             }
         }
     }

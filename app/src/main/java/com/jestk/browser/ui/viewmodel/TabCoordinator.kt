@@ -24,7 +24,9 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.util.UrlSecurityUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -82,6 +84,9 @@ internal class TabCoordinator(
 
     @Volatile
     private var cachedAllFolders: List<TabFolder> = emptyList()
+
+    private val recentlyClosedTabsByWorkspace = ConcurrentHashMap<String, Tab>()
+    private val activeWorkspaceIdFlow = MutableStateFlow(Workspace.DEFAULT_PERSONAL_ID)
 
     fun handleExternalAppOffered(
         tabId: String,
@@ -420,9 +425,12 @@ internal class TabCoordinator(
         }
 
         scope.launch(ioDispatcher) {
-            favoriteRepository.getFavorites().collectLatest { favorites ->
-                updateUiState { it.copy(favorites = favorites) }
-            }
+            @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+            activeWorkspaceIdFlow
+                .flatMapLatest { wsId -> favoriteRepository.getFavorites(wsId) }
+                .collectLatest { favorites ->
+                    updateUiState { it.copy(favorites = favorites) }
+                }
         }
     }
 
@@ -732,6 +740,11 @@ internal class TabCoordinator(
             checkAndPruneEmptyFolder(folderId, remainingTabs)
         }
 
+        val effectiveWorkspaceId = closingTab?.workspaceId ?: getCurrentState().activeWorkspaceId
+        if (closingTab != null) {
+            recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = closingTab
+        }
+
         if (!wasActive) {
             updateUiState { state ->
                 val updatedTabs = remainingTabs.map { t ->
@@ -749,6 +762,9 @@ internal class TabCoordinator(
                 FaviconManager.deleteTabFavicons(tabId)
                 tabOperationMutex.withLock {
                     val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                    if (tabToSave != null) {
+                        recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = tabToSave
+                    }
                     tabRepository.closeTab(tabId)
                 }
             }
@@ -776,6 +792,9 @@ internal class TabCoordinator(
                 FaviconManager.deleteTabFavicons(tabId)
                 tabOperationMutex.withLock {
                     val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                    if (tabToSave != null) {
+                        recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = tabToSave
+                    }
                     tabRepository.closeTab(tabId)
                     val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = getCurrentState().activeWorkspaceId)
                     tabRepository.setActiveTab(newTab.id)
@@ -819,6 +838,9 @@ internal class TabCoordinator(
                 FaviconManager.deleteTabFavicons(tabId)
                 tabOperationMutex.withLock {
                     val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                    if (tabToSave != null) {
+                        recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = tabToSave
+                    }
                     tabRepository.closeTab(tabId)
                     tabRepository.setActiveTab(nextActive.id)
                 }
@@ -827,7 +849,8 @@ internal class TabCoordinator(
     }
 
     fun undoCloseTab() {
-        val tabToRestore = getCurrentState().recentlyClosedTab ?: return
+        val activeWs = getCurrentState().activeWorkspaceId
+        val tabToRestore = recentlyClosedTabsByWorkspace.remove(activeWs) ?: getCurrentState().recentlyClosedTab ?: return
         Log.d(TAG, "Undo close tab requested for ${tabToRestore.id}")
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
@@ -1652,6 +1675,9 @@ internal class TabCoordinator(
         val allFolders = if (cachedAllFolders.isNotEmpty()) cachedAllFolders else (tabFolderRepository?.getAllFoldersSync() ?: emptyList())
         val targetFolders = allFolders.filter { it.workspaceId == targetWorkspaceId }
 
+        activeWorkspaceIdFlow.value = targetWorkspaceId
+        val targetRecentlyClosed = recentlyClosedTabsByWorkspace[targetWorkspaceId]
+
         val overlay = if (preserveOverview) OverlayType.WORKSPACES else null
 
         if (targetTabs.isEmpty()) {
@@ -1676,6 +1702,8 @@ internal class TabCoordinator(
                     activeBottomThemeColor = null,
                     activeOverlay = overlay ?: OverlayType.HOME,
                     activeScreen = ScreenType.NONE,
+                    recentlyClosedTab = targetRecentlyClosed,
+                    showUndoTabCloseSnackbar = targetRecentlyClosed != null,
                 )
             }
         } else {
@@ -1689,6 +1717,8 @@ internal class TabCoordinator(
                     activeWorkspaceId = targetWorkspaceId,
                     folders = targetFolders,
                     activeScreen = ScreenType.NONE,
+                    recentlyClosedTab = targetRecentlyClosed,
+                    showUndoTabCloseSnackbar = targetRecentlyClosed != null,
                 )
             }
             activateTabInternal(
@@ -1830,6 +1860,23 @@ internal class TabCoordinator(
                     }
                 }
             }
+        }
+    }
+
+    fun clearRecentlyClosedTab(workspaceId: String = getCurrentState().activeWorkspaceId) {
+        recentlyClosedTabsByWorkspace.remove(workspaceId)
+        updateUiState { state ->
+            if (state.activeWorkspaceId == workspaceId) {
+                state.copy(recentlyClosedTab = null, showUndoTabCloseSnackbar = false)
+            } else {
+                state
+            }
+        }
+    }
+
+    fun moveFavoriteToWorkspace(id: Long, targetWorkspaceId: String) {
+        scope.launch(ioDispatcher) {
+            favoriteRepository.moveFavoriteToWorkspace(id, targetWorkspaceId)
         }
     }
 }
