@@ -42,45 +42,28 @@ class AdBlockerScriptTest {
     }
 
     @Test
-    fun buildSurrogateScript_declaresAdSenseGptAndYandexStubs() {
-        val js = AdBlockerScript.buildSurrogateScript()
-        // Google Ad Status
-        assertThat(js).contains("window.google_ad_status = 1")
-
-        // AdSense
-        assertThat(js).contains("window.adsbygoogle = window.adsbygoogle || []")
-        assertThat(js).contains("window.adsbygoogle.loaded = true")
-        assertThat(js).contains("window.adsbygoogle.push")
-
-        // GPT
-        assertThat(js).contains("window.googletag = window.googletag || {}")
-        assertThat(js).contains("window.googletag.cmd")
-        assertThat(js).contains("window.googletag.pubads")
-        assertThat(js).contains("window.googletag.apiReady = true")
-
-        // Yandex & ADFOX
-        assertThat(js).contains("window.yaContextCb = window.yaContextCb || []")
-        assertThat(js).contains("window.yaContextCb.push")
-        assertThat(js).contains("window.Ya = window.Ya || {}")
-        assertThat(js).contains("window.Ya.adfoxCode")
-        assertThat(js).contains("window.Ya.Context")
-
-        // X5 Media
-        assertThat(js).contains("window.x5media")
+    fun buildDocumentStartScript_leavesNoFingerprintableGlobals() {
+        // Review finding BOT-2: page-level stubs and guards showed up in Object.getOwnPropertyNames(window).
+        val js = AdBlockerScript.buildDocumentStartScript()
+        assertThat(js).doesNotContain("window.googletag =")
+        assertThat(js).doesNotContain("window.adsbygoogle =")
+        assertThat(js).doesNotContain("window.Ya =")
+        assertThat(js).doesNotContain("window.x5media =")
+        assertThat(js).doesNotContain("__hori_adblock_initialized")
+        assertThat(js).doesNotContain("__hori_adblock_css")
+        assertThat(js).doesNotContain(".toString = function")
+        // The orientation bridge is installed only while the document is fullscreen.
+        assertThat(js).contains("fullscreenchange")
     }
 
     @Test
     fun buildDocumentStartScript_containsBridgeCheckStyleInjectionAndMutationObserver() {
         val js = AdBlockerScript.buildDocumentStartScript()
-        // Idempotency guard
-        assertThat(js).contains("window.__hori_adblock_initialized")
-
         // Bridge check
         assertThat(js).contains("window.HoriAdBlockBridge")
         assertThat(js).contains("window.HoriAdBlockBridge.isEnabled()")
 
         // Style tag injection
-        assertThat(js).contains("__hori_adblock_css")
         assertThat(js).contains("document.createElement('style')")
 
         // MutationObserver & debounced addedNodes parent collapsing
@@ -168,7 +151,7 @@ class AdBlockerScriptTest {
     fun buildAutoConsentScript_containsLoopGuardAndHandlingFlag() {
         val script = AdBlockerScript.buildAutoConsentScript()
         assertThat(script).contains("data-hori-consent-handled")
-        assertThat(script).contains("__hori_autoconsent_initialized")
+        assertThat(script).doesNotContain("__hori_autoconsent_initialized")
     }
 
     @Test

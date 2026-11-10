@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.MutableContextWrapper
 import android.content.pm.ActivityInfo
 import com.jestk.browser.util.findActivity
+import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -51,7 +52,6 @@ class WebViewPool(
 
     var onDownloadStarted: ((DownloadItem) -> Unit)? = null
     var isAdBlockerEnabled: (() -> Boolean)? = null
-    var isAdRedirectProtectionEnabled: (() -> Boolean)? = null
     var isCleanPlayerEnabled: (() -> Boolean)? = null
     var onCleanPlayerRequested: ((url: String) -> Boolean)? = null
     var onWebViewCreated: ((tabId: String, webView: WebView) -> Unit)? = null
@@ -102,17 +102,13 @@ class WebViewPool(
         private val isEnabledProvider: () -> Boolean,
         private val onCleanPlayerRequested: ((url: String) -> Boolean)? = null,
         private val isCleanPlayerEnabledProvider: (() -> Boolean)? = null,
-        private val isRedirectProtectionEnabledProvider: (() -> Boolean)? = null,
         private val onOrientationLockRequested: ((orientation: String?) -> Unit)? = null,
         private val onOrientationUnlockRequested: (() -> Unit)? = null,
     ) {
-        constructor(isEnabledProvider: () -> Boolean) : this(isEnabledProvider, null, null, null, null, null)
+        constructor(isEnabledProvider: () -> Boolean) : this(isEnabledProvider, null, null, null, null)
 
         @JavascriptInterface
         fun isEnabled(): Boolean = isEnabledProvider()
-
-        @JavascriptInterface
-        fun isRedirectProtectionEnabled(): Boolean = isRedirectProtectionEnabledProvider?.invoke() ?: true
 
         @JavascriptInterface
         fun isCleanPlayerEnabled(): Boolean = isCleanPlayerEnabledProvider?.invoke() ?: false
@@ -134,14 +130,26 @@ class WebViewPool(
         }
     }
 
+    /**
+     * Receives the content of a `blob:` download. The bridge is visible to every frame, so only
+     * blob URLs that WebView itself reported to the DownloadListener are accepted: a page cannot
+     * start a download of arbitrary data through it (review finding BOT-3).
+     */
     class BlobDownloadBridge(
+        private val pendingBlobUrls: MutableSet<String>,
         private val onBlobReceived: (dataUrl: String, contentDisposition: String?, mimeType: String?) -> Unit
     ) {
         @JavascriptInterface
-        fun onBlobDownloaded(dataUrl: String, contentDisposition: String?, mimeType: String?) {
+        fun onBlobDownloaded(blobUrl: String, dataUrl: String, contentDisposition: String?, mimeType: String?) {
+            if (!pendingBlobUrls.remove(blobUrl)) {
+                Log.w(TAG, "Ignoring a blob download that was not requested by the DownloadListener")
+                return
+            }
             onBlobReceived(dataUrl, contentDisposition, mimeType)
         }
     }
+
+    private val pendingBlobUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     private val pool = ConcurrentHashMap<String, WebView>()
     private val tabProfiles = ConcurrentHashMap<String, String>()
@@ -372,106 +380,73 @@ class WebViewPool(
         // Initialize with MutableContextWrapper using Activity context so Chromium can attach to Window
         // and display the soft keyboard when input fields are focused.
         val contextWrapper = MutableContextWrapper(targetContext)
-        try {
-            val webView = NestedWebView(contextWrapper).apply {
-                isFocusable = true
-                isFocusableInTouchMode = true
-                val rawUserAgent = settings.userAgentString
-                settings.apply {
-                    javaScriptEnabled = true
-                    domStorageEnabled = true
-                    javaScriptCanOpenWindowsAutomatically = true
-                    setSupportMultipleWindows(true)
-                    userAgentString = UserAgentSanitizer.sanitize(rawUserAgent)
-                    mediaPlaybackRequiresUserGesture = false
-                    builtInZoomControls = true
-                    displayZoomControls = false
-                    loadWithOverviewMode = true
-                    useWideViewPort = true
-                    cacheMode = WebSettings.LOAD_DEFAULT
-                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                    setSupportZoom(true)
-                }
-                configureProfileAndCookies(this, profileName)
-                try {
-                    val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->
-                        activeScope().launch(Dispatchers.Main) {
-                            handleDataUrlDownload(dataUrl, contentDisposition, mimeType, this@apply.context)
-                        }
-                    }
-                    addJavascriptInterface(blobBridge, "JestkBlobBridge")
-                } catch (t: Throwable) {
-                    Log.w(TAG, "Failed to add BlobDownloadBridge interface", t)
-                }
-                setupDownloadListener(this)
-                setupAdBlocker(this)
-                applyUserAgentMetadata(settings, rawUserAgent)
-            }
-
-            currentIsDark?.let { applyThemeMode(webView, it) }
-
-            webView.tag = tabId
-            pool[tabId] = webView
-            if (profileName != null) {
-                tabProfiles[tabId] = profileName
-            } else {
-                tabProfiles.remove(tabId)
-            }
-            updateLoadedTabIds()
-            trimPool(tabId)
-            Log.d(TAG, "Created WebView for tab $tabId")
-            onWebViewCreated?.invoke(tabId, webView)
-            return webView
+        val webView = try {
+            createConfiguredWebView(contextWrapper, profileName)
         } catch (t: Throwable) {
             Log.w(TAG, "Failed to initialize WebView with Activity context, falling back to Application context", t)
             contextWrapper.baseContext = applicationContext
-            val fallbackWebView = NestedWebView(contextWrapper).apply {
-                isFocusable = true
-                isFocusableInTouchMode = true
-                val rawFallbackUserAgent = settings.userAgentString
-                settings.apply {
-                    javaScriptEnabled = true
-                    domStorageEnabled = true
-                    javaScriptCanOpenWindowsAutomatically = true
-                    setSupportMultipleWindows(true)
-                    userAgentString = UserAgentSanitizer.sanitize(rawFallbackUserAgent)
-                    mediaPlaybackRequiresUserGesture = false
-                    builtInZoomControls = true
-                    displayZoomControls = false
-                    loadWithOverviewMode = true
-                    useWideViewPort = true
-                    cacheMode = WebSettings.LOAD_DEFAULT
-                    mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-                    setSupportZoom(true)
-                }
-                configureProfileAndCookies(this, profileName)
-                try {
-                    val blobBridge = BlobDownloadBridge { dataUrl, contentDisposition, mimeType ->
-                        activeScope().launch(Dispatchers.Main) {
-                            handleDataUrlDownload(dataUrl, contentDisposition, mimeType, this@apply.context)
-                        }
+            createConfiguredWebView(contextWrapper, profileName)
+        }
+
+        currentIsDark?.let { applyThemeMode(webView, it) }
+        webView.tag = tabId
+        pool[tabId] = webView
+        if (profileName != null) {
+            tabProfiles[tabId] = profileName
+        } else {
+            tabProfiles.remove(tabId)
+        }
+        updateLoadedTabIds()
+        trimPool(tabId)
+        Log.d(TAG, "Created WebView for tab $tabId")
+        onWebViewCreated?.invoke(tabId, webView)
+        return webView
+    }
+
+    /**
+     * Creates and configures a WebView. A WebView that fails during configuration is destroyed
+     * before the error propagates, so the fallback attempt never leaks a half-initialized instance.
+     */
+    @SuppressLint("SetJavaScriptEnabled")
+    private fun createConfiguredWebView(context: Context, profileName: String?): WebView {
+        val webView = NestedWebView(context)
+        try {
+            webView.isFocusable = true
+            webView.isFocusableInTouchMode = true
+            val rawUserAgent = webView.settings.userAgentString
+            webView.settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                javaScriptCanOpenWindowsAutomatically = true
+                setSupportMultipleWindows(true)
+                userAgentString = UserAgentSanitizer.sanitize(rawUserAgent)
+                mediaPlaybackRequiresUserGesture = false
+                builtInZoomControls = true
+                displayZoomControls = false
+                loadWithOverviewMode = true
+                useWideViewPort = true
+                cacheMode = WebSettings.LOAD_DEFAULT
+                mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+                setSupportZoom(true)
+            }
+            configureProfileAndCookies(webView, profileName)
+            try {
+                val blobBridge = BlobDownloadBridge(pendingBlobUrls) { dataUrl, contentDisposition, mimeType ->
+                    activeScope().launch(Dispatchers.Main) {
+                        handleDataUrlDownload(dataUrl, contentDisposition, mimeType, webView.context)
                     }
-                    addJavascriptInterface(blobBridge, "JestkBlobBridge")
-                } catch (t2: Throwable) {
-                    Log.w(TAG, "Failed to add BlobDownloadBridge to fallback WebView", t2)
                 }
-                setupDownloadListener(this)
-                setupAdBlocker(this)
-                applyUserAgentMetadata(settings, rawFallbackUserAgent)
+                webView.addJavascriptInterface(blobBridge, "JestkBlobBridge")
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to add BlobDownloadBridge interface", t)
             }
-            currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
-            fallbackWebView.tag = tabId
-            pool[tabId] = fallbackWebView
-            if (profileName != null) {
-                tabProfiles[tabId] = profileName
-            } else {
-                tabProfiles.remove(tabId)
-            }
-            updateLoadedTabIds()
-            trimPool(tabId)
-            Log.d(TAG, "Created fallback WebView for tab $tabId")
-            onWebViewCreated?.invoke(tabId, fallbackWebView)
-            return fallbackWebView
+            setupDownloadListener(webView)
+            setupAdBlocker(webView)
+            applyUserAgentMetadata(webView.settings, rawUserAgent)
+            return webView
+        } catch (t: Throwable) {
+            runCatching { webView.destroy() }
+            throw t
         }
     }
 
@@ -479,12 +454,19 @@ class WebViewPool(
         try {
             val bridge = AdBlockBridge(
                 isEnabledProvider = { isAdBlockerEnabled?.invoke() ?: true },
-                onCleanPlayerRequested = { url -> onCleanPlayerRequested?.invoke(url) ?: false },
+                onCleanPlayerRequested = { url ->
+                    // Only YouTube pages may open the clean player, and only for a video URL.
+                    isYouTubeHost((webView as? NestedWebView)?.loadedUrl) &&
+                        com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url) != null &&
+                        (onCleanPlayerRequested?.invoke(url) ?: false)
+                },
                 isCleanPlayerEnabledProvider = { isCleanPlayerEnabled?.invoke() ?: true },
-                isRedirectProtectionEnabledProvider = { isAdRedirectProtectionEnabled?.invoke() ?: true },
                 onOrientationLockRequested = { orientation ->
                     val act = webView.context.findActivity() ?: return@AdBlockBridge
                     act.runOnUiThread {
+                        // A page may rotate the screen only while it shows fullscreen content.
+                        val isFullscreen = (webView.webChromeClient as? JestkWebChromeClient)?.isCustomViewShowing() == true
+                        if (!isFullscreen) return@runOnUiThread
                         val target = when (orientation) {
                             "portrait", "portrait-primary" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
                             "portrait-secondary" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
@@ -580,7 +562,7 @@ class WebViewPool(
             Toast.makeText(targetContext, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
 
             if (downloadMgr != null) {
-                coroutineScope.launch {
+                activeScope().launch {
                     try {
                         val downloadId = downloadMgr.enqueueDownload(
                             url = url,
@@ -625,7 +607,7 @@ class WebViewPool(
         }
 
         if (downloadMgr != null) {
-            coroutineScope.launch {
+            activeScope().launch {
                 try {
                     val downloadId = downloadMgr.handleDataUrl(url, contentDisposition, mimeType)
                     val item = downloadRepository?.getDownloadById(downloadId)
@@ -662,6 +644,7 @@ class WebViewPool(
         Toast.makeText(targetContext, "Preparing download...", Toast.LENGTH_SHORT).show()
         Log.d(TAG, "Preparing blob download: $blobUrl")
 
+        pendingBlobUrls.add(blobUrl)
         val js = buildBlobDownloadScript(blobUrl, contentDisposition, mimeType)
 
         try {
@@ -694,7 +677,7 @@ class WebViewPool(
                             var reader = new FileReader();
                             reader.onloadend = function() {
                                 if (window.JestkBlobBridge) {
-                                    window.JestkBlobBridge.onBlobDownloaded(reader.result, $jsonDisposition, $jsonMime);
+                                    window.JestkBlobBridge.onBlobDownloaded($jsonUrl, reader.result, $jsonDisposition, $jsonMime);
                                 }
                             };
                             reader.readAsDataURL(this.response);
@@ -707,7 +690,7 @@ class WebViewPool(
                                 var reader = new FileReader();
                                 reader.onloadend = function() {
                                     if (window.JestkBlobBridge) {
-                                        window.JestkBlobBridge.onBlobDownloaded(reader.result, $jsonDisposition, $jsonMime);
+                                        window.JestkBlobBridge.onBlobDownloaded($jsonUrl, reader.result, $jsonDisposition, $jsonMime);
                                     }
                                 };
                                 reader.readAsDataURL(b);
@@ -720,25 +703,23 @@ class WebViewPool(
         """.trimIndent()
     }
 
-    fun applyThemeMode(webView: WebView, isDark: Boolean) {
-        val settings = webView.settings
-        try {
-            if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
-                WebSettingsCompat.setAlgorithmicDarkeningAllowed(settings, isDark)
-            }
-
-            injectColorSchemeScript(webView, isDark)
-        } catch (t: Throwable) {
-            Log.w(TAG, "Failed to apply theme mode", t)
-        }
+    /**
+     * Applies the app theme to [webView]. Pages see `prefers-color-scheme` through the hosting
+     * Activity theme (see `MainActivity.applyAppNightMode`), so no script is injected here: a
+     * patched `window.matchMedia` is a bot-detection signal (review finding BOT-1).
+     */
+    private fun isYouTubeHost(url: String?): Boolean {
+        val host = url?.let { runCatching { Uri.parse(it).host }.getOrNull() }?.lowercase() ?: return false
+        return host == "youtube.com" || host.endsWith(".youtube.com") || host == "youtu.be"
     }
 
-    fun injectColorSchemeScript(webView: WebView, isDark: Boolean) {
-        val js = buildColorSchemeScript(isDark)
+    fun applyThemeMode(webView: WebView, isDark: Boolean) {
         try {
-            webView.evaluateJavascript(js, null)
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
+                WebSettingsCompat.setAlgorithmicDarkeningAllowed(webView.settings, isDark)
+            }
         } catch (t: Throwable) {
-            Log.w(TAG, "Failed to evaluate color scheme script", t)
+            Log.w(TAG, "Failed to apply theme mode", t)
         }
     }
 

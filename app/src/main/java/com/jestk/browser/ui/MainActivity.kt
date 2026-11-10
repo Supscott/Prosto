@@ -1,6 +1,7 @@
 package com.jestk.browser.ui
 
 import android.app.PictureInPictureParams
+import android.app.UiModeManager
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
@@ -18,13 +19,18 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import com.jestk.browser.JestkApplication
+import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.engine.AdBlockerEngine
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.util.DefaultBrowserHelper
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.VibratorVibrationFeedback
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity(), FileChooserHandler {
     private lateinit var viewModel: BrowserViewModel
@@ -144,6 +150,13 @@ class MainActivity : ComponentActivity(), FileChooserHandler {
 
         viewModel.onLaunchIntent = { intent -> startActivity(intent) }
 
+        lifecycleScope.launch {
+            container.settingsRepository.getSettings()
+                .map { it.themeMode }
+                .distinctUntilChanged()
+                .collect { applyAppNightMode(it) }
+        }
+
         setContent {
             val vibration =
                 remember {
@@ -158,6 +171,24 @@ class MainActivity : ComponentActivity(), FileChooserHandler {
                 )
             }
         }
+    }
+
+    /**
+     * Makes the Activity theme (and with it the WebView's `prefers-color-scheme` and algorithmic
+     * darkening) follow the in-app theme setting. The system persists the value per app, so the
+     * Activity is recreated only when the setting actually changes.
+     * Below Android 12 the WebView follows the system theme.
+     */
+    private fun applyAppNightMode(mode: ThemeMode) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val uiModeManager = getSystemService(UiModeManager::class.java) ?: return
+        uiModeManager.setApplicationNightMode(
+            when (mode) {
+                ThemeMode.DARK -> UiModeManager.MODE_NIGHT_YES
+                ThemeMode.LIGHT -> UiModeManager.MODE_NIGHT_NO
+                ThemeMode.SYSTEM -> UiModeManager.MODE_NIGHT_AUTO
+            },
+        )
     }
 
     override fun onStart() {

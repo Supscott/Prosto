@@ -104,126 +104,13 @@ object AdBlockerScript {
     }
 
     /**
-     * Builds the surrogate mocks for ad APIs (Google AdSense, GPT, Yandex)
-     * preventing pages from waiting indefinitely for callbacks or throwing TypeError exceptions.
-     */
-    fun buildSurrogateScript(): String {
-        return """
-            (function() {
-                try {
-                    // Google Ad status check stub (anti-adblock bypass)
-                    window.google_ad_status = 1;
-
-                    // Google AdSense stub
-                    window.adsbygoogle = window.adsbygoogle || [];
-                    window.adsbygoogle.loaded = true;
-                    window.adsbygoogle.push = function(arg) {
-                        return 0;
-                    };
-
-                    // Google Publisher Tag (GPT) stub
-                    window.googletag = window.googletag || {};
-                    window.googletag.cmd = window.googletag.cmd || [];
-                    window.googletag.cmd.push = function(fn) {
-                        if (typeof fn === 'function') {
-                            try { fn(); } catch(e) {}
-                        }
-                        return 0;
-                    };
-                    window.googletag.apiReady = true;
-                    var dummyService = {
-                        addEventListener: function() { return dummyService; },
-                        setTargeting: function() { return dummyService; },
-                        enableSingleRequest: function() { return dummyService; },
-                        enableAsyncRendering: function() { return dummyService; },
-                        collapseEmptyDivs: function() { return dummyService; },
-                        clearTargeting: function() { return dummyService; },
-                        refresh: function() { return dummyService; },
-                        getSlots: function() { return []; }
-                    };
-                    window.googletag.pubads = function() {
-                        return dummyService;
-                    };
-                    window.googletag.enableServices = function() {};
-                    window.googletag.display = function() {};
-                    window.googletag.sizeMapping = function() {
-                        return {
-                            addSize: function() { return this; },
-                            build: function() { return []; }
-                        };
-                    };
-
-                    // Yandex Direct & ADFOX stubs
-                    window.yaContextCb = window.yaContextCb || [];
-                    window.yaContextCb.push = function(fn) {
-                        if (typeof fn === 'function') {
-                            try { fn(); } catch(e) {}
-                        }
-                    };
-                    window.Ya = window.Ya || {};
-                    window.Ya.adfoxCode = window.Ya.adfoxCode || {
-                        create: function(config) {
-                            if (config && config.containerId) {
-                                var el = document.getElementById(config.containerId);
-                                if (el) {
-                                    el.style.setProperty('display', 'none', 'important');
-                                    el.style.setProperty('height', '0', 'important');
-                                    el.style.setProperty('min-height', '0', 'important');
-                                }
-                            }
-                        },
-                        createScroll: function(config) {
-                            if (config && config.containerId) {
-                                var el = document.getElementById(config.containerId);
-                                if (el) {
-                                    el.style.setProperty('display', 'none', 'important');
-                                    el.style.setProperty('height', '0', 'important');
-                                    el.style.setProperty('min-height', '0', 'important');
-                                }
-                            }
-                        },
-                        destroy: function() {},
-                        clearSession: function() {},
-                        reload: function() {},
-                        hbCallbacks: []
-                    };
-                    window.Ya.adfoxCode.hbCallbacks = window.Ya.adfoxCode.hbCallbacks || [];
-                    window.Ya.Context = window.Ya.Context || {
-                        AdvManager: {
-                            render: function(config) {
-                                if (config && config.renderTo) {
-                                    var el = typeof config.renderTo === 'string' ? document.getElementById(config.renderTo) : config.renderTo;
-                                    if (el) {
-                                        el.style.setProperty('display', 'none', 'important');
-                                        el.style.setProperty('height', '0', 'important');
-                                        el.style.setProperty('min-height', '0', 'important');
-                                    }
-                                }
-                            },
-                            destroy: function() {}
-                        }
-                    };
-
-                    // X5 Media stub
-                    window.x5media = window.x5media || {
-                        init: function() { return Promise.resolve(); },
-                        render: function() {}
-                    };
-                } catch(e) {}
-            })();
-        """.trimIndent()
-    }
-
-    /**
-     * Builds the YouTube Fast-Start ad bypass scriptlet.
-     * Combines multi-layer mitigations against YouTube's anti-adblock throttling and delays:
-     * 1. Spoofs window.google_ad_status = 1 to prevent YouTube's deliberate ad-block detection delay.
-     * 2. Prunes adPlacements, playerAds, adSlots, and adBreakHeartbeatParams from:
-     *    - window.ytInitialPlayerResponse, window.ytInitialData, window.ytplayer
-     *    - JSON.parse
-     *    - Response.prototype.json and Response.prototype.text
-     *    - XMLHttpRequest.prototype.responseText and response
-     * 3. Accelerates and auto-skips fallback ad breaks (.ad-showing video, .ad-interrupting video).
+     * Builds the YouTube scriptlet (YouTube hosts only):
+     * 1. Clean-player link interception (clicks and `history.pushState/replaceState`), always on.
+     * 2. When the ad blocker is on (`adBlockerActive` from the enclosing document-start script),
+     *    prunes adPlacements, playerAds, adSlots and adBreakHeartbeatParams from
+     *    `ytInitialPlayerResponse`, `ytInitialData`, `ytplayer`, `JSON.parse`,
+     *    `Response.prototype.json/text` and XHR `responseText/response`, and fast-forwards
+     *    fallback ad breaks.
      */
     fun buildYouTubeFastStartScript(): String {
         return """
@@ -296,6 +183,10 @@ object AdBlockerScript {
                         }
                         return origReplaceState.apply(this, arguments);
                     };
+
+                    if (typeof adBlockerActive !== 'undefined' && !adBlockerActive) {
+                        return;
+                    }
 
                     // 1. Prune ad properties from player responses recursively (including array streams)
                     function pruneAdProps(obj, depth) {
@@ -487,9 +378,10 @@ object AdBlockerScript {
                         } catch(e) {}
                     }
 
+                    var hookedVideos = new WeakSet();
                     function monitorVideo(v) {
-                        if (!v || v.__hori_yt_hooked) return;
-                        v.__hori_yt_hooked = true;
+                        if (!v || hookedVideos.has(v)) return;
+                        hookedVideos.add(v);
                         v.addEventListener('timeupdate', function() {
                             if (document.querySelector('.ad-showing, .ad-interrupting')) {
                                 skipAdSlot();
@@ -567,54 +459,43 @@ object AdBlockerScript {
                         return;
                     }
 
-                    if (window.__hori_adblock_initialized) return;
+                    // ScreenOrientation lock bridge: WebView rejects screen.orientation.lock(), so
+                    // fullscreen players cannot rotate. The methods are swapped only while the
+                    // document is fullscreen; the rest of the time pages (and bot checks) see the
+                    // untouched native functions.
                     try {
-                        Object.defineProperty(window, '__hori_adblock_initialized', { value: true, enumerable: false, configurable: true });
-                    } catch(e) {
-                        window.__hori_adblock_initialized = true;
-                    }
-
-                    // ScreenOrientation API bridge for Android WebView (DuckDuckGo web-compat standard)
-                    try {
-                        if (globalThis.ScreenOrientation && globalThis.ScreenOrientation.prototype) {
-                            var patchedLock = function(orientation) {
-                                try {
-                                    if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.lockOrientation === 'function') {
-                                        window.HoriAdBlockBridge.lockOrientation(orientation || 'landscape');
-                                    }
-                                } catch(e) {}
+                        var orientationProto = globalThis.ScreenOrientation && globalThis.ScreenOrientation.prototype;
+                        var orientationBridge = window.HoriAdBlockBridge;
+                        var nativeLock = orientationProto && Object.getOwnPropertyDescriptor(orientationProto, 'lock');
+                        var nativeUnlock = orientationProto && Object.getOwnPropertyDescriptor(orientationProto, 'unlock');
+                        if (orientationBridge && nativeLock && nativeUnlock) {
+                            var patchedLock = function lock(orientation) {
+                                try { orientationBridge.lockOrientation(orientation || 'landscape'); } catch(e) {}
                                 return Promise.resolve();
                             };
-                            try {
-                                patchedLock.toString = function() { return 'function lock() { [native code] }'; };
-                            } catch(e) {}
-                            try {
-                                Object.defineProperty(globalThis.ScreenOrientation.prototype, 'lock', {
-                                    value: patchedLock,
-                                    writable: true,
-                                    configurable: true,
-                                    enumerable: false
-                                });
-                            } catch(e) {}
-
-                            var patchedUnlock = function() {
-                                try {
-                                    if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.unlockOrientation === 'function') {
-                                        window.HoriAdBlockBridge.unlockOrientation();
-                                    }
-                                } catch(e) {}
+                            var patchedUnlock = function unlock() {
+                                try { orientationBridge.unlockOrientation(); } catch(e) {}
                             };
-                            try {
-                                patchedUnlock.toString = function() { return 'function unlock() { [native code] }'; };
-                            } catch(e) {}
-                            try {
-                                Object.defineProperty(globalThis.ScreenOrientation.prototype, 'unlock', {
-                                    value: patchedUnlock,
-                                    writable: true,
-                                    configurable: true,
-                                    enumerable: false
-                                });
-                            } catch(e) {}
+                            var patchDescriptor = function(nativeDescriptor, value) {
+                                return {
+                                    value: value,
+                                    writable: nativeDescriptor.writable,
+                                    enumerable: nativeDescriptor.enumerable,
+                                    configurable: nativeDescriptor.configurable
+                                };
+                            };
+                            var onFullscreenChange = function() {
+                                var isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+                                try {
+                                    Object.defineProperty(orientationProto, 'lock', isFullscreen ? patchDescriptor(nativeLock, patchedLock) : nativeLock);
+                                    Object.defineProperty(orientationProto, 'unlock', isFullscreen ? patchDescriptor(nativeUnlock, patchedUnlock) : nativeUnlock);
+                                } catch(e) {}
+                                if (!isFullscreen) {
+                                    try { orientationBridge.unlockOrientation(); } catch(e) {}
+                                }
+                            };
+                            document.addEventListener('fullscreenchange', onFullscreenChange, true);
+                            document.addEventListener('webkitfullscreenchange', onFullscreenChange, true);
                         }
                     } catch(e) {}
 
@@ -626,8 +507,8 @@ object AdBlockerScript {
                         } catch(e) {}
                     }
 
-                    // 1. Install YouTube Fast-Start protection immediately regardless of toggle
-                    // to prevent artificial 10-15s buffering and SABR backoffs on YouTube:
+                    // 1. YouTube: the clean-player link interception always runs; the ad pruning
+                    // inside it checks adBlockerActive.
                     $ytScript
 
                     // If ad blocking is toggled off, exit before applying cosmetic CSS and DOM cleaners
@@ -635,113 +516,19 @@ object AdBlockerScript {
                         return;
                     }
 
-                    // 2. Install Surrogates immediately
-                    window.adsbygoogle = window.adsbygoogle || [];
-                    window.adsbygoogle.loaded = true;
-                    window.adsbygoogle.push = function(arg) { return 0; };
-
-                    window.googletag = window.googletag || {};
-                    window.googletag.cmd = window.googletag.cmd || [];
-                    window.googletag.cmd.push = function(fn) {
-                        if (typeof fn === 'function') {
-                            try { fn(); } catch(e) {}
-                        }
-                        return 0;
-                    };
-                    window.googletag.apiReady = true;
-                    var dummyService = {
-                        addEventListener: function() { return dummyService; },
-                        setTargeting: function() { return dummyService; },
-                        enableSingleRequest: function() { return dummyService; },
-                        enableAsyncRendering: function() { return dummyService; },
-                        collapseEmptyDivs: function() { return dummyService; },
-                        clearTargeting: function() { return dummyService; },
-                        refresh: function() { return dummyService; },
-                        getSlots: function() { return []; }
-                    };
-                    window.googletag.pubads = function() { return dummyService; };
-                    window.googletag.enableServices = function() {};
-                    window.googletag.display = function() {};
-                    window.googletag.sizeMapping = function() {
-                        return {
-                            addSize: function() { return this; },
-                            build: function() { return []; }
-                        };
-                    };
-
-                    // Yandex Direct & ADFOX stubs
-                    window.yaContextCb = window.yaContextCb || [];
-                    window.yaContextCb.push = function(fn) {
-                        if (typeof fn === 'function') {
-                            try { fn(); } catch(e) {}
-                        }
-                    };
-                    window.Ya = window.Ya || {};
-                    window.Ya.adfoxCode = window.Ya.adfoxCode || {
-                        create: function(config) {
-                            if (config && config.containerId) {
-                                var el = document.getElementById(config.containerId);
-                                if (el) {
-                                    el.style.setProperty('display', 'none', 'important');
-                                    el.style.setProperty('height', '0', 'important');
-                                    el.style.setProperty('min-height', '0', 'important');
-                                }
-                            }
-                        },
-                        createScroll: function(config) {
-                            if (config && config.containerId) {
-                                var el = document.getElementById(config.containerId);
-                                if (el) {
-                                    el.style.setProperty('display', 'none', 'important');
-                                    el.style.setProperty('height', '0', 'important');
-                                    el.style.setProperty('min-height', '0', 'important');
-                                }
-                            }
-                        },
-                        destroy: function() {},
-                        clearSession: function() {},
-                        reload: function() {},
-                        hbCallbacks: []
-                    };
-                    window.Ya.adfoxCode.hbCallbacks = window.Ya.adfoxCode.hbCallbacks || [];
-                    window.Ya.Context = window.Ya.Context || {
-                        AdvManager: {
-                            render: function(config) {
-                                if (config && config.renderTo) {
-                                    var el = typeof config.renderTo === 'string' ? document.getElementById(config.renderTo) : config.renderTo;
-                                    if (el) {
-                                        el.style.setProperty('display', 'none', 'important');
-                                        el.style.setProperty('height', '0', 'important');
-                                        el.style.setProperty('min-height', '0', 'important');
-                                    }
-                                }
-                            },
-                            destroy: function() {}
-                        }
-                    };
-
-                    // X5 Media stub
-                    window.x5media = window.x5media || {
-                        init: function() { return Promise.resolve(); },
-                        render: function() {}
-                    };
-
                     // 3. Inject Cosmetic CSS Style Tag
+                    var cosmeticStyle = null;
                     function injectStyle() {
-                        if (document.getElementById('__hori_adblock_css')) return;
-                        var style = document.createElement('style');
-                        style.id = '__hori_adblock_css';
-                        style.textContent = `$cssContent`;
+                        if (cosmeticStyle && cosmeticStyle.isConnected) return;
+                        if (!cosmeticStyle) {
+                            cosmeticStyle = document.createElement('style');
+                            cosmeticStyle.textContent = `$cssContent`;
+                        }
                         var target = document.head || document.documentElement;
                         if (target) {
-                            target.appendChild(style);
+                            target.appendChild(cosmeticStyle);
                         } else {
-                            document.addEventListener('DOMContentLoaded', function() {
-                                var t = document.head || document.documentElement;
-                                if (t && !document.getElementById('__hori_adblock_css')) {
-                                    t.appendChild(style);
-                                }
-                            });
+                            document.addEventListener('DOMContentLoaded', injectStyle);
                         }
                     }
                     injectStyle();
@@ -875,13 +662,6 @@ object AdBlockerScript {
                         window._cf_chl_opt ||
                         (document && (document.getElementById('challenge-stage') || document.getElementById('challenge-form')))) {
                         return;
-                    }
-
-                    if (window.__hori_autoconsent_initialized) return;
-                    try {
-                        Object.defineProperty(window, '__hori_autoconsent_initialized', { value: true, enumerable: false, configurable: true });
-                    } catch(e) {
-                        window.__hori_autoconsent_initialized = true;
                     }
 
                     var CMP_CONTAINER_SELECTORS = [

@@ -8,6 +8,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewFeature
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.util.UrlSecurityUtils
@@ -282,19 +283,6 @@ class JestkWebViewClient(
             checkExternalAppOffer(wv, validUrl)
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
             val isDark = isDarkTheme?.invoke() ?: false
-            injectColorScheme(wv, isDark)
-            val host = runCatching { Uri.parse(validUrl).host.orEmpty() }.getOrDefault("")
-            val isSecurityChallenge = AdBlockerEngine.isAllowlistedAuthDomain(host) ||
-                validUrl.contains("/cdn-cgi/challenge-platform", ignoreCase = true)
-            if (!isSecurityChallenge) {
-                if (isAdBlockerEnabled()) {
-                    AdBlockerScript.injectAdBlocker(wv)
-                }
-                val autoConsentActive = (isAutoConsentEnabled ?: isAdBlockerEnabled).invoke()
-                if (autoConsentActive) {
-                    AdBlockerScript.injectAutoConsent(wv)
-                }
-            }
             if (validUrl.contains("apple.com", ignoreCase = true)) {
                 notifyThemeColors(tabId, android.graphics.Color.parseColor("#161617"), android.graphics.Color.parseColor("#161617"))
             } else if (validUrl.contains("youtube.com", ignoreCase = true) && isDark) {
@@ -320,19 +308,7 @@ class JestkWebViewClient(
         onPageFinished(tabId, validUrl, title)
         view?.let { wv ->
             onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
-            isDarkTheme?.invoke()?.let { isDark -> injectColorScheme(wv, isDark) }
-            val host = runCatching { Uri.parse(validUrl).host.orEmpty() }.getOrDefault("")
-            val isSecurityChallenge = AdBlockerEngine.isAllowlistedAuthDomain(host) ||
-                validUrl.contains("/cdn-cgi/challenge-platform", ignoreCase = true)
-            if (!isSecurityChallenge) {
-                if (isAdBlockerEnabled()) {
-                    AdBlockerScript.injectAdBlocker(wv)
-                }
-                val autoConsentActive = (isAutoConsentEnabled ?: isAdBlockerEnabled).invoke()
-                if (autoConsentActive) {
-                    AdBlockerScript.injectAutoConsent(wv)
-                }
-            }
+            injectPageScripts(wv, validUrl, title)
             wv.post {
                 extractThemeColor(wv, isPageStarted = false)
                 AdBlockerEngine.flushBlockedStats()
@@ -354,15 +330,19 @@ class JestkWebViewClient(
         }
     }
 
-    private fun injectColorScheme(
-        webView: WebView,
-        isDark: Boolean,
-    ) {
-        val js = buildColorSchemeScript(isDark)
-        try {
-            webView.evaluateJavascript(js, null)
-        } catch (t: Throwable) {
-            Log.w("HoriEngine", "Failed to evaluate color scheme script in client", t)
+    /**
+     * Injects the page scripts once per page, after the document finished loading (an injection
+     * from onPageStarted can still run in the previous document). With DOCUMENT_START_SCRIPT the
+     * ad-block script is already registered for every document by WebViewPool, so it is only
+     * evaluated here as a fallback. Security-challenge pages get nothing.
+     */
+    private fun injectPageScripts(webView: WebView, url: String, title: String) {
+        if (isSecurityChallengePage(url, title)) return
+        if (isAdBlockerEnabled() && !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
+            AdBlockerScript.injectAdBlocker(webView)
+        }
+        if ((isAutoConsentEnabled ?: isAdBlockerEnabled).invoke()) {
+            AdBlockerScript.injectAutoConsent(webView)
         }
     }
 
@@ -510,6 +490,17 @@ class JestkWebViewClient(
         }
 
         fun isHttpUrl(url: String): Boolean = UrlSecurityUtils.isHttpUrl(url)
+
+        /**
+         * Cloudflare serves its "Just a moment..." interstitial on the protected site's own
+         * domain, so a host allowlist alone does not recognise it.
+         */
+        internal fun isSecurityChallengePage(url: String, title: String?): Boolean {
+            val host = runCatching { Uri.parse(url).host.orEmpty() }.getOrDefault("")
+            return AdBlockerEngine.isAllowlistedAuthDomain(host) ||
+                url.contains("/cdn-cgi/challenge-platform", ignoreCase = true) ||
+                title?.trim().equals("Just a moment...", ignoreCase = true)
+        }
 
         fun extractHost(url: String): String = UrlSecurityUtils.extractHost(url)
 

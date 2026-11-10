@@ -327,7 +327,7 @@ class WebViewPoolRobolectricTest {
 
         // Verifies parameters are wrapped in quotes and embedded safely
         assertThat(js).contains("xhr.open('GET', $quotedUrl, true);")
-        assertThat(js).contains("window.JestkBlobBridge.onBlobDownloaded(reader.result,")
+        assertThat(js).contains("window.JestkBlobBridge.onBlobDownloaded($quotedUrl, reader.result,")
         assertThat(js).contains(quotedMime)
     }
 
