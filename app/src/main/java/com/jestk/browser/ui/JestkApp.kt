@@ -592,12 +592,8 @@ fun JestkApp(
 
             AnimatedVisibility(
                 visible = uiState.isWorkspacesOverviewVisible,
-                enter =
-                    fadeIn(tween(220, easing = FastOutSlowInEasing)) +
-                        slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 4 },
-                exit =
-                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
-                        slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 4 },
+                enter = fadeIn(tween(260, easing = FastOutSlowInEasing)),
+                exit = fadeOut(tween(200, easing = FastOutSlowInEasing)),
             ) {
                 WorkspacesOverviewScreen(
                     uiState = uiState,

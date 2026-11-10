@@ -74,6 +74,7 @@ fun WorkspaceOverviewCard(
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     modifier: Modifier = Modifier,
+    cornerRadiusDp: androidx.compose.ui.unit.Dp = 24.dp,
 ) {
     val typography = LocalProstoTypography.current
     val cardBg = if (isDark) DarkSurface else Color.White
@@ -85,13 +86,15 @@ fun WorkspaceOverviewCard(
         ProstoBorders.cardBorder(isDark)
     }
 
+    val cardShape = androidx.compose.foundation.shape.RoundedCornerShape(cornerRadiusDp)
+
     Surface(
-        shape = ProstoShapes.Card,
+        shape = cardShape,
         color = cardBg,
         shadowElevation = if (isActive) 8.dp else 3.dp,
         border = border,
         modifier = modifier
-            .clip(ProstoShapes.Card)
+            .clip(cardShape)
             .combinedClickable(
                 onClick = onSelect,
                 onLongClick = onEdit,

@@ -138,6 +138,32 @@ class WorkspacesOverviewScreenPreviewTest {
     }
 
     @Test
+    fun overview_smallSwipeDown_doesNotCloseOverview() {
+        val events = mutableListOf<BrowserUiEvent>()
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                WorkspacesOverviewScreen(
+                    uiState = BrowserUiState(
+                        workspaces = sampleWorkspaces,
+                        activeWorkspaceId = Workspace.DEFAULT_PERSONAL_ID,
+                        tabs = sampleTabs.filter { it.workspaceId == Workspace.DEFAULT_PERSONAL_ID },
+                        allTabs = sampleTabs,
+                    ),
+                    onEvent = { events.add(it) },
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithTag("workspaces_carousel_box").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, 20f), delayMillis = 200)
+            up()
+        }
+
+        assertThat(events).doesNotContain(BrowserUiEvent.CloseWorkspacesOverview)
+    }
+
+    @Test
     fun overview_clickingAddCard_opensNewWorkspaceSheet() {
         val events = mutableListOf<BrowserUiEvent>()
         composeTestRule.setContent {

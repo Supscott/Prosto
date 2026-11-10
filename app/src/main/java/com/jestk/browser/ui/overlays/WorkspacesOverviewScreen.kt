@@ -92,9 +92,21 @@ fun WorkspacesOverviewScreen(
     }
 
     val coroutineScope = rememberCoroutineScope()
+    val enterProgress = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        enterProgress.animateTo(
+            targetValue = 1f,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioLowBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+        )
+    }
+
     val dismissOffsetY = remember { Animatable(0f) }
     val density = LocalDensity.current
-    val dismissThresholdPx = with(density) { 56.dp.toPx() }
+    val dismissThresholdPx = with(density) { 100.dp.toPx() }
+    val dismissFraction = (dismissOffsetY.value / dismissThresholdPx).coerceIn(0f, 1f)
 
     var editingWorkspace by remember { mutableStateOf<Workspace?>(null) }
     var isNewWorkspaceSheetVisible by remember { mutableStateOf(false) }
@@ -137,7 +149,10 @@ fun WorkspacesOverviewScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 14.dp),
+                    .padding(horizontal = 20.dp, vertical = 14.dp)
+                    .graphicsLayer {
+                        alpha = (enterProgress.value * (1f - dismissFraction)).coerceIn(0f, 1f)
+                    },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -249,6 +264,25 @@ fun WorkspacesOverviewScreen(
                         .fillMaxWidth()
                         .fillMaxHeight(),
                 ) { page ->
+                    val isCentered = page == pagerState.currentPage
+                    val enterScale = if (isCentered) {
+                        androidx.compose.ui.util.lerp(1.35f, 1f, enterProgress.value)
+                    } else 1f
+                    val dismissScale = if (isCentered) {
+                        androidx.compose.ui.util.lerp(1f, 1.35f, dismissFraction)
+                    } else 1f
+                    val effectiveScale = if (dismissOffsetY.value > 0f) dismissScale else enterScale
+
+                    val enterRadius = if (isCentered) {
+                        (24f * enterProgress.value).dp
+                    } else 24.dp
+                    val dismissRadius = if (isCentered) {
+                        (24f * (1f - dismissFraction)).dp
+                    } else 24.dp
+                    val effectiveCornerRadius = if (dismissOffsetY.value > 0f) dismissRadius else enterRadius
+
+                    val cardAlpha = if (isCentered) 1f else (enterProgress.value * (1f - dismissFraction)).coerceIn(0f, 1f)
+
                     if (page < workspaces.size) {
                         val workspace = workspaces[page]
                         val isActive = workspace.id == uiState.activeWorkspaceId
@@ -270,6 +304,7 @@ fun WorkspacesOverviewScreen(
                             isDark = isDark,
                             tabCount = wsTabs.size,
                             activeTab = activeTab,
+                            cornerRadiusDp = effectiveCornerRadius,
                             onSelect = {
                                 if (workspace.id != uiState.activeWorkspaceId) {
                                     onEvent(BrowserUiEvent.SwitchWorkspace(workspace.id))
@@ -282,6 +317,11 @@ fun WorkspacesOverviewScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .fillMaxHeight(0.68f)
+                                .graphicsLayer {
+                                    scaleX = effectiveScale
+                                    scaleY = effectiveScale
+                                    alpha = cardAlpha
+                                }
                                 .padding(vertical = 12.dp),
                         )
                     } else {
@@ -292,6 +332,11 @@ fun WorkspacesOverviewScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .fillMaxHeight(0.68f)
+                                .graphicsLayer {
+                                    scaleX = if (isCentered) effectiveScale else 1f
+                                    scaleY = if (isCentered) effectiveScale else 1f
+                                    alpha = cardAlpha
+                                }
                                 .padding(vertical = 12.dp),
                         )
                     }
