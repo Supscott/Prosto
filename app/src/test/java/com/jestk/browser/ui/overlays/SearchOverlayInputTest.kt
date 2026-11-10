@@ -1,6 +1,13 @@
 package com.jestk.browser.ui.overlays
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.test.click
@@ -777,6 +784,112 @@ class SearchOverlayInputTest {
         assertEquals("Keyboard hide must be called during continuous drag", 1, testKeyboardController.hideCallCount)
         val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
         assertEquals("Overlay must be dismissed when continued downward drag exceeds continuous threshold", 1, dismissEvents.size)
+    }
+
+    @Test
+    fun searchOverlay_swipeDownOnSearchBar_dispatchesNestedScrollDelta() {
+        val events = mutableListOf<BrowserUiEvent>()
+        var preScrollDeltaDispatched = 0f
+        var preScrollSource: NestedScrollSource? = null
+
+        val testConnection = object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y > 0f) {
+                    preScrollDeltaDispatched += available.y
+                    preScrollSource = source
+                }
+                return Offset.Zero
+            }
+        }
+
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+        )
+
+        composeTestRule.setContent {
+            Box(modifier = Modifier.nestedScroll(testConnection)) {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    SearchOverlay(
+                        uiState = state,
+                        onEvent = { events.add(it) },
+                        isImeVisible = false
+                    )
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithText("Search with Google").performTouchInput {
+            swipeDown(startY = top + 4f, endY = bottom - 4f, durationMillis = 150)
+        }
+
+        composeTestRule.waitForIdle()
+
+        assertTrue(
+            "Downward drag on the search bar must dispatch vertical pre-scroll deltas to nested scroll",
+            preScrollDeltaDispatched > 0f
+        )
+        assertEquals(
+            "Scroll deltas must originate from UserInput",
+            NestedScrollSource.UserInput,
+            preScrollSource
+        )
+        val dismissEvents = events.filterIsInstance<BrowserUiEvent.DismissOverlay>()
+        assertEquals(1, dismissEvents.size)
+    }
+
+    @Test
+    fun searchOverlay_horizontalSwipeOnSearchBar_doesNotDispatchVerticalNestedScroll() {
+        val events = mutableListOf<BrowserUiEvent>()
+        var verticalPreScrollDispatched = 0f
+
+        val testConnection = object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y > 0f) {
+                    verticalPreScrollDispatched += available.y
+                }
+                return Offset.Zero
+            }
+        }
+
+        val engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE)
+        val state = BrowserUiState(
+            searchQuery = "",
+            settings = BrowserSettings(searchEngine = SearchEngine.DUCKDUCKGO),
+            searchEngines = engines
+        )
+
+        composeTestRule.setContent {
+            Box(modifier = Modifier.nestedScroll(testConnection)) {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    SearchOverlay(
+                        uiState = state,
+                        onEvent = { events.add(it) }
+                    )
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithText("Search with DuckDuckGo").performTouchInput {
+            swipeLeft(startX = right - 4f, endX = left + 4f, durationMillis = 200)
+        }
+
+        composeTestRule.waitForIdle()
+
+        assertEquals(
+            "Horizontal engine swipe must not dispatch vertical nested scroll deltas",
+            0f,
+            verticalPreScrollDispatched,
+            0.001f
+        )
+        assertTrue(
+            "Engine cycling must still succeed",
+            events.filterIsInstance<BrowserUiEvent.SetSearchEngine>().isNotEmpty()
+        )
+        assertTrue(
+            "Overlay must not be dismissed on horizontal swipe",
+            events.filterIsInstance<BrowserUiEvent.DismissOverlay>().isEmpty()
+        )
     }
 
     private class TestSoftwareKeyboardController : SoftwareKeyboardController {
