@@ -399,28 +399,34 @@ internal class TabCoordinator(
 
         if (recentTabRepository != null) {
             scope.launch(ioDispatcher) {
-                recentTabRepository.getRecentTabs(10).collectLatest { recents ->
-                    updateUiState { it.copy(recentTabs = recents) }
-                }
+                @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+                activeWorkspaceIdFlow
+                    .flatMapLatest { wsId -> recentTabRepository.getRecentTabs(10, wsId) }
+                    .collectLatest { recents ->
+                        updateUiState { it.copy(recentTabs = recents) }
+                    }
             }
         } else {
             scope.launch(ioDispatcher) {
-                tabRepository.getRecentTabs(6).collectLatest { recents ->
-                    updateUiState { state ->
-                        state.copy(
-                            recentTabs =
-                                recents.map { tab ->
-                                    RecentTabItem(
-                                        url = tab.url,
-                                        title = tab.title,
-                                        snapshotPath = tab.snapshotPath,
-                                        faviconUrl = tab.faviconUrl,
-                                        lastVisitedTimestamp = tab.lastActiveTimestamp,
-                                    )
-                                },
-                        )
+                @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+                activeWorkspaceIdFlow
+                    .flatMapLatest { wsId -> tabRepository.getRecentTabs(6, wsId) }
+                    .collectLatest { recents ->
+                        updateUiState { state ->
+                            state.copy(
+                                recentTabs =
+                                    recents.map { tab ->
+                                        RecentTabItem(
+                                            url = tab.url,
+                                            title = tab.title,
+                                            snapshotPath = tab.snapshotPath,
+                                            faviconUrl = tab.faviconUrl,
+                                            lastVisitedTimestamp = tab.lastActiveTimestamp,
+                                        )
+                                    },
+                            )
+                        }
                     }
-                }
             }
         }
 
@@ -1205,6 +1211,7 @@ internal class TabCoordinator(
                     title = displayTitle,
                     snapshotPath = tab?.snapshotPath,
                     faviconUrl = tab?.faviconUrl,
+                    workspaceId = effectiveWorkspaceId,
                 )
             }
         }
@@ -1249,6 +1256,7 @@ internal class TabCoordinator(
                     title = trimmedTitle,
                     snapshotPath = tab?.snapshotPath,
                     faviconUrl = tab?.faviconUrl,
+                    workspaceId = effectiveWorkspaceId,
                 )
             }
         }
@@ -1297,7 +1305,7 @@ internal class TabCoordinator(
             tabRepository.updateSnapshot(tabId, path)
             val tab = tabRepository.getTabById(tabId)
             if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:")) {
-                recentTabRepository?.updateSnapshot(tab.url, path)
+                recentTabRepository?.updateSnapshot(tab.url, path, tab.workspaceId)
             }
         }
     }
@@ -1343,9 +1351,9 @@ internal class TabCoordinator(
             if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:") && !faviconUrl.isNullOrEmpty()) {
                 val effectiveUrl = pageUrl ?: tab.url
                 if (isSameDomain(tab.url, effectiveUrl)) {
-                    recentTabRepository?.updateFavicon(tab.url, faviconUrl)
+                    recentTabRepository?.updateFavicon(tab.url, faviconUrl, tab.workspaceId)
                     FaviconManager.cacheFaviconPathForDomain(tab.url, faviconUrl)
-                    if (favoriteRepository.isFavorite(tab.url)) {
+                    if (favoriteRepository.isFavorite(tab.url, tab.workspaceId)) {
                         val persistentIconPath = if (faviconUrl.startsWith("/") || faviconUrl.startsWith("file:")) {
                             FaviconManager.persistFaviconForFavorite(faviconUrl)
                         } else null
@@ -1403,6 +1411,7 @@ internal class TabCoordinator(
         if (current.currentUrl.isNotEmpty() && !current.currentUrl.startsWith("about:")) {
             val activeTab = current.tabs.find { it.id == current.activeTabId }
             val tabFavicon = activeTab?.faviconUrl
+            val targetWorkspace = activeTab?.workspaceId ?: current.activeWorkspaceId
             scope.launch(ioDispatcher) {
                 val persistentIconPath = if (!tabFavicon.isNullOrEmpty() && (tabFavicon.startsWith("/") || tabFavicon.startsWith("file:"))) {
                     FaviconManager.persistFaviconForFavorite(tabFavicon)
@@ -1416,12 +1425,13 @@ internal class TabCoordinator(
                     title = current.pageTitle.ifEmpty { current.currentUrl },
                     url = current.currentUrl,
                     iconUrl = iconUrl,
+                    workspaceId = targetWorkspace,
                 )
             }
         }
     }
 
-    fun addFavorite(title: String, url: String) {
+    fun addFavorite(title: String, url: String, workspaceId: String? = null) {
         scope.launch(ioDispatcher) {
             val trimmed = url.trim()
             val normalizedUrl = when {
@@ -1432,7 +1442,8 @@ internal class TabCoordinator(
                 normalizedUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.").substringBefore('/')
             }
             val icon = FaviconManager.extractFallbackFaviconUrl(normalizedUrl)
-            favoriteRepository.addFavorite(derivedTitle, normalizedUrl, icon)
+            val targetWorkspace = workspaceId ?: getCurrentState().activeWorkspaceId
+            favoriteRepository.addFavorite(derivedTitle, normalizedUrl, icon, targetWorkspace)
         }
     }
 
@@ -1712,9 +1723,20 @@ internal class TabCoordinator(
                 ?: targetTabs.first()
 
             tabRepository.setActiveTab(targetActive.id)
+            val updatedTargetTabs = targetTabs.map { t ->
+                val c = tabThemeColors[t.id] ?: t.themeColor
+                val bc = tabBottomThemeColors[t.id] ?: t.bottomThemeColor
+                if (t.id == targetActive.id) {
+                    t.copy(isActive = true, themeColor = c, bottomThemeColor = bc)
+                } else {
+                    t.copy(isActive = false, themeColor = c, bottomThemeColor = bc)
+                }
+            }
             updateUiState { state ->
                 state.copy(
                     activeWorkspaceId = targetWorkspaceId,
+                    activeTabId = targetActive.id,
+                    tabs = updatedTargetTabs,
                     folders = targetFolders,
                     activeScreen = ScreenType.NONE,
                     recentlyClosedTab = targetRecentlyClosed,

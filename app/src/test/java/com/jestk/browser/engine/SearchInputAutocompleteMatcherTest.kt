@@ -137,9 +137,9 @@ class SearchInputAutocompleteMatcherTest {
     @Test
     fun findMatchingOpenTabs_returnsTabsMatchingQuery() {
         val tabs = listOf(
-            Tab(id = "1", url = "https://www.youtube.com/feed", title = "YouTube Feed"),
-            Tab(id = "2", url = "https://youtube.com/watch?v=123", title = "YouTube Video"),
-            Tab(id = "3", url = "https://google.com", title = "Google"),
+            Tab(id = "1", url = "https://www.youtube.com/feed", title = "YouTube Feed", lastActiveTimestamp = 2000L),
+            Tab(id = "2", url = "https://youtube.com/watch?v=123", title = "YouTube Video", lastActiveTimestamp = 1000L),
+            Tab(id = "3", url = "https://google.com", title = "Google", lastActiveTimestamp = 500L),
         )
 
         val matches = matcher.findMatchingOpenTabs(query = "you", tabs = tabs)

@@ -73,7 +73,8 @@ fun Modifier.dockLiftGestureModifier(
                 velocityTracker.addPosition(down.uptimeMillis, down.position)
 
                 var totalDragY = 0f
-                var triggered = false
+                var isArmed = false
+                var armedHapticGiven = false
                 var lastEventTime = startTime
                 var holdJob: Job? = null
 
@@ -99,11 +100,13 @@ fun Modifier.dockLiftGestureModifier(
                         delay(remainingHold)
                         val velY = velocityTracker.calculateVelocity().y
                         val isMovingFast = velY < -300f
-                        if (!triggered && totalDragY <= -minHoldDragPx && !isMovingFast) {
-                            triggered = true
-                            currentHapticFeedback?.performHapticFeedback(HapticFeedbackType.LongPress)
-                            currentVibration?.confirm()
-                            currentOnLiftWorkspaces()
+                        if (totalDragY <= -minHoldDragPx && !isMovingFast) {
+                            isArmed = true
+                            if (!armedHapticGiven) {
+                                armedHapticGiven = true
+                                currentHapticFeedback?.performHapticFeedback(HapticFeedbackType.LongPress)
+                                currentVibration?.confirm()
+                            }
                         }
                     }
 
@@ -122,36 +125,41 @@ fun Modifier.dockLiftGestureModifier(
                         val elapsed = change.uptimeMillis - startTime
                         val velY = velocityTracker.calculateVelocity().y
                         val isMovingFast = velY < -300f
-                        if (!triggered && totalDragY <= -minHoldDragPx && elapsed >= 210L && !isMovingFast) {
-                            triggered = true
-                            holdJob?.cancel()
-                            currentHapticFeedback?.performHapticFeedback(HapticFeedbackType.LongPress)
-                            currentVibration?.confirm()
-                            currentOnLiftWorkspaces()
+                        if (totalDragY <= -thresholdPx || (totalDragY <= -minHoldDragPx && elapsed >= 210L && !isMovingFast)) {
+                            isArmed = true
+                            if (!armedHapticGiven) {
+                                armedHapticGiven = true
+                                currentHapticFeedback?.performHapticFeedback(HapticFeedbackType.LongPress)
+                                currentVibration?.confirm()
+                            }
+                        } else if (totalDragY > -minHoldDragPx) {
+                            isArmed = false
+                            armedHapticGiven = false
                         }
                     }
 
                     holdJob?.cancel()
 
                     if (dragSuccess) {
-                        if (!triggered) {
-                            val duration = lastEventTime - startTime
-                            val velocityY = velocityTracker.calculateVelocity().y
-                            val velocityYDp = velocityY / density.density
+                        val releaseTime = currentEvent.changes.firstOrNull()?.uptimeMillis ?: lastEventTime
+                        val duration = releaseTime - startTime
+                        val velocityY = velocityTracker.calculateVelocity().y
+                        val velocityYDp = velocityY / density.density
 
-                            val isFastFlick = (duration < 250L && totalDragY <= -minFlickDistancePx) ||
-                                (duration < 250L && (velocityYDp < -500f || velocityY < -500f)) ||
-                                velocityYDp < -500f || velocityY < fastVelocityPx || velocityY < ultraFastVelocityPx
+                        val isFastFlick = (duration < 250L && totalDragY <= -minFlickDistancePx) ||
+                            (duration < 250L && (velocityYDp < -500f || velocityY < -500f)) ||
+                            velocityYDp < -500f || velocityY < fastVelocityPx || velocityY < ultraFastVelocityPx
 
-                            if (isFastFlick) {
-                                triggered = true
-                                currentOnSwipeUpSearch()
-                            } else if (duration >= 210L && totalDragY <= -thresholdPx) {
-                                triggered = true
+                        val isLiftEligible = isArmed
+
+                        if (isFastFlick) {
+                            currentOnSwipeUpSearch()
+                        } else if (isLiftEligible && totalDragY <= -minHoldDragPx) {
+                            if (!armedHapticGiven) {
                                 currentHapticFeedback?.performHapticFeedback(HapticFeedbackType.LongPress)
                                 currentVibration?.confirm()
-                                currentOnLiftWorkspaces()
                             }
+                            currentOnLiftWorkspaces()
                         }
                     }
 

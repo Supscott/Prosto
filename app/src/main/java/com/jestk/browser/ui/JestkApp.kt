@@ -85,6 +85,7 @@ import com.jestk.browser.domain.model.isVisible
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
+import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
@@ -442,6 +443,35 @@ fun JestkApp(
             }
         }
 
+        LaunchedEffect(uiState.isWorkspacesOverviewVisible, uiState.activeOverlay) {
+            val isOverviewOpen = uiState.isWorkspacesOverviewVisible || uiState.activeOverlay == OverlayType.TAB_GRID
+            if (isOverviewOpen) {
+                val currentTab = uiState.activeTab
+                if (currentTab != null && (uiState.isHome || currentTab.isHomeTab)) {
+                    SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
+                        if (path != null) {
+                            viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))
+                        }
+                    }
+                }
+            }
+        }
+
+        var wasHomeScreen by remember { androidx.compose.runtime.mutableStateOf(showHomeScreen) }
+        LaunchedEffect(showHomeScreen) {
+            if (wasHomeScreen && !showHomeScreen) {
+                val currentTab = uiState.activeTab
+                if (currentTab != null) {
+                    SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
+                        if (path != null) {
+                            viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))
+                        }
+                    }
+                }
+            }
+            wasHomeScreen = showHomeScreen
+        }
+
         DisposableEffect(Unit) {
             onDispose {
                 val activity = context.findActivity()
@@ -456,6 +486,22 @@ fun JestkApp(
         }
 
         var dockDragLiftPx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+
+        val handleUiEvent: (BrowserUiEvent) -> Unit = remember(viewModel, uiState.activeTab, uiState.isHome, view, context) {
+            { event ->
+                if (event is BrowserUiEvent.OpenWorkspacesOverview || event is BrowserUiEvent.OpenTabGrid) {
+                    val currentTab = uiState.activeTab
+                    if (currentTab != null && (uiState.isHome || currentTab.isHomeTab)) {
+                        SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
+                            if (path != null) {
+                                viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))
+                            }
+                        }
+                    }
+                }
+                viewModel.onEvent(event)
+            }
+        }
 
         val appBackgroundBrush =
             remember(animatedStatusBarBg, animatedBottomBarBg) {
@@ -496,7 +542,7 @@ fun JestkApp(
                 if (showHomeScreen) {
                     HomeScreen(
                         uiState = uiState,
-                        onEvent = viewModel::onEvent,
+                        onEvent = handleUiEvent,
                         modifier =
                             Modifier
                                 .fillMaxSize()
@@ -548,7 +594,7 @@ fun JestkApp(
             if (effectiveBottomBarAlpha > 0f) {
                 UnifiedBottomBar(
                     uiState = uiState,
-                    onEvent = viewModel::onEvent,
+                    onEvent = handleUiEvent,
                     onDockDragOffset = { offset -> dockDragLiftPx = -offset },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -592,12 +638,8 @@ fun JestkApp(
 
             AnimatedVisibility(
                 visible = uiState.isWorkspacesOverviewVisible,
-                enter =
-                    fadeIn(tween(220, easing = FastOutSlowInEasing)) +
-                        slideInVertically(tween(250, easing = FastOutSlowInEasing)) { it / 4 },
-                exit =
-                    fadeOut(tween(180, easing = FastOutSlowInEasing)) +
-                        slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it / 4 },
+                enter = fadeIn(tween(260, easing = FastOutSlowInEasing)),
+                exit = fadeOut(tween(200, easing = FastOutSlowInEasing)),
             ) {
                 WorkspacesOverviewScreen(
                     uiState = uiState,

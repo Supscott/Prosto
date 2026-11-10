@@ -566,7 +566,7 @@ class BrowserViewModel(
             }
 
             is BrowserUiEvent.AddFavorite -> {
-                tabCoordinator.addFavorite(event.title, event.url)
+                tabCoordinator.addFavorite(event.title, event.url, _uiState.value.activeWorkspaceId)
             }
 
             is BrowserUiEvent.RemoveFavorite -> {

@@ -17,8 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Public
@@ -74,6 +76,8 @@ fun WorkspaceOverviewCard(
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     modifier: Modifier = Modifier,
+    cornerRadiusDp: androidx.compose.ui.unit.Dp = 24.dp,
+    activeTabIndex: Int = 0,
 ) {
     val typography = LocalProstoTypography.current
     val cardBg = if (isDark) DarkSurface else Color.White
@@ -85,13 +89,15 @@ fun WorkspaceOverviewCard(
         ProstoBorders.cardBorder(isDark)
     }
 
+    val cardShape = androidx.compose.foundation.shape.RoundedCornerShape(cornerRadiusDp)
+
     Surface(
-        shape = ProstoShapes.Card,
+        shape = cardShape,
         color = cardBg,
         shadowElevation = if (isActive) 8.dp else 3.dp,
         border = border,
         modifier = modifier
-            .clip(ProstoShapes.Card)
+            .clip(cardShape)
             .combinedClickable(
                 onClick = onSelect,
                 onLongClick = onEdit,
@@ -171,6 +177,8 @@ fun WorkspaceOverviewCard(
             }
 
             // Tab Preview Section
+            val isHome = activeTab?.isHomeTab == true
+
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -186,6 +194,8 @@ fun WorkspaceOverviewCard(
                         alignment = Alignment.TopCenter,
                         modifier = Modifier.fillMaxSize(),
                     )
+                } else if (isHome) {
+                    HomeMockupPreview(isDark = isDark, workspaceColor = workspaceColor)
                 } else {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -211,7 +221,31 @@ fun WorkspaceOverviewCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                if (activeTab != null && activeTab.url.isNotBlank()) {
+                if (isHome) {
+                    Box(
+                        modifier = Modifier
+                            .size(18.dp)
+                            .clip(CircleShape)
+                            .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Home,
+                            contentDescription = stringResource(R.string.workspace_home_tab),
+                            tint = workspaceColor,
+                            modifier = Modifier.size(12.dp),
+                        )
+                    }
+
+                    Text(
+                        text = stringResource(R.string.workspace_home_tab),
+                        style = typography.bodySm.copy(fontWeight = FontWeight.Medium),
+                        color = if (isDark) DarkOnSurface else ProstoDarkText,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                } else if (activeTab != null && activeTab.url.isNotBlank()) {
                     SiteFavicon(
                         faviconUrl = activeTab.faviconUrl,
                         imageSize = 16.dp,
@@ -254,14 +288,19 @@ fun WorkspaceOverviewCard(
                     )
                 }
 
-                // Tab Count Pill
+                // Tab Count / Index Counter Pill
                 Surface(
                     shape = ProstoShapes.Pill,
                     color = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor,
                     border = ProstoBorders.hairlineBorder(isDark),
                 ) {
+                    val badgeText = if (tabCount > 0) {
+                        stringResource(R.string.workspace_tab_index_counter, activeTabIndex + 1, tabCount)
+                    } else {
+                        stringResource(R.string.workspace_no_tabs)
+                    }
                     Text(
-                        text = pluralStringResource(R.plurals.workspace_tabs_count, tabCount, tabCount),
+                        text = badgeText,
                         style = typography.labelSm.copy(fontSize = 11.sp),
                         color = ProstoMutedSlate,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),

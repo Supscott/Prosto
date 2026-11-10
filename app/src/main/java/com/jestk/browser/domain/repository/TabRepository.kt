@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface TabRepository {
     fun getAllTabs(): Flow<List<Tab>>
-    fun getRecentTabs(limit: Int = 6): Flow<List<Tab>>
+    fun getRecentTabs(limit: Int = 6, workspaceId: String = Workspace.DEFAULT_PERSONAL_ID): Flow<List<Tab>>
     suspend fun getInitialTabs(): List<Tab>
     suspend fun getTabById(id: String): Tab?
     fun getTabByIdFlow(id: String): Flow<Tab?>

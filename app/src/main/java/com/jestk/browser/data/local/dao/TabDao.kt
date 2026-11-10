@@ -9,6 +9,7 @@ import androidx.room.Transaction
 import androidx.room.Update
 import com.jestk.browser.R
 import com.jestk.browser.data.local.entity.TabEntity
+import com.jestk.browser.domain.model.Workspace
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -31,11 +32,11 @@ interface TabDao {
     @Query("SELECT * FROM tabs WHERE id = :id LIMIT 1")
     fun getTabByIdFlow(id: String): Flow<TabEntity?>
 
-    @Query("SELECT * FROM tabs ORDER BY lastActiveTimestamp DESC, id ASC LIMIT :limit")
-    fun getRecentTabsFlow(limit: Int = 6): Flow<List<TabEntity>>
+    @Query("SELECT * FROM tabs WHERE workspaceId = :workspaceId ORDER BY lastActiveTimestamp DESC, id ASC LIMIT :limit")
+    fun getRecentTabsFlow(limit: Int = 6, workspaceId: String = Workspace.DEFAULT_PERSONAL_ID): Flow<List<TabEntity>>
 
-    @Query("SELECT * FROM tabs ORDER BY lastActiveTimestamp DESC, id ASC LIMIT :limit")
-    suspend fun getRecentTabs(limit: Int = 6): List<TabEntity>
+    @Query("SELECT * FROM tabs WHERE workspaceId = :workspaceId ORDER BY lastActiveTimestamp DESC, id ASC LIMIT :limit")
+    suspend fun getRecentTabs(limit: Int = 6, workspaceId: String = Workspace.DEFAULT_PERSONAL_ID): List<TabEntity>
 
     @Query("SELECT * FROM tabs WHERE isActive = 1 LIMIT 1")
     suspend fun getActiveTab(): TabEntity?

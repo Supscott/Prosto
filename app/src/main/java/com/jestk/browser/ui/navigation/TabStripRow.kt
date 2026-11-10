@@ -266,37 +266,39 @@ fun TabStripRow(
 
         val coroutineScope = rememberCoroutineScope()
         val dragState =
-            rememberTabStripDragState(
-                initialTabs = displayTabs,
-                onReorder = { reordered ->
-                    for (tab in reordered) {
-                        val original = displayTabs.find { it.id == tab.id }
-                        if (original != null && original.folderId != tab.folderId) {
-                            if (tab.folderId != null) {
-                                onEvent(BrowserUiEvent.AddTabToFolder(tab.id, tab.folderId))
-                            } else {
-                                onEvent(BrowserUiEvent.RemoveTabFromFolder(tab.id))
+            androidx.compose.runtime.key(uiState.activeWorkspaceId) {
+                rememberTabStripDragState(
+                    initialTabs = displayTabs,
+                    onReorder = { reordered ->
+                        for (tab in reordered) {
+                            val original = displayTabs.find { it.id == tab.id }
+                            if (original != null && original.folderId != tab.folderId) {
+                                if (tab.folderId != null) {
+                                    onEvent(BrowserUiEvent.AddTabToFolder(tab.id, tab.folderId))
+                                } else {
+                                    onEvent(BrowserUiEvent.RemoveTabFromFolder(tab.id))
+                                }
                             }
                         }
-                    }
-                    onEvent(BrowserUiEvent.ReorderTabs(reordered))
-                },
-                onRemoveTab = { tabId -> onEvent(BrowserUiEvent.CloseTab(tabId)) },
-                foldersProvider = { uiState.folders },
-                onToggleFolderCollapse = { folderId ->
-                    onEvent(BrowserUiEvent.ToggleFolderCollapse(folderId, fromDock = true))
-                },
-                onHoverVibration = { vibration.tick() },
-                onSpringLoadVibration = { vibration.confirm() },
-                coroutineScope = coroutineScope,
-            )
+                        onEvent(BrowserUiEvent.ReorderTabs(reordered))
+                    },
+                    onRemoveTab = { tabId -> onEvent(BrowserUiEvent.CloseTab(tabId)) },
+                    foldersProvider = { uiState.folders },
+                    onToggleFolderCollapse = { folderId ->
+                        onEvent(BrowserUiEvent.ToggleFolderCollapse(folderId, fromDock = true))
+                    },
+                    onHoverVibration = { vibration.tick() },
+                    onSpringLoadVibration = { vibration.confirm() },
+                    coroutineScope = coroutineScope,
+                )
+            }
 
         LaunchedEffect(displayTabs) {
             dragState.updateTabs(displayTabs)
         }
 
-        var contextMenuTabId by remember { mutableStateOf<String?>(null) }
-        var contextMenuFolderId by remember { mutableStateOf<String?>(null) }
+        var contextMenuTabId by remember(uiState.activeWorkspaceId) { mutableStateOf<String?>(null) }
+        var contextMenuFolderId by remember(uiState.activeWorkspaceId) { mutableStateOf<String?>(null) }
 
         val dockItems = remember(dragState.currentTabs, uiState.folders) {
             computeDockItems(dragState.currentTabs, uiState.folders)
