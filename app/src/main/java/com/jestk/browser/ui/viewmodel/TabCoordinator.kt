@@ -1723,9 +1723,19 @@ internal class TabCoordinator(
                 ?: targetTabs.first()
 
             tabRepository.setActiveTab(targetActive.id)
+            val updatedTargetTabs = targetTabs.map { t ->
+                val c = tabThemeColors[t.id] ?: t.themeColor
+                val bc = tabBottomThemeColors[t.id] ?: t.bottomThemeColor
+                if (t.id == targetActive.id) {
+                    t.copy(isActive = true, themeColor = c, bottomThemeColor = bc)
+                } else {
+                    t.copy(isActive = false, themeColor = c, bottomThemeColor = bc)
+                }
+            }
             updateUiState { state ->
                 state.copy(
                     activeWorkspaceId = targetWorkspaceId,
+                    tabs = updatedTargetTabs,
                     folders = targetFolders,
                     activeScreen = ScreenType.NONE,
                     recentlyClosedTab = targetRecentlyClosed,
