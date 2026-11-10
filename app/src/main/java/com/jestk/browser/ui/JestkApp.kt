@@ -93,6 +93,7 @@ import com.jestk.browser.ui.overlays.AddFavoriteDialog
 import com.jestk.browser.ui.overlays.CleanVideoPlayerOverlay
 import com.jestk.browser.ui.overlays.FeedbackBottomSheet
 import com.jestk.browser.ui.overlays.FolderEditBottomSheet
+import com.jestk.browser.ui.overlays.FullscreenVideoLayer
 import com.jestk.browser.ui.overlays.BlockedAdNavigationBanner
 import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
@@ -985,137 +986,11 @@ fun JestkApp(
 
             // Fullscreen Custom View (HTML5 Video Fullscreen)
             val customView = uiState.fullscreenCustomView
-            if (uiState.isFullscreenCustomView && customView != null) {
-                val density = LocalDensity.current
-                val swipeThresholdPx = remember(density) { with(density) { 70.dp.toPx() } }
-                val velocityThresholdPx = remember(density) { with(density) { 1000.dp.toPx() } }
-                val minDragDistancePx = remember(density) { with(density) { 20.dp.toPx() } }
-
-                Box(
-                    modifier =
-                        Modifier
-                            .fillMaxSize()
-                            .background(Color.Black)
-                            .pointerInput(Unit) {
-                                awaitEachGesture {
-                                    val down = awaitFirstDown(pass = PointerEventPass.Initial)
-                                    val startY = down.position.y
-                                    val startX = down.position.x
-                                    var totalDeltaY = 0f
-                                    var totalDeltaX = 0f
-                                    var hasTriggered = false
-                                    val velocityTracker = VelocityTracker()
-                                    velocityTracker.addPosition(down.uptimeMillis, down.position)
-
-                                    while (true) {
-                                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                                        val change =
-                                            event.changes.firstOrNull { it.id == down.id }
-                                                ?: event.changes.firstOrNull()
-                                                ?: break
-
-                                        velocityTracker.addPosition(change.uptimeMillis, change.position)
-
-                                        if (change.changedToUp() || !change.pressed) {
-                                            if (!hasTriggered && totalDeltaY > minDragDistancePx &&
-                                                totalDeltaY > kotlin.math.abs(totalDeltaX) * 1.2f
-                                            ) {
-                                                val velocityY = velocityTracker.calculateVelocity().y
-                                                if (totalDeltaY > swipeThresholdPx || velocityY > velocityThresholdPx) {
-                                                    hasTriggered = true
-                                                    viewModel.onEvent(BrowserUiEvent.ExitFullscreen)
-                                                }
-                                            }
-                                            break
-                                        }
-
-                                        val currentPos = change.position
-                                        totalDeltaY = currentPos.y - startY
-                                        totalDeltaX = currentPos.x - startX
-
-                                        if (!hasTriggered && totalDeltaY > swipeThresholdPx &&
-                                            totalDeltaY > kotlin.math.abs(totalDeltaX) * 1.2f
-                                        ) {
-                                            hasTriggered = true
-                                            change.consume()
-                                            viewModel.onEvent(BrowserUiEvent.ExitFullscreen)
-                                            break
-                                        }
-                                    }
-                                }
-                            },
-                ) {
-                    AndroidView<android.view.View>(
-                        factory = {
-                            (customView.parent as? ViewGroup)?.removeView(customView)
-                            customView.apply {
-                                layoutParams =
-                                    ViewGroup.LayoutParams(
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                    )
-                                keepScreenOn = true
-                                if (this is ViewGroup) {
-                                    descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-                                }
-                                if (!hasFocus()) {
-                                    requestFocus()
-                                }
-                            }
-                        },
-                        update = { view ->
-                            view.layoutParams =
-                                ViewGroup.LayoutParams(
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                    ViewGroup.LayoutParams.MATCH_PARENT,
-                                )
-                            view.keepScreenOn = true
-                        },
-                        modifier = Modifier.fillMaxSize(),
-                    )
-
-                    var showExitHint by remember { mutableStateOf(true) }
-                    LaunchedEffect(Unit) {
-                        delay(3500)
-                        showExitHint = false
-                    }
-
-                    AnimatedVisibility(
-                        visible = showExitHint,
-                        enter = fadeIn(animationSpec = tween(300)) + slideInVertically(animationSpec = tween(300)) { -it },
-                        exit = fadeOut(animationSpec = tween(400)) + slideOutVertically(animationSpec = tween(400)) { -it },
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .statusBarsPadding()
-                            .padding(top = 16.dp),
-                    ) {
-                        Surface(
-                            shape = CircleShape,
-                            color = Color.Black.copy(alpha = 0.8f),
-                            contentColor = Color.White,
-                            shadowElevation = 8.dp,
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.KeyboardArrowDown,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.9f),
-                                    modifier = Modifier.size(18.dp),
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Text(
-                                    text = stringResource(R.string.full_screen_exit_hint),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
+            FullscreenVideoLayer(
+                customView = customView,
+                isFullscreen = uiState.isFullscreenCustomView,
+                onExitFullscreen = { viewModel.onEvent(BrowserUiEvent.ExitFullscreen) },
+            )
 
             // In-app Floating Draggable Video Mini-Player (when video plays in background)
             if (uiState.isVideoPlaying && customView != null && !uiState.isFullscreenCustomView) {

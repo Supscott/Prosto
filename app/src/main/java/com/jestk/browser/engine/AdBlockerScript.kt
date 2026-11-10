@@ -484,13 +484,36 @@ object AdBlockerScript {
                                     configurable: nativeDescriptor.configurable
                                 };
                             };
+                            // Players call lock() right after requestFullscreen(), before the
+                            // document is fullscreen, so that call reaches the native lock and
+                            // fails. Like Chrome's media controls, rotate to landscape when the
+                            // fullscreen element shows a landscape video.
+                            var lockForVideo = function(video) {
+                                if (video.videoWidth > video.videoHeight) {
+                                    try { orientationBridge.lockOrientation('landscape'); } catch(e) {}
+                                }
+                            };
+                            var autoLockFullscreenVideo = function(element) {
+                                var video = element.tagName === 'VIDEO' ? element : (element.querySelector && element.querySelector('video'));
+                                if (!video) return;
+                                if (video.videoWidth > 0) {
+                                    lockForVideo(video);
+                                } else {
+                                    video.addEventListener('loadedmetadata', function() {
+                                        if (document.fullscreenElement || document.webkitFullscreenElement) lockForVideo(video);
+                                    }, { once: true });
+                                }
+                            };
                             var onFullscreenChange = function() {
-                                var isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement);
+                                var fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
+                                var isFullscreen = !!fullscreenElement;
                                 try {
                                     Object.defineProperty(orientationProto, 'lock', isFullscreen ? patchDescriptor(nativeLock, patchedLock) : nativeLock);
                                     Object.defineProperty(orientationProto, 'unlock', isFullscreen ? patchDescriptor(nativeUnlock, patchedUnlock) : nativeUnlock);
                                 } catch(e) {}
-                                if (!isFullscreen) {
+                                if (isFullscreen) {
+                                    try { autoLockFullscreenVideo(fullscreenElement); } catch(e) {}
+                                } else {
                                     try { orientationBridge.unlockOrientation(); } catch(e) {}
                                 }
                             };

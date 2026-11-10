@@ -25,6 +25,8 @@ import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.engine.AdBlockerEngine
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
+import com.jestk.browser.ui.views.FullscreenViewHost
+import com.jestk.browser.ui.views.FullscreenViewHostOwner
 import com.jestk.browser.util.DefaultBrowserHelper
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.VibratorVibrationFeedback
@@ -32,8 +34,9 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
-class MainActivity : ComponentActivity(), FileChooserHandler {
+class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHostOwner {
     private lateinit var viewModel: BrowserViewModel
+    override val fullscreenViewHost: FullscreenViewHost by lazy { FullscreenViewHost(this) }
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
     private val fileChooserLauncher: ActivityResultLauncher<Intent> =

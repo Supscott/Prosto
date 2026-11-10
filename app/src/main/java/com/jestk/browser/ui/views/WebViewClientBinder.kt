@@ -76,6 +76,10 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
         onProgressChanged = { id, progress -> onEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
         onTitleReceived = { id, title -> onEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
         onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
+            // Attach before the state update: waiting for recomposition leaves the page hidden
+            // for a few frames and YouTube reloads the video (see FullscreenViewHost).
+            val host = (webView.context.findActivity() as? FullscreenViewHostOwner)?.fullscreenViewHost
+            if (isFullscreen && view != null) host?.attach(view) else host?.detach()
             onEvent(BrowserUiEvent.SetFullscreenCustomView(view, isFullscreen, orientation))
         },
         onVideoPlayingStateChanged = { isPlaying -> onEvent(BrowserUiEvent.SetVideoPlaying(isPlaying)) },

@@ -236,6 +236,25 @@ def check_injected_script_stealth():
     return errors
 
 
+def check_fullscreen_view_attached_synchronously():
+    """The onShowCustomView view must be attached inside the callback, not after recomposition.
+
+    Chromium reports the page hidden until the fullscreen view is in a window; YouTube reloads and
+    pauses the video on that visibilitychange (see ui/views/FullscreenViewHost.kt).
+    """
+    binder = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "ui" / "views" / "WebViewClientBinder.kt"
+    if not binder.exists():
+        return [f"{binder.relative_to(ROOT)} not found"]
+    content = binder.read_text(encoding="utf-8")
+    block = content.split("onFullscreenCustomViewChanged = ", 1)[-1].split("onVideoPlayingStateChanged", 1)[0]
+    if "fullscreenViewHost" not in block or ".attach(" not in block:
+        return [
+            f"{binder.relative_to(ROOT)}: onFullscreenCustomViewChanged must attach the view to "
+            "FullscreenViewHost before dispatching the state event"
+        ]
+    return []
+
+
 def main():
     all_errors = []
     all_errors.extend(check_no_blur())
@@ -248,6 +267,7 @@ def main():
     all_errors.extend(check_no_hardcoded_ui_strings())
     all_errors.extend(check_security_challenge_protection())
     all_errors.extend(check_injected_script_stealth())
+    all_errors.extend(check_fullscreen_view_attached_synchronously())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -257,7 +277,8 @@ def main():
 
     print(
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
-        "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth)."
+        "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
+        "Fullscreen Sync Attach)."
     )
     return 0
 
