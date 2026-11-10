@@ -246,6 +246,10 @@ class AppDatabaseMigrationTest {
         assertThat(cursor.getString(4)).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
         cursor.close()
 
+        val indexCursor = db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'index_favorites_position'")
+        assertThat(indexCursor.moveToFirst()).isFalse()
+        indexCursor.close()
+
         db.execSQL(
             """
             INSERT INTO `favorites` (`url`, `title`, `position`, `iconUrl`, `createdAt`, `workspaceId`)
@@ -253,6 +257,65 @@ class AppDatabaseMigrationTest {
             """.trimIndent()
         )
         val cursorWork = db.query("SELECT workspaceId FROM favorites WHERE url = 'https://work-bookmark.com'")
+        assertThat(cursorWork.moveToFirst()).isTrue()
+        assertThat(cursorWork.getString(0)).isEqualTo("default_work")
+        cursorWork.close()
+
+        db.close()
+    }
+
+    private fun createV11Database(): SupportSQLiteDatabase {
+        val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(dbFile.name)
+            .callback(object : SupportSQLiteOpenHelper.Callback(11) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `recent_tabs` (
+                            `url` TEXT NOT NULL,
+                            `title` TEXT NOT NULL,
+                            `snapshotPath` TEXT,
+                            `faviconUrl` TEXT,
+                            `lastVisitedTimestamp` INTEGER NOT NULL,
+                            PRIMARY KEY(`url`)
+                        )
+                        """.trimIndent()
+                    )
+                    db.execSQL("CREATE INDEX IF NOT EXISTS `index_recent_tabs_lastVisitedTimestamp` ON `recent_tabs` (`lastVisitedTimestamp`)")
+                }
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+
+        val helper = FrameworkSQLiteOpenHelperFactory().create(configuration)
+        return helper.writableDatabase
+    }
+
+    @Test
+    fun migration11To12_addsWorkspaceIdToRecentTabs() {
+        val db = createV11Database()
+        db.execSQL(
+            """
+            INSERT INTO `recent_tabs` (`url`, `title`, `snapshotPath`, `faviconUrl`, `lastVisitedTimestamp`)
+            VALUES ('https://example.com', 'Example', NULL, NULL, 1000)
+            """.trimIndent()
+        )
+
+        AppDatabase.MIGRATION_11_12.migrate(db)
+
+        val cursor = db.query("SELECT url, title, lastVisitedTimestamp, workspaceId FROM recent_tabs WHERE url = 'https://example.com'")
+        assertThat(cursor.moveToFirst()).isTrue()
+        assertThat(cursor.getString(3)).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
+        cursor.close()
+
+        db.execSQL(
+            """
+            INSERT INTO `recent_tabs` (`url`, `title`, `snapshotPath`, `faviconUrl`, `lastVisitedTimestamp`, `workspaceId`)
+            VALUES ('https://work.com', 'Work', NULL, NULL, 2000, 'default_work')
+            """.trimIndent()
+        )
+        val cursorWork = db.query("SELECT workspaceId FROM recent_tabs WHERE url = 'https://work.com'")
         assertThat(cursorWork.moveToFirst()).isTrue()
         assertThat(cursorWork.getString(0)).isEqualTo("default_work")
         cursorWork.close()
