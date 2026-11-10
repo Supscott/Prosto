@@ -261,4 +261,6 @@
     <string name="tab_context_move_to_workspace">Move to workspace…</string>
     <string name="tab_context_move_to_workspace_title">Move to workspace</string>
     <string name="share_link">Share link</string>
+    <string name="workspace_tab_index_counter">Tab %1$d of %2$d</string>
+    <string name="workspace_home_tab">Home</string>
 </resources>

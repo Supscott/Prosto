@@ -85,6 +85,7 @@ import com.jestk.browser.domain.model.isVisible
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
+import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
@@ -438,6 +439,20 @@ fun JestkApp(
             } else {
                 if (activity.requestedOrientation != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
                     activity.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                }
+            }
+        }
+
+        LaunchedEffect(uiState.isWorkspacesOverviewVisible, uiState.activeOverlay) {
+            val isOverviewOpen = uiState.isWorkspacesOverviewVisible || uiState.activeOverlay == OverlayType.TAB_GRID
+            if (isOverviewOpen) {
+                val currentTab = uiState.activeTab
+                if (currentTab != null && (uiState.isHome || currentTab.url.isEmpty() || currentTab.url == "about:blank")) {
+                    SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
+                        if (path != null) {
+                            viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))
+                        }
+                    }
                 }
             }
         }

@@ -119,4 +119,17 @@ class SnapshotEngineTest {
         assertThat(targetFile.exists()).isTrue()
         assertThat(targetFile.readText()).isEqualTo("bitmap_bytes")
     }
+
+    @Test
+    fun captureViewSnapshot_withZeroDimensionView_returnsNull() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val view = android.view.View(context)
+        var result: String? = "sentinel"
+
+        SnapshotEngine.captureViewSnapshot(view, "tabZero", context) { path ->
+            result = path
+        }
+
+        assertThat(result).isNull()
+    }
 }

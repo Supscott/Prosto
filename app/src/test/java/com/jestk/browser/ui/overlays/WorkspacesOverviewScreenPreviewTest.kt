@@ -243,4 +243,67 @@ class WorkspacesOverviewScreenPreviewTest {
         }
         composeTestRule.onNodeWithTag("workspaces_overview_screen").assertIsDisplayed()
     }
+
+    @Test
+    fun overview_displaysActiveWebTabTitleAndIndexCounter() {
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                WorkspacesOverviewScreen(
+                    uiState = BrowserUiState(
+                        workspaces = listOf(Workspace.DEFAULT_PERSONAL),
+                        activeWorkspaceId = Workspace.DEFAULT_PERSONAL_ID,
+                        tabs = sampleTabs.filter { it.workspaceId == Workspace.DEFAULT_PERSONAL_ID },
+                        allTabs = sampleTabs,
+                    ),
+                    onEvent = {},
+                )
+            }
+        }
+
+        // Active tab is p1 ("Personal Tab 1")
+        composeTestRule.onNodeWithText("Personal Tab 1").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Tab 1 of 2").assertIsDisplayed()
+    }
+
+    @Test
+    fun overview_displaysHomeTabAndMockup_whenActiveTabIsHome() {
+        val homeTabs = listOf(
+            Tab(id = "h1", url = "", title = "Home", workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
+        )
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                WorkspacesOverviewScreen(
+                    uiState = BrowserUiState(
+                        workspaces = listOf(Workspace.DEFAULT_PERSONAL),
+                        activeWorkspaceId = Workspace.DEFAULT_PERSONAL_ID,
+                        tabs = homeTabs,
+                        allTabs = homeTabs,
+                    ),
+                    onEvent = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("Home").assertIsDisplayed()
+        composeTestRule.onNodeWithText("Tab 1 of 1").assertIsDisplayed()
+    }
+
+    @Test
+    fun overview_displaysNoTabs_whenWorkspaceHasNoTabs() {
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                WorkspacesOverviewScreen(
+                    uiState = BrowserUiState(
+                        workspaces = listOf(Workspace.DEFAULT_PERSONAL),
+                        activeWorkspaceId = Workspace.DEFAULT_PERSONAL_ID,
+                        tabs = emptyList(),
+                        allTabs = emptyList(),
+                    ),
+                    onEvent = {},
+                )
+            }
+        }
+
+        composeTestRule.onNodeWithText("No open tabs").assertIsDisplayed()
+    }
 }

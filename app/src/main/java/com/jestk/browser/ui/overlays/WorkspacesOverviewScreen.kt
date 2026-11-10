@@ -297,6 +297,9 @@ fun WorkspacesOverviewScreen(
                                 ?: wsTabs.maxByOrNull { it.lastActiveTimestamp }
                                 ?: wsTabs.firstOrNull()
                         }
+                        val activeTabIndex = if (activeTab != null) {
+                            wsTabs.indexOfFirst { it.id == activeTab.id }.coerceAtLeast(0)
+                        } else 0
 
                         WorkspaceOverviewCard(
                             workspace = workspace,
@@ -304,6 +307,7 @@ fun WorkspacesOverviewScreen(
                             isDark = isDark,
                             tabCount = wsTabs.size,
                             activeTab = activeTab,
+                            activeTabIndex = activeTabIndex,
                             cornerRadiusDp = effectiveCornerRadius,
                             onSelect = {
                                 if (workspace.id != uiState.activeWorkspaceId) {

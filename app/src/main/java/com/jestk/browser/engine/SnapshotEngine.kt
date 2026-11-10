@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.View
 import android.webkit.WebView
 import com.jestk.browser.R
 import com.jestk.browser.util.atomicMoveTo
@@ -115,6 +116,66 @@ object SnapshotEngine {
                 }
             } catch (e: Exception) {
                 Log.w(TAG, "Failed to delete all snapshots", e)
+            }
+        }
+    }
+
+    fun captureViewSnapshot(
+        view: View,
+        tabId: String,
+        context: Context,
+        onComplete: (String?) -> Unit
+    ) {
+        init(context)
+        val width = view.width
+        val height = view.height
+
+        if (width <= 0 || height <= 0) {
+            onComplete(null)
+            return
+        }
+
+        val appContext = context.applicationContext
+        val targetWidth = 360
+        val scale = targetWidth.toFloat() / width
+        val targetHeight = (height * scale).toInt().coerceAtLeast(targetWidth)
+
+        val thumbnailBitmap = try {
+            Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888).also { bmp ->
+                val canvas = Canvas(bmp)
+                canvas.scale(scale, scale)
+                view.draw(canvas)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to capture canvas for view tab $tabId", e)
+            onComplete(null)
+            return
+        }
+
+        activeScope().launch {
+            try {
+                val snapshotsDir = File(appContext.filesDir, "snapshots").apply {
+                    if (!exists()) mkdirs()
+                }
+                val targetFile = File(snapshotsDir, "tab_${tabId}.jpg")
+                val tempFile = File(snapshotsDir, "tab_${tabId}.jpg.tmp")
+
+                FileOutputStream(tempFile).use { out ->
+                    thumbnailBitmap.compress(Bitmap.CompressFormat.JPEG, 85, out)
+                }
+                tempFile.atomicMoveTo(targetFile)
+                thumbnailBitmap.recycle()
+
+                Log.d(TAG, "Captured view snapshot for tab $tabId")
+                mainHandler.post { onComplete(targetFile.absolutePath) }
+            } catch (e: Exception) {
+                Log.w(TAG, "Failed to write snapshot file for tab $tabId", e)
+                try {
+                    thumbnailBitmap.recycle()
+                } catch (recycleError: Exception) {
+                    Log.d(TAG, "Best-effort bitmap recycle failed for tab $tabId", recycleError)
+                }
+                mainHandler.post { onComplete(null) }
             }
         }
     }
