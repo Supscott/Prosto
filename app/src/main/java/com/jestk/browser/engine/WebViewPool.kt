@@ -419,6 +419,7 @@ class WebViewPool(
 
             currentIsDark?.let { applyThemeMode(webView, it) }
 
+            webView.tag = tabId
             pool[tabId] = webView
             if (profileName != null) {
                 tabProfiles[tabId] = profileName
@@ -468,6 +469,7 @@ class WebViewPool(
                 applyUserAgentMetadata(settings, rawFallbackUserAgent)
             }
             currentIsDark?.let { applyThemeMode(fallbackWebView, it) }
+            fallbackWebView.tag = tabId
             pool[tabId] = fallbackWebView
             if (profileName != null) {
                 tabProfiles[tabId] = profileName

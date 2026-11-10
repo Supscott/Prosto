@@ -120,7 +120,8 @@ data class BrowserUiState(
         get() =
             activeOverlay == OverlayType.HOME ||
                 (
-                    activeOverlay == OverlayType.NONE &&
+                    !isLoading &&
+                        activeOverlay == OverlayType.NONE &&
                         currentUrl.isEmpty() &&
                         (activeTab?.url.isNullOrEmpty() || activeTab?.url == "about:blank")
                 )

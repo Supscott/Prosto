@@ -252,24 +252,25 @@ fun WebViewContainer(
             wv.isFocusableInTouchMode = true
             setupWebViewLongClick(wv)
 
-            if (wv.tag != forTabId) {
-                wv.tag = forTabId
-                wv.setOnScrollChangeListener { v, _, scrollY, _, oldScrollY ->
-                    val dy = scrollY - oldScrollY
-                    val viewportHeight = if (v.height > 0) v.height else v.resources.displayMetrics.heightPixels
-                    val scrollThreshold = viewportHeight / 2
-                    val crossedThreshold = (oldScrollY > scrollThreshold && scrollY <= scrollThreshold) ||
-                        (oldScrollY <= scrollThreshold && scrollY > scrollThreshold)
-                    if (kotlin.math.abs(dy) > 8 || scrollY <= 0 || crossedThreshold) {
-                        currentOnEvent(
-                            BrowserUiEvent.OnWebScroll(
-                                deltaY = dy.toFloat(),
-                                scrollY = scrollY,
-                                viewportHeight = viewportHeight,
-                            )
+            wv.setOnScrollChangeListener { v, _, scrollY, _, oldScrollY ->
+                val dy = scrollY - oldScrollY
+                val viewportHeight = if (v.height > 0) v.height else v.resources.displayMetrics.heightPixels
+                val scrollThreshold = viewportHeight / 2
+                val crossedThreshold = (oldScrollY > scrollThreshold && scrollY <= scrollThreshold) ||
+                    (oldScrollY <= scrollThreshold && scrollY > scrollThreshold)
+                if (kotlin.math.abs(dy) > 8 || scrollY <= 0 || crossedThreshold) {
+                    currentOnEvent(
+                        BrowserUiEvent.OnWebScroll(
+                            deltaY = dy.toFloat(),
+                            scrollY = scrollY,
+                            viewportHeight = viewportHeight,
                         )
-                    }
+                    )
                 }
+            }
+
+            if (wv.tag != forTabId || wv.webChromeClient == null) {
+                wv.tag = forTabId
 
                 wv.webViewClient = JestkWebViewClient(
                     tabId = forTabId,
@@ -345,12 +346,17 @@ fun WebViewContainer(
                             ?: wv.context.findActivity() as? FileChooserHandler
                         handler?.openFileChooser(callback, params) ?: false
                     },
-                    onCreateWindowRequest = { originView, _, _, resultMsg ->
+                    onCreateWindowRequest = { originView, _, isUserGesture, resultMsg ->
+                        val openerTab = currentUiState.tabs.find { it.id == forTabId }
+                        val openerWorkspaceId = openerTab?.workspaceId ?: currentUiState.activeWorkspaceId
+                        val openerProfileName = currentUiState.workspaces.find { it.id == openerWorkspaceId }?.profileName
                         com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
                             resultMsg = resultMsg,
                             context = wv.context,
                             webViewPool = webViewPool,
                             openerUrl = originView?.url ?: wv.url,
+                            profileName = openerProfileName,
+                            isUserGesture = isUserGesture,
                             onPopupOpened = { currentOnEvent(BrowserUiEvent.OpenPopupTab(it)) }
                         )
                     },
@@ -367,9 +373,7 @@ fun WebViewContainer(
 
     val resolvedTopColor = uiState.activeTopThemeColor ?: currentTab?.topThemeColor
     val resolvedBottomColor = uiState.activeBottomThemeColor ?: currentTab?.bottomThemeColor
-    val isHome = uiState.activeOverlay == OverlayType.HOME ||
-            uiState.currentUrl.isEmpty() ||
-            uiState.currentUrl == "about:blank"
+    val isHome = currentUiState.isHome
     val isHomeOrNeutral = isHome || uiState.isSettingsVisible || uiState.isDownloadsVisible
 
     val resolvedColors = DynamicBarColors.resolve(
@@ -471,7 +475,9 @@ fun WebViewContainer(
                         )
                     }
 
-                    val initialWebView = webViewPool.getOrCreateWebView(tabId, act)
+                    val initialWorkspaceId = currentTab?.workspaceId ?: currentUiState.activeWorkspaceId
+                    val initialProfileName = currentUiState.workspaces.find { it.id == initialWorkspaceId }?.profileName
+                    val initialWebView = webViewPool.getOrCreateWebView(tabId, act, profileName = initialProfileName)
                     (initialWebView.parent as? ViewGroup)?.removeView(initialWebView)
                     configureWebView(initialWebView, tabId, act)
                     tabsContainer.addView(
@@ -523,7 +529,10 @@ fun WebViewContainer(
                         tabsContainer.visibility = targetVisibility
                     }
                     val act = swipeRefresh.context.findActivity() ?: swipeRefresh.context
-                    val targetWebView = webViewPool.getOrCreateWebView(tabId, act)
+                    val updateTab = uiState.tabs.find { it.id == tabId }
+                    val targetWorkspaceId = updateTab?.workspaceId ?: uiState.activeWorkspaceId
+                    val targetProfileName = uiState.workspaces.find { it.id == targetWorkspaceId }?.profileName
+                    val targetWebView = webViewPool.getOrCreateWebView(tabId, act, profileName = targetProfileName)
 
                     if (targetWebView.parent !== tabsContainer) {
                         (targetWebView.parent as? ViewGroup)?.removeView(targetWebView)

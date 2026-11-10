@@ -674,7 +674,7 @@ internal class TabCoordinator(
                 }
             val targetOverlay = when {
                 keepOverlayIfTabGrid && state.activeOverlay == OverlayType.TAB_GRID -> OverlayType.TAB_GRID
-                isHome -> OverlayType.HOME
+                isHome && !isTabLoading -> OverlayType.HOME
                 else -> OverlayType.NONE
             }
             state.copy(

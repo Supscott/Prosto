@@ -12,6 +12,7 @@ import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.TabFolderRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.model.BrowserSettings
+import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.engine.FaviconManager
@@ -980,7 +981,11 @@ class TabCoordinatorTest {
             val popupTab = uiState.tabs.find { it.id == popupTabId }
             assertThat(popupTab).isNotNull()
             assertThat(popupTab?.isActive).isTrue()
+            assertThat(popupTab?.workspaceId).isEqualTo(uiState.activeWorkspaceId)
             assertThat(uiState.isLoading).isTrue()
+            assertThat(uiState.loadingProgress).isGreaterThan(0f)
+            assertThat(uiState.isHome).isFalse()
+            assertThat(uiState.activeOverlay).isEqualTo(OverlayType.NONE)
         }
 
     @Test
