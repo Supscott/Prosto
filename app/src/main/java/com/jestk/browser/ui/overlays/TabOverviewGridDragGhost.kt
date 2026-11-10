@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -181,7 +182,14 @@ private fun TabDragGhost(
                 contentAlignment = Alignment.Center,
             ) {
                 val file = tab.snapshotPath?.let { File(it) }
-                if (file != null && file.exists()) {
+                if (tab.isHomeTab) {
+                    Icon(
+                        imageVector = Icons.Default.Home,
+                        contentDescription = null,
+                        tint = ProstoMutedSlate.copy(alpha = 0.45f),
+                        modifier = Modifier.size(28.dp),
+                    )
+                } else if (file != null && file.exists()) {
                     AsyncImage(
                         model = file,
                         contentDescription = tab.title,

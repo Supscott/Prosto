@@ -3,6 +3,7 @@ package com.jestk.browser.ui.overlays
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -89,6 +90,7 @@ class WorkspacesOverviewScreenPreviewTest {
 
         // Click on the Personal card (already active)
         composeTestRule.onNodeWithTag("workspace_card_${Workspace.DEFAULT_PERSONAL_ID}").performClick()
+        composeTestRule.waitForIdle()
         assertThat(events).contains(BrowserUiEvent.CloseWorkspacesOverview)
     }
 
@@ -108,6 +110,8 @@ class WorkspacesOverviewScreenPreviewTest {
         }
 
         composeTestRule.onNodeWithTag("workspaces_overview_close_button").performClick()
+        // Close is dispatched once the live app has expanded back to full screen.
+        composeTestRule.waitForIdle()
         assertThat(events).containsExactly(BrowserUiEvent.CloseWorkspacesOverview)
     }
 
@@ -133,8 +137,41 @@ class WorkspacesOverviewScreenPreviewTest {
             moveBy(Offset(0f, 200f), delayMillis = 100)
             up()
         }
-
+        composeTestRule.waitForIdle()
         assertThat(events).contains(BrowserUiEvent.CloseWorkspacesOverview)
+    }
+
+    @Test
+    fun overview_tappingOtherWorkspaceCard_switchesAfterExpanding() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val switcher = WorkspaceSwitcherState(flingVelocityPxPerSec = 900f)
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                WorkspacesOverviewScreen(
+                    uiState = BrowserUiState(
+                        workspaces = sampleWorkspaces,
+                        activeWorkspaceId = Workspace.DEFAULT_PERSONAL_ID,
+                        tabs = sampleTabs.filter { it.workspaceId == Workspace.DEFAULT_PERSONAL_ID },
+                        allTabs = sampleTabs,
+                    ),
+                    onEvent = { events.add(it) },
+                    switcher = switcher,
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+        assertThat(switcher.progress.value).isEqualTo(1f)
+
+        // The neighbour card peeks in from the right edge; tap its visible left part.
+        composeTestRule.onNodeWithTag("workspace_card_${Workspace.DEFAULT_WORK_ID}").performTouchInput {
+            click(Offset(3f, centerY))
+        }
+        composeTestRule.waitForIdle()
+
+        assertThat(events).contains(BrowserUiEvent.SwitchWorkspace(Workspace.DEFAULT_WORK_ID))
+        // The live app is back at full screen and opaque underneath the expanded snapshot.
+        assertThat(switcher.progress.value).isEqualTo(0f)
+        assertThat(switcher.liveAlphaOverride).isNull()
     }
 
     @Test
@@ -266,7 +303,7 @@ class WorkspacesOverviewScreenPreviewTest {
     }
 
     @Test
-    fun overview_displaysHomeTabAndMockup_whenActiveTabIsHome() {
+    fun overview_displaysHomeTab_whenActiveTabIsHome() {
         val homeTabs = listOf(
             Tab(id = "h1", url = "", title = "Home", workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
         )

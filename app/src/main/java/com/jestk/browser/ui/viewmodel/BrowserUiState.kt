@@ -49,6 +49,7 @@ data class BrowserUiState(
     val hasMoreHistory: Boolean = true,
     // Favorites & Recents
     val favorites: List<FavoriteItem> = emptyList(),
+    val workspaceHomeData: Map<String, com.jestk.browser.domain.model.WorkspaceHomeData> = emptyMap(),
     val isFavoritesExpanded: Boolean = false,
     // Downloads
     val downloads: List<DownloadItem> = emptyList(),

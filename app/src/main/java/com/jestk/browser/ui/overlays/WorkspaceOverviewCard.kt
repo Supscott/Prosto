@@ -1,10 +1,10 @@
 package com.jestk.browser.ui.overlays
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -45,6 +46,8 @@ import coil.compose.AsyncImage
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.Workspace
+import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.navigation.getContrastingFolderContentColor
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
@@ -64,8 +67,14 @@ import java.io.File
 /**
  * Android Recents-style workspace overview card displaying workspace header, active tab
  * snapshot preview, tab title/favicon bar, and open tab count.
+ *
+ * Only the preview container takes [previewModifier] (scale / translation / alpha); the name
+ * header and tab footer stay unscaled and fade with [chromeAlpha] (read in the draw phase).
+ *
+ * When [isLiveCard] is true the preview is a transparent, bordered window: the live app content
+ * is drawn underneath it at exactly this rect (see [WorkspaceSwitcherState]), so no snapshot is
+ * rendered and the border fades in with [chromeAlpha].
  */
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun WorkspaceOverviewCard(
     workspace: Workspace,
@@ -73,11 +82,15 @@ fun WorkspaceOverviewCard(
     isDark: Boolean,
     tabCount: Int,
     activeTab: Tab?,
+    uiState: BrowserUiState,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     modifier: Modifier = Modifier,
     cornerRadiusDp: androidx.compose.ui.unit.Dp = 24.dp,
     activeTabIndex: Int = 0,
+    previewModifier: Modifier = Modifier,
+    chromeAlpha: () -> Float = { 1f },
+    isLiveCard: Boolean = false,
 ) {
     val typography = LocalProstoTypography.current
     val cardBg = if (isDark) DarkSurface else Color.White
@@ -91,73 +104,41 @@ fun WorkspaceOverviewCard(
 
     val cardShape = androidx.compose.foundation.shape.RoundedCornerShape(cornerRadiusDp)
 
-    Surface(
-        shape = cardShape,
-        color = cardBg,
-        shadowElevation = if (isActive) 8.dp else 3.dp,
-        border = border,
-        modifier = modifier
-            .clip(cardShape)
-            .combinedClickable(
-                onClick = onSelect,
-                onLongClick = onEdit,
-            )
-            .testTag("workspace_card_${workspace.id}"),
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Column(
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            // Workspace Header Bar
+            // Workspace capsule row: name in a capsule of the workspace color, contrasting text
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp)
-                    .background(if (isDark) DarkSurfaceVariant.copy(alpha = 0.4f) else ProstoCanvasFloor)
-                    .padding(horizontal = 14.dp),
+                    .graphicsLayer { alpha = chromeAlpha() }
+                    .pointerInput(onSelect, onEdit) {
+                        detectTapGestures(
+                            onTap = { onSelect() },
+                            onLongPress = { onEdit() },
+                        )
+                    }
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.weight(1f),
+                Surface(
+                    shape = ProstoShapes.Pill,
+                    color = workspaceColor,
+                    modifier = Modifier.weight(1f, fill = false),
                 ) {
-                    // Color Pill Indicator
-                    Box(
-                        modifier = Modifier
-                            .width(8.dp)
-                            .height(20.dp)
-                            .background(workspaceColor, ProstoShapes.Pill),
-                    )
-
                     Text(
                         text = workspace.name,
-                        style = typography.headlineSm.copy(
-                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
+                        style = typography.labelMd.copy(
+                            fontWeight = FontWeight.Bold,
                         ),
-                        color = if (isDark) DarkOnSurface else ProstoDarkText,
+                        color = getContrastingFolderContentColor(workspaceColor),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
                     )
-
-                    if (isActive) {
-                        Surface(
-                            shape = ProstoShapes.Pill,
-                            color = workspaceColor.copy(alpha = 0.15f),
-                            modifier = Modifier.padding(start = 2.dp),
-                        ) {
-                            Text(
-                                text = stringResource(R.string.workspace_active_badge),
-                                style = typography.labelSm.copy(
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                ),
-                                color = workspaceColor,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                            )
-                        }
-                    }
                 }
 
                 // Options (Edit / Delete)
@@ -176,47 +157,93 @@ fun WorkspaceOverviewCard(
                 }
             }
 
-            // Tab Preview Section
-            val isHome = activeTab?.isHomeTab == true
+            // Preview container: the only clipped, bordered part of the card
+            // Home tabs (and never-opened workspaces without tabs) render the real Home page;
+            // web tabs keep the captured JPEG snapshot; anything else falls back to an icon.
+            val isHome = activeTab?.isHomeTab != false
 
-            Box(
+            if (isLiveCard) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .then(previewModifier)
+                        .graphicsLayer { alpha = chromeAlpha() }
+                        .border(border, cardShape)
+                        .pointerInput(onSelect, onEdit) {
+                            detectTapGestures(
+                                onTap = { onSelect() },
+                                onLongPress = { onEdit() },
+                            )
+                        }
+                        .testTag("workspace_card_${workspace.id}"),
+                )
+            } else Surface(
+                shape = cardShape,
+                color = cardBg,
+                shadowElevation = if (isActive) 8.dp else 3.dp,
+                border = border,
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .background(if (isDark) DarkBackground else ProstoCanvasFloor),
+                    .then(previewModifier)
+                    .clip(cardShape)
+                    .testTag("workspace_card_${workspace.id}"),
             ) {
-                val file = activeTab?.snapshotPath?.let { File(it) }
-                if (file != null && file.exists()) {
-                    AsyncImage(
-                        model = file,
-                        contentDescription = activeTab.title,
-                        contentScale = ContentScale.Crop,
-                        alignment = Alignment.TopCenter,
-                        modifier = Modifier.fillMaxSize(),
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(if (isDark) DarkBackground else ProstoCanvasFloor)
+                    .pointerInput(onSelect, onEdit) {
+                        detectTapGestures(
+                            onTap = { onSelect() },
+                            onLongPress = { onEdit() },
+                        )
+                    },
+            ) {
+                if (isHome) {
+                    HomePreview(
+                        uiState = uiState,
+                        workspaceId = workspace.id,
                     )
-                } else if (isHome) {
-                    HomeMockupPreview(isDark = isDark, workspaceColor = workspaceColor)
                 } else {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
+                    val file = activeTab?.snapshotPath?.let { File(it) }
+                    if (file != null && file.exists()) {
+                        AsyncImage(
+                            model = file,
+                            contentDescription = activeTab?.title,
+                            contentScale = ContentScale.Crop,
+                            alignment = Alignment.TopCenter,
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
                         Icon(
                             imageVector = Icons.Default.Public,
                             contentDescription = null,
                             tint = ProstoMutedSlate.copy(alpha = 0.35f),
                             modifier = Modifier.size(48.dp),
                         )
+                        }
                     }
                 }
             }
-
+            }
             // Tab Title / Bottom Info Footer
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(44.dp)
-                    .background(if (isDark) DarkSurfaceVariant.copy(alpha = 0.25f) else Color.White)
+                    .graphicsLayer { alpha = chromeAlpha() }
+                    .pointerInput(onSelect, onEdit) {
+                        detectTapGestures(
+                            onTap = { onSelect() },
+                            onLongPress = { onEdit() },
+                        )
+                    }
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -288,27 +315,19 @@ fun WorkspaceOverviewCard(
                     )
                 }
 
-                // Tab Count / Index Counter Pill
-                Surface(
-                    shape = ProstoShapes.Pill,
-                    color = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor,
-                    border = ProstoBorders.hairlineBorder(isDark),
-                ) {
-                    val badgeText = if (tabCount > 0) {
-                        stringResource(R.string.workspace_tab_index_counter, activeTabIndex + 1, tabCount)
-                    } else {
-                        stringResource(R.string.workspace_no_tabs)
-                    }
-                    Text(
-                        text = badgeText,
-                        style = typography.labelSm.copy(fontSize = 11.sp),
-                        color = ProstoMutedSlate,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                    )
+                // Open tab index / count, e.g. "Tab 2 of 5"
+                val badgeText = if (tabCount > 0) {
+                    stringResource(R.string.workspace_tab_index_counter, activeTabIndex + 1, tabCount)
+                } else {
+                    stringResource(R.string.workspace_no_tabs)
                 }
+                Text(
+                    text = badgeText,
+                    style = typography.labelSm.copy(fontSize = 11.sp),
+                    color = ProstoMutedSlate,
+                )
             }
         }
-    }
 }
 
 /**

@@ -216,8 +216,9 @@
     <string name="tabs_overview_search">Поиск по вкладкам</string>
     <string name="search_history_empty">Здесь появятся недавние запросы</string>
     <string name="folder_overflow_count">+%1$d</string>
-    <string name="dock_swipe_up_hint">Смахните вверх для поиска</string>
+    <string name="dock_swipe_up_hint">Смахните для смены</string>
     <string name="dock_menu">Меню</string>
+    <string name="dock_search">Поиск</string>
     <string name="search_engine_shortcut_compact">(%1$s)</string>
     <string name="search_engine_shortcut_value">Быстрый вызов: %1$s</string>
     <string name="snackbar_tab_closed_title">%1$s: %2$s</string>
@@ -255,7 +256,6 @@
     <string name="workspace_delete_cancel">Отмена</string>
     <string name="workspace_delete_confirm">Удалить</string>
     <string name="workspace_cannot_delete_last">Нельзя удалить последнее пространство</string>
-    <string name="workspace_active_badge">Активно</string>
     <string name="workspace_options">Параметры пространства</string>
     <string name="workspace_no_tabs">Нет открытых вкладок</string>
     <plurals name="workspace_tabs_count">

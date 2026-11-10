@@ -586,6 +586,8 @@ fun TabStripRow(
             ) { _, item ->
                 when (item) {
                     is DockItem.FolderItem -> {
+                        // No fadeOutSpec on dock items: on a workspace switch every old key leaves at once and the
+                        // default fade-out left stuck ghost icons drawn over the new workspace's tabs.
                         val folder = item.folder
                         val folderColor = Color(folder.color)
                         val isFolderElevated = dragState.draggingTabId == item.key || dragState.settlingTabId == item.key
@@ -595,6 +597,7 @@ fun TabStripRow(
                                 Modifier
                             } else {
                                 Modifier.animateItem(
+                                    fadeOutSpec = null,
                                     placementSpec =
                                         spring(
                                             stiffness = Spring.StiffnessMedium,
@@ -669,6 +672,7 @@ fun TabStripRow(
                                 Modifier
                             } else {
                                 Modifier.animateItem(
+                                    fadeOutSpec = null,
                                     placementSpec =
                                         spring(
                                             stiffness = Spring.StiffnessMedium,

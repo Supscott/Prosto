@@ -12,6 +12,7 @@ import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.Workspace
+import com.jestk.browser.domain.model.WorkspaceHomeData
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
@@ -27,6 +28,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -436,6 +440,45 @@ internal class TabCoordinator(
                 .flatMapLatest { wsId -> favoriteRepository.getFavorites(wsId) }
                 .collectLatest { favorites ->
                     updateUiState { it.copy(favorites = favorites) }
+                }
+        }
+
+        scope.launch(ioDispatcher) {
+            @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+            val workspacesFlow = workspaceRepository?.getAllWorkspaces()
+                ?: flowOf(getCurrentState().workspaces)
+            workspacesFlow
+                .flatMapLatest { wsList ->
+                    val effective = if (wsList.isNotEmpty()) wsList else Workspace.DEFAULT_WORKSPACES
+                    val perWorkspace = effective.map { ws ->
+                        val recentsFlow: kotlinx.coroutines.flow.Flow<List<RecentTabItem>> =
+                            recentTabRepository?.getRecentTabs(10, ws.id)
+                                ?: tabRepository.getRecentTabs(6, ws.id).map { tabs ->
+                                    tabs.map { tab ->
+                                        RecentTabItem(
+                                            url = tab.url,
+                                            title = tab.title,
+                                            snapshotPath = tab.snapshotPath,
+                                            faviconUrl = tab.faviconUrl,
+                                            lastVisitedTimestamp = tab.lastActiveTimestamp,
+                                        )
+                                    }
+                                }
+                        combine(favoriteRepository.getFavorites(ws.id), recentsFlow) { favorites, recents ->
+                            ws.id to WorkspaceHomeData(favorites, recents)
+                        }
+                    }
+                    if (perWorkspace.isEmpty()) {
+                        flowOf(emptyMap())
+                    } else {
+                        combine(*perWorkspace.toTypedArray()) { pairs ->
+                            @Suppress("UNCHECKED_CAST")
+                            (pairs as Array<Pair<String, WorkspaceHomeData>>).toMap()
+                        }
+                    }
+                }
+                .collectLatest { data ->
+                    updateUiState { it.copy(workspaceHomeData = data) }
                 }
         }
     }

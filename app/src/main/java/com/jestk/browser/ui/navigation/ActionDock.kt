@@ -41,7 +41,6 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
@@ -219,12 +218,15 @@ fun ActionPopupMenu(
 }
 
 /**
- * Dedicated Floating Menu Button in the dock row.
+ * Floating square button beside the dock capsule (search, menu).
  * Solid crisp surface, Level 2 rim border, active ripple, NO BLUR.
+ * [isActive] tints the icon with the workspace accent color.
  */
 @Composable
-fun ActionDockMenuButton(
-    isExpanded: Boolean,
+fun DockSideButton(
+    icon: ImageVector,
+    contentDescription: String,
+    isActive: Boolean,
     isDark: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -249,9 +251,9 @@ fun ActionDockMenuButton(
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = Icons.Default.Menu,
-            contentDescription = stringResource(R.string.dock_menu),
-            tint = if (isExpanded) activeTint else normalTint,
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = if (isActive) activeTint else normalTint,
             modifier = Modifier.size(20.dp),
         )
     }
@@ -259,7 +261,7 @@ fun ActionDockMenuButton(
 
 /**
  * Subtle, stylish prompt above the floating dock when Home is active,
- * guiding users to the swipe-up gesture to search.
+ * guiding users to the swipe-up gesture that changes the workspace.
  * Solid pill surface with micro-border, NO BLUR.
  */
 @Composable

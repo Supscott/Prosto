@@ -212,8 +212,9 @@
     <string name="tabs_overview_search">Search in tabs</string>
     <string name="search_history_empty">Recent queries will appear here</string>
     <string name="folder_overflow_count">+%1$d</string>
-    <string name="dock_swipe_up_hint">Swipe up to search</string>
+    <string name="dock_swipe_up_hint">Swipe to change</string>
     <string name="dock_menu">Menu</string>
+    <string name="dock_search">Search</string>
     <string name="search_engine_shortcut_compact">(%1$s)</string>
     <string name="search_engine_shortcut_value">Shortcut: %1$s</string>
     <string name="snackbar_tab_closed_title">%1$s: %2$s</string>
@@ -251,7 +252,6 @@
     <string name="workspace_delete_cancel">Cancel</string>
     <string name="workspace_delete_confirm">Delete</string>
     <string name="workspace_cannot_delete_last">Cannot delete the last workspace</string>
-    <string name="workspace_active_badge">Active</string>
     <string name="workspace_options">Workspace options</string>
     <string name="workspace_no_tabs">No open tabs</string>
     <plurals name="workspace_tabs_count">

@@ -84,6 +84,7 @@ internal fun GridTabCard(
     onSelect: () -> Unit,
     onClose: () -> Unit,
     isHovered: Boolean = false,
+    homePreview: (@Composable () -> Unit)? = null,
 ) {
     var rawOffsetX by remember { mutableFloatStateOf(0f) }
     var isDismissed by remember { mutableStateOf(false) }
@@ -120,7 +121,6 @@ internal fun GridTabCard(
                     .offset { IntOffset(animatedOffsetX.roundToInt(), 0) }
                     .clip(ProstoShapes.Card)
                     .testTag("tab_card_${tab.id}")
-                    .clickable(onClick = onSelect)
                     .pointerInput(tab.id) {
                         detectHorizontalDragGestures(
                             onDragEnd = {
@@ -154,6 +154,7 @@ internal fun GridTabCard(
                             .fillMaxWidth()
                             .height(38.dp)
                             .background(headerBg)
+                            .clickable(onClick = onSelect)
                             .padding(horizontal = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -217,8 +218,13 @@ internal fun GridTabCard(
                         Modifier
                             .fillMaxWidth()
                             .weight(1f)
-                            .background(if (isDark) DarkBackground else ProstoCanvasFloor),
+                            .background(if (isDark) DarkBackground else ProstoCanvasFloor)
+                            .clickable(onClick = onSelect),
                 ) {
+                    val home = homePreview
+                    if (tab.isHomeTab && home != null) {
+                        home()
+                    } else {
                     val file = tab.snapshotPath?.let { File(it) }
                     if (file != null && file.exists()) {
                         AsyncImage(
@@ -242,8 +248,9 @@ internal fun GridTabCard(
                             )
                         }
                     }
+                    }
                 }
-            }
         }
     }
+}
 }

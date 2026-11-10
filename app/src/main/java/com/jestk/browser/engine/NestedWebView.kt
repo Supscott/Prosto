@@ -29,7 +29,7 @@ class NestedWebView @JvmOverloads constructor(
         const val MAX_PTR_INITIAL_DOWN_Y_DP = 120f
     }
 
-    var loadedUrl: String? = null
+    @Volatile var loadedUrl: String? = null
     var openerUrl: String? = null
     var hasOpenerUserGesture: Boolean = false
 

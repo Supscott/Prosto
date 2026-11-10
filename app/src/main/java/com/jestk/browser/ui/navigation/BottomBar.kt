@@ -18,17 +18,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.DarkDockSurface
@@ -39,8 +44,11 @@ import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.theme.prostoFloatingSurface
 import com.jestk.browser.ui.theme.prostoSkyBackground
+import com.jestk.browser.ui.overlays.WorkspaceSwitcherState
+import com.jestk.browser.ui.overlays.rememberWorkspaceSwitcherState
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import kotlinx.coroutines.launch
 
 /**
  * Top-level orchestrator composable for bottom navigation bar.
@@ -49,17 +57,20 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
  * - Dock surface: #FFFFFF 80% opacity in Light mode, #0D1824 80% opacity in Dark mode.
  * - Active tab capsule: solid 100% #FFFFFF in Light mode, #0D1824 in Dark mode with light elevation shadow (2.dp).
  * - Elevation & Depth: Level 2 ambient elevation shadow (10.dp cerulean-tinted shadow) and crisp rim border. NO BLUR.
- * - Assembles [TabStripRow], [ActionPopupMenu], [SwipeUpHint], and [ActionDockMenuButton].
+ * - Assembles [TabStripRow], [ActionPopupMenu], [SwipeUpHint], and the search / menu [DockSideButton]s.
+ * - Swiping up on the dock drives [workspaceSwitcher]: the whole screen follows the finger into
+ *   the workspaces carousel.
  */
 @Composable
 fun UnifiedBottomBar(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
-    onDockDragOffset: ((Float) -> Unit)? = null,
+    workspaceSwitcher: WorkspaceSwitcherState = rememberWorkspaceSwitcherState(),
 ) {
-    val density = LocalDensity.current
     val currentOnEvent by rememberUpdatedState(onEvent)
+    val currentUiState by rememberUpdatedState(uiState)
+    val switcherScope = rememberCoroutineScope()
     val isDark = LocalIsDarkTheme.current
     val isHome = uiState.isHome
 
@@ -121,7 +132,7 @@ fun UnifiedBottomBar(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // 1. "Swipe up to search" Hint (visible when active tab is Home)
+            // 1. "Swipe to change" workspace hint (visible when active tab is Home)
             AnimatedVisibility(
                 visible = isHome && !uiState.isMenuExpanded,
                 enter = fadeIn(animationSpec = tween(200)) + slideInVertically(animationSpec = tween(200)) { it / 2 },
@@ -133,7 +144,7 @@ fun UnifiedBottomBar(
                 SwipeUpHint(
                     isDark = isDark,
                     onClick = {
-                        onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                        onEvent(BrowserUiEvent.OpenWorkspacesOverview)
                     }
                 )
             }
@@ -211,14 +222,23 @@ fun UnifiedBottomBar(
                             .weight(1f)
                             .height(50.dp)
                             .testTag("dock_capsule")
-                            .dockLiftGestureModifier(
-                                density = density,
-                                onDragOffset = onDockDragOffset,
-                                onSwipeUpSearch = {
-                                    currentOnEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                            .dockSwipeUpGesture(
+                                onDragStart = {
+                                    workspaceSwitcher.startDrag()
+                                    if (!currentUiState.isWorkspacesOverviewVisible) {
+                                        currentOnEvent(BrowserUiEvent.OpenWorkspacesOverview)
+                                    }
                                 },
-                                onLiftWorkspaces = {
-                                    currentOnEvent(BrowserUiEvent.OpenWorkspacesOverview)
+                                onDrag = { upwardPx ->
+                                    switcherScope.launch { workspaceSwitcher.dragTo(upwardPx) }
+                                },
+                                onDragEnd = { upwardVelocity, cancelled ->
+                                    switcherScope.launch {
+                                        val opened = workspaceSwitcher.endDrag(
+                                            if (cancelled) Float.NEGATIVE_INFINITY else upwardVelocity,
+                                        )
+                                        if (!opened) currentOnEvent(BrowserUiEvent.CloseWorkspacesOverview)
+                                    }
                                 },
                             )
                     ) {
@@ -248,15 +268,32 @@ fun UnifiedBottomBar(
                         )
                     }
 
+                    // Dedicated Floating Search Button
+                    DockSideButton(
+                        icon = Icons.Default.Search,
+                        contentDescription = stringResource(R.string.dock_search),
+                        isActive = false,
+                        isDark = isDark,
+                        backgroundColor = dockBg,
+                        border = dockBorder,
+                        onClick = {
+                            onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
+                        },
+                        modifier = Modifier.testTag("dock_search_button"),
+                    )
+
                     // Dedicated Floating Menu Button
-                    ActionDockMenuButton(
-                        isExpanded = uiState.isMenuExpanded,
+                    DockSideButton(
+                        icon = Icons.Default.Menu,
+                        contentDescription = stringResource(R.string.dock_menu),
+                        isActive = uiState.isMenuExpanded,
                         isDark = isDark,
                         backgroundColor = dockBg,
                         border = dockBorder,
                         onClick = {
                             onEvent(BrowserUiEvent.ToggleMenu())
-                        }
+                        },
+                        modifier = Modifier.testTag("dock_menu_button"),
                     )
                 }
             }
@@ -284,13 +321,11 @@ fun BottomBar(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
-    onDockDragOffset: ((Float) -> Unit)? = null,
 ) {
     UnifiedBottomBar(
         uiState = uiState,
         onEvent = onEvent,
         modifier = modifier,
-        onDockDragOffset = onDockDragOffset,
     )
 }
 

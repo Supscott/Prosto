@@ -134,6 +134,7 @@ fun HomeScreen(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
+    isPreview: Boolean = false,
 ) {
     val context = LocalContext.current
     val speechLauncher =
@@ -196,7 +197,7 @@ fun HomeScreen(
                     .fillMaxSize()
                     .statusBarsPadding()
                     .navigationBarsPadding()
-                    .verticalScroll(scrollState)
+                    .then(if (isPreview) Modifier else Modifier.verticalScroll(scrollState))
                     .padding(top = 16.dp, bottom = 120.dp),
         ) {
             // Active Workspace Title / Hero Greeting

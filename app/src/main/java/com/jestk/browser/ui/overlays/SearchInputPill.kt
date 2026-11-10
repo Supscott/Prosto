@@ -33,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +48,8 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.ui.unit.Velocity
+import kotlinx.coroutines.launch
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -85,6 +88,7 @@ internal fun HeroSearchInputField(
     nestedScrollDispatcher: NestedScrollDispatcher? = null,
     onSwipeLeft: () -> Unit = {},
     onSwipeRight: () -> Unit = {},
+    isKeyboardVisible: () -> Boolean = { false },
     onSwipeDown: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
@@ -137,6 +141,7 @@ internal fun HeroSearchInputField(
             .swipeDownToDismiss(
                 density = density,
                 nestedScrollDispatcher = effectiveDispatcher,
+                isKeyboardVisible = isKeyboardVisible,
                 onSwipeDown = onSwipeDown
             )
     ) {
@@ -236,98 +241,82 @@ internal fun HeroSearchInputField(
 }
 
 /**
- * Detects a downward swipe on the search bar and dispatches vertical drag deltas to the nested
- * scroll hierarchy so the soft keyboard translates smoothly and interactively under the finger.
+ * Downward swipe on the search bar. What it does is decided once, at touch-down, from the real
+ * keyboard state ([isKeyboardVisible]), so a gesture never changes meaning mid-drag:
  *
- * Applied after the horizontal gesture modifiers, it lets a horizontal drag keep the touch
- * slop race (the vertical detector cancels itself), so engine cycling is untouched, and it
- * never claims a tap. As vertical deltas occur, they are dispatched to [nestedScrollDispatcher]
- * as [NestedScrollSource.UserInput], allowing [Modifier.imeNestedScroll] to translate the soft
- * keyboard in real time. The callback fires as soon as a downward drag crosses the initial
- * threshold (24.dp). If the downward drag continues further past the continuous threshold
- * (80.dp), a second action is triggered (transitioning from keyboard hide to overlay dismissal).
+ * - **Keyboard visible:** the drag is forwarded to [nestedScrollDispatcher] so
+ *   [Modifier.imeNestedScroll] moves the keyboard under the finger, and on release the fling is
+ *   dispatched so the IME animation settles to shown or hidden by position and velocity.
+ *   [onSwipeDown] is not called: the overlay stays, and a short swipe simply snaps the keyboard back.
+ * - **Keyboard hidden:** nothing to drag; [onSwipeDown] fires once the drag crosses 24.dp.
+ *
+ * Horizontal drags are left to the engine-cycling gesture: the vertical detector yields to them.
  */
 @Composable
 internal fun Modifier.swipeDownToDismiss(
     density: Density,
     nestedScrollDispatcher: NestedScrollDispatcher? = null,
+    isKeyboardVisible: () -> Boolean,
     onSwipeDown: () -> Unit,
 ): Modifier {
     val currentOnSwipeDown by rememberUpdatedState(onSwipeDown)
+    val currentIsKeyboardVisible by rememberUpdatedState(isKeyboardVisible)
     val currentDispatcher by rememberUpdatedState(nestedScrollDispatcher)
     val viewConfig = LocalViewConfiguration.current
+    val settleScope = rememberCoroutineScope()
     val thresholdPx = with(density) { 24.dp.toPx() }
-    val continuousThresholdPx = with(density) { 80.dp.toPx() }
 
     return this.pointerInput(density, viewConfig) {
-        val velocityTracker = VelocityTracker()
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
-            velocityTracker.resetTracking()
+            val dragsKeyboard = currentIsKeyboardVisible()
+            val velocityTracker = VelocityTracker()
             velocityTracker.addPosition(down.uptimeMillis, down.position)
 
-            var totalDragY = 0f
-            var totalDragX = 0f
+            var dispatchedY = 0f
             var isHorizontalDrag = false
-            var firstTriggered = false
-            var secondTriggered = false
+            var dismissed = false
 
             while (true) {
-                val event = awaitPointerEvent()
-                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                if (!change.pressed) {
-                    if (!firstTriggered && totalDragY >= thresholdPx) {
-                        firstTriggered = true
-                        currentOnSwipeDown()
-                    } else if (firstTriggered && !secondTriggered && totalDragY >= continuousThresholdPx) {
-                        secondTriggered = true
-                        currentOnSwipeDown()
-                    }
-                    break
-                }
+                val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                if (!change.pressed) break
 
                 velocityTracker.addPosition(change.uptimeMillis, change.position)
-                val dragX = change.position.x - change.previousPosition.x
-                val dragY = change.position.y - change.previousPosition.y
-                totalDragX += dragX
-
-                if (!isHorizontalDrag && abs(totalDragX) > viewConfig.touchSlop && abs(totalDragX) > abs(totalDragY)) {
+                val offset = change.position - down.position
+                if (!isHorizontalDrag && abs(offset.x) > viewConfig.touchSlop && abs(offset.x) > abs(offset.y)) {
                     isHorizontalDrag = true
                 }
+                if (isHorizontalDrag) continue
 
-                if (!isHorizontalDrag) {
-                    if (dragY < 0f && totalDragY <= 0f) {
-                        totalDragY = 0f
-                    } else {
-                        totalDragY += dragY
+                // Downward displacement only; moving back up unwinds the keyboard drag.
+                val targetY = offset.y.coerceAtLeast(0f)
+                if (dragsKeyboard) {
+                    val delta = targetY - dispatchedY
+                    if (delta != 0f) {
+                        dispatchedY = targetY
+                        currentDispatcher?.dispatchScroll(Offset(0f, delta))
                     }
+                } else if (!dismissed && targetY >= thresholdPx) {
+                    dismissed = true
+                    change.consume()
+                    currentOnSwipeDown()
+                }
+            }
 
-                    if (dragY > 0f || totalDragY > 0f) {
-                        val preConsumed = currentDispatcher?.dispatchPreScroll(
-                            available = Offset(0f, dragY),
-                            source = NestedScrollSource.UserInput
-                        ) ?: Offset.Zero
-
-                        val remaining = Offset(0f, dragY) - preConsumed
-
-                        currentDispatcher?.dispatchPostScroll(
-                            consumed = preConsumed,
-                            available = remaining,
-                            source = NestedScrollSource.UserInput
-                        )
-                    }
-
-                    if (!firstTriggered && totalDragY >= thresholdPx) {
-                        firstTriggered = true
-                        change.consume()
-                        currentOnSwipeDown()
-                    } else if (firstTriggered && !secondTriggered && totalDragY >= continuousThresholdPx) {
-                        secondTriggered = true
-                        change.consume()
-                        currentOnSwipeDown()
-                    }
+            // Release or cancellation: let the keyboard settle instead of leaving it mid-drag.
+            val dispatcher = currentDispatcher
+            if (dragsKeyboard && dispatcher != null && dispatchedY > 0f) {
+                val velocity = Velocity(0f, velocityTracker.calculateVelocity().y)
+                settleScope.launch {
+                    val consumed = dispatcher.dispatchPreFling(velocity)
+                    dispatcher.dispatchPostFling(consumed, velocity - consumed)
                 }
             }
         }
     }
+}
+
+private fun NestedScrollDispatcher.dispatchScroll(delta: Offset) {
+    val preConsumed = dispatchPreScroll(delta, NestedScrollSource.UserInput)
+    dispatchPostScroll(preConsumed, delta - preConsumed, NestedScrollSource.UserInput)
 }

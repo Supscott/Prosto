@@ -7,6 +7,7 @@ import android.view.WindowManager
 import android.webkit.WebView
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
@@ -69,6 +70,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -85,7 +87,6 @@ import com.jestk.browser.domain.model.isVisible
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
-import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.ui.navigation.UnifiedBottomBar
@@ -102,7 +103,10 @@ import com.jestk.browser.ui.overlays.LinkContextMenuModal
 import com.jestk.browser.ui.overlays.SearchOverlay
 import com.jestk.browser.ui.overlays.TabOverviewGrid
 import com.jestk.browser.ui.overlays.UpdateNotificationCard
+import com.jestk.browser.ui.overlays.WORKSPACE_CARD_CORNER_RADIUS_DP
 import com.jestk.browser.ui.overlays.WorkspacesOverviewScreen
+import com.jestk.browser.ui.overlays.rememberWorkspaceSwitcherState
+import com.jestk.browser.ui.overlays.workspaceSwitcherLiveContent
 import com.jestk.browser.ui.screens.DownloadsScreen
 import com.jestk.browser.ui.screens.SettingsScreen
 import com.jestk.browser.ui.pip.FloatingVideoMiniPlayer
@@ -443,35 +447,6 @@ fun JestkApp(
             }
         }
 
-        LaunchedEffect(uiState.isWorkspacesOverviewVisible, uiState.activeOverlay) {
-            val isOverviewOpen = uiState.isWorkspacesOverviewVisible || uiState.activeOverlay == OverlayType.TAB_GRID
-            if (isOverviewOpen) {
-                val currentTab = uiState.activeTab
-                if (currentTab != null && (uiState.isHome || currentTab.isHomeTab)) {
-                    SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
-                        if (path != null) {
-                            viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))
-                        }
-                    }
-                }
-            }
-        }
-
-        var wasHomeScreen by remember { androidx.compose.runtime.mutableStateOf(showHomeScreen) }
-        LaunchedEffect(showHomeScreen) {
-            if (wasHomeScreen && !showHomeScreen) {
-                val currentTab = uiState.activeTab
-                if (currentTab != null) {
-                    SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
-                        if (path != null) {
-                            viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))
-                        }
-                    }
-                }
-            }
-            wasHomeScreen = showHomeScreen
-        }
-
         DisposableEffect(Unit) {
             onDispose {
                 val activity = context.findActivity()
@@ -485,23 +460,17 @@ fun JestkApp(
             }
         }
 
-        var dockDragLiftPx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
-
-        val handleUiEvent: (BrowserUiEvent) -> Unit = remember(viewModel, uiState.activeTab, uiState.isHome, view, context) {
-            { event ->
-                if (event is BrowserUiEvent.OpenWorkspacesOverview || event is BrowserUiEvent.OpenTabGrid) {
-                    val currentTab = uiState.activeTab
-                    if (currentTab != null && (uiState.isHome || currentTab.isHomeTab)) {
-                        SnapshotEngine.captureViewSnapshot(view, currentTab.id, context) { path ->
-                            if (path != null) {
-                                viewModel.onEvent(BrowserUiEvent.OnSnapshotCaptured(currentTab.id, path))
-                            }
-                        }
-                    }
-                }
-                viewModel.onEvent(event)
+        val workspaceSwitcher = rememberWorkspaceSwitcherState()
+        LaunchedEffect(uiState.isWorkspacesOverviewVisible) {
+            // Any close path (switch, back, VM-driven) leaves the live app untransformed.
+            if (!uiState.isWorkspacesOverviewVisible && !workspaceSwitcher.isDragging) {
+                workspaceSwitcher.reset()
             }
         }
+        val switcherCornerRadiusPx = with(LocalDensity.current) { WORKSPACE_CARD_CORNER_RADIUS_DP.dp.toPx() }
+        val switcherShadowPx = with(LocalDensity.current) { 8.dp.toPx() }
+
+        val handleUiEvent: (BrowserUiEvent) -> Unit = viewModel::onEvent
 
         val appBackgroundBrush =
             remember(animatedStatusBarBg, animatedBottomBarBg) {
@@ -518,15 +487,32 @@ fun JestkApp(
                 modifier
                     .fillMaxSize()
                     .background(appBackgroundBrush)
-                    .graphicsLayer {
-                        val scale = 1f - (dockDragLiftPx / 400f).coerceIn(0f, 0.06f)
-                        scaleX = scale
-                        scaleY = scale
-                    },
+                    .onSizeChanged { workspaceSwitcher.rootSize = it },
         ) {
-            // Main Viewport: WebView Container and Home Screen (NO BLUR)
+            // Workspace switcher backdrop: revealed around the live app as it shrinks into a card.
+            if (uiState.isWorkspacesOverviewVisible) {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { alpha = workspaceSwitcher.progress.value.coerceIn(0f, 1f) }
+                            .background(if (isDark) DarkBackground else ProstoCanvasFloor),
+                )
+            }
+
+            // Main Viewport: WebView Container and Home Screen (NO BLUR).
+            // It is the active workspace card itself while the workspace switcher is open.
             Box(
-                modifier = Modifier.fillMaxSize(),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .workspaceSwitcherLiveContent(
+                            state = workspaceSwitcher,
+                            cornerRadiusPx = switcherCornerRadiusPx,
+                            shadowElevationPx = switcherShadowPx,
+                        )
+                        // Paints the status bar strip inside the card when the app is shrunk.
+                        .background(appBackgroundBrush),
             ) {
                 uiState.activeTabId?.let { activeId ->
                     WebViewContainer(
@@ -595,12 +581,14 @@ fun JestkApp(
                 UnifiedBottomBar(
                     uiState = uiState,
                     onEvent = handleUiEvent,
-                    onDockDragOffset = { offset -> dockDragLiftPx = -offset },
+                    workspaceSwitcher = workspaceSwitcher,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .graphicsLayer {
                             translationY = effectiveBottomBarSlide.toPx()
-                            alpha = effectiveBottomBarAlpha
+                            // The dock fades out quickly while the screen shrinks into the carousel.
+                            val switcherFade = (1f - workspaceSwitcher.progress.value * 3f).coerceIn(0f, 1f)
+                            alpha = effectiveBottomBarAlpha * switcherFade
                         },
                 )
             }
@@ -636,14 +624,17 @@ fun JestkApp(
                 )
             }
 
+            // Enter is driven by the switcher progress (the live app shrinks into the carousel);
+            // the short exit fade only hides the hand-off after a workspace switch.
             AnimatedVisibility(
                 visible = uiState.isWorkspacesOverviewVisible,
-                enter = fadeIn(tween(260, easing = FastOutSlowInEasing)),
-                exit = fadeOut(tween(200, easing = FastOutSlowInEasing)),
+                enter = EnterTransition.None,
+                exit = fadeOut(tween(180, easing = FastOutSlowInEasing)),
             ) {
                 WorkspacesOverviewScreen(
                     uiState = uiState,
                     onEvent = viewModel::onEvent,
+                    switcher = workspaceSwitcher,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

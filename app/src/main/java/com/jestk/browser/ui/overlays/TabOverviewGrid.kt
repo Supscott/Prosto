@@ -611,6 +611,11 @@ fun TabOverviewGrid(
                                         onClose = {
                                             onEvent(BrowserUiEvent.CloseTab(item.tab.id))
                                         },
+                                        homePreview = if (item.tab.isHomeTab) {
+                                            { HomePreview(uiState = uiState, workspaceId = item.tab.workspaceId) }
+                                        } else {
+                                            null
+                                        },
                                     )
                                 }
                                 is OverviewGridItem.FolderCard -> {
@@ -653,6 +658,11 @@ fun TabOverviewGrid(
                                         },
                                         onClose = {
                                             onEvent(BrowserUiEvent.CloseTab(item.tab.id))
+                                        },
+                                        homePreview = if (item.tab.isHomeTab) {
+                                            { HomePreview(uiState = uiState, workspaceId = item.tab.workspaceId) }
+                                        } else {
+                                            null
                                         },
                                     )
                                 }

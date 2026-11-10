@@ -18,5 +18,6 @@ data class Tab @JvmOverloads constructor(
     val workspaceId: String = Workspace.DEFAULT_PERSONAL_ID,
 ) {
     val topThemeColor: Int? get() = themeColor
-    val isHomeTab: Boolean get() = url.isBlank() || url == "about:blank" || title == "Home"
+    /** A home tab is identified by its blank/about:blank URL. Page titles are user-visible content and never identify a tab type. */
+    val isHomeTab: Boolean get() = url.isBlank() || url == "about:blank"
 }

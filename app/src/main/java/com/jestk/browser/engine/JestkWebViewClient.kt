@@ -237,7 +237,8 @@ class JestkWebViewClient(
         if (adBlockerActive || trackingActive) {
             val url = request.url?.toString()
             val parsedUrl = AdBlockerEngine.parseUrl(url)
-            val pageUrl = (view as? NestedWebView)?.loadedUrl ?: view?.url
+            // Runs on a worker thread: WebView.getUrl() is main-thread only, so use the volatile mirror.
+            val pageUrl = (view as? NestedWebView)?.loadedUrl
             if (parsedUrl != null && AdBlockerEngine.shouldBlock(parsedUrl, pageUrl)) {
                 val validUrl = url.orEmpty()
                 val isTracker = AdBlockerEngine.isTracker(parsedUrl, pageUrl)

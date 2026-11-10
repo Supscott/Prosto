@@ -6,7 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasAnyChild
-import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
@@ -95,9 +95,7 @@ class TabOverviewGridPreviewTest {
 
         val cardBounds =
             composeRule
-                .onNode(
-                    hasClickAction() and androidx.compose.ui.test.hasText("Tab 1"),
-                )
+                .onNodeWithTag("tab_card_1")
                 .getBoundsInRoot()
 
         val width = (cardBounds.right - cardBounds.left).value
