@@ -712,6 +712,56 @@ class JestkWebViewClientTest {
     }
 
     @Test
+    fun shouldOverrideUrlLoading_allowsCrossDomainPopup_whenOpenerUserGesturePresent() {
+        var blockedTabId: String? = null
+        var blockedUrl: String? = null
+        val client = JestkWebViewClient(
+            tabId = "tab_popup",
+            isAdBlockerEnabled = { true },
+            isAdRedirectProtectionEnabled = { true },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onBlockedAdNavigation = { id, url ->
+                blockedTabId = id
+                blockedUrl = url
+            }
+        )
+
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val popupWebView = NestedWebView(context).apply {
+            openerUrl = "https://m.youtube.com/watch?v=123"
+            hasOpenerUserGesture = true
+        }
+
+        fun request(url: String, hasGesture: Boolean = false) = object : android.webkit.WebResourceRequest {
+            override fun getUrl(): android.net.Uri = android.net.Uri.parse(url)
+            override fun isForMainFrame(): Boolean = true
+            override fun isRedirect(): Boolean = false
+            override fun hasGesture(): Boolean = hasGesture
+            override fun getMethod(): String = "GET"
+            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+        }
+
+        // Cross-domain navigation (e.g. YouTube link to github) with opener user gesture is allowed
+        val blocked = client.shouldOverrideUrlLoading(popupWebView, request("https://github.com/developer/repo"))
+        assertThat(blocked).isFalse()
+        assertThat(blockedTabId).isNull()
+        assertThat(blockedUrl).isNull()
+
+        // After page finished, hasOpenerUserGesture is cleared
+        client.onPageFinished(popupWebView, "https://github.com/developer/repo")
+        assertThat(popupWebView.hasOpenerUserGesture).isFalse()
+
+        // Subsequent unauthorized cross-domain popup/redirect without gesture is blocked
+        val subsequentBlocked = client.shouldOverrideUrlLoading(popupWebView, request("https://spam-tracker.xyz/click"))
+        assertThat(subsequentBlocked).isTrue()
+        assertThat(blockedTabId).isEqualTo("tab_popup")
+        assertThat(blockedUrl).isEqualTo("https://spam-tracker.xyz/click")
+    }
+
+    @Test
     fun shouldOverrideUrlLoading_allowsAdNavigation_whenUrlInAllowedBypassList() {
         val targetUrl = "https://vulkan-casino-777.xyz/click"
         val allowedUrls = mutableSetOf(targetUrl)

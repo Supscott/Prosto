@@ -179,6 +179,7 @@ fun JestkApp(
             }
         }
         webViewPool.onWebViewCreated = { tabId, wv ->
+            wv.tag = tabId
             if (wv.webChromeClient == null) {
                 val handleFavicon: (String, android.graphics.Bitmap, String?) -> Unit = { id, icon, pageUrl ->
                     coroutineScope.launch {
@@ -225,6 +226,13 @@ fun JestkApp(
                     },
                     isCleanPlayerEnabled = { viewModel.uiState.value.settings.isCleanYouTubePlayerEnabled },
                     isAutoConsentEnabled = { viewModel.uiState.value.settings.autoConsentEnabled },
+                    onBlockedAdNavigation = { id, url ->
+                        viewModel.onEvent(BrowserUiEvent.ShowBlockedAdNavigation(url = url, tabId = id))
+                    },
+                    isAdRedirectProtectionEnabled = { viewModel.uiState.value.settings.isAdRedirectProtectionEnabled },
+                    isAllowedAdNavigation = { url ->
+                        viewModel.uiState.value.allowedAdNavigationUrls.contains(url)
+                    },
                     onCleanPlayerRequested = { url ->
                         if (viewModel.shouldInterceptForCleanPlayer(url)) {
                             val videoId = com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url)
@@ -252,14 +260,21 @@ fun JestkApp(
                         viewModel.onEvent(BrowserUiEvent.SetVideoPlaying(isPlaying))
                     },
                     onFaviconReceived = handleFavicon,
-                    onCreateWindowRequest = { _, _, _, resultMsg ->
-                        val currentWsId = viewModel.uiState.value.activeWorkspaceId
-                        val profileName = viewModel.uiState.value.workspaces.find { it.id == currentWsId }?.profileName ?: currentWsId
+                    onShowFileChooser = { callback, params ->
+                        val handler = context.findActivity() as? com.jestk.browser.ui.FileChooserHandler
+                        handler?.openFileChooser(callback, params) ?: false
+                    },
+                    onCreateWindowRequest = { originView, _, isUserGesture, resultMsg ->
+                        val currentTab = viewModel.uiState.value.tabs.find { it.id == tabId }
+                        val targetWorkspaceId = currentTab?.workspaceId ?: viewModel.uiState.value.activeWorkspaceId
+                        val targetProfileName = viewModel.uiState.value.workspaces.find { it.id == targetWorkspaceId }?.profileName
                         com.jestk.browser.engine.WindowTransportHandler.handleCreateWindow(
                             resultMsg = resultMsg,
                             context = context,
                             webViewPool = webViewPool,
-                            profileName = profileName,
+                            openerUrl = originView?.url ?: wv.url,
+                            profileName = targetProfileName,
+                            isUserGesture = isUserGesture,
                             onPopupOpened = { viewModel.onEvent(BrowserUiEvent.OpenPopupTab(it)) }
                         )
                     },
@@ -283,12 +298,11 @@ fun JestkApp(
             }
             val activeId = viewModel.uiState.value.activeTabId ?: return@collectLatest
             val currentTab = viewModel.uiState.value.allTabs.find { it.id == activeId } ?: viewModel.uiState.value.tabs.find { it.id == activeId }
-            val profileName = currentTab?.workspaceId?.let { wsId ->
-                viewModel.uiState.value.workspaces.find { it.id == wsId }?.profileName ?: wsId
-            }
+            val activeWorkspaceId = currentTab?.workspaceId ?: viewModel.uiState.value.activeWorkspaceId
+            val profileName = viewModel.uiState.value.workspaces.find { it.id == activeWorkspaceId }?.profileName ?: activeWorkspaceId
             when (command) {
                 is NavigationCommand.LoadUrl -> {
-                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context, profileName)
+                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context, profileName = profileName)
                     com.jestk.browser.engine.JestkWebViewClient.loadUrlOrHandleExternal(webView, command.url)
                 }
 
@@ -301,7 +315,7 @@ fun JestkApp(
                 }
 
                 is NavigationCommand.Reload -> {
-                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context, profileName)
+                    val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context, profileName = profileName)
                     if (webView.url.isNullOrEmpty() || webView.url == "about:blank") {
                         val url = viewModel.uiState.value.currentUrl
                         if (url.isNotEmpty() && url != "about:blank") {
@@ -351,10 +365,7 @@ fun JestkApp(
         val currentTab = uiState.tabs.find { it.id == uiState.activeTabId }
         val siteTopColor = uiState.activeTopThemeColor ?: currentTab?.topThemeColor
         val siteBottomColor = uiState.activeBottomThemeColor ?: currentTab?.bottomThemeColor
-        val showHomeScreen =
-            uiState.activeOverlay == OverlayType.HOME ||
-                uiState.currentUrl.isEmpty() ||
-                uiState.currentUrl == "about:blank"
+        val showHomeScreen = uiState.isHome
         val isHomeOrNeutral = showHomeScreen || uiState.isSettingsVisible || uiState.isDownloadsVisible
 
         val resolvedColors = DynamicBarColors.resolve(

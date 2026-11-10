@@ -468,4 +468,58 @@ class JestkWebChromeClientTest {
         invalidMessage.obj = "not a transport"
         assertThat(WindowTransportHandler.handleCreateWindow(invalidMessage, context, webViewPool) {}).isFalse()
     }
+
+    @Test
+    fun handleCreateWindow_inheritsProfileNameAndSetsOpenerProperties() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webViewPool = WebViewPool(context)
+        val transport = android.webkit.WebView(context).WebViewTransport()
+
+        val handler = android.os.Handler(android.os.Looper.getMainLooper())
+        val message = handler.obtainMessage()
+        message.obj = transport
+
+        var popupTabId: String? = null
+        val handled = WindowTransportHandler.handleCreateWindow(
+            resultMsg = message,
+            context = context,
+            webViewPool = webViewPool,
+            openerUrl = "https://m.youtube.com/watch?v=123",
+            profileName = "work_profile",
+            isUserGesture = true,
+            onPopupOpened = { popupTabId = it }
+        )
+
+        assertThat(handled).isTrue()
+        assertThat(popupTabId).isNotNull()
+        assertThat(webViewPool.getProfileForTab(popupTabId!!)).isEqualTo("work_profile")
+
+        val newWv = transport.webView as? NestedWebView
+        assertThat(newWv).isNotNull()
+        assertThat(newWv?.tag).isEqualTo(popupTabId)
+        assertThat(newWv?.openerUrl).isEqualTo("https://m.youtube.com/watch?v=123")
+        assertThat(newWv?.hasOpenerUserGesture).isTrue()
+    }
+
+    @Test
+    fun handleCreateWindow_whenMessageTargetNull_returnsFalseGracefully() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val webViewPool = WebViewPool(context)
+        val transport = android.webkit.WebView(context).WebViewTransport()
+
+        val message = android.os.Message.obtain() // target is null
+        message.obj = transport
+
+        var popupOpened = false
+        val handled = WindowTransportHandler.handleCreateWindow(
+            resultMsg = message,
+            context = context,
+            webViewPool = webViewPool,
+            openerUrl = "https://example.com",
+            onPopupOpened = { popupOpened = true }
+        )
+
+        assertThat(handled).isFalse()
+        assertThat(popupOpened).isFalse()
+    }
 }

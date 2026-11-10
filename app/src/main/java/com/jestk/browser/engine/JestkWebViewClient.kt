@@ -75,7 +75,10 @@ class JestkWebViewClient(
         // hidden-iframe "Open in app" technique and still need to reach the resolver.
         if (!request.isForMainFrame && isWebUrl(url)) return false
 
-        if (request.isForMainFrame && isBlockedAdNavigation(url, view, request.hasGesture())) return true
+        val hasOpenerGesture = (view as? NestedWebView)?.hasOpenerUserGesture == true
+        val effectiveGesture = request.hasGesture() || hasOpenerGesture
+
+        if (request.isForMainFrame && isBlockedAdNavigation(url, view, effectiveGesture)) return true
 
         // Warn before loading cleartext HTTP websites in the main frame
         if (request.isForMainFrame && checkInsecureHttpNavigation(url)) return true
@@ -84,7 +87,7 @@ class JestkWebViewClient(
             view = view,
             url = url,
             allowFallbackNavigation = request.isForMainFrame,
-            userInitiated = request.hasGesture(),
+            userInitiated = effectiveGesture,
         )
     }
 
@@ -141,8 +144,11 @@ class JestkWebViewClient(
         }
 
         // 2. Cross-domain ad redirect / popup check
-        if (redirectProtectionActive && !hasGesture) {
-            val nestedView = view as? NestedWebView
+        val nestedView = view as? NestedWebView
+        val hasOpenerGesture = nestedView?.hasOpenerUserGesture == true
+        val effectiveGesture = hasGesture || hasOpenerGesture
+
+        if (redirectProtectionActive && !effectiveGesture) {
             val openerUrl = nestedView?.openerUrl
             val currentUrl = nestedView?.loadedUrl ?: openerUrl ?: view?.url
             if (!currentUrl.isNullOrBlank() && currentUrl != "about:blank") {
@@ -331,6 +337,7 @@ class JestkWebViewClient(
         val validUrl = url.orEmpty()
         if (validUrl.isEmpty() || validUrl == "about:blank") return
         (view as? NestedWebView)?.loadedUrl = validUrl
+        (view as? NestedWebView)?.hasOpenerUserGesture = false
         val title = view?.title.orEmpty()
         onPageFinished(tabId, validUrl, title)
         view?.let { wv ->

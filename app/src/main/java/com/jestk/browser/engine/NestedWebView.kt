@@ -31,6 +31,7 @@ class NestedWebView @JvmOverloads constructor(
 
     var loadedUrl: String? = null
     var openerUrl: String? = null
+    var hasOpenerUserGesture: Boolean = false
 
     override fun loadUrl(url: String) {
         loadedUrl = url
