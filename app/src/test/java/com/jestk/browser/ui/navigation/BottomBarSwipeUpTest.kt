@@ -134,10 +134,7 @@ class BottomBarSwipeUpTest {
         composeRule.onNodeWithTag("dock_capsule").performTouchInput {
             down(center)
             moveBy(Offset(0f, -40.dp.toPx()), delayMillis = 50)
-        }
-        composeRule.mainClock.advanceTimeBy(250)
-
-        composeRule.onNodeWithTag("dock_capsule").performTouchInput {
+            advanceEventTime(250)
             up()
         }
 
@@ -146,6 +143,22 @@ class BottomBarSwipeUpTest {
         assertThat(workspaceEvents).isNotEmpty()
         assertThat(searchEvents).isEmpty()
         assertThat(vibrationConfirmCalls).isGreaterThan(0)
+    }
+
+    @Test
+    fun dragUpPastThreshold_thenDragBackDownBeforeRelease_triggersNeitherSearchNorWorkspaces() {
+        setupBottomBar()
+
+        composeRule.onNodeWithTag("dock_capsule").performTouchInput {
+            down(center)
+            moveBy(Offset(0f, -80.dp.toPx()), delayMillis = 250)
+            // User drags back down to origin
+            moveBy(Offset(0f, 80.dp.toPx()), delayMillis = 200)
+            up()
+        }
+
+        assertThat(events.filterIsInstance<BrowserUiEvent.OpenSearch>()).isEmpty()
+        assertThat(events.filterIsInstance<BrowserUiEvent.OpenWorkspacesOverview>()).isEmpty()
     }
 
     @Test
