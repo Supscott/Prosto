@@ -585,4 +585,63 @@ class TabCoordinatorWorkspaceTest {
 
             assertThat(uiState.favorites.map { it.title }).containsExactly("Work Fav", "Personal Fav")
         }
+
+    @Test
+    fun coordinator_addFavorite_savesToActiveWorkspace() =
+        runTest(testDispatcher) {
+            workspaceRepo.ensureDefaultWorkspaces()
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            // 1. Switch to Work workspace
+            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            // 2. Call coordinator.addFavorite
+            coordinator.addFavorite("Work Site", "https://work-site.com")
+            advanceUntilIdle()
+
+            // Favorite must appear in Work workspace
+            assertThat(uiState.favorites.map { it.title }).containsExactly("Work Site")
+
+            // 3. Switch to Personal workspace -> must NOT contain Work Site
+            coordinator.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.favorites).isEmpty()
+        }
+
+    @Test
+    fun coordinator_recentTabs_isolatedPerWorkspace() =
+        runTest(testDispatcher) {
+            workspaceRepo.ensureDefaultWorkspaces()
+            coordinator.observeDatabaseFlows()
+            advanceUntilIdle()
+
+            // 1. In Personal workspace, visit a site
+            val pTab = tabRepo.createTab("https://personal-site.com", "Personal Site", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+            coordinator.handlePageFinished(pTab.id, "https://personal-site.com", "Personal Site")
+            advanceUntilIdle()
+
+            assertThat(uiState.recentTabs.map { it.url }).contains("https://personal-site.com")
+
+            // 2. Switch to Work workspace -> must NOT contain personal-site
+            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.recentTabs.map { it.url }).doesNotContain("https://personal-site.com")
+
+            // 3. In Work workspace, visit work-site
+            val wTab = tabRepo.createTab("https://work-site.com", "Work Site", workspaceId = Workspace.DEFAULT_WORK_ID)
+            coordinator.handlePageFinished(wTab.id, "https://work-site.com", "Work Site")
+            advanceUntilIdle()
+
+            assertThat(uiState.recentTabs.map { it.url }).containsExactly("https://work-site.com")
+
+            // 4. Switch back to Personal -> only personal-site
+            coordinator.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
+            advanceUntilIdle()
+
+            assertThat(uiState.recentTabs.map { it.url }).containsExactly("https://personal-site.com")
+        }
 }

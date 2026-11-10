@@ -27,9 +27,9 @@ class TabRepositoryImpl(
             .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
-    override fun getRecentTabs(limit: Int): Flow<List<Tab>> =
+    override fun getRecentTabs(limit: Int, workspaceId: String): Flow<List<Tab>> =
         tabDao
-            .getRecentTabsFlow(limit)
+            .getRecentTabsFlow(limit, workspaceId)
             .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
