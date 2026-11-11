@@ -1,18 +1,13 @@
 package com.jestk.browser.ui.viewmodel
 
 import android.content.Intent
-import android.content.pm.ActivityInfo
 import android.util.Log
-import androidx.compose.ui.geometry.Offset
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jestk.browser.domain.model.BlockedAdNavigationPrompt
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.FeedbackPromptState
-import com.jestk.browser.domain.model.InsecureHttpPrompt
 import com.jestk.browser.domain.model.InsecureNavigationTarget
 import com.jestk.browser.domain.model.OverlayType
-import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
@@ -26,6 +21,14 @@ import com.jestk.browser.domain.repository.WorkspaceRepository
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.download.HoriDownloadManager
 import com.jestk.browser.engine.update.AppUpdateManager
+import com.jestk.browser.ui.viewmodel.events.BackPressHandler
+import com.jestk.browser.ui.viewmodel.events.LibraryEventHandler
+import com.jestk.browser.ui.viewmodel.events.MediaEventHandler
+import com.jestk.browser.ui.viewmodel.events.OverlayEventHandler
+import com.jestk.browser.ui.viewmodel.events.PageEventHandler
+import com.jestk.browser.ui.viewmodel.events.SafetyEventHandler
+import com.jestk.browser.ui.viewmodel.events.SettingsEventHandler
+import com.jestk.browser.ui.viewmodel.events.TabEventHandler
 import com.jestk.browser.util.UrlSecurityUtils
 import com.jestk.browser.util.YouTubeUrlHelper
 import kotlinx.coroutines.CoroutineDispatcher
@@ -134,6 +137,101 @@ class BrowserViewModel(
             ioDispatcher = ioDispatcher,
             tabFolderRepository = tabFolderRepository,
             workspaceRepository = workspaceRepository,
+        )
+
+    private val tabEvents =
+        TabEventHandler(
+            tabCoordinator = tabCoordinator,
+            searchCoordinator = searchCoordinator,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            scope = viewModelScope,
+            dispatch = this::onEvent,
+            loadUrl = this::loadUrl,
+            shouldWarnForInsecureUrl = this::shouldWarnForInsecureUrl,
+        )
+
+    private val overlayEvents =
+        OverlayEventHandler(
+            tabCoordinator = tabCoordinator,
+            searchCoordinator = searchCoordinator,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            dispatch = this::onEvent,
+            handleWebScroll = this::handleWebScroll,
+        )
+
+    private val pageEvents =
+        PageEventHandler(
+            tabCoordinator = tabCoordinator,
+            searchCoordinator = searchCoordinator,
+            updateUiState = { transform -> _uiState.update(transform) },
+            emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
+            loadUrl = this::loadUrl,
+            submitSearch = this::submitSearch,
+            schedulePreconnect = this::schedulePreconnect,
+            handleGoBack = this::handleGoBack,
+            getBypassCleanPlayerVideoId = { bypassCleanPlayerVideoId },
+            setBypassCleanPlayerVideoId = { bypassCleanPlayerVideoId = it },
+        )
+
+    private val libraryEvents =
+        LibraryEventHandler(
+            tabCoordinator = tabCoordinator,
+            searchCoordinator = searchCoordinator,
+            settingsRepository = settingsRepository,
+            recentTabRepository = recentTabRepository,
+            tabRepository = tabRepository,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            scope = viewModelScope,
+            ioDispatcher = ioDispatcher,
+        )
+
+    private val settingsEvents =
+        SettingsEventHandler(
+            searchCoordinator = searchCoordinator,
+            downloadCoordinator = downloadCoordinator,
+            updateCoordinator = updateCoordinator,
+            settingsRepository = settingsRepository,
+            updateUiState = { transform -> _uiState.update(transform) },
+            scope = viewModelScope,
+            ioDispatcher = ioDispatcher,
+            currentTimeProvider = currentTimeProvider,
+            dismissDownloadSnackbar = this::dismissDownloadSnackbar,
+            updateDefaultBrowserStatus = this::updateDefaultBrowserStatus,
+        )
+
+    private val safetyEvents =
+        SafetyEventHandler(
+            tabCoordinator = tabCoordinator,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            loadUrl = this::loadUrl,
+        )
+
+    private val mediaEvents =
+        MediaEventHandler(
+            webViewPool = webViewPool,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
+            dispatch = this::onEvent,
+            getBypassCleanPlayerVideoId = { bypassCleanPlayerVideoId },
+            setBypassCleanPlayerVideoId = { bypassCleanPlayerVideoId = it },
+        )
+
+    private val backPress =
+        BackPressHandler(
+            tabRepository = tabRepository,
+            tabCoordinator = tabCoordinator,
+            searchCoordinator = searchCoordinator,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
+            scope = viewModelScope,
+            ioDispatcher = ioDispatcher,
+            dispatch = this::onEvent,
         )
 
     init {
@@ -265,950 +363,14 @@ class BrowserViewModel(
 
     fun onEvent(event: BrowserUiEvent) {
         when (event) {
-            is BrowserUiEvent.OpenNewTab -> {
-                Log.d(TAG, "Navigation command: open new tab for ${event.url}")
-                if (shouldWarnForInsecureUrl(event.url)) {
-                    onEvent(
-                        BrowserUiEvent.ShowInsecureHttpWarning(
-                            url = event.url,
-                            target = InsecureNavigationTarget.NEW_TAB,
-                        )
-                    )
-                } else {
-                    tabCoordinator.openNewTab(event.url, openedByExternalApp = event.openedByExternalApp)
-                }
-            }
-
-            is BrowserUiEvent.OpenPopupTab -> {
-                Log.d(TAG, "Navigation command: open popup tab for ${event.tabId}")
-                tabCoordinator.openPopupTab(event.tabId)
-            }
-
-            is BrowserUiEvent.OpenRecentTab -> {
-                Log.d(TAG, "Navigation command: open recent tab ${event.item.url}")
-                tabCoordinator.openRecentTab(
-                    item = event.item,
-                    onNavigateUrl = { loadUrl(it) },
-                    onOpenNewTab = { onEvent(BrowserUiEvent.OpenNewTab(it)) },
-                )
-            }
-
-            is BrowserUiEvent.SelectTab -> {
-                Log.d(TAG, "Navigation command: select tab ${event.tabId}")
-                tabCoordinator.selectTab(event.tabId)
-            }
-
-            is BrowserUiEvent.CloseTab -> {
-                Log.d(TAG, "Navigation command: close tab ${event.tabId}")
-                tabCoordinator.closeTab(event.tabId)
-            }
-
-            is BrowserUiEvent.CloseAllTabs -> {
-                Log.d(TAG, "Navigation command: close all tabs")
-                tabCoordinator.closeAllTabs()
-            }
-
-            is BrowserUiEvent.ReorderTabs -> {
-                tabCoordinator.reorderTabsAndFolders(event.orderedTabs, event.orderedFolders)
-            }
-
-            is BrowserUiEvent.SwipeNextTab -> {
-                tabCoordinator.switchAdjacentTab(1)
-            }
-
-            is BrowserUiEvent.SwipePrevTab -> {
-                tabCoordinator.switchAdjacentTab(-1)
-            }
-
-            is BrowserUiEvent.UndoCloseTab -> {
-                Log.d(TAG, "Navigation command: undo close tab")
-                tabCoordinator.undoCloseTab()
-            }
-
-            is BrowserUiEvent.OpenWorkspacesOverview -> {
-                Log.d(TAG, "Workspace command: open workspaces overview")
-                _uiState.update { it.copy(activeOverlay = OverlayType.WORKSPACES) }
-            }
-
-            is BrowserUiEvent.CloseWorkspacesOverview -> {
-                Log.d(TAG, "Workspace command: close workspaces overview")
-                if (_uiState.value.activeOverlay == OverlayType.WORKSPACES) {
-                    _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
-                }
-            }
-
-            is BrowserUiEvent.SwitchWorkspace -> {
-                Log.d(TAG, "Workspace command: switch workspace to ${event.workspaceId}")
-                tabCoordinator.switchWorkspace(event.workspaceId)
-                searchCoordinator.updateHistorySuggestions(_uiState.value.searchQuery)
-                if (_uiState.value.activeOverlay == OverlayType.WORKSPACES) {
-                    _uiState.update { it.copy(activeOverlay = OverlayType.NONE) }
-                }
-            }
-
-            is BrowserUiEvent.CreateWorkspace -> {
-                Log.d(TAG, "Workspace command: create workspace ${event.name}")
-                tabCoordinator.createWorkspace(event.name, event.color)
-            }
-
-            is BrowserUiEvent.UpdateWorkspace -> {
-                Log.d(TAG, "Workspace command: update workspace ${event.workspace.id}")
-                tabCoordinator.updateWorkspace(event.workspace)
-            }
-
-            is BrowserUiEvent.DeleteWorkspace -> {
-                Log.d(TAG, "Workspace command: delete workspace ${event.workspaceId}")
-                tabCoordinator.deleteWorkspace(event.workspaceId)
-            }
-
-            is BrowserUiEvent.MoveTabToWorkspace -> {
-                Log.d(TAG, "Workspace command: move tab ${event.tabId} to ${event.targetWorkspaceId}")
-                tabCoordinator.moveTabToWorkspace(event.tabId, event.targetWorkspaceId)
-            }
-
-            is BrowserUiEvent.DismissUndoTabCloseSnackbar -> {
-                tabCoordinator.clearRecentlyClosedTab()
-            }
-
-            is BrowserUiEvent.DismissDownloadSnackbar -> {
-                dismissDownloadSnackbar()
-            }
-
-            is BrowserUiEvent.OpenOverlay -> {
-                _uiState.update { it.copy(activeOverlay = event.overlay) }
-            }
-
-            is BrowserUiEvent.DismissOverlay -> {
-                _uiState.update {
-                    if (it.activeScreen != ScreenType.NONE) {
-                        it.copy(activeScreen = ScreenType.NONE)
-                    } else {
-                        it.copy(activeOverlay = OverlayType.NONE, isSearchHistoryExpanded = false)
-                    }
-                }
-            }
-
-            is BrowserUiEvent.OpenHome -> {
-                _uiState.update { it.copy(activeOverlay = OverlayType.HOME) }
-            }
-
-            is BrowserUiEvent.OpenSearch -> {
-                val current = _uiState.value
-                val isHome =
-                    current.activeOverlay == OverlayType.HOME ||
-                        current.currentUrl.isEmpty() ||
-                        current.currentUrl == "about:blank"
-                if (event.openInNewTab && !isHome) {
-                    val existingHomeTab =
-                        current.tabs.firstOrNull {
-                            it.isHomeTab
-                        }
-                    if (existingHomeTab != null) {
-                        tabCoordinator.selectTab(existingHomeTab.id)
-                        val prefill = event.prefilledUrl ?: ""
-                        _uiState.update {
-                            it.copy(
-                                activeOverlay = OverlayType.SEARCH,
-                                searchQuery = prefill,
-                                isSearchHistoryExpanded = false,
-                                isLoadingMoreHistory = false,
-                                hasMoreHistory = true,
-                            )
-                        }
-                        searchCoordinator.updateHistorySuggestions(prefill)
-                    } else {
-                        tabCoordinator.openNewTabForSearch { searchCoordinator.updateHistorySuggestions("") }
-                    }
-                } else {
-                    val prefill = event.prefilledUrl ?: if (isHome) "" else current.currentUrl
-                    _uiState.update {
-                        it.copy(
-                            activeOverlay = OverlayType.SEARCH,
-                            searchQuery = prefill,
-                            isSearchHistoryExpanded = false,
-                            isLoadingMoreHistory = false,
-                            hasMoreHistory = true,
-                        )
-                    }
-                    searchCoordinator.updateHistorySuggestions(prefill)
-                }
-            }
-
-            is BrowserUiEvent.OpenTabGrid -> {
-                _uiState.update { it.copy(activeOverlay = OverlayType.TAB_GRID) }
-            }
-
-            is BrowserUiEvent.OpenSettings -> {
-                _uiState.update {
-                    it.copy(activeScreen = ScreenType.SETTINGS, activeOverlay = OverlayType.NONE)
-                }
-            }
-
-            is BrowserUiEvent.OpenDownloads -> {
-                _uiState.update {
-                    it.copy(activeScreen = ScreenType.DOWNLOADS, activeOverlay = OverlayType.NONE)
-                }
-            }
-
-            is BrowserUiEvent.PauseDownload -> {
-                Log.d(TAG, "Download command: pause ${event.id}")
-                downloadCoordinator.pauseDownload(event.id)
-            }
-
-            is BrowserUiEvent.ResumeDownload -> {
-                Log.d(TAG, "Download command: resume ${event.id}")
-                downloadCoordinator.resumeDownload(event.id)
-            }
-
-            is BrowserUiEvent.CancelDownload -> {
-                Log.d(TAG, "Download command: cancel ${event.id}")
-                downloadCoordinator.cancelDownload(event.id)
-            }
-
-            is BrowserUiEvent.RetryDownload -> {
-                Log.d(TAG, "Download command: retry ${event.id}")
-                downloadCoordinator.retryDownload(event.id)
-            }
-
-            is BrowserUiEvent.DeleteDownload -> {
-                Log.d(TAG, "Download command: delete ${event.id}")
-                downloadCoordinator.deleteDownload(event.id, event.deleteFile)
-            }
-
-            is BrowserUiEvent.LoadUrl -> {
-                Log.d(TAG, "Navigation command: load url ${event.url}")
-                loadUrl(event.url)
-            }
-
-            is BrowserUiEvent.SubmitSearch -> {
-                Log.d(TAG, "Navigation command: submit search \"${event.query}\"")
-                submitSearch(event.query)
-            }
-
-            is BrowserUiEvent.UpdateSearchQuery -> {
-                _uiState.update { it.copy(searchQuery = event.query) }
-                searchCoordinator.updateHistorySuggestions(event.query)
-                schedulePreconnect(event.query)
-            }
-
-            is BrowserUiEvent.GoBack -> {
-                Log.d(TAG, "Navigation command: go back")
-                handleGoBack()
-            }
-
-            is BrowserUiEvent.GoForward -> {
-                Log.d(TAG, "Navigation command: go forward")
-                _navigationCommands.tryEmit(NavigationCommand.GoForward)
-            }
-
-            is BrowserUiEvent.Reload -> {
-                Log.d(TAG, "Navigation command: reload")
-                _navigationCommands.tryEmit(NavigationCommand.Reload)
-            }
-
-            is BrowserUiEvent.StopLoading -> {
-                Log.d(TAG, "Navigation command: stop loading")
-                _navigationCommands.tryEmit(NavigationCommand.StopLoading)
-                tabCoordinator.handleStopLoading()
-            }
-
-            is BrowserUiEvent.SwitchSearchEngineForQuery -> {
-                Log.d(TAG, "Navigation command: switch search engine to ${event.targetEngine.id}")
-                searchCoordinator.switchSearchEngineForQuery(event.targetEngine, event.query)
-            }
-
-            is BrowserUiEvent.OnPageStarted -> {
-                tabCoordinator.handlePageStarted(event.tabId, event.url)
-            }
-
-            is BrowserUiEvent.OnPageFinished -> {
-                tabCoordinator.handlePageFinished(event.tabId, event.url, event.title)
-                if (bypassCleanPlayerVideoId != null && YouTubeUrlHelper.extractVideoId(event.url) == bypassCleanPlayerVideoId) {
-                    bypassCleanPlayerVideoId = null
-                }
-            }
-
-            is BrowserUiEvent.OnTitleReceived -> {
-                tabCoordinator.handleTitleReceived(event.tabId, event.title)
-            }
-
-            is BrowserUiEvent.OnProgressChanged -> {
-                tabCoordinator.handleProgressChanged(event.tabId, event.progress)
-            }
-
-            is BrowserUiEvent.OnNavigationStateChanged -> {
-                tabCoordinator.handleNavState(event.tabId, event.canGoBack, event.canGoForward)
-            }
-
-            is BrowserUiEvent.OnSnapshotCaptured -> {
-                tabCoordinator.handleSnapshot(event.tabId, event.snapshotPath)
-            }
-
-            is BrowserUiEvent.UpdateFaviconUrl -> {
-                tabCoordinator.handleUpdateFavicon(event.tabId, event.faviconUrl, event.pageUrl)
-            }
-
-            is BrowserUiEvent.OnThemeColorReceived -> {
-                tabCoordinator.handleThemeColor(event.tabId, event.color)
-            }
-
-            is BrowserUiEvent.OnThemeColorsReceived -> {
-                tabCoordinator.handleThemeColors(event.tabId, event.topColor, event.bottomColor)
-            }
-
-            is BrowserUiEvent.ShowAddFavoriteDialog -> {
-                _uiState.update { it.copy(showAddFavoriteDialog = true) }
-            }
-
-            is BrowserUiEvent.DismissAddFavoriteDialog -> {
-                _uiState.update { it.copy(showAddFavoriteDialog = false) }
-            }
-
-            is BrowserUiEvent.AddCurrentTabToFavorites -> {
-                tabCoordinator.addCurrentToFavorites()
-            }
-
-            is BrowserUiEvent.AddFavorite -> {
-                tabCoordinator.addFavorite(event.title, event.url, _uiState.value.activeWorkspaceId)
-            }
-
-            is BrowserUiEvent.RemoveFavorite -> {
-                tabCoordinator.deleteFavorite(event.id)
-            }
-
-            is BrowserUiEvent.MoveFavoriteToWorkspace -> {
-                tabCoordinator.moveFavoriteToWorkspace(event.favoriteId, event.targetWorkspaceId)
-            }
-
-            is BrowserUiEvent.ToggleFavoritesExpanded -> {
-                _uiState.update { it.copy(isFavoritesExpanded = !it.isFavoritesExpanded) }
-            }
-
-            is BrowserUiEvent.ClearAllHistory -> {
-                searchCoordinator.clearAllHistory {
-                    if (recentTabRepository != null) {
-                        recentTabRepository.clearRecentTabs()
-                    } else {
-                        tabRepository.clearRecentTabs()
-                    }
-                }
-            }
-
-            is BrowserUiEvent.ToggleSearchHistoryExpanded -> {
-                val target = !_uiState.value.isSearchHistoryExpanded
-                _uiState.update {
-                    it.copy(
-                        isSearchHistoryExpanded = target,
-                        isLoadingMoreHistory = false,
-                        hasMoreHistory = true,
-                    )
-                }
-                searchCoordinator.updateHistorySuggestions(_uiState.value.searchQuery)
-            }
-
-            is BrowserUiEvent.SetSearchHistoryExpanded -> {
-                _uiState.update {
-                    it.copy(
-                        isSearchHistoryExpanded = event.expanded,
-                        isLoadingMoreHistory = false,
-                        hasMoreHistory = true,
-                    )
-                }
-                searchCoordinator.updateHistorySuggestions(_uiState.value.searchQuery)
-            }
-
-            is BrowserUiEvent.LoadMoreSearchHistory -> {
-                searchCoordinator.loadMoreSearchHistory()
-            }
-
-            is BrowserUiEvent.SetThemeMode -> {
-                _uiState.update { it.copy(settings = it.settings.copy(themeMode = event.mode)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setThemeMode(event.mode)
-                }
-            }
-
-            is BrowserUiEvent.SetSearchEngine -> {
-                Log.d(TAG, "Navigation command: set search engine ${event.engine.id}")
-                searchCoordinator.setSearchEngine(event.engine)
-            }
-
-            is BrowserUiEvent.SetAdBlockerEnabled -> {
-                _uiState.update { it.copy(settings = it.settings.copy(isAdBlockerEnabled = event.enabled)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setAdBlockerEnabled(event.enabled)
-                }
-            }
-
-            is BrowserUiEvent.SetAdRedirectProtectionEnabled -> {
-                _uiState.update { it.copy(settings = it.settings.copy(isAdRedirectProtectionEnabled = event.enabled)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setAdRedirectProtectionEnabled(event.enabled)
-                }
-            }
-
-            is BrowserUiEvent.SetAutoConsentEnabled -> {
-                _uiState.update { it.copy(settings = it.settings.copy(autoConsentEnabled = event.enabled)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setAutoConsentEnabled(event.enabled)
-                }
-            }
-
-            is BrowserUiEvent.SetCleanYouTubePlayerEnabled -> {
-                _uiState.update { it.copy(settings = it.settings.copy(isCleanYouTubePlayerEnabled = event.enabled)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setCleanYouTubePlayerEnabled(event.enabled)
-                }
-            }
-
-            is BrowserUiEvent.SetTrackingProtectionEnabled -> {
-                _uiState.update { it.copy(settings = it.settings.copy(isTrackingProtectionEnabled = event.enabled)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setTrackingProtectionEnabled(event.enabled)
-                }
-            }
-
-            is BrowserUiEvent.SetOpenInAppsEnabled -> {
-                _uiState.update { it.copy(settings = it.settings.copy(isOpenInAppsEnabled = event.enabled)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setOpenInAppsEnabled(event.enabled)
-                }
-            }
-
-            is BrowserUiEvent.SetVibrationEnabled -> {
-                _uiState.update { it.copy(settings = it.settings.copy(isVibrationEnabled = event.enabled)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setVibrationEnabled(event.enabled)
-                }
-            }
-
-            is BrowserUiEvent.SetGrayUnloadedTabsEnabled -> {
-                _uiState.update { it.copy(settings = it.settings.copy(isGrayUnloadedTabsEnabled = event.enabled)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setGrayUnloadedTabsEnabled(event.enabled)
-                }
-            }
-
-            is BrowserUiEvent.SetAutoUpdateEnabled -> {
-                _uiState.update { it.copy(settings = it.settings.copy(isAutoUpdateEnabled = event.enabled)) }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setAutoUpdateEnabled(event.enabled)
-                    if (event.enabled) {
-                        updateCoordinator.onAutoUpdateEnabled()
-                    } else {
-                        updateCoordinator.onAutoUpdateDisabled()
-                    }
-                }
-            }
-
-            is BrowserUiEvent.CheckForUpdate -> {
-                viewModelScope.launch(ioDispatcher) {
-                    updateCoordinator.checkForUpdate(event.manual)
-                }
-            }
-
-            is BrowserUiEvent.RedirectToUpdate -> {
-                updateCoordinator.onRedirectRequested()
-            }
-
-            BrowserUiEvent.DismissFeedbackPrompt -> {
-                _uiState.update {
-                    it.copy(
-                        isFeedbackCardVisible = false,
-                        settings = it.settings.copy(feedbackPromptState = FeedbackPromptState.DISMISSED),
-                    )
-                }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setFeedbackPromptState(FeedbackPromptState.DISMISSED)
-                }
-            }
-
-            is BrowserUiEvent.SnoozeFeedbackPrompt -> {
-                val snoozedUntil = currentTimeProvider() + event.durationMs
-                _uiState.update {
-                    it.copy(
-                        isFeedbackCardVisible = false,
-                        settings =
-                            it.settings.copy(
-                                feedbackPromptState = FeedbackPromptState.SNOOZED,
-                                feedbackPromptSnoozedUntil = snoozedUntil,
-                            ),
-                    )
-                }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.snoozeFeedbackPrompt(snoozedUntil)
-                }
-            }
-
-            BrowserUiEvent.OpenFeedbackSheet -> {
-                _uiState.update { it.copy(isFeedbackSheetVisible = true) }
-            }
-
-            BrowserUiEvent.CloseFeedbackSheet -> {
-                _uiState.update { it.copy(isFeedbackSheetVisible = false) }
-            }
-
-            is BrowserUiEvent.SkipUpdate -> {
-                updateCoordinator.onSkip()
-            }
-
-            is BrowserUiEvent.DismissUpdate -> {
-                updateCoordinator.onDismiss()
-            }
-
-            is BrowserUiEvent.OnExternalAppOffered -> {
-                tabCoordinator.handleExternalAppOffered(event.tabId, event.prompt, event.userInitiated)
-            }
-
-            is BrowserUiEvent.DismissExternalAppPrompt -> {
-                tabCoordinator.dismissExternalAppPrompt(event.reason)
-            }
-
-            is BrowserUiEvent.OpenExternalApp -> {
-                tabCoordinator.dismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT)
-            }
-
-            is BrowserUiEvent.ShowAddSearchEngineDialog -> {
-                _uiState.update {
-                    it.copy(
-                        showAddEditSearchEngineDialog = true,
-                        editingSearchEngine = event.engineToEdit,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.DismissAddSearchEngineDialog -> {
-                _uiState.update {
-                    it.copy(
-                        showAddEditSearchEngineDialog = false,
-                        editingSearchEngine = null,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.SaveSearchEngine -> {
-                searchCoordinator.saveSearchEngine(
-                    id = event.id,
-                    title = event.title,
-                    shortcut = event.shortcut,
-                    urlTemplate = event.urlTemplate,
-                )
-            }
-
-            is BrowserUiEvent.DeleteSearchEngine -> {
-                searchCoordinator.deleteSearchEngine(event.id)
-            }
-
-            is BrowserUiEvent.ReorderSearchEngines -> {
-                searchCoordinator.reorderSearchEngines(event.orderedEngines)
-            }
-
-            is BrowserUiEvent.ToggleSearchPageEngineVisibility -> {
-                val currentHidden = _uiState.value.settings.hiddenSearchPageEngineIds
-                val updatedHidden =
-                    if (event.isVisible) {
-                        currentHidden - event.engineId
-                    } else {
-                        currentHidden + event.engineId
-                    }
-                _uiState.update { state ->
-                    state.copy(settings = state.settings.copy(hiddenSearchPageEngineIds = updatedHidden))
-                }
-                viewModelScope.launch(ioDispatcher) {
-                    settingsRepository.setHiddenSearchPageEngineIds(updatedHidden)
-                }
-            }
-
-            is BrowserUiEvent.SetSearchEngineSwitcherEditExpanded -> {
-                _uiState.update { it.copy(isSearchEngineSwitcherEditExpanded = event.expanded) }
-            }
-
-            is BrowserUiEvent.OnWebScroll -> {
-                handleWebScroll(event.deltaY, event.scrollY, event.viewportHeight)
-            }
-
-            is BrowserUiEvent.SetBottomBarVisibility -> {
-                _uiState.update { it.copy(isBottomBarVisible = event.visible) }
-            }
-
-            is BrowserUiEvent.ToggleMenu -> {
-                val current = _uiState.value
-                val target = event.expanded ?: !current.isMenuExpanded
-                _uiState.update { it.copy(isMenuExpanded = target) }
-            }
-
-            is BrowserUiEvent.SetMenuExpanded -> {
-                _uiState.update { it.copy(isMenuExpanded = event.expanded) }
-            }
-
-            is BrowserUiEvent.SetVideoPlaying -> {
-                _uiState.update { it.copy(isVideoPlaying = event.isPlaying) }
-                _uiState.value.activeTabId?.let { activeId ->
-                    webViewPool?.onTabActivated(activeId, event.isPlaying)
-                }
-            }
-
-            is BrowserUiEvent.SetFullscreenCustomView -> {
-                _uiState.update {
-                    it.copy(
-                        fullscreenCustomView = event.view,
-                        isFullscreenCustomView = event.isFullscreen,
-                        fullscreenRequestedOrientation = event.requestedOrientation,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.UpdateFullscreenOrientation -> {
-                _uiState.update { current ->
-                    if (current.isFullscreenCustomView) {
-                        current.copy(fullscreenRequestedOrientation = event.orientation)
-                    } else {
-                        current
-                    }
-                }
-            }
-
-            is BrowserUiEvent.ExitFullscreen -> {
-                _navigationCommands.tryEmit(NavigationCommand.ExitFullscreen)
-                _uiState.update {
-                    it.copy(
-                        isFullscreenCustomView = false,
-                        fullscreenCustomView = null,
-                        fullscreenRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.OpenCleanPlayer -> {
-                _uiState.update {
-                    it.copy(
-                        cleanPlayerVideoId = event.videoId,
-                        cleanPlayerOriginalUrl = event.originalUrl,
-                        cleanPlayerStartSeconds = event.startSeconds,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.CloseCleanPlayer -> {
-                _uiState.update {
-                    it.copy(
-                        cleanPlayerVideoId = null,
-                        cleanPlayerOriginalUrl = null,
-                        cleanPlayerStartSeconds = 0,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.OpenCleanPlayerOnWeb -> {
-                val videoId = YouTubeUrlHelper.extractVideoId(event.url)
-                bypassCleanPlayerVideoId = videoId
-                _uiState.update {
-                    it.copy(
-                        cleanPlayerVideoId = null,
-                        cleanPlayerOriginalUrl = null,
-                        cleanPlayerStartSeconds = 0,
-                    )
-                }
-                onEvent(BrowserUiEvent.LoadUrl(event.url))
-            }
-
-            is BrowserUiEvent.HandleBackPress -> {
-                handleBackNavigation()
-            }
-
-            is BrowserUiEvent.ShowLinkContextMenu -> {
-                val anchor =
-                    if (event.anchorX != null && event.anchorY != null) {
-                        Offset(event.anchorX, event.anchorY)
-                    } else {
-                        null
-                    }
-                _uiState.update {
-                    it.copy(
-                        linkContextMenuUrl = event.url,
-                        contextMenuAnchor = anchor,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.DismissLinkContextMenu -> {
-                _uiState.update {
-                    it.copy(
-                        linkContextMenuUrl = null,
-                        contextMenuAnchor = null,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.OpenTabInBackground -> {
-                Log.d(TAG, "Navigation command: open tab in background for ${event.url}")
-                if (shouldWarnForInsecureUrl(event.url)) {
-                    onEvent(
-                        BrowserUiEvent.ShowInsecureHttpWarning(
-                            url = event.url,
-                            target = InsecureNavigationTarget.BACKGROUND_TAB,
-                        )
-                    )
-                } else {
-                    tabCoordinator.openTabInBackground(event.url)
-                }
-            }
-
-            is BrowserUiEvent.UpdateDefaultBrowserStatus -> {
-                updateDefaultBrowserStatus(event.isDefault)
-            }
-
-            is BrowserUiEvent.ShowImageContextMenu -> {
-                val anchor =
-                    if (event.anchorX != null && event.anchorY != null) {
-                        Offset(event.anchorX, event.anchorY)
-                    } else {
-                        null
-                    }
-                _uiState.update {
-                    it.copy(
-                        selectedImageUrl = event.imageUrl,
-                        imageContextMenuLinkUrl = event.linkUrl,
-                        contextMenuAnchor = anchor,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.DismissImageContextMenu -> {
-                _uiState.update {
-                    it.copy(
-                        selectedImageUrl = null,
-                        imageContextMenuLinkUrl = null,
-                        contextMenuAnchor = null,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.CopyImageUrl -> {
-                _uiState.update {
-                    it.copy(
-                        selectedImageUrl = null,
-                        imageContextMenuLinkUrl = null,
-                        contextMenuAnchor = null,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.DownloadImage -> {
-                _uiState.update {
-                    it.copy(
-                        selectedImageUrl = null,
-                        imageContextMenuLinkUrl = null,
-                        contextMenuAnchor = null,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.PreviewImageInNewTab -> {
-                _uiState.update {
-                    it.copy(
-                        selectedImageUrl = null,
-                        imageContextMenuLinkUrl = null,
-                        contextMenuAnchor = null,
-                    )
-                }
-                onEvent(BrowserUiEvent.OpenNewTab(event.imageUrl))
-            }
-
-            is BrowserUiEvent.ShowInsecureHttpWarning -> {
-                Log.d(TAG, "Showing insecure HTTP warning for ${event.url}")
-                _uiState.update {
-                    it.copy(
-                        insecureHttpPrompt = InsecureHttpPrompt(
-                            url = event.url,
-                            tabId = event.tabId,
-                            target = event.target,
-                        ),
-                        activeOverlay = OverlayType.NONE,
-                        isMenuExpanded = false,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.ConfirmInsecureHttpNavigation -> {
-                val prompt = _uiState.value.insecureHttpPrompt
-                if (prompt != null) {
-                    val url = prompt.url
-                    val host = UrlSecurityUtils.extractHost(url)
-                    _uiState.update {
-                        it.copy(
-                            insecureHttpPrompt = null,
-                            allowedInsecureHosts = if (host.isNotEmpty()) it.allowedInsecureHosts + host else it.allowedInsecureHosts,
-                        )
-                    }
-                    when (prompt.target) {
-                        InsecureNavigationTarget.NEW_TAB -> {
-                            tabCoordinator.openNewTab(url)
-                        }
-                        InsecureNavigationTarget.BACKGROUND_TAB -> {
-                            tabCoordinator.openTabInBackground(url)
-                        }
-                        InsecureNavigationTarget.ACTIVE_TAB -> {
-                            if (prompt.tabId != null && prompt.tabId != _uiState.value.activeTabId) {
-                                tabCoordinator.selectTab(prompt.tabId)
-                            }
-                            loadUrl(url)
-                        }
-                    }
-                }
-            }
-
-            is BrowserUiEvent.DismissInsecureHttpWarning -> {
-                _uiState.update { state ->
-                    state.copy(
-                        insecureHttpPrompt = null,
-                        activeOverlay = if (state.isHome) OverlayType.HOME else state.activeOverlay,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.ShowBlockedAdNavigation -> {
-                Log.d(TAG, "Showing blocked ad navigation for ${event.url}")
-                _uiState.update {
-                    it.copy(
-                        blockedAdNavigation = BlockedAdNavigationPrompt(
-                            url = event.url,
-                            tabId = event.tabId,
-                        ),
-                        activeOverlay = OverlayType.NONE,
-                        isMenuExpanded = false,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.AllowBlockedAdNavigation -> {
-                val prompt = _uiState.value.blockedAdNavigation
-                if (prompt != null) {
-                    _uiState.update {
-                        it.copy(
-                            blockedAdNavigation = null,
-                            allowedAdNavigationUrls = it.allowedAdNavigationUrls + prompt.url,
-                        )
-                    }
-                    if (prompt.tabId != _uiState.value.activeTabId) {
-                        tabCoordinator.selectTab(prompt.tabId)
-                    }
-                    tabCoordinator.navigateToUrl(prompt.url, null)
-                }
-            }
-
-            is BrowserUiEvent.DismissBlockedAdNavigation -> {
-                val prompt = _uiState.value.blockedAdNavigation
-                _uiState.update { it.copy(blockedAdNavigation = null) }
-                if (prompt != null) {
-                    val tab = _uiState.value.tabs.find { it.id == prompt.tabId }
-                    val isEmptyPopup = tab == null || tab.url.isBlank() || tab.url == "about:blank"
-                    if (isEmptyPopup && tab != null) {
-                        tabCoordinator.closeTab(prompt.tabId)
-                    }
-                }
-            }
-
-            is BrowserUiEvent.CreateFolderFromTabs -> {
-                viewModelScope.launch {
-                    tabCoordinator.createFolderFromTabs(
-                        tabId1 = event.tabId1,
-                        tabId2 = event.tabId2,
-                        color = event.color,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.OpenCreateFolderSheet -> {
-                _uiState.update {
-                    it.copy(
-                        isFolderSheetVisible = true,
-                        folderSheetTargetTabId = event.tabId,
-                        folderSheetEditingFolderId = null,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.OpenEditFolderSheet -> {
-                _uiState.update {
-                    it.copy(
-                        isFolderSheetVisible = true,
-                        folderSheetTargetTabId = null,
-                        folderSheetEditingFolderId = event.folderId,
-                    )
-                }
-            }
-
-            BrowserUiEvent.DismissFolderSheet -> {
-                _uiState.update {
-                    it.copy(
-                        isFolderSheetVisible = false,
-                        folderSheetTargetTabId = null,
-                        folderSheetEditingFolderId = null,
-                    )
-                }
-            }
-
-            is BrowserUiEvent.SaveFolder -> {
-                val targetTabId = _uiState.value.folderSheetTargetTabId ?: _uiState.value.activeTabId
-                val editingFolderId = _uiState.value.folderSheetEditingFolderId
-                _uiState.update {
-                    it.copy(
-                        isFolderSheetVisible = false,
-                        folderSheetTargetTabId = null,
-                        folderSheetEditingFolderId = null,
-                    )
-                }
-                viewModelScope.launch {
-                    if (editingFolderId != null) {
-                        tabCoordinator.updateFolder(
-                            folderId = editingFolderId,
-                            title = event.title,
-                            color = event.color,
-                        )
-                    } else if (targetTabId != null) {
-                        tabCoordinator.createFolder(
-                            tabId = targetTabId,
-                            title = event.title,
-                            color = event.color,
-                        )
-                    }
-                }
-            }
-
-            is BrowserUiEvent.ToggleFolderCollapse -> {
-                viewModelScope.launch {
-                    tabCoordinator.toggleFolderCollapse(event.folderId, fromDock = event.fromDock)
-                }
-            }
-
-            is BrowserUiEvent.CloseFolder -> {
-                viewModelScope.launch {
-                    tabCoordinator.closeFolder(event.folderId)
-                }
-            }
-
-            is BrowserUiEvent.UngroupFolder -> {
-                viewModelScope.launch {
-                    tabCoordinator.ungroupFolder(event.folderId)
-                }
-            }
-
-            is BrowserUiEvent.AddTabToFolder -> {
-                viewModelScope.launch {
-                    tabCoordinator.addTabToFolder(event.tabId, event.folderId)
-                }
-            }
-
-            is BrowserUiEvent.RemoveTabFromFolder -> {
-                viewModelScope.launch {
-                    tabCoordinator.removeTabFromFolder(event.tabId)
-                }
-            }
-
-            is BrowserUiEvent.CreateTabInFolder -> {
-                tabCoordinator.createTabInFolder(event.folderId)
-            }
+            is TabUiEvent -> tabEvents.handle(event)
+            is OverlayUiEvent -> overlayEvents.handle(event)
+            is PageUiEvent -> pageEvents.handle(event)
+            is LibraryUiEvent -> libraryEvents.handle(event)
+            is SettingsUiEvent -> settingsEvents.handle(event)
+            is SafetyUiEvent -> safetyEvents.handle(event)
+            is MediaUiEvent -> mediaEvents.handle(event)
+            BrowserUiEvent.HandleBackPress -> backPress.handle()
         }
     }
 
@@ -1348,140 +510,6 @@ class BrowserViewModel(
 
     private fun handleGoBack() {
         _navigationCommands.tryEmit(NavigationCommand.GoBack)
-    }
-
-    private fun handleBackNavigation() {
-        val current = _uiState.value
-        if (current.cleanPlayerVideoId != null) {
-            onEvent(BrowserUiEvent.CloseCleanPlayer)
-            return
-        }
-        if (current.isFeedbackSheetVisible) {
-            onEvent(BrowserUiEvent.CloseFeedbackSheet)
-            return
-        }
-        if (current.isFolderSheetVisible) {
-            onEvent(BrowserUiEvent.DismissFolderSheet)
-            return
-        }
-        if (current.insecureHttpPrompt != null) {
-            onEvent(BrowserUiEvent.DismissInsecureHttpWarning)
-            return
-        }
-        if (current.blockedAdNavigation != null) {
-            onEvent(BrowserUiEvent.DismissBlockedAdNavigation)
-            return
-        }
-        if (current.isSearchEngineSwitcherEditExpanded) {
-            _uiState.update { it.copy(isSearchEngineSwitcherEditExpanded = false) }
-            return
-        }
-        if (current.showAddEditSearchEngineDialog) {
-            _uiState.update { it.copy(showAddEditSearchEngineDialog = false, editingSearchEngine = null) }
-            return
-        }
-        if (current.showAddFavoriteDialog) {
-            _uiState.update { it.copy(showAddFavoriteDialog = false) }
-            return
-        }
-        if (current.selectedImageUrl != null) {
-            _uiState.update {
-                it.copy(
-                    selectedImageUrl = null,
-                    imageContextMenuLinkUrl = null,
-                    contextMenuAnchor = null,
-                )
-            }
-            return
-        }
-        if (current.activeScreen != ScreenType.NONE) {
-            _uiState.update { it.copy(activeScreen = ScreenType.NONE) }
-            return
-        }
-        if (current.linkContextMenuUrl != null) {
-            _uiState.update {
-                it.copy(
-                    linkContextMenuUrl = null,
-                    contextMenuAnchor = null,
-                )
-            }
-            return
-        }
-        if (current.isFullscreenCustomView) {
-            onEvent(BrowserUiEvent.ExitFullscreen)
-            return
-        }
-        if (current.isMenuExpanded) {
-            _uiState.update { it.copy(isMenuExpanded = false) }
-            return
-        }
-        if (current.isSearchHistoryExpanded) {
-            _uiState.update {
-                it.copy(
-                    isSearchHistoryExpanded = false,
-                    isLoadingMoreHistory = false,
-                    hasMoreHistory = true,
-                )
-            }
-            searchCoordinator.updateHistorySuggestions(current.searchQuery)
-            return
-        }
-        val isDismissibleOverlay = current.activeOverlay != OverlayType.NONE && current.activeOverlay != OverlayType.HOME
-        if (isDismissibleOverlay) {
-            _uiState.update {
-                it.copy(
-                    activeOverlay = OverlayType.NONE,
-                    isSearchHistoryExpanded = false,
-                    isLoadingMoreHistory = false,
-                    hasMoreHistory = true,
-                )
-            }
-            return
-        }
-
-        if (current.canGoBack) {
-            _navigationCommands.tryEmit(NavigationCommand.GoBack)
-            return
-        }
-
-        // Web history is exhausted!
-        val activeTabId = current.activeTabId
-        if (activeTabId != null && activeTabId in current.externalAppTabIds) {
-            // Like Chrome: a link from another app closes on Back and hands the user back to that
-            // app, instead of closing the user's other tabs one by one.
-            tabCoordinator.closeTab(activeTabId)
-            _navigationCommands.tryEmit(NavigationCommand.ReturnToCallerApp)
-            return
-        }
-        if (current.tabs.size > 1) {
-            current.activeTabId?.let { tabCoordinator.closeTab(it) }
-        } else {
-            val isCurrentTabBlankOrHome =
-                current.currentUrl.isEmpty() ||
-                    current.currentUrl == "about:blank" ||
-                    current.activeOverlay == OverlayType.HOME
-
-            if (!isCurrentTabBlankOrHome) {
-                // If it was on a website, close website and return to clean Home tab
-                current.activeTabId?.let { tabId ->
-                    _uiState.update {
-                        it.copy(
-                            currentUrl = "",
-                            pageTitle = "",
-                            canGoBack = false,
-                            canGoForward = false,
-                            activeOverlay = OverlayType.HOME,
-                        )
-                    }
-                    viewModelScope.launch(ioDispatcher) {
-                        tabRepository.updateTabDetails(tabId, "", "", canGoBack = false, canGoForward = false)
-                    }
-                }
-            } else {
-                // History exhausted and already on clean Home tab: exit app cleanly without crashing
-                _navigationCommands.tryEmit(NavigationCommand.ExitApp)
-            }
-        }
     }
 
     fun switchWorkspace(workspaceId: String) {

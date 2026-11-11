@@ -14,317 +14,317 @@ sealed interface BrowserUiEvent {
         val url: String = "",
         /** A link another app sent us: Back at the start of its history returns to that app. */
         val openedByExternalApp: Boolean = false,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class OpenPopupTab(
         val tabId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class OpenRecentTab(
         val item: com.jestk.browser.domain.model.RecentTabItem,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class SelectTab(
         val tabId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class CloseTab(
         val tabId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
-    data object CloseAllTabs : BrowserUiEvent
+    data object CloseAllTabs : TabUiEvent
 
     data class ReorderTabs(
         val orderedTabs: List<Tab>,
         val orderedFolders: List<TabFolder>? = null,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
-    data object SwipeNextTab : BrowserUiEvent
+    data object SwipeNextTab : TabUiEvent
 
-    data object SwipePrevTab : BrowserUiEvent
+    data object SwipePrevTab : TabUiEvent
 
-    data object UndoCloseTab : BrowserUiEvent
+    data object UndoCloseTab : TabUiEvent
 
-    data object DismissUndoTabCloseSnackbar : BrowserUiEvent
+    data object DismissUndoTabCloseSnackbar : TabUiEvent
 
     // Overlays
     data class OpenOverlay(
         val overlay: OverlayType,
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
-    data object DismissOverlay : BrowserUiEvent
+    data object DismissOverlay : OverlayUiEvent
 
-    data object OpenHome : BrowserUiEvent
+    data object OpenHome : OverlayUiEvent
 
     data class OpenSearch(
         val prefilledUrl: String? = null,
         val openInNewTab: Boolean = prefilledUrl.isNullOrEmpty(),
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
-    data object OpenTabGrid : BrowserUiEvent
+    data object OpenTabGrid : OverlayUiEvent
 
-    data object OpenSettings : BrowserUiEvent
+    data object OpenSettings : OverlayUiEvent
 
-    data object OpenDownloads : BrowserUiEvent
+    data object OpenDownloads : OverlayUiEvent
 
     data class DeleteDownload(
         val id: Long,
         val deleteFile: Boolean = true,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class PauseDownload(
         val id: Long,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class ResumeDownload(
         val id: Long,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class CancelDownload(
         val id: Long,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class RetryDownload(
         val id: Long,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
-    data object DismissDownloadSnackbar : BrowserUiEvent
+    data object DismissDownloadSnackbar : SettingsUiEvent
 
     // Web Navigation & Actions
     data class LoadUrl(
         val url: String,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     data class SubmitSearch(
         val query: String,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     data class UpdateSearchQuery(
         val query: String,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
-    data object GoBack : BrowserUiEvent
+    data object GoBack : PageUiEvent
 
-    data object GoForward : BrowserUiEvent
+    data object GoForward : PageUiEvent
 
-    data object Reload : BrowserUiEvent
+    data object Reload : PageUiEvent
 
-    data object StopLoading : BrowserUiEvent
+    data object StopLoading : PageUiEvent
 
     data class SwitchSearchEngineForQuery(
         val targetEngine: SearchEngine,
         val query: String? = null,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     // Web Callbacks
     data class OnPageStarted(
         val tabId: String,
         val url: String,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     data class OnPageFinished(
         val tabId: String,
         val url: String,
         val title: String,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     data class OnTitleReceived(
         val tabId: String,
         val title: String,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     data class OnProgressChanged(
         val tabId: String,
         val progress: Int,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     data class OnNavigationStateChanged(
         val tabId: String,
         val canGoBack: Boolean,
         val canGoForward: Boolean,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     data class OnSnapshotCaptured(
         val tabId: String,
         val snapshotPath: String,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     data class UpdateFaviconUrl(
         val tabId: String,
         val faviconUrl: String?,
         val pageUrl: String? = null,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     data class OnThemeColorReceived(
         val tabId: String,
         val color: Int?,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     data class OnThemeColorsReceived(
         val tabId: String,
         val topColor: Int?,
         val bottomColor: Int?,
-    ) : BrowserUiEvent
+    ) : PageUiEvent
 
     // Favorites & History
-    data object ShowAddFavoriteDialog : BrowserUiEvent
+    data object ShowAddFavoriteDialog : LibraryUiEvent
 
-    data object DismissAddFavoriteDialog : BrowserUiEvent
+    data object DismissAddFavoriteDialog : LibraryUiEvent
 
-    data object AddCurrentTabToFavorites : BrowserUiEvent
+    data object AddCurrentTabToFavorites : LibraryUiEvent
 
     data class AddFavorite(
         val title: String,
         val url: String,
-    ) : BrowserUiEvent
+    ) : LibraryUiEvent
 
     data class RemoveFavorite(
         val id: Long,
-    ) : BrowserUiEvent
+    ) : LibraryUiEvent
 
-    data object ToggleFavoritesExpanded : BrowserUiEvent
+    data object ToggleFavoritesExpanded : LibraryUiEvent
 
-    data object ToggleSearchHistoryExpanded : BrowserUiEvent
+    data object ToggleSearchHistoryExpanded : LibraryUiEvent
 
     data class SetSearchHistoryExpanded(
         val expanded: Boolean,
-    ) : BrowserUiEvent
+    ) : LibraryUiEvent
 
-    data object LoadMoreSearchHistory : BrowserUiEvent
+    data object LoadMoreSearchHistory : LibraryUiEvent
 
-    data object ClearAllHistory : BrowserUiEvent
+    data object ClearAllHistory : LibraryUiEvent
 
     // Settings
     data class SetThemeMode(
         val mode: ThemeMode,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class SetSearchEngine(
         val engine: SearchEngine,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class SetAdBlockerEnabled(
         val enabled: Boolean,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class SetAdRedirectProtectionEnabled(
         val enabled: Boolean,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class SetAutoConsentEnabled(
         val enabled: Boolean,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class SetCleanYouTubePlayerEnabled(
         val enabled: Boolean,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class SetTrackingProtectionEnabled(
         val enabled: Boolean,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class SetVibrationEnabled(
         val enabled: Boolean,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class SetGrayUnloadedTabsEnabled(
         val enabled: Boolean,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     // Update
     data class SetAutoUpdateEnabled(
         val enabled: Boolean,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     data class CheckForUpdate(
         val manual: Boolean = false,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
-    data object RedirectToUpdate : BrowserUiEvent
+    data object RedirectToUpdate : SettingsUiEvent
 
-    data object SkipUpdate : BrowserUiEvent
+    data object SkipUpdate : SettingsUiEvent
 
-    data object DismissUpdate : BrowserUiEvent
+    data object DismissUpdate : SettingsUiEvent
 
     // Search Engine Management
     data class ShowAddSearchEngineDialog(
         val engineToEdit: SearchEngine? = null,
-    ) : BrowserUiEvent
+    ) : LibraryUiEvent
 
-    data object DismissAddSearchEngineDialog : BrowserUiEvent
+    data object DismissAddSearchEngineDialog : LibraryUiEvent
 
     data class SaveSearchEngine(
         val id: String?,
         val title: String,
         val shortcut: String?,
         val urlTemplate: String,
-    ) : BrowserUiEvent
+    ) : LibraryUiEvent
 
     data class DeleteSearchEngine(
         val id: String,
-    ) : BrowserUiEvent
+    ) : LibraryUiEvent
 
     data class ReorderSearchEngines(
         val orderedEngines: List<SearchEngine>,
-    ) : BrowserUiEvent
+    ) : LibraryUiEvent
 
     data class ToggleSearchPageEngineVisibility(
         val engineId: String,
         val isVisible: Boolean,
-    ) : BrowserUiEvent
+    ) : LibraryUiEvent
 
     data class SetSearchEngineSwitcherEditExpanded(
         val expanded: Boolean,
-    ) : BrowserUiEvent
+    ) : LibraryUiEvent
 
     // Dynamic UI Translation
     data class OnWebScroll(
         val deltaY: Float,
         val scrollY: Int = 0,
         val viewportHeight: Int = 0,
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
     data class SetBottomBarVisibility(
         val visible: Boolean,
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
     data class ToggleMenu(
         val expanded: Boolean? = null,
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
     data class SetMenuExpanded(
         val expanded: Boolean,
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
     // Media & Fullscreen
     data class SetVideoPlaying(
         val isPlaying: Boolean,
-    ) : BrowserUiEvent
+    ) : MediaUiEvent
 
     data class SetFullscreenCustomView(
         val view: android.view.View?,
         val isFullscreen: Boolean,
         val requestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
-    ) : BrowserUiEvent
+    ) : MediaUiEvent
 
     data class UpdateFullscreenOrientation(
         val orientation: Int,
-    ) : BrowserUiEvent
+    ) : MediaUiEvent
 
-    data object ExitFullscreen : BrowserUiEvent
+    data object ExitFullscreen : MediaUiEvent
 
     // Clean YouTube Player
     data class OpenCleanPlayer(
         val videoId: String,
         val originalUrl: String,
         val startSeconds: Int = 0,
-    ) : BrowserUiEvent
+    ) : MediaUiEvent
 
-    data object CloseCleanPlayer : BrowserUiEvent
+    data object CloseCleanPlayer : MediaUiEvent
 
     data class OpenCleanPlayerOnWeb(
         val url: String,
-    ) : BrowserUiEvent
+    ) : MediaUiEvent
 
     // System Back Handling
     data object HandleBackPress : BrowserUiEvent
@@ -334,18 +334,18 @@ sealed interface BrowserUiEvent {
         val url: String,
         val anchorX: Float? = null,
         val anchorY: Float? = null,
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
-    data object DismissLinkContextMenu : BrowserUiEvent
+    data object DismissLinkContextMenu : OverlayUiEvent
 
     data class OpenTabInBackground(
         val url: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     // Default Browser
     data class UpdateDefaultBrowserStatus(
         val isDefault: Boolean,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     // Image Context Menu
     data class ShowImageContextMenu(
@@ -353,152 +353,152 @@ sealed interface BrowserUiEvent {
         val linkUrl: String? = null,
         val anchorX: Float? = null,
         val anchorY: Float? = null,
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
-    data object DismissImageContextMenu : BrowserUiEvent
+    data object DismissImageContextMenu : OverlayUiEvent
 
     data class CopyImageUrl(
         val imageUrl: String,
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
     data class DownloadImage(
         val imageUrl: String,
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
     data class PreviewImageInNewTab(
         val imageUrl: String,
-    ) : BrowserUiEvent
+    ) : OverlayUiEvent
 
     // External App Prompts
     data class OnExternalAppOffered(
         val tabId: String,
         val prompt: com.jestk.browser.domain.model.ExternalAppPrompt,
         val userInitiated: Boolean = false,
-    ) : BrowserUiEvent
+    ) : SafetyUiEvent
 
     data class DismissExternalAppPrompt(
         val reason: ExternalAppDismissReason = ExternalAppDismissReason.EXPLICIT,
-    ) : BrowserUiEvent
+    ) : SafetyUiEvent
 
     data class OpenExternalApp(
         val prompt: com.jestk.browser.domain.model.ExternalAppPrompt,
-    ) : BrowserUiEvent
+    ) : SafetyUiEvent
 
     data class SetOpenInAppsEnabled(
         val enabled: Boolean,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
     // Insecure HTTP Warning
     data class ShowInsecureHttpWarning(
         val url: String,
         val tabId: String? = null,
         val target: InsecureNavigationTarget = InsecureNavigationTarget.ACTIVE_TAB,
-    ) : BrowserUiEvent
+    ) : SafetyUiEvent
 
-    data object ConfirmInsecureHttpNavigation : BrowserUiEvent
+    data object ConfirmInsecureHttpNavigation : SafetyUiEvent
 
-    data object DismissInsecureHttpWarning : BrowserUiEvent
+    data object DismissInsecureHttpWarning : SafetyUiEvent
 
     // Blocked Ad Navigation
     data class ShowBlockedAdNavigation(
         val url: String,
         val tabId: String,
-    ) : BrowserUiEvent
+    ) : SafetyUiEvent
 
-    data object AllowBlockedAdNavigation : BrowserUiEvent
+    data object AllowBlockedAdNavigation : SafetyUiEvent
 
-    data object DismissBlockedAdNavigation : BrowserUiEvent
+    data object DismissBlockedAdNavigation : SafetyUiEvent
 
     // Feedback & Community Rating
-    data object DismissFeedbackPrompt : BrowserUiEvent
+    data object DismissFeedbackPrompt : SettingsUiEvent
 
     data class SnoozeFeedbackPrompt(
         val durationMs: Long = 3 * 24 * 60 * 60 * 1000L,
-    ) : BrowserUiEvent
+    ) : SettingsUiEvent
 
-    data object OpenFeedbackSheet : BrowserUiEvent
+    data object OpenFeedbackSheet : SettingsUiEvent
 
-    data object CloseFeedbackSheet : BrowserUiEvent
+    data object CloseFeedbackSheet : SettingsUiEvent
 
     // Tab Folders
     data class CreateFolderFromTabs(
         val tabId1: String,
         val tabId2: String,
         val color: Int? = null,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class OpenCreateFolderSheet(
         val tabId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class OpenEditFolderSheet(
         val folderId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class SaveFolder(
         val title: String,
         val color: Int,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
-    data object DismissFolderSheet : BrowserUiEvent
+    data object DismissFolderSheet : TabUiEvent
 
     data class ToggleFolderCollapse(
         val folderId: String,
         val fromDock: Boolean = true,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class CloseFolder(
         val folderId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class UngroupFolder(
         val folderId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class AddTabToFolder(
         val tabId: String,
         val folderId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class RemoveTabFromFolder(
         val tabId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class CreateTabInFolder(
         val folderId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     // Workspaces
-    data object OpenWorkspacesOverview : BrowserUiEvent
+    data object OpenWorkspacesOverview : TabUiEvent
 
-    data object CloseWorkspacesOverview : BrowserUiEvent
+    data object CloseWorkspacesOverview : TabUiEvent
 
     data class SwitchWorkspace(
         val workspaceId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class CreateWorkspace(
         val name: String,
         val color: Int,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class UpdateWorkspace(
         val workspace: Workspace,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class DeleteWorkspace(
         val workspaceId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class MoveTabToWorkspace(
         val tabId: String,
         val targetWorkspaceId: String,
-    ) : BrowserUiEvent
+    ) : TabUiEvent
 
     data class MoveFavoriteToWorkspace(
         val favoriteId: Long,
         val targetWorkspaceId: String,
-    ) : BrowserUiEvent
+    ) : LibraryUiEvent
 }
 
 enum class ExternalAppDismissReason {
