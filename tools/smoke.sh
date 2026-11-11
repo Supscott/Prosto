@@ -2,7 +2,10 @@
 # Device smoke test for what unit tests cannot see: the WebView on screen, the task stack and
 # intent delivery. Prints one PASS/FAIL line per step and exits non-zero on any failure.
 #
-#   tools/smoke.sh [--install]
+#   tools/smoke.sh [--no-install]
+#
+# Builds and installs the debug app first, so the phone never runs a stale build; pass
+# --no-install to test what is already installed.
 #
 # Steps:
 #   1. A link opened from another app shows its own page.
@@ -48,7 +51,7 @@ expect_top() {
 created_tabs() { "$D" log "TabCoordinator: Created tab" 1000 | wc -l | tr -d ' '; }
 
 "$D" wake || exit 3
-[[ "${1:-}" == "--install" ]] && "$D" install
+[[ "${1:-}" == "--no-install" ]] || "$D" install || exit 1
 caller_pkg="com.android.settings"
 
 "$D" stop

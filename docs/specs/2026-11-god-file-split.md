@@ -29,7 +29,7 @@ than one file.
    no test changes are needed. A test that must change means the step broke the rule.
 3. **One step = one commit**, in the order below. After each step:
    - `rtk tools/verify.sh --all` (must print `Tests: N/N passed`);
-   - `rtk tools/smoke.sh --install` when the phone is available (JestkApp and TabCoordinator steps);
+   - `rtk tools/smoke.sh` when the phone is available (JestkApp and TabCoordinator steps);
    - `python3 tools/file_size_ratchet.py --update` to lower the baseline, committed with the step.
 4. Do not edit `tools/file_size_baseline.json` by hand and never raise an entry.
 5. Report: the list of new files with line counts, and anything that could not be moved
