@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.Workspace
+import com.jestk.browser.ui.components.tabDisplayTitle
+import com.jestk.browser.ui.components.workspaceDisplayName
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalProstoTypography
@@ -83,7 +85,7 @@ fun TabGridContextMenuBottomSheet(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = tab.title.ifEmpty { tab.url },
+                    text = tabDisplayTitle(tab),
                     style = typography.headlineSm,
                     color = if (isDark) DarkOnSurface else ProstoDarkText,
                     fontWeight = FontWeight.Bold,
@@ -155,7 +157,7 @@ fun TabGridContextMenuBottomSheet(
                                 .background(Color(ws.color)),
                         )
                         Text(
-                            text = ws.name,
+                            text = workspaceDisplayName(ws),
                             style = typography.bodyMd.copy(fontWeight = FontWeight.Medium),
                             color = if (isDark) DarkOnSurface else ProstoDarkText,
                             maxLines = 1,

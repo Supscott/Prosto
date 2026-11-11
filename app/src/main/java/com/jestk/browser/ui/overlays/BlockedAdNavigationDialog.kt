@@ -34,6 +34,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -55,6 +56,7 @@ import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.util.UrlSecurityUtils
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -87,12 +89,11 @@ fun BlockedAdNavigationBanner(
     val offsetX = remember(url) { Animatable(0f) }
     var isDragging by remember { mutableStateOf(false) }
 
-    // Auto-dismiss after 5 seconds of inactivity
+    // Auto-dismiss after 5 seconds; a banner held by the finger at that moment goes once released.
     LaunchedEffect(url) {
         delay(5000L)
-        if (!isDragging) {
-            currentOnDismiss()
-        }
+        snapshotFlow { isDragging }.first { !it }
+        currentOnDismiss()
     }
 
     val density = LocalDensity.current
@@ -186,7 +187,7 @@ fun BlockedAdNavigationBanner(
                 modifier = Modifier.weight(1f),
             )
             Spacer(modifier = Modifier.width(6.dp))
-            // "Перейти" (слева от "Остаться", без фона)
+            // "Proceed" (left of "Stay", no background)
             TextButton(
                 onClick = onConfirm,
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
@@ -198,7 +199,7 @@ fun BlockedAdNavigationBanner(
                 )
             }
             Spacer(modifier = Modifier.width(4.dp))
-            // "Остаться" (справа, с акцентным фоном)
+            // "Stay" (right, accent background)
             Button(
                 onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(

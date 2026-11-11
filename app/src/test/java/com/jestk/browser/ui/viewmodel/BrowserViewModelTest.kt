@@ -91,7 +91,7 @@ class BrowserViewModelTest {
             assertThat(state.tabs).hasSize(1)
             assertThat(state.activeTabId).isNotNull()
             assertThat(state.currentUrl).isEmpty()
-            assertThat(state.pageTitle).isEqualTo("Home")
+            assertThat(state.pageTitle).isEmpty()
             assertThat(state.activeOverlay).isEqualTo(OverlayType.HOME)
         }
 
@@ -574,7 +574,7 @@ class BrowserViewModelTest {
 
             val state = viewModel.uiState.value
             assertThat(state.currentUrl).isEmpty()
-            assertThat(state.pageTitle).isEqualTo("Home")
+            assertThat(state.pageTitle).isEmpty()
             assertThat(state.activeOverlay).isEqualTo(OverlayType.HOME)
         }
 
@@ -2261,9 +2261,9 @@ class BrowserViewModelTest {
             viewModel.onEvent(BrowserUiEvent.OnPageStarted(tabId, "https://different-site.com/home"))
             advanceUntilIdle()
 
-            assertThat(viewModel.uiState.value.pageTitle).isEqualTo("Loading...")
+            assertThat(viewModel.uiState.value.pageTitle).isEmpty()
             val activeTab = viewModel.uiState.value.tabs.find { it.id == tabId }
-            assertThat(activeTab?.title).isEqualTo("Loading...")
+            assertThat(activeTab?.title).isEmpty()
         }
 
     @Test

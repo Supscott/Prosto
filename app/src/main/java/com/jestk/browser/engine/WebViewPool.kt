@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.MutableContextWrapper
 import android.content.pm.ActivityInfo
+import com.jestk.browser.R
 import com.jestk.browser.util.findActivity
 import android.net.Uri
 import android.os.Handler
@@ -559,7 +560,7 @@ class WebViewPool(
                 null
             }
 
-            Toast.makeText(targetContext, "Downloading $fileName...", Toast.LENGTH_SHORT).show()
+            Toast.makeText(targetContext, targetContext.getString(R.string.download_in_progress_notification, fileName), Toast.LENGTH_SHORT).show()
 
             if (downloadMgr != null) {
                 activeScope().launch {
@@ -588,7 +589,7 @@ class WebViewPool(
             Log.e(TAG, "Download failed for $url", e)
             val targetContext = context.findActivity() ?: applicationContext
             try {
-                Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(targetContext, downloadFailedText(targetContext, e), Toast.LENGTH_SHORT).show()
             } catch (t: Throwable) {
                 Log.w(TAG, "Failed to show download error toast", t)
             }
@@ -613,14 +614,14 @@ class WebViewPool(
                     val item = downloadRepository?.getDownloadById(downloadId)
                     if (item != null) {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(targetContext, "Downloading ${item.fileName}...", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(targetContext, targetContext.getString(R.string.download_in_progress_notification, item.fileName), Toast.LENGTH_SHORT).show()
                             onDownloadStarted?.invoke(item)
                         }
                     }
                 } catch (e: Throwable) {
                     Log.e(TAG, "Data URL download failed", e)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(targetContext, "Download failed: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(targetContext, downloadFailedText(targetContext, e), Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -637,11 +638,11 @@ class WebViewPool(
         val targetContext = context.findActivity() ?: applicationContext
         if (webView == null) {
             Log.w(TAG, "Cannot handle blob download without originating WebView reference")
-            Toast.makeText(targetContext, "Download failed: Tab origin unavailable", Toast.LENGTH_SHORT).show()
+            Toast.makeText(targetContext, R.string.downloads_failed, Toast.LENGTH_SHORT).show()
             return
         }
 
-        Toast.makeText(targetContext, "Preparing download...", Toast.LENGTH_SHORT).show()
+        Toast.makeText(targetContext, R.string.toast_preparing_download, Toast.LENGTH_SHORT).show()
         Log.d(TAG, "Preparing blob download: $blobUrl")
 
         pendingBlobUrls.add(blobUrl)
@@ -653,7 +654,7 @@ class WebViewPool(
             }
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to evaluate blob download script", t)
-            Toast.makeText(targetContext, "Download failed: ${t.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(targetContext, downloadFailedText(targetContext, t), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -813,4 +814,9 @@ class WebViewPool(
     }
 
     fun size(): Int = pool.size
+
+    private fun downloadFailedText(context: Context, error: Throwable): String =
+        error.message?.takeIf { it.isNotBlank() }
+            ?.let { context.getString(R.string.toast_download_failed_reason, it) }
+            ?: context.getString(R.string.downloads_failed)
 }

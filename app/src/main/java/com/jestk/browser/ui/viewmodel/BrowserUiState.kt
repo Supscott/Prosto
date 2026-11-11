@@ -122,6 +122,14 @@ data class BrowserUiState(
                 )
 
     /**
+     * Whether the main viewport renders the Home page. Opening the workspace switcher replaces the
+     * overlay with [OverlayType.WORKSPACES], which makes [isHome] false; the live app is the active
+     * workspace card there, so a home tab must keep drawing Home instead of an empty background.
+     */
+    val isHomeContentVisible: Boolean
+        get() = isHome || (isWorkspacesOverviewVisible && activeTab?.isHomeTab != false)
+
+    /**
      * Settings/Downloads are opened by [com.jestk.browser.ui.navigation.ActionDock] via
      * `activeScreen`, and the UI renders them from this predicate. Keeping the check here
      * prevents the screen state and the render condition from drifting apart again.

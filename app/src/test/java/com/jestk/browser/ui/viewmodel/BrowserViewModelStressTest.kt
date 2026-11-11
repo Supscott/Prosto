@@ -126,7 +126,7 @@ class BrowserViewModelStressTest {
         assertThat(state.activeTabId).isNotNull()
         assertThat(state.activeTabId).isEqualTo(state.tabs.first().id)
         assertThat(state.currentUrl).isEmpty()
-        assertThat(state.pageTitle).isEqualTo("Home")
+        assertThat(state.pageTitle).isEmpty()
         assertThat(state.activeOverlay).isEqualTo(OverlayType.HOME)
     }
 

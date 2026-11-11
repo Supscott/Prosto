@@ -51,6 +51,9 @@ class TabCoordinatorTest {
     private lateinit var recentTabRepo: RecentTabRepositoryImpl
 
     private var uiState = BrowserUiState()
+
+    /** Simulates another update (DB flow, favicon, title) landing just before the next one. */
+    private var concurrentUpdate: ((BrowserUiState) -> BrowserUiState)? = null
     private val tabThemeColors = ConcurrentHashMap<String, Int>()
     private val tabLoadingProgress = ConcurrentHashMap<String, Int>()
     private val tabMutex = Mutex()
@@ -81,7 +84,11 @@ class TabCoordinatorTest {
             tabOperationMutex = tabMutex,
             tabThemeColors = tabThemeColors,
             getCurrentState = { uiState },
-            updateUiState = { transform -> uiState = transform(uiState) },
+            updateUiState = { transform ->
+                val interleaved = concurrentUpdate
+                concurrentUpdate = null
+                uiState = transform(interleaved?.invoke(uiState) ?: uiState)
+            },
             emitNavigation = { navigationCommands.add(it) },
             scope = testScope,
             ioDispatcher = testDispatcher,
@@ -221,6 +228,48 @@ class TabCoordinatorTest {
             assertThat(uiState.activeTabId).isEqualTo(tabAId)
             assertThat(uiState.isLoading).isTrue()
             assertThat(uiState.loadingProgress).isEqualTo(0.85f)
+        }
+
+    private fun renameTab(tabId: String, title: String): (BrowserUiState) -> BrowserUiState = { state ->
+        state.copy(tabs = state.tabs.map { if (it.id == tabId) it.copy(title = title) else it })
+    }
+
+    @Test
+    fun selectTab_keepsAConcurrentTitleUpdateOfAnotherTab() =
+        runTest(testDispatcher) {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+            coordinator.openNewTab("https://tab-a.com")
+            advanceUntilIdle()
+            val tabAId = uiState.activeTabId!!
+            coordinator.openNewTab("https://tab-b.com")
+            advanceUntilIdle()
+            val tabBId = uiState.activeTabId!!
+
+            concurrentUpdate = renameTab(tabBId, "Fresh title")
+            coordinator.selectTab(tabAId)
+
+            assertThat(uiState.activeTabId).isEqualTo(tabAId)
+            assertThat(uiState.tabs.first { it.id == tabBId }.title).isEqualTo("Fresh title")
+        }
+
+    @Test
+    fun closeInactiveTab_keepsAConcurrentTitleUpdateOfAnotherTab() =
+        runTest(testDispatcher) {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+            coordinator.openNewTab("https://tab-a.com")
+            advanceUntilIdle()
+            val tabAId = uiState.activeTabId!!
+            coordinator.openNewTab("https://tab-b.com")
+            advanceUntilIdle()
+            val tabBId = uiState.activeTabId!!
+
+            concurrentUpdate = renameTab(tabBId, "Fresh title")
+            coordinator.closeTab(tabAId)
+
+            assertThat(uiState.tabs.map { it.id }).doesNotContain(tabAId)
+            assertThat(uiState.tabs.first { it.id == tabBId }.title).isEqualTo("Fresh title")
         }
 
     @Test
@@ -612,10 +661,10 @@ class TabCoordinatorTest {
             coordinator.handlePageStarted(activeTabId, "https://second-site.org/path")
             advanceUntilIdle()
 
-            assertThat(uiState.pageTitle).isEqualTo("Loading...")
+            assertThat(uiState.pageTitle).isEmpty()
             val activeTab = uiState.tabs.find { it.id == activeTabId }
-            assertThat(activeTab?.title).isEqualTo("Loading...")
-            assertThat(tabRepo.getTabById(activeTabId)?.title).isEqualTo("Loading...")
+            assertThat(activeTab?.title).isEmpty()
+            assertThat(tabRepo.getTabById(activeTabId)?.title).isEmpty()
         }
 
     @Test
@@ -633,14 +682,14 @@ class TabCoordinatorTest {
             // Start navigation in memory
             coordinator.handlePageStarted(secondTabId, "https://tab2-new.com")
             assertThat(uiState.currentUrl).isEqualTo("https://tab2-new.com")
-            assertThat(uiState.pageTitle).isEqualTo("Loading...")
+            assertThat(uiState.pageTitle).isEmpty()
 
             // Let Room flow collect and advance
             advanceUntilIdle()
 
             assertThat(uiState.activeTabId).isEqualTo(secondTabId)
             assertThat(uiState.currentUrl).isEqualTo("https://tab2-new.com")
-            assertThat(uiState.pageTitle).isEqualTo("Loading...")
+            assertThat(uiState.pageTitle).isEmpty()
         }
 
     @Test
@@ -1225,7 +1274,7 @@ class TabCoordinatorTest {
             assertThat(uiState.activeTabId).isNotEqualTo(tab1Id)
             val newActive = uiState.activeTab
             assertThat(newActive?.folderId).isNull()
-            assertThat(newActive?.title).isEqualTo("Home")
+            assertThat(newActive?.isHomeTab).isTrue()
         }
 
     @Test
@@ -1329,6 +1378,6 @@ class TabCoordinatorTest {
             assertThat(uiState.activeTabId).isNotEqualTo(tab2Id)
             val newActive = uiState.activeTab
             assertThat(newActive?.folderId).isNull()
-            assertThat(newActive?.title).isEqualTo("Home")
+            assertThat(newActive?.isHomeTab).isTrue()
         }
 }

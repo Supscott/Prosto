@@ -96,6 +96,7 @@ import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.ui.components.SiteFavicon
+import com.jestk.browser.ui.components.workspaceDisplayName
 import com.jestk.browser.ui.theme.DarkDockSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
@@ -143,16 +144,15 @@ fun TabStripRow(
     val isHome = uiState.isHome
     val activeTab = uiState.activeTab
 
-    val isHomeTab = isHome || activeTab?.url.isNullOrEmpty() || activeTab?.url == "about:blank" || activeTab?.title == "Home"
+    val homeTitle = stringResource(R.string.tab_home_title)
+    val fallbackTitle = stringResource(R.string.app_name)
+    val isHomeTab = isHome || activeTab == null || activeTab.isHomeTab
     val displayTitle =
-        if (isHomeTab) {
-            "Home"
-        } else {
-            when {
-                activeTab?.title?.isNotEmpty() == true && activeTab.title != "Home" && activeTab.title != "New Tab" -> activeTab.title
-                uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
-                else -> "Prosto Browser"
-            }
+        when {
+            isHomeTab -> homeTitle
+            activeTab?.title?.isNotEmpty() == true -> activeTab.title
+            uiState.pageTitle.isNotEmpty() -> uiState.pageTitle
+            else -> fallbackTitle
         }
 
     BoxWithConstraints(
@@ -170,8 +170,8 @@ fun TabStripRow(
             title = displayTitle,
             isActive = true,
         )
-        val activeTabIsHome = isHome || resolvedActiveTab.url.isEmpty() || resolvedActiveTab.url == "about:blank" || resolvedActiveTab.title == "Home"
-        val activeDisplayInfo = resolveTabDisplayInfo(tab = resolvedActiveTab, isActive = true, isHome = activeTabIsHome, uiState = uiState)
+        val activeTabIsHome = isHome || resolvedActiveTab.isHomeTab
+        val activeDisplayInfo = resolveTabDisplayInfo(tab = resolvedActiveTab, isActive = true, isHome = activeTabIsHome, uiState = uiState, homeTitle = homeTitle, fallbackTitle = fallbackTitle)
 
         val textMeasurer = rememberTextMeasurer()
         val typography = LocalProstoTypography.current
@@ -654,7 +654,7 @@ fun TabStripRow(
                     is DockItem.TabItem -> {
                         val tab = item.tab
                         val isActive = tab.id == uiState.activeTabId
-                        val tabIsHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home" || (isHome && isActive)
+                        val tabIsHome = tab.isHomeTab || (isHome && isActive)
                         val isElevated = dragState.draggingTabId == tab.id || dragState.settlingTabId == tab.id
                         val folder = item.folder
 
@@ -693,7 +693,7 @@ fun TabStripRow(
                             contentAlignment = Alignment.Center,
                         ) {
                             if (isActive) {
-                                val displayInfo = resolveTabDisplayInfo(tab = tab, isActive = true, isHome = tabIsHome, uiState = uiState)
+                                val displayInfo = resolveTabDisplayInfo(tab = tab, isActive = true, isHome = tabIsHome, uiState = uiState, homeTitle = homeTitle, fallbackTitle = fallbackTitle)
 
                                 ActiveTabPill(
                                     title = displayInfo.title,
@@ -818,7 +818,7 @@ fun TabStripRow(
             val isDraggingThis = dragState.draggingTabId == elevatedTab.id
             val isSettlingThis = dragState.settlingTabId == elevatedTab.id
             val isElevatedActive = elevatedTab.id == uiState.activeTabId
-            val tabIsHome = elevatedTab.url.isEmpty() || elevatedTab.url == "about:blank" || elevatedTab.title == "Home" || (isHome && isElevatedActive)
+            val tabIsHome = elevatedTab.isHomeTab || (isHome && isElevatedActive)
             val isOverRemoveZone = isDraggingThis && dragState.isOverRemoveZone
 
             val removeDistancePx = (-dragState.dragOffsetYPx).coerceAtLeast(0f)
@@ -874,7 +874,7 @@ fun TabStripRow(
             )
 
             if (isElevatedActive) {
-                val displayInfo = resolveTabDisplayInfo(tab = elevatedTab, isActive = isElevatedActive, isHome = tabIsHome, uiState = uiState)
+                val displayInfo = resolveTabDisplayInfo(tab = elevatedTab, isActive = isElevatedActive, isHome = tabIsHome, uiState = uiState, homeTitle = homeTitle, fallbackTitle = fallbackTitle)
 
                 val activePillBgActual =
                     if (isDraggingThis) {
@@ -1112,7 +1112,7 @@ fun InactiveTabButton(
                 .graphicsLayer { alpha = contentAlpha },
             contentAlignment = Alignment.Center,
         ) {
-            val isHome = tab.url.isEmpty() || tab.url == "about:blank" || tab.title == "Home"
+            val isHome = tab.isHomeTab
             if (crossAlpha > 0f) {
                 Icon(
                     imageVector = Icons.Default.Close,
@@ -1146,7 +1146,7 @@ fun InactiveTabButton(
                                         .trim()
                                         .firstOrNull()
                                         ?.uppercaseChar()
-                                if (initial != null && initial.isLetterOrDigit() && tab.title != "New Tab") {
+                                if (initial != null && initial.isLetterOrDigit()) {
                                     Text(
                                         text = initial.toString(),
                                         style =
@@ -1181,9 +1181,9 @@ fun InactiveTabButton(
                 onAddFavorite = {
                     if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
                         onAddFavorite(tab.title, tab.url)
-                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, R.string.toast_added_to_favorites, Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, R.string.toast_cannot_add_home_to_favorites, Toast.LENGTH_SHORT).show()
                     }
                 },
                 onShareLink = {
@@ -1418,7 +1418,7 @@ fun TabContextMenu(
                                             .background(Color(ws.color)),
                                     )
                                     Text(
-                                        text = ws.name,
+                                        text = workspaceDisplayName(ws),
                                         style = typography.bodyMd.copy(fontWeight = FontWeight.Medium),
                                         color = if (isDark) Color(0xFFF1F5F9) else ProstoDarkText,
                                         maxLines = 1,
@@ -1636,16 +1636,15 @@ private fun resolveTabDisplayInfo(
     isActive: Boolean,
     isHome: Boolean,
     uiState: BrowserUiState,
+    homeTitle: String,
+    fallbackTitle: String,
 ): TabDisplayInfo {
     val currentTitle =
-        if (isHome) {
-            "Home"
-        } else {
-            when {
-                isActive && uiState.pageTitle.isNotEmpty() && uiState.pageTitle != "Home" -> uiState.pageTitle
-                tab.title.isNotEmpty() && tab.title != "Home" && tab.title != "New Tab" -> tab.title
-                else -> "Prosto Browser"
-            }
+        when {
+            isHome -> homeTitle
+            isActive && uiState.pageTitle.isNotEmpty() -> uiState.pageTitle
+            tab.title.isNotEmpty() -> tab.title
+            else -> fallbackTitle
         }
     val currentUrl = if (isActive && uiState.currentUrl.isNotEmpty()) uiState.currentUrl else tab.url
     val currentDomain = if (isHome) "" else extractDomain(currentUrl)

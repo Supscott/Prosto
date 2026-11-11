@@ -42,7 +42,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -51,10 +50,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.R
 import com.jestk.browser.ui.components.SiteFavicon
+import com.jestk.browser.ui.components.SnapshotImage
+import com.jestk.browser.ui.components.tabDisplayTitle
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -68,7 +68,6 @@ import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.ui.theme.ProstoShapes
-import java.io.File
 import kotlin.math.roundToInt
 
 /**
@@ -186,7 +185,7 @@ internal fun GridTabCard(
 
                     // Title
                     Text(
-                        text = tab.title.ifEmpty { "New Tab" },
+                        text = tabDisplayTitle(tab),
                         style =
                             LocalProstoTypography.current.labelMd.copy(
                                 fontSize = 12.sp,
@@ -225,16 +224,12 @@ internal fun GridTabCard(
                     if (tab.isHomeTab && home != null) {
                         home()
                     } else {
-                    val file = tab.snapshotPath?.let { File(it) }
-                    if (file != null && file.exists()) {
-                        AsyncImage(
-                            model = file,
-                            contentDescription = tab.title,
-                            contentScale = ContentScale.Crop,
-                            alignment = Alignment.TopCenter,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    } else {
+                    SnapshotImage(
+                        path = tab.snapshotPath,
+                        contentDescription = tab.title,
+                        alignment = Alignment.TopCenter,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
                         // Clean Placeholder
                         Box(
                             modifier = Modifier.fillMaxSize(),

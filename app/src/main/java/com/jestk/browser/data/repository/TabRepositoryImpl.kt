@@ -67,7 +67,7 @@ class TabRepositoryImpl(
                     Tab(
                         id = id,
                         url = url,
-                        title = title.ifEmpty { if (url.isEmpty()) "Home" else "New Tab" },
+                        title = title,
                         lastActiveTimestamp = System.currentTimeMillis(),
                         snapshotPath = null,
                         position = nextPosition,

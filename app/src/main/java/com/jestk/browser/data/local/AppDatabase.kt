@@ -39,7 +39,7 @@ import com.jestk.browser.domain.model.Workspace
         TabFolderEntity::class,
         WorkspaceEntity::class
     ],
-    version = 12,
+    version = 13,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -129,17 +129,53 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * DATA-2: the same URL may be a recent tab in several workspaces.
+         * DATA-6: English placeholder names and titles become blank; the UI shows localized labels.
+         */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `recent_tabs_new` (
+                        `url` TEXT NOT NULL,
+                        `title` TEXT NOT NULL,
+                        `snapshotPath` TEXT,
+                        `faviconUrl` TEXT,
+                        `lastVisitedTimestamp` INTEGER NOT NULL,
+                        `workspaceId` TEXT NOT NULL DEFAULT 'default_personal',
+                        PRIMARY KEY(`url`, `workspaceId`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    INSERT INTO `recent_tabs_new` (`url`, `title`, `snapshotPath`, `faviconUrl`, `lastVisitedTimestamp`, `workspaceId`)
+                    SELECT `url`, `title`, `snapshotPath`, `faviconUrl`, `lastVisitedTimestamp`, `workspaceId` FROM `recent_tabs`
+                    """.trimIndent()
+                )
+                db.execSQL("DROP TABLE `recent_tabs`")
+                db.execSQL("ALTER TABLE `recent_tabs_new` RENAME TO `recent_tabs`")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_recent_tabs_lastVisitedTimestamp` ON `recent_tabs` (`lastVisitedTimestamp`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_recent_tabs_workspaceId_lastVisitedTimestamp` ON `recent_tabs` (`workspaceId`, `lastVisitedTimestamp`)")
+
+                db.execSQL("UPDATE `workspaces` SET `name` = '' WHERE `id` = '${Workspace.DEFAULT_PERSONAL_ID}' AND `name` = 'Personal'")
+                db.execSQL("UPDATE `workspaces` SET `name` = '' WHERE `id` = '${Workspace.DEFAULT_WORK_ID}' AND `name` = 'Work'")
+                db.execSQL("UPDATE `tabs` SET `title` = '' WHERE `title` IN ('Home', 'New Tab', 'Loading...') AND (`url` = '' OR `url` = 'about:blank' OR `title` <> 'Home')")
+            }
+        }
+
         fun seedDefaultWorkspaces(db: SupportSQLiteDatabase) {
             db.execSQL(
                 """
                 INSERT OR IGNORE INTO `workspaces` (`id`, `name`, `color`, `position`, `profileName`, `createdAt`)
-                VALUES ('${Workspace.DEFAULT_PERSONAL_ID}', 'Personal', ${Workspace.DEFAULT_PERSONAL.color}, 0, '${Workspace.DEFAULT_PERSONAL_ID}', 0)
+                VALUES ('${Workspace.DEFAULT_PERSONAL_ID}', '', ${Workspace.DEFAULT_PERSONAL.color}, 0, '${Workspace.DEFAULT_PERSONAL_ID}', 0)
                 """.trimIndent()
             )
             db.execSQL(
                 """
                 INSERT OR IGNORE INTO `workspaces` (`id`, `name`, `color`, `position`, `profileName`, `createdAt`)
-                VALUES ('${Workspace.DEFAULT_WORK_ID}', 'Work', ${Workspace.DEFAULT_WORK.color}, 1, '${Workspace.DEFAULT_WORK_ID}', 0)
+                VALUES ('${Workspace.DEFAULT_WORK_ID}', '', ${Workspace.DEFAULT_WORK.color}, 1, '${Workspace.DEFAULT_WORK_ID}', 0)
                 """.trimIndent()
             )
         }
@@ -154,7 +190,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12)
+                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

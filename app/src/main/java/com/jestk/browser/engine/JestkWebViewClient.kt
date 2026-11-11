@@ -2,6 +2,8 @@ package com.jestk.browser.engine
 
 import android.graphics.Bitmap
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceRequest
@@ -12,6 +14,8 @@ import androidx.webkit.WebViewFeature
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.util.UrlSecurityUtils
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
 
 class JestkWebViewClient(
     private val tabId: String,
@@ -38,7 +42,12 @@ class JestkWebViewClient(
     private val isAllowedAdNavigation: ((url: String) -> Boolean)? = null,
     private val isAutoConsentEnabled: (() -> Boolean)? = null,
     private val onRenderProcessGone: ((tabId: String) -> Unit)? = null,
+    /** Runs the PackageManager lookups for web URLs; they must not block the UI thread. */
+    private val externalAppExecutor: Executor = EXTERNAL_APP_EXECUTOR,
 ) : WebViewClient() {
+
+    @Volatile
+    private var lastGestureNavigationAtMs = Long.MIN_VALUE / 2
 
     override fun onRenderProcessGone(
         view: WebView?,
@@ -82,6 +91,14 @@ class JestkWebViewClient(
         val hasOpenerGesture = (view as? NestedWebView)?.hasOpenerUserGesture == true
         val effectiveGesture = request.hasGesture() || hasOpenerGesture
 
+        // "Open app" buttons usually bounce through tracking redirects (Reddit: onelink.me) whose
+        // later hops no longer carry the tap's gesture flag. Hops shortly after a tap still count
+        // as that tap, so the final intent:// handoff is recognised as deliberate.
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (request.isForMainFrame && effectiveGesture) lastGestureNavigationAtMs = now
+        val continuesGesture = effectiveGesture ||
+            (request.isForMainFrame && now - lastGestureNavigationAtMs <= GESTURE_CHAIN_WINDOW_MS)
+
         if (request.isForMainFrame && isBlockedAdNavigation(url, view, effectiveGesture, request.isRedirect)) return true
 
         // Warn before loading cleartext HTTP websites in the main frame
@@ -91,7 +108,7 @@ class JestkWebViewClient(
             view = view,
             url = url,
             allowFallbackNavigation = request.isForMainFrame,
-            userInitiated = effectiveGesture,
+            userInitiated = continuesGesture,
         )
     }
 
@@ -191,9 +208,22 @@ class JestkWebViewClient(
         }
 
         val context = view?.context ?: return false
+        if (isWebUrl(url)) {
+            // A web URL always loads in the WebView; the lookup only decides whether to show the
+            // "Open in app" hint, so it runs in the background.
+            offerAppInBackground(context, url, userInitiated)
+            return false
+        }
         return when (val resolution = ExternalAppResolver.resolve(context, url, tabId)) {
             is ExternalAppResolution.Offer -> {
-                onExternalAppOffered?.invoke(tabId, resolution.prompt, userInitiated)
+                // A deliberate tap on the site's own "Open app" control asks for confirmation
+                // instead of showing the passive hint that disappears after a few seconds.
+                val prompt = if (isDeliberateAppHandoff(resolution, userInitiated)) {
+                    resolution.prompt.copy(requiresConfirmation = true)
+                } else {
+                    resolution.prompt
+                }
+                onExternalAppOffered?.invoke(tabId, prompt, userInitiated)
                 resolution.isCustomScheme
             }
 
@@ -213,6 +243,15 @@ class JestkWebViewClient(
             }
         }
     }
+
+    private fun isDeliberateAppHandoff(
+        resolution: ExternalAppResolution.Offer,
+        userInitiated: Boolean,
+    ): Boolean =
+        userInitiated &&
+            resolution.isCustomScheme &&
+            resolution.prompt.isInstalled &&
+            !resolution.prompt.intentUri.startsWith("market:")
 
     override fun shouldInterceptRequest(
         view: WebView?,
@@ -252,9 +291,19 @@ class JestkWebViewClient(
     ) {
         if (isOpenInAppsEnabled?.invoke() == false) return
         val context = view?.context ?: return
-        val resolution = ExternalAppResolver.resolve(context, url, tabId)
-        if (resolution is ExternalAppResolution.Offer) {
-            onExternalAppOffered?.invoke(tabId, resolution.prompt, false)
+        offerAppInBackground(context, url, userInitiated = false)
+    }
+
+    private fun offerAppInBackground(
+        context: android.content.Context,
+        url: String,
+        userInitiated: Boolean,
+    ) {
+        externalAppExecutor.execute {
+            val resolution = ExternalAppResolver.resolve(context, url, tabId)
+            if (resolution !is ExternalAppResolution.Offer) return@execute
+            val deliver = { onExternalAppOffered?.invoke(tabId, resolution.prompt, userInitiated) }
+            if (Looper.myLooper() == Looper.getMainLooper()) deliver() else mainHandler.post { deliver() }
         }
     }
 
@@ -470,6 +519,17 @@ class JestkWebViewClient(
     }
 
     companion object {
+        /** How long after a tap later main-frame hops still count as part of that tap. */
+        private const val GESTURE_CHAIN_WINDOW_MS = 3_000L
+
+        private val mainHandler by lazy { Handler(Looper.getMainLooper()) }
+
+        private val EXTERNAL_APP_EXECUTOR: Executor by lazy {
+            Executors.newSingleThreadExecutor { runnable ->
+                Thread(runnable, "external-app-resolver").apply { isDaemon = true }
+            }
+        }
+
         /**
          * Loads [url] into [webView], routing custom schemes and intent URLs through the
          * configured [JestkWebViewClient] when applicable.

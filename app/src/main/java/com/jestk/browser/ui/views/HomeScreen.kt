@@ -89,6 +89,7 @@ import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.components.ProstoRecentTabCard
+import com.jestk.browser.ui.components.workspaceDisplayName
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
@@ -201,7 +202,7 @@ fun HomeScreen(
                     .padding(top = 16.dp, bottom = 120.dp),
         ) {
             // Active Workspace Title / Hero Greeting
-            val workspaceTitle = activeWorkspace?.name ?: stringResource(R.string.home_greeting)
+            val workspaceTitle = activeWorkspace?.let { workspaceDisplayName(it) } ?: stringResource(R.string.home_greeting)
             val titleColor = workspaceColor ?: (if (isDark) DarkOnSurface else ProstoDarkText)
 
             Row(
@@ -241,11 +242,11 @@ fun HomeScreen(
                             }
                         speechLauncher.launch(intent)
                     } catch (_: Exception) {
-                        Toast.makeText(context, "Voice input not available", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, R.string.toast_voice_input_unavailable, Toast.LENGTH_SHORT).show()
                     }
                 },
                 onQrScanClick = {
-                    Toast.makeText(context, "QR Scanner coming soon", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, R.string.toast_qr_scanner_coming_soon, Toast.LENGTH_SHORT).show()
                 },
                 modifier =
                     Modifier
@@ -591,7 +592,7 @@ private fun FavoritesSection(
                                 ),
                         ) {
                             Text(
-                                text = if (isExpanded) "Show Less" else "Show All Favorites (${favorites.size})",
+                                text = if (isExpanded) stringResource(R.string.favorites_show_less) else stringResource(R.string.favorites_show_all, favorites.size),
                                 style = LocalProstoTypography.current.labelMd,
                                 color = ProstoBrandPrimary,
                             )
@@ -720,7 +721,7 @@ private fun FavoriteSquircleCard(
                 )
                 availableWorkspaces.forEach { ws ->
                     DropdownMenuItem(
-                        text = { Text(ws.name) },
+                        text = { Text(workspaceDisplayName(ws)) },
                         leadingIcon = {
                             Box(
                                 modifier = Modifier
@@ -1347,14 +1348,14 @@ fun PrivacyProtectionCard(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 ProtectionStatChip(
-                    title = "Ads Blocked",
+                    title = stringResource(R.string.privacy_stat_ads_blocked),
                     count = formatStatCount(blockedAdsCount),
                     isDark = isDark,
                     modifier = Modifier.weight(1f),
                 )
 
                 ProtectionStatChip(
-                    title = "Trackers Stopped",
+                    title = stringResource(R.string.privacy_stat_trackers_stopped),
                     count = formatStatCount(blockedTrackersCount),
                     isDark = isDark,
                     modifier = Modifier.weight(1f),

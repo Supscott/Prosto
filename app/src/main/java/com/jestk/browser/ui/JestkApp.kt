@@ -55,6 +55,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.jestk.browser.ui.components.tabDisplayTitle
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -95,6 +96,7 @@ import com.jestk.browser.ui.overlays.FeedbackBottomSheet
 import com.jestk.browser.ui.overlays.FolderEditBottomSheet
 import com.jestk.browser.ui.overlays.FullscreenVideoLayer
 import com.jestk.browser.ui.overlays.BlockedAdNavigationBanner
+import com.jestk.browser.ui.overlays.ExternalAppConfirmDialog
 import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
@@ -264,7 +266,7 @@ fun JestkApp(
         val currentTab = uiState.tabs.find { it.id == uiState.activeTabId }
         val siteTopColor = uiState.activeTopThemeColor ?: currentTab?.topThemeColor
         val siteBottomColor = uiState.activeBottomThemeColor ?: currentTab?.bottomThemeColor
-        val showHomeScreen = uiState.isHome
+        val showHomeScreen = uiState.isHomeContentVisible
         val isHomeOrNeutral = showHomeScreen || uiState.isSettingsVisible || uiState.isDownloadsVisible
 
         val resolvedColors = DynamicBarColors.resolve(
@@ -598,7 +600,7 @@ fun JestkApp(
                         .padding(bottom = snackbarBaseBottomOffset, start = 16.dp, end = 16.dp),
             ) {
                 val tab = uiState.recentlyClosedTab
-                val tabTitle = tab?.title?.takeIf { it.isNotBlank() && it != "Home" && it != "New Tab" } ?: "Tab"
+                val tabTitle = tab?.let { tabDisplayTitle(it) }.orEmpty()
                 val undoText = stringResource(R.string.undo)
                 val closedText = stringResource(R.string.tab_closed)
 
@@ -754,7 +756,7 @@ fun JestkApp(
 
             // External App Floating Notification Pill
             AnimatedVisibility(
-                visible = uiState.externalAppPrompt != null,
+                visible = uiState.externalAppPrompt?.requiresConfirmation == false,
                 enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
                 exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
                 modifier = Modifier
@@ -768,46 +770,12 @@ fun JestkApp(
                         end = 16.dp
                     ),
             ) {
-                uiState.externalAppPrompt?.let { prompt ->
+                uiState.externalAppPrompt?.takeIf { !it.requiresConfirmation }?.let { prompt ->
                     ExternalAppNotificationPill(
                         prompt = prompt,
                         onOpen = {
                             viewModel.onEvent(BrowserUiEvent.OpenExternalApp(prompt))
-                            try {
-                                val intent = android.content.Intent.parseUri(prompt.intentUri, android.content.Intent.URI_INTENT_SCHEME).apply {
-                                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                }
-                                context.startActivity(intent)
-                            } catch (e: Exception) {
-                                val pkg = prompt.appPackage
-                                val launchIntent = if (!pkg.isNullOrBlank()) {
-                                    context.packageManager.getLaunchIntentForPackage(pkg)?.apply {
-                                        addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                    }
-                                } else null
-
-                                if (launchIntent != null) {
-                                    try {
-                                        context.startActivity(launchIntent)
-                                    } catch (t: Throwable) {
-                                        android.util.Log.w("JestkApp", "Failed to launch package via launch intent", t)
-                                    }
-                                } else if (!prompt.isInstalled && !prompt.appPackage.isNullOrBlank()) {
-                                    try {
-                                        val webPlay = android.content.Intent(
-                                            android.content.Intent.ACTION_VIEW,
-                                            android.net.Uri.parse("https://play.google.com/store/apps/details?id=${prompt.appPackage}")
-                                        ).apply {
-                                            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }
-                                        context.startActivity(webPlay)
-                                    } catch (t: Throwable) {
-                                        android.util.Log.w("JestkApp", "Failed to launch play store fallback", t)
-                                    }
-                                } else {
-                                    android.util.Log.w("JestkApp", "Failed to open external app", e)
-                                }
-                            }
+                            context.launchExternalApp(prompt)
                         },
                         onDismiss = {
                             viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT))
@@ -821,6 +789,25 @@ fun JestkApp(
                         }
                     )
                 }
+            }
+
+            // Confirmation for a deliberate tap on the site's own "Open app" control. Cancel and
+            // Close tab dismiss it transiently so a later tap is offered again.
+            uiState.externalAppPrompt?.takeIf { it.requiresConfirmation }?.let { prompt ->
+                ExternalAppConfirmDialog(
+                    isDark = isDark,
+                    onOpen = {
+                        viewModel.onEvent(BrowserUiEvent.OpenExternalApp(prompt))
+                        context.launchExternalApp(prompt)
+                    },
+                    onCloseTab = {
+                        viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT))
+                        viewModel.onEvent(BrowserUiEvent.CloseTab(prompt.tabId))
+                    },
+                    onCancel = {
+                        viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT))
+                    },
+                )
             }
 
             // Update Floating Notification Banner

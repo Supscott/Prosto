@@ -66,6 +66,7 @@ import androidx.compose.ui.util.lerp
 import androidx.compose.ui.zIndex
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.Workspace
+import com.jestk.browser.ui.components.workspaceDisplayName
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
@@ -520,7 +521,7 @@ fun WorkspacesOverviewScreen(
         val toDelete = workspaceToDelete
         if (toDelete != null) {
             WorkspaceDeleteConfirmDialog(
-                workspaceName = toDelete.name,
+                workspaceName = workspaceDisplayName(toDelete),
                 isDark = isDark,
                 onConfirm = {
                     onEvent(BrowserUiEvent.DeleteWorkspace(toDelete.id))

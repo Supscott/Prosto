@@ -113,6 +113,21 @@ class RecentTabDaoTest {
     }
 
     @Test
+    fun sameUrlInTwoWorkspaces_keepsBothRows() = runTest {
+        recentTabDao.upsertRecentTab(
+            RecentTabEntity(url = "https://a.com", title = "Personal A", workspaceId = "default_personal")
+        )
+        recentTabDao.upsertRecentTab(
+            RecentTabEntity(url = "https://a.com", title = "Work A", workspaceId = "default_work")
+        )
+
+        assertThat(recentTabDao.getRecentTabs(10, "default_personal").map { it.title })
+            .containsExactly("Personal A")
+        assertThat(recentTabDao.getRecentTabs(10, "default_work").map { it.title })
+            .containsExactly("Work A")
+    }
+
+    @Test
     fun clearRecentTabs_emptiesTable() = runTest {
         recentTabDao.upsertRecentTab(RecentTabEntity(url = "https://a.com", title = "A"))
         recentTabDao.clearRecentTabs()

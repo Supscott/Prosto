@@ -8,6 +8,7 @@ import android.os.Environment
 import android.util.Base64
 import android.util.Log
 import android.webkit.CookieManager
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.DownloadStatus
 import com.jestk.browser.domain.repository.DownloadRepository
@@ -271,7 +272,7 @@ class HoriDownloadManager(
             var item = downloadRepository.getDownloadById(id)
             if (item == null) {
                 Log.e(TAG, "Download $id has no database record, cannot start")
-                onError(id, "Download record not found")
+                onError(id, context.getString(R.string.downloads_failed))
                 return@launch
             }
 
@@ -471,7 +472,7 @@ class HoriDownloadManager(
                 Log.d(TAG, "Download $id was cancelled or paused")
             } catch (t: Throwable) {
                 Log.e(TAG, "Download $id failed", t)
-                val errorMsg = t.message ?: "Download failed"
+                val errorMsg = t.message ?: context.getString(R.string.downloads_failed)
                 downloadRepository.updateStatus(id, DownloadStatus.FAILED, errorMsg)
 
                 _activeDownloads.update { current ->
@@ -525,7 +526,10 @@ class HoriDownloadManager(
 
         val tempFile = File(targetFile.parentFile, "${targetFile.name}.tmp")
         tempFile.outputStream().use { it.write(bytes) }
-        tempFile.atomicMoveTo(targetFile)
+        if (!tempFile.atomicMoveTo(targetFile)) {
+            tempFile.delete()
+            throw IOException("Could not move data URL download to ${targetFile.name}")
+        }
 
         val id = downloadRepository.recordDownload(
             url = if (url.length > 512) url.take(512) + "..." else url,

@@ -146,7 +146,7 @@ class AppDatabaseMigrationTest {
         val personalProfile = cursorWorkspaces.getString(4)
 
         assertThat(personalId).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
-        assertThat(personalName).isEqualTo("Personal")
+        assertThat(personalName).isEmpty()
         assertThat(personalColor).isEqualTo(Workspace.DEFAULT_PERSONAL.color)
         assertThat(personalPos).isEqualTo(0)
         assertThat(personalProfile).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
@@ -159,7 +159,7 @@ class AppDatabaseMigrationTest {
         val workProfile = cursorWorkspaces.getString(4)
 
         assertThat(workId).isEqualTo(Workspace.DEFAULT_WORK_ID)
-        assertThat(workName).isEqualTo("Work")
+        assertThat(workName).isEmpty()
         assertThat(workColor).isEqualTo(Workspace.DEFAULT_WORK.color)
         assertThat(workPos).isEqualTo(1)
         assertThat(workProfile).isEqualTo(Workspace.DEFAULT_WORK_ID)
@@ -320,6 +320,93 @@ class AppDatabaseMigrationTest {
         assertThat(cursorWork.getString(0)).isEqualTo("default_work")
         cursorWork.close()
 
+        db.close()
+    }
+
+    private fun createV12Database(): SupportSQLiteDatabase {
+        val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(dbFile.name)
+            .callback(object : SupportSQLiteOpenHelper.Callback(12) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        """
+                        CREATE TABLE IF NOT EXISTS `recent_tabs` (
+                            `url` TEXT NOT NULL,
+                            `title` TEXT NOT NULL,
+                            `snapshotPath` TEXT,
+                            `faviconUrl` TEXT,
+                            `lastVisitedTimestamp` INTEGER NOT NULL,
+                            `workspaceId` TEXT NOT NULL DEFAULT 'default_personal',
+                            PRIMARY KEY(`url`)
+                        )
+                        """.trimIndent()
+                    )
+                    db.execSQL("CREATE TABLE `workspaces` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                    db.execSQL("CREATE TABLE `tabs` (`id` TEXT NOT NULL, `url` TEXT NOT NULL, `title` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                }
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+
+        return FrameworkSQLiteOpenHelperFactory().create(configuration).writableDatabase
+    }
+
+    @Test
+    fun migration12To13_keysRecentTabsByUrlAndWorkspace() {
+        val db = createV12Database()
+        db.execSQL(
+            """
+            INSERT INTO `recent_tabs` (`url`, `title`, `snapshotPath`, `faviconUrl`, `lastVisitedTimestamp`, `workspaceId`)
+            VALUES ('https://example.com', 'Example', '/snap.jpg', NULL, 1000, 'default_work')
+            """.trimIndent()
+        )
+
+        AppDatabase.MIGRATION_12_13.migrate(db)
+
+        db.execSQL(
+            """
+            INSERT INTO `recent_tabs` (`url`, `title`, `snapshotPath`, `faviconUrl`, `lastVisitedTimestamp`, `workspaceId`)
+            VALUES ('https://example.com', 'Example personal', NULL, NULL, 2000, 'default_personal')
+            """.trimIndent()
+        )
+        val cursor = db.query("SELECT workspaceId, snapshotPath FROM recent_tabs WHERE url = 'https://example.com' ORDER BY workspaceId")
+        assertThat(cursor.count).isEqualTo(2)
+        cursor.moveToFirst()
+        assertThat(cursor.getString(0)).isEqualTo("default_personal")
+        cursor.moveToNext()
+        assertThat(cursor.getString(0)).isEqualTo("default_work")
+        assertThat(cursor.getString(1)).isEqualTo("/snap.jpg")
+        cursor.close()
+
+        db.close()
+    }
+
+    @Test
+    fun migration12To13_blanksEnglishPlaceholders() {
+        val db = createV12Database()
+        db.execSQL("INSERT INTO workspaces VALUES ('default_personal', 'Personal'), ('default_work', 'Office'), ('ws_1', 'Work')")
+        db.execSQL(
+            """
+            INSERT INTO tabs VALUES
+                ('home', '', 'Home'),
+                ('new', 'https://a.com', 'New Tab'),
+                ('loading', 'https://b.com', 'Loading...'),
+                ('page', 'https://c.com', 'Home')
+            """.trimIndent()
+        )
+
+        AppDatabase.MIGRATION_12_13.migrate(db)
+
+        fun names(sql: String): Map<String, String> = db.query(sql).use { c ->
+            buildMap { while (c.moveToNext()) put(c.getString(0), c.getString(1)) }
+        }
+        // Only untouched default names are blanked; a renamed default and a user's "Work" stay.
+        assertThat(names("SELECT id, name FROM workspaces"))
+            .containsExactly("default_personal", "", "default_work", "Office", "ws_1", "Work")
+        // A real page titled "Home" keeps its title.
+        assertThat(names("SELECT id, title FROM tabs"))
+            .containsExactly("home", "", "new", "", "loading", "", "page", "Home")
         db.close()
     }
 }

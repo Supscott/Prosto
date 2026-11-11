@@ -3,18 +3,17 @@ package com.jestk.browser.data.local.entity
 import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
-import androidx.room.PrimaryKey
 import com.jestk.browser.domain.model.Workspace
 
 @Entity(
     tableName = "recent_tabs",
+    primaryKeys = ["url", "workspaceId"],
     indices = [
         Index(value = ["lastVisitedTimestamp"]),
         Index(value = ["workspaceId", "lastVisitedTimestamp"])
     ]
 )
 data class RecentTabEntity(
-    @PrimaryKey
     val url: String,
     val title: String,
     val snapshotPath: String? = null,

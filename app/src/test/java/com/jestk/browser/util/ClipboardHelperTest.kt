@@ -29,7 +29,7 @@ class ClipboardHelperTest {
         assertThat(clip?.itemCount).isEqualTo(1)
         assertThat(clip?.getItemAt(0)?.text?.toString()).isEqualTo("https://example.com")
         assertThat(clip?.description?.label?.toString()).isEqualTo("URL")
-        assertThat(ShadowToast.getTextOfLatestToast()).isEqualTo("URL copied to clipboard")
+        assertThat(ShadowToast.getTextOfLatestToast()).isEqualTo(context.getString(com.jestk.browser.R.string.url_copied))
     }
 
     @Test

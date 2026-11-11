@@ -67,6 +67,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
@@ -355,13 +356,12 @@ fun TabOverviewGrid(
                     } else {
                         uiState.tabs.size
                     }
+                val totalTabs = uiState.tabs.size
                 val tabCountText =
                     if (tabSearchQuery.isNotBlank()) {
-                        "$totalMatchingTabs of ${uiState.tabs.size} tabs"
-                    } else if (uiState.tabs.size == 1) {
-                        "1 tab"
+                        pluralStringResource(R.plurals.tabs_overview_count_filtered, totalTabs, totalMatchingTabs, totalTabs)
                     } else {
-                        "${uiState.tabs.size} tabs"
+                        pluralStringResource(R.plurals.workspace_tabs_count, totalTabs, totalTabs)
                     }
                 Text(
                     text = tabCountText,

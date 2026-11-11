@@ -289,6 +289,7 @@ private fun DownloadItemCard(
     onRetry: () -> Unit = {},
 ) {
     val category = resolveFileCategory(item.fileName, item.mimeType)
+    val resources = LocalContext.current.resources
 
     val currentStatus = progressInfo?.status ?: item.status
     val isDownloading = currentStatus == DownloadStatus.DOWNLOADING || currentStatus == DownloadStatus.PENDING
@@ -324,7 +325,7 @@ private fun DownloadItemCard(
                 verticalArrangement = Arrangement.Center,
             ) {
                 Text(
-                    text = item.fileName.ifEmpty { "download" },
+                    text = item.fileName.ifEmpty { stringResource(R.string.download_default_filename) },
                     style =
                         LocalProstoTypography.current.bodyMd.copy(
                             fontWeight = FontWeight.SemiBold,
@@ -342,7 +343,7 @@ private fun DownloadItemCard(
                 ) {
                     when {
                         isDownloading -> {
-                            val progressText = formatProgressText(bytesDownloaded, totalBytes)
+                            val progressText = FileSizeFormatter.formatProgressText(resources, bytesDownloaded, totalBytes)
                             Text(
                                 text = progressText,
                                 style =
@@ -361,7 +362,7 @@ private fun DownloadItemCard(
                                     color = ProstoMutedSlate,
                                 )
                                 Text(
-                                    text = stringResource(R.string.downloads_speed, formatFileSize(progressInfo.speedBytesPerSec)),
+                                    text = FileSizeFormatter.formatSpeed(resources, progressInfo.speedBytesPerSec),
                                     style =
                                         LocalProstoTypography.current.bodySm.copy(
                                             fontWeight = FontWeight.Medium,
@@ -372,7 +373,7 @@ private fun DownloadItemCard(
                         }
 
                         isPaused -> {
-                            val progressText = formatProgressText(bytesDownloaded, totalBytes)
+                            val progressText = FileSizeFormatter.formatProgressText(resources, bytesDownloaded, totalBytes)
                             Text(
                                 text = stringResource(R.string.downloads_paused, progressText),
                                 style =
@@ -395,7 +396,7 @@ private fun DownloadItemCard(
                         }
 
                         else -> {
-                            val sizeStr = formatFileSize(if (totalBytes > 0L) totalBytes else item.contentLength)
+                            val sizeStr = FileSizeFormatter.formatFileSize(resources, if (totalBytes > 0L) totalBytes else item.contentLength)
                             if (sizeStr.isNotEmpty()) {
                                 Text(
                                     text = sizeStr,
@@ -708,13 +709,6 @@ private fun resolveFileCategory(
         }
     }
 }
-
-fun formatFileSize(bytes: Long): String = FileSizeFormatter.formatFileSize(bytes)
-
-fun formatProgressText(
-    bytesDownloaded: Long,
-    totalBytes: Long,
-): String = FileSizeFormatter.formatProgressText(bytesDownloaded, totalBytes)
 
 fun formatTimestamp(timestamp: Long): String {
     if (timestamp <= 0L) return ""

@@ -13,5 +13,10 @@ data class ExternalAppPrompt(
     val appIcon: AppIcon? = null,
     val intentUri: String,
     val isInstalled: Boolean = true,
-    val domain: String
+    val domain: String,
+    /**
+     * True when the user deliberately tapped a site's own "Open app" control: the handoff is shown
+     * as a confirmation dialog instead of the passive, auto-dismissing hint.
+     */
+    val requiresConfirmation: Boolean = false,
 )

@@ -106,13 +106,20 @@ internal class TabCoordinator(
         if (current.activeTabId != tabId) {
             // Keep the offer for a background tab instead of dropping it: the user may switch
             // to that tab right after the link was opened in the background.
-            pendingExternalAppPrompts.putIfAbsent(tabId, prompt)
+            // A confirmation dialog must not pop up later over a different screen.
+            pendingExternalAppPrompts.putIfAbsent(tabId, prompt.copy(requiresConfirmation = false))
             return
         }
 
         val existing = current.externalAppPrompt
-        if (existing != null && areExternalAppDomainsEqual(existing.domain, prompt.domain)) {
-            return
+        if (existing != null) {
+            // A passive hint never replaces a pending confirmation; a confirmation upgrades a hint.
+            if (existing.requiresConfirmation && !prompt.requiresConfirmation) return
+            if (existing.requiresConfirmation == prompt.requiresConfirmation &&
+                areExternalAppDomainsEqual(existing.domain, prompt.domain)
+            ) {
+                return
+            }
         }
         updateUiState { it.copy(externalAppPrompt = prompt) }
     }
@@ -217,7 +224,7 @@ internal class TabCoordinator(
 
             val activeTab: Tab =
                 if (workspaceTabs.isEmpty()) {
-                    val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = activeWorkspaceId)
+                    val newTab = tabRepository.createTab(url = "", title = "", workspaceId = activeWorkspaceId)
                     tabRepository.setActiveTab(newTab.id)
                     newTab.copy(isActive = true)
                 } else {
@@ -486,25 +493,18 @@ internal class TabCoordinator(
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 val activeWorkspaceId = getCurrentState().activeWorkspaceId
-                val created = tabRepository.createTab(url = "", title = "Search", workspaceId = activeWorkspaceId)
+                val created = tabRepository.createTab(url = "", title = "", workspaceId = activeWorkspaceId)
                 Log.d(TAG, "Created search tab ${created.id}")
                 tabRepository.setActiveTab(created.id)
                 webViewPool?.onTabActivated(created.id, false)
-                val baseTabs =
-                    if (getCurrentState().tabs.isEmpty()) {
-                        tabRepository.getInitialTabs().filter { it.id != created.id && it.workspaceId == activeWorkspaceId }
-                    } else {
-                        getCurrentState().tabs.filter { it.id != created.id }
-                    }
-                val currentTabs = baseTabs.map { it.copy(isActive = false) }
-                val updatedTabs = (currentTabs + created.copy(isActive = true)).distinctBy { it.id }
+                val fallbackTabs = loadFallbackTabs(created.id, activeWorkspaceId)
                 tabLoadingProgress[created.id] = 100
                 updateUiState {
                     it.copy(
-                        tabs = updatedTabs,
+                        tabs = it.tabsWithNewTab(created.copy(isActive = true), fallbackTabs),
                         activeTabId = created.id,
                         currentUrl = "",
-                        pageTitle = "Search",
+                        pageTitle = "",
                         isLoading = false,
                         loadingProgress = 0f,
                         activeThemeColor = null,
@@ -519,6 +519,24 @@ internal class TabCoordinator(
                 onSearchOpened()
             }
         }
+    }
+
+    /** Tabs to show when the UI has none yet (cold start); empty otherwise. */
+    private suspend fun loadFallbackTabs(excludeId: String, workspaceId: String): List<Tab> =
+        if (getCurrentState().tabs.isEmpty()) {
+            tabRepository.getInitialTabs().filter { it.id != excludeId && it.workspaceId == workspaceId }
+        } else {
+            emptyList()
+        }
+
+    /**
+     * The tab list with [newTab] added, built from the state being updated so that concurrent
+     * title/favicon/DB updates are not overwritten. An active [newTab] deactivates the others.
+     */
+    private fun BrowserUiState.tabsWithNewTab(newTab: Tab, fallbackTabs: List<Tab>): List<Tab> {
+        val base = (tabs.ifEmpty { fallbackTabs }).filter { it.id != newTab.id }
+        val others = if (newTab.isActive) base.map { it.copy(isActive = false) } else base
+        return (others + newTab).distinctBy { it.id }
     }
 
     private suspend fun activateNewTabState(
@@ -537,19 +555,11 @@ internal class TabCoordinator(
             tabRepository.updateFavicon(created.id, cachedFavicon)
         }
         webViewPool?.onTabActivated(created.id, false)
-        val activeWorkspaceId = getCurrentState().activeWorkspaceId
-        val baseTabs =
-            if (getCurrentState().tabs.isEmpty()) {
-                tabRepository.getInitialTabs().filter { it.id != created.id && it.workspaceId == activeWorkspaceId }
-            } else {
-                getCurrentState().tabs.filter { it.id != created.id }
-            }
-        val currentTabs = baseTabs.map { it.copy(isActive = false) }
-        val updatedTabs = (currentTabs + created.copy(isActive = true, faviconUrl = cachedFavicon)).distinctBy { it.id }
+        val fallbackTabs = loadFallbackTabs(created.id, getCurrentState().activeWorkspaceId)
         tabLoadingProgress[created.id] = if (isWebLoading) 15 else 100
         updateUiState {
             it.copy(
-                tabs = updatedTabs,
+                tabs = it.tabsWithNewTab(created.copy(isActive = true, faviconUrl = cachedFavicon), fallbackTabs),
                 activeTabId = created.id,
                 currentUrl = url,
                 pageTitle = pageTitle,
@@ -572,7 +582,7 @@ internal class TabCoordinator(
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 val isHome = url.isEmpty() || url == "about:blank"
-                val title = if (isHome) "Home" else ""
+                val title = ""
                 val cachedFavicon = if (!isHome) FaviconManager.getCachedFaviconForUrl(url) else null
                 val activeWorkspaceId = getCurrentState().activeWorkspaceId
                 val created = tabRepository.createTab(url = url, title = title, workspaceId = activeWorkspaceId)
@@ -600,7 +610,7 @@ internal class TabCoordinator(
     fun openTabInBackground(url: String) {
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
-                val title = if (url.isEmpty() || url == "about:blank") "Home" else "Loading..."
+                val title = ""
                 val cachedFavicon = if (url.isNotEmpty() && url != "about:blank") {
                     FaviconManager.getCachedFaviconForUrl(url)
                 } else null
@@ -610,16 +620,10 @@ internal class TabCoordinator(
                 if (cachedFavicon != null) {
                     tabRepository.updateFavicon(created.id, cachedFavicon)
                 }
-                val baseTabs =
-                    if (getCurrentState().tabs.isEmpty()) {
-                        tabRepository.getInitialTabs().filter { it.id != created.id && it.workspaceId == activeWorkspaceId }
-                    } else {
-                        getCurrentState().tabs.filter { it.id != created.id }
-                    }
-                val updatedTabs = (baseTabs + created.copy(isActive = false, faviconUrl = cachedFavicon)).distinctBy { it.id }
+                val fallbackTabs = loadFallbackTabs(created.id, activeWorkspaceId)
                 updateUiState {
                     it.copy(
-                        tabs = updatedTabs,
+                        tabs = it.tabsWithNewTab(created.copy(isActive = false, faviconUrl = cachedFavicon), fallbackTabs),
                         linkContextMenuUrl = null,
                         selectedImageUrl = null,
                     )
@@ -658,7 +662,6 @@ internal class TabCoordinator(
         }
         activateTabInternal(
             selected = selected,
-            tabsList = getCurrentState().tabs,
             keepOverlayIfTabGrid = false,
         )
         scope.launch(ioDispatcher) {
@@ -668,9 +671,10 @@ internal class TabCoordinator(
         }
     }
 
+    /** @param removedTabId a tab that has just been closed or moved away and must not reappear. */
     private fun activateTabInternal(
         selected: Tab,
-        tabsList: List<Tab>,
+        removedTabId: String? = null,
         keepOverlayIfTabGrid: Boolean = false,
         recentlyClosedTab: Tab? = null,
     ) {
@@ -694,7 +698,7 @@ internal class TabCoordinator(
         val liveTitle = liveWebView?.title?.takeIf { it.isNotBlank() }
 
         val effectiveUrl = liveUrl ?: selected.url
-        val effectiveTitle = liveTitle ?: (if (liveUrl != null && (selected.title.isEmpty() || selected.title == "Home")) liveUrl else selected.title)
+        val effectiveTitle = liveTitle ?: (if (liveUrl != null && selected.title.isEmpty()) liveUrl else selected.title)
         val effectiveCanGoBack = liveWebView?.canGoBack() ?: selected.canGoBack
         val effectiveCanGoForward = liveWebView?.canGoForward() ?: selected.canGoForward
 
@@ -711,7 +715,7 @@ internal class TabCoordinator(
 
         updateUiState { state ->
             val updatedTabs =
-                tabsList.map { t ->
+                state.tabs.filter { it.id != removedTabId }.map { t ->
                     val c = tabThemeColors[t.id] ?: t.themeColor
                     val bc = tabBottomThemeColors[t.id] ?: t.bottomThemeColor
                     if (t.id == tabId) {
@@ -795,7 +799,7 @@ internal class TabCoordinator(
 
         if (!wasActive) {
             updateUiState { state ->
-                val updatedTabs = remainingTabs.map { t ->
+                val updatedTabs = state.tabs.filter { it.id != tabId }.map { t ->
                     val c = tabThemeColors[t.id] ?: t.themeColor
                     t.copy(themeColor = c)
                 }
@@ -825,7 +829,7 @@ internal class TabCoordinator(
                     tabs = emptyList(),
                     activeTabId = null,
                     currentUrl = "",
-                    pageTitle = "Home",
+                    pageTitle = "",
                     isLoading = false,
                     loadingProgress = 0f,
                     activeThemeColor = null,
@@ -844,7 +848,7 @@ internal class TabCoordinator(
                         recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = tabToSave
                     }
                     tabRepository.closeTab(tabId)
-                    val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = getCurrentState().activeWorkspaceId)
+                    val newTab = tabRepository.createTab(url = "", title = "", workspaceId = getCurrentState().activeWorkspaceId)
                     tabRepository.setActiveTab(newTab.id)
                     webViewPool?.onTabActivated(newTab.id, false)
                     tabLoadingProgress[newTab.id] = 100
@@ -853,7 +857,7 @@ internal class TabCoordinator(
                             tabs = listOf(newTab.copy(isActive = true)),
                             activeTabId = newTab.id,
                             currentUrl = "",
-                            pageTitle = "Home",
+                            pageTitle = "",
                             isLoading = false,
                             loadingProgress = 0f,
                             activeThemeColor = null,
@@ -876,7 +880,7 @@ internal class TabCoordinator(
 
             activateTabInternal(
                 selected = nextActive,
-                tabsList = remainingTabs,
+                removedTabId = tabId,
                 keepOverlayIfTabGrid = true,
                 recentlyClosedTab = closingTab,
             )
@@ -928,9 +932,6 @@ internal class TabCoordinator(
                         canGoForward = tabToRestore.canGoForward,
                     )
 
-                val updatedTabs =
-                    (getCurrentState().tabs.map { it.copy(isActive = false) } + restoredTab)
-                        .distinctBy { it.id }
 
                 val isHome = restoredTab.url.isEmpty() || restoredTab.url == "about:blank"
                 val isWebLoading = !isHome && restoredTab.url.isNotEmpty()
@@ -943,7 +944,7 @@ internal class TabCoordinator(
 
                 updateUiState { state ->
                     state.copy(
-                        tabs = updatedTabs,
+                        tabs = state.tabsWithNewTab(restoredTab, fallbackTabs = emptyList()),
                         activeTabId = created.id,
                         currentUrl = restoredTab.url,
                         pageTitle = restoredTab.title,
@@ -985,7 +986,7 @@ internal class TabCoordinator(
             FaviconManager.deleteAllFavicons()
             tabOperationMutex.withLock {
                 tabRepository.closeAllTabs()
-                val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = getCurrentState().activeWorkspaceId)
+                val newTab = tabRepository.createTab(url = "", title = "", workspaceId = getCurrentState().activeWorkspaceId)
                 tabRepository.setActiveTab(newTab.id)
                 webViewPool?.onTabActivated(newTab.id, false)
                 tabLoadingProgress[newTab.id] = 100
@@ -994,7 +995,7 @@ internal class TabCoordinator(
                         tabs = listOf(newTab.copy(isActive = true)),
                         activeTabId = newTab.id,
                         currentUrl = "",
-                        pageTitle = "Home",
+                        pageTitle = "",
                         isLoading = false,
                         loadingProgress = 0f,
                         activeThemeColor = null,
@@ -1069,12 +1070,12 @@ internal class TabCoordinator(
             updateUiState {
                 val updatedTabs =
                     it.tabs.map { tab ->
-                        if (tab.id == activeId) tab.copy(url = "", title = "Home", faviconUrl = null) else tab
+                        if (tab.id == activeId) tab.copy(url = "", title = "", faviconUrl = null) else tab
                     }
                 it.copy(
                     tabs = updatedTabs,
                     currentUrl = "",
-                    pageTitle = "Home",
+                    pageTitle = "",
                     isLoading = false,
                     loadingProgress = 0f,
                     isMenuExpanded = false,
@@ -1083,7 +1084,7 @@ internal class TabCoordinator(
                 )
             }
             scope.launch(ioDispatcher) {
-                tabRepository.updateTabDetails(activeId, "", "Home", canGoBack = false, canGoForward = false)
+                tabRepository.updateTabDetails(activeId, "", "", canGoBack = false, canGoForward = false)
                 tabRepository.updateFavicon(activeId, null)
             }
             return
@@ -1153,7 +1154,7 @@ internal class TabCoordinator(
         }
 
         val shouldResetTitle = currentTab != null && currentTab.url != url && !sameDomain
-        val newTitle = if (shouldResetTitle) "Loading..." else null
+        val newTitle = if (shouldResetTitle) "" else null
 
         if (!sameDomain) {
             dismissedExternalAppDomains[tabId]?.clear()
@@ -1183,7 +1184,7 @@ internal class TabCoordinator(
                 state.copy(
                     tabs = updatedTabs,
                     currentUrl = url,
-                    pageTitle = if (shouldResetTitle) (if (url.isEmpty()) "Home" else "Loading...") else state.pageTitle,
+                    pageTitle = if (shouldResetTitle) "" else state.pageTitle,
                     isLoading = true,
                     loadingProgress = 0.15f,
                     isBottomBarVisible = true,
@@ -1198,7 +1199,7 @@ internal class TabCoordinator(
                 tabRepository.updateTabDetails(
                     id = tabId,
                     url = url,
-                    title = "Loading...",
+                    title = "",
                     canGoBack = currentTab?.canGoBack ?: false,
                     canGoForward = currentTab?.canGoForward ?: false
                 )
@@ -1562,8 +1563,8 @@ internal class TabCoordinator(
 
                 if (eligibleTabs.isEmpty()) {
                     tabOperationMutex.withLock {
-                        val created = tabRepository.createTab(url = "", title = "Home")
-                        activateNewTabState(created, "", "Home", null, isWebLoading = false, isHome = true)
+                        val created = tabRepository.createTab(url = "", title = "", workspaceId = state.activeWorkspaceId)
+                        activateNewTabState(created, "", "", null, isWebLoading = false, isHome = true)
                     }
                 } else {
                     val nearestTab = eligibleTabs.minByOrNull { tab ->
@@ -1647,7 +1648,7 @@ internal class TabCoordinator(
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 val activeWorkspaceId = getCurrentState().activeWorkspaceId
-                val created = tabRepository.createTab(url = "", title = "Home", workspaceId = activeWorkspaceId)
+                val created = tabRepository.createTab(url = "", title = "", workspaceId = activeWorkspaceId)
                 tabRepository.updateFolderId(created.id, folderId)
                 val tabWithFolder = created.copy(folderId = folderId)
 
@@ -1691,7 +1692,7 @@ internal class TabCoordinator(
                         tabs = updatedTabs,
                         activeTabId = created.id,
                         currentUrl = "",
-                        pageTitle = "Home",
+                        pageTitle = "",
                         isLoading = false,
                         loadingProgress = 0f,
                         activeThemeColor = null,
@@ -1730,7 +1731,7 @@ internal class TabCoordinator(
         val overlay = if (preserveOverview) OverlayType.WORKSPACES else null
 
         if (targetTabs.isEmpty()) {
-            val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = targetWorkspaceId)
+            val newTab = tabRepository.createTab(url = "", title = "", workspaceId = targetWorkspaceId)
             tabRepository.setActiveTab(newTab.id)
             webViewPool?.onTabActivated(newTab.id, false)
             tabLoadingProgress[newTab.id] = 100
@@ -1742,7 +1743,7 @@ internal class TabCoordinator(
                     folders = targetFolders,
                     activeTabId = activeTab.id,
                     currentUrl = "",
-                    pageTitle = "Home",
+                    pageTitle = "",
                     isLoading = false,
                     loadingProgress = 0f,
                     canGoBack = false,
@@ -1783,7 +1784,6 @@ internal class TabCoordinator(
             }
             activateTabInternal(
                 selected = targetActive,
-                tabsList = targetTabs,
                 keepOverlayIfTabGrid = false,
             )
             if (overlay != null) {
@@ -1799,7 +1799,7 @@ internal class TabCoordinator(
             val position = (currentWorkspaces.maxOfOrNull { it.position } ?: 0) + 1
             val workspace = Workspace(
                 id = id,
-                name = name.trim().ifEmpty { "Workspace ${position + 1}" },
+                name = name.trim(),
                 color = color,
                 position = position,
                 profileName = id,
@@ -1882,7 +1882,7 @@ internal class TabCoordinator(
                     val remainingTabs = currentUiTabs.filter { it.id != tabId }
                     if (isCurrentActive) {
                         if (remainingTabs.isEmpty()) {
-                            val newTab = tabRepository.createTab(url = "", title = "Home", workspaceId = sourceWorkspaceId)
+                            val newTab = tabRepository.createTab(url = "", title = "", workspaceId = sourceWorkspaceId)
                             tabRepository.setActiveTab(newTab.id)
                             webViewPool?.onTabActivated(newTab.id, false)
                             tabLoadingProgress[newTab.id] = 100
@@ -1891,7 +1891,7 @@ internal class TabCoordinator(
                                     tabs = listOf(newTab.copy(isActive = true)),
                                     activeTabId = newTab.id,
                                     currentUrl = "",
-                                    pageTitle = "Home",
+                                    pageTitle = "",
                                     isLoading = false,
                                     loadingProgress = 0f,
                                     activeThemeColor = null,
@@ -1909,7 +1909,7 @@ internal class TabCoordinator(
                             tabRepository.setActiveTab(nextActive.id)
                             activateTabInternal(
                                 selected = nextActive,
-                                tabsList = remainingTabs,
+                                removedTabId = tabId,
                                 keepOverlayIfTabGrid = true,
                             )
                         }

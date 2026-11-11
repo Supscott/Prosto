@@ -1,5 +1,6 @@
 package com.jestk.browser.ui.components
 
+import android.content.res.Resources
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,12 +29,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.ui.theme.CardPreviewBlueBrush
 import com.jestk.browser.ui.theme.CardPreviewPeachBrush
@@ -46,7 +47,6 @@ import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
-import java.io.File
 import java.net.URI
 
 /**
@@ -111,15 +111,11 @@ fun ProstoRecentTabCard(
                         .clip(RoundedCornerShape(14.dp))
                         .background(previewGradient),
             ) {
-                val file = item.snapshotPath?.let { File(it) }
-                if (file != null && file.exists()) {
-                    AsyncImage(
-                        model = file,
-                        contentDescription = item.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
-                } else {
+                SnapshotImage(
+                    path = item.snapshotPath,
+                    contentDescription = item.title,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
                     // Decorative header with category glyph and wireframe preview bars
                     Column(
                         modifier =
@@ -211,7 +207,7 @@ fun ProstoRecentTabCard(
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                val relativeTime = formatRelativeTime(item.lastVisitedTimestamp)
+                val relativeTime = formatRelativeTime(item.lastVisitedTimestamp, LocalContext.current.resources)
                 if (relativeTime.isNotEmpty()) {
                     Text(
                         text = relativeTime,
@@ -224,20 +220,22 @@ fun ProstoRecentTabCard(
         }
     }
 }
-internal fun formatRelativeTime(timestamp: Long): String {
+internal fun formatRelativeTime(
+    timestamp: Long,
+    resources: Resources,
+    now: Long = System.currentTimeMillis(),
+): String {
     if (timestamp <= 0L) return ""
-    val now = System.currentTimeMillis()
     val diff = now - timestamp
-    if (diff < 0) return "Just now"
     val minutes = diff / (1000 * 60)
     val hours = diff / (1000 * 60 * 60)
     val days = diff / (1000 * 60 * 60 * 24)
 
     return when {
-        minutes < 5 -> "Just now"
-        minutes < 60 -> "${minutes}m ago"
-        hours < 24 -> "${hours}h ago"
-        days == 1L -> "Yesterday"
-        else -> "${days}d ago"
+        minutes < 5 -> resources.getString(R.string.relative_time_just_now)
+        minutes < 60 -> resources.getString(R.string.relative_time_minutes_ago, minutes.toInt())
+        hours < 24 -> resources.getString(R.string.relative_time_hours_ago, hours.toInt())
+        days == 1L -> resources.getString(R.string.relative_time_yesterday)
+        else -> resources.getString(R.string.relative_time_days_ago, days.toInt())
     }
 }

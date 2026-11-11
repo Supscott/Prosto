@@ -33,17 +33,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.Workspace
+import com.jestk.browser.ui.components.SnapshotImage
+import com.jestk.browser.ui.components.workspaceDisplayName
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.navigation.getContrastingFolderContentColor
 import com.jestk.browser.ui.components.SiteFavicon
@@ -59,7 +59,6 @@ import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.ui.theme.ProstoShapes
-import java.io.File
 
 /**
  * Android Recents-style workspace overview card displaying workspace header, active tab
@@ -127,7 +126,7 @@ fun WorkspaceOverviewCard(
                     modifier = Modifier.weight(1f, fill = false),
                 ) {
                     Text(
-                        text = workspace.name,
+                        text = workspaceDisplayName(workspace),
                         style = typography.labelMd.copy(
                             fontWeight = FontWeight.Bold,
                         ),
@@ -204,16 +203,12 @@ fun WorkspaceOverviewCard(
                         workspaceId = workspace.id,
                     )
                 } else {
-                    val file = activeTab?.snapshotPath?.let { File(it) }
-                    if (file != null && file.exists()) {
-                        AsyncImage(
-                            model = file,
-                            contentDescription = activeTab?.title,
-                            contentScale = ContentScale.Crop,
-                            alignment = Alignment.TopCenter,
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    } else {
+                    SnapshotImage(
+                        path = activeTab?.snapshotPath,
+                        contentDescription = activeTab?.title,
+                        alignment = Alignment.TopCenter,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center,

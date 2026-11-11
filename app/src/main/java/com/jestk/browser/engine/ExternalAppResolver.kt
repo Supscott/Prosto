@@ -11,6 +11,7 @@ import android.net.Uri
 import android.util.Log
 import com.jestk.browser.domain.model.AppIcon
 import com.jestk.browser.domain.model.ExternalAppPrompt
+import com.jestk.browser.domain.model.SearchEngineHosts
 import java.io.ByteArrayOutputStream
 
 sealed interface ExternalAppResolution {
@@ -30,18 +31,6 @@ sealed interface ExternalAppResolution {
 }
 
 object ExternalAppResolver {
-
-    private val SEARCH_ENGINE_HOSTS = setOf(
-        "google.com", "google.ru", "google.co.uk", "google.de", "google.fr",
-        "yandex.ru", "yandex.com", "ya.ru",
-        "duckduckgo.com",
-        "bing.com",
-        "search.yahoo.com", "yahoo.com",
-        "ecosia.org",
-        "search.brave.com", "brave.com",
-        "kagi.com",
-        "startpage.com"
-    )
 
     val DOMAIN_ALIASES: Map<String, String> = mapOf(
         "vk.ru" to "vk.com",
@@ -139,12 +128,6 @@ object ExternalAppResolver {
         } catch (e: Exception) {
             ""
         }
-    }
-
-    fun isSearchEngineDomain(host: String): Boolean {
-        if (host.isBlank()) return false
-        val cleanHost = host.removePrefix("www.").lowercase()
-        return SEARCH_ENGINE_HOSTS.any { cleanHost == it || cleanHost.endsWith(".$it") }
     }
 
     fun resolve(
@@ -436,7 +419,7 @@ object ExternalAppResolver {
         genericBrowserPackages: Set<String>
     ): ExternalAppResolution {
         val host = uri.host?.removePrefix("www.")?.lowercase().orEmpty()
-        if (host.isBlank() || isSearchEngineDomain(host)) {
+        if (host.isBlank() || SearchEngineHosts.isSearchEngineHost(host)) {
             return ExternalAppResolution.NoApp
         }
         val canonicalDomain = DOMAIN_ALIASES[host] ?: host

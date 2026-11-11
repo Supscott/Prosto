@@ -282,6 +282,8 @@ fun SearchOverlay(
             }
 
             // Pagination trigger: When user scrolls to the end of the loaded list (top of reversed list)
+            val latestUiState by rememberUpdatedState(uiState)
+            val latestOnEvent by rememberUpdatedState(onEvent)
             LaunchedEffect(
                 uiState.isSearchHistoryExpanded,
                 uiState.hasMoreHistory,
@@ -290,12 +292,13 @@ fun SearchOverlay(
                 snapshotFlow { scrollState.value }
                     .filter { it <= 20 }
                     .collect {
-                        if (uiState.isSearchHistoryExpanded &&
-                            uiState.hasMoreHistory &&
-                            !uiState.isLoadingMoreHistory &&
-                            uiState.searchHistorySuggestions.isNotEmpty()
+                        val state = latestUiState
+                        if (state.isSearchHistoryExpanded &&
+                            state.hasMoreHistory &&
+                            !state.isLoadingMoreHistory &&
+                            state.searchHistorySuggestions.isNotEmpty()
                         ) {
-                            onEvent(BrowserUiEvent.LoadMoreSearchHistory)
+                            latestOnEvent(BrowserUiEvent.LoadMoreSearchHistory)
                         }
                     }
             }

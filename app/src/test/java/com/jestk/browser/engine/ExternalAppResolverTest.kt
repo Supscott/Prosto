@@ -38,18 +38,6 @@ class ExternalAppResolverTest {
     }
 
     @Test
-    fun isSearchEngineDomain_identifiesKnownEngines() {
-        assertThat(ExternalAppResolver.isSearchEngineDomain("google.com")).isTrue()
-        assertThat(ExternalAppResolver.isSearchEngineDomain("www.google.com")).isTrue()
-        assertThat(ExternalAppResolver.isSearchEngineDomain("yandex.ru")).isTrue()
-        assertThat(ExternalAppResolver.isSearchEngineDomain("duckduckgo.com")).isTrue()
-        assertThat(ExternalAppResolver.isSearchEngineDomain("bing.com")).isTrue()
-        assertThat(ExternalAppResolver.isSearchEngineDomain("search.yahoo.com")).isTrue()
-        assertThat(ExternalAppResolver.isSearchEngineDomain("youtube.com")).isFalse()
-        assertThat(ExternalAppResolver.isSearchEngineDomain("reddit.com")).isFalse()
-    }
-
-    @Test
     fun resolve_internalSchemes_returnsNoApp() {
         assertThat(ExternalAppResolver.resolve(context, "about:blank", "tab_1")).isEqualTo(ExternalAppResolution.NoApp)
         assertThat(ExternalAppResolver.resolve(context, "data:text/html,test", "tab_1")).isEqualTo(ExternalAppResolution.NoApp)

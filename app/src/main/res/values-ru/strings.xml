@@ -116,6 +116,11 @@
     <string name="insecure_site_go_back_button">Назад</string>
     <string name="blocked_ad_navigation_proceed">Перейти</string>
     <string name="blocked_ad_navigation_stay">Остаться</string>
+    <string name="external_app_confirm_title">Открыть в другом приложении</string>
+    <string name="external_app_confirm_message">Выйти из Prosto, чтобы посмотреть этот контент?</string>
+    <string name="external_app_confirm_open">Открыть</string>
+    <string name="external_app_confirm_close_tab">Закрыть вкладку</string>
+    <string name="external_app_confirm_cancel">Отмена</string>
 
     <!-- Feedback & Community Rating -->
     <string name="feedback_card_title">Поделитесь впечатлениями</string>
@@ -260,4 +265,45 @@
     <string name="share_link">Поделиться ссылкой</string>
     <string name="workspace_tab_index_counter">Вкладка %1$d из %2$d</string>
     <string name="workspace_home_tab">Главная</string>
+    <string name="menu_tabs">Вкладки</string>
+    <string name="folder_untitled">Папка</string>
+    <string name="toast_added_to_favorites">Добавлено в избранное</string>
+    <string name="toast_cannot_add_home_to_favorites">Главную нельзя добавить в избранное</string>
+    <string name="toast_no_url_to_copy">Нет адреса для копирования</string>
+    <string name="toast_no_url_to_share">Нет адреса, чтобы поделиться</string>
+    <string name="toast_share_failed">Не удалось поделиться ссылкой</string>
+    <string name="toast_voice_input_unavailable">Голосовой ввод недоступен</string>
+    <string name="toast_qr_scanner_coming_soon">Сканер QR-кодов скоро появится</string>
+    <string name="toast_preparing_download">Подготовка загрузки…</string>
+    <string name="toast_download_failed_reason">Не удалось скачать: %1$s</string>
+    <string name="download_notification_starting">Загрузка файла…</string>
+    <string name="download_notification_complete">Загрузка завершена</string>
+    <plurals name="tabs_overview_count_filtered">
+        <item quantity="one">%1$d из %2$d вкладки</item>
+        <item quantity="few">%1$d из %2$d вкладок</item>
+        <item quantity="many">%1$d из %2$d вкладок</item>
+        <item quantity="other">%1$d из %2$d вкладки</item>
+    </plurals>
+    <string name="relative_time_just_now">Только что</string>
+    <string name="relative_time_minutes_ago">%1$d мин назад</string>
+    <string name="relative_time_hours_ago">%1$d ч назад</string>
+    <string name="relative_time_yesterday">Вчера</string>
+    <string name="relative_time_days_ago">%1$d дн. назад</string>
+    <string name="file_size_bytes">%1$s Б</string>
+    <string name="file_size_kb">%1$s КБ</string>
+    <string name="file_size_mb">%1$s МБ</string>
+    <string name="file_size_gb">%1$s ГБ</string>
+    <string name="download_action_pause">Пауза</string>
+    <string name="download_action_retry">Повторить</string>
+    <string name="download_channel_progress">Загрузки</string>
+    <string name="download_channel_progress_description">Ход загрузок в браузере</string>
+    <string name="download_channel_completed">Завершённые загрузки</string>
+    <string name="download_channel_completed_description">Уведомления о завершённых загрузках</string>
+    <string name="theme_mode_system">Система</string>
+    <string name="theme_mode_light">Светлая</string>
+    <string name="theme_mode_dark">Тёмная</string>
+    <string name="favorites_show_less">Свернуть</string>
+    <string name="favorites_show_all">Всё избранное (%1$d)</string>
+    <string name="privacy_stat_ads_blocked">Заблокировано рекламы</string>
+    <string name="privacy_stat_trackers_stopped">Остановлено трекеров</string>
 </resources>

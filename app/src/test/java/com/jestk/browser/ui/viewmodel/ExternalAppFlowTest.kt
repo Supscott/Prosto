@@ -105,6 +105,7 @@ class ExternalAppFlowTest {
             onExternalAppOffered = { id, prompt, userInitiated ->
                 viewModel.onEvent(BrowserUiEvent.OnExternalAppOffered(id, prompt, userInitiated))
             },
+            externalAppExecutor = { it.run() },
         )
 
     private fun registerRedditApp() {
@@ -264,6 +265,48 @@ class ExternalAppFlowTest {
                 userInitiated = true,
             )
             assertThat(viewModel.uiState.value.externalAppPrompt).isNull()
+        }
+
+    @Test
+    fun deliberateTap_asksForConfirmation_andCancelDoesNotSuppressTheNextTap() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://example.com"))
+            advanceUntilIdle()
+            val tabId = viewModel.uiState.value.activeTabId!!
+            val webView = WebView(context)
+            val client = createClient(viewModel, tabId)
+
+            client.handleExternalNavigation(webView, "tg://resolve?domain=durov", userInitiated = true)
+            assertThat(viewModel.uiState.value.externalAppPrompt?.requiresConfirmation).isTrue()
+
+            // A passive hint arriving meanwhile must not replace the pending confirmation.
+            client.handleExternalNavigation(webView, "tg://resolve?domain=durov", userInitiated = false)
+            assertThat(viewModel.uiState.value.externalAppPrompt?.requiresConfirmation).isTrue()
+
+            // Cancel is transient: the user's next deliberate tap is offered again.
+            viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT))
+            assertThat(viewModel.uiState.value.externalAppPrompt).isNull()
+            client.handleExternalNavigation(webView, "tg://resolve?domain=durov", userInitiated = true)
+            assertThat(viewModel.uiState.value.externalAppPrompt?.requiresConfirmation).isTrue()
+        }
+
+    @Test
+    fun scriptedHandoff_staysAPassiveHint() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://example.com"))
+            advanceUntilIdle()
+            val tabId = viewModel.uiState.value.activeTabId!!
+            val webView = WebView(context)
+            val client = createClient(viewModel, tabId)
+
+            client.handleExternalNavigation(webView, "tg://resolve?domain=durov", userInitiated = false)
+
+            assertThat(viewModel.uiState.value.externalAppPrompt).isNotNull()
+            assertThat(viewModel.uiState.value.externalAppPrompt?.requiresConfirmation).isFalse()
         }
 
     @Test

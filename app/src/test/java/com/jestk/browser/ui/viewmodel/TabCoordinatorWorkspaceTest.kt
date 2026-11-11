@@ -108,7 +108,7 @@ class TabCoordinatorWorkspaceTest {
         assertThat(uiState.workspaces).hasSize(2)
         assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
         assertThat(uiState.activeWorkspace?.id).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
-        assertThat(uiState.activeWorkspace?.name).isEqualTo("Personal")
+        assertThat(uiState.activeWorkspace?.id).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
     }
 
     @Test
@@ -171,7 +171,7 @@ class TabCoordinatorWorkspaceTest {
             advanceUntilIdle()
 
             assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
-            assertThat(uiState.activeWorkspace?.name).isEqualTo("Work")
+            assertThat(uiState.activeWorkspace?.id).isEqualTo(Workspace.DEFAULT_WORK_ID)
             assertThat(uiState.tabs.map { it.id }).containsExactly("w1", "w2")
             assertThat(uiState.folders.map { it.id }).containsExactly("f_work")
             // Tab w2 had higher lastActiveTimestamp (2000 > 1000) so it should be active
@@ -198,7 +198,7 @@ class TabCoordinatorWorkspaceTest {
             assertThat(uiState.tabs).hasSize(1)
             val workTab = uiState.tabs.first()
             assertThat(workTab.workspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
-            assertThat(workTab.title).isEqualTo("Home")
+            assertThat(workTab.isHomeTab).isTrue()
             assertThat(workTab.url).isEmpty()
             assertThat(uiState.activeTabId).isEqualTo(workTab.id)
         }
@@ -259,7 +259,7 @@ class TabCoordinatorWorkspaceTest {
             val newHomeTab = uiState.tabs.first()
             assertThat(newHomeTab.id).isNotEqualTo("only_tab")
             assertThat(newHomeTab.workspaceId).isEqualTo(Workspace.DEFAULT_PERSONAL_ID)
-            assertThat(newHomeTab.title).isEqualTo("Home")
+            assertThat(newHomeTab.isHomeTab).isTrue()
             assertThat(uiState.activeTabId).isEqualTo(newHomeTab.id)
         }
 

@@ -157,6 +157,11 @@ def check_no_hardcoded_ui_strings():
     """
     errors = []
     pattern = re.compile(r'\b(text|contentDescription)\s*=\s*"([^"]*)"')
+    # Toasts and notifications are user-facing too (UI-7).
+    call_pattern = re.compile(
+        r'\b(Toast\.makeText\([^,]+,|setContentTitle\(|setContentText\(|setSubText\(|'
+        r'addAction\(\s*\d+\s*,|createChooser\([^,]+,)\s*"([^"]*[A-Za-z][^"]*)"'
+    )
     allowed = {"", "·"}
     for file in (MAIN_DIR / "java").rglob("*.kt"):
         content = file.read_text(encoding="utf-8")
@@ -169,6 +174,79 @@ def check_no_hardcoded_ui_strings():
                         f"{file.relative_to(ROOT)}:{lineno}: hardcoded {match.group(1)} "
                         f"literal {match.group(2)!r}"
                     )
+            for match in call_pattern.finditer(line):
+                errors.append(
+                    f"{file.relative_to(ROOT)}:{lineno}: hardcoded toast/notification "
+                    f"literal {match.group(2)!r}; use a string resource"
+                )
+    return errors
+
+
+def _code_lines(file):
+    for lineno, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
+        yield lineno, line
+
+
+def check_no_english_sentinels():
+    """English placeholder titles must not be stored or compared (DATA-6).
+
+    Home tabs are identified by `Tab.isHomeTab`; blank titles and workspace names are
+    rendered from resources (`tabDisplayTitle`, `workspaceDisplayName`).
+    """
+    errors = []
+    pattern = re.compile(r'(==|!=|title\s*=|name\s*=)\s*"(Home|New Tab|Loading\.\.\.|Search|Personal|Work)"')
+    for file in (MAIN_DIR / "java").rglob("*.kt"):
+        for lineno, line in _code_lines(file):
+            if line.startswith("@Preview"):
+                break  # preview fixtures below may use sample names
+            if pattern.search(line):
+                errors.append(f"{file.relative_to(ROOT)}:{lineno}: English sentinel in data/logic: {line.strip()}")
+    return errors
+
+
+def check_no_file_io_in_composition():
+    """Composables must not touch the disk on every recomposition (UI-5).
+
+    Load snapshots with `SnapshotImage`, which lets Coil read the file off the main thread.
+    """
+    errors = []
+    ui_dir = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "ui"
+    for file in ui_dir.rglob("*.kt"):
+        if "viewmodel" in file.parts:
+            continue
+        for lineno, line in _code_lines(file):
+            if re.search(r"\.exists\(\)", line) and not line.lstrip().startswith(("//", "*")):
+                errors.append(f"{file.relative_to(ROOT)}:{lineno}: File.exists() in UI code; use SnapshotImage")
+    return errors
+
+
+def check_no_test_environment_detection():
+    """Production code must not branch on being under test (UI-6)."""
+    errors = []
+    for file in (MAIN_DIR / "java").rglob("*.kt"):
+        for lineno, line in _code_lines(file):
+            if "org.robolectric" in line or '"robolectric"' in line:
+                errors.append(f"{file.relative_to(ROOT)}:{lineno}: test-environment detection in production code")
+    return errors
+
+
+def check_english_only_comments():
+    """Code comments are English-only (UI-8). Quoted page text the code matches is data."""
+    errors = []
+    cyrillic = re.compile(r"[\u0400-\u04FF]")
+    allowlist = {"AdBlockerScript.kt"}  # documents the Russian consent-button labels it clicks
+    for file in (MAIN_DIR / "java").rglob("*.kt"):
+        if file.name in allowlist:
+            continue
+        for lineno, line in _code_lines(file):
+            stripped = line.lstrip()
+            comment = None
+            if stripped.startswith(("//", "*", "/*")):
+                comment = stripped
+            elif "//" in line and '"' not in line.split("//", 1)[0][-1:]:
+                comment = line.split("//", 1)[1]
+            if comment and cyrillic.search(comment):
+                errors.append(f"{file.relative_to(ROOT)}:{lineno}: non-English comment")
     return errors
 
 
@@ -265,6 +343,10 @@ def main():
     all_errors.extend(check_no_continuous_effect_keys())
     all_errors.extend(check_localization_parity())
     all_errors.extend(check_no_hardcoded_ui_strings())
+    all_errors.extend(check_no_english_sentinels())
+    all_errors.extend(check_no_file_io_in_composition())
+    all_errors.extend(check_no_test_environment_detection())
+    all_errors.extend(check_english_only_comments())
     all_errors.extend(check_security_challenge_protection())
     all_errors.extend(check_injected_script_stealth())
     all_errors.extend(check_fullscreen_view_attached_synchronously())
@@ -278,7 +360,8 @@ def main():
     print(
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
-        "Fullscreen Sync Attach)."
+        "Fullscreen Sync Attach, No English Sentinels, No Composition File I/O, No Test Detection, "
+        "English Comments)."
     )
     return 0
 

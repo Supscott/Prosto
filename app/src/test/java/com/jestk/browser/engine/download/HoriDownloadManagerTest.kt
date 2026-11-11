@@ -363,16 +363,16 @@ class HoriDownloadManagerTest {
         )
 
         // Progress text
-        val progressText = FileSizeFormatter.formatProgressText(info.bytesDownloaded, info.totalBytes)
+        val progressText = FileSizeFormatter.formatProgressText(context.resources, info.bytesDownloaded, info.totalBytes)
         assertThat(progressText).isEqualTo("15.0 MB / 60.0 MB (25%)")
 
         // Speed text
-        val speedText = "${FileSizeFormatter.formatFileSize(info.speedBytesPerSec)}/s"
+        val speedText = FileSizeFormatter.formatSpeed(context.resources, info.speedBytesPerSec)
         assertThat(speedText).isEqualTo("1.5 MB/s")
 
         // Indeterminate formatting
         val indeterminateInfo = info.copy(totalBytes = 0L)
-        val indeterminateText = FileSizeFormatter.formatProgressText(indeterminateInfo.bytesDownloaded, indeterminateInfo.totalBytes)
+        val indeterminateText = FileSizeFormatter.formatProgressText(context.resources, indeterminateInfo.bytesDownloaded, indeterminateInfo.totalBytes)
         assertThat(indeterminateText).isEqualTo("15.0 MB")
     }
 

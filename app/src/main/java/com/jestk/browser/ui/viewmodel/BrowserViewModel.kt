@@ -391,7 +391,7 @@ class BrowserViewModel(
                 if (event.openInNewTab && !isHome) {
                     val existingHomeTab =
                         current.tabs.firstOrNull {
-                            it.url.isEmpty() || it.url == "about:blank" || it.title == "Home"
+                            it.isHomeTab
                         }
                     if (existingHomeTab != null) {
                         tabCoordinator.selectTab(existingHomeTab.id)
@@ -1432,14 +1432,14 @@ class BrowserViewModel(
                     _uiState.update {
                         it.copy(
                             currentUrl = "",
-                            pageTitle = "Home",
+                            pageTitle = "",
                             canGoBack = false,
                             canGoForward = false,
                             activeOverlay = OverlayType.HOME,
                         )
                     }
                     viewModelScope.launch(ioDispatcher) {
-                        tabRepository.updateTabDetails(tabId, "", "Home", canGoBack = false, canGoForward = false)
+                        tabRepository.updateTabDetails(tabId, "", "", canGoBack = false, canGoForward = false)
                     }
                 }
             } else {

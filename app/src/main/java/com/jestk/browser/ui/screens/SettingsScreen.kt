@@ -240,7 +240,7 @@ fun SettingsContent(
 
     Column(modifier = modifier.fillMaxWidth()) {
         // ==========================================
-        // 1. APPEARANCE (ВНЕШНИЙ ВИД)
+        // 1. APPEARANCE
         // ==========================================
         SettingsSectionHeader(title = stringResource(R.string.settings_section_appearance))
         SegmentedThemeControl(
@@ -265,7 +265,7 @@ fun SettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ==========================================
-        // 2. GENERAL (ОБЩИЕ)
+        // 2. GENERAL
         // ==========================================
         SettingsSectionHeader(title = stringResource(R.string.settings_section_general))
         InsetGroupedCard(isDark = isDark) {
@@ -318,7 +318,7 @@ fun SettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ==========================================
-        // 3. SEARCH (ПОИСК)
+        // 3. SEARCH
         // ==========================================
         SettingsSectionHeader(title = stringResource(R.string.settings_section_search))
         InsetGroupedCard(isDark = isDark) {
@@ -478,7 +478,7 @@ fun SettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ==========================================
-        // 4. PRIVACY & PROTECTION (КОНФИДЕНЦИАЛЬНОСТЬ)
+        // 4. PRIVACY & PROTECTION
         // ==========================================
         Row(
             modifier =
@@ -596,7 +596,7 @@ fun SettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ==========================================
-        // 5. ABOUT & SYSTEM (О ПРИЛОЖЕНИИ)
+        // 5. ABOUT & SYSTEM
         // ==========================================
         SettingsSectionHeader(title = stringResource(R.string.settings_section_about))
         InsetGroupedCard(isDark = isDark) {
@@ -641,7 +641,7 @@ fun SettingsContent(
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://jestk.com"))
                         context.startActivity(intent)
                     } catch (_: Exception) {
-                        Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, R.string.error_cannot_open_link, Toast.LENGTH_SHORT).show()
                     }
                 },
                 isDark = isDark,
@@ -662,7 +662,7 @@ fun SettingsContent(
                         val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Supscott/Prosto"))
                         context.startActivity(intent)
                     } catch (_: Exception) {
-                        Toast.makeText(context, "Could not open link", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, R.string.error_cannot_open_link, Toast.LENGTH_SHORT).show()
                     }
                 },
                 isDark = isDark,
@@ -945,9 +945,9 @@ fun SegmentedThemeControl(
                             }
                         val label =
                             when (mode) {
-                                ThemeMode.SYSTEM -> "System"
-                                ThemeMode.LIGHT -> "Light"
-                                ThemeMode.DARK -> "Dark"
+                                ThemeMode.SYSTEM -> stringResource(R.string.theme_mode_system)
+                                ThemeMode.LIGHT -> stringResource(R.string.theme_mode_light)
+                                ThemeMode.DARK -> stringResource(R.string.theme_mode_dark)
                             }
 
                         Icon(

@@ -12,7 +12,7 @@ interface TabRepository {
     fun getTabByIdFlow(id: String): Flow<Tab?>
     suspend fun createTab(
         url: String = "",
-        title: String = "New Tab",
+        title: String = "",
         isIncognito: Boolean = false,
         id: String = java.util.UUID.randomUUID().toString(),
         workspaceId: String = Workspace.DEFAULT_PERSONAL_ID,

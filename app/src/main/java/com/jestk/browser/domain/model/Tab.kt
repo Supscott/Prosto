@@ -3,7 +3,7 @@ package com.jestk.browser.domain.model
 data class Tab @JvmOverloads constructor(
     val id: String,
     val url: String = "",
-    val title: String = "New Tab",
+    val title: String = "",
     val lastActiveTimestamp: Long = System.currentTimeMillis(),
     val snapshotPath: String? = null,
     val position: Int = 0,

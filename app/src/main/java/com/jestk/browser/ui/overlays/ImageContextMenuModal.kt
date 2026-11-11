@@ -64,9 +64,9 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
  * Crisp Level 2 solid surface with NO BLUR.
  *
  * Actions:
- * 1. "Скопировать ссылку на изображение" (Copies image URL to clipboard).
- * 2. "Скачать изображение" (Calls download logic).
- * 3. "Превью (открыть в новой вкладке)" (Opens photo in a new tab).
+ * 1. "Copy image address" (copies the image URL to the clipboard).
+ * 2. "Download image" (starts a download).
+ * 3. "Preview" (opens the image in a new tab).
  */
 @Composable
 fun ImageContextMenuModal(
@@ -218,7 +218,7 @@ fun ImageContextMenuContent(
             Spacer(modifier = Modifier.height(2.dp))
         }
 
-        // Action 1: "Превью (открыть в новой вкладке)"
+        // Action 1: preview (open in a new tab)
         ContextMenuActionRow(
             icon = Icons.Default.Image,
             iconTint = ProstoBrandPrimary,
@@ -233,7 +233,7 @@ fun ImageContextMenuContent(
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        // Action 2: "Скопировать ссылку на изображение"
+        // Action 2: copy image address
         ContextMenuActionRow(
             icon = Icons.Default.ContentCopy,
             iconTint = ProstoMutedSlate,
@@ -254,7 +254,7 @@ fun ImageContextMenuContent(
 
         Spacer(modifier = Modifier.height(2.dp))
 
-        // Action 3: "Скачать изображение"
+        // Action 3: download image
         ContextMenuActionRow(
             icon = Icons.Default.Download,
             iconTint = ProstoAccent,

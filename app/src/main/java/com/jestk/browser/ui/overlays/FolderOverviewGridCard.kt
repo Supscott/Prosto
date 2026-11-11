@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -37,19 +36,18 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.components.SiteFavicon
+import com.jestk.browser.ui.components.SnapshotImage
 import com.jestk.browser.ui.navigation.getContrastingFolderContentColor
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
-import java.io.File
 
 /**
  * A collapsed folder preview card in the tab overview grid.
@@ -211,7 +209,6 @@ private fun FolderSlotPreview(
                 .testTag("folder_slot_${folder.id}_$slotIndex"),
             contentAlignment = Alignment.Center,
         ) {
-            val file = tab.snapshotPath?.let { File(it) }
             if (tab.isHomeTab) {
                 // Home tabs render the live Home page elsewhere (workspace cards & tab grid);
                 // in the compact folder slot we show a quiet Home icon instead of a stale screenshot.
@@ -221,36 +218,37 @@ private fun FolderSlotPreview(
                     tint = ProstoMutedSlate.copy(alpha = 0.45f),
                     modifier = Modifier.size(18.dp),
                 )
-            } else if (file != null && file.exists()) {
-                AsyncImage(
-                    model = file,
+            } else {
+                SnapshotImage(
+                    path = tab.snapshotPath,
                     contentDescription = tab.title,
-                    contentScale = ContentScale.Crop,
                     alignment = Alignment.TopCenter,
                     modifier = Modifier.fillMaxSize(),
-                )
-            } else if (tab.faviconUrl != null) {
-                SiteFavicon(
-                    faviconUrl = tab.faviconUrl,
-                    imageSize = 14.dp,
-                    containerSize = 18.dp,
-                    shape = CircleShape,
-                    placeholder = {
+                ) {
+                    if (tab.faviconUrl != null) {
+                        SiteFavicon(
+                            faviconUrl = tab.faviconUrl,
+                            imageSize = 14.dp,
+                            containerSize = 18.dp,
+                            shape = CircleShape,
+                            placeholder = {
+                                Icon(
+                                    imageVector = Icons.Default.Public,
+                                    contentDescription = null,
+                                    tint = ProstoMutedSlate.copy(alpha = 0.40f),
+                                    modifier = Modifier.size(12.dp),
+                                )
+                            },
+                        )
+                    } else {
                         Icon(
                             imageVector = Icons.Default.Public,
                             contentDescription = null,
                             tint = ProstoMutedSlate.copy(alpha = 0.40f),
-                            modifier = Modifier.size(12.dp),
+                            modifier = Modifier.size(14.dp),
                         )
-                    },
-                )
-            } else {
-                Icon(
-                    imageVector = Icons.Default.Public,
-                    contentDescription = null,
-                    tint = ProstoMutedSlate.copy(alpha = 0.40f),
-                    modifier = Modifier.size(14.dp),
-                )
+                    }
+                }
             }
 
             if (isOverflowSlot) {

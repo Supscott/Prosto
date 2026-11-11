@@ -237,9 +237,7 @@ fun ActiveTabPill(
                         imageSize = 18.dp,
                         placeholder = {
                             val initial = title.trim().firstOrNull()?.uppercaseChar()
-                            if (initial != null && initial.isLetterOrDigit() && title != "Prosto Browser" && title != "Prosto" &&
-                                title != "New Tab"
-                            ) {
+                            if (initial != null && initial.isLetterOrDigit() && title != stringResource(R.string.app_name)) {
                                 Text(
                                     text = initial.toString(),
                                     style =
@@ -383,9 +381,9 @@ fun ActiveTabPill(
                 onAddFavorite = {
                     if (url.isNotBlank() && !url.startsWith("about:")) {
                         onAddFavorite(title, url)
-                        Toast.makeText(context, "Added to Favorites", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, R.string.toast_added_to_favorites, Toast.LENGTH_SHORT).show()
                     } else {
-                        Toast.makeText(context, "Cannot add Home to Favorites", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, R.string.toast_cannot_add_home_to_favorites, Toast.LENGTH_SHORT).show()
                     }
                 },
                 onShareLink = { onShare(url) },
@@ -462,7 +460,7 @@ internal fun copyUrlToClipboard(
     if (url.isNotBlank() && !url.startsWith("about:")) {
         ClipboardHelper.copyToClipboard(context, url)
     } else {
-        Toast.makeText(context, "No URL to copy", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, R.string.toast_no_url_to_copy, Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -478,12 +476,12 @@ internal fun shareWebpageUrl(
                     putExtra(Intent.EXTRA_TEXT, urlToShare)
                     type = "text/plain"
                 }
-            val shareIntent = Intent.createChooser(sendIntent, "Share Webpage")
+            val shareIntent = Intent.createChooser(sendIntent, context.getString(R.string.share_link))
             context.startActivity(shareIntent)
         } catch (_: Exception) {
-            Toast.makeText(context, "Could not share link", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, R.string.toast_share_failed, Toast.LENGTH_SHORT).show()
         }
     } else {
-        Toast.makeText(context, "No URL to share", Toast.LENGTH_SHORT).show()
+        Toast.makeText(context, R.string.toast_no_url_to_share, Toast.LENGTH_SHORT).show()
     }
 }

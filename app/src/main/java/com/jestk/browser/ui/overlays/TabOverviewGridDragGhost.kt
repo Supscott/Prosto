@@ -30,18 +30,20 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
+import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.ui.components.SiteFavicon
+import com.jestk.browser.ui.components.SnapshotImage
+import com.jestk.browser.ui.components.tabDisplayTitle
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -52,7 +54,6 @@ import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
-import java.io.File
 import kotlin.math.roundToInt
 
 /**
@@ -165,7 +166,7 @@ private fun TabDragGhost(
                     },
                 )
                 Text(
-                    text = tab.title.ifEmpty { "Tab" },
+                    text = tabDisplayTitle(tab),
                     style = LocalProstoTypography.current.labelMd.copy(fontSize = 10.sp),
                     color = if (isDark) DarkOnSurface else ProstoDarkText,
                     maxLines = 1,
@@ -180,7 +181,6 @@ private fun TabDragGhost(
                         .background(if (isDark) DarkBackground else ProstoCanvasFloor),
                 contentAlignment = Alignment.Center,
             ) {
-                val file = tab.snapshotPath?.let { File(it) }
                 if (tab.isHomeTab) {
                     Icon(
                         imageVector = Icons.Default.Home,
@@ -188,20 +188,19 @@ private fun TabDragGhost(
                         tint = ProstoMutedSlate.copy(alpha = 0.45f),
                         modifier = Modifier.size(28.dp),
                     )
-                } else if (file != null && file.exists()) {
-                    AsyncImage(
-                        model = file,
-                        contentDescription = tab.title,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
                 } else {
-                    Icon(
-                        imageVector = Icons.Default.Public,
-                        contentDescription = null,
-                        tint = ProstoMutedSlate.copy(alpha = 0.40f),
-                        modifier = Modifier.size(24.dp),
-                    )
+                    SnapshotImage(
+                        path = tab.snapshotPath,
+                        contentDescription = tab.title,
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Public,
+                            contentDescription = null,
+                            tint = ProstoMutedSlate.copy(alpha = 0.40f),
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
                 }
             }
         }
@@ -229,7 +228,7 @@ private fun FolderDragGhost(folder: TabFolder) {
             contentAlignment = Alignment.CenterStart,
         ) {
             Text(
-                text = folder.title.ifBlank { "Folder" },
+                text = folder.title.ifBlank { stringResource(R.string.folder_untitled) },
                 style =
                     LocalProstoTypography.current.labelMd.copy(
                         fontSize = 13.sp,

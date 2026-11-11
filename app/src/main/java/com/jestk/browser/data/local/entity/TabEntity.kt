@@ -18,7 +18,7 @@ data class TabEntity(
     @PrimaryKey
     val id: String,
     val url: String = "",
-    val title: String = "New Tab",
+    val title: String = "",
     val snapshotPath: String? = null,
     val faviconUrl: String? = null,
     val themeColor: Int? = null,

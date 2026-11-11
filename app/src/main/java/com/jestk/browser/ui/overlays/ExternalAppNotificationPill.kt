@@ -65,7 +65,7 @@ import kotlin.math.roundToInt
  * Features:
  * - Auto-dismiss after 5 seconds, paused while interacting/touching.
  * - Horizontal swipe-to-dismiss gesture with spring physics.
- * - Action button ("Открыть") and dismiss button ("✕").
+ * - Action button ("Open") and dismiss button ("✕").
  * - Shows app icon and specific app name if available.
  */
 @Composable

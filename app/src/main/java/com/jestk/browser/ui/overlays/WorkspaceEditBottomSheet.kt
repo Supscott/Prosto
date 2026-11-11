@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.Workspace
+import com.jestk.browser.ui.components.workspaceDisplayName
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
@@ -80,8 +81,9 @@ fun WorkspaceEditBottomSheet(
     onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val initialName = workspace?.let { workspaceDisplayName(it) }.orEmpty()
     var name by remember(workspace) {
-        mutableStateOf(workspace?.name ?: "")
+        mutableStateOf(initialName)
     }
     var selectedColor by remember(workspace) {
         mutableIntStateOf(workspace?.color ?: TabFolder.PALETTE.first())
@@ -98,7 +100,6 @@ fun WorkspaceEditBottomSheet(
     val sheetBg = if (isDark) DarkSurface else Color.White
     val typography = LocalProstoTypography.current
 
-    val defaultWorkspaceName = stringResource(R.string.workspace_default_title)
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = sheetBg,
@@ -317,9 +318,9 @@ fun WorkspaceEditBottomSheet(
                 Button(
                     onClick = {
                         keyboardController?.hide()
-                        val finalName = name.trim().ifEmpty {
-                            workspace?.name ?: defaultWorkspaceName
-                        }
+                        // Keep a default name blank so it stays localized; store only what the user typed.
+                        val typed = name.trim()
+                        val finalName = if (workspace?.name?.isBlank() == true && typed == initialName) "" else typed
                         onSave(finalName, selectedColor)
                     },
                     modifier = Modifier

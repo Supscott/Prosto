@@ -1,6 +1,6 @@
 # Codebase Review — Anti-Bot, Ad Blocker, WebView Core (2026-11)
 
-Status: **P0/P1 fixed (2026-11-11), P2 items open.** Each finding has an ID; commits reference it.
+Status: **all items closed (2026-11-11)** except BOT-3 (bridge names, open) and WV-6 (theme hacks). Each finding has an ID; commits reference it.
 
 | ID | Status | Commit / note |
 |---|---|---|
@@ -12,11 +12,24 @@ Status: **P0/P1 fixed (2026-11-11), P2 items open.** Each finding has an ID; com
 | WV-1 | fixed, verified on device | `fix(webview)` — CDP `Page.crash` → tab recreated and reloaded |
 | WV-2 | fixed | `fix(webview)` — hidden tabs paused (DuckDuckGo parity) |
 | WV-3, WV-4, WV-5 | fixed | `fix(webview)`, `fix(antibot)` — WV-5 still worth a device check on a 3-D Secure payment |
-| WV-6 | partly fixed | WebView setup deduplicated; script injection moved to `onPageFinished`; apple.com/youtube.com theme hacks remain |
+| WV-6 | partly fixed | WebView setup deduplicated; script injection moved to `onPageFinished`; Home tab now created in the active workspace; download toasts localized; apple.com/youtube.com theme hacks remain |
 | DL-1, DL-2, DL-3 | fixed | `fix(downloads)` — 416 regression test |
 | DATA-1 | resolved by deletion | `refactor(cleanup)` |
-| DATA-2…6, DL-4, UI-1…8 | open (P2) | see sections 4 and 6 |
-| Prevention | done | `tools/check_invariants.py` Script Stealth check; `verify.sh` checks the ad-block list; LESSONS #12 and CLAUDE.md rewritten |
+| DL-4 | fixed | a failed `atomicMoveTo` now throws, so the data-URL download and the snapshot report failure |
+| DATA-2 | fixed | DB v13: `recent_tabs` primary key `(url, workspaceId)`; migration test |
+| DATA-3 | fixed | one parser (`toBrowserSettings`); the clean-player migration runs for the flow and `getCurrentSettings` |
+| DATA-4 | fixed | `domain/model/SearchEngineHosts` is the only host list; `SearchEngine.matchesUrl` compares the parsed host, not a substring |
+| DATA-5 | fixed | app lookup for web URLs runs on a background executor (custom schemes stay synchronous: they decide whether to cancel) |
+| DATA-6 | fixed | home/new/loading tabs and default workspaces store blank names; `tabDisplayTitle` / `workspaceDisplayName` resolve resources; v13 migration blanks old English values |
+| UI-1 | fixed | selection reported once, before the animation |
+| UI-2 | fixed | auto-dismiss waits until the banner is released; Compose test |
+| UI-3 | fixed | `TabCoordinator` updates build `tabs` from the state passed to the lambda; tests simulate an interleaved update |
+| UI-4 | fixed | `rememberUpdatedState` for state and `onEvent` |
+| UI-5 | fixed | `SnapshotImage` (Coil loads off the main thread, fallback on error) at all six sites |
+| UI-6 | fixed | test detection removed; the swipe hint bounces 3 times instead of forever (an infinite animation hangs Robolectric activity tests) |
+| UI-7 | fixed | dock menu, toasts, notifications and channels, relative time, tab counter, file-size units, theme labels, Home favorites/stats moved to resources (en + ru) |
+| UI-8 | fixed | comments translated; Russian left only where it quotes page text the code matches (`AdBlockerScript`) |
+| Prevention | done | `tools/check_invariants.py` Script Stealth check; `verify.sh` checks the ad-block list; LESSONS #12 and CLAUDE.md rewritten. P2 pass added: hardcoded toast/notification text, English sentinels, `File.exists()` in UI, test-environment detection, non-English comments |
 
 
 Method:

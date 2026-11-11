@@ -239,6 +239,28 @@ class SearchEngineCarouselTest {
     }
 
     @Test
+    fun animateToEngine_reportsSelectionExactlyOnce() = runTest(testFrameClock) {
+        val selections = mutableListOf<SearchEngine>()
+        val state = SearchEngineCarouselState(
+            initialEngine = SearchEngine.GOOGLE,
+            density = Density(1f),
+            coroutineScope = this,
+            vibration = object : VibrationFeedback {
+                override fun tick() {}
+                override fun confirm() {}
+            },
+            engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
+            onEngineSelected = { selections += it }
+        )
+
+        state.animateToEngine(SearchEngine.DUCKDUCKGO)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf(SearchEngine.DUCKDUCKGO), selections)
+        assertEquals(SearchEngine.DUCKDUCKGO, state.currentEngine)
+    }
+
+    @Test
     fun testScrollToFirst_whenAlreadyAtFirstEngine_staysAtFirstEngine() = runTest(testFrameClock) {
         var selectedEngine: SearchEngine? = null
         var tickCount = 0

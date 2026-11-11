@@ -273,7 +273,8 @@ class JestkWebViewClientTest {
             onPageFinished = { _, _, _ -> },
             onNavigationStateChanged = { _, _, _ -> },
             onSnapshotReady = { _, _ -> },
-            onExternalAppOffered = { _, prompt, _ -> offeredPrompt = prompt }
+            onExternalAppOffered = { _, prompt, _ -> offeredPrompt = prompt },
+            externalAppExecutor = { it.run() },
         )
 
         val webView = android.webkit.WebView(context)
@@ -309,7 +310,8 @@ class JestkWebViewClientTest {
             onPageFinished = { _, _, _ -> },
             onNavigationStateChanged = { _, _, _ -> },
             onSnapshotReady = { _, _ -> },
-            onExternalAppOffered = { _, prompt, _ -> offeredPrompt = prompt }
+            onExternalAppOffered = { _, prompt, _ -> offeredPrompt = prompt },
+            externalAppExecutor = { it.run() },
         )
 
         val webView = android.webkit.WebView(context)
@@ -509,6 +511,71 @@ class JestkWebViewClientTest {
     }
 
     @Test
+    fun shouldOverrideUrlLoading_requiresConfirmationOnlyForDeliberateAppHandoff() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        ExternalAppResolver.clearBrowserPackagesCache()
+        registerTelegramApp(context)
+
+        fun newClient(confirmations: MutableList<Boolean>) = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onExternalAppOffered = { _, prompt, _ -> confirmations += prompt.requiresConfirmation },
+        )
+        val webView = android.webkit.WebView(context)
+
+        // A scripted handoff with no preceding tap stays a passive hint.
+        val passive = mutableListOf<Boolean>()
+        newClient(passive).shouldOverrideUrlLoading(
+            webView,
+            webRequest("tg://resolve?domain=test", isForMainFrame = true, gesture = false)
+        )
+        assertThat(passive).containsExactly(false)
+
+        // A tap on the site's "Open app" button asks for confirmation, and so does the redirect
+        // hop that follows it without carrying the gesture flag.
+        val deliberate = mutableListOf<Boolean>()
+        val client = newClient(deliberate)
+        client.shouldOverrideUrlLoading(
+            webView,
+            webRequest("tg://resolve?domain=test", isForMainFrame = true, gesture = true)
+        )
+        client.shouldOverrideUrlLoading(
+            webView,
+            webRequest("tg://resolve?domain=test", isForMainFrame = true, gesture = false)
+        )
+        assertThat(deliberate).containsExactly(true, true).inOrder()
+    }
+
+    @Test
+    fun webUrlAppLookup_runsOnTheInjectedExecutor() {
+        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
+        val queued = mutableListOf<Runnable>()
+        var offers = 0
+        val client = JestkWebViewClient(
+            tabId = "tab_1",
+            isAdBlockerEnabled = { false },
+            onPageStarted = { _, _ -> },
+            onPageFinished = { _, _, _ -> },
+            onNavigationStateChanged = { _, _, _ -> },
+            onSnapshotReady = { _, _ -> },
+            onExternalAppOffered = { _, _, _ -> offers++ },
+            externalAppExecutor = { queued += it },
+        )
+        val webView = android.webkit.WebView(context)
+
+        val handled = client.handleExternalNavigation(webView, "https://example.com/page", userInitiated = true)
+        client.onPageStarted(webView, "https://example.com/page", null)
+
+        assertThat(handled).isFalse()
+        assertThat(queued).hasSize(2)
+        assertThat(offers).isEqualTo(0)
+    }
+
+    @Test
     fun onPageStarted_reportsPassiveOrigin() {
         val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
         ExternalAppResolver.clearBrowserPackagesCache()
@@ -535,7 +602,8 @@ class JestkWebViewClientTest {
             onPageFinished = { _, _, _ -> },
             onNavigationStateChanged = { _, _, _ -> },
             onSnapshotReady = { _, _ -> },
-            onExternalAppOffered = { _, _, userInitiated -> gestures += userInitiated }
+            onExternalAppOffered = { _, _, userInitiated -> gestures += userInitiated },
+            externalAppExecutor = { it.run() },
         )
         val webView = android.webkit.WebView(context)
 

@@ -28,25 +28,17 @@ data class SearchEngine(
     }
 
     fun matchesUrl(url: String): Boolean {
-        val lower = url.lowercase()
+        val host = SearchEngineHosts.hostOf(url) ?: return false
         return when (id.lowercase()) {
-            "google" -> lower.contains("google.com") || lower.contains(".google.") || lower.contains("://google.")
-            "duckduckgo" -> lower.contains("duckduckgo.com")
-            "brave" -> lower.contains("search.brave.com") || lower.contains("brave.com")
-            "kagi" -> lower.contains("kagi.com")
-            "ecosia" -> lower.contains("ecosia.org")
-            "startpage" -> lower.contains("startpage.com")
+            "google" -> SearchEngineHosts.isBrandHost(host, "google")
+            "duckduckgo" -> SearchEngineHosts.isSameOrSubdomain(host, "duckduckgo.com")
+            "brave" -> SearchEngineHosts.isSameOrSubdomain(host, "brave.com")
+            "kagi" -> SearchEngineHosts.isSameOrSubdomain(host, "kagi.com")
+            "ecosia" -> SearchEngineHosts.isSameOrSubdomain(host, "ecosia.org")
+            "startpage" -> SearchEngineHosts.isSameOrSubdomain(host, "startpage.com")
             else -> {
-                try {
-                    val cleanUrl = searchUrlTemplate.replace("%s", "placeholder")
-                    val uri = java.net.URI(cleanUrl)
-                    val host = uri.host?.lowercase().orEmpty().removePrefix("www.")
-                    host.isNotBlank() && lower.contains(host)
-                } catch (_: Exception) {
-                    val withoutScheme = searchUrlTemplate.substringAfter("://")
-                    val host = withoutScheme.substringBefore("/").substringBefore("?").removePrefix("www.").lowercase()
-                    host.isNotBlank() && lower.contains(host)
-                }
+                val templateHost = SearchEngineHosts.hostOf(searchUrlTemplate.replace("%s", "placeholder"))
+                templateHost != null && SearchEngineHosts.isSameOrSubdomain(host, templateHost)
             }
         }
     }

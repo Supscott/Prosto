@@ -1,5 +1,6 @@
 package com.jestk.browser.domain.model
 
+/** [name] is what the user typed; blank means the UI shows a localized default name. */
 data class Workspace(
     val id: String,
     val name: String,
@@ -14,7 +15,7 @@ data class Workspace(
 
         val DEFAULT_PERSONAL = Workspace(
             id = DEFAULT_PERSONAL_ID,
-            name = "Personal",
+            name = "",
             color = 0xFF2196F3.toInt(), // Blue from Prosto palette
             position = 0,
             profileName = DEFAULT_PERSONAL_ID,
@@ -23,7 +24,7 @@ data class Workspace(
 
         val DEFAULT_WORK = Workspace(
             id = DEFAULT_WORK_ID,
-            name = "Work",
+            name = "",
             color = 0xFFF59E0B.toInt(), // Amber from Prosto palette
             position = 1,
             profileName = DEFAULT_WORK_ID,

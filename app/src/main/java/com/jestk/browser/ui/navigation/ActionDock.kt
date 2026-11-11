@@ -1,11 +1,8 @@
 package com.jestk.browser.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -40,6 +37,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -123,7 +121,7 @@ fun ActionPopupMenu(
                 // Home
                 PopupMenuItem(
                     icon = Icons.Default.Home,
-                    label = "Home",
+                    label = stringResource(R.string.tab_home_title),
                     isActive = isHome && uiState.activeOverlay == OverlayType.HOME,
                     isDark = isDark,
                     onClick = {
@@ -137,7 +135,7 @@ fun ActionPopupMenu(
                 // Search
                 PopupMenuItem(
                     icon = Icons.Default.Search,
-                    label = "Search",
+                    label = stringResource(R.string.dock_search),
                     isActive = uiState.activeOverlay == OverlayType.SEARCH,
                     isDark = isDark,
                     onClick = {
@@ -151,7 +149,7 @@ fun ActionPopupMenu(
                 // Tabs
                 PopupMenuItem(
                     icon = Icons.Default.FilterNone,
-                    label = "Tabs",
+                    label = stringResource(R.string.menu_tabs),
                     isActive = uiState.activeOverlay == OverlayType.TAB_GRID,
                     isDark = isDark,
                     trailingLabel = uiState.tabs.size.toString(),
@@ -166,7 +164,7 @@ fun ActionPopupMenu(
                 // Downloads
                 PopupMenuItem(
                     icon = Icons.Default.Download,
-                    label = "Downloads",
+                    label = stringResource(R.string.downloads_title),
                     isActive = uiState.activeScreen == ScreenType.DOWNLOADS,
                     isDark = isDark,
                     onClick = {
@@ -180,7 +178,7 @@ fun ActionPopupMenu(
                 // Settings
                 PopupMenuItem(
                     icon = Icons.Default.Settings,
-                    label = "Settings",
+                    label = stringResource(R.string.settings),
                     isActive = uiState.activeScreen == ScreenType.SETTINGS,
                     isDark = isDark,
                     onClick = {
@@ -235,6 +233,8 @@ fun DockSideButton(
     }
 }
 
+private const val SWIPE_HINT_BOUNCES = 3
+
 /**
  * Subtle, stylish prompt above the floating dock when Home is active,
  * guiding users to the swipe-up gesture that changes the workspace.
@@ -246,31 +246,17 @@ fun SwipeUpHint(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isRunningInTest =
-        remember {
-            android.os.Build.FINGERPRINT == "robolectric" ||
-                try {
-                    Class.forName("org.robolectric.Robolectric") != null
-                } catch (_: Exception) {
-                    false
-                }
+    // A few bounces draw the eye, then the hint rests. A finite animation also lets tests and
+    // Robolectric reach idle without detecting the test environment.
+    val bounceOffset = remember { Animatable(0f) }
+    val isPreview = LocalInspectionMode.current
+    LaunchedEffect(isPreview) {
+        if (isPreview) return@LaunchedEffect
+        repeat(SWIPE_HINT_BOUNCES) {
+            bounceOffset.animateTo(-3f, tween(durationMillis = 1000, easing = FastOutSlowInEasing))
+            bounceOffset.animateTo(0f, tween(durationMillis = 1000, easing = FastOutSlowInEasing))
         }
-    val bounceState =
-        if (isRunningInTest || LocalInspectionMode.current) {
-            null
-        } else {
-            val infiniteTransition = rememberInfiniteTransition(label = "SwipeHintBounce")
-            infiniteTransition.animateFloat(
-                initialValue = 0f,
-                targetValue = -3f,
-                animationSpec =
-                    infiniteRepeatable(
-                        animation = tween(durationMillis = 1000, easing = FastOutSlowInEasing),
-                        repeatMode = RepeatMode.Reverse,
-                    ),
-                label = "SwipeHintBounceY",
-            )
-        }
+    }
 
     val typography = LocalProstoTypography.current
 
@@ -282,8 +268,7 @@ fun SwipeUpHint(
         modifier =
             modifier
                 .offset {
-                    val y = bounceState?.value ?: 0f
-                    IntOffset(0, y.dp.roundToPx())
+                    IntOffset(0, bounceOffset.value.dp.roundToPx())
                 }
                 .clip(ProstoShapes.Pill)
                 .clickable(onClick = onClick),

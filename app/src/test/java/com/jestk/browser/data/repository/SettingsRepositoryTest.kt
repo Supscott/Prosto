@@ -111,6 +111,15 @@ class SettingsRepositoryTest {
         }
 
     @Test
+    fun forcedMigration_appliesToSettingsFlowToo() =
+        runTest(testDispatcher) {
+            db.settingDao().setSetting(SettingEntity(SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED, "true"))
+
+            assertThat(repository.getSettings().first().isCleanYouTubePlayerEnabled).isFalse()
+            assertThat(db.settingDao().getSetting(SettingKeys.CLEAN_PLAYER_FORCED_OFF_V1)).isEqualTo("1")
+        }
+
+    @Test
     fun forcedMigration_doesNotRevertUserOptIn() =
         runTest(testDispatcher) {
             repository.getCurrentSettings()

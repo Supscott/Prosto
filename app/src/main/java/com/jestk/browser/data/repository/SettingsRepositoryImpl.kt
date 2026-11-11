@@ -13,6 +13,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.withContext
 
 class SettingsRepositoryImpl(
@@ -22,82 +23,22 @@ class SettingsRepositoryImpl(
     override fun getSettings(): Flow<BrowserSettings> =
         settingDao
             .getAllSettingsFlow()
+            .onStart { migrateCleanPlayerOnce() }
             .map { list -> list.toBrowserSettings() }
             .flowOn(ioDispatcher)
 
     override suspend fun getCurrentSettings(): BrowserSettings =
         withContext(ioDispatcher) {
-            val themeStr = settingDao.getSetting(SettingKeys.THEME_MODE)
-            val searchStr = settingDao.getSetting(SettingKeys.SEARCH_ENGINE)
-            val adBlockerStr = settingDao.getSetting(SettingKeys.AD_BLOCKER_ENABLED)
-            val adRedirectStr = settingDao.getSetting(SettingKeys.AD_REDIRECT_PROTECTION_ENABLED)
-            val autoConsentStr = settingDao.getSetting(SettingKeys.AUTO_CONSENT_ENABLED)
-            val cleanPlayerStr = settingDao.getSetting(SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED)
-            val cleanPlayerMigratedStr = settingDao.getSetting(SettingKeys.CLEAN_PLAYER_FORCED_OFF_V1)
-            val cleanPlayerMigrated = cleanPlayerMigratedStr == "1"
-            val cleanPlayerResolved =
-                if (cleanPlayerMigrated) {
-                    cleanPlayerStr?.toBooleanStrictOrNull() ?: false
-                } else {
-                    settingDao.setSetting(SettingEntity(SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED, "false"))
-                    settingDao.setSetting(SettingEntity(SettingKeys.CLEAN_PLAYER_FORCED_OFF_V1, "1"))
-                    false
-                }
-            val trackingProtectionStr = settingDao.getSetting(SettingKeys.TRACKING_PROTECTION_ENABLED)
-            val hiddenStr = settingDao.getSetting(SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES)
-            val openInAppsStr = settingDao.getSetting(SettingKeys.OPEN_IN_APPS_ENABLED)
-            val autoUpdateStr = settingDao.getSetting(SettingKeys.AUTO_UPDATE_ENABLED)
-            val vibrationStr = settingDao.getSetting(SettingKeys.VIBRATION_ENABLED)
-            val grayUnloadedTabsStr = settingDao.getSetting(SettingKeys.GRAY_UNLOADED_TABS_ENABLED)
-            val skippedUpdateStr = settingDao.getSetting(SettingKeys.SKIPPED_UPDATE_VERSION)
-            val feedbackPromptStateStr = settingDao.getSetting(SettingKeys.FEEDBACK_PROMPT_STATE)
-            val feedbackPromptSnoozedUntilStr = settingDao.getSetting(SettingKeys.FEEDBACK_PROMPT_SNOOZED_UNTIL)
-
-            val theme = themeStr?.let { runCatching { ThemeMode.valueOf(it) }.getOrDefault(ThemeMode.SYSTEM) } ?: ThemeMode.SYSTEM
-            val search =
-                searchStr?.let { runCatching { SearchEngine.valueOf(it) }.getOrDefault(SearchEngine.DUCKDUCKGO) } ?: SearchEngine.DUCKDUCKGO
-            val adBlocker = adBlockerStr?.toBooleanStrictOrNull() ?: true
-            val adRedirect = adRedirectStr?.toBooleanStrictOrNull() ?: true
-            val autoConsent = autoConsentStr?.toBooleanStrictOrNull() ?: true
-            val cleanPlayer = cleanPlayerResolved
-            val trackingProtection = trackingProtectionStr?.toBooleanStrictOrNull() ?: true
-            val openInApps = openInAppsStr?.toBooleanStrictOrNull() ?: true
-            val autoUpdate = autoUpdateStr?.toBooleanStrictOrNull() ?: true
-            val vibration = vibrationStr?.toBooleanStrictOrNull() ?: true
-            val grayUnloadedTabs = grayUnloadedTabsStr?.toBooleanStrictOrNull() ?: true
-            val skippedUpdate = skippedUpdateStr?.takeIf { it.isNotBlank() }
-            val feedbackPromptState =
-                feedbackPromptStateStr?.let { raw ->
-                    runCatching { com.jestk.browser.domain.model.FeedbackPromptState.valueOf(raw) }
-                        .getOrDefault(com.jestk.browser.domain.model.FeedbackPromptState.VISIBLE)
-                } ?: com.jestk.browser.domain.model.FeedbackPromptState.VISIBLE
-            val feedbackPromptSnoozedUntil = feedbackPromptSnoozedUntilStr?.toLongOrNull() ?: 0L
-            val hiddenEngines =
-                hiddenStr
-                    ?.takeIf { it.isNotBlank() }
-                    ?.split(",")
-                    ?.map { it.trim() }
-                    ?.filter { it.isNotEmpty() }
-                    ?.toSet() ?: emptySet()
-
-            BrowserSettings(
-                themeMode = theme,
-                searchEngine = search,
-                isAdBlockerEnabled = adBlocker,
-                isAdRedirectProtectionEnabled = adRedirect,
-                autoConsentEnabled = autoConsent,
-                isCleanYouTubePlayerEnabled = cleanPlayer,
-                isTrackingProtectionEnabled = trackingProtection,
-                hiddenSearchPageEngineIds = hiddenEngines,
-                isOpenInAppsEnabled = openInApps,
-                isAutoUpdateEnabled = autoUpdate,
-                isVibrationEnabled = vibration,
-                skippedUpdateVersion = skippedUpdate,
-                isGrayUnloadedTabsEnabled = grayUnloadedTabs,
-                feedbackPromptState = feedbackPromptState,
-                feedbackPromptSnoozedUntil = feedbackPromptSnoozedUntil,
-            )
+            migrateCleanPlayerOnce()
+            settingDao.getAllSettings().toBrowserSettings()
         }
+
+    /** One-time reset: the clean player was turned off for everyone once; later opt-ins stick. */
+    private suspend fun migrateCleanPlayerOnce() {
+        if (settingDao.getSetting(SettingKeys.CLEAN_PLAYER_FORCED_OFF_V1) == "1") return
+        settingDao.setSetting(SettingEntity(SettingKeys.CLEAN_YOUTUBE_PLAYER_ENABLED, "false"))
+        settingDao.setSetting(SettingEntity(SettingKeys.CLEAN_PLAYER_FORCED_OFF_V1, "1"))
+    }
 
     override suspend fun setThemeMode(mode: ThemeMode) =
         withContext(ioDispatcher) {

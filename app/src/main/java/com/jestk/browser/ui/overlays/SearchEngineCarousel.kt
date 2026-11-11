@@ -333,6 +333,7 @@ internal class SearchEngineCarouselState(
         }
 
         activeJob?.cancel()
+        // Report the selection once, up front: a cancelled animation must not lose it.
         onEngineSelected(targetEngine)
         isFlinging = true
         val targetX = -targetSlot * itemSpacingPx
@@ -357,7 +358,6 @@ internal class SearchEngineCarouselState(
                     lastVibrationSlot = 0
                     isFlinging = false
                     isDragging = false
-                    onEngineSelected(targetEngine)
                 } catch (e: Exception) {
                     if (e is kotlinx.coroutines.CancellationException) {
                         isFlinging = false

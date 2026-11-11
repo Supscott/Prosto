@@ -223,7 +223,7 @@ internal fun HeroSearchInputField(
                             }
                             speechLauncher.launch(intent)
                         } catch (_: Exception) {
-                            Toast.makeText(context, "Voice input not available", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, R.string.toast_voice_input_unavailable, Toast.LENGTH_SHORT).show()
                         }
                     },
                     modifier = Modifier.size(32.dp)

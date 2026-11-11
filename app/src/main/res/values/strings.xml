@@ -116,6 +116,11 @@
     <string name="insecure_site_go_back_button">Go back</string>
     <string name="blocked_ad_navigation_proceed">Proceed</string>
     <string name="blocked_ad_navigation_stay">Stay</string>
+    <string name="external_app_confirm_title">Open in another app</string>
+    <string name="external_app_confirm_message">Would you like to leave Prosto to view this content?</string>
+    <string name="external_app_confirm_open">Open</string>
+    <string name="external_app_confirm_close_tab">Close tab</string>
+    <string name="external_app_confirm_cancel">Cancel</string>
 
     <!-- Feedback & Community Rating -->
     <string name="feedback_card_title">Enjoying Prosto?</string>
@@ -254,4 +259,43 @@
     <string name="share_link">Share link</string>
     <string name="workspace_tab_index_counter">Tab %1$d of %2$d</string>
     <string name="workspace_home_tab">Home</string>
+    <string name="menu_tabs">Tabs</string>
+    <string name="folder_untitled">Folder</string>
+    <string name="toast_added_to_favorites">Added to Favorites</string>
+    <string name="toast_cannot_add_home_to_favorites">Home can\'t be added to Favorites</string>
+    <string name="toast_no_url_to_copy">No URL to copy</string>
+    <string name="toast_no_url_to_share">No URL to share</string>
+    <string name="toast_share_failed">Could not share link</string>
+    <string name="toast_voice_input_unavailable">Voice input not available</string>
+    <string name="toast_qr_scanner_coming_soon">QR scanner coming soon</string>
+    <string name="toast_preparing_download">Preparing download…</string>
+    <string name="toast_download_failed_reason">Download failed: %1$s</string>
+    <string name="download_notification_starting">Downloading file…</string>
+    <string name="download_notification_complete">Download complete</string>
+    <plurals name="tabs_overview_count_filtered">
+        <item quantity="one">%1$d of %2$d tab</item>
+        <item quantity="other">%1$d of %2$d tabs</item>
+    </plurals>
+    <string name="relative_time_just_now">Just now</string>
+    <string name="relative_time_minutes_ago">%1$dm ago</string>
+    <string name="relative_time_hours_ago">%1$dh ago</string>
+    <string name="relative_time_yesterday">Yesterday</string>
+    <string name="relative_time_days_ago">%1$dd ago</string>
+    <string name="file_size_bytes">%1$s B</string>
+    <string name="file_size_kb">%1$s KB</string>
+    <string name="file_size_mb">%1$s MB</string>
+    <string name="file_size_gb">%1$s GB</string>
+    <string name="download_action_pause">Pause</string>
+    <string name="download_action_retry">Retry</string>
+    <string name="download_channel_progress">Downloads</string>
+    <string name="download_channel_progress_description">Ongoing browser download progress notifications</string>
+    <string name="download_channel_completed">Completed Downloads</string>
+    <string name="download_channel_completed_description">Notifications for completed browser downloads</string>
+    <string name="theme_mode_system">System</string>
+    <string name="theme_mode_light">Light</string>
+    <string name="theme_mode_dark">Dark</string>
+    <string name="favorites_show_less">Show less</string>
+    <string name="favorites_show_all">Show all favorites (%1$d)</string>
+    <string name="privacy_stat_ads_blocked">Ads blocked</string>
+    <string name="privacy_stat_trackers_stopped">Trackers stopped</string>
 </resources>
