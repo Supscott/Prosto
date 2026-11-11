@@ -15,7 +15,8 @@ captures
 .freebuff/
 __pycache__/
 
-.claude/
+.claude/*
+!.claude/skills
 runs/
 .scratch/
 .env

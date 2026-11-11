@@ -207,15 +207,14 @@ run();
 
 ## 4. Deploying & Launching on Device
 
-### Fast Build & Reinstall
+Use `tools/device.sh` for routine steps (it refuses the user's own `com.jestk.browser` install):
 ```bash
-rtk ./gradlew assembleDebug
-rtk adb install -r app/build/outputs/apk/debug/app-debug.apk
-```
-
-### Launch or Bring to Foreground
-```bash
-rtk adb shell am start -n com.jestk.browser.debug/.MainActivity
+rtk tools/device.sh wake          # fails with LOCKED when the phone needs the user to unlock it
+rtk tools/device.sh install       # ./gradlew :app:installDebug, retried once
+rtk tools/device.sh start         # launch from the launcher
+rtk tools/device.sh open "<url>"  # ACTION_VIEW like another app; any URL characters are safe
+rtk tools/device.sh visible       # URL of the WebView page on screen (CDP), no screenshot needed
+rtk tools/smoke.sh                # PASS/FAIL device smoke test of tabs, links and Back
 ```
 
 ### Filter Logcat for Engine Events

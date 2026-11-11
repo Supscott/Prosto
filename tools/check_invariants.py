@@ -5,6 +5,8 @@ import re
 import sys
 from pathlib import Path
 
+from file_size_ratchet import check_file_sizes
+
 ROOT = Path(__file__).resolve().parent.parent
 MAIN_DIR = ROOT / "app" / "src" / "main"
 DOMAIN_DIR = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "domain"
@@ -398,6 +400,7 @@ def main():
     all_errors.extend(check_fullscreen_view_attached_synchronously())
     all_errors.extend(check_refresh_spinner_only_on_pull())
     all_errors.extend(check_single_browser_activity())
+    all_errors.extend(check_file_sizes())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -409,7 +412,7 @@ def main():
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
         "Fullscreen Sync Attach, Pull-Only Refresh Spinner, Single Browser Activity, No English Sentinels, No Composition File I/O, No Test Detection, "
-        "English Comments)."
+        "English Comments, File Size Ratchet)."
     )
     return 0
 
