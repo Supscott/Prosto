@@ -1,6 +1,6 @@
 # Splitting the three most-edited god files
 
-Status: steps 1 (`c8ba9d4`) and 2 (`4a7c6a1`) done; step 3 pending. Line numbers refer to commit `4f7aefb`.
+Status: done. Step 1 `c8ba9d4`, step 2 `4a7c6a1`, step 3 `38258ad` (handlers are named `*EventHandler`; `HandleBackPress` stays a direct `BrowserUiEvent`). Line numbers refer to commit `4f7aefb`.
 
 ## Why these three
 
