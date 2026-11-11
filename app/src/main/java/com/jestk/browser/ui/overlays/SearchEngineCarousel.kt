@@ -700,7 +700,7 @@ internal fun Modifier.searchEngineButtonGestures(
 
             velocityTracker.resetTracking()
             velocityTracker.addPosition(down.uptimeMillis, down.position)
-            var totalDragX = 0f
+            val axis = DragAxisLock(viewConfig.touchSlop)
             var isDrag = false
 
             while (true) {
@@ -743,8 +743,8 @@ internal fun Modifier.searchEngineButtonGestures(
                 }
                 velocityTracker.addPosition(change.uptimeMillis, change.position)
                 val dragX = change.position.x - change.previousPosition.x
-                totalDragX += dragX
-                if (!isDrag && abs(totalDragX) > viewConfig.touchSlop) {
+                axis.onMove(change)
+                if (!isDrag && axis.isHorizontalDrag) {
                     isDrag = true
                     pendingSingleTapJob?.cancel()
                     pendingSingleTapJob = null
@@ -775,7 +775,7 @@ internal fun Modifier.searchEngineInputGestures(
             val down = awaitFirstDown(requireUnconsumed = false)
             velocityTracker.resetTracking()
             velocityTracker.addPosition(down.uptimeMillis, down.position)
-            var totalDragX = 0f
+            val axis = DragAxisLock(viewConfig.touchSlop)
             var isDrag = false
 
             while (true) {
@@ -790,8 +790,8 @@ internal fun Modifier.searchEngineInputGestures(
                 }
                 velocityTracker.addPosition(change.uptimeMillis, change.position)
                 val dragX = change.position.x - change.previousPosition.x
-                totalDragX += dragX
-                if (!isDrag && abs(totalDragX) > viewConfig.touchSlop) {
+                axis.onMove(change)
+                if (!isDrag && axis.isHorizontalDrag) {
                     isDrag = true
                     carouselState.onDragStart()
                 }
@@ -820,7 +820,7 @@ internal fun Modifier.horizontalSwipeCycler(
     return this.pointerInput(enabled, density) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
-            var totalDragX = 0f
+            val axis = DragAxisLock(viewConfiguration.touchSlop)
             var isDrag = false
 
             while (true) {
@@ -828,18 +828,17 @@ internal fun Modifier.horizontalSwipeCycler(
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                 if (!change.pressed) break
 
-                val dragX = change.position.x - change.previousPosition.x
-                totalDragX += dragX
-                if (abs(totalDragX) > viewConfiguration.touchSlop) {
+                axis.onMove(change)
+                if (axis.isHorizontalDrag) {
                     isDrag = true
                 }
                 if (isDrag) {
-                    if (totalDragX <= -thresholdPx) {
-                        totalDragX += thresholdPx
+                    if (axis.totalX <= -thresholdPx) {
+                        axis.totalX += thresholdPx
                         change.consume()
                         currentOnSwipeLeft()
-                    } else if (totalDragX >= thresholdPx) {
-                        totalDragX -= thresholdPx
+                    } else if (axis.totalX >= thresholdPx) {
+                        axis.totalX -= thresholdPx
                         change.consume()
                         currentOnSwipeRight()
                     }

@@ -274,6 +274,7 @@ internal fun Modifier.swipeDownToDismiss(
             velocityTracker.addPosition(down.uptimeMillis, down.position)
 
             var dispatchedY = 0f
+            var offset = Offset.Zero
             var isHorizontalDrag = false
             var dismissed = false
 
@@ -282,7 +283,9 @@ internal fun Modifier.swipeDownToDismiss(
                 if (!change.pressed) break
 
                 velocityTracker.addPosition(change.uptimeMillis, change.position)
-                val offset = change.position - down.position
+                // The node moves with the keyboard while it is dragged, so positions are not comparable
+                // across events; only per-event deltas are in a consistent frame.
+                offset += change.position - change.previousPosition
                 if (!isHorizontalDrag && abs(offset.x) > viewConfig.touchSlop && abs(offset.x) > abs(offset.y)) {
                     isHorizontalDrag = true
                 }

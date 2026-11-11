@@ -34,6 +34,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -71,6 +75,7 @@ internal fun SearchEngineSwitcherRow(
     isEditActive: Boolean = false,
 ) {
     val scrollState = rememberScrollState()
+    var isVerticalGesture by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier.fillMaxWidth(),
@@ -80,7 +85,8 @@ internal fun SearchEngineSwitcherRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(end = 52.dp)
-                .horizontalScroll(scrollState)
+                .verticalAxisLock { isVerticalGesture = it }
+                .horizontalScroll(scrollState, enabled = !isVerticalGesture)
                 .padding(start = 16.dp, end = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.Start),
             verticalAlignment = Alignment.CenterVertically
