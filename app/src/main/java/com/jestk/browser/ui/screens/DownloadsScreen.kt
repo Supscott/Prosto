@@ -203,9 +203,9 @@ fun DownloadsScreen(
                             if (currentStatus == DownloadStatus.DOWNLOADING || currentStatus == DownloadStatus.PENDING ||
                                 currentStatus == DownloadStatus.PAUSED
                             ) {
-                                Toast.makeText(context, context.getString(R.string.downloads_in_progress_hint), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, R.string.downloads_in_progress_hint, Toast.LENGTH_SHORT).show()
                             } else if (currentStatus == DownloadStatus.FAILED) {
-                                Toast.makeText(context, context.getString(R.string.downloads_failed_retry_hint), Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, R.string.downloads_failed_retry_hint, Toast.LENGTH_SHORT).show()
                             } else {
                                 DownloadFileOpener.openDownloadedFile(context, item)
                             }
