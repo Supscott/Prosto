@@ -205,7 +205,10 @@ fun JestkApp(
             when (command) {
                 is NavigationCommand.LoadUrl -> {
                     val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context, profileName = profileName)
-                    com.jestk.browser.engine.JestkWebViewClient.loadUrlOrHandleExternal(webView, command.url)
+                    val isFresh = (webView as? com.jestk.browser.engine.NestedWebView)?.loadedUrl.isNullOrEmpty()
+                    if (!(isFresh && webViewPool.restoreSavedState(activeId, webView, command.url))) {
+                        com.jestk.browser.engine.JestkWebViewClient.loadUrlOrHandleExternal(webView, command.url)
+                    }
                 }
 
                 is NavigationCommand.GoBack -> {

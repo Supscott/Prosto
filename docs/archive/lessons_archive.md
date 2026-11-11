@@ -43,3 +43,10 @@ Retired lessons that are permanently guarded by automated tests, assertions, or 
 - **Cause:** Modifiers recording into a `GraphicsLayer` (e.g. blur or render nodes) force Chromium's asynchronous hardware draw functor to re-record through an offscreen `RenderNode` each frame, causing severe screen flicker and stale frames.
 - **Do:** Keep live `WebView` strictly outside any `GraphicsLayer`, offscreen render node, or dynamic blur modifiers; use solid surface fallbacks with elevation for overlays positioned above web content.
 - **Don't:** Place a live `WebView` inside a Compose `GraphicsLayer`, offscreen render node, or dynamic blur shader.
+
+## Retired Lesson: Chromium WebView yields previous page favicon during cross-domain navigation
+- **Graduated On:** 2026-11-11
+- **Graduation Reason:** Enforced by tools/check_invariants.py check_webview_client_no_favicon and stated in CLAUDE.md (Favicon Subsystem)
+- **Cause:** In Android Chromium WebView, onPageStarted(view, url, favicon) and view.favicon in onPageFinished frequently return the favicon of the previous page loaded in that WebView during cross-domain navigation. Relying on them corrupts both tab state and the domain cache.
+- **Do:** Treat WebChromeClient.onReceivedIcon as the sole source of truth for favicons, enforce isSameDomain(tab.url, pageUrl) before applying icons, and evict stale per-tab icon files on cross-domain navigation.
+- **Don't:** Never extract or forward favicons from WebViewClient callbacks, and never apply a foreign domain's favicon to a tab.

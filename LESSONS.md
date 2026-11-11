@@ -62,12 +62,12 @@ Active, non-obvious gotchas that cannot yet be prevented by static typing or lin
 - **Do:** Wrap binary payloads in a small value class that compares with contentEquals and contentHashCode (see domain/model/AppIcon.kt, which carries the app icon as PNG bytes so that the domain layer stays free of android.graphics.Bitmap), and keep the raw array out of the data class property list.
 - **Don't:** Do not put a ByteArray - or a Bitmap, or any other type without structural equality - directly into a data class that participates in equality, and do not rely on the generated equals/hashCode for arrays.
 
-## 11. Chromium WebView yields previous page favicon during cross-domain navigation
-- **Cause:** In Android Chromium WebView, onPageStarted(view, url, favicon) and view.favicon in onPageFinished frequently return the favicon of the previous page loaded in that WebView during cross-domain navigation. Relying on them corrupts both tab state and the domain cache.
-- **Do:** Treat WebChromeClient.onReceivedIcon as the sole source of truth for favicons, enforce isSameDomain(tab.url, pageUrl) before applying icons, and evict stale per-tab icon files on cross-domain navigation.
-- **Don't:** Never extract or forward favicons from WebViewClient callbacks, and never apply a foreign domain's favicon to a tab.
-
-## 12. Anti-bot checks see every artefact an injected script leaves on the page
+## 11. Anti-bot checks see every artefact an injected script leaves on the page
 - **Cause:** Cloudflare/WAF scripts compare the page with real Chrome: `Function.prototype.toString.call(fn)` reveals replaced natives (an own `toString` override does not help), `Object.getOwnPropertyNames(window)` lists every injected global (also non-enumerable ones), and the Cloudflare "Just a moment..." interstitial is served on the protected site's own domain, so a host allowlist does not exempt it. Client Hints were already correct; the injected `matchMedia` polyfill and ad-block stubs were the signals.
 - **Do:** Keep Client Hints native (rename only "Android WebView"), keep injected scripts free of `window.*` names and native replacements, patch a native only while it is needed, skip pages whose title is "Just a moment...", and re-run the CDP fingerprint probe (review spec §5) against Chrome on the same device after touching any injected script.
 - **Don't:** Never add globals or `toString` "stealth", never polyfill `matchMedia` for the theme (use the Activity theme), and never assume a challenge is only on challenges.cloudflare.com. `X-Requested-With` and the missing `window.chrome` are WebView-inherent (DuckDuckGo has them too); do not fake them.
+
+## 12. Pages restored from the back/forward cache never call onPageFinished
+- **Cause:** With WebSettingsCompat.setBackForwardCacheEnabled, Back restores the frozen page: WebView reports onPageStarted, onPageCommitVisible and 100% progress, but no onPageFinished. Everything hung on onPageFinished (tab snapshot, title and history update, theme color, PageLoadTiming) silently skips, so the tab snapshot keeps showing the page the user went back from.
+- **Do:** Treat 100% progress without onPageFinished as a finished load: JestkWebViewClient.onProgressComplete runs the end-of-load work once after a short delay and ignores a late real onPageFinished for the same navigation. Re-check Back on a real device after touching page lifecycle code.
+- **Don't:** Do not assume onPageStarted and onPageFinished come in pairs, and do not put work that must run after every visible navigation only in onPageFinished.

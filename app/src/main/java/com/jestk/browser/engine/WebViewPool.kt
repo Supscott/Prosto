@@ -17,6 +17,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.Toast
+import androidx.annotation.OptIn
 import androidx.webkit.Profile
 import androidx.webkit.ProfileStore
 import androidx.webkit.UserAgentMetadata
@@ -49,7 +50,6 @@ class WebViewPool(
 
     companion object {
         private const val TAG = "WebViewPool"
-        const val MAX_CONCURRENT_WEBVIEWS = 5
     }
 
     var onDownloadStarted: ((DownloadItem) -> Unit)? = null
@@ -182,6 +182,90 @@ class WebViewPool(
         _awaitingFirstPaintTabIds.update { it - tabId }
     }
 
+    /** Live WebViews kept before the least recently used one is evicted (see [WebViewPoolSizing]). */
+    internal var maxWebViews: Int = WebViewPoolSizing.maxWebViews(applicationContext)
+
+    /**
+     * Under memory pressure keeps only the active tab and tabs playing media; the others are
+     * evicted with their history saved and come back from their snapshot. Main thread only.
+     */
+    fun onTrimMemory(level: Int) {
+        if (!WebViewPoolSizing.isMemoryPressure(level)) return
+        spareWebView.clear()
+        val keep = mediaPlayingTabs + listOfNotNull(activeTabId)
+        val evicted = pool.keys.filter { it !in keep }
+        evicted.forEach { removeWebView(it) }
+        Log.d(TAG, "Memory pressure (level $level): evicted ${evicted.size} WebViews")
+    }
+
+    private val spareWebView = SpareWebView { context, profileName -> createConfiguredWebView(context, profileName) }
+
+    /**
+     * Warms the engine after the first frame: spawns the renderer process for [profileName] so
+     * the first navigation from Home does not wait for it, and prepares a spare WebView for the
+     * next tab. Main thread only.
+     *
+     * Starting Chromium in the background before the first frame was measured and rejected: in
+     * release builds the first frame is ready in ~250 ms and deferring the first WebView delayed
+     * the page by ~300 ms.
+     */
+    @OptIn(markerClass = [Profile.ExperimentalWarmUpRendererProcess::class])
+    fun warmUp(activity: Context, profileName: String?) {
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.WARM_UP_RENDERER_PROCESS) && isMultiProfileSupported()) {
+            try {
+                profileProvider(profileName ?: Profile.DEFAULT_PROFILE_NAME)?.warmUpRendererProcess()
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to warm up the renderer process", t)
+            }
+        }
+        spareWebView.schedule(activity, profileName)
+    }
+
+    /**
+     * Opens DNS + TCP + TLS to [url]'s origin in [profileName]'s network context, so a following
+     * navigation skips the handshake. No HTTP request is sent. Main thread only.
+     */
+    @OptIn(markerClass = [Profile.ExperimentalPreconnect::class])
+    fun preconnect(url: String, profileName: String?) {
+        if (!isMultiProfileSupported() || !WebViewFeature.isFeatureSupported(WebViewFeature.PRECONNECT)) return
+        try {
+            profileProvider(profileName ?: Profile.DEFAULT_PROFILE_NAME)?.preconnect(url)
+            Log.d(TAG, "Preconnect $url")
+        } catch (t: Throwable) {
+            Log.w(TAG, "Preconnect failed for $url", t)
+        }
+    }
+
+    /** Saves the history of every live tab, so it survives the process being killed in the background. */
+    fun saveAllStates() {
+        pool.forEach { (tabId, webView) -> if (hasPage(webView)) WebViewStateStore.save(tabId, webView) }
+    }
+
+    /**
+     * Restores the saved history of [tabId] into its fresh [webView] when the saved current page
+     * is [url]. Returns true when that restore already loads [url]; otherwise the caller loads
+     * [url] itself (after a mismatching restore the new page lands on top of the restored history).
+     */
+    fun restoreSavedState(tabId: String, webView: WebView, url: String): Boolean {
+        if (!WebViewStateStore.restore(tabId, webView)) return false
+        val restoredUrl = webView.url ?: return false
+        if (!isSameDocument(restoredUrl, url)) return false
+        (webView as? NestedWebView)?.loadedUrl = restoredUrl
+        PageLoadTimer.onLoadRequested(tabId, restoredUrl)
+        Log.d(TAG, "Restored saved history of tab $tabId")
+        return true
+    }
+
+    private fun hasPage(webView: WebView): Boolean {
+        val url = (webView as? NestedWebView)?.loadedUrl ?: webView.url
+        return !url.isNullOrBlank() && url != "about:blank"
+    }
+
+    private fun isSameDocument(a: String, b: String): Boolean {
+        fun normalize(url: String) = url.substringBefore('#').trimEnd('/')
+        return normalize(a) == normalize(b)
+    }
+
     fun isTabLoaded(tabId: String): Boolean = pool.containsKey(tabId)
     fun getLoadedTabIds(): Set<String> = pool.keys.toSet()
 
@@ -248,7 +332,7 @@ class WebViewPool(
     }
 
     private fun trimPool(keepTabId: String) {
-        while (pool.size > MAX_CONCURRENT_WEBVIEWS) {
+        while (pool.size > maxWebViews) {
             val iterator = lruOrder.descendingIterator()
             var evictedId: String? = null
             while (iterator.hasNext()) {
@@ -399,8 +483,10 @@ class WebViewPool(
 
         // Initialize with MutableContextWrapper using Activity context so Chromium can attach to Window
         // and display the soft keyboard when input fields are focused.
+        val createStartedAt = android.os.SystemClock.elapsedRealtime()
+        val spare = spareWebView.take(targetContext, profileName)
         val contextWrapper = MutableContextWrapper(targetContext)
-        val webView = try {
+        val webView = spare ?: try {
             createConfiguredWebView(contextWrapper, profileName)
         } catch (t: Throwable) {
             Log.w(TAG, "Failed to initialize WebView with Activity context, falling back to Application context", t)
@@ -419,8 +505,10 @@ class WebViewPool(
         }
         updateLoadedTabIds()
         trimPool(tabId)
-        Log.d(TAG, "Created WebView for tab $tabId")
+        val source = if (spare != null) "spare" else "new"
+        Log.d(TAG, "Created WebView for tab $tabId ($source, ${android.os.SystemClock.elapsedRealtime() - createStartedAt}ms)")
         onWebViewCreated?.invoke(tabId, webView)
+        if (activity != null && !isActivityDestroyed) spareWebView.schedule(activity, profileName)
         return webView
     }
 
@@ -449,6 +537,11 @@ class WebViewPool(
                 cacheMode = WebSettings.LOAD_DEFAULT
                 mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
                 setSupportZoom(true)
+            }
+            // Back/forward cache keeps the previous page alive in memory, so Back is instant
+            // instead of a reload, like Chrome.
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.BACK_FORWARD_CACHE)) {
+                WebSettingsCompat.setBackForwardCacheEnabled(webView.settings, true)
             }
             configureProfileAndCookies(webView, profileName)
             try {
@@ -765,7 +858,11 @@ class WebViewPool(
 
     fun getWebView(tabId: String): WebView? = pool[tabId]
 
-    fun removeWebView(tabId: String) {
+    /**
+     * Destroys the WebView of [tabId]. With [keepState] (eviction, workspace switch, move) its
+     * history is saved first, so the tab comes back where it was (see [WebViewStateStore]).
+     */
+    fun removeWebView(tabId: String, keepState: Boolean = true) {
         lruOrder.remove(tabId)
         mediaPlayingTabs.remove(tabId)
         if (activeTabId == tabId) {
@@ -775,6 +872,7 @@ class WebViewPool(
         markFirstPaint(tabId)
         val webView = pool.remove(tabId) ?: return
         updateLoadedTabIds()
+        if (keepState && hasPage(webView)) WebViewStateStore.save(tabId, webView)
         Log.d(TAG, "Removing WebView for tab $tabId")
         detachFromParent(webView)
         try {
@@ -825,12 +923,13 @@ class WebViewPool(
     }
 
     fun clearAll() {
+        spareWebView.clear()
         lruOrder.clear()
         mediaPlayingTabs.clear()
         activeTabId = null
         tabProfiles.clear()
         val keys = pool.keys().toList()
-        keys.forEach { removeWebView(it) }
+        keys.forEach { removeWebView(it, keepState = false) }
         pool.clear()
         updateLoadedTabIds()
     }

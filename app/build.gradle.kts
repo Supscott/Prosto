@@ -42,6 +42,15 @@ android {
             isDebuggable = true
             applicationIdSuffix = ".debug"
         }
+        // Release code (R8, resource shrinking) signed with the debug key, installable next to
+        // the real app. Use it for startup and page-load measurements (`tools/coldstart_bench.sh`).
+        create("benchmark") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            applicationIdSuffix = ".bench"
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+        }
     }
 
     compileOptions {
@@ -112,7 +121,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     // Android WebKit & System WebView
-    implementation("androidx.webkit:webkit:1.12.1")
+    implementation("androidx.webkit:webkit:1.18.0")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
 
     // Room Database

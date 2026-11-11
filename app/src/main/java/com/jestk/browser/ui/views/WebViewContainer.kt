@@ -25,10 +25,12 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -92,6 +94,14 @@ fun WebViewContainer(
     val bottomPadding = if (isFullscreen) 0.dp else animatedBottomPadding
 
     val context = LocalContext.current
+    // After the first frame: spawn the renderer and prepare a spare WebView for the next tab.
+    LaunchedEffect(Unit) {
+        withFrameNanos { }
+        val activity = context.findActivity() ?: return@LaunchedEffect
+        val workspaceId = currentTab?.workspaceId ?: currentUiState.activeWorkspaceId
+        val profileName = currentUiState.workspaces.find { it.id == workspaceId }?.profileName ?: workspaceId
+        webViewPool.warmUp(activity, profileName)
+    }
     val currentActiveTabId by rememberUpdatedState(tabId)
 
     val currentIsDark by rememberUpdatedState(isDark)
@@ -261,7 +271,9 @@ fun WebViewContainer(
                     val isUnloaded = nestedLoadedUrl.isNullOrEmpty() || nestedLoadedUrl == "about:blank"
                     if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
                         if (isUnloaded && (initialWebView.url.isNullOrEmpty() || initialWebView.url == "about:blank")) {
-                            initialWebView.loadUrl(targetUrl)
+                            if (!webViewPool.restoreSavedState(tabId, initialWebView, targetUrl)) {
+                                initialWebView.loadUrl(targetUrl)
+                            }
                         } else if (currentTab?.themeColor == null) {
                             (initialWebView.webViewClient as? JestkWebViewClient)?.extractThemeColor(initialWebView)
                         }
@@ -346,7 +358,9 @@ fun WebViewContainer(
                     val isCurrentUnloaded = currentLoadedUrl.isNullOrEmpty() || currentLoadedUrl == "about:blank"
                     if (targetUrl.isNotBlank() && targetUrl != "about:blank") {
                         if (isCurrentUnloaded && (targetWebView.url.isNullOrEmpty() || targetWebView.url == "about:blank")) {
-                            targetWebView.loadUrl(targetUrl)
+                            if (!webViewPool.restoreSavedState(tabId, targetWebView, targetUrl)) {
+                                targetWebView.loadUrl(targetUrl)
+                            }
                         }
                     }
                 },

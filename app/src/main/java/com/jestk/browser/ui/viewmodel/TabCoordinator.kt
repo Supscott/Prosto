@@ -21,6 +21,7 @@ import com.jestk.browser.domain.repository.WorkspaceRepository
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.engine.WebViewStateStore
 import com.jestk.browser.util.UrlSecurityUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -281,6 +282,7 @@ internal class TabCoordinator(
                 .toSet()
 
             holdUntilFirstPaintIfRecreated(activeTab.id, activeTab.url)
+            WebViewStateStore.retainOnly(initialTabs.mapTo(HashSet()) { it.id })
             updateUiState { state ->
                 state.copy(
                     tabs = tabsWithActive,
@@ -783,6 +785,7 @@ internal class TabCoordinator(
         pendingExternalAppPrompts.remove(tabId)
         timedOutExternalAppDomains.remove(tabId)
         webViewPool?.removeWebView(tabId)
+        WebViewStateStore.onTabClosed(tabId)
 
         val currentTabs = getCurrentState().tabs
         val closingTab = currentTabs.find { it.id == tabId }
@@ -916,6 +919,7 @@ internal class TabCoordinator(
                         workspaceId = tabToRestore.workspaceId,
                     )
                 Log.d(TAG, "Restored closed tab as ${created.id} (url=${tabToRestore.url})")
+                WebViewStateStore.move(tabToRestore.id, created.id)
                 tabToRestore.snapshotPath?.let { tabRepository.updateSnapshot(created.id, it) }
                 tabToRestore.faviconUrl?.let { tabRepository.updateFavicon(created.id, it) }
                 tabToRestore.themeColor?.let {
@@ -984,6 +988,7 @@ internal class TabCoordinator(
         pendingExternalAppPrompts.clear()
         timedOutExternalAppDomains.clear()
         webViewPool?.clearAll()
+        WebViewStateStore.deleteAll()
         scope.launch(ioDispatcher) {
             SnapshotEngine.deleteAllSnapshots()
             FaviconManager.deleteAllFavicons()
@@ -1858,7 +1863,8 @@ internal class TabCoordinator(
                     dismissedExternalAppDomains.remove(tab.id)
                     pendingExternalAppPrompts.remove(tab.id)
                     timedOutExternalAppDomains.remove(tab.id)
-                    webViewPool?.removeWebView(tab.id)
+                    webViewPool?.removeWebView(tab.id, keepState = false)
+                    WebViewStateStore.delete(tab.id)
                     tabRepository.deleteTab(tab.id)
                 }
 

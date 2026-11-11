@@ -7,7 +7,13 @@ import android.webkit.GeolocationPermissions
 import android.webkit.ServiceWorkerController
 import android.webkit.WebStorage
 import androidx.test.core.app.ApplicationProvider
+import android.os.CancellationSignal
+import androidx.webkit.PrefetchException
 import androidx.webkit.Profile
+import androidx.webkit.SpeculativeLoadingConfig
+import androidx.webkit.SpeculativeLoadingParameters
+import androidx.webkit.WebViewOutcomeReceiver
+import java.util.concurrent.Executor
 import com.google.common.truth.Truth.assertThat
 import org.junit.Before
 import org.junit.Test
@@ -31,6 +37,21 @@ class WebViewPoolMultiProfileTest {
         override fun getWebStorage(): WebStorage = WebStorage.getInstance()
         override fun getGeolocationPermissions(): GeolocationPermissions = GeolocationPermissions.getInstance()
         override fun getServiceWorkerController(): ServiceWorkerController = ServiceWorkerController.getInstance()
+        override fun prefetchUrlAsync(
+            url: String,
+            cancellationSignal: CancellationSignal?,
+            callbackExecutor: Executor,
+            callback: WebViewOutcomeReceiver<Void, PrefetchException>,
+        ) = Unit
+        override fun prefetchUrlAsync(
+            url: String,
+            cancellationSignal: CancellationSignal?,
+            callbackExecutor: Executor,
+            speculativeLoadingParameters: SpeculativeLoadingParameters,
+            callback: WebViewOutcomeReceiver<Void, PrefetchException>,
+        ) = Unit
+        override fun setSpeculativeLoadingConfig(speculativeLoadingConfig: SpeculativeLoadingConfig) = Unit
+        override fun warmUpRendererProcess() = Unit
     }
 
     @Before

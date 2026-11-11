@@ -255,6 +255,12 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
         }
     }
 
+    override fun onStop() {
+        super.onStop()
+        // The process may be killed while in the background; keep every tab's history.
+        (application as JestkApplication).container.webViewPool.saveAllStates()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
         filePathCallback?.onReceiveValue(null)

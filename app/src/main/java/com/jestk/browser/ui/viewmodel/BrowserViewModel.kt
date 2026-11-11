@@ -30,6 +30,8 @@ import com.jestk.browser.util.UrlSecurityUtils
 import com.jestk.browser.util.YouTubeUrlHelper
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -42,6 +44,7 @@ import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.ConcurrentHashMap
 
 private const val TAG = "BrowserViewModel"
+private const val PRECONNECT_DEBOUNCE_MS = 300L
 
 class BrowserViewModel(
     private val tabRepository: TabRepository,
@@ -61,6 +64,8 @@ class BrowserViewModel(
 ) : ViewModel() {
     private val tabOperationMutex = Mutex()
     private val tabThemeColors = ConcurrentHashMap<String, Int>()
+    private val preconnectPlanner = PreconnectPlanner(now = { android.os.SystemClock.elapsedRealtime() })
+    private var preconnectJob: Job? = null
 
     private val _uiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = _uiState.asStateFlow()
@@ -483,6 +488,7 @@ class BrowserViewModel(
             is BrowserUiEvent.UpdateSearchQuery -> {
                 _uiState.update { it.copy(searchQuery = event.query) }
                 searchCoordinator.updateHistorySuggestions(event.query)
+                schedulePreconnect(event.query)
             }
 
             is BrowserUiEvent.GoBack -> {
@@ -1223,8 +1229,7 @@ class BrowserViewModel(
                     trimmed
                 }
 
-                trimmed.startsWith("localhost") || (trimmed.contains(".") && !trimmed.contains(" ")) ||
-                    (trimmed.contains(":") && !trimmed.contains(" ")) -> {
+                looksLikeUrlInput(trimmed) -> {
                     "https://$trimmed"
                 }
 
@@ -1273,6 +1278,23 @@ class BrowserViewModel(
         }
 
         tabCoordinator.navigateToUrl(finalUrl, matchedShortcutEngine)
+    }
+
+    /**
+     * Warms the connection to what the user is typing (typed host or search engine) once typing
+     * pauses, so the TLS handshake is done before Enter. See [PreconnectPlanner].
+     */
+    private fun schedulePreconnect(query: String) {
+        val pool = webViewPool ?: return
+        preconnectJob?.cancel()
+        preconnectJob = viewModelScope.launch {
+            delay(PRECONNECT_DEBOUNCE_MS)
+            val state = _uiState.value
+            val origin = preconnectPlanner.originToPreconnect(query) { state.settings.searchEngine.buildSearchUrl(it) }
+                ?: return@launch
+            val profileName = state.workspaces.find { it.id == state.activeWorkspaceId }?.profileName ?: state.activeWorkspaceId
+            pool.preconnect(origin, profileName)
+        }
     }
 
     private fun submitSearch(query: String) {

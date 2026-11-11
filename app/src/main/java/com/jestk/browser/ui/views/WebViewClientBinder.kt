@@ -74,7 +74,10 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
     webView.webChromeClient = JestkWebChromeClient(
         tabId = tabId,
         webView = webView,
-        onProgressChanged = { id, progress -> onEvent(BrowserUiEvent.OnProgressChanged(id, progress)) },
+        onProgressChanged = { id, progress ->
+            onEvent(BrowserUiEvent.OnProgressChanged(id, progress))
+            if (progress >= 100) (webView.webViewClient as? JestkWebViewClient)?.onProgressComplete(webView)
+        },
         onTitleReceived = { id, title -> onEvent(BrowserUiEvent.OnTitleReceived(id, title)) },
         onFullscreenCustomViewChanged = { view, isFullscreen, orientation ->
             // Attach before the state update: waiting for recomposition leaves the page hidden

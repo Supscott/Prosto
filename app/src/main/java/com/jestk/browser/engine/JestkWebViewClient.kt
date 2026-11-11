@@ -329,6 +329,7 @@ class JestkWebViewClient(
         super.onPageStarted(view, url, favicon)
         val validUrl = url.orEmpty()
         if (validUrl.isEmpty() || validUrl == "about:blank") return
+        navigationState = NavigationState.STARTED
 
         if (isCleanPlayerEnabled?.invoke() == true) {
             val videoId =
@@ -370,11 +371,47 @@ class JestkWebViewClient(
         onFirstVisibleFrame?.invoke(tabId)
     }
 
+    /** Where the current navigation is; see [onProgressComplete]. */
+    private enum class NavigationState { IDLE, STARTED, FINISHED, FINISH_SYNTHESIZED }
+
+    @Volatile
+    private var navigationState = NavigationState.IDLE
+
+    /**
+     * Progress reached 100%. A page restored from the back/forward cache reports onPageStarted
+     * and its first frame but never onPageFinished, so the end-of-load work (snapshot, title,
+     * theme, history) would be skipped and the tab snapshot would keep showing the page the user
+     * went back from. When onPageFinished has not arrived shortly after, it is run here once;
+     * a late real call for the same navigation is then ignored. Main thread only.
+     */
+    fun onProgressComplete(view: WebView) {
+        if (navigationState != NavigationState.STARTED) return
+        view.postDelayed({
+            if (navigationState != NavigationState.STARTED) return@postDelayed
+            val url = view.url ?: return@postDelayed
+            Log.d("JestkWebViewClient", "No onPageFinished for $url (back/forward cache restore), finishing it")
+            navigationState = NavigationState.FINISH_SYNTHESIZED
+            handlePageFinished(view, url)
+        }, SYNTHESIZED_FINISH_DELAY_MS)
+    }
+
     override fun onPageFinished(
         view: WebView?,
         url: String?,
     ) {
         super.onPageFinished(view, url)
+        if (navigationState == NavigationState.FINISH_SYNTHESIZED) {
+            navigationState = NavigationState.FINISHED
+            return
+        }
+        navigationState = NavigationState.FINISHED
+        handlePageFinished(view, url)
+    }
+
+    private fun handlePageFinished(
+        view: WebView?,
+        url: String?,
+    ) {
         val validUrl = url.orEmpty()
         if (validUrl.isEmpty() || validUrl == "about:blank") return
         PageLoadTimer.onPageFinished(tabId, validUrl)
@@ -536,6 +573,9 @@ class JestkWebViewClient(
     }
 
     companion object {
+        /** onPageFinished normally follows 100% progress within a few ms. */
+        private const val SYNTHESIZED_FINISH_DELAY_MS = 300L
+
         /** How long after a tap later main-frame hops still count as part of that tap. */
         private const val GESTURE_CHAIN_WINDOW_MS = 3_000L
 

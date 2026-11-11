@@ -5,6 +5,7 @@ import com.jestk.browser.di.AppContainer
 import com.jestk.browser.di.DefaultAppContainer
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
+import com.jestk.browser.engine.WebViewStateStore
 
 class JestkApplication : Application() {
     lateinit var container: AppContainer
@@ -13,8 +14,14 @@ class JestkApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         SnapshotEngine.init(applicationContext)
+        WebViewStateStore.init(applicationContext)
         FaviconManager.init(applicationContext)
         container = DefaultAppContainer(applicationContext)
+    }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (::container.isInitialized) container.webViewPool.onTrimMemory(level)
     }
 
     /**
