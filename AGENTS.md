@@ -10,6 +10,7 @@ Welcome to the **Prosto** project. This file provides operational rules, archite
 > **BEFORE writing code or planning any implementation:**
 > 1. Read [`LESSONS.md`](file:///Users/ilya/CODING/browser/LESSONS.md) to review active high-signal gotchas and traps discovered on this codebase.
 > 2. Run `rtk tools/verify.sh` to ensure a green baseline before starting changes.
+> 3. Read [`TASKS.md`](TASKS.md): open work shared by all agents. When you start a listed task, move it to *In progress* with your branch; when you finish, delete it and add any follow-up you leave behind (one line each).
 
 ---
 
@@ -30,6 +31,7 @@ Welcome to the **Prosto** project. This file provides operational rules, archite
 - **Unit test target**: Always run `rtk ./gradlew testDebugUnitTest`. Never run bare `./gradlew test`, as `testReleaseUnitTest` fails without Robolectric release configuration.
 - **Invariants**: Always verify `python3 tools/check_invariants.py` passes before finalizing changes.
 - **On-Device Checks**: Use `rtk tools/device.sh <cmd>` instead of hand-written adb chains: `wake` (fails fast when the phone is locked: ask the user to unlock), `install`, `open <url>` (quotes URLs safely), `caller`, `back`, `top`, `visible`/`pages` (which WebView page is on screen, via CDP), `log <regex>`, `shot` (downscaled). Prefer `top`/`visible`/`log` over screenshots. Run `rtk tools/smoke.sh` after any change to WebView attachment, tab switching, intents or the Activity; it checks the on-screen page, the task stack and intent delivery and prints PASS/FAIL. Run `tools/device.sh sleep` when done. Never drive `com.jestk.browser` (the user's own install); the scripts refuse it.
+- **Large files and refactoring**: Map a big file with `python3 tools/outline.py <file>` (members with line ranges; `--groups name=a-b ...` prints calls between groups for planning a split) and read it in parts. Review a move-only refactoring with `python3 tools/move_check.py <base> [<head>] [--sub OLD=NEW]`: moved lines cancel out, only real changes are listed. Delegate the moving itself to the `refactor-mover` agent (`.claude/agents/refactor-mover.md`, Sonnet) with a plan section and a base commit; keep design and review in the main session.
 - **On-Device WebView Debugging**: See [`.agent/skills/adb-webview-testing/SKILL.md`](file:///Users/ilya/CODING/browser/.agent/skills/adb-webview-testing/SKILL.md) for ADB port forwarding, CDP WebSocket tracing, cookie/storage inspection, and headless Chrome DevTools commands.
 - **DuckDuckGo Android Reference**: See [`.agent/skills/duckduckgo-reference/SKILL.md`](file:///Users/ilya/CODING/browser/.agent/skills/duckduckgo-reference/SKILL.md) for module paths, GitHub lookup recipes, and adaptation guidelines when implementing WebView edge cases, web compatibility, or privacy features.
 

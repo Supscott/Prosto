@@ -381,6 +381,20 @@ def check_refresh_spinner_only_on_pull():
     return errors
 
 
+TASKS_FILE = ROOT / "TASKS.md"
+MAX_TASKS_LINES = 40
+
+
+def check_tasks_file_size():
+    """TASKS.md stays short enough to read at the start of every task (done items are deleted)."""
+    if not TASKS_FILE.exists():
+        return ["TASKS.md is missing"]
+    lines = len(TASKS_FILE.read_text(encoding="utf-8").splitlines())
+    if lines > MAX_TASKS_LINES:
+        return [f"TASKS.md: {lines} lines, over {MAX_TASKS_LINES}. Delete done tasks; git log is the history."]
+    return []
+
+
 def main():
     all_errors = []
     all_errors.extend(check_no_blur())
@@ -401,6 +415,7 @@ def main():
     all_errors.extend(check_refresh_spinner_only_on_pull())
     all_errors.extend(check_single_browser_activity())
     all_errors.extend(check_file_sizes())
+    all_errors.extend(check_tasks_file_size())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -412,7 +427,7 @@ def main():
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
         "Fullscreen Sync Attach, Pull-Only Refresh Spinner, Single Browser Activity, No English Sentinels, No Composition File I/O, No Test Detection, "
-        "English Comments, File Size Ratchet)."
+        "English Comments, File Size Ratchet, Short TASKS.md)."
     )
     return 0
 
