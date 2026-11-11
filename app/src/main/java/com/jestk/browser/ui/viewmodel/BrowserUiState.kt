@@ -32,6 +32,8 @@ data class BrowserUiState(
     val awaitingFirstPaintTabIds: Set<String> = emptySet(),
     /** The tab whose current navigation started from Home; Home stays until its first frame. */
     val homeHoldTabId: String? = null,
+    /** Tabs opened by a link from another app; Back at their history start returns to it. */
+    val externalAppTabIds: Set<String> = emptySet(),
     val recentlyClosedTab: Tab? = null,
     val showUndoTabCloseSnackbar: Boolean = false,
     val externalAppPrompt: ExternalAppPrompt? = null,

@@ -12,6 +12,8 @@ sealed interface BrowserUiEvent {
     // Tab Management
     data class OpenNewTab(
         val url: String = "",
+        /** A link another app sent us: Back at the start of its history returns to that app. */
+        val openedByExternalApp: Boolean = false,
     ) : BrowserUiEvent
 
     data class OpenPopupTab(

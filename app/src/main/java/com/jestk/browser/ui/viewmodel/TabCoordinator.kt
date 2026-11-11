@@ -581,7 +581,7 @@ internal class TabCoordinator(
         }
     }
 
-    fun openNewTab(url: String) {
+    fun openNewTab(url: String, openedByExternalApp: Boolean = false) {
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 val isHome = url.isEmpty() || url == "about:blank"
@@ -592,6 +592,9 @@ internal class TabCoordinator(
                 Log.d(TAG, "Created tab ${created.id} for $url")
                 val isWebLoading = !isHome && url.isNotEmpty()
                 activateNewTabState(created, url, title, cachedFavicon, isWebLoading, isHome)
+                if (openedByExternalApp) {
+                    updateUiState { it.copy(externalAppTabIds = it.externalAppTabIds + created.id) }
+                }
                 if (url.isNotEmpty() && url != "about:blank") {
                     emitNavigation(NavigationCommand.LoadUrl(url))
                 }
@@ -786,6 +789,9 @@ internal class TabCoordinator(
         timedOutExternalAppDomains.remove(tabId)
         webViewPool?.removeWebView(tabId)
         WebViewStateStore.onTabClosed(tabId)
+        if (tabId in getCurrentState().externalAppTabIds) {
+            updateUiState { it.copy(externalAppTabIds = it.externalAppTabIds - tabId) }
+        }
 
         val currentTabs = getCurrentState().tabs
         val closingTab = currentTabs.find { it.id == tabId }

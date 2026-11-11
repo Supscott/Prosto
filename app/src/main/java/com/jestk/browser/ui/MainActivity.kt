@@ -149,7 +149,11 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
         viewModel.updateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(this))
         checkNotificationPermission()
 
-        handleIntent(intent)
+        // A recreated Activity (theme change, process restore) or a relaunch from Recents gets
+        // the original intent again; its tab is already open.
+        val isRedelivered = savedInstanceState != null ||
+            intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (!isRedelivered) handleIntent(intent)
 
         viewModel.onLaunchIntent = { intent -> startActivity(intent) }
 
@@ -212,7 +216,9 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
     private fun handleIntent(intent: Intent?) {
         val data = intent?.dataString
         if (!data.isNullOrEmpty()) {
-            viewModel.onEvent(BrowserUiEvent.OpenNewTab(data))
+            // Our own links (Settings "About", feedback) reach us here too; they are not external.
+            val openedByExternalApp = referrer?.host != packageName
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab(data, openedByExternalApp = openedByExternalApp))
         }
     }
 

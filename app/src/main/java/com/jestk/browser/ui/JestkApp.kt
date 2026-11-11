@@ -198,6 +198,10 @@ fun JestkApp(
                 context.findActivity()?.finish()
                 return@collectLatest
             }
+            if (command is NavigationCommand.ReturnToCallerApp) {
+                context.findActivity()?.moveTaskToBack(true)
+                return@collectLatest
+            }
             val activeId = viewModel.uiState.value.activeTabId ?: return@collectLatest
             val currentTab = viewModel.uiState.value.allTabs.find { it.id == activeId } ?: viewModel.uiState.value.tabs.find { it.id == activeId }
             val activeWorkspaceId = currentTab?.workspaceId ?: viewModel.uiState.value.activeWorkspaceId
@@ -248,7 +252,7 @@ fun JestkApp(
                     }
                 }
 
-                is NavigationCommand.ExitApp -> {
+                is NavigationCommand.ExitApp, NavigationCommand.ReturnToCallerApp -> {
                     Unit
                 }
             }

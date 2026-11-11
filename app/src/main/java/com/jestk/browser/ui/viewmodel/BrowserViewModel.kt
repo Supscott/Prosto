@@ -275,7 +275,7 @@ class BrowserViewModel(
                         )
                     )
                 } else {
-                    tabCoordinator.openNewTab(event.url)
+                    tabCoordinator.openNewTab(event.url, openedByExternalApp = event.openedByExternalApp)
                 }
             }
 
@@ -1445,6 +1445,14 @@ class BrowserViewModel(
         }
 
         // Web history is exhausted!
+        val activeTabId = current.activeTabId
+        if (activeTabId != null && activeTabId in current.externalAppTabIds) {
+            // Like Chrome: a link from another app closes on Back and hands the user back to that
+            // app, instead of closing the user's other tabs one by one.
+            tabCoordinator.closeTab(activeTabId)
+            _navigationCommands.tryEmit(NavigationCommand.ReturnToCallerApp)
+            return
+        }
         if (current.tabs.size > 1) {
             current.activeTabId?.let { tabCoordinator.closeTab(it) }
         } else {
