@@ -1,6 +1,6 @@
 # Splitting the three most-edited god files
 
-Status: planned. Line numbers refer to commit `4f7aefb`.
+Status: steps 1 (`c8ba9d4`) and 2 (`4a7c6a1`) done; step 3 pending. Line numbers refer to commit `4f7aefb`.
 
 ## Why these three
 
@@ -100,6 +100,9 @@ delegating to the context (`BrowserViewModelTest` reads `tabLoadingProgress`).
 | `TabFavorites` | `addCurrentToFavorites`, `addFavorite`, `deleteFavorite`, `moveFavoriteToWorkspace` (1478–1524, 1968–1973) | 65 | — |
 | `Workspaces` | `switchWorkspace`, `switchWorkspaceInternal`, `createWorkspace`, `updateWorkspace`, `deleteWorkspace`, `moveTabToWorkspace` (1743–1956) | 220 | TabActivation |
 | `TabSessionSync` | `restoreSession`, `observeDatabaseFlows` (183–494) | 315 | — |
+
+`TabClosing` also uses the extension `BrowserUiState.tabsWithNewTab`; it became a top-level
+`internal` function in `TabOpening.kt` (the call graph script missed extension calls).
 
 The cross-part calls above were extracted mechanically from the current code and form a DAG,
 so construct the parts in this order: context, ExternalAppPrompts, TabActivation, TabOpening,
