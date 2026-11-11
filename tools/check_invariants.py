@@ -333,6 +333,23 @@ def check_fullscreen_view_attached_synchronously():
     return []
 
 
+def check_single_browser_activity():
+    """MainActivity must stay a single instance (launchMode singleTask).
+
+    WebViewPool is process-wide and a WebView has one parent. With the default launch mode every
+    link opened from another app (ACTION_VIEW) creates another MainActivity with its own
+    ViewModel and WebView container; they steal WebViews from each other and the dock switches
+    tabs while the screen keeps showing another tab's page. singleTask routes links to
+    onNewIntent of the one instance.
+    """
+    manifest = MAIN_DIR / "AndroidManifest.xml"
+    content = manifest.read_text(encoding="utf-8")
+    match = re.search(r'<activity\b[^>]*android:name="\.ui\.MainActivity"[^>]*>', content, re.S)
+    if not match or 'android:launchMode="singleTask"' not in match.group(0):
+        return [f'{manifest.relative_to(ROOT)}: MainActivity must declare android:launchMode="singleTask"']
+    return []
+
+
 def check_refresh_spinner_only_on_pull():
     """Page loads must not drive the pull-to-refresh spinner (Chrome shows only a progress bar).
 
@@ -341,6 +358,16 @@ def check_refresh_spinner_only_on_pull():
     spinner over every navigation.
     """
     errors = []
+    # Index 0 of a SwipeRefreshLayout is its spinner circle until the spinner first shows, so a
+    # positional lookup of the tab container silently fails (tab switching then does nothing).
+    positional = re.compile(r"swipeRefresh\.getChildAt\(")
+    for file in MAIN_DIR.rglob("*.kt"):
+        for number, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
+            if positional.search(line):
+                errors.append(
+                    f"{file.relative_to(ROOT)}:{number}: find the tab container with "
+                    "JestkSwipeRefreshLayout.tabsContainer, not by child index"
+                )
     pattern = re.compile(r"isRefreshing\s*=\s*[\w.]*isLoading")
     for file in MAIN_DIR.rglob("*.kt"):
         for number, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
@@ -370,6 +397,7 @@ def main():
     all_errors.extend(check_injected_script_stealth())
     all_errors.extend(check_fullscreen_view_attached_synchronously())
     all_errors.extend(check_refresh_spinner_only_on_pull())
+    all_errors.extend(check_single_browser_activity())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -380,7 +408,7 @@ def main():
     print(
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
-        "Fullscreen Sync Attach, Pull-Only Refresh Spinner, No English Sentinels, No Composition File I/O, No Test Detection, "
+        "Fullscreen Sync Attach, Pull-Only Refresh Spinner, Single Browser Activity, No English Sentinels, No Composition File I/O, No Test Detection, "
         "English Comments)."
     )
     return 0

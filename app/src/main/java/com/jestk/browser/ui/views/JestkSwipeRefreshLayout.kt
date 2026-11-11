@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.View
+import android.widget.FrameLayout
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.jestk.browser.engine.NestedWebView
 import kotlin.math.abs
@@ -20,6 +21,14 @@ class JestkSwipeRefreshLayout @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : SwipeRefreshLayout(context, attrs) {
+
+    /**
+     * The container of the tab WebViews. Found by type, never by index: the spinner circle is a
+     * child too, added first, and SwipeRefreshLayout moves it with bringToFront() only once the
+     * spinner shows. Index 0 is the circle until then.
+     */
+    val tabsContainer: FrameLayout?
+        get() = (0 until childCount).map { getChildAt(it) }.firstOrNull { it is FrameLayout } as? FrameLayout
 
     /** Callback invoked when pull distance reaches the threshold where releasing triggers refresh. */
     var onRefreshTriggerReached: (() -> Unit)? = null
