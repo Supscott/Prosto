@@ -42,6 +42,8 @@ class JestkWebViewClient(
     private val isAllowedAdNavigation: ((url: String) -> Boolean)? = null,
     private val isAutoConsentEnabled: (() -> Boolean)? = null,
     private val onRenderProcessGone: ((tabId: String) -> Unit)? = null,
+    /** The page shows its first visible frame, or finished loading without reporting one. */
+    private val onFirstVisibleFrame: ((tabId: String) -> Unit)? = null,
     /** Runs the PackageManager lookups for web URLs; they must not block the UI thread. */
     private val externalAppExecutor: Executor = EXTERNAL_APP_EXECUTOR,
 ) : WebViewClient() {
@@ -339,6 +341,7 @@ class JestkWebViewClient(
         }
 
         (view as? NestedWebView)?.loadedUrl = validUrl
+        PageLoadTimer.onPageStarted(tabId, validUrl)
         onPageStarted(tabId, validUrl)
         view?.let { wv ->
             checkExternalAppOffer(wv, validUrl)
@@ -356,6 +359,17 @@ class JestkWebViewClient(
         }
     }
 
+    override fun onPageCommitVisible(
+        view: WebView?,
+        url: String?,
+    ) {
+        super.onPageCommitVisible(view, url)
+        val validUrl = url.orEmpty()
+        if (validUrl.isEmpty() || validUrl == "about:blank") return
+        PageLoadTimer.onFirstVisibleFrame(tabId, validUrl)
+        onFirstVisibleFrame?.invoke(tabId)
+    }
+
     override fun onPageFinished(
         view: WebView?,
         url: String?,
@@ -363,6 +377,9 @@ class JestkWebViewClient(
         super.onPageFinished(view, url)
         val validUrl = url.orEmpty()
         if (validUrl.isEmpty() || validUrl == "about:blank") return
+        PageLoadTimer.onPageFinished(tabId, validUrl)
+        // Some loads (errors, downloads, cached same-document pages) never report a commit.
+        onFirstVisibleFrame?.invoke(tabId)
         (view as? NestedWebView)?.loadedUrl = validUrl
         (view as? NestedWebView)?.hasOpenerUserGesture = false
         val title = view?.title.orEmpty()

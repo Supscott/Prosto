@@ -139,6 +139,11 @@ class BrowserViewModel(
                     _uiState.update { it.copy(loadedTabIds = loaded) }
                 }
             }
+            viewModelScope.launch {
+                pool.awaitingFirstPaintTabIds.collect { awaiting ->
+                    _uiState.update { it.withAwaitingFirstPaint(awaiting) }
+                }
+            }
         }
         viewModelScope.launch(ioDispatcher) {
             restoreSession()

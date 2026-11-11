@@ -35,11 +35,13 @@ class NestedWebView @JvmOverloads constructor(
 
     override fun loadUrl(url: String) {
         loadedUrl = url
+        PageLoadTimer.onLoadRequested(tag as? String, url)
         super.loadUrl(url)
     }
 
     override fun loadUrl(url: String, additionalHttpHeaders: Map<String, String>) {
         loadedUrl = url
+        PageLoadTimer.onLoadRequested(tag as? String, url)
         super.loadUrl(url, additionalHttpHeaders)
     }
 

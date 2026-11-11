@@ -1380,4 +1380,48 @@ class TabCoordinatorTest {
             assertThat(newActive?.folderId).isNull()
             assertThat(newActive?.isHomeTab).isTrue()
         }
+
+    @Test
+    fun navigateToUrl_fromHome_keepsHomeVisibleUntilFirstFrame() =
+        runTest(testDispatcher) {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+            val activeTabId = uiState.activeTabId!!
+            assertThat(uiState.activeTab?.isHomeTab).isTrue()
+
+            coordinator.navigateToUrl("https://example.com/")
+            advanceUntilIdle()
+
+            assertThat(uiState.isHome).isFalse()
+            assertThat(uiState.firstPaintPlaceholder).isEqualTo(FirstPaintPlaceholder.HOME)
+            assertThat(uiState.isHomeContentVisible).isTrue()
+            assertThat(webViewPool.awaitingFirstPaintTabIds.value).contains(activeTabId)
+
+            webViewPool.markFirstPaint(activeTabId)
+            uiState = uiState.withAwaitingFirstPaint(webViewPool.awaitingFirstPaintTabIds.value)
+
+            assertThat(uiState.homeHoldTabId).isNull()
+            assertThat(uiState.firstPaintPlaceholder).isNull()
+            assertThat(uiState.isHomeContentVisible).isFalse()
+        }
+
+    @Test
+    fun navigateToUrl_fromLoadedPage_holdsNothing() =
+        runTest(testDispatcher) {
+            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            advanceUntilIdle()
+            val activeTabId = uiState.activeTabId!!
+            coordinator.navigateToUrl("https://example.com/")
+            advanceUntilIdle()
+            webViewPool.markFirstPaint(activeTabId)
+            uiState = uiState.withAwaitingFirstPaint(webViewPool.awaitingFirstPaintTabIds.value)
+
+            coordinator.navigateToUrl("https://example.org/")
+            advanceUntilIdle()
+
+            // Chromium keeps the previous page painted inside the same WebView.
+            assertThat(uiState.homeHoldTabId).isNull()
+            assertThat(uiState.firstPaintPlaceholder).isNull()
+            assertThat(uiState.isHomeContentVisible).isFalse()
+        }
 }

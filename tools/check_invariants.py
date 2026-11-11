@@ -333,6 +333,25 @@ def check_fullscreen_view_attached_synchronously():
     return []
 
 
+def check_refresh_spinner_only_on_pull():
+    """Page loads must not drive the pull-to-refresh spinner (Chrome shows only a progress bar).
+
+    The spinner belongs to the pull gesture; `JestkSwipeRefreshLayout.syncWithPageLoading` hides
+    it after the reload that the pull started. Binding `isRefreshing` to `isLoading` puts a
+    spinner over every navigation.
+    """
+    errors = []
+    pattern = re.compile(r"isRefreshing\s*=\s*[\w.]*isLoading")
+    for file in MAIN_DIR.rglob("*.kt"):
+        for number, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
+            if pattern.search(line):
+                errors.append(
+                    f"{file.relative_to(ROOT)}:{number}: isRefreshing is bound to page loading; "
+                    "use JestkSwipeRefreshLayout.syncWithPageLoading"
+                )
+    return errors
+
+
 def main():
     all_errors = []
     all_errors.extend(check_no_blur())
@@ -350,6 +369,7 @@ def main():
     all_errors.extend(check_security_challenge_protection())
     all_errors.extend(check_injected_script_stealth())
     all_errors.extend(check_fullscreen_view_attached_synchronously())
+    all_errors.extend(check_refresh_spinner_only_on_pull())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -360,7 +380,7 @@ def main():
     print(
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
-        "Fullscreen Sync Attach, No English Sentinels, No Composition File I/O, No Test Detection, "
+        "Fullscreen Sync Attach, Pull-Only Refresh Spinner, No English Sentinels, No Composition File I/O, No Test Detection, "
         "English Comments)."
     )
     return 0

@@ -28,6 +28,10 @@ data class BrowserUiState(
     val recentTabs: List<com.jestk.browser.domain.model.RecentTabItem> = emptyList(),
     val activeTabId: String? = null,
     val loadedTabIds: Set<String> = emptySet(),
+    /** Mirrors `WebViewPool.awaitingFirstPaintTabIds`: tabs whose WebView shows no page yet. */
+    val awaitingFirstPaintTabIds: Set<String> = emptySet(),
+    /** The tab whose current navigation started from Home; Home stays until its first frame. */
+    val homeHoldTabId: String? = null,
     val recentlyClosedTab: Tab? = null,
     val showUndoTabCloseSnackbar: Boolean = false,
     val externalAppPrompt: ExternalAppPrompt? = null,
@@ -127,7 +131,23 @@ data class BrowserUiState(
      * workspace card there, so a home tab must keep drawing Home instead of an empty background.
      */
     val isHomeContentVisible: Boolean
-        get() = isHome || (isWorkspacesOverviewVisible && activeTab?.isHomeTab != false)
+        get() = isHome ||
+            (isWorkspacesOverviewVisible && activeTab?.isHomeTab != false) ||
+            firstPaintPlaceholder == FirstPaintPlaceholder.HOME
+
+    /**
+     * What covers the active tab until its WebView paints the page, or null when the WebView
+     * already shows it. Same-WebView navigations need none: Chromium keeps the old page painted
+     * until the new one commits.
+     */
+    val firstPaintPlaceholder: FirstPaintPlaceholder?
+        get() {
+            val tab = activeTab ?: return null
+            if (tab.id !in awaitingFirstPaintTabIds) return null
+            if (homeHoldTabId == tab.id) return FirstPaintPlaceholder.HOME
+            val hasPage = tab.url.isNotEmpty() && tab.url != "about:blank"
+            return if (hasPage && !tab.snapshotPath.isNullOrBlank()) FirstPaintPlaceholder.SNAPSHOT else null
+        }
 
     /**
      * Settings/Downloads are opened by [com.jestk.browser.ui.navigation.ActionDock] via
@@ -155,6 +175,13 @@ data class BrowserUiState(
         }
 
     fun isTabLoaded(tabId: String): Boolean = tabId in loadedTabIds || tabId == activeTabId
+
+    /** Applies the pool's awaiting set; a Home hold ends with the first frame of its tab. */
+    fun withAwaitingFirstPaint(awaiting: Set<String>): BrowserUiState =
+        copy(
+            awaitingFirstPaintTabIds = awaiting,
+            homeHoldTabId = homeHoldTabId?.takeIf { it in awaiting },
+        )
 
     fun getFolder(folderId: String): TabFolder? = folders.find { it.id == folderId }
 

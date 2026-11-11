@@ -280,6 +280,7 @@ internal class TabCoordinator(
                 .filter { it.isNotEmpty() }
                 .toSet()
 
+            holdUntilFirstPaintIfRecreated(activeTab.id, activeTab.url)
             updateUiState { state ->
                 state.copy(
                     tabs = tabsWithActive,
@@ -698,6 +699,7 @@ internal class TabCoordinator(
         val liveTitle = liveWebView?.title?.takeIf { it.isNotBlank() }
 
         val effectiveUrl = liveUrl ?: selected.url
+        if (liveWebView == null) holdUntilFirstPaintIfRecreated(tabId, effectiveUrl)
         val effectiveTitle = liveTitle ?: (if (liveUrl != null && selected.title.isEmpty()) liveUrl else selected.title)
         val effectiveCanGoBack = liveWebView?.canGoBack() ?: selected.canGoBack
         val effectiveCanGoForward = liveWebView?.canGoForward() ?: selected.canGoForward
@@ -935,6 +937,7 @@ internal class TabCoordinator(
 
                 val isHome = restoredTab.url.isEmpty() || restoredTab.url == "about:blank"
                 val isWebLoading = !isHome && restoredTab.url.isNotEmpty()
+                holdUntilFirstPaintIfRecreated(created.id, restoredTab.url)
                 if (isWebLoading) {
                     tabLoadingProgress[created.id] = 15
                 } else {
@@ -1081,6 +1084,7 @@ internal class TabCoordinator(
                     isMenuExpanded = false,
                     isSearchEngineSwitcherEditExpanded = false,
                     activeOverlay = OverlayType.HOME,
+                    homeHoldTabId = null,
                 )
             }
             scope.launch(ioDispatcher) {
@@ -1103,6 +1107,9 @@ internal class TabCoordinator(
         } else {
             cachedFavicon
         }
+        // Like Chrome's NTP: Home stays on screen until the page paints its first frame.
+        val startsFromHome = currentTab == null || currentTab.isHomeTab
+        if (startsFromHome) webViewPool?.markAwaitingFirstPaint(activeId)
 
         tabLoadingProgress[activeId] = 10
         updateUiState {
@@ -1117,6 +1124,8 @@ internal class TabCoordinator(
                 settings = if (matchedShortcutEngine != null) it.settings.copy(searchEngine = matchedShortcutEngine) else it.settings,
                 isLoading = true,
                 loadingProgress = 0.1f,
+                awaitingFirstPaintTabIds = if (startsFromHome) it.awaitingFirstPaintTabIds + activeId else it.awaitingFirstPaintTabIds,
+                homeHoldTabId = if (startsFromHome) activeId else null,
                 activeThemeColor = tabThemeColors[activeId] ?: it.tabs.find { tab -> tab.id == activeId }?.themeColor,
                 isVideoPlaying = false,
                 isMenuExpanded = false,
@@ -1131,6 +1140,16 @@ internal class TabCoordinator(
             }
         }
         emitNavigation(NavigationCommand.LoadUrl(finalUrl))
+    }
+
+    /**
+     * A tab activated without a live WebView gets a fresh one that shows nothing until its first
+     * frame; marking it up front lets the UI cover it with the tab snapshot from the first frame.
+     */
+    private fun holdUntilFirstPaintIfRecreated(tabId: String, url: String) {
+        val pool = webViewPool ?: return
+        if (url.isEmpty() || url == "about:blank" || pool.getWebView(tabId) != null) return
+        pool.markAwaitingFirstPaint(tabId)
     }
 
     fun handlePageStarted(tabId: String, url: String) {

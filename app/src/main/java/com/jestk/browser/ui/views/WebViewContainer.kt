@@ -1,17 +1,15 @@
 package com.jestk.browser.ui.views
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.MutableContextWrapper
-import android.os.Handler
-import android.os.Looper
-import android.os.Message
-import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.FrameLayout
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
@@ -31,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -51,6 +50,8 @@ import com.jestk.browser.ui.theme.ProstoAccent
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.FirstPaintPlaceholder
+import com.jestk.browser.ui.components.SnapshotImage
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -90,124 +91,6 @@ fun WebViewContainer(
     )
     val bottomPadding = if (isFullscreen) 0.dp else animatedBottomPadding
 
-    val setupWebViewLongClick: (WebView) -> Unit = remember {
-        { wv ->
-            wv.isLongClickable = true
-            var fallbackTouchX = 0f
-            var fallbackTouchY = 0f
-            var fallbackRawX = 0f
-            var fallbackRawY = 0f
-
-            @SuppressLint("ClickableViewAccessibility")
-            wv.setOnTouchListener { _, event ->
-                if (event.actionMasked == MotionEvent.ACTION_DOWN || event.actionMasked == MotionEvent.ACTION_MOVE) {
-                    fallbackTouchX = event.x
-                    fallbackTouchY = event.y
-                    fallbackRawX = event.rawX
-                    fallbackRawY = event.rawY
-                }
-                false
-            }
-
-            wv.setOnLongClickListener { v ->
-                val targetWebView = v as? WebView ?: return@setOnLongClickListener false
-                val hitTest = targetWebView.hitTestResult ?: return@setOnLongClickListener false
-                val nested = targetWebView as? NestedWebView
-
-                val location = IntArray(2)
-                targetWebView.getLocationOnScreen(location)
-                val relX = nested?.lastTouchX?.takeIf { it > 0f } ?: fallbackTouchX
-                val relY = nested?.lastTouchY?.takeIf { it > 0f } ?: fallbackTouchY
-                val anchorX = if (relX > 0f) location[0] + relX else fallbackRawX.takeIf { it > 0f }
-                val anchorY = if (relY > 0f) location[1] + relY else fallbackRawY.takeIf { it > 0f }
-
-                when (hitTest.type) {
-                    WebView.HitTestResult.SRC_ANCHOR_TYPE -> {
-                        val url = hitTest.extra
-                        if (!url.isNullOrBlank()) {
-                            currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url = url, anchorX = anchorX, anchorY = anchorY))
-                            true
-                        } else {
-                            val handler = object : Handler(Looper.getMainLooper()) {
-                                override fun handleMessage(msg: Message) {
-                                    val nodeUrl = msg.data?.getString("url")
-                                    if (!nodeUrl.isNullOrBlank()) {
-                                        currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url = nodeUrl, anchorX = anchorX, anchorY = anchorY))
-                                    }
-                                }
-                            }
-                            targetWebView.requestFocusNodeHref(handler.obtainMessage())
-                            true
-                        }
-                    }
-                    WebView.HitTestResult.IMAGE_TYPE -> {
-                        val imageUrl = hitTest.extra
-                        if (!imageUrl.isNullOrBlank()) {
-                            currentOnEvent(BrowserUiEvent.ShowImageContextMenu(imageUrl = imageUrl, anchorX = anchorX, anchorY = anchorY))
-                            true
-                        } else false
-                    }
-                    WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> {
-                        val fallbackUrl = hitTest.extra
-                        val handler = object : Handler(Looper.getMainLooper()) {
-                            override fun handleMessage(msg: Message) {
-                                val imageUrl = msg.data?.getString("src")
-                                val nodeUrl = msg.data?.getString("url")
-                                val targetLink = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
-                                if (!imageUrl.isNullOrBlank()) {
-                                    currentOnEvent(
-                                        BrowserUiEvent.ShowImageContextMenu(
-                                            imageUrl = imageUrl,
-                                            linkUrl = targetLink,
-                                            anchorX = anchorX,
-                                            anchorY = anchorY
-                                        )
-                                    )
-                                } else if (!targetLink.isNullOrBlank()) {
-                                    currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url = targetLink, anchorX = anchorX, anchorY = anchorY))
-                                }
-                            }
-                        }
-                        targetWebView.requestFocusNodeHref(handler.obtainMessage())
-                        true
-                    }
-                    1 -> { // Deprecated HitTestResult.ANCHOR_TYPE
-                        val url = hitTest.extra
-                        if (!url.isNullOrBlank()) {
-                            currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url = url, anchorX = anchorX, anchorY = anchorY))
-                            true
-                        } else false
-                    }
-                    6 -> { // Deprecated HitTestResult.IMAGE_ANCHOR_TYPE
-                        val fallbackUrl = hitTest.extra
-                        val handler = object : Handler(Looper.getMainLooper()) {
-                            override fun handleMessage(msg: Message) {
-                                val imageUrl = msg.data?.getString("src")
-                                val nodeUrl = msg.data?.getString("url")
-                                val targetLink = if (!nodeUrl.isNullOrBlank()) nodeUrl else fallbackUrl
-                                if (!imageUrl.isNullOrBlank()) {
-                                    currentOnEvent(
-                                        BrowserUiEvent.ShowImageContextMenu(
-                                            imageUrl = imageUrl,
-                                            linkUrl = targetLink,
-                                            anchorX = anchorX,
-                                            anchorY = anchorY
-                                        )
-                                    )
-                                } else if (!targetLink.isNullOrBlank()) {
-                                    currentOnEvent(BrowserUiEvent.ShowLinkContextMenu(url = targetLink, anchorX = anchorX, anchorY = anchorY))
-                                }
-                            }
-                        }
-                        targetWebView.requestFocusNodeHref(handler.obtainMessage())
-                        true
-                    }
-                    else -> false
-                }
-            }
-        }
-    }
-
     val context = LocalContext.current
     val currentActiveTabId by rememberUpdatedState(tabId)
 
@@ -229,7 +112,7 @@ fun WebViewContainer(
             (wv.context as? MutableContextWrapper)?.baseContext = act
             wv.isFocusable = true
             wv.isFocusableInTouchMode = true
-            setupWebViewLongClick(wv)
+            wv.installLongClickContextMenu { currentOnEvent(it) }
 
             wv.setOnScrollChangeListener { v, _, scrollY, _, oldScrollY ->
                 val dy = scrollY - oldScrollY
@@ -326,7 +209,7 @@ fun WebViewContainer(
                         setColorSchemeColors(*brandColors)
                         setProgressBackgroundColorSchemeColor(surfaceColor)
                         descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
-                        setOnRefreshListener {
+                        setOnPullRefreshListener {
                             currentOnEvent(BrowserUiEvent.Reload)
                         }
                         onRefreshTriggerReached = {
@@ -393,7 +276,7 @@ fun WebViewContainer(
                             uiState.isFullscreenCustomView ||
                             uiState.fullscreenCustomView != null
 
-                    swipeRefresh.isRefreshing = uiState.isLoading
+                    (swipeRefresh as? JestkSwipeRefreshLayout)?.syncWithPageLoading(uiState.isLoading)
                     swipeRefresh.isEnabled = !isBlocked && !isHome
 
                     val brandColors = intArrayOf(
@@ -472,6 +355,23 @@ fun WebViewContainer(
                 },
                 modifier = Modifier.fillMaxSize()
             )
+
+            // Paint holding for a recreated WebView: the last snapshot covers the empty viewport
+            // until Chromium commits the first frame, then fades out.
+            AnimatedVisibility(
+                visible = !isHome && uiState.activeTabId == tabId &&
+                    uiState.firstPaintPlaceholder == FirstPaintPlaceholder.SNAPSHOT,
+                enter = EnterTransition.None,
+                exit = fadeOut(tween(durationMillis = 150)),
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                SnapshotImage(
+                    path = currentTab?.snapshotPath,
+                    contentDescription = null,
+                    alignment = Alignment.TopCenter,
+                    modifier = Modifier.fillMaxSize(),
+                ) {}
+            }
         }
     }
 }

@@ -27,6 +27,37 @@ class JestkSwipeRefreshLayout @JvmOverloads constructor(
     private var currentUnconsumed: Float = 0f
     private var hasTriggeredRefreshHaptic: Boolean = false
 
+    private val indicatorState = PullRefreshIndicatorState()
+    private val reloadStartTimeout = Runnable {
+        if (indicatorState.onReloadStartTimeout()) isRefreshing = false
+    }
+
+    /** Installs [onRefresh] so that only the pull gesture shows the spinner. */
+    fun setOnPullRefreshListener(onRefresh: () -> Unit) {
+        setOnRefreshListener {
+            indicatorState.onPullRefresh()
+            removeCallbacks(reloadStartTimeout)
+            postDelayed(reloadStartTimeout, PullRefreshIndicatorState.RELOAD_START_TIMEOUT_MS)
+            onRefresh()
+        }
+    }
+
+    /**
+     * Mirrors the page loading state. Page loads never show the spinner on their own; a spinner
+     * shown by a pull hides once the reload it started has finished.
+     */
+    fun syncWithPageLoading(isLoading: Boolean) {
+        if (isLoading) removeCallbacks(reloadStartTimeout)
+        if (indicatorState.onPageLoadingChanged(isLoading) && isRefreshing) {
+            isRefreshing = false
+        }
+    }
+
+    override fun onDetachedFromWindow() {
+        removeCallbacks(reloadStartTimeout)
+        super.onDetachedFromWindow()
+    }
+
     /**
      * In child-driven nested scrolling (Chrome-like browser model), the parent
      * SwipeRefreshLayout never intercepts touch events directly via touch-slop.

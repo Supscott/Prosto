@@ -35,6 +35,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
@@ -161,6 +162,24 @@ class WebViewPool(
 
     private fun updateLoadedTabIds() {
         _loadedTabIds.value = pool.keys.toSet()
+    }
+
+    /**
+     * Tabs whose WebView shows no page yet for the current navigation: a freshly created
+     * WebView, or a navigation that started from Home. The UI keeps a placeholder (Home or the
+     * tab snapshot) over such a tab until Chromium commits a visible frame, like Chrome's
+     * paint holding, so the user never sees an empty viewport.
+     */
+    private val _awaitingFirstPaintTabIds = MutableStateFlow<Set<String>>(emptySet())
+    val awaitingFirstPaintTabIds: StateFlow<Set<String>> = _awaitingFirstPaintTabIds.asStateFlow()
+
+    fun markAwaitingFirstPaint(tabId: String) {
+        _awaitingFirstPaintTabIds.update { it + tabId }
+    }
+
+    /** Chromium committed a visible frame for [tabId] (`onPageCommitVisible`) or finished loading. */
+    fun markFirstPaint(tabId: String) {
+        _awaitingFirstPaintTabIds.update { it - tabId }
     }
 
     fun isTabLoaded(tabId: String): Boolean = pool.containsKey(tabId)
@@ -392,6 +411,7 @@ class WebViewPool(
         currentIsDark?.let { applyThemeMode(webView, it) }
         webView.tag = tabId
         pool[tabId] = webView
+        markAwaitingFirstPaint(tabId)
         if (profileName != null) {
             tabProfiles[tabId] = profileName
         } else {
@@ -752,6 +772,7 @@ class WebViewPool(
             activeTabId = null
         }
         tabProfiles.remove(tabId)
+        markFirstPaint(tabId)
         val webView = pool.remove(tabId) ?: return
         updateLoadedTabIds()
         Log.d(TAG, "Removing WebView for tab $tabId")
@@ -786,6 +807,7 @@ class WebViewPool(
         mediaPlayingTabs.remove(tabId)
         if (activeTabId == tabId) activeTabId = null
         tabProfiles.remove(tabId)
+        markFirstPaint(tabId)
         val webView = pool.remove(tabId) ?: return
         updateLoadedTabIds()
         detachFromParent(webView)

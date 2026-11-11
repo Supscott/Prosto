@@ -69,6 +69,7 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
         isAllowedAdNavigation = { url -> deps.uiState().allowedAdNavigationUrls.contains(url) },
         isAutoConsentEnabled = { deps.uiState().settings.autoConsentEnabled },
         onRenderProcessGone = { id -> deps.webViewPool.discardCrashedWebView(id) },
+        onFirstVisibleFrame = { id -> deps.webViewPool.markFirstPaint(id) },
     )
     webView.webChromeClient = JestkWebChromeClient(
         tabId = tabId,
