@@ -256,7 +256,10 @@ def check_security_challenge_protection():
     """Verify security challenge domains are exempted from content scripts and client hints are pure."""
     errors = []
     ad_blocker_engine = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "AdBlockerEngine.kt"
-    ad_blocker_script = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "AdBlockerScript.kt"
+    page_scripts = [
+        MAIN_DIR / "assets" / "scripts" / "document_start.js",
+        MAIN_DIR / "assets" / "scripts" / "autoconsent.js",
+    ]
     ua_metadata_provider = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "UserAgentMetadataProvider.kt"
 
     if ad_blocker_engine.exists():
@@ -264,10 +267,13 @@ def check_security_challenge_protection():
         if "challenges.cloudflare.com" not in content or "cloudflare.com" not in content:
             errors.append(f"{ad_blocker_engine.relative_to(ROOT)}: AUTH_SECURITY_ALLOWLIST missing Cloudflare domains")
 
-    if ad_blocker_script.exists():
-        content = ad_blocker_script.read_text(encoding="utf-8")
+    for script in page_scripts:
+        if not script.exists():
+            errors.append(f"{script.relative_to(ROOT)} not found")
+            continue
+        content = script.read_text(encoding="utf-8")
         if "challenges.cloudflare.com" not in content or "cloudflarecaptcha.com" not in content:
-            errors.append(f"{ad_blocker_script.relative_to(ROOT)}: missing security challenge domain guards")
+            errors.append(f"{script.relative_to(ROOT)}: missing security challenge domain guards")
 
     if WEB_CLIENT.exists():
         content = WEB_CLIENT.read_text(encoding="utf-8")
@@ -310,6 +316,11 @@ def check_injected_script_stealth():
         if file.name not in {"JestkWebViewClient.kt", "WebViewClientBinder.kt"} and re.search(r"\bJestkWebViewClient\(", content):
             errors.append(f"{rel}: builds JestkWebViewClient outside WebViewClientBinder.kt")
     assets = MAIN_DIR / "assets"
+    for file in assets.rglob("*.js"):
+        content = file.read_text(encoding="utf-8")
+        for needle, why in forbidden.items():
+            if needle in content:
+                errors.append(f"{file.relative_to(ROOT)}: {why} ({needle!r})")
     for file in assets.glob("*.txt"):
         if file.name != "adblock_domains.txt":
             errors.append(f"{file.relative_to(ROOT)}: raw filter list in APK assets (keep it in tools/filterlists)")
