@@ -213,7 +213,7 @@ fun UnifiedBottomBar(
                         .height(54.dp)
                         .padding(horizontal = 16.dp)
                         .systemGestureExclusion(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // Tactile Floating Capsule Dock & Tab Strip

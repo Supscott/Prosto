@@ -84,7 +84,8 @@ fun WebViewContainer(
         isFullscreen -> 0.dp
         isImeVisible -> 0.dp
         !uiState.isBottomBarVisible -> 0.dp
-        else -> 62.dp
+        // The dock row is 54.dp tall over a 2.dp bottom margin: the page ends right at its top.
+        else -> 56.dp
     }
     val animatedBottomPadding by animateDpAsState(
         targetValue = targetBottomPadding,
