@@ -1,6 +1,6 @@
 <div align="center">
 
-  <img src="landing/public/favicon.svg" alt="Prosto Browser Logo" width="80" height="80" />
+  <img src="assets/logo.svg" alt="Prosto Browser Logo" width="80" height="80" />
 
   # Prosto Browser
 
@@ -8,50 +8,76 @@
 
   An ultra-fast, gesture-driven Android browser crafted around one-handed ergonomics, tactile physics, and zero distractions.
 
+  [![Download APK](https://img.shields.io/badge/Download-prosto.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/Prosto/releases/latest/download/prosto.apk)
+
+  <sub>Android 8.0+ · free · GPL-3.0 · no telemetry</sub>
+
   [![Release](https://img.shields.io/github/v/release/Supscott/Prosto?style=flat-square&color=2563EB&label=Release)](https://github.com/Supscott/Prosto/releases)
   [![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-3B82F6.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
   [![Android Min SDK](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-34D399.svg?style=flat-square)](https://developer.android.com/about/versions/oreo)
-  [![APK Size](https://img.shields.io/badge/APK%20Size-~4.0%20MB-10B981.svg?style=flat-square)](https://github.com/Supscott/Prosto/releases)
   [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7C3AED.svg?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
   [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202025.12-4285F4.svg?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
   [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
 
 </div>
 
+<p align="center">
+  <img src="assets/home-light-dark.png" alt="Prosto Home screen, light and dark themes" width="560" />
+</p>
+
 ---
 
 ## 💡 Why Prosto?
 
-Smartphones have grown to 6.7"+ displays, yet traditional mobile browsers still keep address bars and navigation controls at the top of the screen.
+Most mobile browsers hide your tabs behind a button and keep their controls at the top of a screen that is too tall to reach. Prosto is built around one idea: **make working with the browser more convenient**.
 
-**Prosto re-architects mobile web navigation around the natural pivot arc of the thumb:**
-- **100% Thumb-Reachable:** All primary navigation, tab switching, and omnibox controls live in the bottom third of the display.
-- **Prosto Canvas Design:** Solid, tactile surfaces with precision micro-borders and elevation shadows — strictly **no blur** shaders wasting battery or GPU cycles.
-- **Ultra-Lean Footprint:** Under ~4.0 MB APK, optimized with R8, starts instantaneously.
-- **Privacy by Default:** Zero telemetry, no analytics, no phoning home.
+- **Tabs always in sight:** the dock at the bottom of the screen shows your open tabs, so you switch between them with one tap or swipe.
+- **Everything within thumb reach:** tabs, search and navigation live in the bottom third of the display.
+- **Instant feel:** a warm engine, preconnect and a last-frame hold make new tabs open and tab switches happen without a blank flash.
+- **Privacy by default:** built-in ad and tracker blocking, zero telemetry, no analytics.
+- **Solid, tactile UI:** precision micro-borders and elevation shadows, strictly **no blur** shaders wasting battery or GPU cycles.
 
 ---
 
 ## ✨ Key Features
 
-### 🚀 Floating Gesture Dock
-- **1-Swipe New Tab & Search:** Swipe up from the bottom dock to instantly open a new tab with keyboard focused.
-- **Tactile Tab Reordering:** Drag and drop tabs across the dock strip with smooth spring physics.
-- **Scroll-Driven Auto-Hide:** Gracefully recedes off-screen while scrolling down to maximize reading space; returns on a slight upward flick.
+### 🗂️ Tabs & Folders
+- **Dock-first tabs:** open tabs stay on the dock; drag to reorder with spring physics.
+- **Folders in the dock and the tab grid:** group tabs into folders. In the tab grid a folder opens in place, not in a modal dialog.
+- **Gesture dock:** the dock hides while you scroll down and returns on a slight upward flick.
 
-### 🔍 Dynamic Search Carousel & Prefixes
-- **Instant Provider Switching:** Fling horizontally across search engines (Google, DuckDuckGo, Brave, Kagi, Ecosia, Startpage) directly in the omnibox.
-- **Power Prefixes:** Quick-switch search engines right as you type (e.g. `g <query>` for Google, `d <query>` for DuckDuckGo, `k <query>` for Kagi).
-- **Custom Providers:** Add, edit, or reorder search engines with custom URL templates.
+### 🎨 Workspaces
+- **Independent spaces:** each workspace has its own tabs, favorites, history and recently closed tabs, with isolated cookies and logins.
+- **Your color:** pick a color per workspace and the whole interface is tinted to match.
+- **Swipe-up switcher:** swipe up on the dock to pick a workspace from a carousel, just like choosing an app in Android Recents.
 
-### 🛡️ High-Performance Ad & Tracker Blocker
-- **Sub-Millisecond Interception:** 48,000+ domain rules evaluated via compact hash-bucket index without stalling network threads.
-- **Zero-Flicker Cosmetic Filtering:** Debounced cosmetic CSS injection and script surrogates collapse empty ad containers without page shifts.
-- **Batched Privacy Statistics:** Live counters of blocked ads and trackers on your home dashboard with zero UI jank.
+### ⚡ Instant Loading
+- **Warm engine and preconnect** so pages start loading right away.
+- **Tab history restored** and a **back/forward cache** for instant Back.
+- **No flashing:** the previous frame stays on screen until the new page paints.
 
-### 📥 Resumable Download Manager
-- **Foreground Background Downloads:** Reliable downloads with pause, resume, and cancellation support.
-- **Automatic Recovery:** Resumes interrupted transfers via HTTP `Range` headers and `.crdownload` staging.
+### 🔍 Search
+- **Engine carousel:** fling across search engines right in the omnibox.
+- **Power prefixes:** switch engines as you type (e.g. `g <query>`, `d <query>`, `k <query>`).
+- **Custom providers** with your own URL templates.
+
+### 🛡️ Ad & Tracker Blocker
+- **Fast request filtering** with a compact domain index, built from open filter lists.
+- **Cosmetic filtering** hides empty ad containers without layout shifts.
+- **Live statistics** of blocked ads and trackers on the Home screen.
+
+### 📥 Downloads
+- Pause, resume and cancel; interrupted transfers resume via HTTP `Range`.
+
+### 🎬 In Action
+
+<table>
+  <tr>
+    <td align="center"><img src="assets/switch-tabs.gif" alt="Switching tabs in the dock" width="240" /><br/><sub>Tabs always on the dock</sub></td>
+    <td align="center"><img src="assets/folder.gif" alt="Opening and closing a folder in the tab grid" width="240" /><br/><sub>Folders open in place</sub></td>
+    <td align="center"><img src="assets/workspaces.gif" alt="Switching between workspaces" width="240" /><br/><sub>Swipe up to pick a workspace</sub></td>
+  </tr>
+</table>
 
 ---
 
@@ -102,11 +128,9 @@ Prosto follows Clean Architecture principles with Jetpack Compose:
 
 ## 🗺️ Planned Features
 
-- [ ] **Tab Folders:** Organize multiple tabs inside persistent folders.
-- [ ] **Workspaces:** Isolated browsing environments separated from the main space (independent tabs, folders, cookies, and logins).
-- [ ] **Smart Tab Auto-Grouping:** Context-aware automatic tab grouping by URL domain and topic semantics.
+- [ ] **Smart Tab Auto-Grouping:** Context-aware automatic tab grouping by URL domain and topic.
 - [ ] **Cross-Device Sync:** Secure cloud synchronization for open tabs, bookmarks, and settings.
-- [ ] **Plugins & Mods:** User-scriptable extensions and community add-on marketplace (functioning similarly to Chrome extensions).
+- [ ] **Plugins & Mods:** User-scriptable extensions and community add-ons.
 
 ---
 
