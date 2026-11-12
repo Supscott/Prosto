@@ -1,6 +1,7 @@
 package com.jestk.browser.ui.viewmodel.events
 
 import android.content.pm.ActivityInfo
+import android.view.View
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
@@ -16,6 +17,7 @@ internal class MediaEventHandler(
     private val dispatch: (BrowserUiEvent) -> Unit,
     private val getBypassCleanPlayerVideoId: () -> String?,
     private val setBypassCleanPlayerVideoId: (String?) -> Unit,
+    private val setFullscreenCustomView: (View?) -> Unit,
 ) {
     private var bypassCleanPlayerVideoId: String?
         get() = getBypassCleanPlayerVideoId()
@@ -31,9 +33,10 @@ internal class MediaEventHandler(
             }
 
             is BrowserUiEvent.SetFullscreenCustomView -> {
+                setFullscreenCustomView(event.view)
                 updateUiState {
                     it.copy(
-                        fullscreenCustomView = event.view,
+                        hasFullscreenCustomView = event.view != null,
                         isFullscreenCustomView = event.isFullscreen,
                         fullscreenRequestedOrientation = event.requestedOrientation,
                     )
@@ -52,10 +55,11 @@ internal class MediaEventHandler(
 
             is BrowserUiEvent.ExitFullscreen -> {
                 emitNavigation(NavigationCommand.ExitFullscreen)
+                setFullscreenCustomView(null)
                 updateUiState {
                     it.copy(
                         isFullscreenCustomView = false,
-                        fullscreenCustomView = null,
+                        hasFullscreenCustomView = false,
                         fullscreenRequestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
                     )
                 }

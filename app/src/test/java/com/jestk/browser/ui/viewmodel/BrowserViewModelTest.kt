@@ -876,7 +876,8 @@ class BrowserViewModelTest {
 
             val state = viewModel.uiState.value
             assertThat(state.isFullscreenCustomView).isTrue()
-            assertThat(state.fullscreenCustomView).isSameInstanceAs(fakeView)
+            assertThat(state.hasFullscreenCustomView).isTrue()
+            assertThat(viewModel.fullscreenCustomView.value).isSameInstanceAs(fakeView)
             assertThat(state.fullscreenRequestedOrientation).isEqualTo(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
         }
 
@@ -903,7 +904,8 @@ class BrowserViewModelTest {
 
             val state = viewModel.uiState.value
             assertThat(state.isFullscreenCustomView).isFalse()
-            assertThat(state.fullscreenCustomView).isNull()
+            assertThat(state.hasFullscreenCustomView).isFalse()
+            assertThat(viewModel.fullscreenCustomView.value).isNull()
             assertThat(state.fullscreenRequestedOrientation).isEqualTo(android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
             assertThat(state.tabs).hasSize(1)
         }
@@ -2071,7 +2073,7 @@ class BrowserViewModelTest {
             advanceUntilIdle()
 
             assertThat(viewModel.uiState.value.isLoading).isTrue()
-            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(0.45f)
+            assertThat(viewModel.loadingProgress.value).isEqualTo(0.45f)
 
             // Open Tab B and complete its loading
             viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://tab-b.com"))
@@ -2083,20 +2085,20 @@ class BrowserViewModelTest {
             advanceUntilIdle()
 
             assertThat(viewModel.uiState.value.isLoading).isFalse()
-            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(1.0f)
+            assertThat(viewModel.loadingProgress.value).isEqualTo(1.0f)
 
             // Make Tab A active and verify it was loading
             viewModel.onEvent(BrowserUiEvent.SelectTab(tabAId))
             advanceUntilIdle()
             assertThat(viewModel.uiState.value.isLoading).isTrue()
-            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(0.45f)
+            assertThat(viewModel.loadingProgress.value).isEqualTo(0.45f)
 
             // Switch to Tab B (loaded): isLoading becomes false immediately without leaking Tab A's progress
             viewModel.onEvent(BrowserUiEvent.SelectTab(tabBId))
             advanceUntilIdle()
             assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tabBId)
             assertThat(viewModel.uiState.value.isLoading).isFalse()
-            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(1.0f)
+            assertThat(viewModel.loadingProgress.value).isEqualTo(1.0f)
         }
 
     @Test
@@ -2132,14 +2134,14 @@ class BrowserViewModelTest {
             assertThat(viewModel.tabCoordinator.tabLoadingProgress[tabAId]).isEqualTo(100)
             // Active tab (Tab B) state remains unchanged
             assertThat(viewModel.uiState.value.isLoading).isFalse()
-            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(1.0f)
+            assertThat(viewModel.loadingProgress.value).isEqualTo(1.0f)
 
             // Switch back to Tab A: shows isLoading = false
             viewModel.onEvent(BrowserUiEvent.SelectTab(tabAId))
             advanceUntilIdle()
             assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tabAId)
             assertThat(viewModel.uiState.value.isLoading).isFalse()
-            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(1.0f)
+            assertThat(viewModel.loadingProgress.value).isEqualTo(1.0f)
         }
 
     @Test
@@ -2173,7 +2175,7 @@ class BrowserViewModelTest {
             advanceUntilIdle()
             assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tabAId)
             assertThat(viewModel.uiState.value.isLoading).isTrue()
-            assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(0.80f)
+            assertThat(viewModel.loadingProgress.value).isEqualTo(0.80f)
         }
 
     @Test

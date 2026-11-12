@@ -113,9 +113,6 @@ class WebViewPool(
         fun isEnabled(): Boolean = isEnabledProvider()
 
         @JavascriptInterface
-        fun isCleanPlayerEnabled(): Boolean = isCleanPlayerEnabledProvider?.invoke() ?: false
-
-        @JavascriptInterface
         fun openCleanPlayer(url: String): Boolean {
             if (isCleanPlayerEnabledProvider?.invoke() != true) return false
             return onCleanPlayerRequested?.invoke(url) ?: false
@@ -131,27 +128,6 @@ class WebViewPool(
             onOrientationUnlockRequested?.invoke()
         }
     }
-
-    /**
-     * Receives the content of a `blob:` download. The bridge is visible to every frame, so only
-     * blob URLs that WebView itself reported to the DownloadListener are accepted: a page cannot
-     * start a download of arbitrary data through it (review finding BOT-3).
-     */
-    class BlobDownloadBridge(
-        private val pendingBlobUrls: MutableSet<String>,
-        private val onBlobReceived: (dataUrl: String, contentDisposition: String?, mimeType: String?) -> Unit
-    ) {
-        @JavascriptInterface
-        fun onBlobDownloaded(blobUrl: String, dataUrl: String, contentDisposition: String?, mimeType: String?) {
-            if (!pendingBlobUrls.remove(blobUrl)) {
-                Log.w(TAG, "Ignoring a blob download that was not requested by the DownloadListener")
-                return
-            }
-            onBlobReceived(dataUrl, contentDisposition, mimeType)
-        }
-    }
-
-    private val pendingBlobUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     private val pool = ConcurrentHashMap<String, WebView>()
     private val tabProfiles = ConcurrentHashMap<String, String>()
@@ -520,6 +496,7 @@ class WebViewPool(
     private fun createConfiguredWebView(context: Context, profileName: String?): WebView {
         val webView = NestedWebView(context)
         try {
+            webView.webViewClient = DestroyingWebViewClient // until the tab's client is bound
             webView.isFocusable = true
             webView.isFocusableInTouchMode = true
             val rawUserAgent = webView.settings.userAgentString
@@ -544,16 +521,6 @@ class WebViewPool(
                 WebSettingsCompat.setBackForwardCacheEnabled(webView.settings, true)
             }
             configureProfileAndCookies(webView, profileName)
-            try {
-                val blobBridge = BlobDownloadBridge(pendingBlobUrls) { dataUrl, contentDisposition, mimeType ->
-                    activeScope().launch(Dispatchers.Main) {
-                        handleDataUrlDownload(dataUrl, contentDisposition, mimeType, webView.context)
-                    }
-                }
-                webView.addJavascriptInterface(blobBridge, "JestkBlobBridge")
-            } catch (t: Throwable) {
-                Log.w(TAG, "Failed to add BlobDownloadBridge interface", t)
-            }
             setupDownloadListener(webView)
             setupAdBlocker(webView)
             applyUserAgentMetadata(webView.settings, rawUserAgent)
@@ -758,63 +725,29 @@ class WebViewPool(
         Toast.makeText(targetContext, R.string.toast_preparing_download, Toast.LENGTH_SHORT).show()
         Log.d(TAG, "Preparing blob download: $blobUrl")
 
-        pendingBlobUrls.add(blobUrl)
-        val js = buildBlobDownloadScript(blobUrl, contentDisposition, mimeType)
-
+        if (!BlobDownloadChannel.isSupported()) {
+            Log.w(TAG, "WebView cannot open a message channel for the blob download")
+            Toast.makeText(targetContext, R.string.downloads_failed, Toast.LENGTH_SHORT).show()
+            return
+        }
+        // The page answers over a one-off message channel (no `window` bridge, SEC-01); the nonce
+        // tells our one-shot listener the message apart from the page's own messages.
+        val nonce = java.util.UUID.randomUUID().toString()
+        val js = BlobDownloadChannel.buildScript(blobUrl, nonce)
         try {
             webView.post {
-                webView.evaluateJavascript(js, null)
+                webView.evaluateJavascript(js) {
+                    BlobDownloadChannel.open(webView, nonce, targetContext) { dataUrl ->
+                        activeScope().launch(Dispatchers.Main) {
+                            handleDataUrlDownload(dataUrl, contentDisposition, mimeType, webView.context)
+                        }
+                    }
+                }
             }
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to evaluate blob download script", t)
             Toast.makeText(targetContext, downloadFailedText(targetContext, t), Toast.LENGTH_SHORT).show()
         }
-    }
-
-    internal fun buildBlobDownloadScript(
-        blobUrl: String,
-        contentDisposition: String?,
-        mimeType: String?
-    ): String {
-        val jsonUrl = org.json.JSONObject.quote(blobUrl)
-        val jsonDisposition = org.json.JSONObject.quote(contentDisposition ?: "")
-        val jsonMime = org.json.JSONObject.quote(mimeType ?: "")
-
-        return """
-            (function() {
-                try {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open('GET', $jsonUrl, true);
-                    xhr.responseType = 'blob';
-                    xhr.onload = function() {
-                        if (this.status === 200 || this.status === 0) {
-                            var reader = new FileReader();
-                            reader.onloadend = function() {
-                                if (window.JestkBlobBridge) {
-                                    window.JestkBlobBridge.onBlobDownloaded($jsonUrl, reader.result, $jsonDisposition, $jsonMime);
-                                }
-                            };
-                            reader.readAsDataURL(this.response);
-                        }
-                    };
-                    xhr.onerror = function() {
-                        fetch($jsonUrl)
-                            .then(function(r) { return r.blob(); })
-                            .then(function(b) {
-                                var reader = new FileReader();
-                                reader.onloadend = function() {
-                                    if (window.JestkBlobBridge) {
-                                        window.JestkBlobBridge.onBlobDownloaded($jsonUrl, reader.result, $jsonDisposition, $jsonMime);
-                                    }
-                                };
-                                reader.readAsDataURL(b);
-                            })
-                            .catch(function(err) {});
-                    };
-                    xhr.send();
-                } catch(e) {}
-            })();
-        """.trimIndent()
     }
 
     /**
@@ -882,7 +815,7 @@ class WebViewPool(
             webView.clearHistory()
             (webView as? ViewGroup)?.removeAllViews()
             webView.webChromeClient = null
-            webView.webViewClient = android.webkit.WebViewClient()
+            webView.webViewClient = DestroyingWebViewClient
             (webView.context as? MutableContextWrapper)?.baseContext = applicationContext
             webView.destroy()
         } catch (t: Throwable) {

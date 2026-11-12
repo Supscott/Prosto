@@ -20,6 +20,7 @@ internal class Workspaces(
     private val tabThemeColors = ctx.tabThemeColors
     private val getCurrentState = ctx.getCurrentState
     private val updateUiState = ctx.updateUiState
+    private val setLoadingProgress = ctx.setLoadingProgress
     private val scope = ctx.scope
     private val ioDispatcher = ctx.ioDispatcher
     private val tabLoadingProgress = ctx.tabLoadingProgress
@@ -77,7 +78,6 @@ internal class Workspaces(
                     currentUrl = "",
                     pageTitle = "",
                     isLoading = false,
-                    loadingProgress = 0f,
                     canGoBack = false,
                     canGoForward = false,
                     activeThemeColor = null,
@@ -88,6 +88,7 @@ internal class Workspaces(
                     showUndoTabCloseSnackbar = targetRecentlyClosed != null,
                 )
             }
+            setLoadingProgress(0f)
         } else {
             val targetActive = targetTabs.find { it.isActive }
                 ?: targetTabs.maxByOrNull { it.lastActiveTimestamp }
@@ -226,12 +227,12 @@ internal class Workspaces(
                                     currentUrl = "",
                                     pageTitle = "",
                                     isLoading = false,
-                                    loadingProgress = 0f,
                                     activeThemeColor = null,
                                     activeBottomThemeColor = null,
                                     activeOverlay = OverlayType.HOME,
                                 )
                             }
+                            setLoadingProgress(0f)
                         } else {
                             val closedIdx = currentUiTabs.indexOfFirst { it.id == tabId }
                             val nextActive = if (closedIdx > 0) {

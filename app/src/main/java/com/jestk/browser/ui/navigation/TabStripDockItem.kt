@@ -183,7 +183,7 @@ internal fun LazyItemScope.TabStripDockItem(
                         border = centerPillBorder,
                         isDark = isDark,
                         isLoading = uiState.isLoading,
-                        loadingProgress = uiState.loadingProgress,
+                        loadingProgress = LocalLoadingProgress.current.value,
                         onOpenSearch = {
                             val targetPrefill = if (displayInfo.url.isNotBlank() && displayInfo.url != "about:blank") displayInfo.url else null
                             onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = targetPrefill, openInNewTab = false))

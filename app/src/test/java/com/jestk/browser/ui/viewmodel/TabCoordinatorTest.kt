@@ -51,6 +51,7 @@ class TabCoordinatorTest {
     private lateinit var recentTabRepo: RecentTabRepositoryImpl
 
     private var uiState = BrowserUiState()
+    private var loadingProgress = 0f
 
     /** Simulates another update (DB flow, favicon, title) landing just before the next one. */
     private var concurrentUpdate: ((BrowserUiState) -> BrowserUiState)? = null
@@ -90,6 +91,8 @@ class TabCoordinatorTest {
                 uiState = transform(interleaved?.invoke(uiState) ?: uiState)
             },
             emitNavigation = { navigationCommands.add(it) },
+            getLoadingProgress = { loadingProgress },
+            setLoadingProgress = { loadingProgress = it },
             scope = testScope,
             ioDispatcher = testDispatcher,
             tabLoadingProgress = tabLoadingProgress,
@@ -122,7 +125,7 @@ class TabCoordinatorTest {
             coordinator.pageEvents.handleProgressChanged(tabAId, 45)
 
             assertThat(uiState.isLoading).isTrue()
-            assertThat(uiState.loadingProgress).isEqualTo(0.45f)
+            assertThat(loadingProgress).isEqualTo(0.45f)
             assertThat(coordinator.tabLoadingProgress[tabAId]).isEqualTo(45)
 
             // Open Tab B and complete loading
@@ -134,21 +137,21 @@ class TabCoordinatorTest {
             coordinator.pageEvents.handlePageFinished(tabBId, "https://tab-b.com", "Tab B")
 
             assertThat(uiState.isLoading).isFalse()
-            assertThat(uiState.loadingProgress).isEqualTo(1.0f)
+            assertThat(loadingProgress).isEqualTo(1.0f)
 
             // Switch to Tab A: loading state is restored
             coordinator.activation.selectTab(tabAId)
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tabAId)
             assertThat(uiState.isLoading).isTrue()
-            assertThat(uiState.loadingProgress).isEqualTo(0.45f)
+            assertThat(loadingProgress).isEqualTo(0.45f)
 
             // Switch to Tab B: isLoading becomes false immediately without leaking Tab A's progress
             coordinator.activation.selectTab(tabBId)
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tabBId)
             assertThat(uiState.isLoading).isFalse()
-            assertThat(uiState.loadingProgress).isEqualTo(1.0f)
+            assertThat(loadingProgress).isEqualTo(1.0f)
         }
 
     @Test
@@ -183,14 +186,14 @@ class TabCoordinatorTest {
             assertThat(coordinator.tabLoadingProgress[tabAId]).isEqualTo(100)
             // Active tab (Tab B) UI state is not polluted
             assertThat(uiState.isLoading).isFalse()
-            assertThat(uiState.loadingProgress).isEqualTo(1.0f)
+            assertThat(loadingProgress).isEqualTo(1.0f)
 
             // Switching back to Tab A shows isLoading = false
             coordinator.activation.selectTab(tabAId)
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tabAId)
             assertThat(uiState.isLoading).isFalse()
-            assertThat(uiState.loadingProgress).isEqualTo(1.0f)
+            assertThat(loadingProgress).isEqualTo(1.0f)
         }
 
     @Test
@@ -227,7 +230,7 @@ class TabCoordinatorTest {
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tabAId)
             assertThat(uiState.isLoading).isTrue()
-            assertThat(uiState.loadingProgress).isEqualTo(0.85f)
+            assertThat(loadingProgress).isEqualTo(0.85f)
         }
 
     private fun renameTab(tabId: String, title: String): (BrowserUiState) -> BrowserUiState = { state ->
@@ -345,7 +348,7 @@ class TabCoordinatorTest {
             // Only the new single home tab should exist in progress map with 100
             val homeTabId = uiState.activeTabId!!
             assertThat(uiState.isLoading).isFalse()
-            assertThat(uiState.loadingProgress).isEqualTo(0f)
+            assertThat(loadingProgress).isEqualTo(0f)
             assertThat(coordinator.tabLoadingProgress[homeTabId]).isEqualTo(100)
         }
 
@@ -376,7 +379,7 @@ class TabCoordinatorTest {
 
             // Tab A remains stopped
             assertThat(uiState.isLoading).isFalse()
-            assertThat(uiState.loadingProgress).isEqualTo(1.0f)
+            assertThat(loadingProgress).isEqualTo(1.0f)
         }
 
     @Test
@@ -708,6 +711,8 @@ class TabCoordinatorTest {
                 getCurrentState = { uiState },
                 updateUiState = { transform -> uiState = transform(uiState) },
                 emitNavigation = { navigationCommands.add(it) },
+                getLoadingProgress = { loadingProgress },
+                setLoadingProgress = { loadingProgress = it },
                 scope = testScope,
                 ioDispatcher = testDispatcher,
                 tabLoadingProgress = tabLoadingProgress,
@@ -1032,7 +1037,7 @@ class TabCoordinatorTest {
             assertThat(popupTab?.isActive).isTrue()
             assertThat(popupTab?.workspaceId).isEqualTo(uiState.activeWorkspaceId)
             assertThat(uiState.isLoading).isTrue()
-            assertThat(uiState.loadingProgress).isGreaterThan(0f)
+            assertThat(loadingProgress).isGreaterThan(0f)
             assertThat(uiState.isHome).isFalse()
             assertThat(uiState.activeOverlay).isEqualTo(OverlayType.NONE)
         }

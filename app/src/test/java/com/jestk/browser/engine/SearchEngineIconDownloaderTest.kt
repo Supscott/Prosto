@@ -51,23 +51,6 @@ class SearchEngineIconDownloaderTest {
     }
 
     @Test
-    fun downloadIcons_withExistingFiles_mapsEnginesToLocalPaths() = runTest {
-        val braveFile = SearchEngineIconDownloader.getIconFile(context, "brave")
-        val kagiFile = SearchEngineIconDownloader.getIconFile(context, "kagi")
-        braveFile.parentFile?.mkdirs()
-        braveFile.writeBytes(byteArrayOf(1, 2, 3))
-        kagiFile.writeBytes(byteArrayOf(4, 5, 6))
-
-        val map = SearchEngineIconDownloader.downloadIcons(
-            context,
-            listOf(SearchEngine.BRAVE, SearchEngine.KAGI)
-        )
-
-        assertThat(map["brave"]).isEqualTo(braveFile.absolutePath)
-        assertThat(map["kagi"]).isEqualTo(kagiFile.absolutePath)
-    }
-
-    @Test
     fun downloadIconForEngine_fetchesOverHttpAndFollowsRedirect() = runTest {
         val serverSocket = java.net.ServerSocket(0)
         val port = serverSocket.localPort

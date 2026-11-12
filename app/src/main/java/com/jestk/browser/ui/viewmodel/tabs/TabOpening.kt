@@ -22,6 +22,7 @@ internal class TabOpening(
     private val tabOperationMutex = ctx.tabOperationMutex
     private val getCurrentState = ctx.getCurrentState
     private val updateUiState = ctx.updateUiState
+    private val setLoadingProgress = ctx.setLoadingProgress
     private val emitNavigation = ctx.emitNavigation
     private val scope = ctx.scope
     private val ioDispatcher = ctx.ioDispatcher
@@ -47,7 +48,6 @@ internal class TabOpening(
                         currentUrl = "",
                         pageTitle = "",
                         isLoading = false,
-                        loadingProgress = 0f,
                         activeThemeColor = null,
                         activeBottomThemeColor = null,
                         activeOverlay = OverlayType.SEARCH,
@@ -57,6 +57,7 @@ internal class TabOpening(
                         canGoForward = false,
                     )
                 }
+                setLoadingProgress(0f)
                 onSearchOpened()
             }
         }
@@ -95,7 +96,6 @@ internal class TabOpening(
                 currentUrl = url,
                 pageTitle = pageTitle,
                 isLoading = isWebLoading,
-                loadingProgress = if (isWebLoading) 0.15f else 0f,
                 activeThemeColor = null,
                 activeBottomThemeColor = null,
                 isMenuExpanded = false,
@@ -107,6 +107,7 @@ internal class TabOpening(
                 isBottomBarVisible = true,
             )
         }
+        setLoadingProgress(if (isWebLoading) 0.15f else 0f)
     }
 
     fun openNewTab(url: String, openedByExternalApp: Boolean = false) {

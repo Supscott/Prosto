@@ -11,10 +11,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SearchEngineDao {
-    @Query("SELECT * FROM search_engines ORDER BY orderPosition ASC")
+    @Query("SELECT * FROM search_engines ORDER BY orderPosition ASC, id ASC")
     fun getAllSearchEnginesFlow(): Flow<List<SearchEngineEntity>>
 
-    @Query("SELECT * FROM search_engines ORDER BY orderPosition ASC")
+    @Query("SELECT * FROM search_engines ORDER BY orderPosition ASC, id ASC")
     suspend fun getAllSearchEngines(): List<SearchEngineEntity>
 
     @Query("SELECT * FROM search_engines WHERE id = :id LIMIT 1")
@@ -25,6 +25,10 @@ interface SearchEngineDao {
 
     @Query("SELECT COUNT(*) FROM search_engines")
     suspend fun getCount(): Int
+
+    /** The position after the last engine; unlike the row count it stays unique after a delete. */
+    @Query("SELECT COALESCE(MAX(orderPosition), -1) + 1 FROM search_engines")
+    suspend fun nextOrderPosition(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(engine: SearchEngineEntity)
@@ -40,6 +44,10 @@ interface SearchEngineDao {
 
     @Query("DELETE FROM search_engines WHERE id = :id")
     suspend fun deleteById(id: String)
+
+    /** Sets only the icon, so edits and reorders made meanwhile are kept. */
+    @Query("UPDATE search_engines SET iconUrl = :iconUrl WHERE id = :id")
+    suspend fun updateIconUrl(id: String, iconUrl: String)
 
     @Query("UPDATE search_engines SET orderPosition = :position WHERE id = :id")
     suspend fun updatePosition(id: String, position: Int)

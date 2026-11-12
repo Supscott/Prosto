@@ -1,4 +1,12 @@
 (function() {
+    // WebView puts the Java bridge on window. Keep a private reference and remove the global
+    // before any page script runs, so pages cannot enumerate it (review finding SEC-01). This
+    // runs first, also on the challenge pages exempted below.
+    var hostBridge = null;
+    try {
+        hostBridge = window.HoriAdBlockBridge || null;
+        delete window.HoriAdBlockBridge;
+    } catch(e) {}
     try {
         var h = (location.hostname || '').toLowerCase();
         var p = (location.pathname || '').toLowerCase();
@@ -20,7 +28,7 @@
         // untouched native functions.
         try {
             var orientationProto = globalThis.ScreenOrientation && globalThis.ScreenOrientation.prototype;
-            var orientationBridge = window.HoriAdBlockBridge;
+            var orientationBridge = hostBridge;
             var nativeLock = orientationProto && Object.getOwnPropertyDescriptor(orientationProto, 'lock');
             var nativeUnlock = orientationProto && Object.getOwnPropertyDescriptor(orientationProto, 'unlock');
             if (orientationBridge && nativeLock && nativeUnlock) {
@@ -79,9 +87,9 @@
 
         // Check if ad blocking is active via bridge
         var adBlockerActive = true;
-        if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.isEnabled === 'function') {
+        if (hostBridge && typeof hostBridge.isEnabled === 'function') {
             try {
-                adBlockerActive = window.HoriAdBlockBridge.isEnabled();
+                adBlockerActive = hostBridge.isEnabled();
             } catch(e) {}
         }
 

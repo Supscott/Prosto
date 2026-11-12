@@ -33,6 +33,8 @@ internal class TabSessionSync(
     private val tabThemeColors = ctx.tabThemeColors
     private val getCurrentState = ctx.getCurrentState
     private val updateUiState = ctx.updateUiState
+    private val getLoadingProgress = ctx.getLoadingProgress
+    private val setLoadingProgress = ctx.setLoadingProgress
     private val scope = ctx.scope
     private val ioDispatcher = ctx.ioDispatcher
     private val tabLoadingProgress = ctx.tabLoadingProgress
@@ -85,9 +87,9 @@ internal class TabSessionSync(
                         activeThemeColor = initialThemeColor ?: state.activeThemeColor,
                         activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME,
                         isLoading = if (hasWebUrl) true else state.isLoading,
-                        loadingProgress = if (hasWebUrl) 0.15f else state.loadingProgress,
                     )
                 }
+                setLoadingProgress(if (hasWebUrl) 0.15f else getLoadingProgress())
                 return@withLock
             }
 
@@ -166,7 +168,6 @@ internal class TabSessionSync(
                     activeThemeColor = initialThemeColor,
                     allowedInsecureHosts = state.allowedInsecureHosts + restoredInsecureHosts,
                     isLoading = hasWebUrl,
-                    loadingProgress = if (hasWebUrl) 0.15f else 0f,
                     settings = effectiveSettings,
                     searchEngines = currentEngines,
                     isMenuExpanded = false,
@@ -174,6 +175,7 @@ internal class TabSessionSync(
                     activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME,
                 )
             }
+            setLoadingProgress(if (hasWebUrl) 0.15f else 0f)
         }
     }
 
@@ -351,10 +353,7 @@ internal class TabSessionSync(
                     if (perWorkspace.isEmpty()) {
                         flowOf(emptyMap())
                     } else {
-                        combine(*perWorkspace.toTypedArray()) { pairs ->
-                            @Suppress("UNCHECKED_CAST")
-                            (pairs as Array<Pair<String, WorkspaceHomeData>>).toMap()
-                        }
+                        combine(*perWorkspace.toTypedArray()) { pairs -> pairs.toMap() }
                     }
                 }
                 .collectLatest { data ->

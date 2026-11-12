@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
+import androidx.core.content.FileProvider
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.R
@@ -36,7 +37,15 @@ class DownloadFileOpenerTest {
     @Before
     fun setup() {
         context = ApplicationProvider.getApplicationContext<Application>()
+        // FileProvider caches its roots per authority in a static map, but Robolectric gives every
+        // test a new data directory: drop the cache so each test resolves its own filesDir.
+        FileProvider::class.java.getDeclaredField("sCache").apply { isAccessible = true }
+            .let { (it.get(null) as MutableMap<*, *>).clear() }
     }
+
+    /** A file in a directory the app's FileProvider shares (`files-path` "Download"). */
+    private fun downloadedFile(name: String): File =
+        File(context.filesDir, "Download").apply { mkdirs() }.resolve(name).apply { writeBytes(byteArrayOf(1)) }
 
     @Test
     fun openFile_returnsFalseAndShowsToast_whenFileDoesNotExist() {
@@ -55,7 +64,7 @@ class DownloadFileOpenerTest {
 
     @Test
     fun openFile_opensUnknownAppSourcesSetting_whenApkAndPermissionNotGrantedOnAndroidO() {
-        val apkFile = tempFolder.newFile("app-release.apk")
+        val apkFile = downloadedFile("app-release.apk")
         shadowOf(context.packageManager).setCanRequestPackageInstalls(false)
 
         val result = DownloadFileOpener.openFile(
@@ -78,7 +87,7 @@ class DownloadFileOpenerTest {
 
     @Test
     fun openFile_launchesPackageInstallerDirectly_whenApkAndPermissionGranted() {
-        val apkFile = tempFolder.newFile("test-tool.apk")
+        val apkFile = downloadedFile("test-tool.apk")
         shadowOf(context.packageManager).setCanRequestPackageInstalls(true)
 
         val download = DownloadItem(
@@ -108,7 +117,7 @@ class DownloadFileOpenerTest {
 
     @Test
     fun openFile_launchesChooser_forNonApkFile() {
-        val pdfFile = tempFolder.newFile("document.pdf")
+        val pdfFile = downloadedFile("document.pdf")
 
         val result = DownloadFileOpener.openFile(
             context = context,
@@ -131,5 +140,22 @@ class DownloadFileOpenerTest {
         assertThat(targetIntent?.action).isEqualTo(Intent.ACTION_VIEW)
         assertThat(targetIntent?.type).isEqualTo("application/pdf")
         assertThat(targetIntent?.flags?.and(Intent.FLAG_GRANT_READ_URI_PERMISSION)).isNotEqualTo(0)
+    }
+
+    @Test
+    fun openFile_returnsFalseWithoutStartingActivity_whenFileProviderCannotShareTheFile() {
+        // A file:// URI cannot leave the app on API 24+, so there is no fallback to Uri.fromFile.
+        val outsideProviderPaths = tempFolder.newFile("notes.txt")
+
+        val result = DownloadFileOpener.openFile(
+            context = context,
+            filePath = outsideProviderPaths.absolutePath,
+            fileName = outsideProviderPaths.name,
+            mimeType = "text/plain",
+        )
+
+        assertThat(result).isFalse()
+        assertThat(shadowOf(context as Application).nextStartedActivity).isNull()
+        assertThat(ShadowToast.getTextOfLatestToast()).isEqualTo(context.getString(R.string.download_cannot_open))
     }
 }

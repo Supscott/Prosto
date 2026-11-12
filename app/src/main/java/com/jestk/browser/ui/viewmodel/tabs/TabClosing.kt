@@ -22,6 +22,7 @@ internal class TabClosing(
     private val tabThemeColors = ctx.tabThemeColors
     private val getCurrentState = ctx.getCurrentState
     private val updateUiState = ctx.updateUiState
+    private val setLoadingProgress = ctx.setLoadingProgress
     private val emitNavigation = ctx.emitNavigation
     private val scope = ctx.scope
     private val ioDispatcher = ctx.ioDispatcher
@@ -95,7 +96,6 @@ internal class TabClosing(
                     currentUrl = "",
                     pageTitle = "",
                     isLoading = false,
-                    loadingProgress = 0f,
                     activeThemeColor = null,
                     activeOverlay = if (state.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
                     recentlyClosedTab = closingTab,
@@ -103,6 +103,7 @@ internal class TabClosing(
                     externalAppPrompt = null,
                 )
             }
+            setLoadingProgress(0f)
             scope.launch(ioDispatcher) {
                 SnapshotEngine.deleteTabSnapshot(tabId)
                 FaviconManager.deleteTabFavicons(tabId)
@@ -123,7 +124,6 @@ internal class TabClosing(
                             currentUrl = "",
                             pageTitle = "",
                             isLoading = false,
-                            loadingProgress = 0f,
                             activeThemeColor = null,
                         activeBottomThemeColor = null,
                             activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
@@ -132,6 +132,7 @@ internal class TabClosing(
                             externalAppPrompt = null,
                         )
                     }
+                    setLoadingProgress(0f)
                 }
             }
         } else {
@@ -217,7 +218,6 @@ internal class TabClosing(
                         canGoBack = restoredTab.canGoBack,
                         canGoForward = restoredTab.canGoForward,
                         isLoading = isWebLoading,
-                        loadingProgress = if (isWebLoading) 0.15f else 0f,
                         activeThemeColor = themeColor,
                         recentlyClosedTab = null,
                         showUndoTabCloseSnackbar = false,
@@ -231,6 +231,7 @@ internal class TabClosing(
                             },
                     )
                 }
+                setLoadingProgress(if (isWebLoading) 0.15f else 0f)
 
                 if (restoredTab.url.isNotEmpty() && restoredTab.url != "about:blank") {
                     emitNavigation(NavigationCommand.LoadUrl(restoredTab.url))
@@ -264,13 +265,13 @@ internal class TabClosing(
                         currentUrl = "",
                         pageTitle = "",
                         isLoading = false,
-                        loadingProgress = 0f,
                         activeThemeColor = null,
                         activeBottomThemeColor = null,
                         externalAppPrompt = null,
                         activeOverlay = if (it.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
                     )
                 }
+                setLoadingProgress(0f)
             }
         }
     }

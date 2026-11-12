@@ -21,6 +21,7 @@ internal class TabFolders(
     private val tabOperationMutex = ctx.tabOperationMutex
     private val getCurrentState = ctx.getCurrentState
     private val updateUiState = ctx.updateUiState
+    private val setLoadingProgress = ctx.setLoadingProgress
     private val scope = ctx.scope
     private val ioDispatcher = ctx.ioDispatcher
     private val tabLoadingProgress = ctx.tabLoadingProgress
@@ -256,7 +257,6 @@ internal class TabFolders(
                         currentUrl = "",
                         pageTitle = "",
                         isLoading = false,
-                        loadingProgress = 0f,
                         activeThemeColor = null,
                         activeBottomThemeColor = null,
                         isMenuExpanded = false,
@@ -268,6 +268,7 @@ internal class TabFolders(
                         isBottomBarVisible = true,
                     )
                 }
+                setLoadingProgress(0f)
             }
         }
     }

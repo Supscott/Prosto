@@ -5,7 +5,7 @@ import android.util.Log
 import com.jestk.browser.domain.model.AppUpdate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.OkHttpClient
+import com.jestk.browser.engine.HttpClients
 import okhttp3.Request
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -21,8 +21,8 @@ open class AppUpdateManager(
     private val context: Context,
 ) {
     private val client =
-        OkHttpClient
-            .Builder()
+        HttpClients.root
+            .newBuilder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()

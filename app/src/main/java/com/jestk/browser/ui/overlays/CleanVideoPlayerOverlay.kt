@@ -10,6 +10,7 @@ import android.view.ViewGroup
 import android.view.WindowManager
 import android.webkit.CookieManager
 import android.webkit.JavascriptInterface
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -322,6 +323,21 @@ fun CleanVideoPlayerOverlay(
                                             return true
                                         }
                                         return false
+                                    }
+
+                                    // All WebViews share one renderer process: if any of them leaves
+                                    // a renderer death unhandled, Android kills the whole app. A
+                                    // WebView whose renderer is gone may only be destroyed.
+                                    override fun onRenderProcessGone(
+                                        view: WebView?,
+                                        detail: RenderProcessGoneDetail?,
+                                    ): Boolean {
+                                        android.util.Log.e("CleanVideoPlayer", "Render process gone (didCrash=${detail?.didCrash()})")
+                                        (view?.parent as? android.view.ViewGroup)?.removeView(view)
+                                        view?.destroy()
+                                        if (playerWebView === view) playerWebView = null
+                                        onClose()
+                                        return true
                                     }
                                 }
 

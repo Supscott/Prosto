@@ -19,6 +19,7 @@ internal class TabActivation(
     private val tabThemeColors = ctx.tabThemeColors
     private val getCurrentState = ctx.getCurrentState
     private val updateUiState = ctx.updateUiState
+    private val setLoadingProgress = ctx.setLoadingProgress
     private val scope = ctx.scope
     private val ioDispatcher = ctx.ioDispatcher
     private val tabLoadingProgress = ctx.tabLoadingProgress
@@ -116,7 +117,6 @@ internal class TabActivation(
                 currentUrl = effectiveUrl,
                 pageTitle = effectiveTitle,
                 isLoading = isTabLoading,
-                loadingProgress = tabProgress,
                 canGoBack = effectiveCanGoBack,
                 canGoForward = effectiveCanGoForward,
                 activeThemeColor = if (isHome) null else cachedColor,
@@ -130,6 +130,7 @@ internal class TabActivation(
                 showUndoTabCloseSnackbar = if (recentlyClosedTab != null) true else state.showUndoTabCloseSnackbar,
             )
         }
+        setLoadingProgress(tabProgress)
         externalAppPrompts.publishPendingExternalAppPrompt(tabId)
         Log.d(TAG, "Activated tab $tabId (url=$effectiveUrl)")
         if (liveUrl != null || liveTitle != null) {

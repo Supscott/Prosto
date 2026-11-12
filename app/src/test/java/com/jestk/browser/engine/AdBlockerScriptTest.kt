@@ -63,9 +63,10 @@ class AdBlockerScriptTest {
     @Test
     fun buildDocumentStartScript_containsBridgeCheckStyleInjectionAndMutationObserver() {
         val js = AdBlockerScript.buildDocumentStartScript(context)
-        // Bridge check
-        assertThat(js).contains("window.HoriAdBlockBridge")
-        assertThat(js).contains("window.HoriAdBlockBridge.isEnabled()")
+        // Bridge: taken off window before page scripts run, then used through a private reference
+        assertThat(js).contains("delete window.HoriAdBlockBridge;")
+        assertThat(js).contains("hostBridge.isEnabled()")
+        assertThat(js.indexOf("delete window.HoriAdBlockBridge;")).isLessThan(js.indexOf("challenges.cloudflare.com"))
 
         // Style tag injection
         assertThat(js).contains("document.createElement('style')")

@@ -49,7 +49,7 @@ class HoriDownloadManager(
 
     private val coroutineScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
-    private val client = okHttpClient ?: OkHttpClient.Builder()
+    private val client = okHttpClient ?: com.jestk.browser.engine.HttpClients.root.newBuilder()
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(60, TimeUnit.SECONDS)
         .followRedirects(true)

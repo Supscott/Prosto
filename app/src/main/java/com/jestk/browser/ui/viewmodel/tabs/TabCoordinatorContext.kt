@@ -35,6 +35,8 @@ internal class TabCoordinatorContext(
     val getCurrentState: () -> BrowserUiState,
     val updateUiState: ((BrowserUiState) -> BrowserUiState) -> Unit,
     val emitNavigation: (NavigationCommand) -> Unit,
+    val getLoadingProgress: () -> Float,
+    val setLoadingProgress: (Float) -> Unit,
     val scope: CoroutineScope,
     val ioDispatcher: CoroutineDispatcher,
     val tabLoadingProgress: MutableMap<String, Int>,
