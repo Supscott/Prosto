@@ -291,6 +291,8 @@ internal fun BoxScope.AppNotificationPills(
             },
             onCancel = {
                 onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT))
+                // A held-back web link loads in the browser after all.
+                prompt.webFallbackUrl?.let { onEvent(BrowserUiEvent.LoadUrl(it)) }
             },
         )
     }

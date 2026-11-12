@@ -175,9 +175,12 @@ internal fun HeroSearchInputField(
                     color = if (isDark) DarkOnSurface else ProstoDarkText
                 ),
                 cursorBrush = SolidColor(ProstoBrandPrimary),
+                // No autocorrect: the keyboard keeps its word while typing (the completion is only
+                // drawn), so it would turn "github." into "GitHub." and break case-sensitive paths.
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Go
+                    imeAction = ImeAction.Go,
+                    autoCorrectEnabled = false,
                 ),
                 keyboardActions = KeyboardActions(onGo = { onSubmit() }),
                 modifier = Modifier
