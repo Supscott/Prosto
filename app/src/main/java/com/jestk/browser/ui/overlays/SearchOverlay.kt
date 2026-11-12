@@ -135,21 +135,22 @@ fun SearchOverlay(
     }
 
     val autocompleteMatcher = remember { SearchInputAutocompleteMatcher() }
-    var suppressAutocomplete by remember { mutableStateOf(false) }
-
-    var textFieldValue by remember {
+    var input by remember {
         mutableStateOf(
-            TextFieldValue(
-                text = uiState.searchQuery,
-                selection =
-                    if (uiState.searchQuery.isNotEmpty()) {
-                        TextRange(0, uiState.searchQuery.length)
-                    } else {
-                        TextRange.Zero
-                    },
+            InlineAutocompleteInput(
+                TextFieldValue(
+                    text = uiState.searchQuery,
+                    selection =
+                        if (uiState.searchQuery.isNotEmpty()) {
+                            TextRange(0, uiState.searchQuery.length)
+                        } else {
+                            TextRange.Zero
+                        },
+                ),
             ),
         )
     }
+    val textFieldValue = input.value
 
     val activeQuery = remember(textFieldValue) {
         if (!textFieldValue.selection.collapsed) {
@@ -348,12 +349,9 @@ fun SearchOverlay(
 
                                     else -> item.url
                                 }
-                            suppressAutocomplete = true
-                            textFieldValue =
-                                TextFieldValue(
-                                    text = queryText,
-                                    selection = TextRange(queryText.length),
-                                )
+                            input = InlineAutocompleteInput(
+                                TextFieldValue(text = queryText, selection = TextRange(queryText.length)),
+                            )
                             onEvent(BrowserUiEvent.UpdateSearchQuery(queryText))
                             focusRequester.requestFocus()
                             keyboardController?.show()
@@ -414,6 +412,7 @@ fun SearchOverlay(
             ) {
                 HeroSearchInputField(
                     textFieldValue = textFieldValue,
+                    completionSuffix = input.suffix,
                     onValueChange = { newValue ->
                         val matchedEngine =
                             uiState.searchEngines.firstOrNull { engine ->
@@ -421,91 +420,41 @@ fun SearchOverlay(
                                     newValue.text.startsWith("${engine.shortcut} ", ignoreCase = true)
                             }
                         if (matchedEngine != null) {
-                            suppressAutocomplete = false
                             carouselState.animateToEngine(matchedEngine)
                             val remaining = newValue.text.substring(matchedEngine.shortcut!!.length + 1)
-                            textFieldValue =
-                                TextFieldValue(
-                                    text = remaining,
-                                    selection = TextRange(remaining.length),
-                                )
+                            input = InlineAutocompleteInput(
+                                TextFieldValue(text = remaining, selection = TextRange(remaining.length)),
+                            )
                             onEvent(BrowserUiEvent.UpdateSearchQuery(remaining))
                             return@HeroSearchInputField
                         }
 
-                        val oldText = textFieldValue.text
-                        val newText = newValue.text
-                        val hadSelection = !textFieldValue.selection.collapsed
-
-                        val applyAutocomplete: (String, TextFieldValue) -> Unit = { query, fallbackValue ->
-                            val match = autocompleteMatcher.findInlineMatch(
+                        val oldText = input.value.text
+                        input = input.onEdit(newValue) { query ->
+                            autocompleteMatcher.findInlineMatch(
                                 query = query,
                                 tabs = uiState.tabs,
                                 favorites = uiState.favorites,
                                 history = uiState.searchHistorySuggestions,
                             )
-                            if (match != null) {
-                                textFieldValue = TextFieldValue(
-                                    text = match,
-                                    selection = TextRange(query.length, match.length),
-                                )
-                                onEvent(BrowserUiEvent.UpdateSearchQuery(query))
-                            } else {
-                                textFieldValue = fallbackValue
-                                onEvent(BrowserUiEvent.UpdateSearchQuery(query))
-                            }
                         }
-
-                        if (hadSelection) {
-                            val textWithoutSelection = oldText.removeRange(
-                                textFieldValue.selection.min,
-                                textFieldValue.selection.max,
-                            )
-                            if (newText == textWithoutSelection) {
-                                // User pressed Backspace deleting the autocompleted selection
-                                suppressAutocomplete = true
-                                textFieldValue = newValue
-                                onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
-                            } else {
-                                // User typed a character replacing the selection
-                                suppressAutocomplete = false
-                                applyAutocomplete(newText, newValue)
-                            }
-                        } else {
-                            if (newText.length < oldText.length) {
-                                // User deleted a character
-                                suppressAutocomplete = true
-                                textFieldValue = newValue
-                                onEvent(BrowserUiEvent.UpdateSearchQuery(newText))
-                            } else if (newText == oldText) {
-                                // Selection or cursor moved
-                                textFieldValue = newValue
-                            } else {
-                                // User typed forward
-                                suppressAutocomplete = false
-                                applyAutocomplete(newText, newValue)
-                            }
-                        }
+                        if (newValue.text != oldText) onEvent(BrowserUiEvent.UpdateSearchQuery(newValue.text))
                     },
                     searchEngine = carouselState.currentEngine,
                     isDark = isDark,
                     focusRequester = focusRequester,
                     onSubmit = {
-                        onEvent(BrowserUiEvent.SubmitSearch(textFieldValue.text))
+                        onEvent(BrowserUiEvent.SubmitSearch(input.submitText))
                         onEvent(BrowserUiEvent.DismissOverlay)
                     },
                     onClear = {
-                        suppressAutocomplete = false
-                        textFieldValue = TextFieldValue("", TextRange.Zero)
+                        input = InlineAutocompleteInput(TextFieldValue("", TextRange.Zero))
                         onEvent(BrowserUiEvent.UpdateSearchQuery(""))
                     },
                     onVoiceResult = { spokenText ->
-                        suppressAutocomplete = true
-                        textFieldValue =
-                            TextFieldValue(
-                                text = spokenText,
-                                selection = TextRange(spokenText.length),
-                            )
+                        input = InlineAutocompleteInput(
+                            TextFieldValue(text = spokenText, selection = TextRange(spokenText.length)),
+                        )
                         onEvent(BrowserUiEvent.UpdateSearchQuery(spokenText))
                         focusRequester.requestFocus()
                         keyboardController?.show()

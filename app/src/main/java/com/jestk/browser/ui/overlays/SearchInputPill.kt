@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -77,6 +78,7 @@ import kotlin.math.abs
 internal fun HeroSearchInputField(
     textFieldValue: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
+    completionSuffix: String = "",
     searchEngine: SearchEngine,
     isDark: Boolean,
     focusRequester: FocusRequester,
@@ -165,13 +167,20 @@ internal fun HeroSearchInputField(
                 value = textFieldValue,
                 onValueChange = onValueChange,
                 singleLine = true,
+                visualTransformation = InlineCompletionTransformation(
+                    suffix = completionSuffix,
+                    highlight = LocalTextSelectionColors.current.backgroundColor,
+                ),
                 textStyle = LocalProstoTypography.current.bodyMd.copy(
                     color = if (isDark) DarkOnSurface else ProstoDarkText
                 ),
                 cursorBrush = SolidColor(ProstoBrandPrimary),
+                // No autocorrect: the keyboard keeps its word while typing (the completion is only
+                // drawn), so it would turn "github." into "GitHub." and break case-sensitive paths.
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Go
+                    imeAction = ImeAction.Go,
+                    autoCorrectEnabled = false,
                 ),
                 keyboardActions = KeyboardActions(onGo = { onSubmit() }),
                 modifier = Modifier
@@ -288,6 +297,11 @@ internal fun Modifier.swipeDownToDismiss(
                 offset += change.position - change.previousPosition
                 if (!isHorizontalDrag && abs(offset.x) > viewConfig.touchSlop && abs(offset.x) > abs(offset.y)) {
                     isHorizontalDrag = true
+                    // The gesture now belongs to engine cycling: put the keyboard back where it was.
+                    if (dragsKeyboard && dispatchedY != 0f) {
+                        currentDispatcher?.dispatchScroll(Offset(0f, -dispatchedY))
+                        dispatchedY = 0f
+                    }
                 }
                 if (isHorizontalDrag) continue
 

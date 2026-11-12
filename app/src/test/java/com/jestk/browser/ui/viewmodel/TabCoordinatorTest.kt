@@ -109,42 +109,42 @@ class TabCoordinatorTest {
     @Test
     fun selectTab_whenSwitchingFromLoadingTabAToLoadedTabB_isLoadingBecomesFalseImmediately() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             // Open Tab A
-            coordinator.openNewTab("https://tab-a.com")
+            coordinator.opening.openNewTab("https://tab-a.com")
             advanceUntilIdle()
             val tabAId = uiState.activeTabId!!
 
             // Tab A begins loading at 45%
-            coordinator.handlePageStarted(tabAId, "https://tab-a.com")
-            coordinator.handleProgressChanged(tabAId, 45)
+            coordinator.pageEvents.handlePageStarted(tabAId, "https://tab-a.com")
+            coordinator.pageEvents.handleProgressChanged(tabAId, 45)
 
             assertThat(uiState.isLoading).isTrue()
             assertThat(uiState.loadingProgress).isEqualTo(0.45f)
             assertThat(coordinator.tabLoadingProgress[tabAId]).isEqualTo(45)
 
             // Open Tab B and complete loading
-            coordinator.openNewTab("https://tab-b.com")
+            coordinator.opening.openNewTab("https://tab-b.com")
             advanceUntilIdle()
             val tabBId = uiState.activeTabId!!
-            coordinator.handlePageStarted(tabBId, "https://tab-b.com")
-            coordinator.handleProgressChanged(tabBId, 100)
-            coordinator.handlePageFinished(tabBId, "https://tab-b.com", "Tab B")
+            coordinator.pageEvents.handlePageStarted(tabBId, "https://tab-b.com")
+            coordinator.pageEvents.handleProgressChanged(tabBId, 100)
+            coordinator.pageEvents.handlePageFinished(tabBId, "https://tab-b.com", "Tab B")
 
             assertThat(uiState.isLoading).isFalse()
             assertThat(uiState.loadingProgress).isEqualTo(1.0f)
 
             // Switch to Tab A: loading state is restored
-            coordinator.selectTab(tabAId)
+            coordinator.activation.selectTab(tabAId)
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tabAId)
             assertThat(uiState.isLoading).isTrue()
             assertThat(uiState.loadingProgress).isEqualTo(0.45f)
 
             // Switch to Tab B: isLoading becomes false immediately without leaking Tab A's progress
-            coordinator.selectTab(tabBId)
+            coordinator.activation.selectTab(tabBId)
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tabBId)
             assertThat(uiState.isLoading).isFalse()
@@ -154,29 +154,29 @@ class TabCoordinatorTest {
     @Test
     fun backgroundTabCompletion_updatesProgressInMapAndSwitchingBackShowsNotLoading() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             // Open Tab A
-            coordinator.openNewTab("https://tab-a.com")
+            coordinator.opening.openNewTab("https://tab-a.com")
             advanceUntilIdle()
             val tabAId = uiState.activeTabId!!
-            coordinator.handlePageStarted(tabAId, "https://tab-a.com")
-            coordinator.handleProgressChanged(tabAId, 30)
+            coordinator.pageEvents.handlePageStarted(tabAId, "https://tab-a.com")
+            coordinator.pageEvents.handleProgressChanged(tabAId, 30)
 
             // Open Tab B and finish loading
-            coordinator.openNewTab("https://tab-b.com")
+            coordinator.opening.openNewTab("https://tab-b.com")
             advanceUntilIdle()
             val tabBId = uiState.activeTabId!!
-            coordinator.handlePageFinished(tabBId, "https://tab-b.com", "Tab B")
+            coordinator.pageEvents.handlePageFinished(tabBId, "https://tab-b.com", "Tab B")
 
             assertThat(uiState.activeTabId).isEqualTo(tabBId)
             assertThat(uiState.isLoading).isFalse()
             assertThat(coordinator.tabLoadingProgress[tabAId]).isEqualTo(30)
 
             // Tab A finishes in background while Tab B is active
-            coordinator.handleProgressChanged(tabAId, 100)
-            coordinator.handlePageFinished(tabAId, "https://tab-a.com", "Tab A")
+            coordinator.pageEvents.handleProgressChanged(tabAId, 100)
+            coordinator.pageEvents.handlePageFinished(tabAId, "https://tab-a.com", "Tab A")
             advanceUntilIdle()
 
             // tabLoadingProgress for Tab A is updated to 100
@@ -186,7 +186,7 @@ class TabCoordinatorTest {
             assertThat(uiState.loadingProgress).isEqualTo(1.0f)
 
             // Switching back to Tab A shows isLoading = false
-            coordinator.selectTab(tabAId)
+            coordinator.activation.selectTab(tabAId)
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tabAId)
             assertThat(uiState.isLoading).isFalse()
@@ -196,34 +196,34 @@ class TabCoordinatorTest {
     @Test
     fun switchingBackToTabA_whileStillLoading_restoresLoadingStateCorrectly() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             // Open Tab A
-            coordinator.openNewTab("https://tab-a.com")
+            coordinator.opening.openNewTab("https://tab-a.com")
             advanceUntilIdle()
             val tabAId = uiState.activeTabId!!
-            coordinator.handlePageStarted(tabAId, "https://tab-a.com")
-            coordinator.handleProgressChanged(tabAId, 50)
+            coordinator.pageEvents.handlePageStarted(tabAId, "https://tab-a.com")
+            coordinator.pageEvents.handleProgressChanged(tabAId, 50)
 
             // Open Tab B and complete loading
-            coordinator.openNewTab("https://tab-b.com")
+            coordinator.opening.openNewTab("https://tab-b.com")
             advanceUntilIdle()
             val tabBId = uiState.activeTabId!!
-            coordinator.handlePageFinished(tabBId, "https://tab-b.com", "Tab B")
+            coordinator.pageEvents.handlePageFinished(tabBId, "https://tab-b.com", "Tab B")
 
             assertThat(uiState.activeTabId).isEqualTo(tabBId)
             assertThat(uiState.isLoading).isFalse()
 
             // Tab A progresses to 85% in background
-            coordinator.handleProgressChanged(tabAId, 85)
+            coordinator.pageEvents.handleProgressChanged(tabAId, 85)
             advanceUntilIdle()
             assertThat(coordinator.tabLoadingProgress[tabAId]).isEqualTo(85)
             // Tab B still unaffected
             assertThat(uiState.isLoading).isFalse()
 
             // Switching back to Tab A restores loading state at 85%
-            coordinator.selectTab(tabAId)
+            coordinator.activation.selectTab(tabAId)
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tabAId)
             assertThat(uiState.isLoading).isTrue()
@@ -237,17 +237,17 @@ class TabCoordinatorTest {
     @Test
     fun selectTab_keepsAConcurrentTitleUpdateOfAnotherTab() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
-            coordinator.openNewTab("https://tab-a.com")
+            coordinator.opening.openNewTab("https://tab-a.com")
             advanceUntilIdle()
             val tabAId = uiState.activeTabId!!
-            coordinator.openNewTab("https://tab-b.com")
+            coordinator.opening.openNewTab("https://tab-b.com")
             advanceUntilIdle()
             val tabBId = uiState.activeTabId!!
 
             concurrentUpdate = renameTab(tabBId, "Fresh title")
-            coordinator.selectTab(tabAId)
+            coordinator.activation.selectTab(tabAId)
 
             assertThat(uiState.activeTabId).isEqualTo(tabAId)
             assertThat(uiState.tabs.first { it.id == tabBId }.title).isEqualTo("Fresh title")
@@ -256,17 +256,17 @@ class TabCoordinatorTest {
     @Test
     fun closeInactiveTab_keepsAConcurrentTitleUpdateOfAnotherTab() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
-            coordinator.openNewTab("https://tab-a.com")
+            coordinator.opening.openNewTab("https://tab-a.com")
             advanceUntilIdle()
             val tabAId = uiState.activeTabId!!
-            coordinator.openNewTab("https://tab-b.com")
+            coordinator.opening.openNewTab("https://tab-b.com")
             advanceUntilIdle()
             val tabBId = uiState.activeTabId!!
 
             concurrentUpdate = renameTab(tabBId, "Fresh title")
-            coordinator.closeTab(tabAId)
+            coordinator.closing.closeTab(tabAId)
 
             assertThat(uiState.tabs.map { it.id }).doesNotContain(tabAId)
             assertThat(uiState.tabs.first { it.id == tabBId }.title).isEqualTo("Fresh title")
@@ -275,18 +275,18 @@ class TabCoordinatorTest {
     @Test
     fun closeTab_removesTabFromLoadingProgressMap() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
-            coordinator.openNewTab("https://tab-a.com")
+            coordinator.opening.openNewTab("https://tab-a.com")
             advanceUntilIdle()
             val tabAId = uiState.activeTabId!!
-            coordinator.handlePageStarted(tabAId, "https://tab-a.com")
-            coordinator.handleProgressChanged(tabAId, 40)
+            coordinator.pageEvents.handlePageStarted(tabAId, "https://tab-a.com")
+            coordinator.pageEvents.handleProgressChanged(tabAId, 40)
 
             assertThat(coordinator.tabLoadingProgress).containsKey(tabAId)
 
-            coordinator.closeTab(tabAId)
+            coordinator.closing.closeTab(tabAId)
             advanceUntilIdle()
 
             assertThat(coordinator.tabLoadingProgress).doesNotContainKey(tabAId)
@@ -295,16 +295,16 @@ class TabCoordinatorTest {
     @Test
     fun closeTab_whenActiveTabClosed_synchronouslySwitchesToAdjacentTabWithCorrectUrl() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
             val initialHomeId = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab-a.com")
+            coordinator.opening.openNewTab("https://tab-a.com")
             advanceUntilIdle()
             val tabAId = uiState.activeTabId!!
             webViewPool.getOrCreateWebView(tabAId)
 
-            coordinator.openNewTab("https://tab-b.com")
+            coordinator.opening.openNewTab("https://tab-b.com")
             advanceUntilIdle()
             val tabBId = uiState.activeTabId!!
             webViewPool.getOrCreateWebView(tabBId)
@@ -315,7 +315,7 @@ class TabCoordinatorTest {
             assertThat(webViewPool.getWebView(tabAId)).isNotNull()
 
             // Close active tab B
-            coordinator.closeTab(tabBId)
+            coordinator.closing.closeTab(tabBId)
 
             // Must switch synchronously BEFORE advanceUntilIdle
             assertThat(uiState.activeTabId).isEqualTo(tabAId)
@@ -332,14 +332,14 @@ class TabCoordinatorTest {
     @Test
     fun closeAllTabs_clearsAllLoadingProgress() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
-            coordinator.openNewTab("https://tab-a.com")
-            coordinator.openNewTab("https://tab-b.com")
+            coordinator.opening.openNewTab("https://tab-a.com")
+            coordinator.opening.openNewTab("https://tab-b.com")
             advanceUntilIdle()
 
-            coordinator.closeAllTabs()
+            coordinator.closing.closeAllTabs()
             advanceUntilIdle()
 
             // Only the new single home tab should exist in progress map with 100
@@ -352,26 +352,26 @@ class TabCoordinatorTest {
     @Test
     fun handleStopLoading_setsProgressTo100AndResetsIsLoading() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
-            coordinator.openNewTab("https://tab-a.com")
+            coordinator.opening.openNewTab("https://tab-a.com")
             advanceUntilIdle()
             val tabAId = uiState.activeTabId!!
-            coordinator.handlePageStarted(tabAId, "https://tab-a.com")
-            coordinator.handleProgressChanged(tabAId, 35)
+            coordinator.pageEvents.handlePageStarted(tabAId, "https://tab-a.com")
+            coordinator.pageEvents.handleProgressChanged(tabAId, 35)
 
             assertThat(uiState.isLoading).isTrue()
 
-            coordinator.handleStopLoading(tabAId)
+            coordinator.pageEvents.handleStopLoading(tabAId)
 
             assertThat(uiState.isLoading).isFalse()
             assertThat(coordinator.tabLoadingProgress[tabAId]).isEqualTo(100)
 
             // Switch to another tab and switch back
-            coordinator.openNewTab("https://tab-b.com")
+            coordinator.opening.openNewTab("https://tab-b.com")
             advanceUntilIdle()
-            coordinator.selectTab(tabAId)
+            coordinator.activation.selectTab(tabAId)
             advanceUntilIdle()
 
             // Tab A remains stopped
@@ -387,12 +387,12 @@ class TabCoordinatorTest {
             val cachedPath = FaviconManager.cacheFaviconForDomain("github.com", bitmap, context)
             assertThat(cachedPath).isNotNull()
 
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
 
-            coordinator.navigateToUrl("https://github.com/torvalds/linux")
+            coordinator.pageEvents.navigateToUrl("https://github.com/torvalds/linux")
             advanceUntilIdle()
 
             val activeTab = uiState.tabs.find { it.id == activeTabId }
@@ -403,16 +403,16 @@ class TabCoordinatorTest {
     @Test
     fun navigateToUrl_whenUncachedAndCrossDomain_resetsFaviconToNull() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
-            coordinator.handleUpdateFavicon(activeTabId, "/dummy/old_favicon.png")
+            coordinator.pageAppearance.handleUpdateFavicon(activeTabId, "/dummy/old_favicon.png")
             advanceUntilIdle()
             assertThat(uiState.tabs.find { it.id == activeTabId }?.faviconUrl).isEqualTo("/dummy/old_favicon.png")
 
             // Navigate to an uncached cross-domain URL
-            coordinator.navigateToUrl("https://uncached-site.org/home")
+            coordinator.pageEvents.navigateToUrl("https://uncached-site.org/home")
             advanceUntilIdle()
 
             val activeTab = uiState.tabs.find { it.id == activeTabId }
@@ -428,11 +428,11 @@ class TabCoordinatorTest {
             val cachedPath = FaviconManager.cacheFaviconForDomain("kotlinlang.org", bitmap, context)
             assertThat(cachedPath).isNotNull()
 
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
-            coordinator.handlePageStarted(activeTabId, "https://kotlinlang.org/docs/home.html")
+            coordinator.pageEvents.handlePageStarted(activeTabId, "https://kotlinlang.org/docs/home.html")
             advanceUntilIdle()
 
             val activeTab = uiState.tabs.find { it.id == activeTabId }
@@ -448,10 +448,10 @@ class TabCoordinatorTest {
             val cachedPath = FaviconManager.cacheFaviconForDomain("reddit.com", bitmap, context)
             assertThat(cachedPath).isNotNull()
 
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
-            coordinator.openNewTab("https://reddit.com/r/android")
+            coordinator.opening.openNewTab("https://reddit.com/r/android")
             advanceUntilIdle()
 
             val newTabId = uiState.activeTabId!!
@@ -470,14 +470,14 @@ class TabCoordinatorTest {
                 writeBytes("png_data".toByteArray())
             }
 
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
-            coordinator.navigateToUrl("https://news.ycombinator.com")
+            coordinator.pageEvents.navigateToUrl("https://news.ycombinator.com")
             advanceUntilIdle()
 
-            coordinator.handleUpdateFavicon(activeTabId, dummyFile.absolutePath)
+            coordinator.pageAppearance.handleUpdateFavicon(activeTabId, dummyFile.absolutePath)
             advanceUntilIdle()
 
             val activeTab = uiState.tabs.find { it.id == activeTabId }
@@ -499,15 +499,15 @@ class TabCoordinatorTest {
                 writeBytes("png_data".toByteArray())
             }
 
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
-            coordinator.navigateToUrl("https://currentsite.com")
+            coordinator.pageEvents.navigateToUrl("https://currentsite.com")
             advanceUntilIdle()
 
             // Late-arriving favicon from previous site (e.g. oldsite.com)
-            coordinator.handleUpdateFavicon(activeTabId, dummyFile.absolutePath, pageUrl = "https://oldsite.com")
+            coordinator.pageAppearance.handleUpdateFavicon(activeTabId, dummyFile.absolutePath, pageUrl = "https://oldsite.com")
             advanceUntilIdle()
 
             val activeTab = uiState.tabs.find { it.id == activeTabId }
@@ -530,15 +530,15 @@ class TabCoordinatorTest {
                 writeBytes("different_site_png".toByteArray())
             }
 
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
-            coordinator.navigateToUrl("https://mysite.com")
+            coordinator.pageEvents.navigateToUrl("https://mysite.com")
             advanceUntilIdle()
 
             // Mismatched domain favicon path
-            coordinator.handleUpdateFavicon(activeTabId, domainFile.absolutePath)
+            coordinator.pageAppearance.handleUpdateFavicon(activeTabId, domainFile.absolutePath)
             advanceUntilIdle()
 
             val activeTab = uiState.tabs.find { it.id == activeTabId }
@@ -552,11 +552,11 @@ class TabCoordinatorTest {
             val context = ApplicationProvider.getApplicationContext<Context>()
             FaviconManager.init(context)
 
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
-            coordinator.navigateToUrl("https://site1.com")
+            coordinator.pageEvents.navigateToUrl("https://site1.com")
             advanceUntilIdle()
 
             // Save a tab favicon file on disk
@@ -567,7 +567,7 @@ class TabCoordinatorTest {
             assertThat(tabFaviconFile.exists()).isTrue()
 
             // Cross-domain navigation
-            coordinator.navigateToUrl("https://site2.com")
+            coordinator.pageEvents.navigateToUrl("https://site2.com")
             advanceUntilIdle()
 
             // Old tab favicon file must be deleted
@@ -594,7 +594,7 @@ class TabCoordinatorTest {
             val tab = tabRepo.createTab("https://siteb.com", "Site B")
             tabRepo.updateFavicon(tab.id, wrongDomainFile.absolutePath)
 
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val restoredTab = uiState.tabs.find { it.id == tab.id }
@@ -604,14 +604,14 @@ class TabCoordinatorTest {
     @Test
     fun handleTitleReceived_updatesUiStateAndPersistsToRepositories() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
-            coordinator.navigateToUrl("https://example.com")
+            coordinator.pageEvents.navigateToUrl("https://example.com")
             advanceUntilIdle()
 
-            coordinator.handleTitleReceived(activeTabId, "Example Domain")
+            coordinator.pageEvents.handleTitleReceived(activeTabId, "Example Domain")
             advanceUntilIdle()
 
             val activeTab = uiState.tabs.find { it.id == activeTabId }
@@ -628,18 +628,18 @@ class TabCoordinatorTest {
     @Test
     fun handleTitleReceived_whenBlankOrAboutBlank_isIgnored() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
-            coordinator.navigateToUrl("https://example.com")
+            coordinator.pageEvents.navigateToUrl("https://example.com")
             advanceUntilIdle()
 
-            coordinator.handleTitleReceived(activeTabId, "   ")
+            coordinator.pageEvents.handleTitleReceived(activeTabId, "   ")
             advanceUntilIdle()
             assertThat(uiState.pageTitle).isEqualTo("https://example.com")
 
-            coordinator.handleTitleReceived(activeTabId, "about:blank")
+            coordinator.pageEvents.handleTitleReceived(activeTabId, "about:blank")
             advanceUntilIdle()
             assertThat(uiState.pageTitle).isEqualTo("https://example.com")
         }
@@ -647,18 +647,18 @@ class TabCoordinatorTest {
     @Test
     fun handlePageStarted_whenCrossDomain_resetsTitleToLoading() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
-            coordinator.navigateToUrl("https://first-site.com")
-            coordinator.handlePageFinished(activeTabId, "https://first-site.com", "First Site Title")
+            coordinator.pageEvents.navigateToUrl("https://first-site.com")
+            coordinator.pageEvents.handlePageFinished(activeTabId, "https://first-site.com", "First Site Title")
             advanceUntilIdle()
 
             assertThat(uiState.pageTitle).isEqualTo("First Site Title")
 
             // Navigate to cross-domain site
-            coordinator.handlePageStarted(activeTabId, "https://second-site.org/path")
+            coordinator.pageEvents.handlePageStarted(activeTabId, "https://second-site.org/path")
             advanceUntilIdle()
 
             assertThat(uiState.pageTitle).isEmpty()
@@ -670,17 +670,17 @@ class TabCoordinatorTest {
     @Test
     fun observeDatabaseFlows_prioritizesInMemoryActiveTabIdAndPreservesNewUrl() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             // Open a second tab
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
             val secondTabId = uiState.activeTabId!!
 
             // Start navigation in memory
-            coordinator.handlePageStarted(secondTabId, "https://tab2-new.com")
+            coordinator.pageEvents.handlePageStarted(secondTabId, "https://tab2-new.com")
             assertThat(uiState.currentUrl).isEqualTo("https://tab2-new.com")
             assertThat(uiState.pageTitle).isEmpty()
 
@@ -713,13 +713,13 @@ class TabCoordinatorTest {
                 tabLoadingProgress = tabLoadingProgress,
             )
 
-            coordinatorWithPool.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinatorWithPool.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val tab1Id = uiState.activeTabId!!
 
             // Open tab 2
-            coordinatorWithPool.openNewTab("https://tab2.com")
+            coordinatorWithPool.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
 
             // Get live WebView for tab 1 and load a live URL
@@ -727,7 +727,7 @@ class TabCoordinatorTest {
             wv1.loadUrl("https://tab1-live.com")
 
             // Switch back to tab 1
-            coordinatorWithPool.selectTab(tab1Id)
+            coordinatorWithPool.activation.selectTab(tab1Id)
             advanceUntilIdle()
 
             assertThat(uiState.activeTabId).isEqualTo(tab1Id)
@@ -737,7 +737,7 @@ class TabCoordinatorTest {
     @Test
     fun handleExternalAppOffered_displaysPromptForActiveTab_andSuppressesAfterDismissal() =
         testScope.runTest {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
@@ -751,34 +751,34 @@ class TabCoordinatorTest {
             )
 
             // Offer for active tab sets prompt
-            coordinator.handleExternalAppOffered(activeTabId, prompt)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, prompt)
             assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
 
             // Dismiss explicitly with ExternalAppDismissReason.EXPLICIT
-            coordinator.dismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT)
+            coordinator.externalAppPrompts.dismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT)
             assertThat(uiState.externalAppPrompt).isNull()
 
             // Subsequent offer for same domain is suppressed
             val secondPrompt = prompt.copy(id = "prompt_2")
-            coordinator.handleExternalAppOffered(activeTabId, secondPrompt)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, secondPrompt)
             assertThat(uiState.externalAppPrompt).isNull()
 
             // Navigating to a different domain clears suppression
-            coordinator.handlePageStarted(activeTabId, "https://wikipedia.org/wiki/Kotlin")
+            coordinator.pageEvents.handlePageStarted(activeTabId, "https://wikipedia.org/wiki/Kotlin")
             advanceUntilIdle()
 
             // Now YouTube offer can appear again or new domain offer works
-            coordinator.handleExternalAppOffered(activeTabId, secondPrompt)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, secondPrompt)
             assertThat(uiState.externalAppPrompt).isEqualTo(secondPrompt)
         }
 
     @Test
     fun handleExternalAppOffered_ignoresBackgroundTab() =
         testScope.runTest {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
 
             val bgTabId = uiState.tabs.first { !it.isActive }.id
@@ -789,19 +789,19 @@ class TabCoordinatorTest {
                 domain = "tg"
             )
 
-            coordinator.handleExternalAppOffered(bgTabId, prompt)
+            coordinator.externalAppPrompts.handleExternalAppOffered(bgTabId, prompt)
             assertThat(uiState.externalAppPrompt).isNull()
         }
 
     @Test
     fun handlePageStarted_preservesPrompt_whenNavigatingFromSearchToTargetDomain() =
         testScope.runTest {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
             // User begins on google.com
-            coordinator.handlePageStarted(activeTabId, "https://google.com/search?q=instagram")
+            coordinator.pageEvents.handlePageStarted(activeTabId, "https://google.com/search?q=instagram")
             advanceUntilIdle()
 
             // User taps instagram.com link: external app offered for instagram.com
@@ -813,19 +813,19 @@ class TabCoordinatorTest {
                 isInstalled = true,
                 domain = "instagram.com"
             )
-            coordinator.handleExternalAppOffered(activeTabId, instagramPrompt)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, instagramPrompt)
             assertThat(uiState.externalAppPrompt).isEqualTo(instagramPrompt)
 
             // Web navigation begins loading the clicked destination: https://instagram.com/profile
             // Previously, !sameDomain("google.com", "instagram.com") caused prompt to be wiped out immediately.
-            coordinator.handlePageStarted(activeTabId, "https://instagram.com/profile")
+            coordinator.pageEvents.handlePageStarted(activeTabId, "https://instagram.com/profile")
             advanceUntilIdle()
 
             // The prompt MUST be preserved because it was offered for this navigation destination!
             assertThat(uiState.externalAppPrompt).isEqualTo(instagramPrompt)
 
             // If user subsequently navigates to an unrelated domain (e.g. wikipedia.org), prompt is cleared
-            coordinator.handlePageStarted(activeTabId, "https://en.wikipedia.org/wiki/Kotlin")
+            coordinator.pageEvents.handlePageStarted(activeTabId, "https://en.wikipedia.org/wiki/Kotlin")
             advanceUntilIdle()
             assertThat(uiState.externalAppPrompt).isNull()
         }
@@ -833,12 +833,12 @@ class TabCoordinatorTest {
     @Test
     fun handleExternalAppOffered_forBackgroundTab_isShownWhenTabBecomesActive() =
         testScope.runTest {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
-            coordinator.openNewTab("https://foreground.com")
+            coordinator.opening.openNewTab("https://foreground.com")
             advanceUntilIdle()
-            coordinator.openTabInBackground("https://reddit.com/r/android")
+            coordinator.opening.openTabInBackground("https://reddit.com/r/android")
             advanceUntilIdle()
 
             val backgroundTabId = uiState.tabs.first { !it.isActive }.id
@@ -851,10 +851,10 @@ class TabCoordinatorTest {
                 domain = "reddit.com"
             )
 
-            coordinator.handleExternalAppOffered(backgroundTabId, prompt)
+            coordinator.externalAppPrompts.handleExternalAppOffered(backgroundTabId, prompt)
             assertThat(uiState.externalAppPrompt).isNull()
 
-            coordinator.selectTab(backgroundTabId)
+            coordinator.activation.selectTab(backgroundTabId)
             advanceUntilIdle()
 
             assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
@@ -863,7 +863,7 @@ class TabCoordinatorTest {
     @Test
     fun dismissExternalAppPrompt_withoutRememberingDomain_allowsPromptAgain() =
         testScope.runTest {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
@@ -876,22 +876,22 @@ class TabCoordinatorTest {
                 domain = "reddit.com"
             )
 
-            coordinator.handleExternalAppOffered(activeTabId, prompt)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, prompt)
             assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
 
             // Transient dismissal (e.g. app opened or transient dismissal)
-            coordinator.dismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT)
+            coordinator.externalAppPrompts.dismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT)
             assertThat(uiState.externalAppPrompt).isNull()
 
             val secondPrompt = prompt.copy(id = "prompt_timeout_retry")
-            coordinator.handleExternalAppOffered(activeTabId, secondPrompt)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, secondPrompt)
             assertThat(uiState.externalAppPrompt).isEqualTo(secondPrompt)
         }
 
     @Test
     fun handleExternalAppOffered_whenExplicitlyDismissed_suppressesEvenForUserInitiated() =
         testScope.runTest {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
@@ -904,23 +904,23 @@ class TabCoordinatorTest {
                 domain = "reddit.com"
             )
 
-            coordinator.handleExternalAppOffered(activeTabId, prompt, userInitiated = true)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, prompt, userInitiated = true)
             assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
 
             // User explicitly clicked "X" to dismiss the pill
-            coordinator.dismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT)
+            coordinator.externalAppPrompts.dismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT)
             assertThat(uiState.externalAppPrompt).isNull()
 
             // Deliberate user tap must STILL be suppressed on this tab because user explicitly dismissed it
             val secondPrompt = prompt.copy(id = "prompt_explicit_retry")
-            coordinator.handleExternalAppOffered(activeTabId, secondPrompt, userInitiated = true)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, secondPrompt, userInitiated = true)
             assertThat(uiState.externalAppPrompt).isNull()
         }
 
     @Test
     fun handleExternalAppOffered_whenTimedOut_suppressesPassiveOffersButAllowsUserInitiated() =
         testScope.runTest {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
             val activeTabId = uiState.activeTabId!!
@@ -933,31 +933,31 @@ class TabCoordinatorTest {
                 domain = "reddit.com"
             )
 
-            coordinator.handleExternalAppOffered(activeTabId, prompt, userInitiated = false)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, prompt, userInitiated = false)
             assertThat(uiState.externalAppPrompt).isEqualTo(prompt)
 
             // Auto-timeout
-            coordinator.dismissExternalAppPrompt(ExternalAppDismissReason.TIMEOUT)
+            coordinator.externalAppPrompts.dismissExternalAppPrompt(ExternalAppDismissReason.TIMEOUT)
             assertThat(uiState.externalAppPrompt).isNull()
 
             // Passive offer remains suppressed (anti-nag)
             val passiveRetry = prompt.copy(id = "prompt_passive_retry")
-            coordinator.handleExternalAppOffered(activeTabId, passiveRetry, userInitiated = false)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, passiveRetry, userInitiated = false)
             assertThat(uiState.externalAppPrompt).isNull()
 
             // But deliberate user tap bypasses timeout suppression!
             val userTap = prompt.copy(id = "prompt_user_tap")
-            coordinator.handleExternalAppOffered(activeTabId, userTap, userInitiated = true)
+            coordinator.externalAppPrompts.handleExternalAppOffered(activeTabId, userTap, userInitiated = true)
             assertThat(uiState.externalAppPrompt).isEqualTo(userTap)
         }
 
     @Test
     fun openNewTab_clearsDismissedDomainForReusedTab() =
         testScope.runTest {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
-            coordinator.openNewTab("https://reddit.com/r/android")
+            coordinator.opening.openNewTab("https://reddit.com/r/android")
             advanceUntilIdle()
             val tabId = uiState.activeTabId!!
             val prompt = com.jestk.browser.domain.model.ExternalAppPrompt(
@@ -969,34 +969,34 @@ class TabCoordinatorTest {
                 domain = "reddit.com"
             )
 
-            coordinator.handleExternalAppOffered(tabId, prompt)
-            coordinator.dismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT)
+            coordinator.externalAppPrompts.handleExternalAppOffered(tabId, prompt)
+            coordinator.externalAppPrompts.dismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT)
             assertThat(uiState.externalAppPrompt).isNull()
 
             // Same URL opened again from another app: the tab is reused, but the notification
             // must be offered for this new navigation.
-            coordinator.openNewTab("https://reddit.com/r/android")
+            coordinator.opening.openNewTab("https://reddit.com/r/android")
             advanceUntilIdle()
 
             val secondPrompt = prompt.copy(id = "prompt_reopened")
-            coordinator.handleExternalAppOffered(uiState.activeTabId!!, secondPrompt)
+            coordinator.externalAppPrompts.handleExternalAppOffered(uiState.activeTabId!!, secondPrompt)
             assertThat(uiState.externalAppPrompt).isEqualTo(secondPrompt)
         }
 
     @Test
     fun handleThemeColors_updatesTopAndBottomThemeColorsInState() =
         testScope.runTest {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
 
-            coordinator.openNewTab("https://example.com")
+            coordinator.opening.openNewTab("https://example.com")
             advanceUntilIdle()
             val activeTabId = uiState.activeTabId!!
 
             val topColor = 0xFF123456.toInt()
             val bottomColor = 0xFF654321.toInt()
 
-            coordinator.handleThemeColors(activeTabId, topColor, bottomColor)
+            coordinator.pageAppearance.handleThemeColors(activeTabId, topColor, bottomColor)
             advanceUntilIdle()
 
             assertThat(uiState.activeThemeColor).isEqualTo(topColor)
@@ -1009,7 +1009,7 @@ class TabCoordinatorTest {
 
             // When subsequently meta top theme color is received without bottom color, bottom color should be preserved
             val newTopColor = 0xFF998877.toInt()
-            coordinator.handleThemeColors(activeTabId, newTopColor, null)
+            coordinator.pageAppearance.handleThemeColors(activeTabId, newTopColor, null)
             advanceUntilIdle()
 
             assertThat(uiState.activeTopThemeColor).isEqualTo(newTopColor)
@@ -1023,7 +1023,7 @@ class TabCoordinatorTest {
     fun openPopupTab_createsNewActiveTabWithSpecifiedId() =
         runTest {
             val popupTabId = "popup-tab-123"
-            coordinator.openPopupTab(popupTabId)
+            coordinator.opening.openPopupTab(popupTabId)
             advanceUntilIdle()
 
             assertThat(uiState.activeTabId).isEqualTo(popupTabId)
@@ -1040,11 +1040,11 @@ class TabCoordinatorTest {
     @Test
     fun createFolder_createsFolderAndAssignsToTab() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tabId = uiState.activeTabId!!
 
-            val folder = coordinator.createFolder(tabId, title = "Research", color = 0xFF10B981.toInt())
+            val folder = coordinator.folders.createFolder(tabId, title = "Research", color = 0xFF10B981.toInt())
             advanceUntilIdle()
 
             assertThat(folder.title).isEqualTo("Research")
@@ -1060,15 +1060,15 @@ class TabCoordinatorTest {
     @Test
     fun createFolderFromTabs_groupsBothTabs() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
             val tab2Id = uiState.activeTabId!!
 
-            val folder = coordinator.createFolderFromTabs(tab1Id, tab2Id, color = 0xFF2196F3.toInt())
+            val folder = coordinator.folders.createFolderFromTabs(tab1Id, tab2Id, color = 0xFF2196F3.toInt())
             advanceUntilIdle()
 
             val tabsInFolder = uiState.getTabsInFolder(folder.id)
@@ -1078,14 +1078,14 @@ class TabCoordinatorTest {
     @Test
     fun updateFolder_updatesTitleAndColor() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            val folder = coordinator.createFolder(tab1Id, title = "Old Title", color = 100)
+            val folder = coordinator.folders.createFolder(tab1Id, title = "Old Title", color = 100)
             advanceUntilIdle()
 
-            coordinator.updateFolder(folder.id, title = "New Title", color = 200)
+            coordinator.folders.updateFolder(folder.id, title = "New Title", color = 200)
             advanceUntilIdle()
 
             assertThat(uiState.getFolder(folder.id)?.title).isEqualTo("New Title")
@@ -1099,29 +1099,29 @@ class TabCoordinatorTest {
     @Test
     fun addAndRemoveTabFromFolder_managesMembershipAndAutoDeletesWhenEmpty() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
             val tab2Id = uiState.activeTabId!!
 
-            val folder = coordinator.createFolder(tab1Id, title = "Folder", color = 1)
+            val folder = coordinator.folders.createFolder(tab1Id, title = "Folder", color = 1)
             advanceUntilIdle()
 
-            coordinator.addTabToFolder(tab2Id, folder.id)
+            coordinator.folders.addTabToFolder(tab2Id, folder.id)
             advanceUntilIdle()
             assertThat(uiState.getTabsInFolder(folder.id).map { it.id }).containsExactly(tab1Id, tab2Id)
 
             // Remove tab2: folder should remain with 1 tab (tab1)
-            coordinator.removeTabFromFolder(tab2Id)
+            coordinator.folders.removeTabFromFolder(tab2Id)
             advanceUntilIdle()
             assertThat(uiState.getTabsInFolder(folder.id).map { it.id }).containsExactly(tab1Id)
             assertThat(uiState.getFolder(folder.id)).isNotNull()
 
             // Remove tab1: folder is now empty and must be automatically deleted
-            coordinator.removeTabFromFolder(tab1Id)
+            coordinator.folders.removeTabFromFolder(tab1Id)
             advanceUntilIdle()
             assertThat(uiState.getFolder(folder.id)).isNull()
             assertThat(tabFolderRepo.getFolderById(folder.id)).isNull()
@@ -1130,19 +1130,19 @@ class TabCoordinatorTest {
     @Test
     fun closeTab_whenLastTabInFolder_autoDeletesFolder() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
             val tab2Id = uiState.activeTabId!!
 
-            val folder = coordinator.createFolder(tab1Id, title = "Group", color = 1)
+            val folder = coordinator.folders.createFolder(tab1Id, title = "Group", color = 1)
             advanceUntilIdle()
 
             // Closing tab1 (the only tab in folder): folder must be deleted
-            coordinator.closeTab(tab1Id)
+            coordinator.closing.closeTab(tab1Id)
             advanceUntilIdle()
 
             assertThat(uiState.getFolder(folder.id)).isNull()
@@ -1152,19 +1152,19 @@ class TabCoordinatorTest {
     @Test
     fun closeTab_whenOneTabRemains_preservesFolder() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
             val tab2Id = uiState.activeTabId!!
 
-            val folder = coordinator.createFolderFromTabs(tab1Id, tab2Id, color = 1)
+            val folder = coordinator.folders.createFolderFromTabs(tab1Id, tab2Id, color = 1)
             advanceUntilIdle()
 
             // Close tab2: folder must still exist with 1 tab remaining
-            coordinator.closeTab(tab2Id)
+            coordinator.closing.closeTab(tab2Id)
             advanceUntilIdle()
 
             assertThat(uiState.getFolder(folder.id)).isNotNull()
@@ -1175,18 +1175,18 @@ class TabCoordinatorTest {
     @Test
     fun ungroupFolder_removesFolderAndPreservesTabs() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
             val tab2Id = uiState.activeTabId!!
 
-            val folder = coordinator.createFolderFromTabs(tab1Id, tab2Id, color = 1)
+            val folder = coordinator.folders.createFolderFromTabs(tab1Id, tab2Id, color = 1)
             advanceUntilIdle()
 
-            coordinator.ungroupFolder(folder.id)
+            coordinator.folders.ungroupFolder(folder.id)
             advanceUntilIdle()
 
             assertThat(uiState.getFolder(folder.id)).isNull()
@@ -1198,22 +1198,22 @@ class TabCoordinatorTest {
     @Test
     fun closeFolder_closesAllTabsAndDeletesFolder() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab-outside.com")
+            coordinator.opening.openNewTab("https://tab-outside.com")
             advanceUntilIdle()
             val outsideTabId = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
             val tab2Id = uiState.activeTabId!!
 
-            val folder = coordinator.createFolderFromTabs(tab1Id, tab2Id, color = 1)
+            val folder = coordinator.folders.createFolderFromTabs(tab1Id, tab2Id, color = 1)
             advanceUntilIdle()
 
-            coordinator.closeFolder(folder.id)
+            coordinator.folders.closeFolder(folder.id)
             advanceUntilIdle()
 
             assertThat(uiState.getFolder(folder.id)).isNull()
@@ -1225,27 +1225,27 @@ class TabCoordinatorTest {
     @Test
     fun toggleFolderCollapse_fromDock_whenActiveTabInside_switchesToNearestOutsideTab() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab0.com")
+            coordinator.opening.openNewTab("https://tab0.com")
             advanceUntilIdle()
             val tab0Id = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
             val tab2Id = uiState.activeTabId!!
 
             // Group tab1 and tab2
-            val folder = coordinator.createFolderFromTabs(tab1Id, tab2Id, color = 1)
+            val folder = coordinator.folders.createFolderFromTabs(tab1Id, tab2Id, color = 1)
             advanceUntilIdle()
 
             // tab2 is currently active (inside the folder)
             assertThat(uiState.activeTabId).isEqualTo(tab2Id)
 
             // Collapse from dock
-            coordinator.toggleFolderCollapse(folder.id, fromDock = true)
+            coordinator.folders.toggleFolderCollapse(folder.id, fromDock = true)
             advanceUntilIdle()
 
             assertThat(uiState.getFolder(folder.id)?.isCollapsed).isTrue()
@@ -1256,17 +1256,17 @@ class TabCoordinatorTest {
     @Test
     fun toggleFolderCollapse_fromDock_whenActiveTabInsideAndNoOutsideTabs_opensHomeTab() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            val folder = coordinator.createFolder(tab1Id, color = 1)
+            val folder = coordinator.folders.createFolder(tab1Id, color = 1)
             advanceUntilIdle()
 
             assertThat(uiState.activeTabId).isEqualTo(tab1Id)
 
             // Collapse from dock when no outside tabs exist
-            coordinator.toggleFolderCollapse(folder.id, fromDock = true)
+            coordinator.folders.toggleFolderCollapse(folder.id, fromDock = true)
             advanceUntilIdle()
 
             assertThat(uiState.getFolder(folder.id)?.isCollapsed).isTrue()
@@ -1280,25 +1280,25 @@ class TabCoordinatorTest {
     @Test
     fun selectTab_whenTabInsideCollapsedFolder_autoExpandsFolder() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab0.com")
+            coordinator.opening.openNewTab("https://tab0.com")
             advanceUntilIdle()
             val tab0Id = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            val folder = coordinator.createFolder(tab1Id, color = 1)
+            val folder = coordinator.folders.createFolder(tab1Id, color = 1)
             advanceUntilIdle()
 
             // Collapse folder
-            coordinator.toggleFolderCollapse(folder.id, fromDock = true)
+            coordinator.folders.toggleFolderCollapse(folder.id, fromDock = true)
             advanceUntilIdle()
             assertThat(uiState.getFolder(folder.id)?.isCollapsed).isTrue()
             assertThat(uiState.activeTabId).isEqualTo(tab0Id)
 
             // Selecting tab1 must auto-expand the folder
-            coordinator.selectTab(tab1Id)
+            coordinator.activation.selectTab(tab1Id)
             advanceUntilIdle()
 
             assertThat(uiState.activeTabId).isEqualTo(tab1Id)
@@ -1309,27 +1309,27 @@ class TabCoordinatorTest {
     @Test
     fun toggleFolderCollapse_fromDock_whenAdjacentFolderCollapsed_switchesToEligibleTabWithoutExpandingAdjacentFolder() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab0.com")
+            coordinator.opening.openNewTab("https://tab0.com")
             advanceUntilIdle()
             val tab0Id = uiState.activeTabId!!
 
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            val folderB = coordinator.createFolder(tab1Id, color = 1)
+            val folderB = coordinator.folders.createFolder(tab1Id, color = 1)
             advanceUntilIdle()
 
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
             val tab2Id = uiState.activeTabId!!
 
-            val folderA = coordinator.createFolder(tab2Id, color = 2)
+            val folderA = coordinator.folders.createFolder(tab2Id, color = 2)
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tab2Id)
 
             // Collapse folderB while tab2 in folderA is active
-            coordinator.toggleFolderCollapse(folderB.id, fromDock = true)
+            coordinator.folders.toggleFolderCollapse(folderB.id, fromDock = true)
             advanceUntilIdle()
             assertThat(uiState.getFolder(folderB.id)?.isCollapsed).isTrue()
 
@@ -1337,7 +1337,7 @@ class TabCoordinatorTest {
             // tab1 is adjacent to tab2 (distance 1), tab0 is further away (distance 2).
             // When closing folderA from dock, it must NOT pick tab1 (which would expand folderB).
             // It must pick tab0 (outside and eligible).
-            coordinator.toggleFolderCollapse(folderA.id, fromDock = true)
+            coordinator.folders.toggleFolderCollapse(folderA.id, fromDock = true)
             advanceUntilIdle()
 
             assertThat(uiState.getFolder(folderA.id)?.isCollapsed).isTrue()
@@ -1348,28 +1348,28 @@ class TabCoordinatorTest {
     @Test
     fun toggleFolderCollapse_fromDock_whenAllOtherTabsInCollapsedFolders_opensHomeTab() =
         runTest(testDispatcher) {
-            coordinator.openNewTab("https://tab1.com")
+            coordinator.opening.openNewTab("https://tab1.com")
             advanceUntilIdle()
             val tab1Id = uiState.activeTabId!!
 
-            val folderB = coordinator.createFolder(tab1Id, color = 1)
+            val folderB = coordinator.folders.createFolder(tab1Id, color = 1)
             advanceUntilIdle()
 
-            coordinator.openNewTab("https://tab2.com")
+            coordinator.opening.openNewTab("https://tab2.com")
             advanceUntilIdle()
             val tab2Id = uiState.activeTabId!!
 
-            val folderA = coordinator.createFolder(tab2Id, color = 2)
+            val folderA = coordinator.folders.createFolder(tab2Id, color = 2)
             advanceUntilIdle()
             assertThat(uiState.activeTabId).isEqualTo(tab2Id)
 
             // Collapse folderB while tab2 in folderA is active
-            coordinator.toggleFolderCollapse(folderB.id, fromDock = true)
+            coordinator.folders.toggleFolderCollapse(folderB.id, fromDock = true)
             advanceUntilIdle()
             assertThat(uiState.getFolder(folderB.id)?.isCollapsed).isTrue()
 
             // Close folderA from dock when the only other tab (tab1) is inside collapsed folderB
-            coordinator.toggleFolderCollapse(folderA.id, fromDock = true)
+            coordinator.folders.toggleFolderCollapse(folderA.id, fromDock = true)
             advanceUntilIdle()
 
             assertThat(uiState.getFolder(folderA.id)?.isCollapsed).isTrue()
@@ -1384,12 +1384,12 @@ class TabCoordinatorTest {
     @Test
     fun navigateToUrl_fromHome_keepsHomeVisibleUntilFirstFrame() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
             val activeTabId = uiState.activeTabId!!
             assertThat(uiState.activeTab?.isHomeTab).isTrue()
 
-            coordinator.navigateToUrl("https://example.com/")
+            coordinator.pageEvents.navigateToUrl("https://example.com/")
             advanceUntilIdle()
 
             assertThat(uiState.isHome).isFalse()
@@ -1408,15 +1408,15 @@ class TabCoordinatorTest {
     @Test
     fun navigateToUrl_fromLoadedPage_holdsNothing() =
         runTest(testDispatcher) {
-            coordinator.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
+            coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
             advanceUntilIdle()
             val activeTabId = uiState.activeTabId!!
-            coordinator.navigateToUrl("https://example.com/")
+            coordinator.pageEvents.navigateToUrl("https://example.com/")
             advanceUntilIdle()
             webViewPool.markFirstPaint(activeTabId)
             uiState = uiState.withAwaitingFirstPaint(webViewPool.awaitingFirstPaintTabIds.value)
 
-            coordinator.navigateToUrl("https://example.org/")
+            coordinator.pageEvents.navigateToUrl("https://example.org/")
             advanceUntilIdle()
 
             // Chromium keeps the previous page painted inside the same WebView.

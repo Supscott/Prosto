@@ -1,5 +1,7 @@
 package com.jestk.browser.engine
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -7,6 +9,8 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class AdBlockerScriptTest {
+
+    private val context: Context = ApplicationProvider.getApplicationContext()
 
     @Test
     fun adSelectors_isPopulatedWithKeyAdSelectors() {
@@ -44,7 +48,7 @@ class AdBlockerScriptTest {
     @Test
     fun buildDocumentStartScript_leavesNoFingerprintableGlobals() {
         // Review finding BOT-2: page-level stubs and guards showed up in Object.getOwnPropertyNames(window).
-        val js = AdBlockerScript.buildDocumentStartScript()
+        val js = AdBlockerScript.buildDocumentStartScript(context)
         assertThat(js).doesNotContain("window.googletag =")
         assertThat(js).doesNotContain("window.adsbygoogle =")
         assertThat(js).doesNotContain("window.Ya =")
@@ -58,7 +62,7 @@ class AdBlockerScriptTest {
 
     @Test
     fun buildDocumentStartScript_containsBridgeCheckStyleInjectionAndMutationObserver() {
-        val js = AdBlockerScript.buildDocumentStartScript()
+        val js = AdBlockerScript.buildDocumentStartScript(context)
         // Bridge check
         assertThat(js).contains("window.HoriAdBlockBridge")
         assertThat(js).contains("window.HoriAdBlockBridge.isEnabled()")
@@ -84,7 +88,7 @@ class AdBlockerScriptTest {
 
     @Test
     fun buildYouTubeFastStartScript_containsPrunerHooksAndSkipAccelerator() {
-        val js = AdBlockerScript.buildYouTubeFastStartScript()
+        val js = AdBlockerScript.buildYouTubeFastStartScript(context)
 
         // Domain guard
         assertThat(js).contains("youtube.com")
@@ -134,14 +138,14 @@ class AdBlockerScriptTest {
     fun buildDocumentStartScript_doesNotScanThePageForOverlays() {
         // A full-page getComputedStyle scan on every mutation froze heavy pages and hid the tap
         // layers of video players and maps (review finding AB-5).
-        val script = AdBlockerScript.buildDocumentStartScript()
+        val script = AdBlockerScript.buildDocumentStartScript(context)
         assertThat(script).doesNotContain("neutralizeClickjackingOverlays")
         assertThat(script).doesNotContain("querySelectorAll('div, a, span')")
     }
 
     @Test
     fun buildDocumentStartScript_doesNotMonkeyPatchWindowOpen() {
-        val script = AdBlockerScript.buildDocumentStartScript()
+        val script = AdBlockerScript.buildDocumentStartScript(context)
         assertThat(script).doesNotContain("window.open =")
         assertThat(script).doesNotContain("origWindowOpen")
         assertThat(script).doesNotContain("patchedOpen")
@@ -149,14 +153,14 @@ class AdBlockerScriptTest {
 
     @Test
     fun buildAutoConsentScript_containsLoopGuardAndHandlingFlag() {
-        val script = AdBlockerScript.buildAutoConsentScript()
+        val script = AdBlockerScript.buildAutoConsentScript(context)
         assertThat(script).contains("data-hori-consent-handled")
         assertThat(script).doesNotContain("__hori_autoconsent_initialized")
     }
 
     @Test
     fun buildAutoConsentScript_containsKeyCmpSelectors() {
-        val script = AdBlockerScript.buildAutoConsentScript()
+        val script = AdBlockerScript.buildAutoConsentScript(context)
         // OneTrust
         assertThat(script).contains("onetrust")
         // Cookiebot
@@ -173,7 +177,7 @@ class AdBlockerScriptTest {
 
     @Test
     fun buildAutoConsentScript_containsPriorityHierarchyAndMultiLingualMatchers() {
-        val script = AdBlockerScript.buildAutoConsentScript()
+        val script = AdBlockerScript.buildAutoConsentScript(context)
         // Priority 1: Reject All / Отклонить все
         assertThat(script).contains("reject all")
         assertThat(script).contains("отклонить")
@@ -188,7 +192,7 @@ class AdBlockerScriptTest {
 
     @Test
     fun buildAutoConsentScript_containsScrollUnlockAndModalLockSanitizer() {
-        val script = AdBlockerScript.buildAutoConsentScript()
+        val script = AdBlockerScript.buildAutoConsentScript(context)
         // Scroll restoration
         assertThat(script).contains("overflow")
         assertThat(script).contains("touch-action")
@@ -200,7 +204,7 @@ class AdBlockerScriptTest {
 
     @Test
     fun buildAutoConsentScript_observesDynamicMutations() {
-        val script = AdBlockerScript.buildAutoConsentScript()
+        val script = AdBlockerScript.buildAutoConsentScript(context)
         assertThat(script).contains("MutationObserver")
         assertThat(script).contains("childList")
         assertThat(script).contains("subtree")
@@ -208,7 +212,7 @@ class AdBlockerScriptTest {
 
     @Test
     fun buildDocumentStartScript_whitelistsCloudflareAndSecurityChallenges() {
-        val script = AdBlockerScript.buildDocumentStartScript()
+        val script = AdBlockerScript.buildDocumentStartScript(context)
         assertThat(script).contains("challenges.cloudflare.com")
         assertThat(script).contains("cloudflarecaptcha.com")
         assertThat(script).contains("hcaptcha.com")
@@ -220,7 +224,7 @@ class AdBlockerScriptTest {
 
     @Test
     fun buildAutoConsentScript_whitelistsCloudflareAndSecurityChallenges() {
-        val script = AdBlockerScript.buildAutoConsentScript()
+        val script = AdBlockerScript.buildAutoConsentScript(context)
         assertThat(script).contains("challenges.cloudflare.com")
         assertThat(script).contains("cloudflarecaptcha.com")
         assertThat(script).contains("hcaptcha.com")

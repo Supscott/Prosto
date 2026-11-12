@@ -20,6 +20,7 @@ import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.engine.ExternalAppResolver
 import com.jestk.browser.engine.JestkWebViewClient
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -353,5 +354,56 @@ class ExternalAppFlowTest {
             )
 
             assertThat(shadowOf(webView).lastLoadedUrl).isEqualTo(fallback)
+        }
+
+    private fun installLinearApp() {
+        val component = android.content.ComponentName("app.linear", "app.linear.ui.MainActivity")
+        val pm = shadowOf(context.packageManager)
+        pm.addActivityIfNotPresent(component)
+        pm.addIntentFilterForActivity(
+            component,
+            android.content.IntentFilter(Intent.ACTION_VIEW).apply {
+                addCategory(Intent.CATEGORY_DEFAULT)
+                addCategory(Intent.CATEGORY_BROWSABLE)
+                addDataScheme("https")
+                addDataAuthority("linear.app", null)
+                addDataPath("/auth/redirect", android.os.PatternMatcher.PATTERN_LITERAL)
+            },
+        )
+    }
+
+    @Test
+    fun tappedAppOnlyWebLink_holdsTheNavigationForTheDialog_andNeverBecomesADeadTap() =
+        runTest(testDispatcher) {
+            installLinearApp()
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.OpenNewTab("https://linear.app/login"))
+            advanceUntilIdle()
+            val tabId = viewModel.uiState.value.activeTabId!!
+            val commands = mutableListOf<NavigationCommand>()
+            backgroundScope.launch(kotlinx.coroutines.test.UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.navigationCommands.collect { commands += it }
+            }
+            val webView = WebView(context)
+            val client = createClient(viewModel, tabId)
+            val url = "https://linear.app/auth/redirect?code=abc"
+
+            // PRO-15: the tap shows the dialog and the page does not load.
+            assertThat(client.handleExternalNavigation(webView, url, userInitiated = true)).isTrue()
+            val prompt = viewModel.uiState.value.externalAppPrompt
+            assertThat(prompt?.requiresConfirmation).isTrue()
+            assertThat(prompt?.webFallbackUrl).isEqualTo(url)
+
+            // A link the app does not claim by exact path keeps loading in the browser.
+            assertThat(client.handleExternalNavigation(webView, "https://linear.app/settings", userInitiated = true)).isFalse()
+
+            // After the user explicitly turned the offers off, the same tap loads the page instead.
+            viewModel.onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT))
+            advanceUntilIdle()
+            client.handleExternalNavigation(webView, url, userInitiated = true)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.externalAppPrompt).isNull()
+            assertThat(commands).contains(NavigationCommand.LoadUrl(url))
         }
 }

@@ -708,7 +708,7 @@ internal fun Modifier.searchEngineButtonGestures(
                 val change = event.changes.firstOrNull { it.id == down.id } ?: break
                 if (!change.pressed) {
                     if (!isDrag) {
-                        val isTap = (change.uptimeMillis - downTime) < viewConfig.longPressTimeoutMillis
+                        val isTap = !axis.isVerticalDrag && (change.uptimeMillis - downTime) < viewConfig.longPressTimeoutMillis
                         if (isTap) {
                             if (currentOnDoubleTap != null) {
                                 if (isPotentialDoubleTap) {

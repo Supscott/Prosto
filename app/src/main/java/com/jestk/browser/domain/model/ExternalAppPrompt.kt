@@ -19,4 +19,9 @@ data class ExternalAppPrompt(
      * as a confirmation dialog instead of the passive, auto-dismissing hint.
      */
     val requiresConfirmation: Boolean = false,
+    /**
+     * The web page the tap was going to, when the handoff was a web link held back for the
+     * confirmation: Cancel loads it in the browser.
+     */
+    val webFallbackUrl: String? = null,
 )

@@ -135,7 +135,7 @@ class TabCoordinatorWorkspaceTest {
                 TabFolderEntity(id = "f_work", title = "Work Folder", color = 2, position = 1, workspaceId = Workspace.DEFAULT_WORK_ID)
             )
 
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             // uiState must expose only items belonging to DEFAULT_PERSONAL_ID
@@ -163,11 +163,11 @@ class TabCoordinatorWorkspaceTest {
                 TabFolderEntity(id = "f_work", title = "Work Folder", color = 2, position = 1, workspaceId = Workspace.DEFAULT_WORK_ID)
             )
 
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             // Switch to work workspace
-            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
@@ -185,13 +185,13 @@ class TabCoordinatorWorkspaceTest {
             db.tabDao().insertTab(
                 TabEntity(id = "p1", url = "https://personal.com", title = "Personal", position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
             )
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             assertThat(uiState.tabs.map { it.id }).containsExactly("p1")
 
             // Switch to empty Work workspace
-            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
@@ -212,14 +212,14 @@ class TabCoordinatorWorkspaceTest {
             db.tabDao().insertTab(
                 TabEntity(id = "p2", url = "https://p2.com", title = "Tab 2", position = 1, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = false)
             )
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             assertThat(uiState.tabs.map { it.id }).containsExactly("p1", "p2")
             assertThat(uiState.activeTabId).isEqualTo("p1")
 
             // Move active tab p1 to Work workspace
-            coordinator.moveTabToWorkspace("p1", Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.moveTabToWorkspace("p1", Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             // p1 removed from personal workspace UI tabs, p2 becomes active
@@ -233,7 +233,7 @@ class TabCoordinatorWorkspaceTest {
             assertThat(dbTab1?.folderId).isNull()
 
             // Switch to Work workspace and verify p1 is present
-            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             assertThat(uiState.tabs.map { it.id }).containsExactly("p1")
@@ -246,12 +246,12 @@ class TabCoordinatorWorkspaceTest {
             db.tabDao().insertTab(
                 TabEntity(id = "only_tab", url = "https://only.com", title = "Only Tab", position = 0, workspaceId = Workspace.DEFAULT_PERSONAL_ID, isActive = true)
             )
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             assertThat(uiState.tabs.map { it.id }).containsExactly("only_tab")
 
-            coordinator.moveTabToWorkspace("only_tab", Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.moveTabToWorkspace("only_tab", Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             // Source workspace should now have a fresh Home tab
@@ -335,11 +335,11 @@ class TabCoordinatorWorkspaceTest {
     @Test
     fun createWorkspace_addsWorkspaceToRepositoryAndFlowUpdatesWorkspaces() =
         runTest(testDispatcher) {
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             val initialCount = uiState.workspaces.size
-            coordinator.createWorkspace("Research", 0xFF10B981.toInt())
+            coordinator.workspaces.createWorkspace("Research", 0xFF10B981.toInt())
             advanceUntilIdle()
 
             assertThat(uiState.workspaces).hasSize(initialCount + 1)
@@ -352,12 +352,12 @@ class TabCoordinatorWorkspaceTest {
     @Test
     fun updateWorkspace_updatesNameAndColor() =
         runTest(testDispatcher) {
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             val personal = uiState.workspaces.first { it.id == Workspace.DEFAULT_PERSONAL_ID }
             val updated = personal.copy(name = "Personal Renamed", color = 0xFFFF6F61.toInt())
-            coordinator.updateWorkspace(updated)
+            coordinator.workspaces.updateWorkspace(updated)
             advanceUntilIdle()
 
             val found = uiState.workspaces.find { it.id == Workspace.DEFAULT_PERSONAL_ID }
@@ -369,17 +369,17 @@ class TabCoordinatorWorkspaceTest {
     fun deleteWorkspace_guardsAgainstDeletingLastWorkspace() =
         runTest(testDispatcher) {
             // First delete Work workspace
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
-            coordinator.deleteWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.deleteWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             assertThat(uiState.workspaces).hasSize(1)
             val onlyWorkspaceId = uiState.workspaces.first().id
 
             // Attempt to delete the last remaining workspace
-            coordinator.deleteWorkspace(onlyWorkspaceId)
+            coordinator.workspaces.deleteWorkspace(onlyWorkspaceId)
             advanceUntilIdle()
 
             // Must still have 1 workspace
@@ -396,11 +396,11 @@ class TabCoordinatorWorkspaceTest {
             db.tabDao().insertTab(
                 TabEntity(id = "w1", url = "https://work1.com", title = "W1", position = 1, workspaceId = Workspace.DEFAULT_WORK_ID)
             )
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             // Personal is active. Delete Work workspace.
-            coordinator.deleteWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.deleteWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             // Work workspace deleted
@@ -421,16 +421,16 @@ class TabCoordinatorWorkspaceTest {
             db.tabDao().insertTab(
                 TabEntity(id = "w1", url = "https://work1.com", title = "W1", position = 1, workspaceId = Workspace.DEFAULT_WORK_ID)
             )
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             // Switch to Work workspace
-            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
             assertThat(uiState.activeWorkspaceId).isEqualTo(Workspace.DEFAULT_WORK_ID)
 
             // Delete active Work workspace
-            coordinator.deleteWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.deleteWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             // Switched to Personal
@@ -488,7 +488,7 @@ class TabCoordinatorWorkspaceTest {
     fun workspaceScoped_recentlyClosedTabs_isolatedPerWorkspace() =
         runTest(testDispatcher) {
             workspaceRepo.ensureDefaultWorkspaces()
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             // 1. Create two tabs in Personal
@@ -498,14 +498,14 @@ class TabCoordinatorWorkspaceTest {
             advanceUntilIdle()
 
             // 2. Close p1 in Personal -> saved as recently closed in Personal
-            coordinator.closeTab(p1.id)
+            coordinator.closing.closeTab(p1.id)
             advanceUntilIdle()
 
             assertThat(uiState.recentlyClosedTab?.id).isEqualTo(p1.id)
             assertThat(uiState.showUndoTabCloseSnackbar).isTrue()
 
             // 3. Switch to Work -> Work has no recently closed tab yet
-            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             assertThat(uiState.recentlyClosedTab).isNull()
@@ -516,21 +516,21 @@ class TabCoordinatorWorkspaceTest {
             tabRepo.setActiveTab(w1.id)
             advanceUntilIdle()
 
-            coordinator.closeTab(w1.id)
+            coordinator.closing.closeTab(w1.id)
             advanceUntilIdle()
 
             assertThat(uiState.recentlyClosedTab?.id).isEqualTo(w1.id)
             assertThat(uiState.showUndoTabCloseSnackbar).isTrue()
 
             // 5. Switch back to Personal -> Personal's recently closed tab restored
-            coordinator.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
             advanceUntilIdle()
 
             assertThat(uiState.recentlyClosedTab?.id).isEqualTo(p1.id)
             assertThat(uiState.showUndoTabCloseSnackbar).isTrue()
 
             // 6. Undo close tab in Personal restores p1
-            coordinator.undoCloseTab()
+            coordinator.closing.undoCloseTab()
             advanceUntilIdle()
 
             val restoredTab = uiState.tabs.find { it.url == "https://personal1.com" }
@@ -544,7 +544,7 @@ class TabCoordinatorWorkspaceTest {
     fun workspaceScoped_favorites_isolatedAndMovable() =
         runTest(testDispatcher) {
             workspaceRepo.ensureDefaultWorkspaces()
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             // 1. Add favorite in Personal
@@ -554,7 +554,7 @@ class TabCoordinatorWorkspaceTest {
             assertThat(uiState.favorites.map { it.title }).containsExactly("Personal Fav")
 
             // 2. Switch to Work -> favorites is empty for Work
-            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             assertThat(uiState.favorites).isEmpty()
@@ -566,21 +566,21 @@ class TabCoordinatorWorkspaceTest {
             assertThat(uiState.favorites.map { it.title }).containsExactly("Work Fav")
 
             // 4. Switch to Personal -> shows Personal Fav only
-            coordinator.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
             advanceUntilIdle()
 
             assertThat(uiState.favorites.map { it.title }).containsExactly("Personal Fav")
 
             // 5. Move Personal Fav to Work
             val fav = uiState.favorites.first()
-            coordinator.moveFavoriteToWorkspace(fav.id, Workspace.DEFAULT_WORK_ID)
+            coordinator.favorites.moveFavoriteToWorkspace(fav.id, Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             // Now Personal favorites is empty
             assertThat(uiState.favorites).isEmpty()
 
             // Switch to Work -> contains both Work Fav and Personal Fav
-            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             assertThat(uiState.favorites.map { it.title }).containsExactly("Work Fav", "Personal Fav")
@@ -590,22 +590,22 @@ class TabCoordinatorWorkspaceTest {
     fun coordinator_addFavorite_savesToActiveWorkspace() =
         runTest(testDispatcher) {
             workspaceRepo.ensureDefaultWorkspaces()
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             // 1. Switch to Work workspace
-            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             // 2. Call coordinator.addFavorite
-            coordinator.addFavorite("Work Site", "https://work-site.com")
+            coordinator.favorites.addFavorite("Work Site", "https://work-site.com")
             advanceUntilIdle()
 
             // Favorite must appear in Work workspace
             assertThat(uiState.favorites.map { it.title }).containsExactly("Work Site")
 
             // 3. Switch to Personal workspace -> must NOT contain Work Site
-            coordinator.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
             advanceUntilIdle()
 
             assertThat(uiState.favorites).isEmpty()
@@ -615,31 +615,31 @@ class TabCoordinatorWorkspaceTest {
     fun coordinator_recentTabs_isolatedPerWorkspace() =
         runTest(testDispatcher) {
             workspaceRepo.ensureDefaultWorkspaces()
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             // 1. In Personal workspace, visit a site
             val pTab = tabRepo.createTab("https://personal-site.com", "Personal Site", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
-            coordinator.handlePageFinished(pTab.id, "https://personal-site.com", "Personal Site")
+            coordinator.pageEvents.handlePageFinished(pTab.id, "https://personal-site.com", "Personal Site")
             advanceUntilIdle()
 
             assertThat(uiState.recentTabs.map { it.url }).contains("https://personal-site.com")
 
             // 2. Switch to Work workspace -> must NOT contain personal-site
-            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             assertThat(uiState.recentTabs.map { it.url }).doesNotContain("https://personal-site.com")
 
             // 3. In Work workspace, visit work-site
             val wTab = tabRepo.createTab("https://work-site.com", "Work Site", workspaceId = Workspace.DEFAULT_WORK_ID)
-            coordinator.handlePageFinished(wTab.id, "https://work-site.com", "Work Site")
+            coordinator.pageEvents.handlePageFinished(wTab.id, "https://work-site.com", "Work Site")
             advanceUntilIdle()
 
             assertThat(uiState.recentTabs.map { it.url }).containsExactly("https://work-site.com")
 
             // 4. Switch back to Personal -> only personal-site
-            coordinator.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
             advanceUntilIdle()
 
             assertThat(uiState.recentTabs.map { it.url }).containsExactly("https://personal-site.com")
@@ -649,14 +649,14 @@ class TabCoordinatorWorkspaceTest {
     fun switchWorkspace_atomicallyUpdatesTabsWithoutGhostTabs() =
         runTest(testDispatcher) {
             workspaceRepo.ensureDefaultWorkspaces()
-            coordinator.observeDatabaseFlows()
+            coordinator.sessionSync.observeDatabaseFlows()
             advanceUntilIdle()
 
             // 1. Create 3 tabs in Personal
             val p1 = tabRepo.createTab("https://personal1.com", "P1", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
             val p2 = tabRepo.createTab("https://personal2.com", "P2", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
             val p3 = tabRepo.createTab("https://personal3.com", "P3", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
-            coordinator.selectTab(p1.id)
+            coordinator.activation.selectTab(p1.id)
             advanceUntilIdle()
 
             assertThat(uiState.tabs.map { it.id }).containsExactly(p1.id, p2.id, p3.id).inOrder()
@@ -666,7 +666,7 @@ class TabCoordinatorWorkspaceTest {
             advanceUntilIdle()
 
             // 3. Switch to Work
-            coordinator.switchWorkspace(Workspace.DEFAULT_WORK_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
             advanceUntilIdle()
 
             // uiState.tabs must contain ONLY w1, zero tabs from Personal
@@ -674,7 +674,7 @@ class TabCoordinatorWorkspaceTest {
             assertThat(uiState.tabs.any { it.workspaceId != Workspace.DEFAULT_WORK_ID }).isFalse()
 
             // 4. Switch back to Personal
-            coordinator.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
+            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
             advanceUntilIdle()
 
             assertThat(uiState.tabs.map { it.id }).containsExactly(p1.id, p2.id, p3.id).inOrder()

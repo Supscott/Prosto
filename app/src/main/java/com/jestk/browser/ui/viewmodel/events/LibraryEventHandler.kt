@@ -34,19 +34,19 @@ internal class LibraryEventHandler(
             }
 
             is BrowserUiEvent.AddCurrentTabToFavorites -> {
-                tabCoordinator.addCurrentToFavorites()
+                tabCoordinator.favorites.addCurrentToFavorites()
             }
 
             is BrowserUiEvent.AddFavorite -> {
-                tabCoordinator.addFavorite(event.title, event.url, getCurrentState().activeWorkspaceId)
+                tabCoordinator.favorites.addFavorite(event.title, event.url, getCurrentState().activeWorkspaceId)
             }
 
             is BrowserUiEvent.RemoveFavorite -> {
-                tabCoordinator.deleteFavorite(event.id)
+                tabCoordinator.favorites.deleteFavorite(event.id)
             }
 
             is BrowserUiEvent.MoveFavoriteToWorkspace -> {
-                tabCoordinator.moveFavoriteToWorkspace(event.favoriteId, event.targetWorkspaceId)
+                tabCoordinator.favorites.moveFavoriteToWorkspace(event.favoriteId, event.targetWorkspaceId)
             }
 
             is BrowserUiEvent.ToggleFavoritesExpanded -> {

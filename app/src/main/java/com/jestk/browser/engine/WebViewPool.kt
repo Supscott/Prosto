@@ -606,7 +606,7 @@ class WebViewPool(
             try {
                 WebViewCompat.addDocumentStartJavaScript(
                     webView,
-                    AdBlockerScript.buildDocumentStartScript(),
+                    AdBlockerScript.buildDocumentStartScript(webView.context),
                     setOf("*")
                 )
             } catch (t: Throwable) {

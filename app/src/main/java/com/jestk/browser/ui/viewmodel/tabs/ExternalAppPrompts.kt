@@ -2,6 +2,7 @@ package com.jestk.browser.ui.viewmodel.tabs
 
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
+import com.jestk.browser.ui.viewmodel.NavigationCommand
 import java.util.concurrent.ConcurrentHashMap
 
 internal class ExternalAppPrompts(
@@ -12,6 +13,7 @@ internal class ExternalAppPrompts(
     private val dismissedExternalAppDomains = ctx.dismissedExternalAppDomains
     private val pendingExternalAppPrompts = ctx.pendingExternalAppPrompts
     private val timedOutExternalAppDomains = ctx.timedOutExternalAppDomains
+    private val emitNavigation = ctx.emitNavigation
 
     fun handleExternalAppOffered(
         tabId: String,
@@ -22,6 +24,8 @@ internal class ExternalAppPrompts(
         if (current.tabs.none { it.id == tabId }) return
 
         if (isExternalAppDomainSuppressed(tabId, prompt.domain, userInitiated = userInitiated)) {
+            // A held-back web link must not become a dead tap: load it as if no app existed.
+            prompt.webFallbackUrl?.let { emitNavigation(NavigationCommand.LoadUrl(it)) }
             return
         }
 

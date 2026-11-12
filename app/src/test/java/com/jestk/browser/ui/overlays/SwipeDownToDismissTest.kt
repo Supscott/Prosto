@@ -133,4 +133,26 @@ class SwipeDownToDismissTest {
         assertThat(dismissCount).isEqualTo(0)
         assertThat(scrolledY).isEqualTo(0f)
     }
+
+    @Test
+    fun keyboardVisible_dragTurningHorizontal_unwindsTheKeyboardDrag() {
+        setContent(keyboardVisible = true)
+
+        composeRule.onNodeWithTag("pill").performTouchInput {
+            val start = Offset(left + 4f, top + 4f)
+            down(start)
+            // Down past touch slop first, so part of the drag reaches the keyboard...
+            moveTo(start + Offset(0f, 12.dp.toPx()))
+            moveTo(start + Offset(0f, 24.dp.toPx()))
+            // ...then mainly sideways: the engine carousel takes over.
+            moveTo(start + Offset(60.dp.toPx(), 26.dp.toPx()))
+            moveTo(start + Offset(120.dp.toPx(), 26.dp.toPx()))
+            up()
+        }
+        composeRule.waitForIdle()
+
+        assertThat(scrolledY).isEqualTo(0f)
+        assertThat(flingCount).isEqualTo(0)
+        assertThat(dismissCount).isEqualTo(0)
+    }
 }

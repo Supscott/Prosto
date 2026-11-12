@@ -211,8 +211,8 @@ class JestkWebViewClient(
 
         val context = view?.context ?: return false
         if (isWebUrl(url)) {
-            // A web URL always loads in the WebView; the lookup only decides whether to show the
-            // "Open in app" hint, so it runs in the background.
+            // Tapped app-only links ask first (DedicatedAppLinks); other web URLs load, maybe with a hint.
+            if (userInitiated && allowFallbackNavigation && DedicatedAppLinks.offer(context, url, tabId, onExternalAppOffered)) return true
             offerAppInBackground(context, url, userInitiated)
             return false
         }

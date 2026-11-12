@@ -100,118 +100,15 @@ internal class TabCoordinator(
         tabFolderRepository = tabFolderRepository,
         workspaceRepository = workspaceRepository,
     )
-    private val externalAppPrompts = ExternalAppPrompts(ctx)
-    private val activation = TabActivation(ctx, externalAppPrompts)
-    private val opening = TabOpening(ctx, activation)
-    private val closing = TabClosing(ctx, activation)
-    private val folders = TabFolders(ctx, activation, opening, closing)
-    private val pageEvents = PageEvents(ctx)
-    private val pageAppearance = PageAppearance(ctx)
-    private val favorites = TabFavorites(ctx)
-    private val workspaces = Workspaces(ctx, activation)
-    private val sessionSync = TabSessionSync(ctx)
-
-    fun handleExternalAppOffered(
-        tabId: String,
-        prompt: ExternalAppPrompt,
-        userInitiated: Boolean = false
-    ) = externalAppPrompts.handleExternalAppOffered(tabId, prompt, userInitiated)
-
-    fun dismissExternalAppPrompt(reason: ExternalAppDismissReason = ExternalAppDismissReason.EXPLICIT) = externalAppPrompts.dismissExternalAppPrompt(reason)
-
-    suspend fun restoreSession(
-        initialSettings: BrowserSettings,
-        currentEngines: List<SearchEngine>
-    ) = sessionSync.restoreSession(initialSettings, currentEngines)
-
-    fun observeDatabaseFlows() = sessionSync.observeDatabaseFlows()
-
-    fun openNewTabForSearch(onSearchOpened: () -> Unit) = opening.openNewTabForSearch(onSearchOpened)
-
-    fun openNewTab(url: String, openedByExternalApp: Boolean = false) = opening.openNewTab(url, openedByExternalApp)
-
-    fun openPopupTab(tabId: String) = opening.openPopupTab(tabId)
-
-    fun openTabInBackground(url: String) = opening.openTabInBackground(url)
-
-    fun openRecentTab(
-        item: RecentTabItem,
-        onNavigateUrl: (String) -> Unit,
-        onOpenNewTab: (String) -> Unit = { openNewTab(it) },
-    ) = opening.openRecentTab(item, onNavigateUrl, onOpenNewTab)
-
-    fun selectTab(tabId: String) = activation.selectTab(tabId)
-
-    fun closeTab(tabId: String) = closing.closeTab(tabId)
-
-    fun undoCloseTab() = closing.undoCloseTab()
-
-    fun closeAllTabs() = closing.closeAllTabs()
-
-    fun switchAdjacentTab(delta: Int) = activation.switchAdjacentTab(delta)
-
-    fun reorderTabsAndFolders(
-        orderedTabs: List<Tab>,
-        orderedFolders: List<TabFolder>? = null,
-    ) = folders.reorderTabsAndFolders(orderedTabs, orderedFolders)
-
-    fun navigateToUrl(finalUrl: String, matchedShortcutEngine: SearchEngine? = null) = pageEvents.navigateToUrl(finalUrl, matchedShortcutEngine)
-
-    fun handlePageStarted(tabId: String, url: String) = pageEvents.handlePageStarted(tabId, url)
-
-    fun handlePageFinished(tabId: String, url: String, title: String) = pageEvents.handlePageFinished(tabId, url, title)
-
-    fun handleTitleReceived(tabId: String, title: String) = pageEvents.handleTitleReceived(tabId, title)
-
-    fun handleProgressChanged(tabId: String, progress: Int) = pageEvents.handleProgressChanged(tabId, progress)
-
-    fun handleStopLoading(tabId: String? = null) = pageEvents.handleStopLoading(tabId)
-
-    fun handleNavState(tabId: String, canGoBack: Boolean, canGoForward: Boolean) = pageEvents.handleNavState(tabId, canGoBack, canGoForward)
-
-    fun handleSnapshot(tabId: String, path: String) = pageAppearance.handleSnapshot(tabId, path)
-
-    fun handleUpdateFavicon(tabId: String, faviconUrl: String?, pageUrl: String? = null) = pageAppearance.handleUpdateFavicon(tabId, faviconUrl, pageUrl)
-
-    fun handleThemeColor(tabId: String, color: Int?) = pageAppearance.handleThemeColor(tabId, color)
-
-    fun handleThemeColors(tabId: String, topColor: Int?, bottomColor: Int?) = pageAppearance.handleThemeColors(tabId, topColor, bottomColor)
-
-    fun addCurrentToFavorites() = favorites.addCurrentToFavorites()
-
-    fun addFavorite(title: String, url: String, workspaceId: String? = null) = favorites.addFavorite(title, url, workspaceId)
-
-    fun deleteFavorite(id: Long) = favorites.deleteFavorite(id)
-
-    suspend fun createFolder(tabId: String, title: String = "", color: Int): TabFolder = folders.createFolder(tabId, title, color)
-
-    suspend fun createFolderFromTabs(tabId1: String, tabId2: String, color: Int? = null): TabFolder = folders.createFolderFromTabs(tabId1, tabId2, color)
-
-    suspend fun updateFolder(folderId: String, title: String, color: Int) = folders.updateFolder(folderId, title, color)
-
-    suspend fun toggleFolderCollapse(folderId: String, fromDock: Boolean = false) = folders.toggleFolderCollapse(folderId, fromDock)
-
-    suspend fun addTabToFolder(tabId: String, folderId: String) = folders.addTabToFolder(tabId, folderId)
-
-    suspend fun removeTabFromFolder(tabId: String) = folders.removeTabFromFolder(tabId)
-
-    suspend fun ungroupFolder(folderId: String) = folders.ungroupFolder(folderId)
-
-    suspend fun closeFolder(folderId: String) = folders.closeFolder(folderId)
-
-    fun createTabInFolder(folderId: String) = folders.createTabInFolder(folderId)
-
-    fun switchWorkspace(targetWorkspaceId: String) = workspaces.switchWorkspace(targetWorkspaceId)
-
-    fun createWorkspace(name: String, color: Int) = workspaces.createWorkspace(name, color)
-
-    fun updateWorkspace(workspace: Workspace) = workspaces.updateWorkspace(workspace)
-
-    fun deleteWorkspace(workspaceId: String) = workspaces.deleteWorkspace(workspaceId)
-
-    fun moveTabToWorkspace(tabId: String, targetWorkspaceId: String) = workspaces.moveTabToWorkspace(tabId, targetWorkspaceId)
-
-    fun clearRecentlyClosedTab(workspaceId: String = getCurrentState().activeWorkspaceId) = closing.clearRecentlyClosedTab(workspaceId)
-
-    fun moveFavoriteToWorkspace(id: Long, targetWorkspaceId: String) = favorites.moveFavoriteToWorkspace(id, targetWorkspaceId)
+    // Callers use the parts directly: `tabCoordinator.opening.openNewTab(url)`.
+    val externalAppPrompts = ExternalAppPrompts(ctx)
+    val activation = TabActivation(ctx, externalAppPrompts)
+    val opening = TabOpening(ctx, activation)
+    val closing = TabClosing(ctx, activation)
+    val folders = TabFolders(ctx, activation, opening, closing)
+    val pageEvents = PageEvents(ctx)
+    val pageAppearance = PageAppearance(ctx)
+    val favorites = TabFavorites(ctx)
+    val workspaces = Workspaces(ctx, activation)
+    val sessionSync = TabSessionSync(ctx)
 }

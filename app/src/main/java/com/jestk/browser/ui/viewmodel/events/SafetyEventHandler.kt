@@ -23,15 +23,15 @@ internal class SafetyEventHandler(
     fun handle(event: SafetyUiEvent) {
         when (event) {
             is BrowserUiEvent.OnExternalAppOffered -> {
-                tabCoordinator.handleExternalAppOffered(event.tabId, event.prompt, event.userInitiated)
+                tabCoordinator.externalAppPrompts.handleExternalAppOffered(event.tabId, event.prompt, event.userInitiated)
             }
 
             is BrowserUiEvent.DismissExternalAppPrompt -> {
-                tabCoordinator.dismissExternalAppPrompt(event.reason)
+                tabCoordinator.externalAppPrompts.dismissExternalAppPrompt(event.reason)
             }
 
             is BrowserUiEvent.OpenExternalApp -> {
-                tabCoordinator.dismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT)
+                tabCoordinator.externalAppPrompts.dismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT)
             }
 
             is BrowserUiEvent.ShowInsecureHttpWarning -> {
@@ -62,14 +62,14 @@ internal class SafetyEventHandler(
                     }
                     when (prompt.target) {
                         InsecureNavigationTarget.NEW_TAB -> {
-                            tabCoordinator.openNewTab(url)
+                            tabCoordinator.opening.openNewTab(url)
                         }
                         InsecureNavigationTarget.BACKGROUND_TAB -> {
-                            tabCoordinator.openTabInBackground(url)
+                            tabCoordinator.opening.openTabInBackground(url)
                         }
                         InsecureNavigationTarget.ACTIVE_TAB -> {
                             if (prompt.tabId != null && prompt.tabId != getCurrentState().activeTabId) {
-                                tabCoordinator.selectTab(prompt.tabId)
+                                tabCoordinator.activation.selectTab(prompt.tabId)
                             }
                             loadUrl(url)
                         }
@@ -110,9 +110,9 @@ internal class SafetyEventHandler(
                         )
                     }
                     if (prompt.tabId != getCurrentState().activeTabId) {
-                        tabCoordinator.selectTab(prompt.tabId)
+                        tabCoordinator.activation.selectTab(prompt.tabId)
                     }
-                    tabCoordinator.navigateToUrl(prompt.url, null)
+                    tabCoordinator.pageEvents.navigateToUrl(prompt.url, null)
                 }
             }
 
@@ -123,7 +123,7 @@ internal class SafetyEventHandler(
                     val tab = getCurrentState().tabs.find { it.id == prompt.tabId }
                     val isEmptyPopup = tab == null || tab.url.isBlank() || tab.url == "about:blank"
                     if (isEmptyPopup && tab != null) {
-                        tabCoordinator.closeTab(prompt.tabId)
+                        tabCoordinator.closing.closeTab(prompt.tabId)
                     }
                 }
             }

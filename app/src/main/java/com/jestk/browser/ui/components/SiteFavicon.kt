@@ -40,7 +40,7 @@ fun SiteFavicon(
     placeholder: @Composable () -> Unit,
 ) {
     val imageModel = remember(faviconUrl) { FaviconManager.toImageModel(faviconUrl) }
-    val isCachedLocalFile = remember(faviconUrl) { FaviconManager.isValidLocalFavicon(faviconUrl) }
+    val isCachedLocalFile = remember(faviconUrl) { FaviconManager.isLocalFaviconPath(faviconUrl) }
     var isLoaded by remember(faviconUrl) { mutableStateOf(false) }
     var hasFailed by remember(faviconUrl) { mutableStateOf(false) }
 
