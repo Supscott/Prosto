@@ -15,6 +15,5 @@
   "app/src/main/java/com/jestk/browser/ui/screens/DownloadsScreen.kt": 739,
   "app/src/main/java/com/jestk/browser/ui/screens/SettingsScreen.kt": 1241,
   "app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserUiEvent.kt": 513,
-  "app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserViewModel.kt": 522,
-  "app/src/main/java/com/jestk/browser/ui/views/HomeScreen.kt": 1489
+  "app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserViewModel.kt": 522
 }
