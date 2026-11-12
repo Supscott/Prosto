@@ -178,19 +178,14 @@ object FaviconManager {
         return sourceFile.absolutePath
     }
 
-    fun isValidLocalFavicon(urlOrPath: String?): Boolean {
+    /**
+     * Whether [urlOrPath] points at a bundled asset or a file on the device, judged by the string
+     * alone. Called during composition, so it never touches the disk: a missing file shows up as a
+     * failed image load instead.
+     */
+    fun isLocalFaviconPath(urlOrPath: String?): Boolean {
         if (urlOrPath.isNullOrBlank()) return false
-        if (urlOrPath.startsWith("file:///android_asset/") || urlOrPath.startsWith("/android_asset/")) return true
-        val cleanPath = urlOrPath.removePrefix("file://")
-        return if (cleanPath.startsWith("/")) {
-            try {
-                val file = File(cleanPath)
-                file.exists() && file.isFile && file.length() > 0
-            } catch (e: Throwable) {
-                Log.w(TAG, "Failed to validate local favicon path", e)
-                false
-            }
-        } else false
+        return urlOrPath.removePrefix("file://").startsWith("/")
     }
 
     internal fun clearMemoryCache() {

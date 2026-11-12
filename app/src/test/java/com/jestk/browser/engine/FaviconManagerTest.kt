@@ -297,20 +297,14 @@ class FaviconManagerTest {
     }
 
     @Test
-    fun isValidLocalFavicon_identifiesLocalFilesAndAssets() {
-        val context = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>()
-        val dummyFile = java.io.File(context.filesDir, "test_valid.png").apply {
-            writeBytes("data".toByteArray())
-        }
-
-        assertThat(FaviconManager.isValidLocalFavicon(dummyFile.absolutePath)).isTrue()
-        assertThat(FaviconManager.isValidLocalFavicon("file://${dummyFile.absolutePath}")).isTrue()
-        assertThat(FaviconManager.isValidLocalFavicon("/nonexistent/file.png")).isFalse()
-        assertThat(FaviconManager.isValidLocalFavicon("file:///android_asset/icons/google.svg")).isTrue()
-        assertThat(FaviconManager.isValidLocalFavicon("/android_asset/icons/google.svg")).isTrue()
-        assertThat(FaviconManager.isValidLocalFavicon("https://example.com/icon.png")).isFalse()
-        assertThat(FaviconManager.isValidLocalFavicon(null)).isFalse()
-        assertThat(FaviconManager.isValidLocalFavicon("")).isFalse()
+    fun isLocalFaviconPath_identifiesLocalFilesAndAssetsWithoutDiskAccess() {
+        assertThat(FaviconManager.isLocalFaviconPath("/data/user/0/app/files/favicons/a.png")).isTrue()
+        assertThat(FaviconManager.isLocalFaviconPath("file:///data/user/0/app/files/favicons/a.png")).isTrue()
+        assertThat(FaviconManager.isLocalFaviconPath("file:///android_asset/icons/google.svg")).isTrue()
+        assertThat(FaviconManager.isLocalFaviconPath("/android_asset/icons/google.svg")).isTrue()
+        assertThat(FaviconManager.isLocalFaviconPath("https://example.com/icon.png")).isFalse()
+        assertThat(FaviconManager.isLocalFaviconPath(null)).isFalse()
+        assertThat(FaviconManager.isLocalFaviconPath("")).isFalse()
     }
 
     // --- Typed favicon model (TYPE-03) ---

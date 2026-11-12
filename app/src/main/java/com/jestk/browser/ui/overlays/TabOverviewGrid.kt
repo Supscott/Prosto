@@ -63,6 +63,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -216,6 +217,7 @@ fun TabOverviewGrid(
     uiState: BrowserUiState,
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
+    homePreviews: SharedHomePreviews = remember { SharedHomePreviews() },
 ) {
     val isDark = LocalIsDarkTheme.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -278,6 +280,7 @@ fun TabOverviewGrid(
 
     val vibration = LocalVibrationFeedback.current
     val density = LocalDensity.current
+    var gridWidthPx by remember { mutableStateOf(0) }
 
     Box(
         modifier =
@@ -507,8 +510,13 @@ fun TabOverviewGrid(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .onSizeChanged { gridWidthPx = it.width },
             ) {
+                val homeWorkspaceIds = remember(activeTabs) { activeTabs.filter { it.isHomeTab }.map { it.workspaceId }.toSet() }
+                if (gridWidthPx > 0 && homeWorkspaceIds.isNotEmpty()) {
+                    SharedHomePreviewRecorders(uiState, homeWorkspaceIds, homePreviewSize(gridWidthPx, density), homePreviews)
+                }
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     state = gridState,
@@ -598,11 +606,7 @@ fun TabOverviewGrid(
                                         onClose = {
                                             onEvent(BrowserUiEvent.CloseTab(item.tab.id))
                                         },
-                                        homePreview = if (item.tab.isHomeTab) {
-                                            { HomePreview(uiState = uiState, workspaceId = item.tab.workspaceId) }
-                                        } else {
-                                            null
-                                        },
+                                        homePreview = { SharedHomePreviewImage(homePreviews, item.tab.workspaceId) },
                                     )
                                 }
                                 is OverviewGridItem.FolderCard -> {
@@ -646,11 +650,7 @@ fun TabOverviewGrid(
                                         onClose = {
                                             onEvent(BrowserUiEvent.CloseTab(item.tab.id))
                                         },
-                                        homePreview = if (item.tab.isHomeTab) {
-                                            { HomePreview(uiState = uiState, workspaceId = item.tab.workspaceId) }
-                                        } else {
-                                            null
-                                        },
+                                        homePreview = { SharedHomePreviewImage(homePreviews, item.tab.workspaceId) },
                                     )
                                 }
                                 is OverviewGridItem.FolderSpacer -> {
