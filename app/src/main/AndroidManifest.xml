@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- Network Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -11,6 +12,12 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Package installation for downloaded APK files -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- A browser must see every app a site can hand off to (intent://, custom schemes such as
+         suno:// or linear://). Without it Android 11+ hides apps missing from <queries>, so an
+         installed app is treated as absent. DuckDuckGo declares the same permission. -->
+    <uses-permission
+        android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <queries>
         <!-- Popular external apps for deep linking and open-in-app prompts -->

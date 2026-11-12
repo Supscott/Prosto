@@ -293,4 +293,32 @@ class ExternalAppResolverTest {
         // Must not offer to launch non-browsable activities
         assertThat(result).isEqualTo(ExternalAppResolution.UnresolvableScheme)
     }
+
+    @Test
+    fun resolve_singularIntentForInstalledApp_offersTheAppInsteadOfMarketFallback() {
+        // Suno's "Open app" button (PRO-14): a Singular intent:// link whose fallback is market://.
+        val component = ComponentName("com.suno.android", "com.suno.android.MainActivity")
+        val shadowPm = shadowOf(packageManager)
+        shadowPm.addActivityIfNotPresent(component)
+        shadowPm.addIntentFilterForActivity(
+            component,
+            android.content.IntentFilter(Intent.ACTION_VIEW).apply {
+                addCategory(Intent.CATEGORY_DEFAULT)
+                addCategory(Intent.CATEGORY_BROWSABLE)
+                addDataScheme("suno")
+            },
+        )
+        val url = "intent://suno.sng.link/A2cnf/pfkm?_dl=suno%3A%2F%2Fsuno.com%2Fru&_smtype=3" +
+            "#Intent;scheme=suno;package=com.suno.android;" +
+            "S.browser_fallback_url=market%3A%2F%2Fdetails%3Fid%3Dcom.suno.android;end"
+
+        val result = ExternalAppResolver.resolve(context, url, "tab_1")
+
+        assertThat(result).isInstanceOf(ExternalAppResolution.Offer::class.java)
+        val offer = result as ExternalAppResolution.Offer
+        assertThat(offer.isCustomScheme).isTrue()
+        assertThat(offer.prompt.isInstalled).isTrue()
+        assertThat(offer.prompt.appPackage).isEqualTo("com.suno.android")
+        assertThat(offer.prompt.intentUri).doesNotContain("market://")
+    }
 }
