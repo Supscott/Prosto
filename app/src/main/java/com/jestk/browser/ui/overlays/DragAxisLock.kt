@@ -17,6 +17,9 @@ internal class DragAxisLock(private val touchSlop: Float) {
     /** True once the stream travelled past touch slop mainly horizontally; latched. */
     val isHorizontalDrag: Boolean get() = isHorizontal
 
+    /** True once the stream travelled past touch slop mainly vertically; latched. */
+    val isVerticalDrag: Boolean get() = isVertical
+
     fun onMove(change: PointerInputChange) {
         totalX += change.position.x - change.previousPosition.x
         totalY += change.position.y - change.previousPosition.y
