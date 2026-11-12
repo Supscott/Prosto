@@ -288,6 +288,11 @@ internal fun Modifier.swipeDownToDismiss(
                 offset += change.position - change.previousPosition
                 if (!isHorizontalDrag && abs(offset.x) > viewConfig.touchSlop && abs(offset.x) > abs(offset.y)) {
                     isHorizontalDrag = true
+                    // The gesture now belongs to engine cycling: put the keyboard back where it was.
+                    if (dragsKeyboard && dispatchedY != 0f) {
+                        currentDispatcher?.dispatchScroll(Offset(0f, -dispatchedY))
+                        dispatchedY = 0f
+                    }
                 }
                 if (isHorizontalDrag) continue
 
