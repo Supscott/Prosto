@@ -5,7 +5,6 @@
   "app/src/main/java/com/jestk/browser/engine/WebViewPool.kt": 943,
   "app/src/main/java/com/jestk/browser/engine/download/HoriDownloadManager.kt": 591,
   "app/src/main/java/com/jestk/browser/ui/navigation/TabStripDragState.kt": 974,
-  "app/src/main/java/com/jestk/browser/ui/navigation/TabStripRow.kt": 1661,
   "app/src/main/java/com/jestk/browser/ui/overlays/AddEditSearchEngineDialog.kt": 528,
   "app/src/main/java/com/jestk/browser/ui/overlays/SearchEngineCarousel.kt": 905,
   "app/src/main/java/com/jestk/browser/ui/overlays/SearchEngineReorderList.kt": 784,
