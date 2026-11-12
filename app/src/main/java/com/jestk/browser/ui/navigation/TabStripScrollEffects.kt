@@ -40,7 +40,7 @@ internal fun TabStripActiveTabCentering(
     var lastCenteredActiveTabId by remember { mutableStateOf<String?>(null) }
     var lastActiveOverlay by remember { mutableStateOf<OverlayType?>(null) }
 
-    LaunchedEffect(uiState.activeTabId, uiState.activeOverlay) {
+    LaunchedEffect(uiState.activeTabId, uiState.activeOverlay, dragState) {
         val activeTabId = uiState.activeTabId
         val currentOverlay = uiState.activeOverlay
         val overlayDismissed = lastActiveOverlay == OverlayType.TAB_GRID && currentOverlay != OverlayType.TAB_GRID

@@ -53,7 +53,19 @@ internal fun rememberTabStripDragReorderModifier(
     val density = LocalDensity.current
     val touchSlop = with(density) { 8.dp.toPx() }
 
-    return Modifier.pointerInput(touchSlop, tabSpacingPx, totalChipWidthPx, rightPinnedOffsetPx, edgeSlackPx, removeThresholdPx) {
+    // dragState is recreated per workspace: without it as a key the gesture keeps driving the
+    // discarded state after a workspace switch, so the dragged tab neither animates nor follows
+    // the finger (PRO-16).
+    return Modifier.pointerInput(
+        lazyListState,
+        dragState,
+        touchSlop,
+        tabSpacingPx,
+        totalChipWidthPx,
+        rightPinnedOffsetPx,
+        edgeSlackPx,
+        removeThresholdPx,
+    ) {
         awaitEachGesture {
             val down = awaitFirstDown(requireUnconsumed = false)
             val tabId = lazyListState.tabIdAt(down.position.x, tabSpacingPx) ?: return@awaitEachGesture
