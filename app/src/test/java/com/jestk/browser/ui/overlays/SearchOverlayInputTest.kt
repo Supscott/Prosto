@@ -19,6 +19,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeLeft
@@ -433,13 +434,13 @@ class SearchOverlayInputTest {
         composeTestRule.onNodeWithText("Search with Google").performTextInput("git")
         composeTestRule.onNodeWithText("github.com").assertExists()
 
-        // Simulate Backspace: user removes the autocompleted selection back to "git"
-        composeTestRule.onNodeWithText("github.com").performTextInput("") // replaces selection with empty
-        // Verify text is now "git"
-        composeTestRule.onNodeWithText("git").assertExists()
+        // Backspace deletes the last typed character and hides the completion.
+        composeTestRule.onNodeWithText("github.com").performTextReplacement("gi")
+        composeTestRule.onNodeWithText("github.com").assertDoesNotExist()
+        composeTestRule.onNodeWithText("gi").assertExists()
 
-        // Typing forward 'l' resets suppression and finds "gitlab.com"
-        composeTestRule.onNodeWithText("git").performTextInput("l")
+        // Typing forward finds "gitlab.com"
+        composeTestRule.onNodeWithText("gi").performTextInput("tl")
         composeTestRule.onNodeWithText("gitlab.com").assertExists()
     }
 

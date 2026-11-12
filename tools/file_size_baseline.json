@@ -8,7 +8,7 @@
   "app/src/main/java/com/jestk/browser/ui/overlays/AddEditSearchEngineDialog.kt": 528,
   "app/src/main/java/com/jestk/browser/ui/overlays/SearchEngineCarousel.kt": 905,
   "app/src/main/java/com/jestk/browser/ui/overlays/SearchEngineReorderList.kt": 784,
-  "app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt": 712,
+  "app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt": 661,
   "app/src/main/java/com/jestk/browser/ui/overlays/TabOverviewGrid.kt": 891,
   "app/src/main/java/com/jestk/browser/ui/overlays/WorkspacesOverviewScreen.kt": 534,
   "app/src/main/java/com/jestk/browser/ui/screens/DownloadsScreen.kt": 739,

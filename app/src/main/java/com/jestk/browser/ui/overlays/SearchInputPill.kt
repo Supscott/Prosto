@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.selection.LocalTextSelectionColors
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -77,6 +78,7 @@ import kotlin.math.abs
 internal fun HeroSearchInputField(
     textFieldValue: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
+    completionSuffix: String = "",
     searchEngine: SearchEngine,
     isDark: Boolean,
     focusRequester: FocusRequester,
@@ -165,6 +167,10 @@ internal fun HeroSearchInputField(
                 value = textFieldValue,
                 onValueChange = onValueChange,
                 singleLine = true,
+                visualTransformation = InlineCompletionTransformation(
+                    suffix = completionSuffix,
+                    highlight = LocalTextSelectionColors.current.backgroundColor,
+                ),
                 textStyle = LocalProstoTypography.current.bodyMd.copy(
                     color = if (isDark) DarkOnSurface else ProstoDarkText
                 ),
