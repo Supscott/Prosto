@@ -278,7 +278,7 @@ class InsecureHttpWarningTest {
         advanceUntilIdle()
 
         // Restore session
-        viewModel.tabCoordinator.restoreSession(
+        viewModel.tabCoordinator.sessionSync.restoreSession(
             initialSettings = BrowserSettings(),
             currentEngines = SearchEngine.DEFAULT_ENGINES,
         )

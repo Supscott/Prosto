@@ -63,7 +63,7 @@ internal class PageEventHandler(
             is BrowserUiEvent.StopLoading -> {
                 Log.d(TAG, "Navigation command: stop loading")
                 emitNavigation(NavigationCommand.StopLoading)
-                tabCoordinator.handleStopLoading()
+                tabCoordinator.pageEvents.handleStopLoading()
             }
 
             is BrowserUiEvent.SwitchSearchEngineForQuery -> {
@@ -72,42 +72,42 @@ internal class PageEventHandler(
             }
 
             is BrowserUiEvent.OnPageStarted -> {
-                tabCoordinator.handlePageStarted(event.tabId, event.url)
+                tabCoordinator.pageEvents.handlePageStarted(event.tabId, event.url)
             }
 
             is BrowserUiEvent.OnPageFinished -> {
-                tabCoordinator.handlePageFinished(event.tabId, event.url, event.title)
+                tabCoordinator.pageEvents.handlePageFinished(event.tabId, event.url, event.title)
                 if (bypassCleanPlayerVideoId != null && YouTubeUrlHelper.extractVideoId(event.url) == bypassCleanPlayerVideoId) {
                     bypassCleanPlayerVideoId = null
                 }
             }
 
             is BrowserUiEvent.OnTitleReceived -> {
-                tabCoordinator.handleTitleReceived(event.tabId, event.title)
+                tabCoordinator.pageEvents.handleTitleReceived(event.tabId, event.title)
             }
 
             is BrowserUiEvent.OnProgressChanged -> {
-                tabCoordinator.handleProgressChanged(event.tabId, event.progress)
+                tabCoordinator.pageEvents.handleProgressChanged(event.tabId, event.progress)
             }
 
             is BrowserUiEvent.OnNavigationStateChanged -> {
-                tabCoordinator.handleNavState(event.tabId, event.canGoBack, event.canGoForward)
+                tabCoordinator.pageEvents.handleNavState(event.tabId, event.canGoBack, event.canGoForward)
             }
 
             is BrowserUiEvent.OnSnapshotCaptured -> {
-                tabCoordinator.handleSnapshot(event.tabId, event.snapshotPath)
+                tabCoordinator.pageAppearance.handleSnapshot(event.tabId, event.snapshotPath)
             }
 
             is BrowserUiEvent.UpdateFaviconUrl -> {
-                tabCoordinator.handleUpdateFavicon(event.tabId, event.faviconUrl, event.pageUrl)
+                tabCoordinator.pageAppearance.handleUpdateFavicon(event.tabId, event.faviconUrl, event.pageUrl)
             }
 
             is BrowserUiEvent.OnThemeColorReceived -> {
-                tabCoordinator.handleThemeColor(event.tabId, event.color)
+                tabCoordinator.pageAppearance.handleThemeColor(event.tabId, event.color)
             }
 
             is BrowserUiEvent.OnThemeColorsReceived -> {
-                tabCoordinator.handleThemeColors(event.tabId, event.topColor, event.bottomColor)
+                tabCoordinator.pageAppearance.handleThemeColors(event.tabId, event.topColor, event.bottomColor)
             }
         }
     }

@@ -35,18 +35,18 @@ internal class TabEventHandler(
                         )
                     )
                 } else {
-                    tabCoordinator.openNewTab(event.url, openedByExternalApp = event.openedByExternalApp)
+                    tabCoordinator.opening.openNewTab(event.url, openedByExternalApp = event.openedByExternalApp)
                 }
             }
 
             is BrowserUiEvent.OpenPopupTab -> {
                 Log.d(TAG, "Navigation command: open popup tab for ${event.tabId}")
-                tabCoordinator.openPopupTab(event.tabId)
+                tabCoordinator.opening.openPopupTab(event.tabId)
             }
 
             is BrowserUiEvent.OpenRecentTab -> {
                 Log.d(TAG, "Navigation command: open recent tab ${event.item.url}")
-                tabCoordinator.openRecentTab(
+                tabCoordinator.opening.openRecentTab(
                     item = event.item,
                     onNavigateUrl = { loadUrl(it) },
                     onOpenNewTab = { dispatch(BrowserUiEvent.OpenNewTab(it)) },
@@ -55,34 +55,34 @@ internal class TabEventHandler(
 
             is BrowserUiEvent.SelectTab -> {
                 Log.d(TAG, "Navigation command: select tab ${event.tabId}")
-                tabCoordinator.selectTab(event.tabId)
+                tabCoordinator.activation.selectTab(event.tabId)
             }
 
             is BrowserUiEvent.CloseTab -> {
                 Log.d(TAG, "Navigation command: close tab ${event.tabId}")
-                tabCoordinator.closeTab(event.tabId)
+                tabCoordinator.closing.closeTab(event.tabId)
             }
 
             is BrowserUiEvent.CloseAllTabs -> {
                 Log.d(TAG, "Navigation command: close all tabs")
-                tabCoordinator.closeAllTabs()
+                tabCoordinator.closing.closeAllTabs()
             }
 
             is BrowserUiEvent.ReorderTabs -> {
-                tabCoordinator.reorderTabsAndFolders(event.orderedTabs, event.orderedFolders)
+                tabCoordinator.folders.reorderTabsAndFolders(event.orderedTabs, event.orderedFolders)
             }
 
             is BrowserUiEvent.SwipeNextTab -> {
-                tabCoordinator.switchAdjacentTab(1)
+                tabCoordinator.activation.switchAdjacentTab(1)
             }
 
             is BrowserUiEvent.SwipePrevTab -> {
-                tabCoordinator.switchAdjacentTab(-1)
+                tabCoordinator.activation.switchAdjacentTab(-1)
             }
 
             is BrowserUiEvent.UndoCloseTab -> {
                 Log.d(TAG, "Navigation command: undo close tab")
-                tabCoordinator.undoCloseTab()
+                tabCoordinator.closing.undoCloseTab()
             }
 
             is BrowserUiEvent.OpenWorkspacesOverview -> {
@@ -99,7 +99,7 @@ internal class TabEventHandler(
 
             is BrowserUiEvent.SwitchWorkspace -> {
                 Log.d(TAG, "Workspace command: switch workspace to ${event.workspaceId}")
-                tabCoordinator.switchWorkspace(event.workspaceId)
+                tabCoordinator.workspaces.switchWorkspace(event.workspaceId)
                 searchCoordinator.updateHistorySuggestions(getCurrentState().searchQuery)
                 if (getCurrentState().activeOverlay == OverlayType.WORKSPACES) {
                     updateUiState { it.copy(activeOverlay = OverlayType.NONE) }
@@ -108,26 +108,26 @@ internal class TabEventHandler(
 
             is BrowserUiEvent.CreateWorkspace -> {
                 Log.d(TAG, "Workspace command: create workspace ${event.name}")
-                tabCoordinator.createWorkspace(event.name, event.color)
+                tabCoordinator.workspaces.createWorkspace(event.name, event.color)
             }
 
             is BrowserUiEvent.UpdateWorkspace -> {
                 Log.d(TAG, "Workspace command: update workspace ${event.workspace.id}")
-                tabCoordinator.updateWorkspace(event.workspace)
+                tabCoordinator.workspaces.updateWorkspace(event.workspace)
             }
 
             is BrowserUiEvent.DeleteWorkspace -> {
                 Log.d(TAG, "Workspace command: delete workspace ${event.workspaceId}")
-                tabCoordinator.deleteWorkspace(event.workspaceId)
+                tabCoordinator.workspaces.deleteWorkspace(event.workspaceId)
             }
 
             is BrowserUiEvent.MoveTabToWorkspace -> {
                 Log.d(TAG, "Workspace command: move tab ${event.tabId} to ${event.targetWorkspaceId}")
-                tabCoordinator.moveTabToWorkspace(event.tabId, event.targetWorkspaceId)
+                tabCoordinator.workspaces.moveTabToWorkspace(event.tabId, event.targetWorkspaceId)
             }
 
             is BrowserUiEvent.DismissUndoTabCloseSnackbar -> {
-                tabCoordinator.clearRecentlyClosedTab()
+                tabCoordinator.closing.clearRecentlyClosedTab()
             }
 
             is BrowserUiEvent.OpenTabInBackground -> {
@@ -140,13 +140,13 @@ internal class TabEventHandler(
                         )
                     )
                 } else {
-                    tabCoordinator.openTabInBackground(event.url)
+                    tabCoordinator.opening.openTabInBackground(event.url)
                 }
             }
 
             is BrowserUiEvent.CreateFolderFromTabs -> {
                 scope.launch {
-                    tabCoordinator.createFolderFromTabs(
+                    tabCoordinator.folders.createFolderFromTabs(
                         tabId1 = event.tabId1,
                         tabId2 = event.tabId2,
                         color = event.color,
@@ -196,13 +196,13 @@ internal class TabEventHandler(
                 }
                 scope.launch {
                     if (editingFolderId != null) {
-                        tabCoordinator.updateFolder(
+                        tabCoordinator.folders.updateFolder(
                             folderId = editingFolderId,
                             title = event.title,
                             color = event.color,
                         )
                     } else if (targetTabId != null) {
-                        tabCoordinator.createFolder(
+                        tabCoordinator.folders.createFolder(
                             tabId = targetTabId,
                             title = event.title,
                             color = event.color,
@@ -213,36 +213,36 @@ internal class TabEventHandler(
 
             is BrowserUiEvent.ToggleFolderCollapse -> {
                 scope.launch {
-                    tabCoordinator.toggleFolderCollapse(event.folderId, fromDock = event.fromDock)
+                    tabCoordinator.folders.toggleFolderCollapse(event.folderId, fromDock = event.fromDock)
                 }
             }
 
             is BrowserUiEvent.CloseFolder -> {
                 scope.launch {
-                    tabCoordinator.closeFolder(event.folderId)
+                    tabCoordinator.folders.closeFolder(event.folderId)
                 }
             }
 
             is BrowserUiEvent.UngroupFolder -> {
                 scope.launch {
-                    tabCoordinator.ungroupFolder(event.folderId)
+                    tabCoordinator.folders.ungroupFolder(event.folderId)
                 }
             }
 
             is BrowserUiEvent.AddTabToFolder -> {
                 scope.launch {
-                    tabCoordinator.addTabToFolder(event.tabId, event.folderId)
+                    tabCoordinator.folders.addTabToFolder(event.tabId, event.folderId)
                 }
             }
 
             is BrowserUiEvent.RemoveTabFromFolder -> {
                 scope.launch {
-                    tabCoordinator.removeTabFromFolder(event.tabId)
+                    tabCoordinator.folders.removeTabFromFolder(event.tabId)
                 }
             }
 
             is BrowserUiEvent.CreateTabInFolder -> {
-                tabCoordinator.createTabInFolder(event.folderId)
+                tabCoordinator.folders.createTabInFolder(event.folderId)
             }
         }
     }

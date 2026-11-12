@@ -49,7 +49,7 @@ internal class OverlayEventHandler(
                             it.isHomeTab
                         }
                     if (existingHomeTab != null) {
-                        tabCoordinator.selectTab(existingHomeTab.id)
+                        tabCoordinator.activation.selectTab(existingHomeTab.id)
                         val prefill = event.prefilledUrl ?: ""
                         updateUiState {
                             it.copy(
@@ -62,7 +62,7 @@ internal class OverlayEventHandler(
                         }
                         searchCoordinator.updateHistorySuggestions(prefill)
                     } else {
-                        tabCoordinator.openNewTabForSearch { searchCoordinator.updateHistorySuggestions("") }
+                        tabCoordinator.opening.openNewTabForSearch { searchCoordinator.updateHistorySuggestions("") }
                     }
                 } else {
                     val prefill = event.prefilledUrl ?: if (isHome) "" else current.currentUrl

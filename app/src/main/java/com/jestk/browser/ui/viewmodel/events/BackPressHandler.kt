@@ -67,10 +67,10 @@ internal class BackPressHandler(
             }
             BackAction.GoBack -> emitNavigation(NavigationCommand.GoBack)
             is BackAction.ReturnToCallerApp -> {
-                tabCoordinator.closeTab(action.tabId)
+                tabCoordinator.closing.closeTab(action.tabId)
                 emitNavigation(NavigationCommand.ReturnToCallerApp)
             }
-            is BackAction.CloseTab -> tabCoordinator.closeTab(action.tabId)
+            is BackAction.CloseTab -> tabCoordinator.closing.closeTab(action.tabId)
             is BackAction.ResetToHome -> {
                 updateUiState {
                     it.copy(

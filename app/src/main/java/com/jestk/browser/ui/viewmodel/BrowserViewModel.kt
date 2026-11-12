@@ -115,7 +115,7 @@ class BrowserViewModel(
             settingsRepository = settingsRepository,
             getCurrentState = { _uiState.value },
             updateUiState = { transform -> _uiState.update(transform) },
-            onSelectTab = { tabId -> tabCoordinator.selectTab(tabId) },
+            onSelectTab = { tabId -> tabCoordinator.activation.selectTab(tabId) },
             onOpenNewTab = { url -> onEvent(BrowserUiEvent.OpenNewTab(url)) },
             scope = viewModelScope,
             ioDispatcher = ioDispatcher,
@@ -296,11 +296,11 @@ class BrowserViewModel(
             } else {
                 SearchEngine.DEFAULT_ENGINES
             }
-        tabCoordinator.restoreSession(initialSettings, currentEngines)
+        tabCoordinator.sessionSync.restoreSession(initialSettings, currentEngines)
     }
 
     private fun observeDatabaseFlows() {
-        tabCoordinator.observeDatabaseFlows()
+        tabCoordinator.sessionSync.observeDatabaseFlows()
         searchCoordinator.observeDatabaseFlows()
         downloadCoordinator.observeDatabaseFlows()
         viewModelScope.launch(ioDispatcher) {
@@ -375,49 +375,14 @@ class BrowserViewModel(
     }
 
     private fun loadUrl(rawUrl: String) {
-        val trimmed = rawUrl.trim()
-        var matchedShortcutEngine: SearchEngine? = null
-        val finalUrl =
-            when {
-                trimmed.isEmpty() -> {
-                    ""
-                }
-
-                trimmed == "about:blank" -> {
-                    ""
-                }
-
-                trimmed.startsWith("http://") || trimmed.startsWith("https://") -> {
-                    trimmed
-                }
-
-                looksLikeUrlInput(trimmed) -> {
-                    "https://$trimmed"
-                }
-
-                else -> {
-                    val shortcutMatch = Regex("""^([a-zA-Z0-9_-]+)\s+(.+)$""").find(trimmed)
-                    val shortcutEngine =
-                        if (shortcutMatch != null) {
-                            val prefix = shortcutMatch.groupValues[1]
-                            _uiState.value.searchEngines.firstOrNull { it.shortcut?.equals(prefix, ignoreCase = true) == true }
-                        } else {
-                            null
-                        }
-
-                    if (shortcutEngine != null) {
-                        matchedShortcutEngine = shortcutEngine
-                        viewModelScope.launch(ioDispatcher) {
-                            settingsRepository.setSearchEngine(shortcutEngine)
-                        }
-                        val searchTargetQuery = shortcutMatch!!.groupValues[2].trim()
-                        shortcutEngine.buildSearchUrl(searchTargetQuery)
-                    } else {
-                        _uiState.value.settings.searchEngine
-                            .buildSearchUrl(trimmed)
-                    }
-                }
+        val state = _uiState.value
+        val (finalUrl, matchedShortcutEngine) =
+            resolveUrlInput(rawUrl, state.searchEngines, state.settings.searchEngine)
+        if (matchedShortcutEngine != null) {
+            viewModelScope.launch(ioDispatcher) {
+                settingsRepository.setSearchEngine(matchedShortcutEngine)
             }
+        }
 
         if (shouldWarnForInsecureUrl(finalUrl)) {
             onEvent(
@@ -439,7 +404,7 @@ class BrowserViewModel(
             }
         }
 
-        tabCoordinator.navigateToUrl(finalUrl, matchedShortcutEngine)
+        tabCoordinator.pageEvents.navigateToUrl(finalUrl, matchedShortcutEngine)
     }
 
     /**
@@ -468,44 +433,7 @@ class BrowserViewModel(
         scrollY: Int = 0,
         viewportHeight: Int = 0,
     ) {
-        val current = _uiState.value
-        if (deltaY > 8f && (current.isMenuExpanded || current.isSearchEngineSwitcherEditExpanded)) {
-            _uiState.update { it.copy(isMenuExpanded = false, isSearchEngineSwitcherEditExpanded = false) }
-        }
-
-        val isHome = current.activeOverlay == OverlayType.HOME || current.currentUrl.isEmpty() || current.currentUrl == "about:blank"
-        if (isHome) {
-            if (!current.isBottomBarVisible) {
-                _uiState.update { it.copy(isBottomBarVisible = true) }
-            }
-            return
-        }
-
-        // Hiding the dock starts working below 50% screen (scrollY > viewportHeight / 2)
-        val isBelowHalfScreen = viewportHeight > 0 && scrollY > (viewportHeight / 2)
-        if (!isBelowHalfScreen) {
-            // Within the first half-screen (scrollY <= viewportHeight / 2) or scrolled back to top: dock must always be visible
-            if (!current.isBottomBarVisible) {
-                _uiState.update { it.copy(isBottomBarVisible = true) }
-            }
-        } else {
-            // Below 50% screen: hide if scrolling down, show if scrolling up
-            if (deltaY > 8f) {
-                if (current.isBottomBarVisible) {
-                    _uiState.update {
-                        it.copy(
-                            isBottomBarVisible = false,
-                            isMenuExpanded = false,
-                            isSearchEngineSwitcherEditExpanded = false,
-                        )
-                    }
-                }
-            } else if (deltaY < -8f) {
-                if (!current.isBottomBarVisible) {
-                    _uiState.update { it.copy(isBottomBarVisible = true) }
-                }
-            }
-        }
+        _uiState.update { it.afterWebScroll(deltaY, scrollY, viewportHeight) }
     }
 
     private fun handleGoBack() {
