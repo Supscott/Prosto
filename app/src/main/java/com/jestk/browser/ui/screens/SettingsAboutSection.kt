@@ -87,7 +87,7 @@ internal fun SettingsAboutSection(
             subtitle = stringResource(R.string.about_app_website_summary),
             onClick = {
                 try {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://jestk.com"))
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://prosto.jestk.com"))
                     context.startActivity(intent)
                 } catch (_: Exception) {
                     Toast.makeText(context, R.string.error_cannot_open_link, Toast.LENGTH_SHORT).show()
