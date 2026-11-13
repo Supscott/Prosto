@@ -5,6 +5,7 @@ import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
+import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import org.junit.Test
 
@@ -28,6 +29,11 @@ class ResolveBackPressTest {
             "clean player closes first",
             onWebsite.copy(cleanPlayerVideoId = "v", isMenuExpanded = true, canGoBack = true),
             BackAction.Dispatch(BrowserUiEvent.CloseCleanPlayer),
+        ),
+        Case(
+            "tutorial stories",
+            onWebsite.copy(isTutorialVisible = true),
+            BackAction.Dispatch(HomeUiEvent.CloseTutorial),
         ),
         Case(
             "feedback sheet",

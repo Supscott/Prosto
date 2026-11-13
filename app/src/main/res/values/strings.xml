@@ -20,9 +20,6 @@
     <string name="url_copied">URL copied</string>
     <string name="tab_closed">Tab closed</string>
     <string name="undo">Undo</string>
-    <string name="default_browser_prompt_title">Set Prosto as default browser</string>
-    <string name="default_browser_prompt_desc">Enjoy fast and secure web browsing with Prosto</string>
-    <string name="default_browser_prompt_button">Set as Default</string>
     <string name="default_browser_tile_title">Default Browser</string>
     <string name="default_browser_tile_desc">Set Prosto as your default browser</string>
     <string name="default_browser_tile_action">Set</string>
@@ -173,9 +170,7 @@
     <string name="a11y_edit_search_engines">Edit Search Engines</string>
     <string name="a11y_edit_search_providers">Edit Search Providers</string>
     <string name="search_providers_short">Search Providers</string>
-    <string name="a11y_voice_search">Voice Search</string>
     <string name="a11y_voice_input">Voice Input</string>
-    <string name="a11y_scan_qr">Scan QR</string>
     <string name="a11y_add_favorite">Add Favorite</string>
     <string name="a11y_feedback_icon">Feedback icon</string>
     <string name="a11y_pause_download">Pause download</string>
@@ -187,7 +182,6 @@
     <string name="a11y_search_engine_selector">Search engine selector</string>
     <string name="a11y_insert_in_search">Insert in search</string>
     <string name="home_greeting">Where to next?</string>
-    <string name="home_search_hint">Search with %1$s or enter URL</string>
     <string name="home_bookmark_tab">Bookmark Tab</string>
     <string name="home_recently_closed">Recently Closed</string>
     <string name="home_recent_total">Total %1$d</string>
@@ -263,8 +257,6 @@
     <string name="toast_no_url_to_copy">No URL to copy</string>
     <string name="toast_no_url_to_share">No URL to share</string>
     <string name="toast_share_failed">Could not share link</string>
-    <string name="toast_voice_input_unavailable">Voice input not available</string>
-    <string name="toast_qr_scanner_coming_soon">QR scanner coming soon</string>
     <string name="toast_preparing_download">Preparing download…</string>
     <string name="toast_download_failed_reason">Download failed: %1$s</string>
     <string name="download_notification_starting">Downloading file…</string>
@@ -295,4 +287,32 @@
     <string name="favorites_show_all">Show all favorites (%1$d)</string>
     <string name="privacy_stat_ads_blocked">Ads blocked</string>
     <string name="privacy_stat_trackers_stopped">Trackers stopped</string>
+
+    <string name="toast_voice_input_unavailable">Voice input not available</string>
+
+    <!-- Tutorial -->
+    <string name="home_tutorial_card_title">Get to know Prosto</string>
+    <string name="home_tutorial_card_desc">A one-minute tour of the dock, folders and workspaces</string>
+    <string name="home_tutorial_card_action">Start tour</string>
+    <string name="tutorial_step_a11y">Step %1$d of %2$d</string>
+    <string name="tutorial_close">Close tutorial</string>
+    <string name="tutorial_done">Done</string>
+    <string name="tutorial_make_default">Set as default browser</string>
+    <string name="tutorial_dock_title">Your tabs live in the dock</string>
+    <string name="tutorial_dock_body">Tap a tab to switch, swipe the dock to scroll, hold and drag to reorder.</string>
+    <string name="tutorial_folders_title">Group tabs into folders</string>
+    <string name="tutorial_folders_body">Drag one tab onto another, or long-press a tab and choose New folder.</string>
+    <string name="tutorial_workspaces_title">Separate spaces for everything</string>
+    <string name="tutorial_workspaces_body">Swipe up on the dock to switch workspaces. Each has its own tabs, favorites and logins.</string>
+    <string name="tutorial_search_title">Switch search providers</string>
+    <string name="tutorial_search_body">Fling across the engine carousel in the search bar, or start a query with a prefix like g or d.</string>
+    <string name="tutorial_protection_title">Blocked before it loads</string>
+    <string name="tutorial_protection_body">Ads and trackers are filtered out by default. Your totals show up on Home.</string>
+    <string name="tutorial_default_title">Make Prosto your default</string>
+    <string name="tutorial_default_body">Open every link from other apps straight in Prosto.</string>
+    <string name="tutorial_mock_default_browser_app">Default browser app</string>
+    <string name="settings_tutorial_title">Tutorial</string>
+    <string name="settings_tutorial_summary">Replay the quick tour of Prosto</string>
+    <string name="settings_home_privacy_card_title">Protection stats on Home</string>
+    <string name="settings_home_privacy_card_summary">Show blocked ads and trackers once there are any</string>
 </resources>

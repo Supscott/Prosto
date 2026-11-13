@@ -60,6 +60,7 @@ import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.engine.download.DownloadProgressInfo
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkPrimary
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.JestkBrowserTheme
@@ -90,7 +91,7 @@ fun DownloadsScreen(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val isDark = uiState.settings.themeMode == ThemeMode.DARK
+    val isDark = com.jestk.browser.ui.theme.LocalIsDarkTheme.current
     val context = LocalContext.current
 
     Column(
@@ -167,7 +168,7 @@ fun DownloadsScreen(
                             LocalProstoTypography.current.labelSm.copy(
                                 fontWeight = FontWeight.SemiBold,
                             ),
-                        color = ProstoBrandPrimary,
+                        color = if (isDark) DarkPrimary else ProstoBrandPrimary,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                     )
                 }
@@ -240,19 +241,13 @@ private fun DownloadsEmptyState(
                 Modifier
                     .size(76.dp)
                     .clip(CircleShape)
-                    .background(
-                        if (isDark) {
-                            DarkSurfaceVariant
-                        } else {
-                            ProstoPaleBlue
-                        },
-                    ),
+                    .background(if (isDark) DarkSurfaceVariant else ProstoPaleBlue),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = Icons.Default.Download,
                 contentDescription = null,
-                tint = ProstoBrandPrimary,
+                tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                 modifier = Modifier.size(36.dp),
             )
         }
@@ -350,7 +345,7 @@ private fun DownloadItemCard(
                                     LocalProstoTypography.current.bodySm.copy(
                                         fontWeight = FontWeight.SemiBold,
                                     ),
-                                color = ProstoBrandPrimary,
+                                color = if (isDark) DarkPrimary else ProstoBrandPrimary,
                             )
                             if (progressInfo?.speedBytesPerSec != null && progressInfo.speedBytesPerSec > 0) {
                                 Text(
@@ -440,7 +435,7 @@ private fun DownloadItemCard(
                                     .fillMaxWidth()
                                     .height(4.dp)
                                     .clip(RoundedCornerShape(2.dp)),
-                            color = if (isPaused) Color(0xFFF59E0B) else ProstoBrandPrimary,
+                            color = if (isPaused) Color(0xFFF59E0B) else if (isDark) DarkPrimary else ProstoBrandPrimary,
                             trackColor = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
                         )
                     } else {
@@ -450,7 +445,7 @@ private fun DownloadItemCard(
                                     .fillMaxWidth()
                                     .height(4.dp)
                                     .clip(RoundedCornerShape(2.dp)),
-                            color = if (isPaused) Color(0xFFF59E0B) else ProstoBrandPrimary,
+                            color = if (isPaused) Color(0xFFF59E0B) else if (isDark) DarkPrimary else ProstoBrandPrimary,
                             trackColor = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
                         )
                     }
@@ -471,7 +466,7 @@ private fun DownloadItemCard(
                             Icon(
                                 imageVector = Icons.Default.Pause,
                                 contentDescription = stringResource(R.string.a11y_pause_download),
-                                tint = ProstoBrandPrimary,
+                                tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -496,7 +491,7 @@ private fun DownloadItemCard(
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = stringResource(R.string.a11y_resume_download),
-                                tint = ProstoBrandPrimary,
+                                tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                                 modifier = Modifier.size(20.dp),
                             )
                         }
@@ -521,7 +516,7 @@ private fun DownloadItemCard(
                             Icon(
                                 imageVector = Icons.Default.Refresh,
                                 contentDescription = stringResource(R.string.a11y_retry_download),
-                                tint = ProstoBrandPrimary,
+                                tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                                 modifier = Modifier.size(20.dp),
                             )
                         }

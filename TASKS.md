@@ -16,6 +16,8 @@ task when it is done: `git log` is the history. Keep this file under 40 lines.
 - BUG-05: blob downloads lose the `a[download]` filename. Send it back over `BlobDownloadChannel`.
 - Split `TabOverviewGrid.kt` (891 lines): its 575-line composable needs new sub-composable boundaries, so it is not a move-only job. Split `BrowserViewModelTest`/`TabCoordinatorTest` by handler (TEST-01).
 - PiP: add `setSourceRectHint` from the fullscreen video bounds (lint `PictureInPictureIssue`).
+- Tutorial scenes (`Tutorial*Scene.kt`): check the motion on a phone; the dock and folder story texts still mention reorder and "New folder", which the scenes do not show.
+- Feedback card now shows on Home only after the tutorial is done; move it to a bottom sheet after N days or a successful action.
 
 ## Blocked
 <!-- - Task — what it waits for -->

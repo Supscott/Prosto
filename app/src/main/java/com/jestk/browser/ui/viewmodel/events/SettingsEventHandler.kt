@@ -4,6 +4,7 @@ import android.util.Log
 import com.jestk.browser.domain.model.FeedbackPromptState
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
+import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.DownloadCoordinator
 import com.jestk.browser.ui.viewmodel.SearchCoordinator
@@ -183,6 +184,31 @@ internal class SettingsEventHandler(
 
             BrowserUiEvent.CloseFeedbackSheet -> {
                 updateUiState { it.copy(isFeedbackSheetVisible = false) }
+            }
+
+            HomeUiEvent.OpenTutorial -> {
+                updateUiState { it.copy(isTutorialVisible = true) }
+            }
+
+            HomeUiEvent.CloseTutorial -> {
+                updateUiState { it.copy(isTutorialVisible = false) }
+            }
+
+            HomeUiEvent.CompleteTutorial -> {
+                updateUiState {
+                    it.copy(isTutorialVisible = false, settings = it.settings.copy(isTutorialCompleted = true))
+                }
+                scope.launch(ioDispatcher) { settingsRepository.setTutorialCompleted(true) }
+            }
+
+            HomeUiEvent.DismissTutorialCard -> {
+                updateUiState { it.copy(settings = it.settings.copy(isTutorialCompleted = true)) }
+                scope.launch(ioDispatcher) { settingsRepository.setTutorialCompleted(true) }
+            }
+
+            is HomeUiEvent.SetHomePrivacyCardEnabled -> {
+                updateUiState { it.copy(settings = it.settings.copy(isHomePrivacyCardEnabled = event.enabled)) }
+                scope.launch(ioDispatcher) { settingsRepository.setHomePrivacyCardEnabled(event.enabled) }
             }
 
             is BrowserUiEvent.SkipUpdate -> {

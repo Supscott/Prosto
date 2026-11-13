@@ -12,6 +12,7 @@ import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import org.junit.Rule
@@ -155,6 +156,7 @@ class FeedbackPromptCardTest {
         val state = BrowserUiState(
             isFeedbackCardVisible = true,
             isDefaultBrowser = true,
+            settings = BrowserSettings(isTutorialCompleted = true),
         )
 
         composeRule.setContent {

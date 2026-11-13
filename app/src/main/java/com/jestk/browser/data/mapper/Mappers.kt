@@ -166,6 +166,8 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
                 .getOrDefault(com.jestk.browser.domain.model.FeedbackPromptState.VISIBLE)
         } ?: com.jestk.browser.domain.model.FeedbackPromptState.VISIBLE
     val feedbackPromptSnoozedUntil = map[SettingKeys.FEEDBACK_PROMPT_SNOOZED_UNTIL]?.toLongOrNull() ?: 0L
+    val isHomePrivacyCardEnabled = map[SettingKeys.HOME_PRIVACY_CARD_ENABLED]?.toBooleanStrictOrNull() ?: true
+    val isTutorialCompleted = map[SettingKeys.TUTORIAL_COMPLETED]?.toBooleanStrictOrNull() ?: false
 
     val hiddenEngines =
         map[SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES]
@@ -191,6 +193,8 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
         isGrayUnloadedTabsEnabled = isGrayUnloadedTabsEnabled,
         feedbackPromptState = feedbackPromptState,
         feedbackPromptSnoozedUntil = feedbackPromptSnoozedUntil,
+        isHomePrivacyCardEnabled = isHomePrivacyCardEnabled,
+        isTutorialCompleted = isTutorialCompleted,
     )
 }
 

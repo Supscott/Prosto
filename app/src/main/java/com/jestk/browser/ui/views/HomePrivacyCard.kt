@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
 import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
+import com.jestk.browser.ui.theme.DarkPrimary
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalProstoTypography
@@ -89,7 +91,7 @@ fun PrivacyProtectionCard(
                     Icon(
                         imageVector = Icons.Default.Shield,
                         contentDescription = null,
-                        tint = ProstoBrandPrimary,
+                        tint = if (isDark) DarkPrimary else ProstoBrandPrimary,
                         modifier = Modifier.size(18.dp),
                     )
                 }
@@ -150,12 +152,12 @@ private fun ProtectionStatChip(
             Text(
                 text = count,
                 style = LocalProstoTypography.current.headlineSm.copy(fontWeight = FontWeight.Bold),
-                color = ProstoBrandPrimary,
+                color = if (isDark) DarkPrimary else ProstoBrandPrimary,
             )
             Text(
                 text = title,
                 style = LocalProstoTypography.current.labelSm,
-                color = ProstoMutedSlate,
+                color = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
