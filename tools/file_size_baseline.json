@@ -11,6 +11,6 @@
   "app/src/main/java/com/jestk/browser/ui/overlays/SearchOverlay.kt": 661,
   "app/src/main/java/com/jestk/browser/ui/overlays/TabOverviewGrid.kt": 891,
   "app/src/main/java/com/jestk/browser/ui/overlays/WorkspacesOverviewScreen.kt": 534,
-  "app/src/main/java/com/jestk/browser/ui/screens/DownloadsScreen.kt": 739,
+  "app/src/main/java/com/jestk/browser/ui/screens/DownloadsScreen.kt": 734,
   "app/src/main/java/com/jestk/browser/ui/viewmodel/BrowserUiEvent.kt": 513
 }

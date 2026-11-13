@@ -406,6 +406,25 @@ def check_tasks_file_size():
     return []
 
 
+def check_dark_theme_resolved_once():
+    """Verify UI code reads the resolved theme instead of comparing the raw setting.
+
+    `themeMode == ThemeMode.DARK` is false in the default System mode even when the phone is
+    dark, so such a screen stays light (PRO-18). Composables read `LocalIsDarkTheme.current`,
+    which `JestkBrowserTheme` resolves from the setting and the system once.
+    """
+    errors = []
+    pattern = re.compile(r"themeMode\s*==\s*ThemeMode\.DARK")
+    for file in (ROOT / "app/src/main/java").rglob("*.kt"):
+        for lineno, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
+            if pattern.search(line):
+                errors.append(
+                    f"{file.relative_to(ROOT)}:{lineno}: compares themeMode with ThemeMode.DARK; "
+                    "read LocalIsDarkTheme.current so the System theme mode is honoured."
+                )
+    return errors
+
+
 def main():
     all_errors = []
     all_errors.extend(check_no_blur())
@@ -427,6 +446,7 @@ def main():
     all_errors.extend(check_single_browser_activity())
     all_errors.extend(check_file_sizes())
     all_errors.extend(check_tasks_file_size())
+    all_errors.extend(check_dark_theme_resolved_once())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -438,7 +458,7 @@ def main():
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
         "Fullscreen Sync Attach, Pull-Only Refresh Spinner, Single Browser Activity, No English Sentinels, No Composition File I/O, No Test Detection, "
-        "English Comments, File Size Ratchet, Short TASKS.md)."
+        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme)."
     )
     return 0
 
