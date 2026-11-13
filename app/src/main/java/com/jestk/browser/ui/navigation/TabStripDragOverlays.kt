@@ -16,11 +16,14 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
@@ -34,6 +37,7 @@ import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import kotlinx.coroutines.isActive
+import kotlin.math.roundToInt
 
 @Composable
 internal fun TabStripDragOverlays(
@@ -71,48 +75,39 @@ internal fun TabStripDragOverlays(
         val tabIsHome = elevatedTab.isHomeTab || (isHome && isElevatedActive)
         val isOverRemoveZone = isDraggingThis && dragState.isOverRemoveZone
 
-        val removeDistancePx = (-dragState.dragOffsetYPx).coerceAtLeast(0f)
-        val removeProgress = (removeDistancePx / removeThresholdPx).coerceIn(0f, 1f)
-        val overDistance = ((-dragState.dragOffsetYPx - removeThresholdPx) / removeThresholdPx).coerceIn(0f, 1f)
-
+        // Offsets, scale and alpha change on every pointer move: they are read in the draw phase
+        // (inside graphicsLayer) so a drag does not recompose the pill. Only the remove cross
+        // needs composition, and it gets a progress quantized to 1/20 steps.
+        val quantizedRemoveProgress by remember(dragState, removeThresholdPx) {
+            derivedStateOf {
+                val progress = removeProgressOf(dragState.dragOffsetYPx, removeThresholdPx)
+                (progress * REMOVE_PROGRESS_STEPS).roundToInt() / REMOVE_PROGRESS_STEPS
+            }
+        }
         val baseDragScale = if (isElevatedActive) 1.05f else 1.08f
-        val dynamicDragScale =
-            (baseDragScale - (removeProgress * 0.20f) - (overDistance * 0.05f)).coerceAtLeast(0.80f)
-        val dynamicDragAlpha =
-            (1.0f - (removeProgress * 0.15f) - (overDistance * 0.05f)).coerceIn(0.80f, 1.0f)
-
-        val itemScale =
-            when {
-                isDraggingThis -> dynamicDragScale
-                isSettlingThis -> dragState.settleScaleAnim.value
-                else -> 1.0f
-            }
-        val effectiveScale = itemScale + if (isDraggingThis) dragState.swapScaleBump.value else 0f
-        val itemAlpha =
-            when {
-                isDraggingThis -> dynamicDragAlpha
-                isSettlingThis -> 1.0f
-                else -> 1.0f
-            }
-
-        val overlayX =
-            when {
-                isDraggingThis -> dragState.lastVisualXPx
-                isSettlingThis -> {
-                    val slotItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == elevatedTab.id }
-                    val slotOffset = slotItem?.offset?.toFloat() ?: dragState.lastVisualXPx
-                    slotOffset + dragState.settleOffsetAnim.value
+        val tabLayer: GraphicsLayerScope.() -> Unit = {
+            val dragY = dragState.dragOffsetYPx
+            val removeProgress = removeProgressOf(dragY, removeThresholdPx)
+            val overDistance = ((-dragY - removeThresholdPx) / removeThresholdPx).coerceIn(0f, 1f)
+            val dynamicDragScale =
+                (baseDragScale - (removeProgress * 0.20f) - (overDistance * 0.05f)).coerceAtLeast(0.80f)
+            val dynamicDragAlpha =
+                (1.0f - (removeProgress * 0.15f) - (overDistance * 0.05f)).coerceIn(0.80f, 1.0f)
+            val itemScale =
+                when {
+                    isDraggingThis -> dynamicDragScale
+                    isSettlingThis -> dragState.settleScaleAnim.value
+                    else -> 1.0f
                 }
-                else -> 0f
-            }
-        val overlayY =
-            when {
-                isDraggingThis -> dragState.dragOffsetYPx
-                isSettlingThis -> dragState.settleOffsetYAnim.value
-                else -> 0f
-            }
+            val effectiveScale = itemScale + if (isDraggingThis) dragState.swapScaleBump.value else 0f
+            translationX = overlayOffsetX(dragState, lazyListState, elevatedTab.id, isDraggingThis, isSettlingThis)
+            translationY = overlayOffsetY(dragState, isDraggingThis, isSettlingThis)
+            scaleX = effectiveScale
+            scaleY = effectiveScale
+            alpha = if (isDraggingThis) dynamicDragAlpha else 1.0f
+        }
 
-        val tabRemoveProgress = if (isDraggingThis) removeProgress else 0f
+        val tabRemoveProgress = if (isDraggingThis) quantizedRemoveProgress else 0f
 
         val renderedOverlayActiveWidth by animateDpAsState(
             targetValue = if (isDraggingThis) 38.dp else activeTabWidth,
@@ -149,7 +144,7 @@ internal fun TabStripDragOverlays(
                 border = activePillBorderActual,
                 isDark = isDark,
                 isLoading = uiState.isLoading,
-                loadingProgress = uiState.loadingProgress,
+                loadingProgress = LocalLoadingProgress.current.value,
                 onOpenSearch = {},
                 onClose = {},
                 onAddFavorite = { _, _ -> },
@@ -159,13 +154,7 @@ internal fun TabStripDragOverlays(
                     Modifier
                         .width(renderedOverlayActiveWidth)
                         .zIndex(20f)
-                        .graphicsLayer {
-                            translationX = overlayX
-                            translationY = overlayY
-                            scaleX = effectiveScale
-                            scaleY = effectiveScale
-                            alpha = itemAlpha
-                        },
+                        .graphicsLayer(tabLayer),
                 menuExpanded = false,
                 onMenuDismiss = {},
                 isCompact = isDraggingThis,
@@ -203,11 +192,7 @@ internal fun TabStripDragOverlays(
                     Modifier
                         .zIndex(20f)
                         .graphicsLayer {
-                            translationX = overlayX
-                            translationY = overlayY
-                            scaleX = effectiveScale
-                            scaleY = effectiveScale
-                            alpha = itemAlpha
+                            tabLayer()
                             transformOrigin = androidx.compose.ui.graphics.TransformOrigin.Center
                         },
                 menuExpanded = false,
@@ -220,31 +205,6 @@ internal fun TabStripDragOverlays(
         val isDraggingThis = dragState.draggingTabId == elevatedKey
         val isSettlingThis = dragState.settlingTabId == elevatedKey
 
-        val itemScale =
-            when {
-                isDraggingThis -> 1.08f
-                isSettlingThis -> dragState.settleScaleAnim.value
-                else -> 1.0f
-            }
-        val effectiveScale = itemScale + if (isDraggingThis) dragState.swapScaleBump.value else 0f
-
-        val overlayX =
-            when {
-                isDraggingThis -> dragState.lastVisualXPx
-                isSettlingThis -> {
-                    val slotItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == elevatedKey }
-                    val slotOffset = slotItem?.offset?.toFloat() ?: dragState.lastVisualXPx
-                    slotOffset + dragState.settleOffsetAnim.value
-                }
-                else -> 0f
-            }
-        val overlayY =
-            when {
-                isDraggingThis -> dragState.dragOffsetYPx
-                isSettlingThis -> dragState.settleOffsetYAnim.value
-                else -> 0f
-            }
-
         FolderDockIndicator(
             folder = elevatedFolder,
             onClick = {},
@@ -252,8 +212,15 @@ internal fun TabStripDragOverlays(
                 Modifier
                     .zIndex(20f)
                     .graphicsLayer {
-                        translationX = overlayX
-                        translationY = overlayY
+                        val itemScale =
+                            when {
+                                isDraggingThis -> 1.08f
+                                isSettlingThis -> dragState.settleScaleAnim.value
+                                else -> 1.0f
+                            }
+                        val effectiveScale = itemScale + if (isDraggingThis) dragState.swapScaleBump.value else 0f
+                        translationX = overlayOffsetX(dragState, lazyListState, elevatedKey, isDraggingThis, isSettlingThis)
+                        translationY = overlayOffsetY(dragState, isDraggingThis, isSettlingThis)
                         scaleX = effectiveScale
                         scaleY = effectiveScale
                         shadowElevation = 8.dp.toPx()
@@ -301,3 +268,33 @@ internal fun TabStripDragOverlays(
         }
     }
 }
+
+private const val REMOVE_PROGRESS_STEPS = 20f
+
+private fun removeProgressOf(dragOffsetYPx: Float, removeThresholdPx: Float): Float =
+    ((-dragOffsetYPx).coerceAtLeast(0f) / removeThresholdPx).coerceIn(0f, 1f)
+
+/** Read in the draw phase only: it follows the finger and the settle spring every frame. */
+private fun overlayOffsetX(
+    dragState: TabStripDragState,
+    lazyListState: LazyListState,
+    key: String?,
+    isDragging: Boolean,
+    isSettling: Boolean,
+): Float =
+    when {
+        isDragging -> dragState.lastVisualXPx
+        isSettling -> {
+            val slotItem = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.key == key }
+            val slotOffset = slotItem?.offset?.toFloat() ?: dragState.lastVisualXPx
+            slotOffset + dragState.settleOffsetAnim.value
+        }
+        else -> 0f
+    }
+
+private fun overlayOffsetY(dragState: TabStripDragState, isDragging: Boolean, isSettling: Boolean): Float =
+    when {
+        isDragging -> dragState.dragOffsetYPx
+        isSettling -> dragState.settleOffsetYAnim.value
+        else -> 0f
+    }

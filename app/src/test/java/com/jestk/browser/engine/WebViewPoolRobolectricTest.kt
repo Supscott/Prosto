@@ -330,20 +330,20 @@ class WebViewPoolRobolectricTest {
     }
 
     @Test
-    fun buildBlobDownloadScript_generatesValidJavascriptWithQuotedParameters() {
-        val blobUrl = "blob:https://example.com/uuid-1234"
-        val maliciousDisposition = "attachment; filename=\"safe\\nInjected: True';\");\""
-        val mimeType = "application/pdf"
+    fun buildBlobDownloadScript_quotesParametersAndAddsNoGlobals() {
+        val blobUrl = "blob:https://example.com/uuid-1234\"');alert(1);//"
+        val nonce = "nonce-1234"
 
-        val js = webViewPool.buildBlobDownloadScript(blobUrl, maliciousDisposition, mimeType)
+        val js = BlobDownloadChannel.buildScript(blobUrl, nonce)
 
         val quotedUrl = org.json.JSONObject.quote(blobUrl)
-        val quotedMime = org.json.JSONObject.quote(mimeType)
-
-        // Verifies parameters are wrapped in quotes and embedded safely
+        // Parameters are embedded as JSON string literals
         assertThat(js).contains("xhr.open('GET', $quotedUrl, true);")
-        assertThat(js).contains("window.JestkBlobBridge.onBlobDownloaded($quotedUrl, reader.result,")
-        assertThat(js).contains(quotedMime)
+        assertThat(js).contains("event.data !== ${org.json.JSONObject.quote(nonce)}")
+        // The data URL goes back over the message port, not over a window bridge
+        assertThat(js).contains("port.postMessage(")
+        assertThat(js).doesNotContain("JestkBlobBridge")
+        assertThat(js).doesNotContain("window.__")
     }
 
     @Test
@@ -472,7 +472,6 @@ class WebViewPoolRobolectricTest {
             isCleanPlayerEnabledProvider = { true }
         )
 
-        assertThat(bridge.isCleanPlayerEnabled()).isTrue()
         val result = bridge.openCleanPlayer("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
         assertThat(result).isTrue()
         assertThat(requestedUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")

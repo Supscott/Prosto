@@ -40,11 +40,10 @@ data class BrowserUiState(
     // Active Viewport / Overlay
     val activeOverlay: OverlayType = OverlayType.NONE,
     val activeScreen: ScreenType = ScreenType.NONE,
-    // Web Navigation & Progress (for active tab; isolated per tab by TabCoordinator)
+    // Web Navigation (for active tab; isolated per tab by TabCoordinator)
     val currentUrl: String = "",
     val pageTitle: String = "",
     val isLoading: Boolean = false,
-    val loadingProgress: Float = 0f,
     val canGoBack: Boolean = false,
     val canGoForward: Boolean = false,
     // Search Overlay State
@@ -75,7 +74,7 @@ data class BrowserUiState(
     // Media & Fullscreen
     val isVideoPlaying: Boolean = false,
     val isFullscreenCustomView: Boolean = false,
-    val fullscreenCustomView: android.view.View? = null,
+    val hasFullscreenCustomView: Boolean = false,
     val fullscreenRequestedOrientation: Int = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED,
     val linkContextMenuUrl: String? = null,
     val selectedImageUrl: String? = null,

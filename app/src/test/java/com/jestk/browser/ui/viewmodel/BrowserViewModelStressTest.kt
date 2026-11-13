@@ -388,7 +388,7 @@ class BrowserViewModelStressTest {
         viewModel.onEvent(BrowserUiEvent.OnPageStarted(tab1Id, "https://jestk.com"))
         viewModel.onEvent(BrowserUiEvent.OnProgressChanged(tab1Id, 50))
         assertThat(viewModel.uiState.value.currentUrl).isEqualTo("https://jestk.com")
-        assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(0.5f)
+        assertThat(viewModel.loadingProgress.value).isEqualTo(0.5f)
         assertThat(viewModel.uiState.value.isLoading).isTrue()
 
         // Background Tab 2 receives web events
@@ -399,7 +399,7 @@ class BrowserViewModelStressTest {
         // Active foreground tab state MUST remain untouched
         assertThat(viewModel.uiState.value.activeTabId).isEqualTo(tab1Id)
         assertThat(viewModel.uiState.value.currentUrl).isEqualTo("https://jestk.com")
-        assertThat(viewModel.uiState.value.loadingProgress).isEqualTo(0.5f)
+        assertThat(viewModel.loadingProgress.value).isEqualTo(0.5f)
         assertThat(viewModel.uiState.value.isLoading).isTrue()
 
         // But Background tab MUST have its changes saved in database

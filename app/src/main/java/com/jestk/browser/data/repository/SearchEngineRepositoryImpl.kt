@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -64,9 +66,8 @@ class SearchEngineRepositoryImpl(
         if (existing != null) {
             searchEngineDao.update(engine.toEntity())
         } else {
-            val count = searchEngineDao.getCount()
-            val engineWithPos = if (engine.orderPosition == 0 && count > 0) {
-                engine.copy(orderPosition = count)
+            val engineWithPos = if (engine.orderPosition == 0) {
+                engine.copy(orderPosition = searchEngineDao.nextOrderPosition())
             } else {
                 engine
             }
@@ -96,7 +97,7 @@ class SearchEngineRepositoryImpl(
             val existingIds = existing.map { it.id }.toSet()
             val missing = SearchEngine.DEFAULT_ENGINES.filter { it.id !in existingIds }
             if (missing.isNotEmpty()) {
-                val startPos = existing.size
+                val startPos = searchEngineDao.nextOrderPosition()
                 val toInsert = missing.mapIndexed { idx, engine ->
                     engine.copy(orderPosition = startPos + idx).toEntity()
                 }
@@ -109,7 +110,7 @@ class SearchEngineRepositoryImpl(
                     val fallback = SearchEngine.DEFAULT_ENGINES.firstOrNull { it.id == entity.id }?.iconUrl
                         ?: FaviconManager.extractFallbackFaviconUrl(entity.searchUrlTemplate)
                     if (fallback != null) {
-                        searchEngineDao.update(entity.copy(iconUrl = fallback))
+                        searchEngineDao.updateIconUrl(entity.id, fallback)
                     }
                 }
             }
@@ -122,7 +123,14 @@ class SearchEngineRepositoryImpl(
         }
     }
 
+    /** Every save and delete starts a download pass; one at a time keeps them from writing the same temp file. */
+    private val downloadIconsMutex = Mutex()
+
     suspend fun downloadIcons(ctx: Context) = withContext(ioDispatcher) {
+        downloadIconsMutex.withLock { downloadMissingIcons(ctx) }
+    }
+
+    private suspend fun downloadMissingIcons(ctx: Context) {
         try {
             val allEngines = searchEngineDao.getAllSearchEngines().map { it.toDomain() }
             for (engine in allEngines) {
@@ -136,7 +144,7 @@ class SearchEngineRepositoryImpl(
                 val localFilePath = SearchEngineIconDownloader.downloadIconForEngine(ctx, engine)
                 if (localFilePath != null) {
                     val fileUri = "file://$localFilePath"
-                    searchEngineDao.update(engine.copy(iconUrl = fileUri).toEntity())
+                    searchEngineDao.updateIconUrl(engine.id, fileUri)
                 }
             }
         } catch (e: kotlinx.coroutines.CancellationException) {

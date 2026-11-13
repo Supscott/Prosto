@@ -21,6 +21,7 @@ internal class PageEvents(
     private val tabThemeColors = ctx.tabThemeColors
     private val getCurrentState = ctx.getCurrentState
     private val updateUiState = ctx.updateUiState
+    private val setLoadingProgress = ctx.setLoadingProgress
     private val emitNavigation = ctx.emitNavigation
     private val scope = ctx.scope
     private val ioDispatcher = ctx.ioDispatcher
@@ -48,13 +49,13 @@ internal class PageEvents(
                     currentUrl = "",
                     pageTitle = "",
                     isLoading = false,
-                    loadingProgress = 0f,
                     isMenuExpanded = false,
                     isSearchEngineSwitcherEditExpanded = false,
                     activeOverlay = OverlayType.HOME,
                     homeHoldTabId = null,
                 )
             }
+            setLoadingProgress(0f)
             scope.launch(ioDispatcher) {
                 tabRepository.updateTabDetails(activeId, "", "", canGoBack = false, canGoForward = false)
                 tabRepository.updateFavicon(activeId, null)
@@ -91,7 +92,6 @@ internal class PageEvents(
                 pageTitle = finalUrl,
                 settings = if (matchedShortcutEngine != null) it.settings.copy(searchEngine = matchedShortcutEngine) else it.settings,
                 isLoading = true,
-                loadingProgress = 0.1f,
                 awaitingFirstPaintTabIds = if (startsFromHome) it.awaitingFirstPaintTabIds + activeId else it.awaitingFirstPaintTabIds,
                 homeHoldTabId = if (startsFromHome) activeId else null,
                 activeThemeColor = tabThemeColors[activeId] ?: it.tabs.find { tab -> tab.id == activeId }?.themeColor,
@@ -101,6 +101,7 @@ internal class PageEvents(
                 activeOverlay = OverlayType.NONE,
             )
         }
+        setLoadingProgress(0.1f)
         scope.launch(ioDispatcher) {
             tabRepository.updateTabDetails(activeId, finalUrl, finalUrl, canGoBack = false, canGoForward = false)
             if (newFavicon != currentTab?.faviconUrl) {
@@ -138,6 +139,7 @@ internal class PageEvents(
             timedOutExternalAppDomains[tabId]?.clear()
         }
 
+        var isActiveTab = false
         updateUiState { state ->
             val updatedTabs = state.tabs.map { tab ->
                 if (tab.id == tabId) {
@@ -148,7 +150,8 @@ internal class PageEvents(
                     )
                 } else tab
             }
-            if (state.activeTabId == tabId) {
+            isActiveTab = state.activeTabId == tabId
+            if (isActiveTab) {
                 val isPromptForCurrentNavigation = state.externalAppPrompt?.let { prompt ->
                     isSameDomain(prompt.domain, url) ||
                         isSameDomain(prompt.intentUri, url) ||
@@ -163,7 +166,6 @@ internal class PageEvents(
                     currentUrl = url,
                     pageTitle = if (shouldResetTitle) "" else state.pageTitle,
                     isLoading = true,
-                    loadingProgress = 0.15f,
                     isBottomBarVisible = true,
                     externalAppPrompt = if (sameDomain || isPromptForCurrentNavigation) state.externalAppPrompt else null,
                 )
@@ -171,6 +173,7 @@ internal class PageEvents(
                 state.copy(tabs = updatedTabs)
             }
         }
+        if (isActiveTab) setLoadingProgress(0.15f)
         if (shouldResetTitle) {
             scope.launch(ioDispatcher) {
                 tabRepository.updateTabDetails(
@@ -194,22 +197,24 @@ internal class PageEvents(
         Log.d(TAG, "Page finished in tab $tabId: $url")
         tabLoadingProgress[tabId] = 100
         val displayTitle = title.ifEmpty { url }
+        var isActiveTab = false
         updateUiState { state ->
             val updatedTabs = state.tabs.map { tab ->
                 if (tab.id == tabId) tab.copy(url = url, title = displayTitle) else tab
             }
-            if (state.activeTabId == tabId) {
+            isActiveTab = state.activeTabId == tabId
+            if (isActiveTab) {
                 state.copy(
                     tabs = updatedTabs,
                     currentUrl = url,
                     pageTitle = displayTitle,
                     isLoading = false,
-                    loadingProgress = 1.0f,
                 )
             } else {
                 state.copy(tabs = updatedTabs)
             }
         }
+        if (isActiveTab) setLoadingProgress(1.0f)
         scope.launch(ioDispatcher) {
             val tab = tabRepository.getTabById(tabId)
             tabRepository.updateTabDetails(
@@ -281,12 +286,8 @@ internal class PageEvents(
     fun handleProgressChanged(tabId: String, progress: Int) {
         tabLoadingProgress[tabId] = progress
         if (getCurrentState().activeTabId == tabId) {
-            updateUiState {
-                it.copy(
-                    loadingProgress = (progress / 100f).coerceIn(0f, 1f),
-                    isLoading = progress < 100,
-                )
-            }
+            updateUiState { it.copy(isLoading = progress < 100) }
+            setLoadingProgress((progress / 100f).coerceIn(0f, 1f))
         }
     }
 

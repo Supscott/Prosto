@@ -164,6 +164,22 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
                 .collect { applyAppNightMode(it) }
         }
 
+        // Android 12+ enters PiP by itself on the swipe home (smoother than onUserLeaveHint),
+        // as long as auto-enter is on while a video plays.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            lifecycleScope.launch {
+                viewModel.uiState
+                    .map { it.isVideoPlaying || it.isFullscreenCustomView }
+                    .distinctUntilChanged()
+                    .collect { isVideoActive ->
+                        try {
+                            setPictureInPictureParams(pipParams(autoEnter = isVideoActive))
+                        } catch (_: Exception) {
+                        }
+                    }
+            }
+        }
+
         setContent {
             val vibration =
                 remember {
@@ -224,21 +240,23 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
 
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
-        // Enter Android System PiP if video is active when leaving app
+        // Enter Android System PiP if video is active when leaving app (Android 12+ auto-enters).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return
         if (viewModel.uiState.value.isVideoPlaying || viewModel.uiState.value.isFullscreenCustomView) {
             enterPipMode()
         }
     }
 
+    private fun pipParams(autoEnter: Boolean): PictureInPictureParams {
+        val builder = PictureInPictureParams.Builder().setAspectRatio(Rational(16, 9))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) builder.setAutoEnterEnabled(autoEnter)
+        return builder.build()
+    }
+
     private fun enterPipMode() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             try {
-                val params =
-                    PictureInPictureParams
-                        .Builder()
-                        .setAspectRatio(Rational(16, 9))
-                        .build()
-                enterPictureInPictureMode(params)
+                enterPictureInPictureMode(pipParams(autoEnter = false))
             } catch (e: Exception) {
                 try {
                     @Suppress("DEPRECATION")

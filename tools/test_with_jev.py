@@ -24,7 +24,7 @@ def load_api_key():
     if key:
         return key
 
-    env_paths = [ROOT / ".env", Path("/Users/ilya/CODING/browser/.env")]
+    env_paths = [ROOT / ".env"]
     for env_path in env_paths:
         if env_path.exists():
             for line in env_path.read_text(encoding="utf-8").splitlines():

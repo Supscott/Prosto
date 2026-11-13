@@ -54,7 +54,6 @@
     <string name="external_app_open_in">Open in %1$s</string>
     <string name="external_app_open_generic">Open in app</string>
     <string name="external_app_open_action">Open</string>
-    <string name="settings_section_interaction">INTERACTION</string>
     <string name="settings_section_appearance">APPEARANCE</string>
     <string name="settings_section_general">GENERAL</string>
     <string name="settings_section_search">SEARCH</string>
@@ -83,8 +82,6 @@
     <string name="clean_player_restricted_summary">The owner has disabled playback on other websites. Open on YouTube to watch.</string>
     <string name="clean_player_setting_title">Clean YouTube Player</string>
     <string name="clean_player_setting_summary">Automatically open YouTube videos in a clean player</string>
-    <string name="clean_player_fab_label">Clean player</string>
-    <string name="clean_player_fab_content_desc">Open in clean player</string>
     <string name="privacy_status_protected">Protected</string>
     <string name="about_app_website_title">Prosto Web Browser</string>
     <string name="about_app_website_summary">Fast, fluid, and gesture-driven</string>

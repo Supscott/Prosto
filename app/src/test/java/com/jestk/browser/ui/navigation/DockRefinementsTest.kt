@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -99,7 +102,6 @@ class DockRefinementsTest {
             currentUrl = "https://example.com",
             pageTitle = "Example Domain",
             isLoading = true,
-            loadingProgress = 0.45f,
             tabs = listOf(
                 Tab(id = "1", url = "https://example.com", title = "Example Domain", isActive = true),
                 Tab(id = "2", url = "https://github.com", title = "GitHub", isActive = false),
@@ -111,17 +113,19 @@ class DockRefinementsTest {
         val composeView = ComposeView(activity).apply {
             setContent {
                 JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(100.dp)
-                            .background(Color(0xFFF1F5F9)),
-                        contentAlignment = Alignment.BottomCenter
-                    ) {
-                        UnifiedBottomBar(
-                            uiState = sampleState,
-                            onEvent = {}
-                        )
+                    CompositionLocalProvider(LocalLoadingProgress provides remember { mutableFloatStateOf(0.45f) }) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(100.dp)
+                                .background(Color(0xFFF1F5F9)),
+                            contentAlignment = Alignment.BottomCenter
+                        ) {
+                            UnifiedBottomBar(
+                                uiState = sampleState,
+                                onEvent = {}
+                            )
+                        }
                     }
                 }
             }

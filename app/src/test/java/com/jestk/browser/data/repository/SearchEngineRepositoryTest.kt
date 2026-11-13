@@ -117,6 +117,40 @@ class SearchEngineRepositoryTest {
     }
 
     @Test
+    fun saveSearchEngine_afterDelete_getsAPositionNoOtherEngineHas() = runTest {
+        repository.ensureDefaultEnginesSeeded()
+        repository.deleteSearchEngine("brave")
+        val custom = SearchEngine(
+            id = "custom_wiki",
+            displayName = "Wikipedia",
+            searchUrlTemplate = "https://en.wikipedia.org/w/index.php?search=%s",
+            iconUrl = "https://en.wikipedia.org/favicon.ico",
+            shortcut = "w",
+        )
+        repository.saveSearchEngine(custom)
+
+        val engines = repository.getSearchEngines().first()
+        val positions = engines.map { it.orderPosition }
+        assertThat(positions).containsNoDuplicates()
+        assertThat(engines.last().id).isEqualTo("custom_wiki")
+    }
+
+    @Test
+    fun updateIconUrl_keepsAReorderMadeMeanwhile() = runTest {
+        repository.ensureDefaultEnginesSeeded()
+        val dao = db.searchEngineDao()
+        val staleGoogle = dao.getSearchEngineById("google")!!
+        dao.updatePosition("google", 5)
+        dao.updatePosition("startpage", 0)
+
+        dao.updateIconUrl(staleGoogle.id, "file:///icons/engine_google.png")
+
+        val google = dao.getSearchEngineById("google")!!
+        assertThat(google.orderPosition).isEqualTo(5)
+        assertThat(google.iconUrl).isEqualTo("file:///icons/engine_google.png")
+    }
+
+    @Test
     fun downloadIcons_whenScopeCancelled_rethrowsCancellationException() = runTest {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val job = kotlinx.coroutines.Job()

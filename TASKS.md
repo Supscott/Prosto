@@ -12,6 +12,10 @@ task when it is done: `git log` is the history. Keep this file under 40 lines.
 - `tools/smoke.sh`: add a tab switch through the dock, Back from the back/forward cache, and pull-to-refresh. Needs a phone to find the dock coordinates for `device.sh tap`.
 - `QUERY_ALL_PACKAGES` (PRO-14/15): Play Console needs a declaration for it (browser use case); fill it in before the next store release.
 - The global rtk hook makes auto mode resend rewritten commands once; keep it or remove it after a few sessions of use.
+- BUG-04 (`TECH_DEBT_AUDIT.md`): smoke steps 4/4b fail with many tabs, also on `02b1b0f`. After Back from an external-link tab, reopening shows an older tab instead of the previous external one.
+- BUG-05: blob downloads lose the `a[download]` filename. Send it back over `BlobDownloadChannel`.
+- Split `TabOverviewGrid.kt` (891 lines): its 575-line composable needs new sub-composable boundaries, so it is not a move-only job. Split `BrowserViewModelTest`/`TabCoordinatorTest` by handler (TEST-01).
+- PiP: add `setSourceRectHint` from the fullscreen video bounds (lint `PictureInPictureIssue`).
 - Tutorial scenes (`Tutorial*Scene.kt`): check the motion on a phone; the dock and folder story texts still mention reorder and "New folder", which the scenes do not show.
 - Feedback card now shows on Home only after the tutorial is done; move it to a bottom sheet after N days or a successful action.
 

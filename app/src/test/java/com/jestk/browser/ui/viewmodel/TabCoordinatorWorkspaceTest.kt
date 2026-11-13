@@ -53,6 +53,7 @@ class TabCoordinatorWorkspaceTest {
     private lateinit var recentTabRepo: RecentTabRepositoryImpl
 
     private var uiState = BrowserUiState()
+    private var loadingProgress = 0f
     private val tabThemeColors = ConcurrentHashMap<String, Int>()
     private val tabLoadingProgress = ConcurrentHashMap<String, Int>()
     private val tabMutex = Mutex()
@@ -86,6 +87,8 @@ class TabCoordinatorWorkspaceTest {
             getCurrentState = { uiState },
             updateUiState = { transform -> uiState = transform(uiState) },
             emitNavigation = { navigationCommands.add(it) },
+            getLoadingProgress = { loadingProgress },
+            setLoadingProgress = { loadingProgress = it },
             scope = testScope,
             ioDispatcher = testDispatcher,
             tabLoadingProgress = tabLoadingProgress,

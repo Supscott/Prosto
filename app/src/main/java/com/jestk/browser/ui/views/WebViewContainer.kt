@@ -233,7 +233,7 @@ fun WebViewContainer(
                             val isBlocked = currentUiState.isLoading ||
                                     currentUiState.isVideoPlaying ||
                                     currentUiState.isFullscreenCustomView ||
-                                    currentUiState.fullscreenCustomView != null
+                                    currentUiState.hasFullscreenCustomView
 
                             if (isBlocked) {
                                 true
@@ -287,7 +287,7 @@ fun WebViewContainer(
                     webViewPool.isCleanPlayerEnabled = { uiState.settings.isCleanYouTubePlayerEnabled }
                     val isBlocked = uiState.isVideoPlaying ||
                             uiState.isFullscreenCustomView ||
-                            uiState.fullscreenCustomView != null
+                            uiState.hasFullscreenCustomView
 
                     (swipeRefresh as? JestkSwipeRefreshLayout)?.syncWithPageLoading(uiState.isLoading)
                     swipeRefresh.isEnabled = !isBlocked && !isHome

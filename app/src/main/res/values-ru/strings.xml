@@ -54,7 +54,6 @@
     <string name="external_app_open_in">Открыть в %1$s</string>
     <string name="external_app_open_generic">Открыть в приложении</string>
     <string name="external_app_open_action">Открыть</string>
-    <string name="settings_section_interaction">ВЗАИМОДЕЙСТВИЕ</string>
     <string name="settings_section_appearance">ВНЕШНИЙ ВИД</string>
     <string name="settings_section_general">ОБЩИЕ</string>
     <string name="settings_section_search">ПОИСК</string>
@@ -83,8 +82,6 @@
     <string name="clean_player_restricted_summary">Автор запретил просмотр этого видео на сторонних сайтах. Откройте его на YouTube.</string>
     <string name="clean_player_setting_title">Чистый плеер YouTube</string>
     <string name="clean_player_setting_summary">Автоматически открывать видео YouTube в чистом плеере</string>
-    <string name="clean_player_fab_label">Чистый плеер</string>
-    <string name="clean_player_fab_content_desc">Открыть в чистом плеере</string>
     <string name="privacy_status_protected">Защищено</string>
     <string name="about_app_website_title">Браузер Prosto</string>
     <string name="about_app_website_summary">Быстрый, плавный и управляемый жестами</string>

@@ -190,7 +190,8 @@ class VideoFullscreenSwipeTest {
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.isFullscreenCustomView).isTrue()
-        assertThat(viewModel.uiState.value.fullscreenCustomView).isSameInstanceAs(dummyView)
+        assertThat(viewModel.uiState.value.hasFullscreenCustomView).isTrue()
+        assertThat(viewModel.fullscreenCustomView.value).isSameInstanceAs(dummyView)
         assertThat(viewModel.uiState.value.fullscreenRequestedOrientation)
             .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE)
 
@@ -199,7 +200,8 @@ class VideoFullscreenSwipeTest {
         advanceUntilIdle()
 
         assertThat(viewModel.uiState.value.isFullscreenCustomView).isFalse()
-        assertThat(viewModel.uiState.value.fullscreenCustomView).isNull()
+        assertThat(viewModel.uiState.value.hasFullscreenCustomView).isFalse()
+        assertThat(viewModel.fullscreenCustomView.value).isNull()
         assertThat(viewModel.uiState.value.fullscreenRequestedOrientation)
             .isEqualTo(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED)
     }

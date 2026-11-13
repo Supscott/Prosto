@@ -15,7 +15,7 @@ object SearchEngineIconDownloader {
     private const val READ_TIMEOUT_SECONDS = 6L
 
     private val httpClient: OkHttpClient by lazy {
-        OkHttpClient.Builder()
+        HttpClients.root.newBuilder()
             .connectTimeout(CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .readTimeout(READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .followRedirects(true)
@@ -55,21 +55,6 @@ object SearchEngineIconDownloader {
                 }
             }
             null
-        }
-
-    suspend fun downloadIcons(
-        context: Context,
-        engines: List<SearchEngine>,
-    ): Map<String, String> =
-        withContext(Dispatchers.IO) {
-            val result = mutableMapOf<String, String>()
-            for (engine in engines) {
-                val localPath = downloadIconForEngine(context, engine)
-                if (localPath != null) {
-                    result[engine.id] = localPath
-                }
-            }
-            result
         }
 
     private fun downloadToFile(

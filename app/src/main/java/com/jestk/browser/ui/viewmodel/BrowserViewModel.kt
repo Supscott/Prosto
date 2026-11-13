@@ -73,6 +73,16 @@ class BrowserViewModel(
     private val _uiState = MutableStateFlow(BrowserUiState())
     val uiState: StateFlow<BrowserUiState> = _uiState.asStateFlow()
 
+    // Updated on every page progress tick; kept out of BrowserUiState so a tick does not recompose
+    // everything that reads the state. Only the active tab pill reads it.
+    private val _loadingProgress = MutableStateFlow(0f)
+    val loadingProgress: StateFlow<Float> = _loadingProgress.asStateFlow()
+
+    // The fullscreen video View is an Android type and does not belong in BrowserUiState; the state
+    // only carries hasFullscreenCustomView.
+    private val _fullscreenCustomView = MutableStateFlow<android.view.View?>(null)
+    val fullscreenCustomView: StateFlow<android.view.View?> = _fullscreenCustomView.asStateFlow()
+
     internal val updateCoordinator =
         UpdateCoordinator(
             appUpdateManager = appUpdateManager,
@@ -133,6 +143,8 @@ class BrowserViewModel(
             getCurrentState = { _uiState.value },
             updateUiState = { transform -> _uiState.update(transform) },
             emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
+            getLoadingProgress = { _loadingProgress.value },
+            setLoadingProgress = { _loadingProgress.value = it },
             scope = viewModelScope,
             ioDispatcher = ioDispatcher,
             tabFolderRepository = tabFolderRepository,
@@ -219,6 +231,7 @@ class BrowserViewModel(
             dispatch = this::onEvent,
             getBypassCleanPlayerVideoId = { bypassCleanPlayerVideoId },
             setBypassCleanPlayerVideoId = { bypassCleanPlayerVideoId = it },
+            setFullscreenCustomView = { _fullscreenCustomView.value = it },
         )
 
     private val backPress =

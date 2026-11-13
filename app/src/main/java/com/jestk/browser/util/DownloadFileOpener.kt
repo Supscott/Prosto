@@ -68,8 +68,14 @@ object DownloadFileOpener {
                         file,
                     )
                 } catch (e: Exception) {
-                    Log.w(TAG, "FileProvider failed, falling back to Uri.fromFile", e)
-                    Uri.fromFile(file)
+                    // A file:// URI cannot leave the app on API 24+, so there is no fallback.
+                    Log.e(TAG, "FileProvider cannot share $filePath", e)
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.download_cannot_open),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                    return false
                 }
 
             val resolvedMime = DownloadFileNameResolver.resolveMimeType(fileName, mimeType)

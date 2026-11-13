@@ -20,35 +20,8 @@
         tools:ignore="QueryAllPackagesPermission" />
 
     <queries>
-        <!-- Popular external apps for deep linking and open-in-app prompts -->
-        <package android:name="com.reddit.frontpage" />
-        <package android:name="ml.docilealligator.infinityforreddit" />
-        <package android:name="com.vkontakte.android" />
-        <package android:name="com.vk.im" />
-        <package android:name="com.vk.video" />
-        <package android:name="org.telegram.messenger" />
-        <package android:name="org.thunderdog.challegram" />
-        <package android:name="com.instagram.android" />
-        <package android:name="com.google.android.youtube" />
-        <package android:name="com.google.android.apps.youtube.music" />
-        <package android:name="com.twitter.android" />
-        <package android:name="com.zhiliaoapp.musically" />
-        <package android:name="com.ss.android.ugc.trill" />
-        <package android:name="com.wildberries.ru" />
-        <package android:name="ru.ozon.app.android" />
-        <package android:name="com.avito.android" />
-        <package android:name="ru.kinopoisk" />
-        <package android:name="ru.dublgis.dgismobile" />
-        <package android:name="ru.yandex.yandexmaps" />
-        <package android:name="ru.yandex.yandexnavi" />
-        <package android:name="tv.twitch.android.app" />
-        <package android:name="com.discord" />
-        <package android:name="com.spotify.music" />
-        <package android:name="com.pinterest" />
-        <package android:name="com.linkedin.android" />
-        <package android:name="com.facebook.katana" />
-        <package android:name="com.github.android" />
-
+        <!-- Visibility does not depend on this block while QUERY_ALL_PACKAGES is granted; it
+             keeps links, store, phone and mail handoffs working in a build without it. -->
         <intent>
             <action android:name="android.intent.action.VIEW" />
             <category android:name="android.intent.category.BROWSABLE" />
@@ -83,6 +56,8 @@
     <application
         android:name=".JestkApplication"
         android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"

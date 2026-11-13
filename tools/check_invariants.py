@@ -321,6 +321,20 @@ def check_injected_script_stealth():
         for needle, why in forbidden.items():
             if needle in content:
                 errors.append(f"{file.relative_to(ROOT)}: {why} ({needle!r})")
+    # A Java bridge on a tab WebView must be taken off window by document_start.js before any
+    # page script runs, and before its challenge-page early return (review finding SEC-01).
+    pool = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "WebViewPool.kt"
+    doc_start = assets / "scripts" / "document_start.js"
+    if pool.exists() and doc_start.exists():
+        start_js = doc_start.read_text(encoding="utf-8")
+        challenge_at = start_js.find("challenges.cloudflare.com")
+        for name in re.findall(r'addJavascriptInterface\([^,]+,\s*"(\w+)"\)', pool.read_text(encoding="utf-8")):
+            delete_at = start_js.find(f"delete window.{name};")
+            if delete_at == -1 or (challenge_at != -1 and delete_at > challenge_at):
+                errors.append(
+                    f"{doc_start.relative_to(ROOT)}: must `delete window.{name};` before the challenge-page check "
+                    "(the bridge is otherwise enumerable on window)"
+                )
     for file in assets.glob("*.txt"):
         if file.name != "adblock_domains.txt":
             errors.append(f"{file.relative_to(ROOT)}: raw filter list in APK assets (keep it in tools/filterlists)")
