@@ -11,7 +11,9 @@ import com.jestk.browser.ui.overlays.FolderEditBottomSheet
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
 import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.overlays.LinkContextMenuModal
+import com.jestk.browser.ui.overlays.TutorialStoriesScreen
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
+import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
 @Composable
@@ -102,6 +104,17 @@ internal fun AppDialogs(
                 onEvent(BrowserUiEvent.DismissFeedbackPrompt)
                 onEvent(BrowserUiEvent.CloseFeedbackSheet)
             },
+        )
+    }
+
+    // Stories-style tutorial
+    if (uiState.isTutorialVisible) {
+        TutorialStoriesScreen(
+            isDark = isDark,
+            isDefaultBrowser = uiState.isDefaultBrowser,
+            onDefaultBrowserChanged = { onEvent(BrowserUiEvent.UpdateDefaultBrowserStatus(it)) },
+            onClose = { onEvent(HomeUiEvent.CloseTutorial) },
+            onComplete = { onEvent(HomeUiEvent.CompleteTutorial) },
         )
     }
 

@@ -20,9 +20,6 @@
     <string name="url_copied">URL скопирован в буфер обмена</string>
     <string name="tab_closed">Вкладка закрыта</string>
     <string name="undo">Отмена</string>
-    <string name="default_browser_prompt_title">Сделать Prosto браузером по умолчанию</string>
-    <string name="default_browser_prompt_desc">Быстрый и удобный сёрфинг с Prosto</string>
-    <string name="default_browser_prompt_button">Сделать по умолчанию</string>
     <string name="default_browser_tile_title">Браузер по умолчанию</string>
     <string name="default_browser_tile_desc">Назначить Prosto браузером по умолчанию</string>
     <string name="default_browser_tile_action">Настроить</string>
@@ -178,9 +175,7 @@
     <string name="a11y_edit_search_engines">Изменить поисковые системы</string>
     <string name="a11y_edit_search_providers">Изменить поисковые системы</string>
     <string name="search_providers_short">Поисковые системы</string>
-    <string name="a11y_voice_search">Голосовой поиск</string>
     <string name="a11y_voice_input">Голосовой ввод</string>
-    <string name="a11y_scan_qr">Сканировать QR</string>
     <string name="a11y_add_favorite">Добавить в избранное</string>
     <string name="a11y_feedback_icon">Значок обратной связи</string>
     <string name="a11y_pause_download">Приостановить загрузку</string>
@@ -192,7 +187,6 @@
     <string name="a11y_search_engine_selector">Выбор поисковой системы</string>
     <string name="a11y_insert_in_search">Вставить в поиск</string>
     <string name="home_greeting">Куда дальше?</string>
-    <string name="home_search_hint">Ищите в %1$s или введите URL</string>
     <string name="home_bookmark_tab">В закладки</string>
     <string name="home_recently_closed">Недавно закрытые</string>
     <string name="home_recent_total">Всего %1$d</string>
@@ -272,8 +266,6 @@
     <string name="toast_no_url_to_copy">Нет адреса для копирования</string>
     <string name="toast_no_url_to_share">Нет адреса, чтобы поделиться</string>
     <string name="toast_share_failed">Не удалось поделиться ссылкой</string>
-    <string name="toast_voice_input_unavailable">Голосовой ввод недоступен</string>
-    <string name="toast_qr_scanner_coming_soon">Сканер QR-кодов скоро появится</string>
     <string name="toast_preparing_download">Подготовка загрузки…</string>
     <string name="toast_download_failed_reason">Не удалось скачать: %1$s</string>
     <string name="download_notification_starting">Загрузка файла…</string>
@@ -306,4 +298,32 @@
     <string name="favorites_show_all">Всё избранное (%1$d)</string>
     <string name="privacy_stat_ads_blocked">Заблокировано рекламы</string>
     <string name="privacy_stat_trackers_stopped">Остановлено трекеров</string>
+
+    <string name="toast_voice_input_unavailable">Голосовой ввод недоступен</string>
+
+    <!-- Tutorial -->
+    <string name="home_tutorial_card_title">Знакомство с Prosto</string>
+    <string name="home_tutorial_card_desc">Минутный тур по доку, папкам и воркспейсам</string>
+    <string name="home_tutorial_card_action">Начать</string>
+    <string name="tutorial_step_a11y">Шаг %1$d из %2$d</string>
+    <string name="tutorial_close">Закрыть обучение</string>
+    <string name="tutorial_done">Готово</string>
+    <string name="tutorial_make_default">Сделать браузером по умолчанию</string>
+    <string name="tutorial_dock_title">Вкладки живут в доке</string>
+    <string name="tutorial_dock_body">Нажмите на вкладку, чтобы переключиться, листайте док, удерживайте и перетаскивайте, чтобы поменять порядок.</string>
+    <string name="tutorial_folders_title">Группируйте вкладки в папки</string>
+    <string name="tutorial_folders_body">Перетащите одну вкладку на другую или нажмите и удерживайте вкладку, затем выберите «Новая папка».</string>
+    <string name="tutorial_workspaces_title">Отдельные пространства</string>
+    <string name="tutorial_workspaces_body">Смахните док вверх, чтобы переключить воркспейс. У каждого свои вкладки, избранное и логины.</string>
+    <string name="tutorial_search_title">Переключайте поисковики</string>
+    <string name="tutorial_search_body">Листайте карусель поисковиков в строке поиска или начните запрос с префикса, например g или d.</string>
+    <string name="tutorial_protection_title">Блокировка до загрузки</string>
+    <string name="tutorial_protection_body">Реклама и трекеры блокируются по умолчанию. Статистика появится на главной.</string>
+    <string name="tutorial_default_title">Сделайте Prosto основным</string>
+    <string name="tutorial_default_body">Ссылки из других приложений будут открываться сразу в Prosto.</string>
+    <string name="tutorial_mock_default_browser_app">Браузер по умолчанию</string>
+    <string name="settings_tutorial_title">Обучение</string>
+    <string name="settings_tutorial_summary">Пройти знакомство с Prosto ещё раз</string>
+    <string name="settings_home_privacy_card_title">Статистика защиты на главной</string>
+    <string name="settings_home_privacy_card_summary">Показывать заблокированную рекламу и трекеры, когда они появятся</string>
 </resources>

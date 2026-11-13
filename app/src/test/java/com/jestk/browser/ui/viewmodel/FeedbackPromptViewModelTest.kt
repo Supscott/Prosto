@@ -158,4 +158,52 @@ class FeedbackPromptViewModelTest {
 
             assertThat(viewModel.uiState.value.isFeedbackSheetVisible).isFalse()
         }
+
+    @Test
+    fun tutorial_opensClosesAndCompletesWithPersistence() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.settings.isTutorialCompleted).isFalse()
+
+            viewModel.onEvent(HomeUiEvent.OpenTutorial)
+            assertThat(viewModel.uiState.value.isTutorialVisible).isTrue()
+            viewModel.onEvent(HomeUiEvent.CloseTutorial)
+            assertThat(viewModel.uiState.value.isTutorialVisible).isFalse()
+            assertThat(viewModel.uiState.value.settings.isTutorialCompleted).isFalse()
+
+            viewModel.onEvent(HomeUiEvent.OpenTutorial)
+            viewModel.onEvent(HomeUiEvent.CompleteTutorial)
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.isTutorialVisible).isFalse()
+            assertThat(viewModel.uiState.value.settings.isTutorialCompleted).isTrue()
+            assertThat(settingsRepo.getCurrentSettings().isTutorialCompleted).isTrue()
+        }
+
+    @Test
+    fun dismissTutorialCard_persistsCompleted() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onEvent(HomeUiEvent.DismissTutorialCard)
+            advanceUntilIdle()
+
+            assertThat(settingsRepo.getCurrentSettings().isTutorialCompleted).isTrue()
+        }
+
+    @Test
+    fun homePrivacyCardToggle_persists() =
+        runTest(testDispatcher) {
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.settings.isHomePrivacyCardEnabled).isTrue()
+
+            viewModel.onEvent(HomeUiEvent.SetHomePrivacyCardEnabled(false))
+            advanceUntilIdle()
+
+            assertThat(viewModel.uiState.value.settings.isHomePrivacyCardEnabled).isFalse()
+            assertThat(settingsRepo.getCurrentSettings().isHomePrivacyCardEnabled).isFalse()
+        }
 }

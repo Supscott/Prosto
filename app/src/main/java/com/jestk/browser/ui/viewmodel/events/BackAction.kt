@@ -3,6 +3,7 @@ package com.jestk.browser.ui.viewmodel.events
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.ScreenType
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
+import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
 /** What a system Back press does in a given [BrowserUiState]; see [resolveBackPress]. */
@@ -44,6 +45,7 @@ internal sealed interface BackAction {
 internal fun resolveBackPress(state: BrowserUiState): BackAction {
     when {
         state.cleanPlayerVideoId != null -> return BackAction.Dispatch(BrowserUiEvent.CloseCleanPlayer)
+        state.isTutorialVisible -> return BackAction.Dispatch(HomeUiEvent.CloseTutorial)
         state.isFeedbackSheetVisible -> return BackAction.Dispatch(BrowserUiEvent.CloseFeedbackSheet)
         state.isFolderSheetVisible -> return BackAction.Dispatch(BrowserUiEvent.DismissFolderSheet)
         state.insecureHttpPrompt != null -> return BackAction.Dispatch(BrowserUiEvent.DismissInsecureHttpWarning)

@@ -19,4 +19,6 @@ object SettingKeys {
     const val CLEAN_PLAYER_FORCED_OFF_V1 = "clean_player_forced_off_v1"
     const val FEEDBACK_PROMPT_STATE = "feedback_prompt_state"
     const val FEEDBACK_PROMPT_SNOOZED_UNTIL = "feedback_prompt_snoozed_until"
+    const val HOME_PRIVACY_CARD_ENABLED = "home_privacy_card_enabled"
+    const val TUTORIAL_COMPLETED = "tutorial_completed"
 }

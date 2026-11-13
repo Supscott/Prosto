@@ -12,6 +12,8 @@ task when it is done: `git log` is the history. Keep this file under 40 lines.
 - `tools/smoke.sh`: add a tab switch through the dock, Back from the back/forward cache, and pull-to-refresh. Needs a phone to find the dock coordinates for `device.sh tap`.
 - `QUERY_ALL_PACKAGES` (PRO-14/15): Play Console needs a declaration for it (browser use case); fill it in before the next store release.
 - The global rtk hook makes auto mode resend rewritten commands once; keep it or remove it after a few sessions of use.
+- Tutorial scenes (`Tutorial*Scene.kt`): check the motion on a phone; the dock and folder story texts still mention reorder and "New folder", which the scenes do not show.
+- Feedback card now shows on Home only after the tutorial is done; move it to a bottom sheet after N days or a successful action.
 
 ## Blocked
 <!-- - Task — what it waits for -->

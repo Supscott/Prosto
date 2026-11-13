@@ -40,6 +40,10 @@ interface SettingsRepository {
 
     suspend fun snoozeFeedbackPrompt(snoozedUntil: Long) {}
 
+    suspend fun setHomePrivacyCardEnabled(enabled: Boolean) {}
+
+    suspend fun setTutorialCompleted(completed: Boolean) {}
+
     fun getBlockedAdsCount(): Flow<Long>
 
     fun getBlockedTrackersCount(): Flow<Long>

@@ -117,6 +117,16 @@ class SettingsRepositoryImpl(
             settingDao.setSetting(SettingEntity(SettingKeys.FEEDBACK_PROMPT_SNOOZED_UNTIL, snoozedUntil.toString()))
         }
 
+    override suspend fun setHomePrivacyCardEnabled(enabled: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.HOME_PRIVACY_CARD_ENABLED, enabled.toString()))
+        }
+
+    override suspend fun setTutorialCompleted(completed: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.TUTORIAL_COMPLETED, completed.toString()))
+        }
+
     override fun getBlockedAdsCount(): Flow<Long> =
         settingDao
             .getSettingFlow(SettingKeys.KEY_BLOCKED_ADS_COUNT)

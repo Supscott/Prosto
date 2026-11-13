@@ -52,6 +52,7 @@ import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
+import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.DefaultBrowserHelper
 import com.jestk.browser.util.VibrationFeedback
@@ -241,6 +242,21 @@ internal fun SettingsPrivacySection(
             summary = stringResource(R.string.tracking_protection_summary),
             checked = uiState.settings.isTrackingProtectionEnabled,
             onCheckedChange = { onEvent(BrowserUiEvent.SetTrackingProtectionEnabled(it)) },
+            isDark = isDark,
+        )
+
+        HorizontalDivider(
+            color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+            modifier = Modifier.padding(start = 56.dp),
+        )
+
+        // Home protection stats card
+        SettingToggleRow(
+            icon = Icons.Default.Shield,
+            title = stringResource(R.string.settings_home_privacy_card_title),
+            summary = stringResource(R.string.settings_home_privacy_card_summary),
+            checked = uiState.settings.isHomePrivacyCardEnabled,
+            onCheckedChange = { onEvent(HomeUiEvent.SetHomePrivacyCardEnabled(it)) },
             isDark = isDark,
         )
 

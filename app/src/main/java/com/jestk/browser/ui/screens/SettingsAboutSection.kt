@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,6 +38,7 @@ import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
+import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
 @Composable
@@ -56,6 +58,20 @@ internal fun SettingsAboutSection(
             summary = stringResource(R.string.update_setting_summary),
             checked = uiState.settings.isAutoUpdateEnabled,
             onCheckedChange = { onEvent(BrowserUiEvent.SetAutoUpdateEnabled(it)) },
+            isDark = isDark,
+        )
+
+        HorizontalDivider(
+            color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+            modifier = Modifier.padding(start = 56.dp),
+        )
+
+        // Replay the tour
+        HyperlinkRow(
+            icon = Icons.Default.School,
+            title = stringResource(R.string.settings_tutorial_title),
+            subtitle = stringResource(R.string.settings_tutorial_summary),
+            onClick = { onEvent(HomeUiEvent.OpenTutorial) },
             isDark = isDark,
         )
 

@@ -16,6 +16,8 @@ data class BrowserSettings(
     val isGrayUnloadedTabsEnabled: Boolean = true,
     val feedbackPromptState: FeedbackPromptState = FeedbackPromptState.VISIBLE,
     val feedbackPromptSnoozedUntil: Long = 0L,
+    val isHomePrivacyCardEnabled: Boolean = true,
+    val isTutorialCompleted: Boolean = false,
 ) {
     val isAutoConsentEnabled: Boolean
         get() = autoConsentEnabled

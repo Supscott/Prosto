@@ -84,6 +84,7 @@ data class BrowserUiState(
     val isDefaultBrowser: Boolean = true,
     val isFeedbackCardVisible: Boolean = true,
     val isFeedbackSheetVisible: Boolean = false,
+    val isTutorialVisible: Boolean = false,
     val isFolderSheetVisible: Boolean = false,
     val folderSheetTargetTabId: String? = null,
     val folderSheetEditingFolderId: String? = null,
