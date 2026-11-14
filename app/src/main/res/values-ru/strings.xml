@@ -113,6 +113,10 @@
     <string name="insecure_site_go_back_button">Назад</string>
     <string name="blocked_ad_navigation_proceed">Перейти</string>
     <string name="blocked_ad_navigation_stay">Остаться</string>
+    <string name="blocked_document_title">Страница заблокирована</string>
+    <string name="blocked_document_body">Prosto заблокировал эту страницу: она есть в списке рекламы или трекеров.</string>
+    <string name="blocked_document_go_back">Назад</string>
+    <string name="blocked_document_proceed">Всё равно открыть</string>
     <string name="external_app_confirm_title">Открыть в другом приложении</string>
     <string name="external_app_confirm_message">Выйти из Prosto, чтобы посмотреть этот контент?</string>
     <string name="external_app_confirm_open">Открыть</string>

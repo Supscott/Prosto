@@ -10,6 +10,7 @@ import com.jestk.browser.engine.WindowTransportHandler
 import com.jestk.browser.ui.FileChooserHandler
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.ShowBlockedDocument
 import com.jestk.browser.ui.viewmodel.isSameDomain
 import com.jestk.browser.util.UrlSecurityUtils
 import com.jestk.browser.util.YouTubeUrlHelper
@@ -66,7 +67,13 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
         onCleanPlayerRequested = { url -> openCleanPlayerIfIntercepted(url, deps) },
         onBlockedAdNavigation = { id, url -> onEvent(BrowserUiEvent.ShowBlockedAdNavigation(url = url, tabId = id)) },
         isAdRedirectProtectionEnabled = { deps.uiState().settings.isAdRedirectProtectionEnabled },
-        isAllowedAdNavigation = { url -> deps.uiState().allowedAdNavigationUrls.contains(url) },
+        onBlockedDocument = { id, url ->
+            deps.scope.launch { onEvent(ShowBlockedDocument(url = url, tabId = id)) }
+        },
+        isAllowedAdNavigation = { url ->
+            val host = UrlSecurityUtils.extractHost(url)
+            deps.uiState().allowedAdNavigationUrls.any { it == url || (host.isNotEmpty() && UrlSecurityUtils.extractHost(it) == host) }
+        },
         isAutoConsentEnabled = { deps.uiState().settings.autoConsentEnabled },
         onRenderProcessGone = { id -> deps.webViewPool.discardCrashedWebView(id) },
         onFirstVisibleFrame = { id -> deps.webViewPool.markFirstPaint(id) },

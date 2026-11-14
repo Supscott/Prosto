@@ -82,7 +82,7 @@ class JestkWebViewClientTest {
             override fun isRedirect(): Boolean = false
             override fun hasGesture(): Boolean = false
             override fun getMethod(): String = "GET"
-            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+            override fun getRequestHeaders(): Map<String, String> = mapOf("Referer" to "https://news.example/")
         }
 
         val adResponse = client.shouldInterceptRequest(null, adRequest)
@@ -96,7 +96,7 @@ class JestkWebViewClientTest {
             override fun isRedirect(): Boolean = false
             override fun hasGesture(): Boolean = false
             override fun getMethod(): String = "GET"
-            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+            override fun getRequestHeaders(): Map<String, String> = mapOf("Referer" to "https://news.example/")
         }
 
         val trackerResponse = client.shouldInterceptRequest(null, trackerRequest)
