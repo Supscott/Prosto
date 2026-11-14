@@ -35,11 +35,16 @@ alignment >= 0x4000 (`llvm-readelf -l`). Prerequisites: rustup with the three An
 ## Thread safety
 
 With default features off, `Engine` is `Send + Sync`; `core.rs` asserts it at compile time
-(`assert_send_sync::<Engine>()`), and `engine_is_shareable_across_threads` exercises it. No Mutex is
-used. Rules for the Kotlin caller:
+(`assert_send_sync::<Engine>()`). But adblock-rust holds one `std::sync::Mutex` (its regex manager)
+for a whole network check, so concurrent checks run one at a time anyway. On a Motorola Edge 60
+Fusion, four threads hammering one engine took a 27 us check to p50 2.3 ms / p99 8.7 ms: a contended
+futex parks and wakes threads far slower than the check itself. Each handle therefore holds a
+`core::Guarded` engine, a spin-then-yield lock in front of the engine; with it the same run is
+p50 88 us / p99 377 us, close to plain queueing (pinned by `guarded_engine_serves_concurrent_callers_correctly`).
+Rules for the Kotlin caller:
 
 - `checkRequest`, `checkRequestRedirect`, `urlCosmeticResources`, `hiddenClassIdSelectors` and
-  `serialize` take `&Engine` and may run concurrently from any thread.
+  `serialize` may be called from any thread; they serialise on the handle's guard.
 - `useResources` takes `&mut Engine`: call it right after create/deserialize, before the handle is
   shared. `destroy` must not race with any other call (Kotlin holds a write lock).
 
@@ -76,18 +81,16 @@ adblock-rust has no popup request type, so `||host^$popup` never matches a `docu
 (pinned by `popup_option_does_not_block_document_requests`). Popup blocking needs the Kotlin host
 set from CB-04/CB-11.
 
-## Sizes (stripped, LTO, `opt-level = "z"`, 16 KB aligned)
+## Sizes (stripped, LTO, `opt-level = 3`, 16 KB aligned)
 
 | ABI | bytes |
 | --- | --- |
-| arm64-v8a | 2,792,624 |
-| armeabi-v7a | 1,896,392 |
-| x86_64 | 3,156,264 |
+| arm64-v8a | 3,260,256 |
+| armeabi-v7a | 2,216,376 |
+| x86_64 | 3,443,016 |
 
-`opt-level = 3` gives 3.1 MB on arm64 (+11%). Host release timing of `check_network_request`, 10k
-URLs against EasyList only (Apple Silicon): `z` p50 6 us / p99 9 us, `3` p50 2 us / p99 4 us;
-compile of EasyList 110 ms vs 53 ms. `z` was kept: both are far below WebView's per-request
-overhead. Re-measure on a device before changing.
+`opt-level = 3` over `"z"`: on the phone a check takes p50 14 us vs 28 us (p99 20 vs 40 us), which
+halves the time each check holds the guard, for about 17% more library size (arm64 2.79 MB with `z`).
 
 ## License
 

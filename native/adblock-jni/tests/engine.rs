@@ -197,6 +197,34 @@ fn engine_is_shareable_across_threads() {
     }
 }
 
+#[test]
+fn guarded_engine_serves_concurrent_callers_correctly() {
+    let g = std::sync::Arc::new(Guarded::new(engine(&["||ads.example.com^", "@@||ads.example.com/ok.js"])));
+    let hs: Vec<_> = (0..4)
+        .map(|t| {
+            let g = g.clone();
+            std::thread::spawn(move || {
+                for i in 0..2_000 {
+                    let blocked = g.with(|e| check(e, &format!("https://ads.example.com/{t}/{i}.png"), "https://s.org/", IMAGE));
+                    let allowed = g.with(|e| check(e, "https://ads.example.com/ok.js", "https://s.org/", SCRIPT));
+                    assert_eq!(blocked & BLOCK, BLOCK);
+                    assert_eq!(allowed & BLOCK, 0);
+                }
+            })
+        })
+        .collect();
+    for h in hs {
+        h.join().unwrap();
+    }
+}
+
+#[test]
+fn guarded_lock_is_released_after_a_panic() {
+    let g = Guarded::new(engine(&["||ads.example.com^"]));
+    let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| g.with(|_| panic!("boom"))));
+    assert_eq!(g.with(|e| check(e, "https://ads.example.com/a", "https://s.org/", IMAGE)) & BLOCK, BLOCK);
+}
+
 fn standard_ads_engine() -> Engine {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../app/src/main/assets/filters/standard/ads");
     let lists: Vec<String> = ["easylist", "ru-adlist", "ubo-filters"]

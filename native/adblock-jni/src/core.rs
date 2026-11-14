@@ -21,6 +21,50 @@ const _: fn() = || {
     assert_send_sync::<Engine>();
 };
 
+/// An engine with a spin-then-yield lock in front of it. adblock-rust holds one `std::sync::Mutex`
+/// (its regex manager) for a whole network check, so concurrent callers queue on it anyway; on
+/// Android a contended futex parks and wakes threads so slowly that four WebView IO threads turned
+/// a ~30 µs check into ~2 ms at the median. A short spin before yielding keeps the waiters on CPU
+/// for the few microseconds a check takes, so the inner mutex is never contended.
+pub struct Guarded {
+    engine: Engine,
+    busy: std::sync::atomic::AtomicBool,
+}
+
+const SPINS_BEFORE_YIELD: u32 = 200;
+
+impl Guarded {
+    pub fn new(engine: Engine) -> Self {
+        Self { engine, busy: std::sync::atomic::AtomicBool::new(false) }
+    }
+
+    /// Exclusive access for setup (resources) before the handle is shared.
+    pub fn engine_mut(&mut self) -> &mut Engine {
+        &mut self.engine
+    }
+
+    pub fn with<T>(&self, f: impl FnOnce(&Engine) -> T) -> T {
+        use std::sync::atomic::Ordering;
+        let mut spins = 0u32;
+        while self.busy.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+            spins += 1;
+            if spins < SPINS_BEFORE_YIELD {
+                std::hint::spin_loop();
+            } else {
+                std::thread::yield_now();
+            }
+        }
+        struct Release<'a>(&'a std::sync::atomic::AtomicBool);
+        impl Drop for Release<'_> {
+            fn drop(&mut self) {
+                self.0.store(false, std::sync::atomic::Ordering::Release);
+            }
+        }
+        let _release = Release(&self.busy);
+        f(&self.engine)
+    }
+}
+
 /// Runs `f`, turning a panic into `None`.
 pub fn guard<T>(f: impl FnOnce() -> Option<T>) -> Option<T> {
     catch_unwind(AssertUnwindSafe(f)).ok().flatten()
