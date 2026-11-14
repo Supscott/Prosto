@@ -117,6 +117,8 @@
     <string name="blocked_document_body">Prosto blocked this page because it is on an ad or tracker list.</string>
     <string name="blocked_document_go_back">Go back</string>
     <string name="blocked_document_proceed">Proceed anyway</string>
+    <string name="popup_blocked_message">Popup blocked</string>
+    <string name="popup_blocked_allow_site">Allow for this site</string>
     <string name="external_app_confirm_title">Open in another app</string>
     <string name="external_app_confirm_message">Would you like to leave Prosto to view this content?</string>
     <string name="external_app_confirm_open">Open</string>

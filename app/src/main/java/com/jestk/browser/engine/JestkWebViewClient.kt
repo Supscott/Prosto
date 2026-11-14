@@ -12,6 +12,9 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.repository.SettingsRepository
+import com.jestk.browser.engine.adblock.GuardSettings
+import com.jestk.browser.engine.adblock.GuardVerdict
+import com.jestk.browser.engine.adblock.GuardedNavigation
 import com.jestk.browser.engine.adblock.NetworkRequestInterceptor
 import com.jestk.browser.util.UrlSecurityUtils
 import java.util.concurrent.Executor
@@ -40,6 +43,8 @@ class JestkWebViewClient(
     private val onBlockedAdNavigation: ((tabId: String, url: String) -> Unit)? = null,
     private val onBlockedDocument: ((tabId: String, url: String) -> Unit)? = null,
     private val isAdRedirectProtectionEnabled: (() -> Boolean)? = null,
+    /** A popunder was stopped: (tab, page the user tapped, destination). The popup pill reacts. */
+    private val onPopunderBlocked: ((tabId: String, openerUrl: String?, blockedUrl: String) -> Unit)? = null,
     private val isAllowedAdNavigation: ((url: String) -> Boolean)? = null,
     private val isAutoConsentEnabled: (() -> Boolean)? = null,
     private val onRenderProcessGone: ((tabId: String) -> Unit)? = null,
@@ -51,6 +56,8 @@ class JestkWebViewClient(
 
     @Volatile
     private var lastGestureNavigationAtMs = Long.MIN_VALUE / 2
+
+    private val navigationGuard = WindowTransportHandler.navigationGuard
 
     private val networkInterceptor = NetworkRequestInterceptor(
         adsEnabled = isAdBlockerEnabled,
@@ -123,67 +130,34 @@ class JestkWebViewClient(
         )
     }
 
-    private fun isStaticAsset(url: String): Boolean {
-        val clean = url.substringBefore('?').substringBefore('#').lowercase()
-        return clean.endsWith(".jpg") || clean.endsWith(".jpeg") || clean.endsWith(".png") ||
-            clean.endsWith(".gif") || clean.endsWith(".webp") || clean.endsWith(".svg") ||
-            clean.endsWith(".ico") || clean.endsWith(".mp4") || clean.endsWith(".webm") ||
-            clean.endsWith(".mp3") || clean.endsWith(".ogg") || clean.endsWith(".m4a") ||
-            clean.endsWith(".m3u8") || clean.endsWith(".ts") || clean.endsWith(".css") ||
-            clean.endsWith(".js") || clean.contains("/image/") || clean.contains("/covers/") ||
-            clean.contains("/assets/")
-    }
-
     private fun isBlockedAdNavigation(
         url: String,
         view: WebView?,
-        hasGesture: Boolean = true,
-        isServerRedirect: Boolean = false,
+        hasGesture: Boolean,
+        isServerRedirect: Boolean,
     ): Boolean {
-        if (!isWebUrl(url)) return false
-        if (isStaticAsset(url)) return false
         if (isAllowedAdNavigation?.invoke(url) == true) return false
-
-        val adBlockActive = isAdBlockerEnabled()
-        val redirectProtectionActive = isAdRedirectProtectionEnabled?.invoke() ?: true
-        if (!adBlockActive && !redirectProtectionActive) return false
-
-        // 1. Direct blocklist match (always blocked when ad blocker active)
-        if (adBlockActive && AdBlockerEngine.shouldBlockNavigation(url)) {
-            onBlockedAdNavigation?.invoke(tabId, url)
-            AdBlockerEngine.recordBlockedRequest(false)
-            return true
+        val nested = view as? NestedWebView
+        val verdict = navigationGuard.evaluate(
+            GuardedNavigation(
+                tabId = tabId,
+                url = url,
+                currentUrl = nested?.loadedUrl ?: nested?.openerUrl ?: view?.url,
+                hasGesture = hasGesture || nested?.hasOpenerUserGesture == true,
+                isServerRedirect = isServerRedirect,
+            ),
+            GuardSettings(
+                adBlockActive = isAdBlockerEnabled(),
+                redirectProtectionActive = isAdRedirectProtectionEnabled?.invoke() ?: true,
+            ),
+        )
+        when (verdict) {
+            GuardVerdict.ALLOW -> return false
+            GuardVerdict.BLOCK_POPUNDER -> onPopunderBlocked?.invoke(tabId, nested?.loadedUrl ?: view?.url, url)
+            GuardVerdict.BLOCK_LISTED, GuardVerdict.BLOCK_REDIRECT -> onBlockedAdNavigation?.invoke(tabId, url)
         }
-
-        // 2. Cross-domain ad redirect / popup check
-        val nestedView = view as? NestedWebView
-        val hasOpenerGesture = nestedView?.hasOpenerUserGesture == true
-        val effectiveGesture = hasGesture || hasOpenerGesture
-
-        // A server redirect continues a navigation that was already allowed; only script-driven
-        // cross-site jumps without a gesture are treated as ad hijacks.
-        if (redirectProtectionActive && !effectiveGesture && !isServerRedirect) {
-            val openerUrl = nestedView?.openerUrl
-            val currentUrl = nestedView?.loadedUrl ?: openerUrl ?: view?.url
-            if (!currentUrl.isNullOrBlank() && currentUrl != "about:blank") {
-                val currentHost = UrlSecurityUtils.extractHost(currentUrl)
-                val targetHost = UrlSecurityUtils.extractHost(url)
-                if (currentHost.isNotEmpty() && targetHost.isNotEmpty()) {
-                    val sameSite = UrlSecurityUtils.isSameSite(currentUrl, url)
-                    val isSearch = UrlSecurityUtils.isSearchEngineHost(currentHost)
-                    // Leaving a login page (OAuth callback) is part of the user's sign-in.
-                    val isAuth = UrlSecurityUtils.isAuthOrSecurityHost(targetHost) || isLoginPage(currentUrl)
-
-                    if (!sameSite && !isSearch && !isAuth) {
-                        onBlockedAdNavigation?.invoke(tabId, url)
-                        AdBlockerEngine.recordBlockedRequest(false)
-                        return true
-                    }
-                }
-            }
-        }
-
-        return false
+        AdBlockerEngine.recordBlockedRequest(false)
+        return true
     }
 
     private fun checkInsecureHttpNavigation(url: String): Boolean {
@@ -604,22 +578,6 @@ class JestkWebViewClient(
         }
 
         fun isHttpUrl(url: String): Boolean = UrlSecurityUtils.isHttpUrl(url)
-
-        private val IDENTITY_PROVIDER_HOSTS = setOf(
-            "accounts.google.com", "appleid.apple.com", "login.microsoftonline.com", "login.live.com",
-            "oauth.vk.com", "id.vk.com", "passport.yandex.ru", "passport.yandex.com", "id.rambler.ru",
-            "auth.mail.ru", "account.mail.ru",
-        )
-
-        /** Whether [url] is a sign-in page whose script redirect back to the site must not be blocked. */
-        internal fun isLoginPage(url: String): Boolean {
-            val uri = runCatching { Uri.parse(url) }.getOrNull() ?: return false
-            val host = uri.host?.lowercase()?.removePrefix("www.") ?: return false
-            if (host in IDENTITY_PROVIDER_HOSTS) return true
-            val path = uri.path.orEmpty().lowercase()
-            val isMultiPurposeHost = host == "github.com" || host == "facebook.com" || host == "m.facebook.com"
-            return isMultiPurposeHost && (path.startsWith("/login") || path.contains("/oauth"))
-        }
 
         /**
          * Cloudflare serves its "Just a moment..." interstitial on the protected site's own

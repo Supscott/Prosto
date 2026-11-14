@@ -1,15 +1,19 @@
 package com.jestk.browser.engine
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.Handler
 import android.os.Looper
 import android.os.Message
 import android.os.SystemClock
 import android.util.Log
 import android.webkit.WebView
+import com.jestk.browser.engine.adblock.NavigationGuard
+import com.jestk.browser.engine.adblock.PopunderDetector
 import com.jestk.browser.engine.adblock.PopupGate
 import com.jestk.browser.engine.adblock.PopupHostList
 import com.jestk.browser.engine.adblock.PopupSiteAllowlist
+import com.jestk.browser.engine.adblock.SessionPopupAllowlist
 import com.jestk.browser.engine.adblock.isAdPopupUrl
 import java.util.UUID
 
@@ -29,12 +33,30 @@ object WindowTransportHandler {
     @Volatile
     private var adsEnabled: () -> Boolean = { true }
 
-    /** Opener sites whose popups are never dropped (filled by the per-site allowlist). */
-    var popupAllowlist: PopupSiteAllowlist
-        get() = gate.allowlist
+    /** Opener sites the user allowed from the "Popup blocked" pill; lives for the session. */
+    val sessionPopupAllowlist = SessionPopupAllowlist()
+
+    /** Opener sites whose popups are never dropped. CB-14 swaps in the persisted per-site allowlist. */
+    var popupAllowlist: PopupSiteAllowlist = sessionPopupAllowlist
         set(value) {
+            field = value
             gate.allowlist = value
         }
+
+    @Volatile
+    private var debugLogging = false
+
+    /** Taps that opened a popup, so the opener's next cross-site jump can be told from a real link. */
+    internal val popunderDetector = PopunderDetector(
+        clock = SystemClock::elapsedRealtime,
+        log = { if (debugLogging) Log.d(TAG, it) },
+    )
+
+    /** The single place that decides about main-frame navigations (ad list, redirects, popunders). */
+    internal val navigationGuard = NavigationGuard(
+        popunderDetector = popunderDetector,
+        popupAllowlist = { popupAllowlist },
+    )
 
     /** Called on the main thread after an ad popup was dropped: (opener url, dropped url). */
     @Volatile
@@ -43,7 +65,7 @@ object WindowTransportHandler {
     internal var gate: PopupGate = newGate()
 
     internal fun newGate(clock: () -> Long = SystemClock::elapsedRealtime): PopupGate =
-        PopupGate(clock = clock, isAdPopup = { adsEnabled() && isAdPopupUrl(it) })
+        PopupGate(clock = clock, isAdPopup = { adsEnabled() && isAdPopupUrl(it) }, allowlist = popupAllowlist)
 
     /** True while the popup [tabId] waits for its reveal decision; the pool must keep its WebView. */
     fun isPopupPending(tabId: String): Boolean = gate.isPending(tabId)
@@ -53,6 +75,7 @@ object WindowTransportHandler {
         context: Context,
         webViewPool: WebViewPool,
         openerUrl: String? = null,
+        openerTabId: String? = null,
         profileName: String? = null,
         isUserGesture: Boolean = true,
         isAdBlockerEnabled: () -> Boolean = { true },
@@ -63,6 +86,8 @@ object WindowTransportHandler {
         if (resultMsg.target == null) return false
 
         adsEnabled = isAdBlockerEnabled
+        debugLogging = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        if (isUserGesture && openerTabId != null) popunderDetector.onPopupOpened(openerTabId)
         PopupHostList.warm(context)
         val newTabId = UUID.randomUUID().toString()
         val newWv = try {
