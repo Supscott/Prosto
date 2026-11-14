@@ -20,7 +20,15 @@ internal object PopupRules {
     fun extract(lists: List<String>): List<String> {
         val out = StringBuilder()
         for (text in lists) {
-            text.lineSequence().forEach { raw -> rewrite(raw.trim())?.let { out.append(it).append('\n') } }
+            // Jump between occurrences of "popup" and take only their lines: the lists are several
+            // MB, and splitting them into lines (lineSequence) took over a second on a phone.
+            var hit = text.indexOf("popup")
+            while (hit >= 0) {
+                val start = text.lastIndexOf('\n', hit) + 1
+                val end = text.indexOf('\n', hit).let { if (it < 0) text.length else it }
+                rewrite(text.substring(start, end).trim())?.let { out.append(it).append('\n') }
+                hit = text.indexOf("popup", end)
+            }
         }
         return if (out.isEmpty()) emptyList() else listOf(out.toString())
     }

@@ -56,9 +56,16 @@ internal class FilterAssets(private val assets: AssetManager, private val preset
         /** Counts rule lines: not blank, not a `!` comment, not the `[Adblock ...]` header. */
         fun countRules(lists: List<String>): Int {
             var count = 0
+            // An index scan, not lineSequence: the lists are several MB and splitting them line by
+            // line cost about a second per compile on a phone.
             for (text in lists) {
-                text.lineSequence().forEach { line ->
-                    if (line.isNotBlank() && !line.startsWith("!") && !line.startsWith("[")) count++
+                var start = 0
+                while (start < text.length) {
+                    val end = text.indexOf('\n', start).let { if (it < 0) text.length else it }
+                    var first = start
+                    while (first < end && text[first].isWhitespace()) first++
+                    if (first < end && text[first] != '!' && text[first] != '[') count++
+                    start = end + 1
                 }
             }
             return count

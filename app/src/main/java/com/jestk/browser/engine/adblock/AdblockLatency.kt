@@ -17,18 +17,30 @@ internal object AdblockLatency {
     var enabled = false
 
     private val buckets = AtomicLongArray(BUCKETS)
+    private val cpuBuckets = AtomicLongArray(BUCKETS)
     private val total = AtomicInteger()
 
-    fun record(nanos: Long) {
-        val micros = (nanos / 1000).coerceAtLeast(1)
-        val bucket = (63 - java.lang.Long.numberOfLeadingZeros(micros)).coerceAtMost(BUCKETS - 1)
-        buckets.incrementAndGet(bucket)
-        if (total.incrementAndGet() % DUMP_EVERY == 0) Log.d(TAG, summary())
+    /**
+     * Records one `decide`: [nanos] of wall time and [cpuNanos] of thread CPU time. Wall time also
+     * counts the time the WebView IO thread waits to be scheduled while pages render; the CPU time
+     * is the work itself.
+     */
+    fun record(nanos: Long, cpuNanos: Long = -1) {
+        buckets.incrementAndGet(bucketOf(nanos))
+        if (cpuNanos >= 0) cpuBuckets.incrementAndGet(bucketOf(cpuNanos))
+        if (total.incrementAndGet() % DUMP_EVERY == 0) Log.d(TAG, "wall ${summary(buckets)} | cpu ${summary(cpuBuckets)}")
     }
 
-    /** Sample count, p50/p99 upper bounds and the non-empty buckets. */
-    fun summary(): String {
-        val counts = LongArray(BUCKETS) { buckets.get(it) }
+    private fun bucketOf(nanos: Long): Int {
+        val micros = (nanos / 1000).coerceAtLeast(1)
+        return (63 - java.lang.Long.numberOfLeadingZeros(micros)).coerceAtMost(BUCKETS - 1)
+    }
+
+    /** Sample count, p50/p99 upper bounds and the non-empty buckets of the wall-time histogram. */
+    fun summary(): String = summary(buckets)
+
+    private fun summary(source: AtomicLongArray): String {
+        val counts = LongArray(BUCKETS) { source.get(it) }
         val sum = counts.sum()
         if (sum == 0L) return "no samples"
         fun percentile(p: Double): Long {
@@ -44,7 +56,10 @@ internal object AdblockLatency {
     }
 
     fun reset() {
-        for (i in 0 until BUCKETS) buckets.set(i, 0)
+        for (i in 0 until BUCKETS) {
+            buckets.set(i, 0)
+            cpuBuckets.set(i, 0)
+        }
         total.set(0)
     }
 }

@@ -124,6 +124,7 @@ object AdBlockerEngine {
         if (!isHttpUrl(url)) return Decision.ALLOW
         val timed = AdblockLatency.enabled
         val started = if (timed) System.nanoTime() else 0L
+        val startedCpu = if (timed) android.os.Debug.threadCpuTimeNanos() else 0L
         try {
             val parsed = UrlParser.parseUrl(url) ?: return Decision.ALLOW
             if (parsed.host.isEmpty() || AuthDomainAllowlist.isAllowlistedAuthDomain(parsed.host)) return Decision.ALLOW
@@ -133,7 +134,7 @@ object AdBlockerEngine {
             }
             return hostDecision(parsed, sourceUrl, adsEnabled, trackersEnabled)
         } finally {
-            if (timed) AdblockLatency.record(System.nanoTime() - started)
+            if (timed) AdblockLatency.record(System.nanoTime() - started, android.os.Debug.threadCpuTimeNanos() - startedCpu)
         }
     }
 

@@ -55,13 +55,15 @@ internal class EngineStore(
         // The APK update time joins the key: lists ship inside the APK, so a new build recompiles
         // once even when a list edit keeps the asset size (and so the lists hash) unchanged.
         val version = cacheVersion(context)
-        val ads = loadEngine(dir, assets, resources, version, ENGINE_ADS, selection) ?: return null
+        // Lists read for one engine are reused by an engine derived from them (popup from ads).
+        val readLists = HashMap<String, List<String>>()
+        val ads = loadEngine(dir, assets, resources, version, ENGINE_ADS, selection, readLists = readLists) ?: return null
         val privacy = loadEngine(dir, assets, resources, version, ENGINE_PRIVACY, selection)
         if (privacy == null) {
             ads.matcher.close()
             return null
         }
-        val popup = loadEngine(dir, assets, null, version, ENGINE_POPUP, selection, source = ENGINE_ADS, transform = PopupRules::extract)
+        val popup = loadEngine(dir, assets, null, version, ENGINE_POPUP, selection, ENGINE_ADS, PopupRules::extract, readLists)
         log("engines ready in ${(System.nanoTime() - started) / NANOS_PER_MS} ms")
         return EngineSet(ads.matcher, privacy.matcher, ads.rules + privacy.rules, popup?.matcher)
     }
@@ -77,6 +79,7 @@ internal class EngineStore(
         selection: ListSelection,
         source: String = engine,
         transform: (List<String>) -> List<String> = { it },
+        readLists: MutableMap<String, List<String>> = HashMap(),
     ): Loaded? {
         val extras = selection.extras[source].orEmpty()
         val base = cacheBase(engine, source, selection.preset, version, assets, extras)
@@ -92,8 +95,11 @@ internal class EngineStore(
             bin.delete()
             rulesFile.delete()
         }
-        val merged = assets.readById(source, skip = extras.map { it.id }.toSet()) + extras.associate { it.id to it.text }
-        val lists = transform(merged.toSortedMap().values.toList())
+        val sourceLists = readLists.getOrPut(source) {
+            val merged = assets.readById(source, skip = extras.map { it.id }.toSet()) + extras.associate { it.id to it.text }
+            merged.toSortedMap().values.toList()
+        }
+        val lists = transform(sourceLists)
         if (lists.isEmpty()) return null
         val compiled = runCatching { backend.factory.compile(lists, resources) }.getOrNull() ?: return null
         val rules = FilterAssets.countRules(lists)

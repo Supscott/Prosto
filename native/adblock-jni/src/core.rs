@@ -93,15 +93,26 @@ pub fn from_lists(lists: Vec<String>) -> Option<Engine> {
         for list in lists {
             set.add_filter_list(list, ParseOptions::default());
         }
-        Some(Engine::new_with_filter_set(set))
+        Some(tuned(Engine::new_with_filter_set(set)))
     })
+}
+
+/// adblock-rust compiles a regex filter on first use and, by default, drops it after 3 minutes
+/// unused, so a page visited again later pays the compile again (milliseconds per pattern on a
+/// phone). Keeping them for 30 minutes trades a little memory for a flatter latency tail.
+fn tuned(engine: Engine) -> Engine {
+    engine.set_regex_discard_policy(adblock::regex_manager::RegexManagerDiscardPolicy {
+        cleanup_interval: std::time::Duration::from_secs(300),
+        discard_unused_time: std::time::Duration::from_secs(1800),
+    });
+    engine
 }
 
 pub fn from_serialized(bytes: &[u8]) -> Option<Engine> {
     guard(|| {
         let mut engine = Engine::default();
         engine.deserialize(bytes).ok()?;
-        Some(engine)
+        Some(tuned(engine))
     })
 }
 
