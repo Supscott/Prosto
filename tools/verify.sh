@@ -11,6 +11,15 @@ python3 tools/check_invariants.py
 echo "==> Checking that the ad-block list matches tools/filterlists..."
 python3 tools/build_adblock_list.py --check
 
+if command -v node >/dev/null 2>&1; then
+    echo "==> Checking the uBO scriptlet bundle..."
+    node tools/build_scriptlets.mjs --check
+    node --test tools/build_scriptlets.test.mjs 2>&1 | grep -E "^# (tests|pass|fail)|^not ok"
+    node --test tools/build_scriptlets.test.mjs >/dev/null 2>&1
+else
+    echo "==> node not found: skipping the scriptlet bundle check"
+fi
+
 # Gradle output is long; the summary below lists totals and failures, so keep only its tail.
 started=$(date +%s)
 status=0
