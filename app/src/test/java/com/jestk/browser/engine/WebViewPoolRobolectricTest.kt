@@ -438,7 +438,7 @@ class WebViewPoolRobolectricTest {
         assertThat(webView.settings.userAgentString).doesNotContain("; wv")
         assertThat(webView.settings.userAgentString).doesNotContain("Version/4.0")
         assertThat(webView.settings.domStorageEnabled).isTrue()
-        assertThat(webView.settings.javaScriptCanOpenWindowsAutomatically).isTrue()
+        assertThat(webView.settings.javaScriptCanOpenWindowsAutomatically).isFalse()
     }
 
     @Test

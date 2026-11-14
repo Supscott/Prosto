@@ -33,6 +33,10 @@ class NestedWebView @JvmOverloads constructor(
     var openerUrl: String? = null
     var hasOpenerUserGesture: Boolean = false
 
+    /** Set while this view is a popup whose reveal still waits for the gate's decision. */
+    @Volatile
+    var popupGate: com.jestk.browser.engine.adblock.PopupGate? = null
+
     override fun loadUrl(url: String) {
         loadedUrl = url
         PageLoadTimer.onLoadRequested(tag as? String, url)

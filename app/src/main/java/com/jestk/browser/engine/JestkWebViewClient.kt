@@ -111,7 +111,7 @@ class JestkWebViewClient(
         val continuesGesture = effectiveGesture ||
             (request.isForMainFrame && now - lastGestureNavigationAtMs <= GESTURE_CHAIN_WINDOW_MS)
 
-        if (request.isForMainFrame && isBlockedAdNavigation(url, view, effectiveGesture, request.isRedirect)) return true
+        if (request.isForMainFrame && (PopupGateHooks.onUrl(view, url) || isBlockedAdNavigation(url, view, effectiveGesture, request.isRedirect))) return true
 
         // Warn before loading cleartext HTTP websites in the main frame
         if (request.isForMainFrame && checkInsecureHttpNavigation(url)) return true
@@ -272,7 +272,7 @@ class JestkWebViewClient(
         if (request == null) return null
         // Runs on a worker thread: WebView.getUrl() is main-thread only, so use the volatile mirror.
         val tabUrl = (view as? NestedWebView)?.loadedUrl
-        return networkInterceptor.intercept(request, tabUrl, view?.context)
+        return PopupGateHooks.intercept(view, request) ?: networkInterceptor.intercept(request, tabUrl, view?.context)
             ?: super.shouldInterceptRequest(view, request)
     }
 
