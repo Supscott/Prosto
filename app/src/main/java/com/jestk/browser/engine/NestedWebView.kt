@@ -30,6 +30,15 @@ class NestedWebView @JvmOverloads constructor(
     }
 
     @Volatile var loadedUrl: String? = null
+
+    /**
+     * The workspace this tab belongs to, read from any thread on every call (the tab can move).
+     * The blocking policies use it to pick the per-workspace site allowlist entries.
+     */
+    @Volatile
+    var workspaceIdProvider: () -> String? = { null }
+
+    fun workspaceId(): String? = workspaceIdProvider()
     var openerUrl: String? = null
     var hasOpenerUserGesture: Boolean = false
 

@@ -2,7 +2,7 @@ package com.jestk.browser.engine.adblock
 
 import com.jestk.browser.util.UrlSecurityUtils
 
-/** Lets CB-12 and CB-14 exempt the opener site from popup dropping. */
+/** Opener sites exempt from popup dropping for the rest of the session (the pill's "Allow for this site"). */
 fun interface PopupSiteAllowlist {
     fun allows(openerUrl: String?): Boolean
 
@@ -31,9 +31,11 @@ class PopupGate(
     private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
     private val isAuthUrl: (url: String) -> Boolean = ::isAuthDomainUrl,
     private val isSameSite: (url: String, openerUrl: String) -> Boolean = UrlSecurityUtils::isSameSite,
+    private val isSiteAllowlisted: (openerUrl: String?, workspaceId: String?) -> Boolean = { _, _ -> false },
 ) {
     private class Pending(
         val openerUrl: String?,
+        val workspaceId: String?,
         val createdAt: Long,
         val onReveal: () -> Unit,
         val onDrop: (url: String?) -> Unit,
@@ -41,8 +43,14 @@ class PopupGate(
 
     private val pending = HashMap<String, Pending>()
 
-    fun register(tabId: String, openerUrl: String?, onReveal: () -> Unit, onDrop: (url: String?) -> Unit) {
-        synchronized(pending) { pending[tabId] = Pending(openerUrl, clock(), onReveal, onDrop) }
+    fun register(
+        tabId: String,
+        openerUrl: String?,
+        onReveal: () -> Unit,
+        onDrop: (url: String?) -> Unit,
+        openerWorkspaceId: String? = null,
+    ) {
+        synchronized(pending) { pending[tabId] = Pending(openerUrl, openerWorkspaceId, clock(), onReveal, onDrop) }
     }
 
     fun isPending(tabId: String): Boolean = synchronized(pending) { tabId in pending }
@@ -79,7 +87,7 @@ class PopupGate(
         if (isAuthUrl(url)) return false
         val opener = entry.openerUrl
         if (!opener.isNullOrBlank() && isSameSite(url, opener)) return false
-        if (allowlist.allows(opener)) return false
+        if (allowlist.allows(opener) || isSiteAllowlisted(opener, entry.workspaceId)) return false
         return isAdPopup(url)
     }
 

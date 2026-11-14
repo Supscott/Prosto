@@ -140,11 +140,11 @@ class JestkWebViewClient(
         val nested = view as? NestedWebView
         val verdict = navigationGuard.evaluate(
             GuardedNavigation(
-                tabId = tabId,
-                url = url,
+                tabId = tabId, url = url,
                 currentUrl = nested?.loadedUrl ?: nested?.openerUrl ?: view?.url,
                 hasGesture = hasGesture || nested?.hasOpenerUserGesture == true,
                 isServerRedirect = isServerRedirect,
+                workspaceId = nested?.workspaceId(),
             ),
             GuardSettings(
                 adBlockActive = isAdBlockerEnabled(),
@@ -244,8 +244,8 @@ class JestkWebViewClient(
     ): WebResourceResponse? {
         if (request == null) return null
         // Runs on a worker thread: WebView.getUrl() is main-thread only, so use the volatile mirror.
-        val tabUrl = (view as? NestedWebView)?.loadedUrl
-        return PopupGateHooks.intercept(view, request) ?: networkInterceptor.intercept(request, tabUrl, view?.context)
+        val nested = view as? NestedWebView
+        return PopupGateHooks.intercept(view, request) ?: networkInterceptor.interceptForTab(request, nested, view?.context)
             ?: super.shouldInterceptRequest(view, request)
     }
 

@@ -173,4 +173,33 @@ class ContentBlockingBridgeTest {
 
         assertThat(calls).containsExactly("lock:landscape", "unlock").inOrder()
     }
+
+    @Test
+    fun cosmetic_isEmptyOnAllowlistedSitesWithoutAskingTheEngine() {
+        val seen = Seen()
+        val b = ContentBlockingBridge(
+            isEnabledProvider = { true },
+            cosmeticProvider = { _, _, _ ->
+                seen.calls++
+                resources
+            },
+            isSiteAllowlisted = { it.contains("allowed.test") },
+        )
+
+        assertThat(b.cosmetic("https://allowed.test/page")).isEqualTo("{}")
+        assertThat(seen.calls).isEqualTo(0)
+        assertThat(b.cosmetic("https://site.test/page")).isNotEqualTo("{}")
+        assertThat(seen.calls).isEqualTo(1)
+    }
+
+    @Test
+    fun cosmetic_aFailingAllowlistLookupFallsBackToBlocking() {
+        val b = ContentBlockingBridge(
+            isEnabledProvider = { true },
+            cosmeticProvider = { _, _, _ -> resources },
+            isSiteAllowlisted = { error("boom") },
+        )
+
+        assertThat(b.cosmetic("https://site.test/page")).isNotEqualTo("{}")
+    }
 }

@@ -15,6 +15,7 @@ import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
+import com.jestk.browser.domain.repository.SiteAllowlistRepository
 import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.domain.repository.WorkspaceRepository
@@ -27,6 +28,7 @@ import com.jestk.browser.ui.viewmodel.events.MediaEventHandler
 import com.jestk.browser.ui.viewmodel.events.OverlayEventHandler
 import com.jestk.browser.ui.viewmodel.events.PageEventHandler
 import com.jestk.browser.ui.viewmodel.events.SafetyEventHandler
+import com.jestk.browser.ui.viewmodel.events.SiteAllowlistEventHandler
 import com.jestk.browser.ui.viewmodel.events.SettingsEventHandler
 import com.jestk.browser.ui.viewmodel.events.TabEventHandler
 import com.jestk.browser.util.UrlSecurityUtils
@@ -62,6 +64,7 @@ class BrowserViewModel(
     private val appUpdateManager: AppUpdateManager? = null,
     val tabFolderRepository: TabFolderRepository? = null,
     val workspaceRepository: WorkspaceRepository? = null,
+    private val siteAllowlistRepository: SiteAllowlistRepository? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val currentTimeProvider: () -> Long = { System.currentTimeMillis() },
 ) : ViewModel() {
@@ -202,6 +205,16 @@ class BrowserViewModel(
             updateDefaultBrowserStatus = this::updateDefaultBrowserStatus,
         )
 
+    private val siteAllowlistEvents =
+        SiteAllowlistEventHandler(
+            repository = siteAllowlistRepository,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
+            scope = viewModelScope,
+            ioDispatcher = ioDispatcher,
+        )
+
     private val safetyEvents =
         SafetyEventHandler(
             tabCoordinator = tabCoordinator,
@@ -209,6 +222,7 @@ class BrowserViewModel(
             updateUiState = { transform -> _uiState.update(transform) },
             loadUrl = this::loadUrl,
             emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
+            siteAllowlistEvents = siteAllowlistEvents,
         )
 
     private val mediaEvents =
@@ -301,6 +315,7 @@ class BrowserViewModel(
     }
 
     private fun observeDatabaseFlows() {
+        siteAllowlistEvents.observe()
         tabCoordinator.sessionSync.observeDatabaseFlows()
         searchCoordinator.observeDatabaseFlows()
         downloadCoordinator.observeDatabaseFlows()

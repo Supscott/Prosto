@@ -12,6 +12,8 @@ data class GuardedNavigation(
     /** The tap, or the opener's tap for a popup, behind this navigation. */
     val hasGesture: Boolean,
     val isServerRedirect: Boolean,
+    /** The workspace of the tab (of the opener for a fresh popup); null when unknown. */
+    val workspaceId: String? = null,
 )
 
 /** Which protections apply right now. */
@@ -36,12 +38,15 @@ enum class GuardVerdict {
 
 /**
  * Every decision about a main-frame navigation in one place: the ad host list, the cross-site
- * script redirect heuristic (`isAdRedirectProtectionEnabled`) and the popunder rule.
+ * script redirect heuristic (`isAdRedirectProtectionEnabled`) and the popunder rule. On a site
+ * the user allowlisted the ad list and the popunder rule are off; redirect protection is its
+ * own setting and stays.
  * The caller does the side effects (stats, prompts).
  */
 class NavigationGuard(
     private val popunderDetector: PopunderDetector,
     private val popupAllowlist: () -> PopupSiteAllowlist = { PopupSiteAllowlist.NONE },
+    private val isSiteAllowlisted: (url: String?, workspaceId: String?) -> Boolean = { _, _ -> false },
     private val isListedAdUrl: (String) -> Boolean = AdBlockerEngine::shouldBlockNavigation,
     private val isSameSite: (String, String) -> Boolean = UrlSecurityUtils::isSameSite,
     private val extractHost: (String) -> String = UrlSecurityUtils::extractHost,
@@ -51,9 +56,10 @@ class NavigationGuard(
     fun evaluate(nav: GuardedNavigation, settings: GuardSettings): GuardVerdict {
         val url = nav.url
         if (!isWebUrl(url) || isStaticAsset(url)) return GuardVerdict.ALLOW
-        if (!settings.adBlockActive && !settings.redirectProtectionActive) return GuardVerdict.ALLOW
+        val adBlockActive = settings.adBlockActive && !isSiteAllowlisted(nav.currentUrl, nav.workspaceId)
+        if (!adBlockActive && !settings.redirectProtectionActive) return GuardVerdict.ALLOW
 
-        if (settings.adBlockActive && isListedAdUrl(url)) return GuardVerdict.BLOCK_LISTED
+        if (adBlockActive && isListedAdUrl(url)) return GuardVerdict.BLOCK_LISTED
 
         val current = nav.currentUrl
         if (current.isNullOrBlank() || current == "about:blank") return GuardVerdict.ALLOW
@@ -65,7 +71,7 @@ class NavigationGuard(
         // Sign-in and security hops are never ad hijacks; leaving a login page is part of the sign-in.
         val isAuth = isAuthHost(targetHost) || isLoginPage(current)
 
-        if (settings.adBlockActive && !nav.isServerRedirect && !isAuth &&
+        if (adBlockActive && !nav.isServerRedirect && !isAuth &&
             !popupAllowlist().allows(current) &&
             popunderDetector.isPopunder(nav.tabId, crossSite, nav.hasGesture)
         ) {

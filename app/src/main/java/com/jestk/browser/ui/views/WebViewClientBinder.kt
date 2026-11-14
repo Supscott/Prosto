@@ -5,6 +5,7 @@ import android.webkit.WebView
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
+import com.jestk.browser.engine.NestedWebView
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.WindowTransportHandler
 import com.jestk.browser.ui.FileChooserHandler
@@ -39,6 +40,11 @@ internal class WebViewClientDeps(
 internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewClientDeps) {
     val onEvent = deps.onEvent
     webView.tag = tabId
+    // A popup has no tab until it is revealed; it belongs to the workspace in use.
+    (webView as? NestedWebView)?.workspaceIdProvider = {
+        val state = deps.uiState()
+        state.tabs.find { it.id == tabId }?.workspaceId ?: state.activeWorkspaceId
+    }
     webView.webViewClient = JestkWebViewClient(
         tabId = tabId,
         isAdBlockerEnabled = { deps.uiState().settings.isAdBlockerEnabled },
@@ -112,6 +118,7 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
                 openerUrl = originView?.url ?: webView.url,
                 openerTabId = tabId,
                 profileName = profileName,
+                openerWorkspaceId = openerWorkspaceId,
                 isUserGesture = isUserGesture,
                 isAdBlockerEnabled = { deps.uiState().settings.isAdBlockerEnabled },
                 onPopupOpened = { onEvent(BrowserUiEvent.OpenPopupTab(it)) },

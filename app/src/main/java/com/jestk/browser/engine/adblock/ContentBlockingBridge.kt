@@ -21,6 +21,7 @@ class ContentBlockingBridge(
     private val isTrackersEnabledProvider: () -> Boolean = { true },
     private val cosmeticProvider: (url: String, ads: Boolean, trackers: Boolean) -> CosmeticResources =
         AdBlockerEngine::cosmeticResources,
+    private val isSiteAllowlisted: (frameUrl: String) -> Boolean = { false },
 ) {
     constructor(isEnabledProvider: () -> Boolean) : this(isEnabledProvider, null, null, null, null)
 
@@ -29,20 +30,29 @@ class ContentBlockingBridge(
 
     /**
      * Cosmetic data for [url] as JSON: `{css: [chunk, ...], generichide, exceptions, scriptlets}`.
-     * `{}` when ads are off, for non-http(s) URLs, security-challenge and auth pages, and when
-     * the engines have nothing for the URL.
+     * `{}` when ads are off, for non-http(s) URLs, security-challenge and auth pages, on allowlisted
+     * sites, and when the engines have nothing for the URL.
      */
     @JavascriptInterface
     fun cosmetic(url: String?): String {
         if (url.isNullOrEmpty() || !isEnabledProvider()) return EMPTY_JSON
         if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) return EMPTY_JSON
         if (JestkWebViewClient.isSecurityChallengePage(url, null)) return EMPTY_JSON
+        if (isBlockingOffFor(url)) return EMPTY_JSON
         return try {
             encode(cosmeticProvider(url, true, isTrackersEnabledProvider()))
         } catch (_: Exception) {
             EMPTY_JSON
         }
     }
+
+    /** Every method that serves blocking data for a frame calls this first: the user switched blocking off for its site. */
+    private fun isBlockingOffFor(frameUrl: String): Boolean =
+        try {
+            isSiteAllowlisted(frameUrl)
+        } catch (_: Exception) {
+            false
+        }
 
     @JavascriptInterface
     fun isCleanPlayerEnabled(): Boolean = isCleanPlayerEnabledProvider?.invoke() ?: false
