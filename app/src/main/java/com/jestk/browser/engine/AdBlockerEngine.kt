@@ -1,11 +1,21 @@
 package com.jestk.browser.engine
 
 import android.content.Context
-import android.net.Uri
-import android.util.Base64
+import android.content.pm.ApplicationInfo
 import android.util.Log
 import android.webkit.WebResourceResponse
 import com.jestk.browser.domain.repository.BlockedRequestStats
+import com.jestk.browser.engine.adblock.AuthDomainAllowlist
+import com.jestk.browser.engine.adblock.AdblockLatency
+import com.jestk.browser.engine.adblock.BlockedResponses
+import com.jestk.browser.engine.adblock.Decision
+import com.jestk.browser.engine.adblock.EngineDecider
+import com.jestk.browser.engine.adblock.EngineStore
+import com.jestk.browser.engine.adblock.HostListMatcher
+import com.jestk.browser.engine.adblock.NativeBackend
+import com.jestk.browser.engine.adblock.ParsedUrl
+import com.jestk.browser.engine.adblock.RequestType
+import com.jestk.browser.engine.adblock.UrlParser
 import com.jestk.browser.util.UrlSecurityUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -13,95 +23,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import java.io.BufferedReader
-import java.io.ByteArrayInputStream
 import java.io.InputStream
-import java.io.InputStreamReader
-import java.util.concurrent.ConcurrentHashMap
 
 object AdBlockerEngine {
     private const val TAG = "AdBlockerEngine"
-
-    val DEFAULT_HOSTS: Set<String> =
-        setOf(
-            "doubleclick.net",
-            "googleadservices.com",
-            "googlesyndication.com",
-            "google-analytics.com",
-            "criteo.com",
-            "criteo.net",
-            "taboola.com",
-            "taboola.net",
-            "outbrain.com",
-            "outbrainimg.com",
-            "adnxs.com",
-            "rubiconproject.com",
-            "scorecardresearch.com",
-            "quantserve.com",
-            "pubmatic.com",
-            "openx.net",
-            "moatads.com",
-            // Russian ad & tracking networks (Yandex, Mail.ru, MyTarget, ADFOX, X5 Media, Rambler, etc.)
-            "adfox.ru",
-            "adfox.yandex.ru",
-            "ad.mail.ru",
-            "ads.mail.ru",
-            "target.mail.ru",
-            "top-fwz1.mail.ru",
-            "my.target.com",
-            "target.my.com",
-            "ads.x5media.ru",
-            "x5media.ru",
-            "an.yandex.ru",
-            "yabs.yandex.ru",
-            "mc.yandex.ru",
-            "awaps.yandex.ru",
-            "adfstat.yandex.ru",
-            "bs.yandex.ru",
-            "ads.vk.com",
-            "ssp.rambler.ru",
-            "reklama.rambler.ru",
-            "relap.io",
-            "buzzoola.com",
-            "rutarget.ru",
-            "hybrid.ai",
-            "bidvol.com",
-            "adhigh.net",
-            "adriver.ru",
-            "otclick-adv.ru",
-            "videonow.ru",
-            "viqeo.tv",
-        )
-
-    internal val AUTH_SECURITY_ALLOWLIST: Set<String> =
-        setOf(
-            "arkoselabs.com",
-            "client-api.arkoselabs.com",
-            "arkose.com",
-            "challenges.cloudflare.com",
-            "cloudflare.com",
-            "cloudflarecaptcha.com",
-            "hcaptcha.com",
-            "recaptcha.net",
-        )
-
-    internal fun isAllowlistedAuthDomain(host: String): Boolean {
-        if (host.isEmpty()) return false
-        val lowerHost = host.lowercase()
-        for (allowed in AUTH_SECURITY_ALLOWLIST) {
-            if (lowerHost == allowed || lowerHost.endsWith(".$allowed")) {
-                return true
-            }
-        }
-        return false
-    }
-
-    private const val PRECOMPILED_ASSET = "adblock_domains.txt"
-    private const val THIRD_PARTY_SUFFIX = "\$third-party"
-
-    private val blockedHosts = HostBlocklist().apply { addAll(DEFAULT_HOSTS) }
-    private val thirdPartyHosts = HostBlocklist()
 
     @Volatile
     private var isInitialized = false
@@ -109,9 +36,25 @@ object AdBlockerEngine {
     @Volatile
     private var initJob: Job? = null
 
+    @Volatile
+    internal var backend: NativeBackend = NativeBackend.DEFAULT
+        set(value) {
+            field = value
+            engineStore = EngineStore(value, log = ::debugLog)
+        }
+
+    @Volatile
+    internal var engineStore: EngineStore = EngineStore(NativeBackend.DEFAULT, log = ::debugLog)
+
+    private fun debugLog(message: String) {
+        Log.i(TAG, message)
+    }
+
     /**
-     * Initializes the ad blocker engine asynchronously on Dispatchers.IO.
-     * Cold start remains instant because blockedHosts is initially populated with DEFAULT_HOSTS.
+     * Initializes the ad blocker engine asynchronously on [dispatcher].
+     * Cold start remains instant because the host list is initially populated with its default
+     * hosts. The host list loads in parallel with the native engines (cached blob or compile);
+     * until the engines are published, and when the native library is missing, the host list decides.
      */
     fun initialize(
         context: Context,
@@ -127,7 +70,11 @@ object AdBlockerEngine {
                 // together with the rest of the engine's background work.
                 val job =
                     activeScope().launch(dispatcher) {
-                        loadRulesFromAssets(appContext)
+                        configureLatencyLog(appContext)
+                        coroutineScope {
+                            launch { loadRulesFromAssets(appContext) }
+                            if (backend.load()) engineStore.initialize(appContext, this, dispatcher)
+                        }
                     }
                 initJob = job
                 job
@@ -141,486 +88,128 @@ object AdBlockerEngine {
 
     private fun loadRulesFromAssets(context: Context) {
         try {
-            context.assets.open(PRECOMPILED_ASSET).use { inputStream ->
+            context.assets.open(HostListMatcher.PRECOMPILED_ASSET).use { inputStream ->
                 loadPrecompiledDomainsFromStream(inputStream)
             }
         } catch (e: Exception) {
-            Log.w(TAG, "Failed to load $PRECOMPILED_ASSET, only the default hosts are blocked", e)
+            Log.w(TAG, "Failed to load ${HostListMatcher.PRECOMPILED_ASSET}, only the default hosts are blocked", e)
         }
         isInitialized = true
     }
 
+    fun loadPrecompiledDomainsFromStream(inputStream: InputStream) =
+        HostListMatcher.loadPrecompiledDomainsFromStream(inputStream)
+
+    fun parseUrl(url: String?): ParsedUrl? = UrlParser.parseUrl(url)
+
+    private fun configureLatencyLog(context: Context) {
+        val debuggable = context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
+        AdblockLatency.enabled = debuggable
+    }
+
     /**
-     * Loads the list generated by `tools/build_adblock_list.py`: one host per line, `host` blocks
-     * the host everywhere, `host$third-party` blocks it only as a third-party resource.
+     * The primary network decision (CB-06). Empty, non-http(s) and auth/captcha URLs are always
+     * allowed. With the native engines ready, the privacy engine is checked first (a block there is
+     * a tracker), then the ads engine; otherwise the host list decides with its ad/tracker split.
      */
-    fun loadPrecompiledDomainsFromStream(inputStream: InputStream) {
-        BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8)).useLines { lines ->
-            lines.forEach { line ->
-                val trimmed = line.trim()
-                if (trimmed.isEmpty() || trimmed.startsWith("#") || trimmed.startsWith("!")) return@forEach
-                if (trimmed.endsWith(THIRD_PARTY_SUFFIX)) {
-                    thirdPartyHosts.add(trimmed.removeSuffix(THIRD_PARTY_SUFFIX))
-                } else {
-                    blockedHosts.add(trimmed)
-                }
+    fun decide(
+        url: String,
+        sourceUrl: String,
+        type: RequestType,
+        adsEnabled: Boolean,
+        trackersEnabled: Boolean,
+    ): Decision {
+        if (!adsEnabled && !trackersEnabled) return Decision.ALLOW
+        if (!isHttpUrl(url)) return Decision.ALLOW
+        val timed = AdblockLatency.enabled
+        val started = if (timed) System.nanoTime() else 0L
+        try {
+            val parsed = UrlParser.parseUrl(url) ?: return Decision.ALLOW
+            if (parsed.host.isEmpty() || AuthDomainAllowlist.isAllowlistedAuthDomain(parsed.host)) return Decision.ALLOW
+            val set = engineStore.current()
+            if (set != null) {
+                return EngineDecider.decide(set, url, sourceUrl.ifEmpty { url }, type, adsEnabled, trackersEnabled)
             }
+            return hostDecision(parsed, sourceUrl, adsEnabled, trackersEnabled)
+        } finally {
+            if (timed) AdblockLatency.record(System.nanoTime() - started)
         }
     }
 
-    data class ParsedUrl(
-        val host: String,
-        val path: String,
-        val rawUrl: String,
-    )
-
-    private val lastParsedUrl = ThreadLocal<ParsedUrl?>()
-
-    fun parseUrl(url: String?): ParsedUrl? {
-        if (url.isNullOrBlank()) return null
-        val cached = lastParsedUrl.get()
-        if (cached != null && (cached.rawUrl === url || cached.rawUrl == url)) {
-            return cached
-        }
-        val parsed = extractHostAndPath(url)
-        lastParsedUrl.set(parsed)
-        return parsed
+    private fun hostDecision(parsed: ParsedUrl, sourceUrl: String, adsEnabled: Boolean, trackersEnabled: Boolean): Decision {
+        val document = sourceUrl.ifEmpty { null }
+        if (!HostListMatcher.shouldBlock(parsed, document)) return Decision.ALLOW
+        val tracker = HostListMatcher.isTracker(parsed, document)
+        val enabled = if (tracker) trackersEnabled else adsEnabled
+        return if (enabled) Decision(block = true, isTracker = tracker, redirectDataUrl = null) else Decision.ALLOW
     }
 
-    internal fun extractHostAndPath(url: String): ParsedUrl? {
-        var start = 0
-        val len = url.length
-        while (start < len && url[start] <= ' ') {
-            start++
-        }
-        var end = len
-        while (end > start && url[end - 1] <= ' ') {
-            end--
-        }
-        if (start >= end) return null
-
-        if (url.regionMatches(start, "data:", 0, 5, ignoreCase = true) ||
-            url.regionMatches(start, "javascript:", 0, 11, ignoreCase = true) ||
-            url.regionMatches(start, "about:", 0, 6, ignoreCase = true) ||
-            url.regionMatches(start, "file:", 0, 5, ignoreCase = true) ||
-            url.regionMatches(start, "content:", 0, 8, ignoreCase = true) ||
-            url.regionMatches(start, "mailto:", 0, 7, ignoreCase = true) ||
-            url.regionMatches(start, "tel:", 0, 4, ignoreCase = true) ||
-            url.regionMatches(start, "sms:", 0, 4, ignoreCase = true) ||
-            url.regionMatches(start, "geo:", 0, 4, ignoreCase = true)
-        ) {
-            return ParsedUrl(host = "", path = "", rawUrl = url)
-        }
-
-        var hostStart = -1
-        if (start + 1 < end && url[start] == '/' && url[start + 1] == '/') {
-            hostStart = start + 2
-        } else {
-            val schemeDelim = url.indexOf("://", start)
-            if (schemeDelim != -1 && schemeDelim < end) {
-                var hasBreakBeforeScheme = false
-                for (i in start until schemeDelim) {
-                    val c = url[i]
-                    if (c == '/' || c == '?' || c == '#') {
-                        hasBreakBeforeScheme = true
-                        break
-                    }
-                }
-                if (!hasBreakBeforeScheme) {
-                    hostStart = schemeDelim + 3
-                }
-            }
-        }
-
-        if (hostStart == -1) {
-            if (url[start] == '/') {
-                return ParsedUrl(host = "", path = "", rawUrl = url)
-            }
-            hostStart = start
-        }
-
-        for (i in hostStart until end) {
-            val c = url[i]
-            if (c == '/' || c == '?' || c == '#') break
-            if (c == '@') {
-                hostStart = i + 1
-                break
-            }
-        }
-
-        var hostEnd = end
-        var pathStart = -1
-
-        if (hostStart < end && url[hostStart] == '[') {
-            val closeBracket = url.indexOf(']', hostStart)
-            if (closeBracket != -1 && closeBracket < end) {
-                hostEnd = closeBracket + 1
-            }
-        } else {
-            for (i in hostStart until end) {
-                val c = url[i]
-                if (c == ':' || c == '/' || c == '?' || c == '#') {
-                    hostEnd = i
-                    break
-                }
-            }
-        }
-
-        if (hostEnd <= hostStart) {
-            return ParsedUrl(host = "", path = "", rawUrl = url)
-        }
-
-        for (i in hostEnd until end) {
-            val c = url[i]
-            if (c == '/') {
-                pathStart = i
-                break
-            } else if (c == '?' || c == '#') {
-                break
-            }
-        }
-
-        val host = run {
-            var hasUpper = false
-            for (i in hostStart until hostEnd) {
-                val c = url[i]
-                if (c in 'A'..'Z') {
-                    hasUpper = true
-                    break
-                }
-            }
-            if (hasUpper) {
-                url.substring(hostStart, hostEnd).lowercase()
-            } else {
-                url.substring(hostStart, hostEnd)
-            }
-        }
-
-        val path = if (pathStart != -1) {
-            var pathEnd = end
-            for (i in pathStart until end) {
-                val c = url[i]
-                if (c == '?' || c == '#') {
-                    pathEnd = i
-                    break
-                }
-            }
-            var hasUpper = false
-            for (i in pathStart until pathEnd) {
-                val c = url[i]
-                if (c in 'A'..'Z') {
-                    hasUpper = true
-                    break
-                }
-            }
-            if (hasUpper) {
-                url.substring(pathStart, pathEnd).lowercase()
-            } else {
-                url.substring(pathStart, pathEnd)
-            }
-        } else {
-            ""
-        }
-
-        return ParsedUrl(host = host, path = path, rawUrl = url)
-    }
+    private fun isHttpUrl(url: String): Boolean =
+        url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
 
     fun shouldBlock(url: String?, documentUrl: String? = null): Boolean {
         if (url.isNullOrBlank()) return false
-        val parsed = parseUrl(url) ?: return false
-        return shouldBlock(parsed, documentUrl)
+        if (engineStore.current() == null) return HostListMatcher.shouldBlock(url, documentUrl)
+        return decide(url, documentUrl.orEmpty(), RequestType.OTHER, adsEnabled = true, trackersEnabled = true).block
     }
 
-    /**
-     * Decides whether a subresource request is blocked.
-     *
-     * - A host blocked everywhere is blocked, except on the blocked site itself (a request from
-     *   `taboola.com` to `cdn.taboola.com` is the user visiting that site, not an ad), and except
-     *   a same-site analytics host (first-party telemetry such as Yandex Metrika on `yandex.ru`).
-     * - A host blocked only as a third-party resource is blocked when the request is not same-site
-     *   with [documentUrl], or when the document is unknown.
-     * - Path rules for known ad endpoints ([isBlockedPath]) apply in every context.
-     */
     fun shouldBlock(parsed: ParsedUrl, documentUrl: String? = null): Boolean {
-        val host = parsed.host
-        if (host.isEmpty()) return false
-        if (isAllowlistedAuthDomain(host)) return false
-
-        val isFirstParty = !documentUrl.isNullOrBlank() && UrlSecurityUtils.isSameSite(documentUrl, parsed.rawUrl)
-        val globalMatch = blockedHosts.matchedSuffixStart(host)
-        if (globalMatch >= 0) {
-            val blockedEntry = host.substring(globalMatch)
-            val documentHost = documentUrl?.let { parseUrl(it)?.host }.orEmpty()
-            val isOnBlockedSite = documentHost == blockedEntry || documentHost.endsWith(".$blockedEntry")
-            val isFirstPartyAnalytics = isFirstParty && isTrackerHostAndPath(host, parsed.path)
-            if (!isOnBlockedSite && !isFirstPartyAnalytics) return true
-        }
-
-        if (!isFirstParty && thirdPartyHosts.matchedSuffixStart(host) >= 0) return true
-
-        val path = parsed.path
-        return path.isNotEmpty() && isBlockedPath(host, path)
+        if (engineStore.current() == null) return HostListMatcher.shouldBlock(parsed, documentUrl)
+        return decide(parsed.rawUrl, documentUrl.orEmpty(), RequestType.OTHER, adsEnabled = true, trackersEnabled = true).block
     }
 
     /**
-     * Decides whether a top-level navigation to [url] is an ad click that must not open.
-     * Only hosts blocked everywhere count: third-party-only hosts and path rules describe
-     * embedded resources, not pages a user may deliberately open.
+     * Decides whether a top-level navigation to [url] is an ad click that must not open: a
+     * `DOCUMENT` check against the ads engine, or the host list before the engines are ready.
      */
     fun shouldBlockNavigation(url: String?): Boolean {
-        val host = parseUrl(url)?.host.orEmpty()
-        if (host.isEmpty() || isAllowlistedAuthDomain(host)) return false
-        return blockedHosts.matchedSuffixStart(host) >= 0
-    }
-    fun isBlockedPath(
-        host: String,
-        path: String,
-    ): Boolean {
-        if (host.contains("yandex.")) {
-            if (path.startsWith("/ads/") ||
-                path.startsWith("/clck/") ||
-                path.contains("context.js") ||
-                path.contains("header-bidding.js")
-            ) {
-                return true
-            }
-        }
-
-        if (host.contains("mail.ru") || host.contains("vk.com")) {
-            if (path.startsWith("/static/ads") ||
-                path.startsWith("/ads-async.js") ||
-                path.startsWith("/ads/") ||
-                path.startsWith("/ads_")
-            ) {
-                return true
-            }
-        }
-
-        if (host.contains("rambler.ru")) {
-            if (path.startsWith("/ads/") || path.startsWith("/banner")) {
-                return true
-            }
-        }
-
-        if (path.endsWith("/ads.js") ||
-            path.endsWith("/ad.js") ||
-            path.endsWith("/advert.js") ||
-            path.contains("/ads/system/")
-        ) {
-            return true
-        }
-
-        return false
+        val set = engineStore.current() ?: return HostListMatcher.shouldBlockNavigation(url)
+        if (url.isNullOrBlank() || !isHttpUrl(url)) return false
+        val host = UrlParser.parseUrl(url)?.host.orEmpty()
+        if (host.isEmpty() || AuthDomainAllowlist.isAllowlistedAuthDomain(host)) return false
+        return EngineDecider.blocks(set.ads.check(url, url, RequestType.DOCUMENT))
     }
 
-    // Minimal 1x1 32-bit transparent PNG to fulfill blocked image requests cleanly
-    val TRANSPARENT_1X1_PNG: ByteArray by lazy {
-        Base64.decode(
-            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
-            Base64.DEFAULT,
-        )
-    }
+    internal fun isAllowlistedAuthDomain(host: String): Boolean = AuthDomainAllowlist.isAllowlistedAuthDomain(host)
 
-    fun createBlockedResponse(): WebResourceResponse =
-        WebResourceResponse(
-            "text/plain",
-            "UTF-8",
-            ByteArrayInputStream(ByteArray(0)),
-        )
+    val TRANSPARENT_1X1_PNG: ByteArray get() = BlockedResponses.TRANSPARENT_1X1_PNG
 
-    /**
-     * Creates a content-aware blocked response tailored to the resource type:
-     * - Images: Returns a 1x1 transparent PNG to eliminate broken image icons and avoid layout shift.
-     * - Scripts: Returns application/javascript with a comment or harmless stub to stop syntax errors.
-     * - Beacons/Analytics: Returns HTTP 204 No Content.
-     * - HTML: Returns an empty HTML document.
-     * - Fallback: Returns empty text/plain.
-     */
+    fun createBlockedResponse() = BlockedResponses.createBlockedResponse()
+
     fun createSmartBlockedResponse(
         url: String?,
         mimeTypeHint: String? = null,
         requestHeaders: Map<String, String>? = null,
-    ): WebResourceResponse {
-        val cleanUrl = url?.lowercase()?.trim().orEmpty()
-        val acceptHeader =
-            requestHeaders?.get("Accept")?.lowercase()
-                ?: requestHeaders?.get("accept")?.lowercase()
-                ?: ""
+    ) = BlockedResponses.createSmartBlockedResponse(url, mimeTypeHint, requestHeaders)
 
-        val requestingOrigin = requestHeaders?.entries
-            ?.firstOrNull { it.key.equals("Origin", ignoreCase = true) }?.value
-            ?: requestHeaders?.entries
-                ?.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value
-                ?.let { runCatching { android.net.Uri.parse(it) }.getOrNull() }
-                ?.let { if (it.scheme != null && it.host != null) "${it.scheme}://${it.host}" else null }
-            ?: if (cleanUrl.contains("youtube.com") || cleanUrl.contains("doubleclick.net") || cleanUrl.contains("google")) "https://m.youtube.com" else "*"
+    /** Native: rules in the compiled lists, counted at compile time; otherwise the host list size. */
+    fun getRulesCount(): Int = engineStore.current()?.rulesCount ?: HostListMatcher.getRulesCount()
 
-        val corsHeaders = buildMap<String, String> {
-            put("Access-Control-Allow-Origin", requestingOrigin)
-            if (requestingOrigin != "*") {
-                put("Access-Control-Allow-Credentials", "true")
-            }
-            put("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD")
-            put("Access-Control-Allow-Headers", "*")
-        }
+    fun containsHost(host: String): Boolean = HostListMatcher.containsHost(host)
 
-        val isImage =
-            mimeTypeHint?.startsWith("image/") == true ||
-                acceptHeader.contains("image/") ||
-                cleanUrl.endsWith(".png") || cleanUrl.endsWith(".jpg") ||
-                cleanUrl.endsWith(".jpeg") || cleanUrl.endsWith(".gif") ||
-                cleanUrl.endsWith(".webp") || cleanUrl.endsWith(".svg") ||
-                cleanUrl.endsWith(".ico") || cleanUrl.contains("/pixel")
+    fun isTracker(url: String, documentUrl: String? = null): Boolean {
+        if (url.isBlank()) return false
+        return isTracker(UrlParser.parseUrl(url) ?: return false, documentUrl)
+    }
 
-        if (isImage) {
-            return WebResourceResponse(
-                "image/png",
-                null,
-                200,
-                "OK",
-                corsHeaders,
-                ByteArrayInputStream(TRANSPARENT_1X1_PNG),
-            )
-        }
+    @JvmName("isTrackerNullable")
+    fun isTracker(url: String?, documentUrl: String? = null): Boolean {
+        if (url.isNullOrBlank()) return false
+        return isTracker(UrlParser.parseUrl(url) ?: return false, documentUrl)
+    }
 
-        val isScript =
-            mimeTypeHint?.contains("javascript") == true ||
-                acceptHeader.contains("javascript") ||
-                cleanUrl.endsWith(".js") ||
-                cleanUrl.contains(".js?") ||
-                cleanUrl.contains("/adsbygoogle") ||
-                cleanUrl.contains("/gpt.js") ||
-                cleanUrl.contains("context.js") ||
-                cleanUrl.contains("header-bidding") ||
-                cleanUrl.contains("ads-async.js") ||
-                cleanUrl.contains("sdk.standalone.js") ||
-                cleanUrl.contains("adfox") ||
-                cleanUrl.contains("ad_status")
-
-        if (isScript) {
-            val stubContent =
-                when {
-                    cleanUrl.contains("ad_status") -> {
-                        "window.google_ad_status = 1;"
-                    }
-
-                    cleanUrl.contains("adsbygoogle") -> {
-                        "window.adsbygoogle = window.adsbygoogle || []; window.adsbygoogle.loaded = true; window.adsbygoogle.push = function(o){return 0;};"
-                    }
-
-                    cleanUrl.contains("gpt.js") || cleanUrl.contains("pubads") -> {
-                        "window.googletag = window.googletag || {cmd:[]}; window.googletag.cmd.push = function(f){if(typeof f==='function'){try{f();}catch(e){}}};"
-                    }
-
-                    cleanUrl.contains("context.js") || cleanUrl.contains("header-bidding") || cleanUrl.contains("adfox") -> {
-                        "window.yaContextCb = window.yaContextCb || []; window.Ya = window.Ya || {}; window.Ya.adfoxCode = window.Ya.adfoxCode || {create:function(c){if(c&&c.containerId){var e=document.getElementById(c.containerId);if(e){e.style.setProperty('display','none','important');e.style.setProperty('height','0','important');}}},createScroll:function(c){if(c&&c.containerId){var e=document.getElementById(c.containerId);if(e){e.style.setProperty('display','none','important');e.style.setProperty('height','0','important');}}},destroy:function(){},clearSession:function(){},reload:function(){},hbCallbacks:[]};"
-                    }
-
-                    cleanUrl.contains("sdk.standalone.js") || cleanUrl.contains("x5media") -> {
-                        "window.x5media = window.x5media || {init:function(){return Promise.resolve();},render:function(){}};"
-                    }
-
-                    else -> {
-                        "/* blocked by Prosto */"
-                    }
-                }
-            return WebResourceResponse(
-                "application/javascript",
-                "UTF-8",
-                200,
-                "OK",
-                corsHeaders,
-                ByteArrayInputStream(stubContent.toByteArray(Charsets.UTF_8)),
-            )
-        }
-
-        val isBeaconOrAnalytics =
-            cleanUrl.contains("/collect") ||
-                cleanUrl.contains("/beacon") ||
-                cleanUrl.contains("/analytics") ||
-                cleanUrl.contains("/telemetry")
-
-        if (isBeaconOrAnalytics) {
-            return WebResourceResponse(
-                "text/plain",
-                "UTF-8",
-                204,
-                "No Content",
-                corsHeaders,
-                ByteArrayInputStream(ByteArray(0)),
-            )
-        }
-
-        val isMedia =
-            mimeTypeHint?.startsWith("video/") == true ||
-                mimeTypeHint?.startsWith("audio/") == true ||
-                acceptHeader.contains("video/") ||
-                acceptHeader.contains("audio/") ||
-                cleanUrl.endsWith(".mp4") || cleanUrl.endsWith(".webm") ||
-                cleanUrl.endsWith(".m3u8") || cleanUrl.endsWith(".ts") ||
-                cleanUrl.endsWith(".mp3") || cleanUrl.endsWith(".ogg") ||
-                cleanUrl.endsWith(".m4a") || cleanUrl.endsWith(".m4v") ||
-                cleanUrl.contains(".mp4?") || cleanUrl.contains(".m3u8?") ||
-                cleanUrl.contains(".webm?")
-
-        if (isMedia) {
-            val isAudio = mimeTypeHint?.startsWith("audio/") == true ||
-                cleanUrl.endsWith(".mp3") || cleanUrl.endsWith(".ogg") || cleanUrl.endsWith(".m4a")
-            return WebResourceResponse(
-                if (isAudio) "audio/mpeg" else "video/mp4",
-                "UTF-8",
-                204,
-                "No Content",
-                corsHeaders,
-                ByteArrayInputStream(ByteArray(0)),
-            )
-        }
-
-        val isJson =
-            mimeTypeHint?.contains("json") == true ||
-                acceptHeader.contains("application/json") ||
-                cleanUrl.endsWith(".json") ||
-                cleanUrl.contains(".json?") ||
-                cleanUrl.contains("pagead/id") ||
-                cleanUrl.contains("/player/ad_break") ||
-                cleanUrl.contains("/get_midroll") ||
-                cleanUrl.contains("/ad_break")
-
-        if (isJson) {
-            return WebResourceResponse(
-                "application/json",
-                "UTF-8",
-                200,
-                "OK",
-                corsHeaders,
-                ByteArrayInputStream("{}".toByteArray(Charsets.UTF_8)),
-            )
-        }
-
-        val isHtml =
-            mimeTypeHint?.contains("html") == true ||
-                cleanUrl.endsWith(".html") || cleanUrl.endsWith(".htm")
-
-        if (isHtml) {
-            return WebResourceResponse(
-                "text/html",
-                "UTF-8",
-                200,
-                "OK",
-                corsHeaders,
-                ByteArrayInputStream("<!DOCTYPE html><html><body></body></html>".toByteArray(Charsets.UTF_8)),
-            )
-        }
-
-        return createBlockedResponse()
+    /** A same-site request is never a tracker; otherwise the privacy engine (or the host heuristic) decides. */
+    fun isTracker(parsed: ParsedUrl, documentUrl: String? = null): Boolean {
+        val set = engineStore.current() ?: return HostListMatcher.isTracker(parsed, documentUrl)
+        if (!documentUrl.isNullOrBlank() && UrlSecurityUtils.isSameSite(documentUrl, parsed.rawUrl)) return false
+        if (!isHttpUrl(parsed.rawUrl) || AuthDomainAllowlist.isAllowlistedAuthDomain(parsed.host)) return false
+        return EngineDecider.blocks(set.privacy.check(parsed.rawUrl, documentUrl ?: parsed.rawUrl, RequestType.OTHER))
     }
 
     fun isReady(): Boolean = isInitialized
 
-    fun getRulesCount(): Int = blockedHosts.size + thirdPartyHosts.size
-
-    fun containsHost(host: String): Boolean =
-        host.lowercase().let { blockedHosts.contains(it) || thirdPartyHosts.contains(it) }
+    /** True once the native engines are compiled or loaded and published. */
+    fun isNativeReady(): Boolean = engineStore.current() != null
 
     @Volatile
     private var blockedRequestStats: BlockedRequestStats? = null
@@ -685,114 +274,6 @@ object AdBlockerEngine {
         }
     }
 
-    private val TRACKER_DOMAINS = arrayOf(
-        "google-analytics.com",
-        "scorecardresearch.com",
-        "quantserve.com",
-        "hotjar.com",
-        "clarity.ms",
-        "segment.io",
-        "segment.com",
-        "mixpanel.com",
-        "amplitude.com",
-        "statcounter.com",
-        "counter.yadro.ru",
-        "top-fwz1.mail.ru",
-    )
-
-    /**
-     * Determines whether a given URL belongs to an analytics, tracker, telemetry, or beacon service.
-     * Examples: google-analytics.com, mc.yandex.ru, scorecardresearch.com, quantserve.com, adfstat, metrika, beacon, pixel, etc.
-     */
-    fun isTracker(url: String, documentUrl: String? = null): Boolean {
-        if (url.isBlank()) return false
-        val parsed = parseUrl(url) ?: return false
-        return isTracker(parsed, documentUrl)
-    }
-
-    @JvmName("isTrackerNullable")
-    fun isTracker(url: String?, documentUrl: String? = null): Boolean {
-        if (url.isNullOrBlank()) return false
-        val parsed = parseUrl(url) ?: return false
-        return isTracker(parsed, documentUrl)
-    }
-
-    fun isTracker(parsed: ParsedUrl, documentUrl: String? = null): Boolean {
-        if (!documentUrl.isNullOrBlank() && UrlSecurityUtils.isSameSite(documentUrl, parsed.rawUrl)) {
-            return false
-        }
-        return isTrackerHostAndPath(parsed.host, parsed.path, parsed.rawUrl)
-    }
-
-    internal fun isTrackerHostAndPath(
-        host: String,
-        path: String,
-        rawUrl: String = "",
-    ): Boolean {
-        if (host.isEmpty() && path.isEmpty() && rawUrl.isEmpty()) return false
-        if (isAllowlistedAuthDomain(host)) return false
-
-        // Exempt essential YouTube player playback telemetry from tracking suppression
-        if (host == "youtube.com" || host.endsWith(".youtube.com") ||
-            host == "youtube-nocookie.com" || host.endsWith(".youtube-nocookie.com") ||
-            host == "googlevideo.com" || host.endsWith(".googlevideo.com")
-        ) {
-            if (path.startsWith("/api/stats/") || path.startsWith("/stats/") || path.contains("playback")) {
-                return false
-            }
-        }
-
-        // Known tracker & analytics domains
-        if (host.isNotEmpty()) {
-            for (td in TRACKER_DOMAINS) {
-                if (host == td || host.endsWith(".$td")) {
-                    return true
-                }
-            }
-
-            // Host fragments specifically associated with telemetry / metrics
-            if (host.contains("adfstat") ||
-                host.contains("metrika") ||
-                host.startsWith("mc.yandex.") ||
-                host.contains(".metrika.") ||
-                host.contains("analytics.") ||
-                host.contains("telemetry.") ||
-                host.contains("tracker.") ||
-                host.contains("tracking.") ||
-                host.contains("stats.")
-            ) {
-                return true
-            }
-        }
-
-        // Path or URL fragments indicating beacons, telemetry, pixels, collectors
-        if (path.isNotEmpty()) {
-            if (path.contains("/collect") ||
-                path.contains("/beacon") ||
-                path.contains("/analytics") ||
-                path.contains("/telemetry") ||
-                path.contains("/pixel") ||
-                path.contains("/metrika") ||
-                path.contains("/track")
-            ) {
-                return true
-            }
-        }
-
-        if (rawUrl.isNotEmpty()) {
-            if (rawUrl.contains("beacon", ignoreCase = true) ||
-                rawUrl.contains("pixel", ignoreCase = true) ||
-                rawUrl.contains("telemetry", ignoreCase = true) ||
-                rawUrl.contains("adfstat", ignoreCase = true) ||
-                rawUrl.contains("metrika", ignoreCase = true)
-            ) {
-                return true
-            }
-        }
-
-        return false
-    }
-
     fun recordBlockedRequest(isTracker: Boolean) {
         val stats = blockedRequestStats ?: return
         activeScope().launch {
@@ -819,129 +300,14 @@ object AdBlockerEngine {
         synchronized(this) {
             initJob?.cancel()
             initJob = null
-            blockedHosts.clear()
-            thirdPartyHosts.clear()
-            blockedHosts.addAll(DEFAULT_HOSTS)
+            HostListMatcher.reset()
+            engineStore.swap(null)
+            backend = NativeBackend.DEFAULT
+            AdblockLatency.enabled = false
+            AdblockLatency.reset()
             isInitialized = false
             blockedRequestStats = null
-            lastParsedUrl.remove()
+            UrlParser.reset()
         }
-    }
-}
-
-/**
- * Blocklist of hostnames that supports allocation-free suffix matching.
- *
- * Exact lookups use a plain hash set. Matching a subdomain ("ads.example.com" against the blocked
- * host "example.com") needs to test every suffix of a host, which used to allocate one substring
- * per candidate. To avoid that, the hosts are additionally bucketed by their own
- * [String.hashCode]: a candidate suffix is hashed over its character range with the very same
- * algorithm [String.hashCode] uses, so the bucket can be found without allocating a string, and
- * the few candidates of that bucket are then compared in place with [String.regionMatches].
- *
- * The instance is safe for concurrent use: rules are loaded on a background thread while the
- * matching runs on the main thread.
- */
-private sealed interface HostBucket {
-    fun matches(host: String, fromIndex: Int, length: Int): Boolean
-    fun withHost(newHost: String): HostBucket
-
-    class Single(val host: String) : HostBucket {
-        override fun matches(host: String, fromIndex: Int, length: Int): Boolean =
-            this.host.length == length && host.regionMatches(fromIndex, this.host, 0, length)
-
-        override fun withHost(newHost: String): HostBucket =
-            Multi(arrayOf(host, newHost))
-    }
-
-    class Multi(val hosts: Array<String>) : HostBucket {
-        override fun matches(host: String, fromIndex: Int, length: Int): Boolean {
-            for (h in hosts) {
-                if (h.length == length && host.regionMatches(fromIndex, h, 0, length)) {
-                    return true
-                }
-            }
-            return false
-        }
-
-        override fun withHost(newHost: String): HostBucket {
-            val newArr = java.util.Arrays.copyOf(hosts, hosts.size + 1)
-            newArr[hosts.size] = newHost
-            return Multi(newArr)
-        }
-    }
-}
-
-private class HostBlocklist {
-    private val exactHosts = ConcurrentHashMap.newKeySet<String>(65536)
-    private val hashBuckets = ConcurrentHashMap<Int, HostBucket>(65536)
-
-    val size: Int get() = exactHosts.size
-
-    fun add(host: String) {
-        if (!exactHosts.add(host)) return
-        hashBuckets.compute(host.hashCode()) { _, existing ->
-            existing?.withHost(host) ?: HostBucket.Single(host)
-        }
-    }
-
-    fun addAll(hosts: Collection<String>) {
-        for (host in hosts) {
-            add(host)
-        }
-    }
-
-    fun clear() {
-        exactHosts.clear()
-        hashBuckets.clear()
-    }
-
-    /** Returns true when [host] itself is blocked. */
-    fun contains(host: String): Boolean = exactHosts.contains(host)
-
-    /**
-     * Returns the index in [host] where the blocked entry that covers it starts (0 for an exact
-     * match, the start of a parent domain for a subdomain match), or -1 when nothing matches.
-     * Candidate suffixes are compared in place, so the common non-matching case allocates nothing.
-     */
-    fun matchedSuffixStart(host: String): Int {
-        if (exactHosts.contains(host)) return 0
-        var suffixStart = 0
-        while (true) {
-            val dotIndex = host.indexOf('.', suffixStart)
-            // A trailing dot terminates the chain: there is no further suffix left to test.
-            if (dotIndex == -1 || dotIndex == host.length - 1) return -1
-            suffixStart = dotIndex + 1
-            if (containsSuffix(host, suffixStart)) return suffixStart
-        }
-    }
-
-    /**
-     * Returns true when the region of [host] that starts at [fromIndex] is a blocked host.
-     * The region is compared in place, so no substring is allocated.
-     */
-    fun containsSuffix(
-        host: String,
-        fromIndex: Int,
-    ): Boolean {
-        if (fromIndex < 0 || fromIndex >= host.length) return false
-        val bucket = hashBuckets[hashRegion(host, fromIndex)] ?: return false
-        return bucket.matches(host, fromIndex, host.length - fromIndex)
-    }
-
-    /**
-     * Hash of the region of [host] that starts at [fromIndex], computed exactly like
-     * [String.hashCode] of that substring, so a region hash always matches the hash of the equal
-     * string stored in the blocklist.
-     */
-    private fun hashRegion(
-        host: String,
-        fromIndex: Int,
-    ): Int {
-        var hash = 0
-        for (index in fromIndex until host.length) {
-            hash = 31 * hash + host[index].code
-        }
-        return hash
     }
 }
