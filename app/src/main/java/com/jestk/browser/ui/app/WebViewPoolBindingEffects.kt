@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.engine.adblock.ServiceWorkerBlocking
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.views.WebViewClientDeps
@@ -34,6 +35,10 @@ internal fun WebViewPoolBindingEffects(
             viewModel.onDownloadStarted(item)
         }
         webViewPool.isAdBlockerEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled }
+        ServiceWorkerBlocking.register(
+            adsEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled },
+            trackersEnabled = { viewModel.uiState.value.settings.isTrackingProtectionEnabled },
+        )
         webViewPool.isCleanPlayerEnabled = { viewModel.uiState.value.settings.isCleanYouTubePlayerEnabled }
         webViewPool.onCleanPlayerRequested = { url -> openCleanPlayerIfIntercepted(url, clientDeps) }
         webViewPool.onWebViewCreated = { tabId, wv ->

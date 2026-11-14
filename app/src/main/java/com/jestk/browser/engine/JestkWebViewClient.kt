@@ -13,6 +13,7 @@ import android.webkit.WebViewClient
 import androidx.webkit.WebViewFeature
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.repository.SettingsRepository
+import com.jestk.browser.engine.adblock.NetworkRequestInterceptor
 import com.jestk.browser.util.UrlSecurityUtils
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -38,6 +39,7 @@ class JestkWebViewClient(
     private val isCleanPlayerEnabled: (() -> Boolean)? = null,
     private val onCleanPlayerRequested: ((url: String) -> Boolean)? = null,
     private val onBlockedAdNavigation: ((tabId: String, url: String) -> Unit)? = null,
+    private val onBlockedDocument: ((tabId: String, url: String) -> Unit)? = null,
     private val isAdRedirectProtectionEnabled: (() -> Boolean)? = null,
     private val isAllowedAdNavigation: ((url: String) -> Boolean)? = null,
     private val isAutoConsentEnabled: (() -> Boolean)? = null,
@@ -50,6 +52,14 @@ class JestkWebViewClient(
 
     @Volatile
     private var lastGestureNavigationAtMs = Long.MIN_VALUE / 2
+
+    private val networkInterceptor = NetworkRequestInterceptor(
+        adsEnabled = isAdBlockerEnabled,
+        trackersEnabled = { isTrackingProtectionEnabled?.invoke() ?: true },
+        isDocumentAllowed = { isAllowedAdNavigation?.invoke(it) == true },
+        onBlockedResource = onBlockedResource,
+        onBlockedDocument = { onBlockedDocument?.invoke(tabId, it) },
+    )
 
     override fun onRenderProcessGone(
         view: WebView?,
@@ -260,31 +270,10 @@ class JestkWebViewClient(
         request: WebResourceRequest?,
     ): WebResourceResponse? {
         if (request == null) return null
-        // The top-level document is never blocked here: navigations are decided in
-        // shouldOverrideUrlLoading, and blocking the document only produces a blank page.
-        if (request.isForMainFrame) return super.shouldInterceptRequest(view, request)
-        val adBlockerActive = isAdBlockerEnabled()
-        val trackingActive = isTrackingProtectionEnabled?.invoke() ?: true
-        if (adBlockerActive || trackingActive) {
-            val url = request.url?.toString()
-            val parsedUrl = AdBlockerEngine.parseUrl(url)
-            // Runs on a worker thread: WebView.getUrl() is main-thread only, so use the volatile mirror.
-            val pageUrl = (view as? NestedWebView)?.loadedUrl
-            if (parsedUrl != null && AdBlockerEngine.shouldBlock(parsedUrl, pageUrl)) {
-                val validUrl = url.orEmpty()
-                val isTracker = AdBlockerEngine.isTracker(parsedUrl, pageUrl)
-                val shouldBlock = (isTracker && trackingActive) || (!isTracker && adBlockerActive)
-                if (shouldBlock) {
-                    onBlockedResource?.invoke(validUrl, isTracker)
-                    AdBlockerEngine.recordBlockedRequest(isTracker)
-                    return AdBlockerEngine.createSmartBlockedResponse(
-                        url = url,
-                        requestHeaders = request.requestHeaders,
-                    )
-                }
-            }
-        }
-        return super.shouldInterceptRequest(view, request)
+        // Runs on a worker thread: WebView.getUrl() is main-thread only, so use the volatile mirror.
+        val tabUrl = (view as? NestedWebView)?.loadedUrl
+        return networkInterceptor.intercept(request, tabUrl, view?.context)
+            ?: super.shouldInterceptRequest(view, request)
     }
 
     private fun checkExternalAppOffer(

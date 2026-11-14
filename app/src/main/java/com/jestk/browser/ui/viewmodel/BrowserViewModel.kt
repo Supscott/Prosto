@@ -208,6 +208,7 @@ class BrowserViewModel(
             getCurrentState = { _uiState.value },
             updateUiState = { transform -> _uiState.update(transform) },
             loadUrl = this::loadUrl,
+            emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
         )
 
     private val mediaEvents =
