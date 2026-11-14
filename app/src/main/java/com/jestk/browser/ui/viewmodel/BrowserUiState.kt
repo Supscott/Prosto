@@ -106,6 +106,8 @@ data class BrowserUiState(
     val allowedInsecureHosts: Set<String> = emptySet(),
     /** Every persisted per-site blocking switch-off, for all workspaces (CB-14). */
     val siteAllowlist: List<com.jestk.browser.domain.model.SiteAllowlistEntry> = emptyList(),
+    /** Protection level and filter-list state for the settings screen (CB-15). */
+    val contentBlocking: com.jestk.browser.engine.adblock.ContentBlockingStatus = com.jestk.browser.engine.adblock.ContentBlockingStatus(),
     /** The site the "Disable blocking" dialog is asking about; null while it is closed. */
     val siteBlockingPromptHost: String? = null,
 ) {

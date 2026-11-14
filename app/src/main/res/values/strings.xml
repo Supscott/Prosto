@@ -330,4 +330,26 @@
     <string name="settings_tutorial_summary">Replay the quick tour of Prosto</string>
     <string name="settings_home_privacy_card_title">Protection stats on Home</string>
     <string name="settings_home_privacy_card_summary">Show blocked ads and trackers once there are any</string>
+    <string name="settings_section_content_blocking">CONTENT BLOCKING</string>
+    <string name="cb_level_standard">Standard</string>
+    <string name="cb_level_strict">Strict</string>
+    <string name="cb_level_standard_summary">Blocks ads and trackers with the fewest broken sites.</string>
+    <string name="cb_level_strict_summary">Also hides annoyances and cookie banners and adds more tracker lists. Some sites may break.</string>
+    <string name="cb_strict_downloading">Strict lists are downloading. Standard protection is active until they finish.</string>
+    <string name="cb_strict_failed">Could not download the Strict lists. Standard protection stays active.</string>
+    <string name="cb_retry">Retry</string>
+    <string name="cb_network_only_notice">Your WebView supports network blocking only. Hiding page elements needs a newer Android System WebView.</string>
+    <string name="cb_update_now_title">Update filter lists now</string>
+    <string name="cb_updating">Updating filter lists…</string>
+    <string name="cb_last_updated">Last updated: %1$s</string>
+    <string name="cb_never_updated">never</string>
+    <string name="cb_rules_count">Rules: %1$s</string>
+    <string name="cb_update_failed">The last update failed. Tap to try again.</string>
+    <string name="cb_allowlist_title">Sites with blocking off</string>
+    <string name="cb_allowlist_empty">Blocking is on everywhere. Turn it off for one site from the browser menu.</string>
+    <string name="cb_scope_all_workspaces">All workspaces</string>
+    <string name="cb_allowlist_remove">Turn blocking back on for %1$s</string>
+    <string name="about_licenses_title">Open-source licences</string>
+    <string name="about_licenses_summary">Blocking engine and filter lists</string>
+    <string name="cb_scope_workspace_number">Workspace %1$d</string>
 </resources>

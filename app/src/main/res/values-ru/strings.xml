@@ -338,4 +338,26 @@
     <string name="settings_tutorial_summary">Пройти знакомство с Prosto ещё раз</string>
     <string name="settings_home_privacy_card_title">Статистика защиты на главной</string>
     <string name="settings_home_privacy_card_summary">Показывать заблокированную рекламу и трекеры, когда они появятся</string>
+    <string name="settings_section_content_blocking">БЛОКИРОВКА КОНТЕНТА</string>
+    <string name="cb_level_standard">Стандартный</string>
+    <string name="cb_level_strict">Строгий</string>
+    <string name="cb_level_standard_summary">Блокирует рекламу и трекеры, почти не ломая сайты.</string>
+    <string name="cb_level_strict_summary">Дополнительно скрывает назойливые элементы и баннеры cookie и добавляет списки трекеров. Часть сайтов может работать хуже.</string>
+    <string name="cb_strict_downloading">Строгие списки загружаются. Пока они не загрузятся, действует стандартная защита.</string>
+    <string name="cb_strict_failed">Не удалось загрузить строгие списки. Продолжает действовать стандартная защита.</string>
+    <string name="cb_retry">Повторить</string>
+    <string name="cb_network_only_notice">Ваш WebView поддерживает только сетевую блокировку. Для скрытия элементов страницы нужен более новый Android System WebView.</string>
+    <string name="cb_update_now_title">Обновить списки фильтров</string>
+    <string name="cb_updating">Обновление списков фильтров…</string>
+    <string name="cb_last_updated">Обновлено: %1$s</string>
+    <string name="cb_never_updated">ещё не обновлялись</string>
+    <string name="cb_rules_count">Правил: %1$s</string>
+    <string name="cb_update_failed">Последнее обновление не удалось. Нажмите, чтобы повторить.</string>
+    <string name="cb_allowlist_title">Сайты без блокировки</string>
+    <string name="cb_allowlist_empty">Блокировка включена везде. Отключить её для одного сайта можно в меню браузера.</string>
+    <string name="cb_scope_all_workspaces">Все рабочие пространства</string>
+    <string name="cb_allowlist_remove">Снова включить блокировку для %1$s</string>
+    <string name="about_licenses_title">Лицензии открытого ПО</string>
+    <string name="about_licenses_summary">Движок блокировки и списки фильтров</string>
+    <string name="cb_scope_workspace_number">Рабочее пространство %1$d</string>
 </resources>
