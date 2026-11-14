@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Overlay link</title>
+<link rel="stylesheet" href="/fx.css">
+<style>
+  a.fx-overlay { position: fixed; inset: 0; z-index: 2147483647; opacity: 0; display: block; }
+</style>
+</head>
+<body>
+<h1>Overlay link</h1>
+<p class="expect">Expected: the transparent full-page link is hidden by a cosmetic rule, so tapping the button changes the result to PASS. If the page jumps to the ad landing page, the overlay was not removed.</p>
+<div id="result">Tap the button.</div>
+<button id="tap">Tap me</button>
+<a class="fx-overlay" href="/popunder-ad.html" aria-hidden="true"></a>
+<script src="/fx.js"></script>
+<script>
+document.getElementById('tap').addEventListener('click', function () {
+  fxResult(true, 'the button received the tap');
+});
+</script>
+</body>
+</html>

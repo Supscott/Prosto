@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Popunder</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Popunder</h1>
+<p class="expect">Expected: a tap on the button does not open a new tab and this page is not redirected to the ad landing page after 300 ms. The button label changes to "still here" once the tap handler has run.</p>
+<button id="tap">Tap me</button>
+<p id="out"></p>
+<script>
+document.getElementById('tap').addEventListener('click', function () {
+  window.open('/popup-target.html?popunder', '_blank');
+  setTimeout(function () { location.href = '/popunder-ad.html'; }, 300);
+  document.getElementById('tap').textContent = 'still here';
+});
+</script>
+</body>
+</html>

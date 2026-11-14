@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ad-block fixture</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Ad-block fixture</h1>
+<p class="expect">Load <code>/fixture-filters.txt</code> as an extra list, then open each page. Every page ends with a PASS or FAIL line.</p>
+<ul>
+  <li><a href="/network.html">network.html</a>: blocked image, script, stylesheet, xhr and font never reach the server; the <code>@@</code> exception loads; the <code>$important</code> one stays blocked.</li>
+  <li><a href="/redirect.html">redirect.html</a>: the <code>$redirect</code> stub replaces the blocked tag script and the page prints OK.</li>
+  <li><a href="/document-blocked.html">document-blocked.html</a>: following the link shows the block page instead of loading the target.</li>
+  <li><a href="/cosmetic-specific.html">cosmetic-specific.html</a>: the site-specific ad box is hidden, the other box stays.</li>
+  <li><a href="/cosmetic-generic.html">cosmetic-generic.html</a>: the generic ad box is hidden, the other box stays.</li>
+  <li><a href="/generichide.html">generichide.html</a>: the generic ad box stays visible (generichide exception), the site-specific one is hidden.</li>
+  <li><a href="/popup.html">popup.html</a>: a window.open to a <code>$popup</code> host is blocked with and without a gesture; an allowed popup opens only with a gesture.</li>
+  <li><a href="/popunder.html">popunder.html</a>: a tap must not open a new tab and then redirect this page after 300 ms.</li>
+  <li><a href="/overlay.html">overlay.html</a>: the transparent full-page link is hidden; the button underneath is tappable.</li>
+  <li><a href="/scriptlet.html">scriptlet.html</a>: the fake anti-adblock wall does not appear and the fake window.open helper does nothing.</li>
+  <li><a href="/csp-strict.html">csp-strict.html</a>: with a strict CSP the cosmetic rule and the scriptlet still apply.</li>
+</ul>
+<p><a href="/__hits/reset">/__hits/reset</a> clears the server's request log.</p>
+</body>
+</html>

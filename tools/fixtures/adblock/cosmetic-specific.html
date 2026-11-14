@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site-specific cosmetics</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Site-specific cosmetics</h1>
+<p class="expect">Expected: the "site ad" box is hidden before first paint; the "keep" box stays.</p>
+<div id="result">Running...</div>
+<div class="box fx-site-ad">Site ad (must be hidden)</div>
+<div class="box fx-keep">Keep (must stay visible)</div>
+<script src="/fx.js"></script>
+<script>
+setTimeout(function () {
+  var ok = fxHidden('.fx-site-ad') && !fxHidden('.fx-keep');
+  fxResult(ok, ok ? 'site ad hidden, content kept' : 'site ad visible or content hidden');
+}, 600);
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Redirect resource</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Redirect resource</h1>
+<p class="expect">Expected: the script from fixture-gtm.test is replaced by uBlock's googletagmanager stub; the page defines <code>ga</code> and prints OK.</p>
+<div id="result">Running...</div>
+<p id="out"></p>
+<script>window.dataLayer = [];</script>
+<script src="http://fixture-gtm.test/gtm.js"></script>
+<script src="/fx.js"></script>
+<script>
+var stubbed = typeof window.ga === 'function' && window.ga.loaded === true;
+document.getElementById('out').textContent = stubbed ? 'OK' : 'API missing';
+fxResult(stubbed, stubbed ? 'the redirect stub defined the analytics API' : 'the script was blocked without a redirect or not blocked at all');
+</script>
+</body>
+</html>
