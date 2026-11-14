@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generic cosmetics</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Generic cosmetics</h1>
+<p class="expect">Expected: the box with the generic ad class is hidden, including one added after load; the "keep" box stays.</p>
+<div id="result">Running...</div>
+<div class="box fx-generic-ad">Generic ad (must be hidden)</div>
+<div class="box fx-keep">Keep (must stay visible)</div>
+<script src="/fx.js"></script>
+<script>
+setTimeout(function () {
+  var late = document.createElement('div');
+  late.className = 'box fx-generic-ad fx-late';
+  late.textContent = 'Late generic ad (must be hidden)';
+  document.body.appendChild(late);
+}, 300);
+setTimeout(function () {
+  var ok = fxHidden('.fx-generic-ad:not(.fx-late)') && fxHidden('.fx-late') && !fxHidden('.fx-keep');
+  fxResult(ok, ok ? 'generic ads hidden, content kept' : 'a generic ad is visible or content hidden');
+}, 1500);
+</script>
+</body>
+</html>

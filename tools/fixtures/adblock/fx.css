@@ -1,0 +1,12 @@
+body { font: 16px/1.4 system-ui, sans-serif; margin: 16px; color: #111; background: #fff; }
+h1 { font-size: 20px; margin: 0 0 8px; }
+.expect { color: #555; margin: 0 0 16px; }
+#result { padding: 8px 12px; border-radius: 6px; margin: 12px 0; background: #eee; }
+#result.pass { background: #d8f3dc; }
+#result.fail { background: #ffd6d6; }
+ul.rows { padding-left: 18px; }
+ul.rows li.pass::marker { content: "PASS "; color: #1b7f3b; }
+ul.rows li.fail::marker { content: "FAIL "; color: #b00020; }
+.box { border: 1px solid #999; padding: 8px 12px; margin: 8px 0; background: #fffbe6; }
+button { font-size: 16px; padding: 10px 16px; margin: 4px 0; }
+a { color: #0b57d0; }

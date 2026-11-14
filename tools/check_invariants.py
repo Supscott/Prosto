@@ -322,7 +322,7 @@ def check_injected_script_stealth():
             if needle in content:
                 errors.append(f"{file.relative_to(ROOT)}: {why} ({needle!r})")
     for file in assets.glob("*.txt"):
-        if file.name != "adblock_domains.txt":
+        if file.name not in {"adblock_domains.txt", "adblock_popup_hosts.txt"}:
             errors.append(f"{file.relative_to(ROOT)}: raw filter list in APK assets (keep it in tools/filterlists)")
     return errors
 
