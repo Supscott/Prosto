@@ -451,34 +451,6 @@ class WebViewPoolRobolectricTest {
     }
 
     @Test
-    fun adBlockBridge_isEnabled_invokesProviderWithoutStackOverflow() {
-        var flag = true
-        val bridge = WebViewPool.AdBlockBridge { flag }
-
-        assertThat(bridge.isEnabled()).isTrue()
-        flag = false
-        assertThat(bridge.isEnabled()).isFalse()
-    }
-
-    @Test
-    fun adBlockBridge_openCleanPlayer_delegatesToHandler() {
-        var requestedUrl: String? = null
-        val bridge = WebViewPool.AdBlockBridge(
-            isEnabledProvider = { true },
-            onCleanPlayerRequested = { url ->
-                requestedUrl = url
-                true
-            },
-            isCleanPlayerEnabledProvider = { true }
-        )
-
-        assertThat(bridge.isCleanPlayerEnabled()).isTrue()
-        val result = bridge.openCleanPlayer("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
-        assertThat(result).isTrue()
-        assertThat(requestedUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
-    }
-
-    @Test
     fun getOrCreateWebView_configuresMixedContentCompatibilityMode() {
         val activity = Robolectric.buildActivity(Activity::class.java).setup().get()
         val webView = webViewPool.getOrCreateWebView("tab-compat", activity)

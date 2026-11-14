@@ -1,4 +1,8 @@
 (function() {
+    // The bridge is a random-name JavascriptInterface global. Capture it and delete the property
+    // before anything else so no page script can see or call it.
+    var bridge = window['@@BRIDGE_NAME@@'];
+    try { delete window['@@BRIDGE_NAME@@']; } catch (e) {}
     try {
         var h = (location.hostname || '').toLowerCase();
         var p = (location.pathname || '').toLowerCase();
@@ -20,7 +24,7 @@
         // untouched native functions.
         try {
             var orientationProto = globalThis.ScreenOrientation && globalThis.ScreenOrientation.prototype;
-            var orientationBridge = window.HoriAdBlockBridge;
+            var orientationBridge = bridge;
             var nativeLock = orientationProto && Object.getOwnPropertyDescriptor(orientationProto, 'lock');
             var nativeUnlock = orientationProto && Object.getOwnPropertyDescriptor(orientationProto, 'unlock');
             if (orientationBridge && nativeLock && nativeUnlock) {
@@ -79,9 +83,9 @@
 
         // Check if ad blocking is active via bridge
         var adBlockerActive = true;
-        if (window.HoriAdBlockBridge && typeof window.HoriAdBlockBridge.isEnabled === 'function') {
+        if (bridge && typeof bridge.isEnabled === 'function') {
             try {
-                adBlockerActive = window.HoriAdBlockBridge.isEnabled();
+                adBlockerActive = bridge.isEnabled();
             } catch(e) {}
         }
 
@@ -94,13 +98,37 @@
             return;
         }
 
-        // 3. Inject Cosmetic CSS Style Tag
+        // 2. Cosmetic CSS: the static slot selectors plus the list-driven chunks the bridge returns
+        // for this document. A constructed stylesheet is not subject to the page's style-src CSP;
+        // a <style> element is the fallback.
+        var cosmetic = {};
+        try {
+            if (bridge && typeof bridge.cosmetic === 'function') {
+                cosmetic = JSON.parse(bridge.cosmetic(location.href)) || {};
+            }
+        } catch(e) {}
+        var cssText = `@@COSMETIC_CSS@@`;
+        if (cosmetic.css && cosmetic.css.length) cssText += '\n' + cosmetic.css.join('\n');
+
+        var cosmeticSheet = null;
         var cosmeticStyle = null;
         function injectStyle() {
+            try {
+                if (!cosmeticStyle && typeof CSSStyleSheet === 'function' && 'adoptedStyleSheets' in document) {
+                    if (!cosmeticSheet) {
+                        cosmeticSheet = new CSSStyleSheet();
+                        cosmeticSheet.replaceSync(cssText);
+                    }
+                    if (document.adoptedStyleSheets.indexOf(cosmeticSheet) === -1) {
+                        document.adoptedStyleSheets = document.adoptedStyleSheets.concat([cosmeticSheet]);
+                    }
+                    return;
+                }
+            } catch(e) { cosmeticSheet = null; }
             if (cosmeticStyle && cosmeticStyle.isConnected) return;
             if (!cosmeticStyle) {
                 cosmeticStyle = document.createElement('style');
-                cosmeticStyle.textContent = `@@COSMETIC_CSS@@`;
+                cosmeticStyle.textContent = cssText;
             }
             var target = document.head || document.documentElement;
             if (target) {

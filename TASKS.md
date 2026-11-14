@@ -14,6 +14,8 @@ task when it is done: `git log` is the history. Keep this file under 40 lines.
 - The global rtk hook makes auto mode resend rewritten commands once; keep it or remove it after a few sessions of use.
 - Tutorial scenes (`Tutorial*Scene.kt`): check the motion on a phone; the dock and folder story texts still mention reorder and "New folder", which the scenes do not show.
 - Feedback card now shows on Home only after the tutorial is done; move it to a bottom sheet after N days or a successful action.
+- `JestkBlobBridge` is still a visible `window` global (the stealth rule forbids it): move it behind a captured-and-deleted random-name bridge like `ContentBlockingSetup`.
+- CB-07 device checks (phone needed): bridge-delete spike and CDP probe in main frame and cross-origin iframe, `cosmetic-specific.html`, Russian news site flash check, YouTube clean player and fullscreen rotation.
 
 ## Blocked
 <!-- - Task — what it waits for -->

@@ -198,6 +198,7 @@ fun WebViewContainer(
             AndroidView<SwipeRefreshLayout>(
                 factory = { ctx ->
                     webViewPool.isAdBlockerEnabled = { currentUiState.settings.isAdBlockerEnabled }
+                    webViewPool.isTrackingProtectionEnabled = { currentUiState.settings.isTrackingProtectionEnabled }
                     webViewPool.isCleanPlayerEnabled = { currentUiState.settings.isCleanYouTubePlayerEnabled }
                     val act = ctx.findActivity() ?: ctx
                     val initialVisibility = if (isHome) View.INVISIBLE else View.VISIBLE
@@ -284,6 +285,7 @@ fun WebViewContainer(
                 },
                 update = { swipeRefresh ->
                     webViewPool.isAdBlockerEnabled = { uiState.settings.isAdBlockerEnabled }
+                    webViewPool.isTrackingProtectionEnabled = { uiState.settings.isTrackingProtectionEnabled }
                     webViewPool.isCleanPlayerEnabled = { uiState.settings.isCleanYouTubePlayerEnabled }
                     val isBlocked = uiState.isVideoPlaying ||
                             uiState.isFullscreenCustomView ||

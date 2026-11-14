@@ -4,10 +4,8 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.MutableContextWrapper
-import android.content.pm.ActivityInfo
 import com.jestk.browser.R
 import com.jestk.browser.util.findActivity
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -26,6 +24,8 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.repository.DownloadRepository
+import com.jestk.browser.engine.adblock.ContentBlockingHooks
+import com.jestk.browser.engine.adblock.ContentBlockingSetup
 import com.jestk.browser.engine.download.DownloadFileNameResolver
 import com.jestk.browser.engine.download.HoriDownloadManager
 import kotlinx.coroutines.CoroutineScope
@@ -54,6 +54,7 @@ class WebViewPool(
 
     var onDownloadStarted: ((DownloadItem) -> Unit)? = null
     var isAdBlockerEnabled: (() -> Boolean)? = null
+    var isTrackingProtectionEnabled: (() -> Boolean)? = null
     var isCleanPlayerEnabled: (() -> Boolean)? = null
     var onCleanPlayerRequested: ((url: String) -> Boolean)? = null
     var onWebViewCreated: ((tabId: String, webView: WebView) -> Unit)? = null
@@ -97,38 +98,6 @@ class WebViewPool(
         } catch (t: Throwable) {
             Log.w(TAG, "Failed to delete profile $profileName", t)
             false
-        }
-    }
-
-    class AdBlockBridge(
-        private val isEnabledProvider: () -> Boolean,
-        private val onCleanPlayerRequested: ((url: String) -> Boolean)? = null,
-        private val isCleanPlayerEnabledProvider: (() -> Boolean)? = null,
-        private val onOrientationLockRequested: ((orientation: String?) -> Unit)? = null,
-        private val onOrientationUnlockRequested: (() -> Unit)? = null,
-    ) {
-        constructor(isEnabledProvider: () -> Boolean) : this(isEnabledProvider, null, null, null, null)
-
-        @JavascriptInterface
-        fun isEnabled(): Boolean = isEnabledProvider()
-
-        @JavascriptInterface
-        fun isCleanPlayerEnabled(): Boolean = isCleanPlayerEnabledProvider?.invoke() ?: false
-
-        @JavascriptInterface
-        fun openCleanPlayer(url: String): Boolean {
-            if (isCleanPlayerEnabledProvider?.invoke() != true) return false
-            return onCleanPlayerRequested?.invoke(url) ?: false
-        }
-
-        @JavascriptInterface
-        fun lockOrientation(orientation: String?) {
-            onOrientationLockRequested?.invoke(orientation)
-        }
-
-        @JavascriptInterface
-        fun unlockOrientation() {
-            onOrientationUnlockRequested?.invoke()
         }
     }
 
@@ -565,54 +534,15 @@ class WebViewPool(
     }
 
     private fun setupAdBlocker(webView: WebView) {
-        try {
-            val bridge = AdBlockBridge(
-                isEnabledProvider = { isAdBlockerEnabled?.invoke() ?: true },
-                onCleanPlayerRequested = { url ->
-                    // Only YouTube pages may open the clean player, and only for a video URL.
-                    isYouTubeHost((webView as? NestedWebView)?.loadedUrl) &&
-                        com.jestk.browser.util.YouTubeUrlHelper.extractVideoId(url) != null &&
-                        (onCleanPlayerRequested?.invoke(url) ?: false)
-                },
-                isCleanPlayerEnabledProvider = { isCleanPlayerEnabled?.invoke() ?: true },
-                onOrientationLockRequested = { orientation ->
-                    val act = webView.context.findActivity() ?: return@AdBlockBridge
-                    act.runOnUiThread {
-                        // A page may rotate the screen only while it shows fullscreen content.
-                        val isFullscreen = (webView.webChromeClient as? JestkWebChromeClient)?.isCustomViewShowing() == true
-                        if (!isFullscreen) return@runOnUiThread
-                        val target = when (orientation) {
-                            "portrait", "portrait-primary" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-                            "portrait-secondary" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT
-                            "landscape-secondary" -> ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE
-                            else -> ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-                        }
-                        act.requestedOrientation = target
-                    }
-                },
-                onOrientationUnlockRequested = {
-                    val act = webView.context.findActivity() ?: return@AdBlockBridge
-                    act.runOnUiThread {
-                        act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                    }
-                }
-            )
-            webView.addJavascriptInterface(bridge, "HoriAdBlockBridge")
-        } catch (t: Throwable) {
-            Log.w(TAG, "Failed to add HoriAdBlockBridge interface", t)
-        }
-
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-            try {
-                WebViewCompat.addDocumentStartJavaScript(
-                    webView,
-                    AdBlockerScript.buildDocumentStartScript(webView.context),
-                    setOf("*")
-                )
-            } catch (t: Throwable) {
-                Log.w(TAG, "Failed to add document start script for ad blocking", t)
-            }
-        }
+        ContentBlockingSetup.install(
+            webView,
+            ContentBlockingHooks(
+                isAdsEnabled = { isAdBlockerEnabled?.invoke() ?: true },
+                isTrackersEnabled = { isTrackingProtectionEnabled?.invoke() ?: true },
+                isCleanPlayerEnabled = { isCleanPlayerEnabled?.invoke() ?: true },
+                onCleanPlayerRequested = onCleanPlayerRequested,
+            ),
+        )
     }
 
     internal fun applyUserAgentMetadata(settings: WebSettings, rawUserAgent: String? = null) {
@@ -822,11 +752,6 @@ class WebViewPool(
      * Activity theme (see `MainActivity.applyAppNightMode`), so no script is injected here: a
      * patched `window.matchMedia` is a bot-detection signal (review finding BOT-1).
      */
-    private fun isYouTubeHost(url: String?): Boolean {
-        val host = url?.let { runCatching { Uri.parse(it).host }.getOrNull() }?.lowercase() ?: return false
-        return host == "youtube.com" || host.endsWith(".youtube.com") || host == "youtu.be"
-    }
-
     fun applyThemeMode(webView: WebView, isDark: Boolean) {
         try {
             if (WebViewFeature.isFeatureSupported(WebViewFeature.ALGORITHMIC_DARKENING)) {
