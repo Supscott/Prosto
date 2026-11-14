@@ -93,13 +93,12 @@
         // inside it checks adBlockerActive.
         /*@@YOUTUBE_FAST_START@@*/
 
-        // If ad blocking is toggled off, exit before applying cosmetic CSS and DOM cleaners
+        // If ad blocking is toggled off, exit before applying cosmetic CSS
         if (!adBlockerActive) {
             return;
         }
 
-        // 2. Cosmetic CSS: the static slot selectors plus the list-driven chunks the bridge returns
-        // for this document. A constructed stylesheet is not subject to the page's style-src CSP;
+        // 2. Cosmetic CSS: the list-driven chunks the bridge returns for this document. A constructed stylesheet is not subject to the page's style-src CSP;
         // a <style> element is the fallback.
         var cosmetic = {};
         try {
@@ -127,8 +126,7 @@
             }
         } catch(e) {}
 
-        var cssText = `@@COSMETIC_CSS@@`;
-        if (cosmetic.css && cosmetic.css.length) cssText += '\n' + cosmetic.css.join('\n');
+        var cssText = cosmetic.css && cosmetic.css.length ? cosmetic.css.join('\n') : '';
 
         var cosmeticSheet = null;
         var cosmeticStyle = null;
@@ -157,95 +155,131 @@
                 document.addEventListener('DOMContentLoaded', injectStyle);
             }
         }
-        injectStyle();
+        if (cssText) injectStyle();
 
-        // 4. Dynamic DOM Cleaner / MutationObserver
-        var AD_SELECTOR = 'ins.adsbygoogle, [id^="google_ads_iframe"], [id^="div-gpt-ad"], [id^="yandex_rtb_"], [id^="adfox"], [class*="bannerContainer"], [class*="incontentBanner"], [class*="BannersBlock"], [class*="RightsideBanners"], [class*="adFeedback"], [class*="tovarnayaCourusel"], .yandex-adaptive, .ya-partner, .ad-container, .ad-banner, .advertisement, [data-ad-placeholder]';
+        // 4. Generic cosmetics: the list's class/id based hide rules apply to whichever classes and
+        // ids the page actually uses, so collect them (initial DOM, added nodes, class/id attribute
+        // changes), ask the bridge in small batches and append the returned rules. Skipped when the
+        // frame has no cosmetic answer (ads off, challenge page, non-http frame) or $generichide.
+        if (cosmetic.generichide === false && bridge && typeof bridge.generic === 'function' && window.MutationObserver) {
+            var GENERIC_BATCH_TOKENS = 250;
+            var GENERIC_CALLS_PER_TICK = 4;
+            var GENERIC_MAX_TOKENS = 5000;
+            var GENERIC_FLUSH_MS = 150;
+            var GENERIC_SCAN_BUDGET_MS = 8;
+            var GENERIC_MAX_QUEUE = 2000;
+            var GENERIC_MAX_TOKEN_CHARS = 100;
 
-        function collapseElement(el) {
-            try {
-                el.style.setProperty('display', 'none', 'important');
-                el.style.setProperty('height', '0', 'important');
-                el.style.setProperty('min-height', '0', 'important');
-                var parent = el.parentElement;
-                if (parent && parent.children.length === 1 && !parent.textContent.trim()) {
-                    parent.style.setProperty('display', 'none', 'important');
-                    parent.style.setProperty('height', '0', 'important');
-                    parent.style.setProperty('min-height', '0', 'important');
+            var seenTokens = new Set();
+            var newClasses = [];
+            var newIds = [];
+            var scanQueue = [];
+            var scanHead = 0;
+            var tickTimer = 0;
+            var capped = false;
+            var genericObserver = null;
+
+            var noteToken = function(kind, token) {
+                if (!token || token.length > GENERIC_MAX_TOKEN_CHARS) return;
+                var key = kind + token;
+                if (seenTokens.has(key)) return;
+                seenTokens.add(key);
+                if (kind === '.') newClasses.push(token); else newIds.push(token);
+                if (seenTokens.size >= GENERIC_MAX_TOKENS) capped = true;
+            };
+
+            var scanElement = function(el) {
+                var id = el.id;
+                if (typeof id === 'string' && id && !/\s/.test(id)) noteToken('#', id);
+                var list = el.classList;
+                if (list) {
+                    for (var i = 0; i < list.length; i++) noteToken('.', list[i]);
                 }
-            } catch(e) {}
-        }
+            };
 
-        var pendingNodes = [];
-        var debounceTimer = null;
+            var scanTree = function(root) {
+                if (capped) return;
+                if (root.nodeType === 1) scanElement(root);
+                if (!root.querySelectorAll) return;
+                var all = root.querySelectorAll('[class],[id]');
+                for (var i = 0; i < all.length && !capped; i++) scanElement(all[i]);
+            };
 
-        function processPendingNodes() {
-            debounceTimer = null;
-            if (!pendingNodes.length) return;
-            var nodes = pendingNodes;
-            pendingNodes = [];
-            try {
-                for (var i = 0; i < nodes.length; i++) {
-                    var node = nodes[i];
-                    if (!node || node.nodeType !== 1) continue;
-                    if (node.matches && node.matches(AD_SELECTOR)) {
-                        collapseElement(node);
-                    }
-                    if (node.querySelectorAll) {
-                        var matches = node.querySelectorAll(AD_SELECTOR);
-                        for (var j = 0; j < matches.length; j++) {
-                            collapseElement(matches[j]);
-                        }
-                    }
-                }
-            } catch(err) {}
-        }
-
-        function scheduleSanitize() {
-            if (debounceTimer !== null) return;
-            if (window.requestAnimationFrame) {
-                debounceTimer = window.requestAnimationFrame(processPendingNodes);
-            } else {
-                debounceTimer = setTimeout(processPendingNodes, 100);
-            }
-        }
-
-        if (window.MutationObserver && (document.documentElement || document.body)) {
-            var observer = new MutationObserver(function(mutations) {
+            var appendGenericRules = function(text) {
                 injectStyle();
-                for (var i = 0; i < mutations.length; i++) {
-                    var added = mutations[i].addedNodes;
-                    if (added) {
+                if (cosmeticSheet) {
+                    var rules = text.split('\n');
+                    for (var i = 0; i < rules.length; i++) {
+                        try { cosmeticSheet.insertRule(rules[i], cosmeticSheet.cssRules.length); } catch(e) {}
+                    }
+                } else if (cosmeticStyle) {
+                    cosmeticStyle.appendChild(document.createTextNode(text));
+                }
+            };
+
+            var flushTokens = function() {
+                var classes = newClasses.splice(0, GENERIC_BATCH_TOKENS);
+                var ids = newIds.splice(0, GENERIC_BATCH_TOKENS - classes.length);
+                if (!classes.length && !ids.length) return;
+                try {
+                    var css = bridge.generic(location.href, classes.join(' '), ids.join(' '));
+                    if (typeof css === 'string' && css.length) appendGenericRules(css);
+                } catch(e) {}
+            };
+
+            var tick = function() {
+                tickTimer = 0;
+                var start = Date.now();
+                while (scanHead < scanQueue.length && Date.now() - start < GENERIC_SCAN_BUDGET_MS) {
+                    scanTree(scanQueue[scanHead++]);
+                }
+                if (scanHead >= scanQueue.length) { scanQueue = []; scanHead = 0; }
+                for (var n = 0; n < GENERIC_CALLS_PER_TICK && (newClasses.length || newIds.length); n++) flushTokens();
+                if (capped && genericObserver && scanHead >= scanQueue.length) {
+                    genericObserver.disconnect();
+                    genericObserver = null;
+                }
+                if (scanHead < scanQueue.length || newClasses.length || newIds.length) scheduleTick();
+            };
+
+            var scheduleTick = function() {
+                if (!tickTimer) tickTimer = setTimeout(tick, GENERIC_FLUSH_MS);
+            };
+
+            var queueTree = function(node) {
+                if (scanQueue.length - scanHead < GENERIC_MAX_QUEUE) scanQueue.push(node);
+            };
+
+            genericObserver = new MutationObserver(function(records) {
+                if (capped) return;
+                for (var i = 0; i < records.length; i++) {
+                    var record = records[i];
+                    if (record.type === 'attributes') {
+                        scanElement(record.target);
+                    } else {
+                        var added = record.addedNodes;
                         for (var j = 0; j < added.length; j++) {
-                            if (added[j].nodeType === 1) {
-                                pendingNodes.push(added[j]);
-                            }
+                            if (added[j].nodeType === 1) queueTree(added[j]);
                         }
                     }
                 }
-                if (pendingNodes.length > 0) {
-                    scheduleSanitize();
-                }
+                scheduleTick();
             });
-            observer.observe(document.documentElement || document.body, {
+            genericObserver.observe(document, {
                 childList: true,
-                subtree: true
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['class', 'id']
             });
-        }
 
-        function sanitizeInitial() {
-            injectStyle();
-            var root = document.body || document.documentElement;
-            if (root) {
-                pendingNodes.push(root);
-                processPendingNodes();
+            var scanWholeDocument = function() {
+                if (document.documentElement) queueTree(document.documentElement);
+                scheduleTick();
+            };
+            scanWholeDocument();
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', scanWholeDocument);
             }
-        }
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', sanitizeInitial);
-        } else {
-            sanitizeInitial();
         }
     } catch(e) {}
 })();

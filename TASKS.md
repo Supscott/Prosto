@@ -16,6 +16,8 @@ task when it is done: `git log` is the history. Keep this file under 40 lines.
 - Feedback card now shows on Home only after the tutorial is done; move it to a bottom sheet after N days or a successful action.
 - `JestkBlobBridge` is still a visible `window` global (the stealth rule forbids it): move it behind a captured-and-deleted random-name bridge like `ContentBlockingSetup`.
 - CB-07 device checks (phone needed): bridge-delete spike and CDP probe in main frame and cross-origin iframe, `cosmetic-specific.html`, Russian news site flash check, YouTube clean player and fullscreen rotation.
+- Procedural cosmetics (`procedural` array: `:has-text`, `:upward`, `:xpath`) are not applied: the bridge drops them. A procedural-filter runner would add the remaining uBO cosmetic coverage (CB-08 follow-up).
+- CB-08 device checks (phone needed): fixtures `cosmetic-generic.html` and `generichide.html`, a Russian news site for coverage lost with the static selectors (`[class*="bannerContainer"]`, yandex_rtb, adfox), CPU on an infinite-scroll feed vs baseline.
 
 ## Blocked
 <!-- - Task — what it waits for -->

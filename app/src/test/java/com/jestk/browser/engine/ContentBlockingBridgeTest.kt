@@ -103,8 +103,18 @@ class ContentBlockingBridgeTest {
     }
 
     @Test
-    fun cosmetic_isEmptyWhenTheEngineHasNothing() {
-        assertThat(bridge(result = CosmeticResources.EMPTY).cosmetic("https://site.test/")).isEqualTo("{}")
+    fun cosmetic_withNothingSpecificStillAllowsGenericRules() {
+        val json = JSONObject(bridge(result = CosmeticResources.EMPTY).cosmetic("https://site.test/"))
+
+        assertThat(json.getBoolean("generichide")).isFalse()
+        assertThat(json.getJSONArray("css").length()).isEqualTo(0)
+    }
+
+    @Test
+    fun cosmetic_isEmptyForGenerichideWithNothingElse() {
+        val none = CosmeticResources(emptyList(), emptySet(), emptyList(), true, emptyList())
+
+        assertThat(bridge(result = none).cosmetic("https://site.test/")).isEqualTo("{}")
     }
 
     @Test
@@ -172,5 +182,136 @@ class ContentBlockingBridgeTest {
         b.unlockOrientation()
 
         assertThat(calls).containsExactly("lock:landscape", "unlock").inOrder()
+    }
+
+    private class GenericSeen(
+        var classes: List<String> = emptyList(),
+        var ids: List<String> = emptyList(),
+        var exceptions: Set<String> = emptySet(),
+        var calls: Int = 0,
+    )
+
+    private fun genericBridge(
+        seen: GenericSeen = GenericSeen(),
+        ads: () -> Boolean = { true },
+        cosmetic: CosmeticResources = CosmeticResources.EMPTY.copy(exceptions = setOf(".keep")),
+        answer: (List<String>, List<String>) -> List<String> = { c, i -> c.map { ".$it" } + i.map { "#$it" } },
+    ) = ContentBlockingBridge(
+        isEnabledProvider = ads,
+        cosmeticProvider = { _, _, _ -> cosmetic },
+        genericProvider = { c, i, x ->
+            seen.calls++
+            seen.classes = c
+            seen.ids = i
+            seen.exceptions = x
+            answer(c, i)
+        },
+    )
+
+    @Test
+    fun generic_returnsOneRulePerSelector() {
+        val css = genericBridge().generic("https://site.test/", "ad-box promo", "top")
+
+        assertThat(css.split("\n")).containsExactly(
+            ".ad-box{display:none!important}",
+            ".promo{display:none!important}",
+            "#top{display:none!important}",
+        ).inOrder()
+    }
+
+    @Test
+    fun generic_usesTheExceptionsOfTheFramesCosmeticAnswer() {
+        val seen = GenericSeen()
+        val b = genericBridge(seen)
+
+        b.cosmetic("https://site.test/")
+        b.generic("https://site.test/", "keep", "")
+
+        assertThat(seen.exceptions).containsExactly(".keep")
+    }
+
+    @Test
+    fun generic_recomputesExceptionsForAFrameItNeverAnswered() {
+        val seen = GenericSeen()
+
+        genericBridge(seen).generic("https://other.test/", "a", "")
+
+        assertThat(seen.exceptions).containsExactly(".keep")
+    }
+
+    @Test
+    fun generic_isEmptyForGenerichideFrames() {
+        val hide = CosmeticResources.EMPTY.copy(generichide = true)
+        val seen = GenericSeen()
+
+        assertThat(genericBridge(seen, cosmetic = hide).generic("https://site.test/", "a", "b")).isEmpty()
+        assertThat(seen.calls).isEqualTo(0)
+    }
+
+    @Test
+    fun generic_isEmptyWhenAdsAreOffOrForChallengeAuthAndNonHttpFrames() {
+        val seen = GenericSeen()
+        val b = genericBridge(seen)
+
+        assertThat(genericBridge(seen, ads = { false }).generic("https://site.test/", "a", "")).isEmpty()
+        assertThat(b.generic("https://challenges.cloudflare.com/x", "a", "")).isEmpty()
+        assertThat(b.generic("about:blank", "a", "")).isEmpty()
+        assertThat(b.generic(null, "a", "")).isEmpty()
+        assertThat(seen.calls).isEqualTo(0)
+    }
+
+    @Test
+    fun generic_isEmptyForEmptyAndBlankInput() {
+        val seen = GenericSeen()
+
+        assertThat(genericBridge(seen).generic("https://site.test/", "", "  ")).isEmpty()
+        assertThat(genericBridge(seen).generic("https://site.test/", null, null)).isEmpty()
+        assertThat(seen.calls).isEqualTo(0)
+    }
+
+    @Test
+    fun generic_truncatesHugeInputWithoutPassingAPartialToken() {
+        val seen = GenericSeen()
+        val huge = (1..50_000).joinToString(" ") { "class-name-number-$it" }
+
+        genericBridge(seen).generic("https://site.test/", huge, "")
+
+        assertThat(seen.classes.size).isAtMost(1_000)
+        assertThat(seen.classes.all { Regex("class-name-number-\\d+").matches(it) }).isTrue()
+        assertThat(seen.classes.first()).isEqualTo("class-name-number-1")
+    }
+
+    @Test
+    fun generic_truncatesAnOverlongInputAtATokenBoundary() {
+        val seen = GenericSeen()
+        val huge = "a".repeat(99) + " " + (1..2_000).joinToString(" ") { "tok-$it-" + "z".repeat(40) }
+
+        genericBridge(seen).generic("https://site.test/", huge, "")
+
+        assertThat(seen.classes.last()).matches("tok-\\d+-z{40}")
+    }
+
+    @Test
+    fun generic_dropsOverlongTokensAndDuplicates() {
+        val seen = GenericSeen()
+
+        genericBridge(seen).generic("https://site.test/", "a a " + "x".repeat(101) + " b", "")
+
+        assertThat(seen.classes).containsExactly("a", "b").inOrder()
+    }
+
+    @Test
+    fun generic_neverEmitsASelectorThatCouldEscapeItsRule() {
+        val css = genericBridge(answer = { _, _ -> listOf(".ok", ".a}body{display:none", ".b\n.c") })
+            .generic("https://site.test/", "ok", "")
+
+        assertThat(css).isEqualTo(".ok{display:none!important}")
+    }
+
+    @Test
+    fun generic_survivesAFailingEngine() {
+        val css = genericBridge(answer = { _, _ -> error("native failure") }).generic("https://site.test/", "a", "")
+
+        assertThat(css).isEmpty()
     }
 }

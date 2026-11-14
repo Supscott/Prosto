@@ -196,3 +196,28 @@ fn engine_is_shareable_across_threads() {
         assert_eq!(h.join().unwrap() & BLOCK, BLOCK);
     }
 }
+
+fn standard_ads_engine() -> Engine {
+    let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/../../app/src/main/assets/filters/standard/ads");
+    let lists: Vec<String> = ["easylist", "ru-adlist", "ubo-filters"]
+        .iter()
+        .map(|id| std::fs::read_to_string(format!("{dir}/{id}.txt")).expect("bundled list"))
+        .collect();
+    engine(&lists.iter().map(String::as_str).collect::<Vec<_>>())
+}
+
+#[test]
+fn standard_lists_answer_generic_class_and_id_selectors() {
+    let e = standard_ads_engine();
+    let sel = hidden_selectors(
+        &e,
+        vec!["advert--banner-wrap".into(), "no-such-class-xyz".into()],
+        vec!["aboveplayerad".into()],
+        vec![],
+    );
+    assert!(sel.contains(&".advert--banner-wrap".to_string()), "got {sel:?}");
+    assert!(sel.contains(&"#aboveplayerad".to_string()), "got {sel:?}");
+    assert!(sel.iter().all(|s| !s.contains("no-such-class-xyz")));
+    let excepted = hidden_selectors(&e, vec!["advert--banner-wrap".into()], vec![], vec![".advert--banner-wrap".into()]);
+    assert!(excepted.iter().all(|s| s != ".advert--banner-wrap"));
+}
