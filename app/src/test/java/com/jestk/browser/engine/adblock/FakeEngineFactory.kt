@@ -11,9 +11,11 @@ internal class FakeEngineFactory(
         private set
     val threads = mutableListOf<Thread>()
     val matchers = mutableListOf<FakeContentMatcher>()
+    val compiledLists = mutableListOf<List<String>>()
 
     override fun compile(lists: List<String>, resourcesJson: String?): CompiledEngine? {
         threads += Thread.currentThread()
+        if (compiledLists.size < MAX_RECORDED) compiledLists += lists
         if (++attempts == failAttempt) return null
         compiles++
         val matcher = FakeContentMatcher().also { matchers += it }
@@ -28,6 +30,7 @@ internal class FakeEngineFactory(
     }
 
     companion object {
+        private const val MAX_RECORDED = 8
         val BLOB = "FAKE-BLOB".toByteArray()
     }
 }

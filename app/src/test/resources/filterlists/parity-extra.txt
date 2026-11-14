@@ -1,0 +1,6 @@
+! extra header
+||extra.example^
+!#if cap_html_filtering
+##^script:has-text(x)
+!#endif
+!#include deeper.txt
