@@ -17,36 +17,29 @@ class AdBlockerScriptTest {
     }
 
     @Test
-    fun adSelectors_isPopulatedWithKeyAdSelectors() {
-        assertThat(AdBlockerScript.AD_SELECTORS).isNotEmpty()
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("ins.adsbygoogle")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"google_ads_iframe\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"div-gpt-ad\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains(".yandex-adaptive")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"yandex_rtb_\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"adfox\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[class*=\"bannerContainer\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[class*=\"incontentBanner\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[class*=\"RightsideBanners\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains(".ad-container")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains(".ad-banner")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains(".advertisement")
+    fun buildBootstrapScript_hasNoStaticAdSelectorsOrDomCleaner() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+        assertThat(js).doesNotContain("@@COSMETIC_CSS@@")
+        assertThat(js).doesNotContain("ins.adsbygoogle")
+        assertThat(js).doesNotContain("[id^=\"adfox\"]")
+        assertThat(js).doesNotContain("bannerContainer")
+        assertThat(js).doesNotContain("collapseElement")
+        assertThat(js).doesNotContain("parent.children.length === 1")
+        assertThat(js).doesNotContain("pendingNodes")
+        assertThat(js).doesNotContain("processPendingNodes")
     }
 
     @Test
-    fun buildCosmeticCss_containsCollapseStylesAndAllSelectors() {
-        val css = AdBlockerScript.buildCosmeticCss()
-        assertThat(css).contains("display: none !important")
-        assertThat(css).contains("height: 0 !important")
-        assertThat(css).contains("min-height: 0 !important")
-        assertThat(css).contains("max-height: 0 !important")
-        assertThat(css).contains("visibility: hidden !important")
-        assertThat(css).contains("pointer-events: none !important")
-        assertThat(css).contains("ins.adsbygoogle")
-        assertThat(css).contains(".yandex-adaptive")
-        assertThat(css).contains("[id^=\"adfox\"]")
-        assertThat(css).contains("[class*=\"bannerContainer\"]")
-        assertThat(css).contains(".ad-banner")
+    fun buildBootstrapScript_collectsClassesAndIdsForTheGenericPath() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+        assertThat(js).contains("cosmetic.generichide === false")
+        assertThat(js).contains("bridge.generic(location.href")
+        assertThat(js).contains("new MutationObserver")
+        assertThat(js).contains("attributeFilter: ['class', 'id']")
+        assertThat(js).contains("GENERIC_MAX_TOKENS")
+        assertThat(js).contains("new Set()")
+        assertThat(js).contains("cosmeticSheet.insertRule")
+        assertThat(js).doesNotContain("window.generic")
     }
 
     @Test
@@ -65,7 +58,7 @@ class AdBlockerScriptTest {
     }
 
     @Test
-    fun buildBootstrapScript_containsBridgeCheckStyleInjectionAndMutationObserver() {
+    fun buildBootstrapScript_containsBridgeCheckAndStyleInjection() {
         val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
         // Bridge check through the captured reference
         assertThat(js).contains("bridge.isEnabled()")
@@ -75,15 +68,6 @@ class AdBlockerScriptTest {
         // Constructed stylesheet with a <style> fallback
         assertThat(js).contains("adoptedStyleSheets")
         assertThat(js).contains("document.createElement('style')")
-
-        // MutationObserver & debounced addedNodes parent collapsing
-        assertThat(js).contains("MutationObserver")
-        assertThat(js).contains("observe(document.documentElement || document.body")
-        assertThat(js).contains("mutations[i].addedNodes")
-        assertThat(js).contains("requestAnimationFrame")
-        assertThat(js).contains("parent.children.length === 1")
-        assertThat(js).contains("[id^=\"adfox\"]")
-        assertThat(js).contains("[class*=\"bannerContainer\"]")
 
         // YouTube Fast-Start integrated
         assertThat(js).contains("ytInitialPlayerResponse")

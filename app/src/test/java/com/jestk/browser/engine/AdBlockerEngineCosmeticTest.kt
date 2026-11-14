@@ -68,6 +68,15 @@ class AdBlockerEngineCosmeticTest {
     }
 
     @Test
+    fun hiddenClassIdSelectors_usesTheAdsEngineAndIsEmptyBeforeTheEngineIsReady() {
+        val ready = AdBlockerEngine.hiddenClassIdSelectors(listOf("ad", "keep"), listOf("top"), setOf("keep"))
+        AdBlockerEngine.resetForTests()
+
+        assertThat(ready).containsExactly(".ad", "#top").inOrder()
+        assertThat(AdBlockerEngine.hiddenClassIdSelectors(listOf("ad"), emptyList(), emptySet())).isEmpty()
+    }
+
+    @Test
     fun bothOff_isEmpty() {
         assertThat(AdBlockerEngine.cosmeticResources("https://site.test/", false, false)).isEqualTo(CosmeticResources.EMPTY)
     }

@@ -221,6 +221,10 @@ object AdBlockerEngine {
         return if (extra.isEmpty()) base else base.copy(scriptlets = base.scriptlets + extra)
     }
 
+    /** Generic class/id hide selectors from the ads engine for the tokens a frame uses; empty until it is ready. */
+    fun hiddenClassIdSelectors(classes: List<String>, ids: List<String>, exceptions: Set<String>): List<String> =
+        engineStore.current()?.ads?.hiddenClassIdSelectors(classes, ids, exceptions) ?: emptyList()
+
     fun isReady(): Boolean = isInitialized
 
     /** True once the native engines are compiled or loaded and published. */

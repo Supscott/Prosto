@@ -6,10 +6,8 @@ import android.webkit.WebView
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Provides client-side ad-blocking logic including:
- * 1. Cosmetic filtering CSS to collapse ad slots and placeholders to 0 dimensions.
- * 2. Scriptlet surrogates (mocks) for common ad network SDKs (Google AdSense, GPT, Yandex) to stop infinite loading spinners.
- * 3. DOM Sanitizer utilizing MutationObserver to hide dynamic ad wrappers and single-child ad parent containers.
+ * Builds the injected scripts: the document-start content-blocking bootstrap (list-driven cosmetic
+ * rules, scriptlets, clean-player and orientation relays) and the autoconsent scriptlet.
  */
 object AdBlockerScript {
 
@@ -21,100 +19,9 @@ object AdBlockerScript {
     private const val SCRIPTLETS_ASSET = "scripts/scriptlets.js"
     private const val SCRIPTLETS_PLACEHOLDER = "/*@@SCRIPTLETS@@*/"
     private const val YOUTUBE_PLACEHOLDER = "/*@@YOUTUBE_FAST_START@@*/"
-    private const val CSS_PLACEHOLDER = "@@COSMETIC_CSS@@"
     private const val BRIDGE_PLACEHOLDER = "@@BRIDGE_NAME@@"
 
     private val assetCache = ConcurrentHashMap<String, String>()
-
-    /**
-     * Common ad container and slot CSS selectors.
-     */
-    val AD_SELECTORS = listOf(
-        // Google AdSense & DoubleClick
-        "ins.adsbygoogle",
-        ".adsbygoogle",
-        "[id^=\"google_ads_iframe\"]",
-        "[id^=\"div-gpt-ad\"]",
-        "[data-google-query-id]",
-        "[data-ad-client]",
-        "[data-ad-slot]",
-        "[data-ad-unit]",
-        "[data-ad-format]",
-        "iframe[src*=\"googlesyndication.com\"]",
-        "iframe[src*=\"doubleclick.net\"]",
-
-        // Yandex Direct, ADFOX & RTB
-        "[id^=\"adfox\"]",
-        "div[id^=\"adfox\"]",
-        "[class*=\"adfox\"]",
-        "[data-adfox]",
-        ".yandex-adaptive",
-        "[id^=\"yandex_rtb_\"]",
-        "[id^=\"yandex_\"]",
-        "[id^=\"ya_partner\"]",
-        ".ya-partner",
-        "[class*=\"ya-distr\"]",
-        "div[data-ya-unit]",
-
-        // Universal ad slots, banners, and sponsored containers (including Next.js CSS module patterns)
-        ".ad-container",
-        ".ad-wrapper",
-        ".ad-box",
-        ".ad-banner",
-        ".ad-slot",
-        ".ad-header",
-        ".ad-footer",
-        ".ad-sidebar",
-        ".advertisement",
-        ".banner-ad",
-        ".sponsor-container",
-        "[class*=\"ad-slot\"]",
-        "[class*=\"ad_slot\"]",
-        "[class*=\"sponsored-post\"]",
-        "[class*=\"SponsoredMessage\"]",
-        "[class*=\"BannerWrapper\"]",
-        "[class*=\"advert-banner\"]",
-        "[class*=\"native-ad\"]",
-        "[data-ad-placeholder]",
-        "[data-advertisement]",
-        "[class*=\"bannerContainer\"]",
-        "[class*=\"banner_container\"]",
-        "[class*=\"banner-container\"]",
-        "[class*=\"incontentBanner\"]",
-        "[class*=\"IncontentBanner\"]",
-        "[class*=\"incontent_banner\"]",
-        "[class*=\"RightsideBanners\"]",
-        "[class*=\"BannersBlock\"]",
-        "[class*=\"adFeedback\"]",
-        "[class*=\"banner-wrapper\"]",
-        "[class*=\"banner_wrapper\"]",
-        "[class*=\"bannerWrap\"]",
-        "[class*=\"banner-block\"]",
-        "[class*=\"banner_block\"]",
-        "[class*=\"bannerBlock\"]",
-        "[class*=\"tovarnayaCourusel\"]",
-        "[class*=\"tovarnayaCarousel\"]"
-    )
-
-    /**
-     * Builds the raw CSS string for cosmetic filtering.
-     */
-    fun buildCosmeticCss(): String {
-        val selectorString = AD_SELECTORS.joinToString(",\n")
-        return """
-            $selectorString {
-                display: none !important;
-                height: 0 !important;
-                min-height: 0 !important;
-                max-height: 0 !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                visibility: hidden !important;
-                opacity: 0 !important;
-                pointer-events: none !important;
-            }
-        """.trimIndent()
-    }
 
     /**
      * The YouTube scriptlet (YouTube hosts only), from `assets/scripts/youtube_fast_start.js`:
@@ -130,17 +37,15 @@ object AdBlockerScript {
 
     /**
      * The document-start bootstrap, from `assets/scripts/content_bootstrap.js`, with the bridge
-     * name, the YouTube scriptlet, the scriptlet bundle (`assets/scripts/scriptlets.js`, a function
-     * expression that stays closure-local) and the static cosmetic CSS filled in. It runs in every
+     * name, the YouTube scriptlet and the scriptlet bundle (`assets/scripts/scriptlets.js`, a function
+     * expression that stays closure-local) filled in. It runs in every
      * frame before page scripts: it captures and deletes the hidden bridge global, skips security
      * challenges, relays fullscreen orientation locks, runs the list scriptlets and applies
-     * cosmetic CSS.
+     * list-driven cosmetic CSS (site rules, then generic class/id rules as the page's DOM grows).
      */
     fun buildBootstrapScript(context: Context, bridgeName: String): String {
-        val cssContent = buildCosmeticCss().replace("\\", "\\\\").replace("`", "\\`").replace("\n", " ")
         return readAsset(context, BOOTSTRAP_ASSET)
             .replace(YOUTUBE_PLACEHOLDER, buildYouTubeFastStartScript(context))
-            .replace(CSS_PLACEHOLDER, cssContent)
             .replace(SCRIPTLETS_PLACEHOLDER, readAsset(context, SCRIPTLETS_ASSET))
             .replace(BRIDGE_PLACEHOLDER, bridgeName)
     }

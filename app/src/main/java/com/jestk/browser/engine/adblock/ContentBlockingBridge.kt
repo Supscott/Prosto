@@ -21,7 +21,16 @@ class ContentBlockingBridge(
     private val isTrackersEnabledProvider: () -> Boolean = { true },
     private val cosmeticProvider: (url: String, ads: Boolean, trackers: Boolean) -> CosmeticResources =
         AdBlockerEngine::cosmeticResources,
+    private val genericProvider: (classes: List<String>, ids: List<String>, exceptions: Set<String>) -> List<String> =
+        AdBlockerEngine::hiddenClassIdSelectors,
 ) {
+    private class FrameContext(val exceptions: Set<String>, val generichide: Boolean)
+
+    /** Small LRU of the generic-rule exceptions the last `cosmetic()` answers computed, keyed by frame URL. */
+    private val frames = object : LinkedHashMap<String, FrameContext>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, FrameContext>) = size > FRAME_CACHE
+    }
+
     constructor(isEnabledProvider: () -> Boolean) : this(isEnabledProvider, null, null, null, null)
 
     @JavascriptInterface
@@ -38,10 +47,44 @@ class ContentBlockingBridge(
         if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) return EMPTY_JSON
         if (JestkWebViewClient.isSecurityChallengePage(url, null)) return EMPTY_JSON
         return try {
-            encode(cosmeticProvider(url, true, isTrackersEnabledProvider()))
+            val resources = cosmeticProvider(url, true, isTrackersEnabledProvider())
+            synchronized(frames) { frames[url] = FrameContext(resources.exceptions, resources.generichide) }
+            encode(resources)
         } catch (_: Exception) {
             EMPTY_JSON
         }
+    }
+
+    /**
+     * CSS rules (one `selector{display:none!important}` per line) for the generic class/id hide
+     * rules that match [classes] and [ids], two space-separated token lists from the frame at [url].
+     * Empty when ads are off, for non-http(s) and challenge pages, for `$generichide` frames and
+     * on any engine failure. Oversized input is truncated, never rejected.
+     */
+    @JavascriptInterface
+    fun generic(url: String?, classes: String?, ids: String?): String {
+        if (url.isNullOrEmpty() || !isEnabledProvider()) return ""
+        if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) return ""
+        if (JestkWebViewClient.isSecurityChallengePage(url, null)) return ""
+        val classTokens = tokens(classes)
+        val idTokens = tokens(ids)
+        if (classTokens.isEmpty() && idTokens.isEmpty()) return ""
+        return try {
+            val frame = frameContext(url)
+            if (frame.generichide) return ""
+            genericProvider(classTokens, idTokens, frame.exceptions)
+                .filter { it.none { c -> c == '{' || c == '}' || c == '\n' || c == '\r' } }
+                .distinct()
+                .joinToString("\n") { it + HIDE_DECLARATION }
+        } catch (_: Exception) {
+            ""
+        }
+    }
+
+    private fun frameContext(url: String): FrameContext {
+        synchronized(frames) { frames[url] }?.let { return it }
+        val resources = cosmeticProvider(url, true, isTrackersEnabledProvider())
+        return FrameContext(resources.exceptions, resources.generichide).also { synchronized(frames) { frames[url] = it } }
     }
 
     @JavascriptInterface
@@ -70,8 +113,22 @@ class ContentBlockingBridge(
         private const val CSS_CHUNK_CHARS = 8_000
         private const val HIDE_DECLARATION = "{display:none!important}"
 
+        private const val FRAME_CACHE = 16
+        private const val MAX_TOKENS = 1_000
+        private const val MAX_TOKEN_CHARS = 100
+        private const val MAX_INPUT_CHARS = 60_000
+
+        /** Splits a space-separated token list; the input and every list are capped, an over-long token is dropped. */
+        internal fun tokens(input: String?): List<String> {
+            if (input.isNullOrBlank()) return emptyList()
+            val bounded = if (input.length > MAX_INPUT_CHARS) input.take(MAX_INPUT_CHARS).substringBeforeLast(' ') else input
+            return bounded.split(' ').filter { it.isNotEmpty() && it.length <= MAX_TOKEN_CHARS }.distinct().take(MAX_TOKENS)
+        }
+
         fun encode(resources: CosmeticResources): String {
-            if (resources.hideSelectors.isEmpty() && resources.scriptlets.isEmpty()) return EMPTY_JSON
+            // `{}` means "nothing for this frame, no generic rules either"; a frame without
+            // site-specific rules still gets a real answer so the page can ask for generic ones.
+            if (resources.generichide && resources.hideSelectors.isEmpty() && resources.scriptlets.isEmpty()) return EMPTY_JSON
             return JSONObject()
                 .put("css", JSONArray(cssChunks(resources.hideSelectors)))
                 .put("generichide", resources.generichide)
