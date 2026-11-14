@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generichide</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Generichide</h1>
+<p class="expect">Expected: a <code>$generichide</code> exception turns generic hiding off for this page, so the generic box stays visible; the site-specific box is still hidden.</p>
+<div id="result">Running...</div>
+<div class="box fx-generic-ad">Generic ad (must stay visible here)</div>
+<div class="box fx-site-ad">Site ad (must be hidden)</div>
+<script src="/fx.js"></script>
+<script>
+setTimeout(function () {
+  var ok = !fxHidden('.fx-generic-ad') && fxHidden('.fx-site-ad');
+  fxResult(ok, ok ? 'generic hiding off, site hiding on' : 'generichide not honoured');
+}, 800);
+</script>
+</body>
+</html>

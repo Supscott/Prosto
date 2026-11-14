@@ -1,0 +1,21 @@
+! Title: Include sample
+! Version: 1
+||plain.example^
+!#if env_chromium
+||chromium.example^
+!#if env_firefox
+||never.example^
+!#else
+||nested-else.example^
+!#endif
+!#else
+||not-chromium.example^
+!#endif
+!#if !ext_abp
+||not-abp.example^
+!#endif
+!#if ext_ublock
+!#include parts/extra.txt
+!#endif
+!#include https-root-relative.txt
+##.last-rule

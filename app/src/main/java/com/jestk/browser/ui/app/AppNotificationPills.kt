@@ -43,6 +43,7 @@ import com.jestk.browser.ui.launchExternalApp
 import com.jestk.browser.ui.overlays.BlockedAdNavigationBanner
 import com.jestk.browser.ui.overlays.ExternalAppConfirmDialog
 import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
+import com.jestk.browser.ui.overlays.PopupBlockedPill
 import com.jestk.browser.ui.overlays.UpdateNotificationCard
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -50,9 +51,12 @@ import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoShapes
+import com.jestk.browser.ui.viewmodel.AllowPopupsForSite
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.DismissPopupBlocked
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
+import com.jestk.browser.ui.viewmodel.GoBackFromBlockedDocument
 import com.jestk.browser.util.DownloadFileOpener
 import kotlinx.coroutines.delay
 
@@ -323,6 +327,34 @@ internal fun BoxScope.AppNotificationPills(
         )
     }
 
+    // Popup Blocked Floating Pill
+    val popupBlocked = uiState.popupBlocked
+    AnimatedVisibility(
+        visible = popupBlocked != null,
+        enter = fadeIn(tween(220, easing = FastOutSlowInEasing)) + slideInVertically(tween(260, easing = FastOutSlowInEasing)) { it },
+        exit = fadeOut(tween(180, easing = FastOutSlowInEasing)) + slideOutVertically(tween(220, easing = FastOutSlowInEasing)) { it },
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .navigationBarsPadding()
+            .padding(
+                bottom = snackbarBaseBottomOffset +
+                    (if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) 56.dp else 0.dp) +
+                    (if (uiState.showDownloadSnackbar && uiState.lastDownloadNotification != null) 56.dp else 0.dp),
+                start = 16.dp,
+                end = 16.dp,
+            ),
+    ) {
+        if (popupBlocked != null) {
+            PopupBlockedPill(
+                isDark = isDark,
+                promptKey = popupBlocked,
+                accent = activeWorkspaceColor,
+                onAllow = { onEvent(AllowPopupsForSite) },
+                onDismiss = { onEvent(DismissPopupBlocked) },
+            )
+        }
+    }
+
     // Blocked Ad Navigation Floating Banner
     val blockedNav = uiState.blockedAdNavigation
     AnimatedVisibility(
@@ -356,6 +388,8 @@ internal fun BoxScope.AppNotificationPills(
                 url = blockedNav.url,
                 onDismiss = { onEvent(BrowserUiEvent.DismissBlockedAdNavigation) },
                 onConfirm = { onEvent(BrowserUiEvent.AllowBlockedAdNavigation) },
+                isDocument = blockedNav.isDocument,
+                onGoBack = { onEvent(GoBackFromBlockedDocument) },
             )
         }
     }

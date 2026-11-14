@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Popups</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Popups</h1>
+<p class="expect">Expected: on load, two window.open calls without a gesture are both blocked. Tap the two buttons, then "Check": the <code>$popup</code> target is blocked, the allowed target opens once.</p>
+<div id="result">Tap the buttons, then Check.</div>
+<button id="open-allowed">Open allowed popup (gesture)</button><br>
+<button id="open-blocked">Open $popup-blocked popup (gesture)</button><br>
+<button id="check">Check</button>
+<ul class="rows" id="rows"></ul>
+<script src="/fx.js"></script>
+<script>
+setTimeout(function () {
+  window.open('/popup-target.html?nogesture', '_blank');
+  window.open('/popup-blocked.html?nogesture', '_blank');
+}, 200);
+document.getElementById('open-allowed').onclick = function () { window.open('/popup-target.html?gesture', '_blank'); };
+document.getElementById('open-blocked').onclick = function () { window.open('/popup-blocked.html?gesture', '_blank'); };
+document.getElementById('check').onclick = function () {
+  fxHits().then(function (hits) {
+    var checks = [
+      ['/popup-target.html?nogesture', false, 'allowed target without gesture'],
+      ['/popup-blocked.html?nogesture', false, '$popup target without gesture'],
+      ['/popup-target.html?gesture', true, 'allowed target with gesture'],
+      ['/popup-blocked.html?gesture', false, '$popup target with gesture']
+    ];
+    var rows = document.getElementById('rows');
+    rows.textContent = '';
+    var allOk = true;
+    checks.forEach(function (c) {
+      var reached = hits.indexOf(c[0]) !== -1;
+      var ok = reached === c[1];
+      allOk = allOk && ok;
+      var li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = c[2] + ': ' + (reached ? 'opened' : 'blocked');
+      rows.appendChild(li);
+    });
+    fxResult(allOk, allOk ? 'popups behaved as expected' : 'see the rows below');
+  });
+};
+</script>
+</body>
+</html>

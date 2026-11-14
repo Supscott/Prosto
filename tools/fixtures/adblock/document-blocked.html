@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Document block</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Document block</h1>
+<p class="expect">Expected: tapping the link shows the browser's block page ("Go back" / "Proceed anyway") instead of a connection error or a loaded page.</p>
+<p><a id="link" href="http://fixture-docblock.test/">Open fixture-docblock.test</a></p>
+<p>The target host does not exist, so without the <code>$document</code> rule the browser shows a DNS error; with it, the block page appears.</p>
+</body>
+</html>

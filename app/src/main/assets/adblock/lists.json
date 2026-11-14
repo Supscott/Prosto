@@ -1,0 +1,93 @@
+{
+  "lists": [
+    {
+      "id": "easylist",
+      "engine": [
+        "ads"
+      ],
+      "preset": "standard",
+      "url": "https://easylist.to/easylist/easylist.txt"
+    },
+    {
+      "id": "ru-adlist",
+      "engine": [
+        "ads"
+      ],
+      "preset": "standard",
+      "url": "https://easylist-downloads.adblockplus.org/advblock.txt"
+    },
+    {
+      "id": "ubo-filters",
+      "engine": [
+        "ads"
+      ],
+      "preset": "standard",
+      "url": "https://ublockorigin.github.io/uAssets/filters/filters.txt"
+    },
+    {
+      "id": "ubo-badware",
+      "engine": [
+        "ads"
+      ],
+      "preset": "standard",
+      "url": "https://ublockorigin.github.io/uAssets/filters/badware.txt"
+    },
+    {
+      "id": "ubo-unbreak",
+      "engine": [
+        "ads",
+        "privacy"
+      ],
+      "preset": "standard",
+      "url": "https://ublockorigin.github.io/uAssets/filters/unbreak.txt"
+    },
+    {
+      "id": "easyprivacy",
+      "engine": [
+        "privacy"
+      ],
+      "preset": "standard",
+      "url": "https://easylist.to/easylist/easyprivacy.txt"
+    },
+    {
+      "id": "ubo-privacy",
+      "engine": [
+        "privacy"
+      ],
+      "preset": "standard",
+      "url": "https://ublockorigin.github.io/uAssets/filters/privacy.txt"
+    },
+    {
+      "id": "ubo-annoyances",
+      "engine": [
+        "ads"
+      ],
+      "preset": "strict",
+      "url": "https://ublockorigin.github.io/uAssets/filters/annoyances.txt"
+    },
+    {
+      "id": "easylist-cookie",
+      "engine": [
+        "ads"
+      ],
+      "preset": "strict",
+      "url": "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt"
+    },
+    {
+      "id": "adguard-mobile-ads",
+      "engine": [
+        "ads"
+      ],
+      "preset": "strict",
+      "url": "https://filters.adtidy.org/extension/ublock/filters/11.txt"
+    },
+    {
+      "id": "adguard-tracking",
+      "engine": [
+        "privacy"
+      ],
+      "preset": "strict",
+      "url": "https://filters.adtidy.org/extension/ublock/filters/3.txt"
+    }
+  ]
+}

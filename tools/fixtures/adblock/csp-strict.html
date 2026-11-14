@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Strict CSP</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Strict CSP</h1>
+<p class="expect">Served with <code>Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'</code>. Expected: the site ad is hidden and <code>fxAdblockDetected</code> stays false even though inline script and style are forbidden.</p>
+<div id="result">Running...</div>
+<div class="box fx-site-ad">Site ad (must be hidden)</div>
+<script src="/fx.js"></script>
+<script src="/csp-strict.js"></script>
+</body>
+</html>

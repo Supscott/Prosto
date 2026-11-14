@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network rules</title>
+<link rel="stylesheet" href="/fx.css">
+<link rel="stylesheet" href="/fx-block/style.css">
+<style>@font-face { font-family: FxBlocked; src: url(/fx-block/font.woff2) format('woff2'); } .f { font-family: FxBlocked, serif; }</style>
+</head>
+<body>
+<h1>Network rules</h1>
+<p class="expect">Expected: image, script, stylesheet, xhr, font and the <code>$important</code> script never reach the server; <code>allowed.js</code> does.</p>
+<div id="result">Running...</div>
+<ul class="rows" id="rows"></ul>
+<p class="f">Font probe text</p>
+<img src="/fx-block/pixel.gif" width="1" height="1" alt="">
+<script src="/fx-block/ads.js"></script>
+<script src="/fx-block/allowed.js"></script>
+<script src="/fx-important/blocked.js"></script>
+<script src="/fx.js"></script>
+<script>
+var x = new XMLHttpRequest();
+x.open('GET', '/fx-block/data.json');
+x.send();
+document.fonts.load('16px FxBlocked').catch(function () {});
+
+var checks = [
+  ['/fx-block/pixel.gif', false, 'image'],
+  ['/fx-block/ads.js', false, 'script'],
+  ['/fx-block/style.css', false, 'stylesheet'],
+  ['/fx-block/data.json', false, 'xhr'],
+  ['/fx-block/font.woff2', false, 'font'],
+  ['/fx-block/allowed.js', true, 'script allowed by @@ exception'],
+  ['/fx-important/blocked.js', false, 'script blocked by $important despite @@']
+];
+setTimeout(function () {
+  fxHits().then(function (hits) {
+    var rows = document.getElementById('rows');
+    var allOk = true;
+    checks.forEach(function (c) {
+      var reached = hits.indexOf(c[0]) !== -1;
+      var ok = reached === c[1];
+      allOk = allOk && ok;
+      var li = document.createElement('li');
+      li.className = ok ? 'pass' : 'fail';
+      li.textContent = c[2] + ': ' + (reached ? 'reached the server' : 'blocked');
+      rows.appendChild(li);
+    });
+    fxResult(allOk, allOk ? 'all requests behaved as expected' : 'see the rows below');
+  });
+}, 1500);
+</script>
+</body>
+</html>

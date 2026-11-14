@@ -221,7 +221,14 @@ fun SettingsContent(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ==========================================
-        // 5. ABOUT & SYSTEM
+        // 5. CONTENT BLOCKING
+        // ==========================================
+        SettingsContentBlockingSection(uiState = uiState, onEvent = onEvent, isDark = isDark)
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ==========================================
+        // 6. ABOUT & SYSTEM
         // ==========================================
         SettingsAboutSection(
             uiState = uiState,

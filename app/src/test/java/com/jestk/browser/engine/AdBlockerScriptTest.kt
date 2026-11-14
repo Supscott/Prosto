@@ -12,43 +12,40 @@ class AdBlockerScriptTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
 
-    @Test
-    fun adSelectors_isPopulatedWithKeyAdSelectors() {
-        assertThat(AdBlockerScript.AD_SELECTORS).isNotEmpty()
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("ins.adsbygoogle")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"google_ads_iframe\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"div-gpt-ad\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains(".yandex-adaptive")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"yandex_rtb_\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[id^=\"adfox\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[class*=\"bannerContainer\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[class*=\"incontentBanner\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains("[class*=\"RightsideBanners\"]")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains(".ad-container")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains(".ad-banner")
-        assertThat(AdBlockerScript.AD_SELECTORS).contains(".advertisement")
+    private companion object {
+        const val BRIDGE = "qWxYzAbCdEfGhI"
     }
 
     @Test
-    fun buildCosmeticCss_containsCollapseStylesAndAllSelectors() {
-        val css = AdBlockerScript.buildCosmeticCss()
-        assertThat(css).contains("display: none !important")
-        assertThat(css).contains("height: 0 !important")
-        assertThat(css).contains("min-height: 0 !important")
-        assertThat(css).contains("max-height: 0 !important")
-        assertThat(css).contains("visibility: hidden !important")
-        assertThat(css).contains("pointer-events: none !important")
-        assertThat(css).contains("ins.adsbygoogle")
-        assertThat(css).contains(".yandex-adaptive")
-        assertThat(css).contains("[id^=\"adfox\"]")
-        assertThat(css).contains("[class*=\"bannerContainer\"]")
-        assertThat(css).contains(".ad-banner")
+    fun buildBootstrapScript_hasNoStaticAdSelectorsOrDomCleaner() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+        assertThat(js).doesNotContain("@@COSMETIC_CSS@@")
+        assertThat(js).doesNotContain("ins.adsbygoogle")
+        assertThat(js).doesNotContain("[id^=\"adfox\"]")
+        assertThat(js).doesNotContain("bannerContainer")
+        assertThat(js).doesNotContain("collapseElement")
+        assertThat(js).doesNotContain("parent.children.length === 1")
+        assertThat(js).doesNotContain("pendingNodes")
+        assertThat(js).doesNotContain("processPendingNodes")
     }
 
     @Test
-    fun buildDocumentStartScript_leavesNoFingerprintableGlobals() {
+    fun buildBootstrapScript_collectsClassesAndIdsForTheGenericPath() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+        assertThat(js).contains("cosmetic.generichide === false")
+        assertThat(js).contains("bridge.generic(location.href")
+        assertThat(js).contains("new MutationObserver")
+        assertThat(js).contains("attributeFilter: ['class', 'id']")
+        assertThat(js).contains("GENERIC_MAX_TOKENS")
+        assertThat(js).contains("new Set()")
+        assertThat(js).contains("cosmeticSheet.insertRule")
+        assertThat(js).doesNotContain("window.generic")
+    }
+
+    @Test
+    fun buildBootstrapScript_leavesNoFingerprintableGlobals() {
         // Review finding BOT-2: page-level stubs and guards showed up in Object.getOwnPropertyNames(window).
-        val js = AdBlockerScript.buildDocumentStartScript(context)
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
         assertThat(js).doesNotContain("window.googletag =")
         assertThat(js).doesNotContain("window.adsbygoogle =")
         assertThat(js).doesNotContain("window.Ya =")
@@ -61,29 +58,48 @@ class AdBlockerScriptTest {
     }
 
     @Test
-    fun buildDocumentStartScript_containsBridgeCheckStyleInjectionAndMutationObserver() {
-        val js = AdBlockerScript.buildDocumentStartScript(context)
-        // Bridge check
-        assertThat(js).contains("window.HoriAdBlockBridge")
-        assertThat(js).contains("window.HoriAdBlockBridge.isEnabled()")
+    fun buildBootstrapScript_containsBridgeCheckAndStyleInjection() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+        // Bridge check through the captured reference
+        assertThat(js).contains("bridge.isEnabled()")
+        assertThat(js).contains("bridge.cosmetic(location.href)")
+        assertThat(js).doesNotContain("window.HoriAdBlockBridge")
 
-        // Style tag injection
+        // Constructed stylesheet with a <style> fallback
+        assertThat(js).contains("adoptedStyleSheets")
         assertThat(js).contains("document.createElement('style')")
-
-        // MutationObserver & debounced addedNodes parent collapsing
-        assertThat(js).contains("MutationObserver")
-        assertThat(js).contains("observe(document.documentElement || document.body")
-        assertThat(js).contains("mutations[i].addedNodes")
-        assertThat(js).contains("requestAnimationFrame")
-        assertThat(js).contains("parent.children.length === 1")
-        assertThat(js).contains("[id^=\"adfox\"]")
-        assertThat(js).contains("[class*=\"bannerContainer\"]")
 
         // YouTube Fast-Start integrated
         assertThat(js).contains("ytInitialPlayerResponse")
         assertThat(js).contains("adPlacements")
         assertThat(js).contains("adSlots")
         assertThat(js).contains("adBlockerActive")
+    }
+
+    @Test
+    fun buildBootstrapScript_capturesAndDeletesTheBridgeBeforeAnythingElse() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+
+        assertThat(js).doesNotContain("@@")
+        assertThat(js).contains("window['$BRIDGE']")
+        val capture = js.indexOf("var bridge = window['$BRIDGE'];")
+        val delete = js.indexOf("delete window['$BRIDGE']")
+        val challengeExemption = js.indexOf("challenges.cloudflare.com")
+        assertThat(capture).isAtLeast(0)
+        assertThat(delete).isGreaterThan(capture)
+        assertThat(js.substring(capture, delete)).doesNotContain("\n        ")
+        assertThat(challengeExemption).isGreaterThan(delete)
+        assertThat(js.indexOf("bridge.")).isGreaterThan(delete)
+    }
+
+    @Test
+    fun buildBootstrapScript_assignsNothingToWindow() {
+        // The scriptlet bundle patches page globals on purpose when a list rule asks for it
+        // (alert-buster, window.name-defuser); the bootstrap itself must assign none.
+        val bundle = context.assets.open("scripts/scriptlets.js").bufferedReader().use { it.readText() }.trimEnd()
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE).replace(bundle, "")
+        assertThat(Regex("""window\.[A-Za-z_$][\w$]*\s*=[^=]""").findAll(js).map { it.value }.toList()).isEmpty()
+        assertThat(js).doesNotContain("HoriAdBlockBridge")
     }
 
     @Test
@@ -135,17 +151,17 @@ class AdBlockerScriptTest {
     }
 
     @Test
-    fun buildDocumentStartScript_doesNotScanThePageForOverlays() {
+    fun buildBootstrapScript_doesNotScanThePageForOverlays() {
         // A full-page getComputedStyle scan on every mutation froze heavy pages and hid the tap
         // layers of video players and maps (review finding AB-5).
-        val script = AdBlockerScript.buildDocumentStartScript(context)
+        val script = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
         assertThat(script).doesNotContain("neutralizeClickjackingOverlays")
         assertThat(script).doesNotContain("querySelectorAll('div, a, span')")
     }
 
     @Test
-    fun buildDocumentStartScript_doesNotMonkeyPatchWindowOpen() {
-        val script = AdBlockerScript.buildDocumentStartScript(context)
+    fun buildBootstrapScript_doesNotMonkeyPatchWindowOpen() {
+        val script = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
         assertThat(script).doesNotContain("window.open =")
         assertThat(script).doesNotContain("origWindowOpen")
         assertThat(script).doesNotContain("patchedOpen")
@@ -211,8 +227,8 @@ class AdBlockerScriptTest {
     }
 
     @Test
-    fun buildDocumentStartScript_whitelistsCloudflareAndSecurityChallenges() {
-        val script = AdBlockerScript.buildDocumentStartScript(context)
+    fun buildBootstrapScript_whitelistsCloudflareAndSecurityChallenges() {
+        val script = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
         assertThat(script).contains("challenges.cloudflare.com")
         assertThat(script).contains("cloudflarecaptcha.com")
         assertThat(script).contains("hcaptcha.com")
@@ -220,6 +236,31 @@ class AdBlockerScriptTest {
         assertThat(script).contains("/cdn-cgi/challenge-platform")
         assertThat(script).contains("_cf_chl_opt")
         assertThat(script).contains("challenge-stage")
+    }
+
+    @Test
+    fun buildBootstrapScript_inlinesTheScriptletBundleOnceInsideTheClosure() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+        val bundle = context.assets.open("scripts/scriptlets.js").bufferedReader().use { it.readText() }.trimEnd()
+
+        assertThat(js).doesNotContain("@@SCRIPTLETS@@")
+        assertThat(js.split("function prostoScriptlets()").size - 1).isEqualTo(1)
+        assertThat(js).contains(bundle)
+        // The bundle sits inside the bootstrap's own closure, after the bridge answer is read.
+        assertThat(js.trimStart()).startsWith("(function() {")
+        assertThat(js.indexOf("prostoScriptlets")).isGreaterThan(js.indexOf("bridge.cosmetic(location.href)"))
+        assertThat(js.trimEnd()).endsWith("})();")
+    }
+
+    @Test
+    fun buildBootstrapScript_runsScriptletsFromTheCosmeticAnswerWithoutGlobals() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+
+        assertThat(js).contains("cosmetic.scriptlets")
+        assertThat(js).contains("hasOwnProperty.call(scriptletMap")
+        assertThat(js).doesNotContain("window.scriptlets")
+        assertThat(js).doesNotContain("globalThis.scriptlets")
+        assertThat(js).doesNotContain("new Function")
     }
 
     @Test

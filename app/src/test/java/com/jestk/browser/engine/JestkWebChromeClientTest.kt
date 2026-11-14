@@ -450,6 +450,7 @@ class JestkWebChromeClientTest {
             webViewPool = webViewPool,
             onPopupOpened = { popupTabId = it }
         )
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(2000))
 
         assertThat(handled).isTrue()
         assertThat(popupTabId).isNotNull()
@@ -489,6 +490,7 @@ class JestkWebChromeClientTest {
             isUserGesture = true,
             onPopupOpened = { popupTabId = it }
         )
+        org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idleFor(java.time.Duration.ofMillis(2000))
 
         assertThat(handled).isTrue()
         assertThat(popupTabId).isNotNull()

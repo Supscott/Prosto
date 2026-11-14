@@ -1,0 +1,13 @@
+uBlock Origin redirect resources
+
+`app/src/main/assets/adblock/resources.json` contains the contents of the files in
+`src/web_accessible_resources/` of uBlock Origin 1.76.2 (see UBO_TAG in
+tools/build_adblock_resources.py), base64-encoded, with the resource names and aliases from
+`src/js/redirect-resources.js`.
+
+uBlock Origin is Copyright (C) 2014-present Raymond Hill and is licensed under the GNU General
+Public License, version 3 or (at your option) any later version.
+
+Source:   https://github.com/gorhill/uBlock/tree/1.76.2
+Licence:  https://www.gnu.org/licenses/gpl-3.0.txt (the full text is in the LICENSE file of this
+          repository, which is also GPL-3.0)

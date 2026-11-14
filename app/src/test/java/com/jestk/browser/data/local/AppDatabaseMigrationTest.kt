@@ -409,4 +409,39 @@ class AppDatabaseMigrationTest {
             .containsExactly("home", "", "new", "", "loading", "", "page", "Home")
         db.close()
     }
+
+    private fun createV13Database(): SupportSQLiteDatabase {
+        val configuration = SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(dbFile.name)
+            .callback(object : SupportSQLiteOpenHelper.Callback(13) {
+                override fun onCreate(db: SupportSQLiteDatabase) {
+                    db.execSQL("CREATE TABLE `workspaces` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`id`))")
+                }
+
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build()
+
+        return FrameworkSQLiteOpenHelperFactory().create(configuration).writableDatabase
+    }
+
+    @Test
+    fun migration13To14_createsSiteAllowlistKeyedByHostAndWorkspaceScope() {
+        val db = createV13Database()
+        db.execSQL("INSERT INTO workspaces VALUES ('default_personal', ''), ('default_work', '')")
+
+        AppDatabase.MIGRATION_13_14.migrate(db)
+
+        db.execSQL("INSERT INTO site_allowlist VALUES ('example.com', 'default_work', 1)")
+        db.execSQL("INSERT INTO site_allowlist VALUES ('example.com', '*', 2)")
+        assertThat(db.query("SELECT COUNT(*) FROM site_allowlist").use { it.moveToFirst(); it.getInt(0) }).isEqualTo(2)
+        val duplicate = runCatching { db.execSQL("INSERT INTO site_allowlist VALUES ('example.com', '*', 3)") }
+        assertThat(duplicate.isFailure).isTrue()
+        val indexes = db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'site_allowlist'").use { c ->
+            buildList { while (c.moveToNext()) add(c.getString(0)) }
+        }
+        assertThat(indexes).contains("index_site_allowlist_workspace_scope")
+        assertThat(db.query("SELECT COUNT(*) FROM workspaces").use { it.moveToFirst(); it.getInt(0) }).isEqualTo(2)
+        db.close()
+    }
 }

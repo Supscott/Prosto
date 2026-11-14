@@ -146,3 +146,6 @@ Contributions are welcome! Whether it's reporting a bug, proposing a new feature
 ## 📜 License
 
 Prosto Browser is licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
+
+
+The native content-blocking library (`native/adblock-jni`) statically links [adblock-rust](https://crates.io/crates/adblock/0.13.5) (Brave Software), licensed under the [Mozilla Public License 2.0](LICENSES/MPL-2.0.txt). Its exact source is the crates.io release `adblock 0.13.5`.
