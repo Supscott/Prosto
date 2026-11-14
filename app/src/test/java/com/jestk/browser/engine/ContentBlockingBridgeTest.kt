@@ -79,6 +79,30 @@ class ContentBlockingBridgeTest {
     }
 
     @Test
+    fun cosmetic_passesScriptletsThroughEvenWithoutSelectors() {
+        val onlyScriptlets = CosmeticResources(
+            emptyList(), emptySet(), emptyList(), false,
+            listOf(listOf("json-prune", "a b"), listOf("noop-fn")),
+        )
+
+        val scriptlets = JSONObject(bridge(result = onlyScriptlets).cosmetic("https://site.test/")).getJSONArray("scriptlets")
+
+        assertThat(scriptlets.length()).isEqualTo(2)
+        assertThat(scriptlets.getJSONArray(0).getString(1)).isEqualTo("a b")
+        assertThat(scriptlets.getJSONArray(1).length()).isEqualTo(1)
+    }
+
+    @Test
+    fun cosmetic_dropsScriptletsWhenAdsAreOffEvenIfTrackersAreOn() {
+        val seen = Seen()
+
+        val json = bridge(ads = { false }, trackers = { true }, seen = seen).cosmetic("https://site.test/")
+
+        assertThat(json).isEqualTo("{}")
+        assertThat(seen.calls).isEqualTo(0)
+    }
+
+    @Test
     fun cosmetic_isEmptyWhenTheEngineHasNothing() {
         assertThat(bridge(result = CosmeticResources.EMPTY).cosmetic("https://site.test/")).isEqualTo("{}")
     }

@@ -18,6 +18,8 @@ object AdBlockerScript {
     private const val BOOTSTRAP_ASSET = "scripts/content_bootstrap.js"
     private const val YOUTUBE_FAST_START_ASSET = "scripts/youtube_fast_start.js"
     private const val AUTOCONSENT_ASSET = "scripts/autoconsent.js"
+    private const val SCRIPTLETS_ASSET = "scripts/scriptlets.js"
+    private const val SCRIPTLETS_PLACEHOLDER = "/*@@SCRIPTLETS@@*/"
     private const val YOUTUBE_PLACEHOLDER = "/*@@YOUTUBE_FAST_START@@*/"
     private const val CSS_PLACEHOLDER = "@@COSMETIC_CSS@@"
     private const val BRIDGE_PLACEHOLDER = "@@BRIDGE_NAME@@"
@@ -128,15 +130,18 @@ object AdBlockerScript {
 
     /**
      * The document-start bootstrap, from `assets/scripts/content_bootstrap.js`, with the bridge
-     * name, the YouTube scriptlet and the static cosmetic CSS filled in. It runs in every frame
-     * before page scripts: it captures and deletes the hidden bridge global, skips security
-     * challenges, relays fullscreen orientation locks, and applies cosmetic CSS.
+     * name, the YouTube scriptlet, the scriptlet bundle (`assets/scripts/scriptlets.js`, a function
+     * expression that stays closure-local) and the static cosmetic CSS filled in. It runs in every
+     * frame before page scripts: it captures and deletes the hidden bridge global, skips security
+     * challenges, relays fullscreen orientation locks, runs the list scriptlets and applies
+     * cosmetic CSS.
      */
     fun buildBootstrapScript(context: Context, bridgeName: String): String {
         val cssContent = buildCosmeticCss().replace("\\", "\\\\").replace("`", "\\`").replace("\n", " ")
         return readAsset(context, BOOTSTRAP_ASSET)
             .replace(YOUTUBE_PLACEHOLDER, buildYouTubeFastStartScript(context))
             .replace(CSS_PLACEHOLDER, cssContent)
+            .replace(SCRIPTLETS_PLACEHOLDER, readAsset(context, SCRIPTLETS_ASSET))
             .replace(BRIDGE_PLACEHOLDER, bridgeName)
     }
 

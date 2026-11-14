@@ -160,6 +160,29 @@ fn type_codes_map_to_crate_strings() {
     assert_eq!(request_type(11), None);
 }
 
+const MERGED: &str = include_str!("../../../app/src/main/assets/adblock/resources.json");
+
+#[test]
+fn shipped_resources_json_carries_redirects_and_scriptlets() {
+    let mut e = engine(&[
+        "fixture.test##+js(set-constant, fxAdblockDetected, false)\n\
+         fixture.test##+js(set-constant, fxOpenAd, noopFunc)\n\
+         ||fixture-gtm.test/gtm.js$script,redirect=googletagmanager_gtm.js\n",
+    ]);
+    assert!(load_resources(&mut e, MERGED));
+    let v: serde_json::Value = serde_json::from_str(&cosmetic_json(&e, "https://fixture.test/scriptlet.html")).unwrap();
+    let mut got = v["scriptlets"].as_array().unwrap().clone();
+    got.sort_by_key(|s| s[1].as_str().unwrap().to_string());
+    assert_eq!(
+        serde_json::Value::Array(got),
+        serde_json::json!([
+            ["set-constant", "fxAdblockDetected", "false"],
+            ["set-constant", "fxOpenAd", "noopFunc"]
+        ])
+    );
+    assert!(redirect(&e, "https://fixture-gtm.test/gtm.js", "https://fixture.test/", SCRIPT).is_some());
+}
+
 #[test]
 fn engine_is_shareable_across_threads() {
     let e = std::sync::Arc::new(engine(&["||ads.example.com^"]));

@@ -107,6 +107,26 @@
                 cosmetic = JSON.parse(bridge.cosmetic(location.href)) || {};
             }
         } catch(e) {}
+
+        // 3. Scriptlets: list-driven [name, ...args] calls, run synchronously here so they patch the
+        // page's main world before any page script. The bundle is closure-local and is evaluated
+        // only for frames that have scriptlets; unknown names are ignored.
+        try {
+            var scriptletCalls = cosmetic.scriptlets;
+            if (scriptletCalls && scriptletCalls.length) {
+                var scriptletMap = (/*@@SCRIPTLETS@@*/)();
+                for (var si = 0; si < scriptletCalls.length; si++) {
+                    try {
+                        var call = scriptletCalls[si];
+                        var known = call && Object.prototype.hasOwnProperty.call(scriptletMap, call[0]);
+                        if (known && typeof scriptletMap[call[0]] === 'function') {
+                            scriptletMap[call[0]].apply(null, call.slice(1));
+                        }
+                    } catch(e) {}
+                }
+            }
+        } catch(e) {}
+
         var cssText = `@@COSMETIC_CSS@@`;
         if (cosmetic.css && cosmetic.css.length) cssText += '\n' + cosmetic.css.join('\n');
 
@@ -139,7 +159,7 @@
         }
         injectStyle();
 
-        // 3. Dynamic DOM Cleaner / MutationObserver
+        // 4. Dynamic DOM Cleaner / MutationObserver
         var AD_SELECTOR = 'ins.adsbygoogle, [id^="google_ads_iframe"], [id^="div-gpt-ad"], [id^="yandex_rtb_"], [id^="adfox"], [class*="bannerContainer"], [class*="incontentBanner"], [class*="BannersBlock"], [class*="RightsideBanners"], [class*="adFeedback"], [class*="tovarnayaCourusel"], .yandex-adaptive, .ya-partner, .ad-container, .ad-banner, .advertisement, [data-ad-placeholder]';
 
         function collapseElement(el) {

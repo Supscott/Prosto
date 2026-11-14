@@ -110,7 +110,10 @@ class AdBlockerScriptTest {
 
     @Test
     fun buildBootstrapScript_assignsNothingToWindow() {
-        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+        // The scriptlet bundle patches page globals on purpose when a list rule asks for it
+        // (alert-buster, window.name-defuser); the bootstrap itself must assign none.
+        val bundle = context.assets.open("scripts/scriptlets.js").bufferedReader().use { it.readText() }.trimEnd()
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE).replace(bundle, "")
         assertThat(Regex("""window\.[A-Za-z_$][\w$]*\s*=[^=]""").findAll(js).map { it.value }.toList()).isEmpty()
         assertThat(js).doesNotContain("HoriAdBlockBridge")
     }
@@ -249,6 +252,31 @@ class AdBlockerScriptTest {
         assertThat(script).contains("/cdn-cgi/challenge-platform")
         assertThat(script).contains("_cf_chl_opt")
         assertThat(script).contains("challenge-stage")
+    }
+
+    @Test
+    fun buildBootstrapScript_inlinesTheScriptletBundleOnceInsideTheClosure() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+        val bundle = context.assets.open("scripts/scriptlets.js").bufferedReader().use { it.readText() }.trimEnd()
+
+        assertThat(js).doesNotContain("@@SCRIPTLETS@@")
+        assertThat(js.split("function prostoScriptlets()").size - 1).isEqualTo(1)
+        assertThat(js).contains(bundle)
+        // The bundle sits inside the bootstrap's own closure, after the bridge answer is read.
+        assertThat(js.trimStart()).startsWith("(function() {")
+        assertThat(js.indexOf("prostoScriptlets")).isGreaterThan(js.indexOf("bridge.cosmetic(location.href)"))
+        assertThat(js.trimEnd()).endsWith("})();")
+    }
+
+    @Test
+    fun buildBootstrapScript_runsScriptletsFromTheCosmeticAnswerWithoutGlobals() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+
+        assertThat(js).contains("cosmetic.scriptlets")
+        assertThat(js).contains("hasOwnProperty.call(scriptletMap")
+        assertThat(js).doesNotContain("window.scriptlets")
+        assertThat(js).doesNotContain("globalThis.scriptlets")
+        assertThat(js).doesNotContain("new Function")
     }
 
     @Test
