@@ -28,6 +28,8 @@ import com.jestk.browser.ui.viewmodel.events.MediaEventHandler
 import com.jestk.browser.ui.viewmodel.events.OverlayEventHandler
 import com.jestk.browser.ui.viewmodel.events.PageEventHandler
 import com.jestk.browser.ui.viewmodel.events.SafetyEventHandler
+import com.jestk.browser.engine.adblock.ContentBlockingControls
+import com.jestk.browser.ui.viewmodel.events.ContentBlockingEventHandler
 import com.jestk.browser.ui.viewmodel.events.SiteAllowlistEventHandler
 import com.jestk.browser.ui.viewmodel.events.SettingsEventHandler
 import com.jestk.browser.ui.viewmodel.events.TabEventHandler
@@ -65,6 +67,7 @@ class BrowserViewModel(
     val tabFolderRepository: TabFolderRepository? = null,
     val workspaceRepository: WorkspaceRepository? = null,
     private val siteAllowlistRepository: SiteAllowlistRepository? = null,
+    private val contentBlockingControls: ContentBlockingControls? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val currentTimeProvider: () -> Long = { System.currentTimeMillis() },
 ) : ViewModel() {
@@ -215,6 +218,14 @@ class BrowserViewModel(
             ioDispatcher = ioDispatcher,
         )
 
+    private val contentBlockingEvents =
+        ContentBlockingEventHandler(
+            controls = contentBlockingControls,
+            updateUiState = { transform -> _uiState.update(transform) },
+            scope = viewModelScope,
+            ioDispatcher = ioDispatcher,
+        )
+
     private val safetyEvents =
         SafetyEventHandler(
             tabCoordinator = tabCoordinator,
@@ -316,6 +327,7 @@ class BrowserViewModel(
 
     private fun observeDatabaseFlows() {
         siteAllowlistEvents.observe()
+        contentBlockingEvents.observe()
         tabCoordinator.sessionSync.observeDatabaseFlows()
         searchCoordinator.observeDatabaseFlows()
         downloadCoordinator.observeDatabaseFlows()
@@ -383,6 +395,7 @@ class BrowserViewModel(
             is OverlayUiEvent -> overlayEvents.handle(event)
             is PageUiEvent -> pageEvents.handle(event)
             is LibraryUiEvent -> libraryEvents.handle(event)
+            is ContentBlockingUiEvent -> contentBlockingEvents.handle(event)
             is SettingsUiEvent -> settingsEvents.handle(event)
             is SafetyUiEvent -> safetyEvents.handle(event)
             is MediaUiEvent -> mediaEvents.handle(event)

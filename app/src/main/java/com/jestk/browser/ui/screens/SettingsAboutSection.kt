@@ -148,6 +148,13 @@ internal fun SettingsAboutSection(
             },
             isDark = isDark,
         )
+
+        HorizontalDivider(
+            color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+            modifier = Modifier.padding(start = 56.dp),
+        )
+
+        LicensesRows(isDark = isDark, context = context)
     }
 }
 

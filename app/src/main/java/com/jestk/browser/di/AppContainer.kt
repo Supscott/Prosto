@@ -23,6 +23,7 @@ import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.SiteAllowlistRepository
+import com.jestk.browser.engine.adblock.FilterListControls
 import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.domain.repository.WorkspaceRepository
@@ -138,6 +139,7 @@ class DefaultAppContainer(
                     tabFolderRepository = tabFolderRepository,
                     workspaceRepository = workspaceRepository,
                     siteAllowlistRepository = siteAllowlistRepository,
+                    contentBlockingControls = FilterListControls.create(context),
                     historyRepository = historyRepository,
                     favoriteRepository = favoriteRepository,
                     settingsRepository = settingsRepository,
