@@ -69,7 +69,7 @@ object WindowTransportHandler {
     internal fun newGate(clock: () -> Long = SystemClock::elapsedRealtime): PopupGate =
         PopupGate(
             clock = clock,
-            isAdPopup = { adsEnabled() && isAdPopupUrl(it) },
+            isAdPopup = { url, opener -> adsEnabled() && isAdPopupUrl(url, opener) },
             allowlist = popupAllowlist,
             isSiteAllowlisted = SiteAllowlist.shared::isAllowlisted,
         )

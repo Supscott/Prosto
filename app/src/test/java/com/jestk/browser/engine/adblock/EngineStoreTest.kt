@@ -39,13 +39,13 @@ class EngineStoreTest {
     private fun blobs(engine: String) = cacheDir.listFiles().orEmpty().filter { it.name.startsWith("$engine-") && it.name.endsWith(".bin") }
 
     @Test
-    fun firstRun_compilesBothEnginesAndWritesTheBlobs() {
+    fun firstRun_compilesTheEnginesAndWritesTheBlobs() {
         val factory = FakeEngineFactory()
 
         val set = EngineStore(backend(factory)).load(context)
 
         assertThat(set).isNotNull()
-        assertThat(factory.compiles).isEqualTo(2)
+        assertThat(factory.compiles).isEqualTo(3)
         assertThat(factory.restores).isEqualTo(0)
         assertThat(set!!.rulesCount).isGreaterThan(0)
         for (engine in listOf("ads", "privacy")) {
@@ -57,6 +57,22 @@ class EngineStoreTest {
     }
 
     @Test
+    fun popupEngine_isCompiledFromTheAdsListsPopupRulesAsDocumentRules() {
+        val factory = FakeEngineFactory()
+
+        val set = EngineStore(backend(factory)).load(context)!!
+
+        assertThat(set.popup).isNotNull()
+        assertThat(blobs("popup")).hasSize(1)
+        val popupLists = factory.compiledLists.last()
+        assertThat(popupLists).hasSize(1)
+        val rules = popupLists.single().lines().filter { it.isNotBlank() }
+        assertThat(rules).isNotEmpty()
+        assertThat(rules.all { "\$" + "document" in it }).isTrue()
+        assertThat(rules.none { "popup" in it.substringAfterLast('$') }).isTrue()
+    }
+
+    @Test
     fun secondRun_loadsTheBlobWithoutCompilingAndKeepsTheRuleCount() {
         val first = EngineStore(backend(FakeEngineFactory())).load(context)!!
         val factory = FakeEngineFactory()
@@ -64,7 +80,7 @@ class EngineStoreTest {
         val second = EngineStore(backend(factory)).load(context)!!
 
         assertThat(factory.compiles).isEqualTo(0)
-        assertThat(factory.restores).isEqualTo(2)
+        assertThat(factory.restores).isEqualTo(3)
         assertThat(second.rulesCount).isEqualTo(first.rulesCount)
     }
 
@@ -78,7 +94,7 @@ class EngineStoreTest {
 
         assertThat(set).isNotNull()
         assertThat(factory.compiles).isEqualTo(1)
-        assertThat(factory.restores).isEqualTo(1)
+        assertThat(factory.restores).isEqualTo(2)
         assertThat(blobs("ads").single().readBytes()).isEqualTo(FakeEngineFactory.BLOB)
     }
 
@@ -89,7 +105,7 @@ class EngineStoreTest {
 
         EngineStore(backend(factory, "v2")).load(context)
 
-        assertThat(factory.compiles).isEqualTo(2)
+        assertThat(factory.compiles).isEqualTo(3)
         val names = cacheDir.listFiles().orEmpty().map { it.name }
         assertThat(names).isNotEmpty()
         assertThat(names.filter { "-v1-" in it }).isEmpty()

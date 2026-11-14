@@ -95,3 +95,23 @@ fn easylist_turns_generic_hiding_off_on_local_hosts_without_the_fixture_badfilte
     let e = from_lists(vec![easylist]).expect("engine");
     assert_eq!(cosmetic(&e, &page("cosmetic-generic.html"))["generichide"], true);
 }
+
+/// popup.html: the Kotlin side (`PopupRules`) rewrites `$popup` rules to `$document` and checks a
+/// popup's target as a document request with the opener as source. This pins that the engine
+/// honours the rewritten fixture rules, including the path rule.
+#[test]
+fn rewritten_popup_rules_block_the_fixture_popup_targets() {
+    let rules = FIXTURE_FILTERS
+        .replace("{{HOST}}", HOST)
+        .lines()
+        .filter(|l| l.ends_with("$popup"))
+        .map(|l| l.replace("$popup", "$document"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert_eq!(rules.lines().count(), 2, "fixture popup rules: {rules}");
+    let e = from_lists(vec![rules]).expect("engine");
+    let opener = page("popup.html");
+    assert_eq!(check(&e, &page("popup-blocked.html?gesture"), &opener, DOC) & BLOCK, BLOCK);
+    assert_eq!(check(&e, "http://fixture-popup.test/", &opener, DOC) & BLOCK, BLOCK);
+    assert_eq!(check(&e, &page("popup-target.html?gesture"), &opener, DOC) & BLOCK, 0);
+}

@@ -61,8 +61,9 @@ internal class EngineStore(
             ads.matcher.close()
             return null
         }
+        val popup = loadEngine(dir, assets, null, version, ENGINE_POPUP, selection, source = ENGINE_ADS, transform = PopupRules::extract)
         log("engines ready in ${(System.nanoTime() - started) / NANOS_PER_MS} ms")
-        return EngineSet(ads.matcher, privacy.matcher, ads.rules + privacy.rules)
+        return EngineSet(ads.matcher, privacy.matcher, ads.rules + privacy.rules, popup?.matcher)
     }
 
     private class Loaded(val matcher: ContentMatcher, val rules: Int)
@@ -74,9 +75,11 @@ internal class EngineStore(
         version: String,
         engine: String,
         selection: ListSelection,
+        source: String = engine,
+        transform: (List<String>) -> List<String> = { it },
     ): Loaded? {
-        val extras = selection.extras[engine].orEmpty()
-        val base = cacheBase(engine, selection.preset, version, assets, extras)
+        val extras = selection.extras[source].orEmpty()
+        val base = cacheBase(engine, source, selection.preset, version, assets, extras)
         val bin = File(dir, "$base.bin")
         val rulesFile = File(dir, "$base.rules")
         if (bin.exists()) {
@@ -89,8 +92,8 @@ internal class EngineStore(
             bin.delete()
             rulesFile.delete()
         }
-        val merged = assets.readById(engine, skip = extras.map { it.id }.toSet()) + extras.associate { it.id to it.text }
-        val lists = merged.toSortedMap().values.toList()
+        val merged = assets.readById(source, skip = extras.map { it.id }.toSet()) + extras.associate { it.id to it.text }
+        val lists = transform(merged.toSortedMap().values.toList())
         if (lists.isEmpty()) return null
         val compiled = runCatching { backend.factory.compile(lists, resources) }.getOrNull() ?: return null
         val rules = FilterAssets.countRules(lists)
@@ -125,7 +128,7 @@ internal class EngineStore(
     /** Deletes the cached blobs of every engine for [presetId] (used when the Strict lists are dropped). */
     fun deleteCache(context: Context, presetId: String) {
         File(context.filesDir, "adblock").listFiles()?.forEach { file ->
-            if (listOf(ENGINE_ADS, ENGINE_PRIVACY).any { file.name.startsWith("$it-$presetId-") }) file.delete()
+            if (ENGINES.any { file.name.startsWith("$it-$presetId-") }) file.delete()
         }
     }
 
@@ -134,8 +137,9 @@ internal class EngineStore(
         val assets = FilterAssets(context.assets, bundledPreset(selection))
         val dir = File(context.filesDir, "adblock")
         val version = cacheVersion(context)
-        for (engine in listOf(ENGINE_ADS, ENGINE_PRIVACY)) {
-            val base = cacheBase(engine, selection.preset, version, assets, selection.extras[engine].orEmpty())
+        for (engine in ENGINES) {
+            val source = if (engine == ENGINE_POPUP) ENGINE_ADS else engine
+            val base = cacheBase(engine, source, selection.preset, version, assets, selection.extras[source].orEmpty())
             File(dir, "$base.bin").delete()
             File(dir, "$base.rules").delete()
         }
@@ -147,8 +151,8 @@ internal class EngineStore(
     private fun cacheVersion(context: Context) =
         "${backend.version()}-${apkUpdateTime(context)}".replace(UNSAFE_NAME, "_")
 
-    private fun cacheBase(engine: String, presetId: String, version: String, assets: FilterAssets, extras: List<ExtraList>): String {
-        val bundledHash = assets.listsHash(engine)
+    private fun cacheBase(engine: String, source: String, presetId: String, version: String, assets: FilterAssets, extras: List<ExtraList>): String {
+        val bundledHash = assets.listsHash(source)
         val hash = if (extras.isEmpty()) {
             bundledHash
         } else {
@@ -177,6 +181,8 @@ internal class EngineStore(
         private const val HASH_LENGTH = 16
         const val ENGINE_ADS = "ads"
         const val ENGINE_PRIVACY = "privacy"
+        const val ENGINE_POPUP = "popup"
+        private val ENGINES = listOf(ENGINE_ADS, ENGINE_PRIVACY, ENGINE_POPUP)
         private const val RESOURCES_ASSET = "adblock/resources.json"
         private val UNSAFE_NAME = Regex("[^A-Za-z0-9._-]")
         private const val NANOS_PER_MS = 1_000_000L

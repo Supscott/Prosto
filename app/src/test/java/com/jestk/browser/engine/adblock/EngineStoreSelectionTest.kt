@@ -78,7 +78,7 @@ class EngineStoreSelectionTest {
         store(factory).load(context, selection)
 
         assertThat(factory.compiles).isEqualTo(0)
-        assertThat(factory.restores).isEqualTo(2)
+        assertThat(factory.restores).isEqualTo(3)
     }
 
     @Test

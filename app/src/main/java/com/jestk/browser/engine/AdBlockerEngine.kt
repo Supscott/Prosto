@@ -171,6 +171,19 @@ object AdBlockerEngine {
         return EngineDecider.blocks(set.ads.check(url, url, RequestType.DOCUMENT))
     }
 
+    /**
+     * Whether a popup to [url] opened from [openerUrl] matches a `$popup` rule (compiled into the
+     * popup engine as `$document`, see [PopupRules]). False while the engines are not ready.
+     */
+    fun isPopupBlocked(url: String, openerUrl: String?): Boolean {
+        val popup = engineStore.current()?.popup ?: return false
+        if (!isHttpUrl(url)) return false
+        val host = UrlParser.parseUrl(url)?.host.orEmpty()
+        if (host.isEmpty() || AuthDomainAllowlist.isAllowlistedAuthDomain(host)) return false
+        val source = openerUrl?.takeIf { isHttpUrl(it) } ?: url
+        return EngineDecider.blocks(popup.check(url, source, RequestType.DOCUMENT))
+    }
+
     internal fun isAllowlistedAuthDomain(host: String): Boolean = AuthDomainAllowlist.isAllowlistedAuthDomain(host)
 
     val TRANSPARENT_1X1_PNG: ByteArray get() = BlockedResponses.TRANSPARENT_1X1_PNG

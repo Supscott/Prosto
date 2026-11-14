@@ -78,8 +78,12 @@ on error `{}`. Sets are sorted for stable output.
 ## `$popup`
 
 adblock-rust has no popup request type, so `||host^$popup` never matches a `document` request
-(pinned by `popup_option_does_not_block_document_requests`). Popup blocking needs the Kotlin host
-set from CB-04/CB-11.
+(pinned by `popup_option_does_not_block_document_requests`). The Kotlin side compiles the lists'
+`$popup` rules into a third, small "popup" engine, rewritten to `$document` (`PopupRules`), and
+checks a popup's target there as a `document` request with the opener as source; this covers
+path rules, `domain=`, exceptions and downloaded lists (pinned by
+`rewritten_popup_rules_block_the_fixture_popup_targets`). The build-time `$popup` host list is only
+the fallback before the engines are ready.
 
 ## Sizes (stripped, LTO, `opt-level = 3`, 16 KB aligned)
 

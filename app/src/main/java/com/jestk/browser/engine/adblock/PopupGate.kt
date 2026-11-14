@@ -26,7 +26,7 @@ enum class PopupOutcome { REVEALED, DROPPED }
  */
 class PopupGate(
     private val clock: () -> Long,
-    private val isAdPopup: (url: String) -> Boolean,
+    private val isAdPopup: (url: String, openerUrl: String?) -> Boolean,
     var allowlist: PopupSiteAllowlist = PopupSiteAllowlist.NONE,
     private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
     private val isAuthUrl: (url: String) -> Boolean = ::isAuthDomainUrl,
@@ -88,7 +88,7 @@ class PopupGate(
         val opener = entry.openerUrl
         if (!opener.isNullOrBlank() && isSameSite(url, opener)) return false
         if (allowlist.allows(opener) || isSiteAllowlisted(opener, entry.workspaceId)) return false
-        return isAdPopup(url)
+        return isAdPopup(url, opener)
     }
 
     companion object {
