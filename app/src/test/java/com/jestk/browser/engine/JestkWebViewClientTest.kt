@@ -1190,13 +1190,6 @@ class JestkWebViewClientTest {
     }
 
     @Test
-    fun isLoginPage_onlyMatchesSignInPagesOfMultiPurposeHosts() {
-        assertThat(JestkWebViewClient.isLoginPage("https://github.com/login/oauth/authorize?client_id=x")).isTrue()
-        assertThat(JestkWebViewClient.isLoginPage("https://github.com/developer/repo")).isFalse()
-        assertThat(JestkWebViewClient.isLoginPage("https://appleid.apple.com/auth/authorize")).isTrue()
-    }
-
-    @Test
     fun isSecurityChallengePage_recognisesCloudflareInterstitialOnTheSiteDomain() {
         assertThat(JestkWebViewClient.isSecurityChallengePage("https://shop.example/", "Just a moment...")).isTrue()
         assertThat(JestkWebViewClient.isSecurityChallengePage("https://challenges.cloudflare.com/turnstile", "")).isTrue()

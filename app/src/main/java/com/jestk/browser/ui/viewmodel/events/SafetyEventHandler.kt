@@ -5,13 +5,18 @@ import com.jestk.browser.domain.model.BlockedAdNavigationPrompt
 import com.jestk.browser.domain.model.InsecureHttpPrompt
 import com.jestk.browser.domain.model.InsecureNavigationTarget
 import com.jestk.browser.domain.model.OverlayType
+import com.jestk.browser.domain.model.PopupBlockedPrompt
+import com.jestk.browser.engine.WindowTransportHandler
+import com.jestk.browser.ui.viewmodel.AllowPopupsForSite
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.DismissPopupBlocked
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 import com.jestk.browser.ui.viewmodel.GoBackFromBlockedDocument
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.viewmodel.SafetyUiEvent
 import com.jestk.browser.ui.viewmodel.ShowBlockedDocument
+import com.jestk.browser.ui.viewmodel.ShowPopupBlocked
 import com.jestk.browser.ui.viewmodel.TabCoordinator
 import com.jestk.browser.util.UrlSecurityUtils
 
@@ -23,6 +28,7 @@ internal class SafetyEventHandler(
     private val updateUiState: ((BrowserUiState) -> BrowserUiState) -> Unit,
     private val loadUrl: (String) -> Unit,
     private val emitNavigation: (NavigationCommand) -> Unit = {},
+    private val allowPopupsForSite: (openerUrl: String) -> Unit = WindowTransportHandler.sessionPopupAllowlist::allow,
 ) {
     fun handle(event: SafetyUiEvent) {
         when (event) {
@@ -147,6 +153,15 @@ internal class SafetyEventHandler(
                     tabCoordinator.pageEvents.navigateToUrl(prompt.url, null)
                 }
             }
+
+            is ShowPopupBlocked -> updateUiState { it.copy(popupBlocked = PopupBlockedPrompt(event.openerUrl)) }
+
+            is AllowPopupsForSite -> {
+                getCurrentState().popupBlocked?.let { allowPopupsForSite(it.openerUrl) }
+                updateUiState { it.copy(popupBlocked = null) }
+            }
+
+            is DismissPopupBlocked -> updateUiState { it.copy(popupBlocked = null) }
 
             is BrowserUiEvent.DismissBlockedAdNavigation -> {
                 val prompt = getCurrentState().blockedAdNavigation

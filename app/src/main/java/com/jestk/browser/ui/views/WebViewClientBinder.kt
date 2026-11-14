@@ -11,6 +11,7 @@ import com.jestk.browser.ui.FileChooserHandler
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.ShowBlockedDocument
+import com.jestk.browser.ui.viewmodel.ShowPopupBlocked
 import com.jestk.browser.ui.viewmodel.isSameDomain
 import com.jestk.browser.util.UrlSecurityUtils
 import com.jestk.browser.util.YouTubeUrlHelper
@@ -67,6 +68,7 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
         onCleanPlayerRequested = { url -> openCleanPlayerIfIntercepted(url, deps) },
         onBlockedAdNavigation = { id, url -> onEvent(BrowserUiEvent.ShowBlockedAdNavigation(url = url, tabId = id)) },
         isAdRedirectProtectionEnabled = { deps.uiState().settings.isAdRedirectProtectionEnabled },
+        onPopunderBlocked = { _, openerUrl, _ -> openerUrl?.let { onEvent(ShowPopupBlocked(it)) } },
         onBlockedDocument = { id, url ->
             deps.scope.launch { onEvent(ShowBlockedDocument(url = url, tabId = id)) }
         },
@@ -108,6 +110,7 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
                 context = webView.context,
                 webViewPool = deps.webViewPool,
                 openerUrl = originView?.url ?: webView.url,
+                openerTabId = tabId,
                 profileName = profileName,
                 isUserGesture = isUserGesture,
                 isAdBlockerEnabled = { deps.uiState().settings.isAdBlockerEnabled },
