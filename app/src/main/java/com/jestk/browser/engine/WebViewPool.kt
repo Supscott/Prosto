@@ -526,7 +526,7 @@ class WebViewPool(
             webView.settings.apply {
                 javaScriptEnabled = true
                 domStorageEnabled = true
-                javaScriptCanOpenWindowsAutomatically = true
+                javaScriptCanOpenWindowsAutomatically = false
                 setSupportMultipleWindows(true)
                 userAgentString = UserAgentSanitizer.sanitize(rawUserAgent)
                 mediaPlaybackRequiresUserGesture = false
@@ -918,7 +918,7 @@ class WebViewPool(
     }
 
     fun retainTabs(activeTabIds: Set<String>) {
-        val toRemove = pool.keys().toList().filter { it !in activeTabIds }
+        val toRemove = pool.keys().toList().filter { it !in activeTabIds && !WindowTransportHandler.isPopupPending(it) }
         toRemove.forEach { removeWebView(it) }
     }
 

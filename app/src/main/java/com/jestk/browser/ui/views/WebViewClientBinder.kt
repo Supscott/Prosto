@@ -110,6 +110,7 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
                 openerUrl = originView?.url ?: webView.url,
                 profileName = profileName,
                 isUserGesture = isUserGesture,
+                isAdBlockerEnabled = { deps.uiState().settings.isAdBlockerEnabled },
                 onPopupOpened = { onEvent(BrowserUiEvent.OpenPopupTab(it)) },
             )
         },
