@@ -7,7 +7,7 @@
     "The engine fills {{n}} with the filter arguments of ##+js(name, a1, a2, ...) and the native",
     "wrapper parses the resulting injected_script text back into [name, arg1, ...], dropping",
     "unfilled {{n}} slots. The name is the key into the scriptlets.js bundle map.",
-    "The format is provisional until CB-01 fixes the native parser."
+    "Format pinned by native/adblock-jni/tests/engine.rs (CB-01)."
   ],
   "resources": [
     {

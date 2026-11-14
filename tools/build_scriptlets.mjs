@@ -20,7 +20,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const UBO_TAG = '1.76.2';
 const UBO_TARBALL_SHA256 = '10d9a1f2436dc9fd56468dafe607fbb714198dd5b68196df445c604abf7d8171';
 const BUNDLE_SHA256 = 'aa30ca2e5d30b22f6f485d64229d37b70d0e133b9b213acf0d117124b9b4f5ca';
-const STUBS_SHA256 = '56ddc0b70401ff6283709803a1bc6a9c7bb0700d3396c778b926563f87713a33';
+const STUBS_SHA256 = 'f0d2c7f1e92c28b65eb97739d1dd50266badc3d1888bfe646ffb71493215901a';
 
 const MAX_ARGS = 10;
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -135,7 +135,7 @@ export function buildStubs(kept, tag) {
             'The engine fills {{n}} with the filter arguments of ##+js(name, a1, a2, ...) and the native',
             'wrapper parses the resulting injected_script text back into [name, arg1, ...], dropping',
             'unfilled {{n}} slots. The name is the key into the scriptlets.js bundle map.',
-            'The format is provisional until CB-01 fixes the native parser.',
+            'Format pinned by native/adblock-jni/tests/engine.rs (CB-01).',
         ],
         resources,
     };
