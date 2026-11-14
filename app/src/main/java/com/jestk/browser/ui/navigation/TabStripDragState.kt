@@ -282,21 +282,10 @@ internal class TabStripDragState(
     fun updateVerticalDrag(
         offsetY: Float,
         removeThresholdPx: Float,
-        onEnterRemoveZone: () -> Unit = {},
-        onExitRemoveZone: () -> Unit = {},
     ) {
         if (!isDragging) return
         dragOffsetYPx = if (offsetY > 0f) offsetY * 0.15f else offsetY
-        val wasOverRemove = isOverRemoveZone
-        val nowOverRemove = dragOffsetYPx <= -removeThresholdPx
-        if (wasOverRemove != nowOverRemove) {
-            isOverRemoveZone = nowOverRemove
-            if (nowOverRemove) {
-                onEnterRemoveZone()
-            } else {
-                onExitRemoveZone()
-            }
-        }
+        isOverRemoveZone = dragOffsetYPx <= -removeThresholdPx
     }
 
     internal fun getTabWidth(
@@ -662,7 +651,6 @@ internal class TabStripDragState(
     fun onDragEnd(
         isReleasedActive: Boolean,
         originalTabs: List<Tab>? = null,
-        onConfirmVibration: () -> Unit = {},
         currentScale: Float? = null,
         currentAlpha: Float? = null,
     ) {
@@ -737,7 +725,6 @@ internal class TabStripDragState(
             draggingTabId = null
             isOverRemoveZone = false
             resetSwapState()
-            onConfirmVibration()
 
             val removedTab = currentTabs.firstOrNull { it.id == tabId }
             val remainingTabs = currentTabs.filter { it.id != tabId }

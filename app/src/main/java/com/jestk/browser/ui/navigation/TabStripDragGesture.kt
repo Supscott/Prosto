@@ -154,8 +154,6 @@ internal fun rememberTabStripDragReorderModifier(
                             edgeSlackPx = edgeSlackPx,
                             dragOffsetYPx = change.position.y - startTouchY,
                             removeThresholdPx = removeThresholdPx,
-                            onEnterRemoveZone = { currentVibration.tick() },
-                            onExitRemoveZone = { currentVibration.tick() },
                         )
                     }
                 }
@@ -168,7 +166,6 @@ internal fun rememberTabStripDragReorderModifier(
                         dragState.onDragEnd(
                             isReleasedActive = isReleasedActive(),
                             originalTabs = currentTabs,
-                            onConfirmVibration = { currentVibration.confirm() },
                         )
                     }
                 } else if (!cancelled) {
@@ -195,15 +192,11 @@ internal fun dragTabToViewportPosition(
     edgeSlackPx: Float,
     dragOffsetYPx: Float = 0f,
     removeThresholdPx: Float = 0f,
-    onEnterRemoveZone: () -> Unit = {},
-    onExitRemoveZone: () -> Unit = {},
 ) {
     if (removeThresholdPx > 0f && !tabId.startsWith("folder_")) {
         dragState.updateVerticalDrag(
             offsetY = dragOffsetYPx,
             removeThresholdPx = removeThresholdPx,
-            onEnterRemoveZone = onEnterRemoveZone,
-            onExitRemoveZone = onExitRemoveZone,
         )
     }
 
