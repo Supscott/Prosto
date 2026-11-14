@@ -20,6 +20,50 @@ object BlockedResponses {
             ByteArrayInputStream(ByteArray(0)),
         )
 
+    private fun corsHeaders(cleanUrl: String, requestHeaders: Map<String, String>?): Map<String, String> {
+        val requestingOrigin = requestHeaders?.entries
+            ?.firstOrNull { it.key.equals("Origin", ignoreCase = true) }?.value
+            ?: requestHeaders?.entries
+                ?.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value
+                ?.let { runCatching { android.net.Uri.parse(it) }.getOrNull() }
+                ?.let { if (it.scheme != null && it.host != null) "${it.scheme}://${it.host}" else null }
+            ?: if (cleanUrl.contains("youtube.com") || cleanUrl.contains("doubleclick.net") || cleanUrl.contains("google")) "https://m.youtube.com" else "*"
+
+        val corsHeaders = buildMap<String, String> {
+            put("Access-Control-Allow-Origin", requestingOrigin)
+            if (requestingOrigin != "*") {
+                put("Access-Control-Allow-Credentials", "true")
+            }
+            put("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD")
+            put("Access-Control-Allow-Headers", "*")
+        }
+        return corsHeaders
+    }
+
+    /**
+     * Decodes a `data:<mime>;base64,<payload>` redirect resource into a response with the same
+     * CORS headers as [createSmartBlockedResponse]. A malformed data URL yields the empty response.
+     */
+    fun fromDataUrl(dataUrl: String, requestHeaders: Map<String, String>? = null): WebResourceResponse {
+        if (!dataUrl.startsWith("data:", ignoreCase = true)) return createBlockedResponse()
+        val comma = dataUrl.indexOf(',')
+        if (comma < 0) return createBlockedResponse()
+        val meta = dataUrl.substring("data:".length, comma).split(';')
+        if (meta.none { it.equals("base64", ignoreCase = true) }) return createBlockedResponse()
+        val mime = meta.first().ifBlank { "text/plain" }
+        val bytes = runCatching { Base64.decode(dataUrl.substring(comma + 1), Base64.DEFAULT) }.getOrNull()
+            ?: return createBlockedResponse()
+        val encoding = if (mime.startsWith("text/") || mime.contains("javascript") || mime.contains("json")) "UTF-8" else null
+        return WebResourceResponse(
+            mime,
+            encoding,
+            200,
+            "OK",
+            corsHeaders("", requestHeaders),
+            ByteArrayInputStream(bytes),
+        )
+    }
+
     /**
      * Creates a content-aware blocked response tailored to the resource type:
      * - Images: Returns a 1x1 transparent PNG to eliminate broken image icons and avoid layout shift.
@@ -39,22 +83,7 @@ object BlockedResponses {
                 ?: requestHeaders?.get("accept")?.lowercase()
                 ?: ""
 
-        val requestingOrigin = requestHeaders?.entries
-            ?.firstOrNull { it.key.equals("Origin", ignoreCase = true) }?.value
-            ?: requestHeaders?.entries
-                ?.firstOrNull { it.key.equals("Referer", ignoreCase = true) }?.value
-                ?.let { runCatching { android.net.Uri.parse(it) }.getOrNull() }
-                ?.let { if (it.scheme != null && it.host != null) "${it.scheme}://${it.host}" else null }
-            ?: if (cleanUrl.contains("youtube.com") || cleanUrl.contains("doubleclick.net") || cleanUrl.contains("google")) "https://m.youtube.com" else "*"
-
-        val corsHeaders = buildMap<String, String> {
-            put("Access-Control-Allow-Origin", requestingOrigin)
-            if (requestingOrigin != "*") {
-                put("Access-Control-Allow-Credentials", "true")
-            }
-            put("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD")
-            put("Access-Control-Allow-Headers", "*")
-        }
+        val corsHeaders = corsHeaders(cleanUrl, requestHeaders)
 
         val isImage =
             mimeTypeHint?.startsWith("image/") == true ||

@@ -196,19 +196,6 @@ internal object HostListMatcher {
      * Determines whether a given URL belongs to an analytics, tracker, telemetry, or beacon service.
      * Examples: google-analytics.com, mc.yandex.ru, scorecardresearch.com, quantserve.com, adfstat, metrika, beacon, pixel, etc.
      */
-    fun isTracker(url: String, documentUrl: String? = null): Boolean {
-        if (url.isBlank()) return false
-        val parsed = parseUrl(url) ?: return false
-        return isTracker(parsed, documentUrl)
-    }
-
-    @JvmName("isTrackerNullable")
-    fun isTracker(url: String?, documentUrl: String? = null): Boolean {
-        if (url.isNullOrBlank()) return false
-        val parsed = parseUrl(url) ?: return false
-        return isTracker(parsed, documentUrl)
-    }
-
     fun isTracker(parsed: ParsedUrl, documentUrl: String? = null): Boolean {
         if (!documentUrl.isNullOrBlank() && UrlSecurityUtils.isSameSite(documentUrl, parsed.rawUrl)) {
             return false
