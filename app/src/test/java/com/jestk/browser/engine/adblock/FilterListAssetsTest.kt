@@ -32,10 +32,7 @@ class FilterListAssetsTest {
     }
 
     @Test
-    fun strictListsAreNotHtmlErrorPages() {
-        for (list in listsIn("strict")) {
-            assertThat(list.length()).isGreaterThan(1_000L)
-            assertThat(firstLine(list).trimStart().startsWith("<")).isFalse()
-        }
+    fun strictListsAreNotBundled() {
+        assertThat(File(filtersRoot, "strict").exists()).isFalse()
     }
 }

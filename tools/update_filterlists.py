@@ -4,7 +4,8 @@
 Each list is fetched over HTTPS, preprocessed (uBlock Origin `!#include` and `!#if` directives
 are resolved, because adblock-rust treats them as comments), written to
 tools/filterlists/<id>.txt, and copied to
-app/src/main/assets/filters/<preset>/<engine>/<id>.txt for every engine the list feeds.
+app/src/main/assets/filters/standard/<engine>/<id>.txt for every engine it feeds (Standard
+preset only: Strict lists are downloaded at runtime and never ship in the APK).
 
 Preprocessing environment (what a Chromium-based Android WebView can do): `env_chromium`,
 `env_mobile` and `ext_ublock` are true; `env_firefox`, `env_safari`, `env_mv3`, `ext_ubol`, `ext_abp`,
@@ -91,6 +92,10 @@ def sha256(path: Path) -> str:
 
 
 def asset_paths(entry: dict):
+    # Only the Standard preset ships in the APK; Strict lists are downloaded at runtime when the
+    # user picks Strict (CB-13), so they stay in tools/filterlists only.
+    if entry["preset"] != "standard":
+        return
     for engine in entry["engine"]:
         yield ASSETS / entry["preset"] / engine / f"{entry['id']}.txt"
 
