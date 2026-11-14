@@ -255,7 +255,7 @@ def check_english_only_comments():
 def check_security_challenge_protection():
     """Verify security challenge domains are exempted from content scripts and client hints are pure."""
     errors = []
-    ad_blocker_engine = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "AdBlockerEngine.kt"
+    ad_blocker_engine = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "adblock" / "AuthDomainAllowlist.kt"
     page_scripts = [
         MAIN_DIR / "assets" / "scripts" / "document_start.js",
         MAIN_DIR / "assets" / "scripts" / "autoconsent.js",
