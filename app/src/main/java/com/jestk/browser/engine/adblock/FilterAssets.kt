@@ -15,6 +15,12 @@ internal class FilterAssets(private val assets: AssetManager, private val preset
     fun read(engine: String): List<String> =
         names(engine).map { name -> assets.open("${dir(engine)}/$name").use { String(it.readBytes(), Charsets.UTF_8) } }
 
+    /** Bundled lists of [engine] by list id (file name without `.txt`), skipping the ids in [skip]. */
+    fun readById(engine: String, skip: Set<String> = emptySet()): Map<String, String> =
+        names(engine).filter { it.removeSuffix(".txt") !in skip }.associate { name ->
+            name.removeSuffix(".txt") to assets.open("${dir(engine)}/$name").use { String(it.readBytes(), Charsets.UTF_8) }
+        }
+
     /**
      * sha256 over `<name>:<size>` lines of the sorted list assets of [engine]. Cheap: sizes come
      * from the asset file descriptor, so nothing is decompressed when the assets are stored raw.

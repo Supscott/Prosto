@@ -29,6 +29,7 @@ ROOT = Path(__file__).resolve().parent.parent
 LISTS_DIR = ROOT / "tools" / "filterlists"
 MANIFEST = LISTS_DIR / "lists.json"
 ASSETS = ROOT / "app" / "src" / "main" / "assets" / "filters"
+CATALOG = ROOT / "app" / "src" / "main" / "assets" / "adblock" / "lists.json"
 
 TRUE_FLAGS = {"env_chromium", "env_mobile", "ext_ublock"}
 KNOWN_FLAGS = TRUE_FLAGS | {
@@ -87,6 +88,12 @@ def preprocess(text: str, base_url: str, depth: int = 0) -> str:
     return "\n".join(out) + "\n"
 
 
+def catalog_text(lists: list) -> str:
+    """The metadata the runtime updater needs (CB-13): id, engines, preset and URL of every list."""
+    entries = [{k: e[k] for k in ("id", "engine", "preset", "url")} for e in lists]
+    return json.dumps({"lists": entries}, indent=2, ensure_ascii=False) + "\n"
+
+
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -118,6 +125,8 @@ def update() -> int:
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
     save_manifest(lists)
+    CATALOG.parent.mkdir(parents=True, exist_ok=True)
+    CATALOG.write_text(catalog_text(lists), encoding="utf-8")
     return 0
 
 
@@ -137,6 +146,8 @@ def check() -> int:
             expected_assets.add(target)
             if not target.exists() or target.read_bytes() != source.read_bytes():
                 errors.append(f"{target.relative_to(ROOT)} does not match {source.name}")
+    if not CATALOG.exists() or CATALOG.read_text(encoding="utf-8") != catalog_text(load_manifest()):
+        errors.append(f"{CATALOG.relative_to(ROOT)} does not match lists.json")
     for existing in ASSETS.rglob("*.txt"):
         if existing not in expected_assets:
             errors.append(f"{existing.relative_to(ROOT)} is not listed in lists.json")

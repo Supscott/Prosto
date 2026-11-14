@@ -6,6 +6,7 @@ import com.jestk.browser.di.DefaultAppContainer
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewStateStore
+import com.jestk.browser.engine.adblock.FilterListServices
 
 class JestkApplication : Application() {
     lateinit var container: AppContainer
@@ -17,6 +18,7 @@ class JestkApplication : Application() {
         WebViewStateStore.init(applicationContext)
         FaviconManager.init(applicationContext)
         container = DefaultAppContainer(applicationContext)
+        runCatching { FilterListServices.install(applicationContext) }
     }
 
     override fun onTrimMemory(level: Int) {
