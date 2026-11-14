@@ -58,9 +58,11 @@ internal object PopupHostList {
 
 /**
  * The ad check of [PopupGate]: a `DOCUMENT` match against the ads engine, or a `$popup` rule from
- * the popup engine. Before the engines are ready the build-time `$popup` host list stands in.
+ * the popup engine. Before the engines are ready the build-time `$popup` host list stands in. A
+ * same-site popup is dropped only by an explicit `$popup` rule.
  */
-internal fun isAdPopupUrl(url: String, openerUrl: String?): Boolean {
+internal fun isAdPopupUrl(url: String, openerUrl: String?, sameSite: Boolean): Boolean {
+    if (sameSite) return AdBlockerEngine.isPopupBlocked(url, openerUrl)
     if (AdBlockerEngine.shouldBlockNavigation(url)) return true
     return if (AdBlockerEngine.isNativeReady()) {
         AdBlockerEngine.isPopupBlocked(url, openerUrl)

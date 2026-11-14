@@ -11,7 +11,7 @@ class PopupGateTest {
 
     private val gate = PopupGate(
         clock = { now },
-        isAdPopup = { url, _ -> adHosts.any { url.contains(it) } },
+        isAdPopup = { url, _, sameSite -> !sameSite && adHosts.any { url.contains(it) } },
     )
 
     private fun open(tabId: String = "p1", opener: String? = "https://news.example.org/story") {
@@ -38,7 +38,7 @@ class PopupGateTest {
     fun popupHostListMatchIsDropped() {
         PopupHostList.reset()
         PopupHostList.load("# comment\nbad-popup.example\n".byteInputStream())
-        val hostGate = PopupGate(clock = { now }, isAdPopup = { url, _ -> PopupHostList.containsHostOf(url) })
+        val hostGate = PopupGate(clock = { now }, isAdPopup = { url, _, _ -> PopupHostList.containsHostOf(url) })
         hostGate.register("p1", "https://news.example.org/", onReveal = { revealed += "p1" }, onDrop = { dropped += it })
         assertThat(hostGate.onUrl("p1", "https://sub.bad-popup.example/landing")).isEqualTo(PopupOutcome.DROPPED)
         PopupHostList.reset()
@@ -79,6 +79,18 @@ class PopupGateTest {
     }
 
     @Test
+    fun sameSitePopupIsDroppedOnlyByTheCheckThatAcceptsSameSite() {
+        val seen = mutableListOf<Boolean>()
+        val ruleGate = PopupGate(
+            clock = { now },
+            isAdPopup = { url, _, sameSite -> seen += sameSite; sameSite && url.contains("/go.php") },
+        )
+        ruleGate.register("p1", "https://news.example.org/story", onReveal = {}, onDrop = {})
+        assertThat(ruleGate.onUrl("p1", "https://news.example.org/go.php?to=ad")).isEqualTo(PopupOutcome.DROPPED)
+        assertThat(seen).containsExactly(true)
+    }
+
+    @Test
     fun allowlistedOpenerReveals() {
         gate.allowlist = PopupSiteAllowlist { it == "https://news.example.org/story" }
         open()
@@ -109,7 +121,7 @@ class PopupGateTest {
 
     private fun gateWith(allowlist: SiteAllowlist) = PopupGate(
         clock = { now },
-        isAdPopup = { url, _ -> adHosts.any { url.contains(it) } },
+        isAdPopup = { url, _, sameSite -> !sameSite && adHosts.any { url.contains(it) } },
         isSiteAllowlisted = allowlist::isAllowlisted,
     )
 

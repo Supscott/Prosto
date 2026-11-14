@@ -26,7 +26,11 @@ enum class PopupOutcome { REVEALED, DROPPED }
  */
 class PopupGate(
     private val clock: () -> Long,
-    private val isAdPopup: (url: String, openerUrl: String?) -> Boolean,
+    /**
+     * Whether the popup is an ad. [sameSite] is true when the target is on the opener's site: then
+     * only an explicit `$popup` rule may drop it (a site's own redirector), not the broader checks.
+     */
+    private val isAdPopup: (url: String, openerUrl: String?, sameSite: Boolean) -> Boolean,
     var allowlist: PopupSiteAllowlist = PopupSiteAllowlist.NONE,
     private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
     private val isAuthUrl: (url: String) -> Boolean = ::isAuthDomainUrl,
@@ -86,9 +90,9 @@ class PopupGate(
         if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) return false
         if (isAuthUrl(url)) return false
         val opener = entry.openerUrl
-        if (!opener.isNullOrBlank() && isSameSite(url, opener)) return false
         if (allowlist.allows(opener) || isSiteAllowlisted(opener, entry.workspaceId)) return false
-        return isAdPopup(url, opener)
+        val sameSite = !opener.isNullOrBlank() && isSameSite(url, opener)
+        return isAdPopup(url, opener, sameSite)
     }
 
     companion object {
