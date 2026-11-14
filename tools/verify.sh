@@ -11,6 +11,12 @@ python3 tools/check_invariants.py
 echo "==> Checking that the ad-block list matches tools/filterlists..."
 python3 tools/build_adblock_list.py --check
 
+echo "==> Checking that the bundled filter lists match tools/filterlists/lists.json..."
+python3 tools/update_filterlists.py --check
+
+echo "==> Checking the ad-block redirect resources..."
+python3 tools/build_adblock_resources.py --check
+
 # Gradle output is long; the summary below lists totals and failures, so keep only its tail.
 started=$(date +%s)
 status=0

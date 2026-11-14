@@ -1,0 +1,10 @@
+Prosto Browser bundles third-party content-blocking data:
+
+- EasyList, EasyPrivacy, EasyList Cookie (https://easylist.to/): GPL-3.0-or-later or CC BY-SA 3.0.
+- RU AdList (https://forums.lanik.us/viewforum.php?f=102): CC BY 3.0.
+- uBlock Origin filter lists and redirect resources (https://github.com/uBlockOrigin/uAssets,
+  https://github.com/gorhill/uBlock): GPL-3.0.
+- AdGuard Mobile Ads and Tracking Protection filters (https://github.com/AdguardTeam/AdguardFilters):
+  GPL-3.0.
+
+Details and pinned sources: LICENSES/filter-lists.md and LICENSES/GPL-3.0-uBlock-resources.txt.
