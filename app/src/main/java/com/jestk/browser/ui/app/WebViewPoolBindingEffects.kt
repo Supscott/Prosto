@@ -35,6 +35,7 @@ internal fun WebViewPoolBindingEffects(
             viewModel.onDownloadStarted(item)
         }
         webViewPool.isAdBlockerEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled }
+        webViewPool.isTrackingProtectionEnabled = { viewModel.uiState.value.settings.isTrackingProtectionEnabled }
         ServiceWorkerBlocking.register(
             adsEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled },
             trackersEnabled = { viewModel.uiState.value.settings.isTrackingProtectionEnabled },

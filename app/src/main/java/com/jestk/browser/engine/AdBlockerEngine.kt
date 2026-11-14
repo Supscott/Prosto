@@ -8,6 +8,7 @@ import com.jestk.browser.domain.repository.BlockedRequestStats
 import com.jestk.browser.engine.adblock.AuthDomainAllowlist
 import com.jestk.browser.engine.adblock.AdblockLatency
 import com.jestk.browser.engine.adblock.BlockedResponses
+import com.jestk.browser.engine.adblock.CosmeticResources
 import com.jestk.browser.engine.adblock.Decision
 import com.jestk.browser.engine.adblock.EngineDecider
 import com.jestk.browser.engine.adblock.EngineStore
@@ -204,6 +205,20 @@ object AdBlockerEngine {
         if (!documentUrl.isNullOrBlank() && UrlSecurityUtils.isSameSite(documentUrl, parsed.rawUrl)) return false
         if (!isHttpUrl(parsed.rawUrl) || AuthDomainAllowlist.isAllowlistedAuthDomain(parsed.host)) return false
         return EngineDecider.blocks(set.privacy.check(parsed.rawUrl, documentUrl ?: parsed.rawUrl, RequestType.OTHER))
+    }
+
+    /**
+     * Cosmetic resources for [url] (CB-07): the ads engine's when ads are on, with the privacy
+     * engine's scriptlets merged in when trackers are on. [CosmeticResources.EMPTY] until the
+     * native engines are ready, so cosmetic filtering degrades to nothing, never to a guess.
+     */
+    fun cosmeticResources(url: String, adsEnabled: Boolean, trackersEnabled: Boolean): CosmeticResources {
+        if (!adsEnabled && !trackersEnabled) return CosmeticResources.EMPTY
+        val set = engineStore.current() ?: return CosmeticResources.EMPTY
+        val base = if (adsEnabled) set.ads.cosmeticResources(url) else CosmeticResources.EMPTY
+        if (!trackersEnabled) return base
+        val extra = set.privacy.cosmeticResources(url).scriptlets.filter { it !in base.scriptlets }
+        return if (extra.isEmpty()) base else base.copy(scriptlets = base.scriptlets + extra)
     }
 
     fun isReady(): Boolean = isInitialized

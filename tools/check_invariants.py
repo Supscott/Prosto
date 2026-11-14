@@ -257,7 +257,7 @@ def check_security_challenge_protection():
     errors = []
     ad_blocker_engine = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "adblock" / "AuthDomainAllowlist.kt"
     page_scripts = [
-        MAIN_DIR / "assets" / "scripts" / "document_start.js",
+        MAIN_DIR / "assets" / "scripts" / "content_bootstrap.js",
         MAIN_DIR / "assets" / "scripts" / "autoconsent.js",
     ]
     ua_metadata_provider = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "engine" / "UserAgentMetadataProvider.kt"
@@ -294,7 +294,8 @@ def check_injected_script_stealth():
     - No replacement of window.matchMedia and no fake `fn.toString = function` "stealth": both are
       detectable with Function.prototype.toString.call(fn).
     - No `window.__*` names: they show up in Object.getOwnPropertyNames(window).
-    - addJavascriptInterface only where a reviewed bridge lives.
+    - addJavascriptInterface only where a reviewed bridge lives; the content bridge is captured and
+      deleted by assets/scripts/content_bootstrap.js before page scripts run.
     - JestkWebViewClient is built in one place (ui/views/WebViewClientBinder.kt).
     - Raw filter lists stay in tools/filterlists, out of the APK.
     """
@@ -304,7 +305,7 @@ def check_injected_script_stealth():
         ".toString = function": "fakes a native toString",
         "window.__": "uses a window.__* global",
     }
-    bridge_files = {"WebViewPool.kt", "CleanVideoPlayerOverlay.kt"}
+    bridge_files = {"WebViewPool.kt", "CleanVideoPlayerOverlay.kt", "ContentBlockingSetup.kt"}
     for file in MAIN_DIR.rglob("*.kt"):
         content = file.read_text(encoding="utf-8")
         rel = file.relative_to(ROOT)
@@ -316,8 +317,13 @@ def check_injected_script_stealth():
         if file.name not in {"JestkWebViewClient.kt", "WebViewClientBinder.kt"} and re.search(r"\bJestkWebViewClient\(", content):
             errors.append(f"{rel}: builds JestkWebViewClient outside WebViewClientBinder.kt")
     assets = MAIN_DIR / "assets"
+    bootstrap = assets / "scripts" / "content_bootstrap.js"
+    if bootstrap.exists() and "delete window[" not in bootstrap.read_text(encoding="utf-8"):
+        errors.append(f"{bootstrap.relative_to(ROOT)}: must capture and delete the hidden bridge (delete window[...])")
     for file in assets.rglob("*.js"):
         content = file.read_text(encoding="utf-8")
+        if "HoriAdBlockBridge" in content:
+            errors.append(f"{file.relative_to(ROOT)}: HoriAdBlockBridge is gone; the bridge name is random and deleted")
         for needle, why in forbidden.items():
             if needle in content:
                 errors.append(f"{file.relative_to(ROOT)}: {why} ({needle!r})")

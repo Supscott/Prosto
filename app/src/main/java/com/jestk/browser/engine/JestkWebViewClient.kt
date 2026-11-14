@@ -10,7 +10,6 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import androidx.webkit.WebViewFeature
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.engine.adblock.NetworkRequestInterceptor
@@ -435,16 +434,13 @@ class JestkWebViewClient(
     }
 
     /**
-     * Injects the page scripts once per page, after the document finished loading (an injection
-     * from onPageStarted can still run in the previous document). With DOCUMENT_START_SCRIPT the
-     * ad-block script is already registered for every document by WebViewPool, so it is only
-     * evaluated here as a fallback. Security-challenge pages get nothing.
+     * Injects the autoconsent script once per page, after the document finished loading (an
+     * injection from onPageStarted can still run in the previous document). The cosmetic
+     * bootstrap is registered for every document by ContentBlockingSetup and has no late
+     * fallback. Security-challenge pages get nothing.
      */
     private fun injectPageScripts(webView: WebView, url: String, title: String) {
         if (isSecurityChallengePage(url, title)) return
-        if (isAdBlockerEnabled() && !WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
-            AdBlockerScript.injectAdBlocker(webView)
-        }
         if ((isAutoConsentEnabled ?: isAdBlockerEnabled).invoke()) {
             AdBlockerScript.injectAutoConsent(webView)
         }

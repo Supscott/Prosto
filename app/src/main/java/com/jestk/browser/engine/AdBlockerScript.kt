@@ -15,11 +15,12 @@ object AdBlockerScript {
 
     private const val TAG = "AdBlockerScript"
 
-    private const val DOCUMENT_START_ASSET = "scripts/document_start.js"
+    private const val BOOTSTRAP_ASSET = "scripts/content_bootstrap.js"
     private const val YOUTUBE_FAST_START_ASSET = "scripts/youtube_fast_start.js"
     private const val AUTOCONSENT_ASSET = "scripts/autoconsent.js"
     private const val YOUTUBE_PLACEHOLDER = "/*@@YOUTUBE_FAST_START@@*/"
     private const val CSS_PLACEHOLDER = "@@COSMETIC_CSS@@"
+    private const val BRIDGE_PLACEHOLDER = "@@BRIDGE_NAME@@"
 
     private val assetCache = ConcurrentHashMap<String, String>()
 
@@ -126,30 +127,17 @@ object AdBlockerScript {
         readAsset(context, YOUTUBE_FAST_START_ASSET)
 
     /**
-     * The complete document start script, from `assets/scripts/document_start.js`, with the
-     * YouTube scriptlet and the cosmetic CSS filled in:
-     * - Surrogates (Google AdSense, GPT, Yandex)
-     * - YouTube Fast-Start (JSON player response pruning & ad skip accelerator)
-     * - Immediate style element creation
-     * - MutationObserver to collapse dynamic ad containers and empty parent wrappers
+     * The document-start bootstrap, from `assets/scripts/content_bootstrap.js`, with the bridge
+     * name, the YouTube scriptlet and the static cosmetic CSS filled in. It runs in every frame
+     * before page scripts: it captures and deletes the hidden bridge global, skips security
+     * challenges, relays fullscreen orientation locks, and applies cosmetic CSS.
      */
-    fun buildDocumentStartScript(context: Context): String {
+    fun buildBootstrapScript(context: Context, bridgeName: String): String {
         val cssContent = buildCosmeticCss().replace("\\", "\\\\").replace("`", "\\`").replace("\n", " ")
-        return readAsset(context, DOCUMENT_START_ASSET)
+        return readAsset(context, BOOTSTRAP_ASSET)
             .replace(YOUTUBE_PLACEHOLDER, buildYouTubeFastStartScript(context))
             .replace(CSS_PLACEHOLDER, cssContent)
-    }
-
-    /**
-     * Evaluates the ad blocker script on the provided WebView safely.
-     */
-    fun injectAdBlocker(webView: WebView) {
-        try {
-            val script = buildDocumentStartScript(webView.context)
-            webView.evaluateJavascript(script, null)
-        } catch (t: Throwable) {
-            Log.w(TAG, "Failed to inject ad blocker script into WebView", t)
-        }
+            .replace(BRIDGE_PLACEHOLDER, bridgeName)
     }
 
     /**
