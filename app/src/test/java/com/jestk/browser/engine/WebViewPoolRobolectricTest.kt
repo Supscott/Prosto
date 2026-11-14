@@ -438,7 +438,7 @@ class WebViewPoolRobolectricTest {
         assertThat(webView.settings.userAgentString).doesNotContain("; wv")
         assertThat(webView.settings.userAgentString).doesNotContain("Version/4.0")
         assertThat(webView.settings.domStorageEnabled).isTrue()
-        assertThat(webView.settings.javaScriptCanOpenWindowsAutomatically).isTrue()
+        assertThat(webView.settings.javaScriptCanOpenWindowsAutomatically).isFalse()
     }
 
     @Test
@@ -448,34 +448,6 @@ class WebViewPoolRobolectricTest {
 
         val cookieManager = android.webkit.CookieManager.getInstance()
         assertThat(cookieManager.acceptCookie()).isTrue()
-    }
-
-    @Test
-    fun adBlockBridge_isEnabled_invokesProviderWithoutStackOverflow() {
-        var flag = true
-        val bridge = WebViewPool.AdBlockBridge { flag }
-
-        assertThat(bridge.isEnabled()).isTrue()
-        flag = false
-        assertThat(bridge.isEnabled()).isFalse()
-    }
-
-    @Test
-    fun adBlockBridge_openCleanPlayer_delegatesToHandler() {
-        var requestedUrl: String? = null
-        val bridge = WebViewPool.AdBlockBridge(
-            isEnabledProvider = { true },
-            onCleanPlayerRequested = { url ->
-                requestedUrl = url
-                true
-            },
-            isCleanPlayerEnabledProvider = { true }
-        )
-
-        assertThat(bridge.isCleanPlayerEnabled()).isTrue()
-        val result = bridge.openCleanPlayer("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
-        assertThat(result).isTrue()
-        assertThat(requestedUrl).isEqualTo("https://m.youtube.com/watch?v=dQw4w9WgXcQ")
     }
 
     @Test

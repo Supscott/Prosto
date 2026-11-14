@@ -1,0 +1,137 @@
+{
+  "lists": [
+    {
+      "id": "easylist",
+      "title": "EasyList",
+      "engine": [
+        "ads"
+      ],
+      "preset": "standard",
+      "url": "https://easylist.to/easylist/easylist.txt",
+      "licence": "GPL-3.0-or-later OR CC-BY-SA-3.0",
+      "homepage": "https://easylist.to/",
+      "sha256": "b1b92dccf52aa59a49d9595338f6f01e0160766b43c0b48813d19a3eb197381d"
+    },
+    {
+      "id": "ru-adlist",
+      "title": "RU AdList",
+      "engine": [
+        "ads"
+      ],
+      "preset": "standard",
+      "url": "https://easylist-downloads.adblockplus.org/advblock.txt",
+      "licence": "CC-BY-3.0 (per list header)",
+      "homepage": "https://forums.lanik.us/viewforum.php?f=102",
+      "sha256": "43054b0e4251f3e92babddfab93538ce3eb30eb37aa08b8ba604a3e8ed07aca3"
+    },
+    {
+      "id": "ubo-filters",
+      "title": "uBlock filters",
+      "engine": [
+        "ads"
+      ],
+      "preset": "standard",
+      "url": "https://ublockorigin.github.io/uAssets/filters/filters.txt",
+      "licence": "GPL-3.0",
+      "homepage": "https://github.com/uBlockOrigin/uAssets",
+      "sha256": "d4685d8119dc006d8439487ff5cfe22e5ee88deed806b420b4e3c47f54b1ca4c"
+    },
+    {
+      "id": "ubo-badware",
+      "title": "uBlock filters - Badware risks",
+      "engine": [
+        "ads"
+      ],
+      "preset": "standard",
+      "url": "https://ublockorigin.github.io/uAssets/filters/badware.txt",
+      "licence": "GPL-3.0",
+      "homepage": "https://github.com/uBlockOrigin/uAssets",
+      "sha256": "f094a4e1520479b9ee77745d3794d295967e405bdf66efe8044bf7569e6a8472"
+    },
+    {
+      "id": "ubo-unbreak",
+      "title": "uBlock filters - Unbreak",
+      "engine": [
+        "ads",
+        "privacy"
+      ],
+      "preset": "standard",
+      "url": "https://ublockorigin.github.io/uAssets/filters/unbreak.txt",
+      "licence": "GPL-3.0",
+      "homepage": "https://github.com/uBlockOrigin/uAssets",
+      "sha256": "ee90c5221d969ebf5e25535a9720f68d10c5975f671c9c54d856614dfc2d5a19"
+    },
+    {
+      "id": "easyprivacy",
+      "title": "EasyPrivacy",
+      "engine": [
+        "privacy"
+      ],
+      "preset": "standard",
+      "url": "https://easylist.to/easylist/easyprivacy.txt",
+      "licence": "GPL-3.0-or-later OR CC-BY-SA-3.0",
+      "homepage": "https://easylist.to/",
+      "sha256": "129c194b6a8274acf96bbacc810eaf05b624a6a2d825c94fdeac89356f32c8b6"
+    },
+    {
+      "id": "ubo-privacy",
+      "title": "uBlock filters - Privacy",
+      "engine": [
+        "privacy"
+      ],
+      "preset": "standard",
+      "url": "https://ublockorigin.github.io/uAssets/filters/privacy.txt",
+      "licence": "GPL-3.0",
+      "homepage": "https://github.com/uBlockOrigin/uAssets",
+      "sha256": "e25a9cff70af6c0a12045399135de24b74cddf0cdc6ca286635f97044adfe947"
+    },
+    {
+      "id": "ubo-annoyances",
+      "title": "uBlock filters - Annoyances (other annoyances; cookie notices come from EasyList Cookie)",
+      "engine": [
+        "ads"
+      ],
+      "preset": "strict",
+      "url": "https://ublockorigin.github.io/uAssets/filters/annoyances.txt",
+      "licence": "GPL-3.0",
+      "homepage": "https://github.com/uBlockOrigin/uAssets",
+      "sha256": "4c9ac874d18e0f1b521ad995c79fca5f7f4673a55b339d6a071127ecd796247b"
+    },
+    {
+      "id": "easylist-cookie",
+      "title": "EasyList Cookie",
+      "engine": [
+        "ads"
+      ],
+      "preset": "strict",
+      "url": "https://secure.fanboy.co.nz/fanboy-cookiemonster.txt",
+      "licence": "GPL-3.0-or-later OR CC-BY-SA-3.0",
+      "homepage": "https://easylist.to/",
+      "sha256": "506d2f7081017aec035797544c9f0437ecde7277d7af331e2136595c0106486f"
+    },
+    {
+      "id": "adguard-mobile-ads",
+      "title": "AdGuard Mobile Ads filter",
+      "engine": [
+        "ads"
+      ],
+      "preset": "strict",
+      "url": "https://filters.adtidy.org/extension/ublock/filters/11.txt",
+      "licence": "GPL-3.0",
+      "homepage": "https://github.com/AdguardTeam/AdguardFilters",
+      "sha256": "f5d75c4c6df548685544af35015546f21da4ec062fef20829478fa1edda36c90"
+    },
+    {
+      "id": "adguard-tracking",
+      "title": "AdGuard Tracking Protection filter",
+      "engine": [
+        "privacy"
+      ],
+      "preset": "strict",
+      "url": "https://filters.adtidy.org/extension/ublock/filters/3.txt",
+      "licence": "GPL-3.0",
+      "homepage": "https://github.com/AdguardTeam/AdguardFilters",
+      "sha256": "eb377f026d5dac97453e0eb93d2ac22dbf2ce01ea6900bf826f80f2fc1cb6afc"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+[Adblock Plus 2.0]
+! Title: Prosto ad-block fixture
+! Rules the pages in tools/fixtures/adblock/ expect. Load as an extra list.
+! {{HOST}} is the host name the fixture is served from (no port); tools/fixture_server.py fills it
+! in when you fetch /fixture-filters.txt from it.
+!
+! network.html: path rules on the fixture origin, a type-agnostic block, an exception, and an
+! $important block that wins over the exception.
+/fx-block/
+@@/fx-block/allowed.
+/fx-important/blocked.js$important
+@@/fx-important/
+!
+! redirect.html
+||fixture-gtm.test/gtm.js$script,redirect=googletagmanager_gtm.js
+!
+! document-blocked.html
+||fixture-docblock.test^$document
+!
+! popup.html: $popup blocks the host and the same-origin target page.
+||fixture-popup.test^$popup
+||{{HOST}}^*/popup-blocked.html$popup
+!
+! cosmetic-specific.html, generichide.html, csp-strict.html, overlay.html
+{{HOST}}##.fx-site-ad
+{{HOST}}##a.fx-overlay
+!
+! cosmetic-generic.html (and generichide.html, which opts out below)
+! EasyList turns generic hiding off on local hosts (localhost, 127.0.0.1, 192.168.*, 10.0.0.*),
+! where this fixture is served; cancel those exceptions so generic hiding can be tested here.
+@@://10.0.0.$generichide,badfilter
+@@://127.0.0.1$generichide,badfilter
+@@://192.168.$generichide,badfilter
+@@://localhost/$generichide,badfilter
+@@://localhost:$generichide,badfilter
+##.fx-generic-ad
+@@||{{HOST}}^*/generichide.html$generichide
+!
+! scriptlet.html and csp-strict.html
+{{HOST}}##+js(set-constant, fxAdblockDetected, false)
+{{HOST}}##+js(set-constant, fxOpenAd, noopFunc)

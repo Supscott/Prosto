@@ -4,8 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.engine.WindowTransportHandler
+import com.jestk.browser.engine.adblock.ServiceWorkerBlocking
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
+import com.jestk.browser.ui.viewmodel.ShowPopupBlocked
 import com.jestk.browser.ui.views.WebViewClientDeps
 import com.jestk.browser.ui.views.bindWebViewClients
 import com.jestk.browser.ui.views.openCleanPlayerIfIntercepted
@@ -34,6 +37,14 @@ internal fun WebViewPoolBindingEffects(
             viewModel.onDownloadStarted(item)
         }
         webViewPool.isAdBlockerEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled }
+        webViewPool.isTrackingProtectionEnabled = { viewModel.uiState.value.settings.isTrackingProtectionEnabled }
+        ServiceWorkerBlocking.register(
+            adsEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled },
+            trackersEnabled = { viewModel.uiState.value.settings.isTrackingProtectionEnabled },
+        )
+        WindowTransportHandler.onPopupDropped = { openerUrl, _ ->
+            openerUrl?.let { clientDeps.onEvent(ShowPopupBlocked(it)) }
+        }
         webViewPool.isCleanPlayerEnabled = { viewModel.uiState.value.settings.isCleanYouTubePlayerEnabled }
         webViewPool.onCleanPlayerRequested = { url -> openCleanPlayerIfIntercepted(url, clientDeps) }
         webViewPool.onWebViewCreated = { tabId, wv ->

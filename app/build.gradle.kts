@@ -98,6 +98,7 @@ ksp {
 dependencies {
     // Network & HTTP Client
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     // AndroidX Core & Lifecycle
     implementation("androidx.core:core-ktx:1.15.0")
@@ -140,6 +141,8 @@ dependencies {
 
     // Unit Testing (JVM)
     testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("androidx.work:work-testing:2.9.1")
     testImplementation("org.robolectric:robolectric:4.14.1")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     testImplementation("androidx.room:room-testing:$roomVersion")

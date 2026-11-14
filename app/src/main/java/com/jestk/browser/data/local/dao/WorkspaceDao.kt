@@ -32,6 +32,10 @@ interface WorkspaceDao {
     @Query("DELETE FROM workspaces WHERE id = :id")
     suspend fun deleteWorkspace(id: String)
 
+    /** Content-blocking allowlist entries scoped to a workspace go with it (PLAN Q8). */
+    @Query("DELETE FROM site_allowlist WHERE workspace_scope = :id")
+    suspend fun deleteSiteAllowlistOfWorkspace(id: String)
+
     @Query("UPDATE workspaces SET position = :position WHERE id = :id")
     suspend fun updateWorkspacePosition(id: String, position: Int)
 

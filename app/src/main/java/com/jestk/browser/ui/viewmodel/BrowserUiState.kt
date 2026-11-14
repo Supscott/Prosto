@@ -3,6 +3,7 @@ package com.jestk.browser.ui.viewmodel
 import androidx.compose.ui.geometry.Offset
 import com.jestk.browser.domain.model.AppUpdateUiState
 import com.jestk.browser.domain.model.BlockedAdNavigationPrompt
+import com.jestk.browser.domain.model.PopupBlockedPrompt
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.ExternalAppPrompt
@@ -101,7 +102,14 @@ data class BrowserUiState(
     val insecureHttpPrompt: InsecureHttpPrompt? = null,
     val blockedAdNavigation: BlockedAdNavigationPrompt? = null,
     val allowedAdNavigationUrls: Set<String> = emptySet(),
+    val popupBlocked: PopupBlockedPrompt? = null,
     val allowedInsecureHosts: Set<String> = emptySet(),
+    /** Every persisted per-site blocking switch-off, for all workspaces (CB-14). */
+    val siteAllowlist: List<com.jestk.browser.domain.model.SiteAllowlistEntry> = emptyList(),
+    /** Protection level and filter-list state for the settings screen (CB-15). */
+    val contentBlocking: com.jestk.browser.engine.adblock.ContentBlockingStatus = com.jestk.browser.engine.adblock.ContentBlockingStatus(),
+    /** The site the "Disable blocking" dialog is asking about; null while it is closed. */
+    val siteBlockingPromptHost: String? = null,
 ) {
     val visibleSearchPageEngines: List<SearchEngine>
         get() = searchEngines.filter { it.id !in settings.hiddenSearchPageEngineIds }

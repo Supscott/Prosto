@@ -30,8 +30,21 @@ class NestedWebView @JvmOverloads constructor(
     }
 
     @Volatile var loadedUrl: String? = null
+
+    /**
+     * The workspace this tab belongs to, read from any thread on every call (the tab can move).
+     * The blocking policies use it to pick the per-workspace site allowlist entries.
+     */
+    @Volatile
+    var workspaceIdProvider: () -> String? = { null }
+
+    fun workspaceId(): String? = workspaceIdProvider()
     var openerUrl: String? = null
     var hasOpenerUserGesture: Boolean = false
+
+    /** Set while this view is a popup whose reveal still waits for the gate's decision. */
+    @Volatile
+    var popupGate: com.jestk.browser.engine.adblock.PopupGate? = null
 
     override fun loadUrl(url: String) {
         loadedUrl = url

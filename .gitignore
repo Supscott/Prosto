@@ -23,3 +23,6 @@ runs/
 .env
 .hallmark/
 
+
+# Native adblock-jni build output
+native/adblock-jni/target/

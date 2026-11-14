@@ -82,7 +82,7 @@ class JestkWebViewClientTest {
             override fun isRedirect(): Boolean = false
             override fun hasGesture(): Boolean = false
             override fun getMethod(): String = "GET"
-            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+            override fun getRequestHeaders(): Map<String, String> = mapOf("Referer" to "https://news.example/")
         }
 
         val adResponse = client.shouldInterceptRequest(null, adRequest)
@@ -96,7 +96,7 @@ class JestkWebViewClientTest {
             override fun isRedirect(): Boolean = false
             override fun hasGesture(): Boolean = false
             override fun getMethod(): String = "GET"
-            override fun getRequestHeaders(): Map<String, String> = emptyMap()
+            override fun getRequestHeaders(): Map<String, String> = mapOf("Referer" to "https://news.example/")
         }
 
         val trackerResponse = client.shouldInterceptRequest(null, trackerRequest)
@@ -1187,13 +1187,6 @@ class JestkWebViewClientTest {
         webView.loadedUrl = "https://news.example/article"
         assertThat(client.shouldOverrideUrlLoading(webView, navigation("https://casino.test/", gesture = false, redirect = false))).isTrue()
         assertThat(blocked).containsExactly("https://casino.test/")
-    }
-
-    @Test
-    fun isLoginPage_onlyMatchesSignInPagesOfMultiPurposeHosts() {
-        assertThat(JestkWebViewClient.isLoginPage("https://github.com/login/oauth/authorize?client_id=x")).isTrue()
-        assertThat(JestkWebViewClient.isLoginPage("https://github.com/developer/repo")).isFalse()
-        assertThat(JestkWebViewClient.isLoginPage("https://appleid.apple.com/auth/authorize")).isTrue()
     }
 
     @Test

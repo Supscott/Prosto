@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scriptlets</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Scriptlets</h1>
+<p class="expect">Expected: <code>set-constant</code> keeps <code>fxAdblockDetected</code> false, so no wall appears; it also replaces <code>fxOpenAd</code> with a no-op, so tapping the button opens nothing.</p>
+<div id="result">Running...</div>
+<div class="box" id="wall" hidden>Please disable your ad blocker (anti-adblock wall)</div>
+<button id="open">Open ad (fake window.open helper)</button>
+<p id="out"></p>
+<script src="/fx.js"></script>
+<script>
+// Fake anti-adblock check: a blocked bait script marks the browser as blocking ads.
+window.fxAdblockDetected = false;
+window.fxOpenAd = function () { document.getElementById('out').textContent = 'AD OPENED'; };
+var bait = document.createElement('script');
+bait.src = '/fx-block/ads.js';
+bait.onerror = function () { window.fxAdblockDetected = true; };
+document.head.appendChild(bait);
+
+setTimeout(function () {
+  var wall = window.fxAdblockDetected === true;
+  document.getElementById('wall').hidden = !wall;
+  document.getElementById('open').onclick = function () {
+    window.fxOpenAd();
+    var opened = document.getElementById('out').textContent === 'AD OPENED';
+    fxResult(!wall && !opened, wall ? 'wall shown' : opened ? 'ad helper ran' : 'no wall and the helper did nothing');
+  };
+  fxResult(!wall, wall ? 'anti-adblock wall shown' : 'no wall; now tap the button to check the helper');
+}, 1000);
+</script>
+</body>
+</html>

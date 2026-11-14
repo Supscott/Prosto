@@ -5,11 +5,14 @@ import android.webkit.WebView
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
+import com.jestk.browser.engine.NestedWebView
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.WindowTransportHandler
 import com.jestk.browser.ui.FileChooserHandler
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.ShowBlockedDocument
+import com.jestk.browser.ui.viewmodel.ShowPopupBlocked
 import com.jestk.browser.ui.viewmodel.isSameDomain
 import com.jestk.browser.util.UrlSecurityUtils
 import com.jestk.browser.util.YouTubeUrlHelper
@@ -37,6 +40,11 @@ internal class WebViewClientDeps(
 internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewClientDeps) {
     val onEvent = deps.onEvent
     webView.tag = tabId
+    // A popup has no tab until it is revealed; it belongs to the workspace in use.
+    (webView as? NestedWebView)?.workspaceIdProvider = {
+        val state = deps.uiState()
+        state.tabs.find { it.id == tabId }?.workspaceId ?: state.activeWorkspaceId
+    }
     webView.webViewClient = JestkWebViewClient(
         tabId = tabId,
         isAdBlockerEnabled = { deps.uiState().settings.isAdBlockerEnabled },
@@ -66,7 +74,14 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
         onCleanPlayerRequested = { url -> openCleanPlayerIfIntercepted(url, deps) },
         onBlockedAdNavigation = { id, url -> onEvent(BrowserUiEvent.ShowBlockedAdNavigation(url = url, tabId = id)) },
         isAdRedirectProtectionEnabled = { deps.uiState().settings.isAdRedirectProtectionEnabled },
-        isAllowedAdNavigation = { url -> deps.uiState().allowedAdNavigationUrls.contains(url) },
+        onPopunderBlocked = { _, openerUrl, _ -> openerUrl?.let { onEvent(ShowPopupBlocked(it)) } },
+        onBlockedDocument = { id, url ->
+            deps.scope.launch { onEvent(ShowBlockedDocument(url = url, tabId = id)) }
+        },
+        isAllowedAdNavigation = { url ->
+            val host = UrlSecurityUtils.extractHost(url)
+            deps.uiState().allowedAdNavigationUrls.any { it == url || (host.isNotEmpty() && UrlSecurityUtils.extractHost(it) == host) }
+        },
         isAutoConsentEnabled = { deps.uiState().settings.autoConsentEnabled },
         onRenderProcessGone = { id -> deps.webViewPool.discardCrashedWebView(id) },
         onFirstVisibleFrame = { id -> deps.webViewPool.markFirstPaint(id) },
@@ -101,8 +116,11 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
                 context = webView.context,
                 webViewPool = deps.webViewPool,
                 openerUrl = originView?.url ?: webView.url,
+                openerTabId = tabId,
                 profileName = profileName,
+                openerWorkspaceId = openerWorkspaceId,
                 isUserGesture = isUserGesture,
+                isAdBlockerEnabled = { deps.uiState().settings.isAdBlockerEnabled },
                 onPopupOpened = { onEvent(BrowserUiEvent.OpenPopupTab(it)) },
             )
         },

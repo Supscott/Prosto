@@ -11,6 +11,8 @@ import com.jestk.browser.data.local.dao.DownloadDao
 import com.jestk.browser.data.local.dao.FavoriteDao
 import com.jestk.browser.data.local.dao.HistoryDao
 import com.jestk.browser.data.local.dao.SettingDao
+import com.jestk.browser.data.local.dao.SiteAllowlistDao
+import com.jestk.browser.data.local.entity.SiteAllowlistEntity
 import com.jestk.browser.data.local.dao.TabDao
 import com.jestk.browser.data.local.entity.DownloadEntity
 import com.jestk.browser.data.local.entity.FavoriteEntity
@@ -37,9 +39,10 @@ import com.jestk.browser.domain.model.Workspace
         DownloadEntity::class,
         SearchEngineEntity::class,
         TabFolderEntity::class,
-        WorkspaceEntity::class
+        WorkspaceEntity::class,
+        SiteAllowlistEntity::class
     ],
-    version = 13,
+    version = 14,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -54,6 +57,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun downloadDao(): DownloadDao
     abstract fun searchEngineDao(): SearchEngineDao
     abstract fun workspaceDao(): WorkspaceDao
+    abstract fun siteAllowlistDao(): SiteAllowlistDao
 
     companion object {
         private const val DATABASE_NAME = "jestk_browser.db"
@@ -165,6 +169,23 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** CB-14: per-site content-blocking allowlist keyed by host and workspace id (`*` = all workspaces). */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `site_allowlist` (
+                        `host` TEXT NOT NULL,
+                        `workspace_scope` TEXT NOT NULL,
+                        `createdAt` INTEGER NOT NULL,
+                        PRIMARY KEY(`host`, `workspace_scope`)
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_site_allowlist_workspace_scope` ON `site_allowlist` (`workspace_scope`)")
+            }
+        }
+
         fun seedDefaultWorkspaces(db: SupportSQLiteDatabase) {
             db.execSQL(
                 """
@@ -190,7 +211,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13)
+                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

@@ -7,11 +7,11 @@
 
         // Clean YouTube Player SPA & Link Interceptor
         function tryCleanPlayer(targetUrl) {
-            if (!window.HoriAdBlockBridge || typeof window.HoriAdBlockBridge.openCleanPlayer !== 'function') {
+            if (!bridge || typeof bridge.openCleanPlayer !== 'function') {
                 return false;
             }
             try {
-                var handled = window.HoriAdBlockBridge.openCleanPlayer(targetUrl);
+                var handled = bridge.openCleanPlayer(targetUrl);
                 if (handled) {
                     var vids = document.querySelectorAll('video');
                     for (var i = 0; i < vids.length; i++) {

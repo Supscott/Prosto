@@ -57,6 +57,7 @@ class WorkspaceRepositoryImpl(
 
     override suspend fun deleteWorkspace(id: String) =
         withContext(ioDispatcher) {
+            workspaceDao.deleteSiteAllowlistOfWorkspace(id)
             workspaceDao.deleteWorkspace(id)
         }
 
