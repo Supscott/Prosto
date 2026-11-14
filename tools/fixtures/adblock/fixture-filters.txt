@@ -26,6 +26,13 @@
 {{HOST}}##a.fx-overlay
 !
 ! cosmetic-generic.html (and generichide.html, which opts out below)
+! EasyList turns generic hiding off on local hosts (localhost, 127.0.0.1, 192.168.*, 10.0.0.*),
+! where this fixture is served; cancel those exceptions so generic hiding can be tested here.
+@@://10.0.0.$generichide,badfilter
+@@://127.0.0.1$generichide,badfilter
+@@://192.168.$generichide,badfilter
+@@://localhost/$generichide,badfilter
+@@://localhost:$generichide,badfilter
 ##.fx-generic-ad
 @@||{{HOST}}^*/generichide.html$generichide
 !
