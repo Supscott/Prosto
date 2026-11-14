@@ -140,4 +140,34 @@ class NavigationGuardTest {
         assertThat(NavigationGuard.isLoginPage("https://appleid.apple.com/auth/authorize")).isTrue()
         assertThat(NavigationGuard.isLoginPage("https://news.example/login")).isFalse()
     }
+
+    private val persisted = SiteAllowlist().apply {
+        update(listOf(com.jestk.browser.domain.model.SiteAllowlistEntry("news.example", "work", 0L)))
+    }
+    private val persistedGuard = NavigationGuard(
+        popunderDetector = detector,
+        isListedAdUrl = { it in listed },
+        isSiteAllowlisted = persisted::isAllowlisted,
+    )
+
+    private fun navIn(workspace: String?, url: String, gesture: Boolean = false) =
+        GuardedNavigation("t1", url, "https://news.example/article", gesture, false, workspace)
+
+    @Test
+    fun allowlistedSite_skipsTheAdListAndPopunderRule() {
+        listed += "https://ads.example/click"
+        assertThat(persistedGuard.evaluate(navIn("work", "https://ads.example/click", gesture = true), on)).isEqualTo(GuardVerdict.ALLOW)
+        assertThat(persistedGuard.evaluate(navIn("home", "https://ads.example/click", gesture = true), on)).isEqualTo(GuardVerdict.BLOCK_LISTED)
+
+        detector.onPopupOpened("t1")
+        now += 300
+        val adsOnly = GuardSettings(adBlockActive = true, redirectProtectionActive = false)
+        assertThat(persistedGuard.evaluate(navIn("work", "https://casino.test/"), adsOnly)).isEqualTo(GuardVerdict.ALLOW)
+        assertThat(persistedGuard.evaluate(navIn("home", "https://casino.test/"), adsOnly)).isEqualTo(GuardVerdict.BLOCK_POPUNDER)
+    }
+
+    @Test
+    fun allowlistedSite_keepsRedirectProtection() {
+        assertThat(persistedGuard.evaluate(navIn("work", "https://casino.test/"), on)).isEqualTo(GuardVerdict.BLOCK_REDIRECT)
+    }
 }

@@ -119,6 +119,12 @@
     <string name="blocked_document_proceed">Proceed anyway</string>
     <string name="popup_blocked_message">Popup blocked</string>
     <string name="popup_blocked_allow_site">Allow for this site</string>
+    <string name="menu_disable_blocking">Disable blocking on this site</string>
+    <string name="menu_enable_blocking">Enable blocking on this site</string>
+    <string name="disable_blocking_title">Disable blocking?</string>
+    <string name="disable_blocking_message">Ads, trackers and popups will no longer be blocked on %1$s. The page reloads.</string>
+    <string name="disable_blocking_all_workspaces">Apply to all workspaces</string>
+    <string name="disable_blocking_confirm">Disable</string>
     <string name="external_app_confirm_title">Open in another app</string>
     <string name="external_app_confirm_message">Would you like to leave Prosto to view this content?</string>
     <string name="external_app_confirm_open">Open</string>

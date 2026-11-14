@@ -30,7 +30,7 @@ object ServiceWorkerBlocking {
         return try {
             install(
                 object : ServiceWorkerClientCompat() {
-                    // No tab URL: the source comes from Referer/Origin of the worker's request.
+                    // No tab or workspace: the site comes from Referer/Origin, and only all-workspaces allowlist entries apply.
                     override fun shouldInterceptRequest(request: android.webkit.WebResourceRequest) =
                         interceptor.intercept(request, tabUrl = null)
                 },

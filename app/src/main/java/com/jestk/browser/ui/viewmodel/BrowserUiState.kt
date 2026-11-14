@@ -104,6 +104,10 @@ data class BrowserUiState(
     val allowedAdNavigationUrls: Set<String> = emptySet(),
     val popupBlocked: PopupBlockedPrompt? = null,
     val allowedInsecureHosts: Set<String> = emptySet(),
+    /** Every persisted per-site blocking switch-off, for all workspaces (CB-14). */
+    val siteAllowlist: List<com.jestk.browser.domain.model.SiteAllowlistEntry> = emptyList(),
+    /** The site the "Disable blocking" dialog is asking about; null while it is closed. */
+    val siteBlockingPromptHost: String? = null,
 ) {
     val visibleSearchPageEngines: List<SearchEngine>
         get() = searchEngines.filter { it.id !in settings.hiddenSearchPageEngineIds }

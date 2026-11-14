@@ -8,6 +8,7 @@ import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
+import com.jestk.browser.data.repository.SiteAllowlistRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.engine.WindowTransportHandler
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +51,7 @@ class PopupBlockedPillTest {
         historyRepository = HistoryRepositoryImpl(db.historyDao(), testDispatcher),
         favoriteRepository = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher),
         settingsRepository = SettingsRepositoryImpl(db.settingDao(), testDispatcher),
+        siteAllowlistRepository = SiteAllowlistRepositoryImpl(db.siteAllowlistDao(), testDispatcher),
         ioDispatcher = testDispatcher,
     )
 
@@ -77,5 +79,21 @@ class PopupBlockedPillTest {
         assertThat(viewModel.uiState.value.popupBlocked).isNull()
         assertThat(WindowTransportHandler.popupAllowlist.allows("https://pill-allow.example/other")).isTrue()
         assertThat(WindowTransportHandler.popupAllowlist.allows("https://elsewhere.example/")).isFalse()
+    }
+
+    @Test
+    fun allowForThisSiteAlsoPersistsAnEntryForTheActiveWorkspace() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        val workspaceId = viewModel.uiState.value.activeWorkspaceId
+
+        viewModel.onEvent(ShowPopupBlocked("https://www.persist-pill.example/watch"))
+        viewModel.onEvent(AllowPopupsForSite)
+        advanceUntilIdle()
+
+        val repository = SiteAllowlistRepositoryImpl(db.siteAllowlistDao(), testDispatcher)
+        assertThat(repository.isAllowlisted("persist-pill.example", workspaceId)).isTrue()
+        assertThat(repository.isAllowlisted("persist-pill.example", "some-other-workspace")).isFalse()
+        assertThat(viewModel.uiState.value.siteAllowlist.map { it.host }).contains("persist-pill.example")
     }
 }

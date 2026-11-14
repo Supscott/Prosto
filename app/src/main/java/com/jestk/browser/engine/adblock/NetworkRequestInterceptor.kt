@@ -7,6 +7,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import com.jestk.browser.R
 import com.jestk.browser.engine.AdBlockerEngine
+import com.jestk.browser.engine.NestedWebView
 import com.jestk.browser.util.UrlSecurityUtils
 import java.util.concurrent.ConcurrentHashMap
 
@@ -18,11 +19,25 @@ class NetworkRequestInterceptor(
     private val adsEnabled: () -> Boolean,
     private val trackersEnabled: () -> Boolean,
     private val isDocumentAllowed: (url: String) -> Boolean = { false },
+    private val siteAllowlist: SiteAllowlist = SiteAllowlist.shared,
     private val onBlockedResource: ((url: String, isTracker: Boolean) -> Unit)? = null,
     private val onBlockedDocument: ((url: String) -> Unit)? = null,
 ) {
-    /** Returns the response that replaces the request, or null to let it load normally. */
-    fun intercept(request: WebResourceRequest, tabUrl: String?, context: Context? = null): WebResourceResponse? {
+    /** Same for a tab WebView: its page URL and workspace feed the allowlist check. */
+    fun interceptForTab(request: WebResourceRequest, webView: NestedWebView?, context: Context?): WebResourceResponse? =
+        intercept(request, webView?.loadedUrl, context, webView?.workspaceId())
+
+    /**
+     * Returns the response that replaces the request, or null to let it load normally.
+     * [workspaceId] is the workspace of the requesting tab, or null for service-worker requests
+     * (then only all-workspaces allowlist entries apply).
+     */
+    fun intercept(
+        request: WebResourceRequest,
+        tabUrl: String?,
+        context: Context? = null,
+        workspaceId: String? = null,
+    ): WebResourceResponse? {
         val url = request.url?.toString() ?: return null
         val headers = request.requestHeaders ?: emptyMap()
         if (context != null) HeaderLog.note(context, url, headers)
@@ -32,6 +47,7 @@ class NetworkRequestInterceptor(
             adsEnabled = adsEnabled(),
             trackersEnabled = trackersEnabled(),
             isDocumentAllowed = isDocumentAllowed,
+            isSiteAllowlisted = { siteAllowlist.isAllowlisted(it, workspaceId) },
         )
         return when (verdict) {
             NetworkVerdict.Allow -> null

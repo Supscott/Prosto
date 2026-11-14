@@ -14,6 +14,7 @@ import com.jestk.browser.engine.adblock.PopupGate
 import com.jestk.browser.engine.adblock.PopupHostList
 import com.jestk.browser.engine.adblock.PopupSiteAllowlist
 import com.jestk.browser.engine.adblock.SessionPopupAllowlist
+import com.jestk.browser.engine.adblock.SiteAllowlist
 import com.jestk.browser.engine.adblock.isAdPopupUrl
 import java.util.UUID
 
@@ -36,7 +37,7 @@ object WindowTransportHandler {
     /** Opener sites the user allowed from the "Popup blocked" pill; lives for the session. */
     val sessionPopupAllowlist = SessionPopupAllowlist()
 
-    /** Opener sites whose popups are never dropped. CB-14 swaps in the persisted per-site allowlist. */
+    /** Opener sites whose popups are never dropped, for this session (the persisted allowlist is checked separately). */
     var popupAllowlist: PopupSiteAllowlist = sessionPopupAllowlist
         set(value) {
             field = value
@@ -56,6 +57,7 @@ object WindowTransportHandler {
     internal val navigationGuard = NavigationGuard(
         popunderDetector = popunderDetector,
         popupAllowlist = { popupAllowlist },
+        isSiteAllowlisted = SiteAllowlist.shared::isAllowlisted,
     )
 
     /** Called on the main thread after an ad popup was dropped: (opener url, dropped url). */
@@ -65,7 +67,12 @@ object WindowTransportHandler {
     internal var gate: PopupGate = newGate()
 
     internal fun newGate(clock: () -> Long = SystemClock::elapsedRealtime): PopupGate =
-        PopupGate(clock = clock, isAdPopup = { adsEnabled() && isAdPopupUrl(it) }, allowlist = popupAllowlist)
+        PopupGate(
+            clock = clock,
+            isAdPopup = { adsEnabled() && isAdPopupUrl(it) },
+            allowlist = popupAllowlist,
+            isSiteAllowlisted = SiteAllowlist.shared::isAllowlisted,
+        )
 
     /** True while the popup [tabId] waits for its reveal decision; the pool must keep its WebView. */
     fun isPopupPending(tabId: String): Boolean = gate.isPending(tabId)
@@ -77,6 +84,7 @@ object WindowTransportHandler {
         openerUrl: String? = null,
         openerTabId: String? = null,
         profileName: String? = null,
+        openerWorkspaceId: String? = null,
         isUserGesture: Boolean = true,
         isAdBlockerEnabled: () -> Boolean = { true },
         onPopupOpened: (tabId: String) -> Unit
@@ -107,6 +115,7 @@ object WindowTransportHandler {
         activeGate.register(
             tabId = newTabId,
             openerUrl = openerUrl,
+            openerWorkspaceId = openerWorkspaceId,
             onReveal = {
                 onMain {
                     (newWv as? NestedWebView)?.popupGate = null

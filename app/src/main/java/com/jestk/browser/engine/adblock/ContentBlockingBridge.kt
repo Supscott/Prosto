@@ -23,6 +23,7 @@ class ContentBlockingBridge(
         AdBlockerEngine::cosmeticResources,
     private val genericProvider: (classes: List<String>, ids: List<String>, exceptions: Set<String>) -> List<String> =
         AdBlockerEngine::hiddenClassIdSelectors,
+    private val isSiteAllowlisted: (frameUrl: String) -> Boolean = { false },
 ) {
     private class FrameContext(val exceptions: Set<String>, val generichide: Boolean)
 
@@ -38,14 +39,15 @@ class ContentBlockingBridge(
 
     /**
      * Cosmetic data for [url] as JSON: `{css: [chunk, ...], generichide, exceptions, scriptlets}`.
-     * `{}` when ads are off, for non-http(s) URLs, security-challenge and auth pages, and when
-     * the engines have nothing for the URL.
+     * `{}` when ads are off, for non-http(s) URLs, security-challenge and auth pages, on allowlisted
+     * sites, and when the engines have nothing for the URL.
      */
     @JavascriptInterface
     fun cosmetic(url: String?): String {
         if (url.isNullOrEmpty() || !isEnabledProvider()) return EMPTY_JSON
         if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) return EMPTY_JSON
         if (JestkWebViewClient.isSecurityChallengePage(url, null)) return EMPTY_JSON
+        if (isBlockingOffFor(url)) return EMPTY_JSON
         return try {
             val resources = cosmeticProvider(url, true, isTrackersEnabledProvider())
             synchronized(frames) { frames[url] = FrameContext(resources.exceptions, resources.generichide) }
@@ -58,14 +60,15 @@ class ContentBlockingBridge(
     /**
      * CSS rules (one `selector{display:none!important}` per line) for the generic class/id hide
      * rules that match [classes] and [ids], two space-separated token lists from the frame at [url].
-     * Empty when ads are off, for non-http(s) and challenge pages, for `$generichide` frames and
-     * on any engine failure. Oversized input is truncated, never rejected.
+     * Empty when ads are off, for non-http(s) and challenge pages, on allowlisted sites, for
+     * `$generichide` frames and on any engine failure. Oversized input is truncated, never rejected.
      */
     @JavascriptInterface
     fun generic(url: String?, classes: String?, ids: String?): String {
         if (url.isNullOrEmpty() || !isEnabledProvider()) return ""
         if (!url.startsWith("http://", ignoreCase = true) && !url.startsWith("https://", ignoreCase = true)) return ""
         if (JestkWebViewClient.isSecurityChallengePage(url, null)) return ""
+        if (isBlockingOffFor(url)) return ""
         val classTokens = tokens(classes)
         val idTokens = tokens(ids)
         if (classTokens.isEmpty() && idTokens.isEmpty()) return ""
@@ -86,6 +89,14 @@ class ContentBlockingBridge(
         val resources = cosmeticProvider(url, true, isTrackersEnabledProvider())
         return FrameContext(resources.exceptions, resources.generichide).also { synchronized(frames) { frames[url] = it } }
     }
+
+    /** Every method that serves blocking data for a frame calls this first: the user switched blocking off for its site. */
+    private fun isBlockingOffFor(frameUrl: String): Boolean =
+        try {
+            isSiteAllowlisted(frameUrl)
+        } catch (_: Exception) {
+            false
+        }
 
     @JavascriptInterface
     fun isCleanPlayerEnabled(): Boolean = isCleanPlayerEnabledProvider?.invoke() ?: false

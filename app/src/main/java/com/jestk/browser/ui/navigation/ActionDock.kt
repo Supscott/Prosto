@@ -32,6 +32,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -49,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.OverlayType
@@ -67,6 +69,10 @@ import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.theme.prostoFloatingSurface
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.EnableBlockingForCurrentSite
+import com.jestk.browser.ui.viewmodel.OpenDisableBlockingDialog
+import com.jestk.browser.ui.viewmodel.currentAllowlistSite
+import com.jestk.browser.ui.viewmodel.isCurrentSiteAllowlisted
 
 /**
  * Animated popup actions card anchored above the Menu button.
@@ -174,6 +180,23 @@ fun ActionPopupMenu(
                 )
 
                 HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
+                // Per-site content blocking switch (web pages only)
+                if (uiState.currentAllowlistSite != null) {
+                    val isAllowlisted = uiState.isCurrentSiteAllowlisted
+                    PopupMenuItem(
+                        icon = Icons.Default.Shield,
+                        label = stringResource(if (isAllowlisted) R.string.menu_enable_blocking else R.string.menu_disable_blocking),
+                        isActive = isAllowlisted,
+                        isDark = isDark,
+                        onClick = {
+                            onEvent(if (isAllowlisted) EnableBlockingForCurrentSite else OpenDisableBlockingDialog)
+                            onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                        },
+                    )
+
+                    HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                }
 
                 // Settings
                 PopupMenuItem(
@@ -341,7 +364,9 @@ fun PopupMenuItem(
             )
             Text(
                 text = label,
-                modifier = if (trailingLabel != null) Modifier.weight(1f) else Modifier,
+                modifier = Modifier.weight(1f),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
                 style =
                     typography.bodyMd.copy(
                         fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Medium,

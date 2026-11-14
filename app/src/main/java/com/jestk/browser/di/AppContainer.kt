@@ -12,6 +12,7 @@ import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
 import com.jestk.browser.data.repository.SettingsBlockedRequestStats
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
+import com.jestk.browser.data.repository.SiteAllowlistRepositoryImpl
 import com.jestk.browser.data.repository.TabFolderRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.data.repository.WorkspaceRepositoryImpl
@@ -21,6 +22,7 @@ import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
+import com.jestk.browser.domain.repository.SiteAllowlistRepository
 import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.domain.repository.WorkspaceRepository
@@ -37,6 +39,7 @@ interface AppContainer {
     val tabRepository: TabRepository
     val tabFolderRepository: TabFolderRepository
     val workspaceRepository: WorkspaceRepository
+    val siteAllowlistRepository: SiteAllowlistRepository
     val historyRepository: HistoryRepository
     val favoriteRepository: FavoriteRepository
     val settingsRepository: SettingsRepository
@@ -97,6 +100,10 @@ class DefaultAppContainer(
         WorkspaceRepositoryImpl(database.workspaceDao())
     }
 
+    override val siteAllowlistRepository: SiteAllowlistRepository by lazy {
+        SiteAllowlistRepositoryImpl(database.siteAllowlistDao())
+    }
+
     override val historyRepository: HistoryRepository by lazy {
         HistoryRepositoryImpl(database.historyDao())
     }
@@ -130,6 +137,7 @@ class DefaultAppContainer(
                     tabRepository = tabRepository,
                     tabFolderRepository = tabFolderRepository,
                     workspaceRepository = workspaceRepository,
+                    siteAllowlistRepository = siteAllowlistRepository,
                     historyRepository = historyRepository,
                     favoriteRepository = favoriteRepository,
                     settingsRepository = settingsRepository,

@@ -106,4 +106,37 @@ class PopupGateTest {
     fun unknownTabIsIgnored() {
         assertThat(gate.onUrl("nope", "https://ads.example-ad.com/")).isNull()
     }
+
+    private fun gateWith(allowlist: SiteAllowlist) = PopupGate(
+        clock = { now },
+        isAdPopup = { url -> adHosts.any { url.contains(it) } },
+        isSiteAllowlisted = allowlist::isAllowlisted,
+    )
+
+    private val persisted = SiteAllowlist().apply {
+        update(
+            listOf(
+                com.jestk.browser.domain.model.SiteAllowlistEntry("news.example.org", "work", 0L),
+                com.jestk.browser.domain.model.SiteAllowlistEntry("everywhere.example", null, 0L),
+            ),
+        )
+    }
+
+    @Test
+    fun persistedAllowlist_revealsOnlyInItsWorkspace() {
+        val g = gateWith(persisted)
+        g.register("in-work", "https://news.example.org/story", { revealed += "in-work" }, { dropped += it }, openerWorkspaceId = "work")
+        g.register("in-home", "https://news.example.org/story", { revealed += "in-home" }, { dropped += it }, openerWorkspaceId = "home")
+
+        assertThat(g.onUrl("in-work", "https://ads.example-ad.com/")).isEqualTo(PopupOutcome.REVEALED)
+        assertThat(g.onUrl("in-home", "https://ads.example-ad.com/")).isEqualTo(PopupOutcome.DROPPED)
+    }
+
+    @Test
+    fun persistedAllWorkspacesEntry_revealsEverywhere() {
+        val g = gateWith(persisted)
+        g.register("p", "https://www.everywhere.example/", { revealed += "p" }, { dropped += it }, openerWorkspaceId = "home")
+
+        assertThat(g.onUrl("p", "https://ads.example-ad.com/")).isEqualTo(PopupOutcome.REVEALED)
+    }
 }

@@ -154,4 +154,47 @@ class NetworkBlockPolicyTest {
 
         assertThat(verdict).isInstanceOf(NetworkVerdict.Block::class.java)
     }
+
+    private val onNewsSite = SiteAllowlist().apply {
+        update(listOf(com.jestk.browser.domain.model.SiteAllowlistEntry("news.example", null, 0L)))
+    }
+
+    private fun evaluateWithAllowlist(request: NetworkRequest, tabUrl: String?) = NetworkBlockPolicy.evaluate(
+        request,
+        tabUrl,
+        adsEnabled = true,
+        trackersEnabled = true,
+        isSiteAllowlisted = { onNewsSite.isAllowlisted(it, null) },
+    )
+
+    @Test
+    fun allowlistedSite_loadsAdsAndTrackers() {
+        assertThat(evaluateWithAllowlist(sub("https://ads.example/banner.js"), "https://www.news.example/story")).isEqualTo(NetworkVerdict.Allow)
+        assertThat(evaluateWithAllowlist(sub("https://tracker.example/t.js"), "https://news.example/")).isEqualTo(NetworkVerdict.Allow)
+        assertThat(ads.calls).isEmpty()
+    }
+
+    @Test
+    fun otherSite_isStillBlocked() {
+        assertThat(evaluateWithAllowlist(sub("https://ads.example/banner.js"), "https://other.example/"))
+            .isInstanceOf(NetworkVerdict.Block::class.java)
+    }
+
+    @Test
+    fun allowlistedMainFrame_isNeverBlockedAsDocument() {
+        val doc = NetworkRequest("https://doc-blocked.example/", true, emptyMap())
+        val allowed = NetworkBlockPolicy.evaluate(doc, null, true, true, isSiteAllowlisted = { true })
+
+        assertThat(allowed).isEqualTo(NetworkVerdict.Allow)
+        assertThat(evaluate(doc)).isInstanceOf(NetworkVerdict.BlockDocument::class.java)
+    }
+
+    @Test
+    fun serviceWorkerRequest_usesTheRefererSite() {
+        val fromNews = sub("https://ads.example/banner.js", mapOf("Referer" to "https://news.example/story"))
+        val fromOther = sub("https://ads.example/banner.js", mapOf("Referer" to "https://other.example/story"))
+
+        assertThat(evaluateWithAllowlist(fromNews, tabUrl = null)).isEqualTo(NetworkVerdict.Allow)
+        assertThat(evaluateWithAllowlist(fromOther, tabUrl = null)).isInstanceOf(NetworkVerdict.Block::class.java)
+    }
 }

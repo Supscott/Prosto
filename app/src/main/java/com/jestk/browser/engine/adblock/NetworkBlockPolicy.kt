@@ -32,7 +32,9 @@ object NetworkBlockPolicy {
 
     /**
      * Main-frame requests are only blocked by a native `$document` match; the host-list fallback
-     * never blocks a top-level document. [tabUrl] is null for service-worker requests.
+     * never blocks a top-level document. [tabUrl] is null for service-worker requests, whose site
+     * comes from Referer/Origin. [isSiteAllowlisted] says whether the user switched blocking off
+     * for the page's site; such a page loads everything.
      */
     fun evaluate(
         request: NetworkRequest,
@@ -40,6 +42,7 @@ object NetworkBlockPolicy {
         adsEnabled: Boolean,
         trackersEnabled: Boolean,
         isDocumentAllowed: (url: String) -> Boolean = { false },
+        isSiteAllowlisted: (siteUrl: String) -> Boolean = { false },
     ): NetworkVerdict {
         if (!adsEnabled && !trackersEnabled) return NetworkVerdict.Allow
         val url = request.url
@@ -50,10 +53,13 @@ object NetworkBlockPolicy {
         val host = UrlParser.parseUrl(url)?.host.orEmpty()
         if (host.isEmpty() || AuthDomainAllowlist.isAllowlistedAuthDomain(host)) return NetworkVerdict.Allow
 
-        if (request.isForMainFrame) return documentVerdict(url, adsEnabled, isDocumentAllowed)
+        if (request.isForMainFrame) {
+            return if (isSiteAllowlisted(url)) NetworkVerdict.Allow else documentVerdict(url, adsEnabled, isDocumentAllowed)
+        }
 
         val type = RequestClassifier.type(url, isForMainFrame = false, request.headers)
         val source = RequestClassifier.sourceUrl(url, isForMainFrame = false, request.headers, tabUrl)
+        if (isSiteAllowlisted(tabUrl?.takeIf { it.isNotBlank() } ?: source)) return NetworkVerdict.Allow
         val decision = AdBlockerEngine.decide(url, source, type, adsEnabled, trackersEnabled)
         if (!decision.block) return NetworkVerdict.Allow
         val redirect = decision.redirectDataUrl

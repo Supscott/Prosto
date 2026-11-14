@@ -7,6 +7,10 @@ import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewStateStore
 import com.jestk.browser.engine.adblock.FilterListServices
+import com.jestk.browser.engine.adblock.SiteAllowlistSync
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 class JestkApplication : Application() {
     lateinit var container: AppContainer
@@ -19,6 +23,8 @@ class JestkApplication : Application() {
         FaviconManager.init(applicationContext)
         container = DefaultAppContainer(applicationContext)
         runCatching { FilterListServices.install(applicationContext) }
+        // The blocking hooks read an in-memory copy of the per-site allowlist; keep it current for the process lifetime.
+        SiteAllowlistSync.start(CoroutineScope(SupervisorJob() + Dispatchers.IO), container.siteAllowlistRepository)
     }
 
     override fun onTrimMemory(level: Int) {

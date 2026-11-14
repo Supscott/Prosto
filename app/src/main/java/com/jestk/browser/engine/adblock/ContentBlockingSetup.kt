@@ -81,7 +81,18 @@ object ContentBlockingSetup {
             act?.runOnUiThread { act.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED }
         },
         isTrackersEnabledProvider = hooks.isTrackersEnabled,
+        isSiteAllowlisted = { frameUrl -> isSiteAllowlisted(webView as? NestedWebView, frameUrl) },
     )
+
+    /** Blocking is off when the tab's page or the asking frame is on the allowlist for the tab's workspace. */
+    internal fun isSiteAllowlisted(
+        webView: NestedWebView?,
+        frameUrl: String,
+        allowlist: SiteAllowlist = SiteAllowlist.shared,
+    ): Boolean {
+        val workspaceId = webView?.workspaceId()
+        return allowlist.isAllowlisted(webView?.loadedUrl, workspaceId) || allowlist.isAllowlisted(frameUrl, workspaceId)
+    }
 
     private fun orientationFor(orientation: String?): Int = when (orientation) {
         "portrait", "portrait-primary" -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT

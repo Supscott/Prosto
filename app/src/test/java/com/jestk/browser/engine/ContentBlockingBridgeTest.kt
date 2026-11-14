@@ -314,4 +314,51 @@ class ContentBlockingBridgeTest {
 
         assertThat(css).isEmpty()
     }
+
+    @Test
+    fun cosmetic_isEmptyOnAllowlistedSitesWithoutAskingTheEngine() {
+        val seen = Seen()
+        val b = ContentBlockingBridge(
+            isEnabledProvider = { true },
+            cosmeticProvider = { _, _, _ ->
+                seen.calls++
+                resources
+            },
+            isSiteAllowlisted = { it.contains("allowed.test") },
+        )
+
+        assertThat(b.cosmetic("https://allowed.test/page")).isEqualTo("{}")
+        assertThat(seen.calls).isEqualTo(0)
+        assertThat(b.cosmetic("https://site.test/page")).isNotEqualTo("{}")
+        assertThat(seen.calls).isEqualTo(1)
+    }
+
+    @Test
+    fun cosmetic_aFailingAllowlistLookupFallsBackToBlocking() {
+        val b = ContentBlockingBridge(
+            isEnabledProvider = { true },
+            cosmeticProvider = { _, _, _ -> resources },
+            isSiteAllowlisted = { error("boom") },
+        )
+
+        assertThat(b.cosmetic("https://site.test/page")).isNotEqualTo("{}")
+    }
+
+    @Test
+    fun generic_isEmptyOnAllowlistedSites() {
+        var asked = 0
+        val b = ContentBlockingBridge(
+            isEnabledProvider = { true },
+            cosmeticProvider = { _, _, _ -> CosmeticResources.EMPTY },
+            genericProvider = { _, _, _ ->
+                asked++
+                listOf(".ad")
+            },
+            isSiteAllowlisted = { it.contains("allowed.test") },
+        )
+
+        assertThat(b.generic("https://allowed.test/", "ad", "")).isEmpty()
+        assertThat(asked).isEqualTo(0)
+        assertThat(b.generic("https://site.test/", "ad", "")).isNotEmpty()
+    }
 }

@@ -5,7 +5,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Opener hosts whose popups the user allowed from the "Popup blocked" pill, kept for the session
- * only. CB-14 replaces it behind [PopupSiteAllowlist] with the persisted per-site allowlist.
+ * only. The persisted per-site allowlist ([SiteAllowlist]) is checked next to it.
  */
 class SessionPopupAllowlist(
     private val hostOf: (String) -> String = UrlSecurityUtils::extractHost,

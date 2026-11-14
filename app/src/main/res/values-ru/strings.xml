@@ -119,6 +119,12 @@
     <string name="blocked_document_proceed">Всё равно открыть</string>
     <string name="popup_blocked_message">Всплывающее окно заблокировано</string>
     <string name="popup_blocked_allow_site">Разрешить для этого сайта</string>
+    <string name="menu_disable_blocking">Отключить блокировку на этом сайте</string>
+    <string name="menu_enable_blocking">Включить блокировку на этом сайте</string>
+    <string name="disable_blocking_title">Отключить блокировку?</string>
+    <string name="disable_blocking_message">Реклама, трекеры и всплывающие окна больше не будут блокироваться на %1$s. Страница перезагрузится.</string>
+    <string name="disable_blocking_all_workspaces">Для всех рабочих пространств</string>
+    <string name="disable_blocking_confirm">Отключить</string>
     <string name="external_app_confirm_title">Открыть в другом приложении</string>
     <string name="external_app_confirm_message">Выйти из Prosto, чтобы посмотреть этот контент?</string>
     <string name="external_app_confirm_open">Открыть</string>
