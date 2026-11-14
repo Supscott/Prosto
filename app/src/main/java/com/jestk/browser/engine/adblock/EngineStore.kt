@@ -42,7 +42,9 @@ internal class EngineStore(
         val assets = FilterAssets(context.assets, preset)
         val resources = readResources(context)
         val dir = File(context.filesDir, "adblock").apply { mkdirs() }
-        val version = backend.version().replace(UNSAFE_NAME, "_")
+        // The APK update time joins the key: lists ship inside the APK, so a new build recompiles
+        // once even when a list edit keeps the asset size (and so the lists hash) unchanged.
+        val version = "${backend.version()}-${apkUpdateTime(context)}".replace(UNSAFE_NAME, "_")
         val ads = loadEngine(dir, assets, resources, version, ENGINE_ADS) ?: return null
         val privacy = loadEngine(dir, assets, resources, version, ENGINE_PRIVACY)
         if (privacy == null) {
@@ -99,6 +101,12 @@ internal class EngineStore(
             if (file.name.startsWith("$engine-") && !file.name.startsWith("$base.")) file.delete()
         }
     }
+
+    private fun apkUpdateTime(context: Context): Long =
+        runCatching {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
+        }.getOrDefault(0L)
 
     private fun readResources(context: Context): String? =
         runCatching {
