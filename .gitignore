@@ -26,3 +26,7 @@ runs/
 
 # Native adblock-jni build output
 native/adblock-jni/target/
+
+# Local task notes (not shared)
+TASKS.md
+USER-TASKS.md

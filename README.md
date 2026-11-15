@@ -25,6 +25,8 @@
   <img src="assets/home-light-dark.png" alt="Prosto Home screen, light and dark themes" width="560" />
 </p>
 
+> **Join the closed test.** Prosto is coming to Google Play, and Google requires 12 testers for 14 days first. If you are on Android 8.0+, [sign up here](https://docs.google.com/forms/d/e/1FAIpQLSf9MF-djBzTMKnclj-0VHolL_ubz0VT9xsYeKBaJnIBPtHaYw/viewform) (one minute). You will get a Play opt-in link by email; staying opted in for 14 days is all it takes.
+
 ---
 
 ## 💡 Why Prosto?
