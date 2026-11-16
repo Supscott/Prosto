@@ -42,6 +42,35 @@ class NestedWebView @JvmOverloads constructor(
     var openerUrl: String? = null
     var hasOpenerUserGesture: Boolean = false
 
+    /**
+     * While true the page stays "visible" when the app leaves the screen (background playback).
+     * Chromium takes page visibility from the window visibility: when the window is hidden it
+     * suspends playing video natively (a JS `play()` does not bring it back) and pages such as
+     * YouTube unload their player on `visibilitychange`. Keeping the reported window visibility
+     * VISIBLE avoids both without touching anything a page can see. Main thread only.
+     */
+    var keepPageVisible: Boolean = false
+        private set
+
+    /**
+     * [appInForeground]: the app is coming back on screen. Its window then reports VISIBLE on
+     * its next layout pass, and passing the not yet updated hidden state now would hide the page
+     * for a moment (YouTube unloads its player on that).
+     */
+    fun setKeepPageVisible(keep: Boolean, appInForeground: Boolean) {
+        if (keepPageVisible == keep) return
+        keepPageVisible = keep
+        if (keep) {
+            super.onWindowVisibilityChanged(VISIBLE)
+        } else if (!appInForeground) {
+            super.onWindowVisibilityChanged(windowVisibility)
+        }
+    }
+
+    override fun onWindowVisibilityChanged(visibility: Int) {
+        super.onWindowVisibilityChanged(if (keepPageVisible) VISIBLE else visibility)
+    }
+
     /** Set while this view is a popup whose reveal still waits for the gate's decision. */
     @Volatile
     var popupGate: com.jestk.browser.engine.adblock.PopupGate? = null

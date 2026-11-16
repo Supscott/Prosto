@@ -6,6 +6,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.webkit.WebView
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.engine.NestedWebView
 import com.jestk.browser.engine.WebViewPool
 
 /**
@@ -25,6 +26,9 @@ internal class BackgroundPlaybackController(
     private var candidate: Candidate? = null
     private var activityStopped = false
     private var session: Session? = null
+
+    /** The WebView whose page is kept "visible" while the app is off screen; see [NestedWebView.keepPageVisible]. */
+    private var keptVisible: NestedWebView? = null
     private val poll = Runnable { pollPage() }
 
     private class Candidate(val tabId: String, val title: String, val host: String)
@@ -46,7 +50,10 @@ internal class BackgroundPlaybackController(
         val webView = tab?.let { webViewPool.getWebView(it.id) }
         if (!enabled || webView == null || tab == null) return
         if (inPictureInPicture || changingConfigurations) return
-        webView.evaluateJavascript(MediaPageScripts.PROBE_AND_KEEP_VISIBLE) { raw ->
+        // The screen can turn off before the probe answers; keep the page visible from the start
+        // and give it back its real visibility below when nothing is playing.
+        keepVisible(webView as? NestedWebView)
+        webView.evaluateJavascript(MediaPageScripts.PROBE) { raw ->
             if (generation != probeGeneration) return@evaluateJavascript
             val keep =
                 shouldKeepPlayingInBackground(
@@ -59,6 +66,8 @@ internal class BackgroundPlaybackController(
             if (keep) {
                 candidate = Candidate(tab.id, tab.title, hostOf(tab.url))
                 startIfReady()
+            } else {
+                keepVisible(null)
             }
         }
     }
@@ -74,12 +83,14 @@ internal class BackgroundPlaybackController(
         activityStopped = false
         probeGeneration++
         candidate = null
-        stop()
+        stop(appInForeground = true)
     }
 
-    fun stop() {
+    /** Ends the session; [appInForeground] when the app is coming back on screen. */
+    fun stop(appInForeground: Boolean = false) {
         handler.removeCallbacks(poll)
         candidate = null
+        keepVisible(null, appInForeground)
         if (session == null) return
         session = null
         BackgroundPlaybackSession.onSetPlaying = null
@@ -131,6 +142,12 @@ internal class BackgroundPlaybackController(
             appContext,
             BackgroundPlaybackInfo(current.candidate.title, current.candidate.host, current.isPlaying),
         )
+    }
+
+    private fun keepVisible(webView: NestedWebView?, appInForeground: Boolean = false) {
+        if (keptVisible !== webView) keptVisible?.setKeepPageVisible(false, appInForeground)
+        keptVisible = webView
+        webView?.setKeepPageVisible(true, appInForeground)
     }
 
     private fun webViewOf(current: Session): WebView? = webViewPool.getWebView(current.candidate.tabId)

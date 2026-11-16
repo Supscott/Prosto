@@ -13,16 +13,6 @@ internal object MediaPageScripts {
     /** Reports `playing`, `paused` or `none` without touching the page. */
     const val PROBE = "(function(){$SCAN return p?'playing':h?'paused':'none'})()"
 
-    /**
-     * Same report, but when media is playing it also swallows the next `visibilitychange` that
-     * reports the page as hidden (one capture listener on `window`, removed after it fires), so
-     * sites do not pause themselves when the screen turns off.
-     */
-    const val PROBE_AND_KEEP_VISIBLE =
-        "(function(){$SCAN if(p){window.addEventListener('visibilitychange'," +
-            "function(ev){if(document.visibilityState==='hidden')ev.stopImmediatePropagation()}," +
-            "{capture:true,once:true})}return p?'playing':h?'paused':'none'})()"
-
     const val PAUSE =
         "(function(){var m=document.querySelectorAll('video,audio');" +
             "for(var i=0;i<m.length;i++){if(!m[i].paused)m[i].pause()}})()"
