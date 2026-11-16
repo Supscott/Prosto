@@ -11,7 +11,6 @@ import android.os.Looper
 import android.util.Log
 import android.view.ViewGroup
 import android.webkit.CookieManager
-import android.webkit.JavascriptInterface
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.widget.Toast
@@ -101,26 +100,7 @@ class WebViewPool(
         }
     }
 
-    /**
-     * Receives the content of a `blob:` download. The bridge is visible to every frame, so only
-     * blob URLs that WebView itself reported to the DownloadListener are accepted: a page cannot
-     * start a download of arbitrary data through it (review finding BOT-3).
-     */
-    class BlobDownloadBridge(
-        private val pendingBlobUrls: MutableSet<String>,
-        private val onBlobReceived: (dataUrl: String, contentDisposition: String?, mimeType: String?) -> Unit
-    ) {
-        @JavascriptInterface
-        fun onBlobDownloaded(blobUrl: String, dataUrl: String, contentDisposition: String?, mimeType: String?) {
-            if (!pendingBlobUrls.remove(blobUrl)) {
-                Log.w(TAG, "Ignoring a blob download that was not requested by the DownloadListener")
-                return
-            }
-            onBlobReceived(dataUrl, contentDisposition, mimeType)
-        }
-    }
-
-    private val pendingBlobUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val pendingBlobDownloads = PendingBlobDownloads()
 
     private val pool = ConcurrentHashMap<String, WebView>()
     private val tabProfiles = ConcurrentHashMap<String, String>()
@@ -514,7 +494,7 @@ class WebViewPool(
             }
             configureProfileAndCookies(webView, profileName)
             try {
-                val blobBridge = BlobDownloadBridge(pendingBlobUrls) { dataUrl, contentDisposition, mimeType ->
+                val blobBridge = pendingBlobDownloads.createBridge { dataUrl, contentDisposition, mimeType ->
                     activeScope().launch(Dispatchers.Main) {
                         handleDataUrlDownload(dataUrl, contentDisposition, mimeType, webView.context)
                     }
@@ -688,12 +668,9 @@ class WebViewPool(
         Toast.makeText(targetContext, R.string.toast_preparing_download, Toast.LENGTH_SHORT).show()
         Log.d(TAG, "Preparing blob download: $blobUrl")
 
-        pendingBlobUrls.add(blobUrl)
-        val js = BlobDownloadScript.build(blobUrl, contentDisposition, mimeType)
-
         try {
-            webView.post {
-                webView.evaluateJavascript(js, null)
+            pendingBlobDownloads.request(webView, blobUrl, contentDisposition, mimeType) {
+                Toast.makeText(targetContext, R.string.downloads_failed, Toast.LENGTH_SHORT).show()
             }
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to evaluate blob download script", t)

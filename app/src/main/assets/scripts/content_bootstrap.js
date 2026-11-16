@@ -3,17 +3,62 @@
     // before anything else so no page script can see or call it.
     var bridge = window['@@BRIDGE_NAME@@'];
     try { delete window['@@BRIDGE_NAME@@']; } catch (e) {}
-    // The blob download bridge is hidden the same way. The download script that the app runs
-    // later reaches it through a window event whose type is the bridge's random name.
+    // The blob download bridge is hidden the same way. A blob: URL can be read only in a frame
+    // of the origin that created it, so the app's download script posts the request to the
+    // frames of that origin as a message keyed by the bridge's random name. This listener is
+    // registered at document start, before any page listener, and stops the message there.
     var blobBridge = window['@@BLOB_BRIDGE_NAME@@'];
     try { delete window['@@BLOB_BRIDGE_NAME@@']; } catch (e) {}
     if (blobBridge) {
         try {
-            window.addEventListener('@@BLOB_BRIDGE_NAME@@', function(event) {
-                var d = event.detail;
-                if (!d || d.length !== 4) return;
-                try { blobBridge.onBlobDownloaded(String(d[0]), String(d[1]), String(d[2]), String(d[3])); } catch (e) {}
-            });
+            // The `download` name of the last blob link tapped: sites often remove the link
+            // right after clicking it, before the read below can look it up.
+            var lastBlobLink = null;
+            window.addEventListener('click', function(event) {
+                try {
+                    var link = event.target && event.target.closest && event.target.closest('a[href^="blob:"]');
+                    if (link) lastBlobLink = { href: link.href, name: link.getAttribute('download') || '' };
+                } catch (e) {}
+            }, true);
+            var downloadName = function(blobUrl) {
+                try {
+                    var link = document.querySelector('a[download][href="' + CSS.escape(blobUrl) + '"]');
+                    if (link && link.getAttribute('download')) return link.getAttribute('download');
+                } catch (e) {}
+                return lastBlobLink && lastBlobLink.href === blobUrl ? lastBlobLink.name : '';
+            };
+            var readBlob = function(blobUrl, disposition, mime) {
+                if (!disposition) {
+                    var name = downloadName(blobUrl);
+                    if (name) disposition = "attachment; filename*=UTF-8''" + encodeURIComponent(name);
+                }
+                var deliver = function(blob) {
+                    var reader = new FileReader();
+                    reader.onloadend = function() {
+                        try { blobBridge.onBlobDownloaded(blobUrl, String(reader.result), disposition, mime || blob.type || ''); } catch (e) {}
+                    };
+                    reader.readAsDataURL(blob);
+                };
+                var xhr = new XMLHttpRequest();
+                xhr.open('GET', blobUrl, true);
+                xhr.responseType = 'blob';
+                xhr.onload = function() { if (this.status === 200 || this.status === 0) deliver(this.response); };
+                xhr.onerror = function() {
+                    fetch(blobUrl).then(function(r) { return r.blob(); }).then(deliver).catch(function() {});
+                };
+                xhr.send();
+            };
+            window.addEventListener('message', function(event) {
+                var request = event.data && typeof event.data === 'object' ? event.data['@@BLOB_BRIDGE_NAME@@'] : null;
+                if (!request || request.length !== 3) return;
+                event.stopImmediatePropagation();
+                var blobUrl = String(request[0]);
+                try {
+                    // A "*" request (opaque blob origin) reaches every frame; only the owner reads.
+                    if (new URL(blobUrl).origin !== location.origin && new URL(blobUrl).origin !== 'null') return;
+                    readBlob(blobUrl, String(request[1]), String(request[2]));
+                } catch (e) {}
+            }, true);
         } catch (e) {}
     }
     try {

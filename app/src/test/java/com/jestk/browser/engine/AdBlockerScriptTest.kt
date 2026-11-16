@@ -94,7 +94,7 @@ class AdBlockerScriptTest {
     }
 
     @Test
-    fun buildBootstrapScript_hidesTheBlobBridgeBehindAnEventNamedAfterIt() {
+    fun buildBootstrapScript_hidesTheBlobBridgeBehindAMessageKeyedByItsName() {
         val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE, BLOB_BRIDGE)
 
         val capture = js.indexOf("var blobBridge = window['$BLOB_BRIDGE'];")
@@ -103,8 +103,12 @@ class AdBlockerScriptTest {
         assertThat(delete).isGreaterThan(capture)
         // Before the challenge exemption returns, so a download still works on any page.
         assertThat(js.indexOf("challenges.cloudflare.com")).isGreaterThan(delete)
-        assertThat(js).contains("window.addEventListener('$BLOB_BRIDGE'")
+        // The request arrives as a message keyed by the bridge name; the listener stops it there.
+        assertThat(js).contains("event.data['$BLOB_BRIDGE']")
+        assertThat(js).contains("event.stopImmediatePropagation()")
         assertThat(js).contains("blobBridge.onBlobDownloaded(")
+        // The link's `download` name becomes the file name when the download has none.
+        assertThat(js).contains("filename*=UTF-8''")
         assertThat(js).doesNotContain("JestkBlobBridge")
     }
 

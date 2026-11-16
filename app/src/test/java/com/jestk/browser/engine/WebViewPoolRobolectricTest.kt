@@ -341,13 +341,15 @@ class WebViewPoolRobolectricTest {
         val quotedMime = org.json.JSONObject.quote(mimeType)
 
         // Verifies parameters are wrapped in quotes and embedded safely
-        assertThat(js).contains("xhr.open('GET', $quotedUrl, true);")
-        assertThat(js).contains("direct.onBlobDownloaded($quotedUrl, dataUrl,")
+        assertThat(js).contains("direct.onBlobDownloaded($quotedUrl, reader.result,")
         assertThat(js).contains(quotedMime)
-        // The bridge has a random name and is reached through an event of that name, never a fixed global.
+        // The bridge has a random name: the request is a message keyed by it, posted to the
+        // frames of the blob's origin, never a fixed global.
         val quotedBridge = org.json.JSONObject.quote(com.jestk.browser.engine.adblock.ContentBlockingSetup.blobBridgeName)
         assertThat(js).contains("window[$quotedBridge]")
-        assertThat(js).contains("new CustomEvent($quotedBridge, { detail: [$quotedUrl, dataUrl,")
+        assertThat(js).contains("request[$quotedBridge] = [$quotedUrl,")
+        assertThat(js).contains("w.postMessage(request, origin === 'null' ? '*' : origin)")
+        assertThat(js).contains("post(w.frames[i])")
         assertThat(js).doesNotContain("JestkBlobBridge")
     }
 
