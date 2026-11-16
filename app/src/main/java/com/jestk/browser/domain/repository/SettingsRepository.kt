@@ -44,6 +44,8 @@ interface SettingsRepository {
 
     suspend fun setTutorialCompleted(completed: Boolean) {}
 
+    suspend fun setBackgroundPlaybackEnabled(enabled: Boolean) {}
+
     fun getBlockedAdsCount(): Flow<Long>
 
     fun getBlockedTrackersCount(): Flow<Long>

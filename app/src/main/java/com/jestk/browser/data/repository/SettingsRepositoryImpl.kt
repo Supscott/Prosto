@@ -127,6 +127,11 @@ class SettingsRepositoryImpl(
             settingDao.setSetting(SettingEntity(SettingKeys.TUTORIAL_COMPLETED, completed.toString()))
         }
 
+    override suspend fun setBackgroundPlaybackEnabled(enabled: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.BACKGROUND_PLAYBACK_ENABLED, enabled.toString()))
+        }
+
     override fun getBlockedAdsCount(): Flow<Long> =
         settingDao
             .getSettingFlow(SettingKeys.KEY_BLOCKED_ADS_COUNT)
