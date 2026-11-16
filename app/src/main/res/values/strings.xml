@@ -314,9 +314,9 @@
     <string name="tutorial_done">Done</string>
     <string name="tutorial_make_default">Set as default browser</string>
     <string name="tutorial_dock_title">Your tabs live in the dock</string>
-    <string name="tutorial_dock_body">Tap a tab to switch, swipe the dock to scroll, hold and drag to reorder.</string>
+    <string name="tutorial_dock_body">Tap a tab to switch, swipe the dock to scroll and tap + for a new tab. Hold a tab and pull it up to close it.</string>
     <string name="tutorial_folders_title">Group tabs into folders</string>
-    <string name="tutorial_folders_body">Drag one tab onto another, or long-press a tab and choose New folder.</string>
+    <string name="tutorial_folders_body">Hold a tab and drag it onto a folder to add it. Tap the folder to show its tabs.</string>
     <string name="tutorial_workspaces_title">Separate spaces for everything</string>
     <string name="tutorial_workspaces_body">Swipe up on the dock to switch workspaces. Each has its own tabs, favorites and logins.</string>
     <string name="tutorial_search_title">Switch search providers</string>

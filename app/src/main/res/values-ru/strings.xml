@@ -322,9 +322,9 @@
     <string name="tutorial_done">Готово</string>
     <string name="tutorial_make_default">Сделать браузером по умолчанию</string>
     <string name="tutorial_dock_title">Вкладки живут в доке</string>
-    <string name="tutorial_dock_body">Нажмите на вкладку, чтобы переключиться, листайте док, удерживайте и перетаскивайте, чтобы поменять порядок.</string>
+    <string name="tutorial_dock_body">Нажмите на вкладку, чтобы переключиться, листайте док, а «+» откроет новую. Удерживайте вкладку и потяните вверх, чтобы закрыть её.</string>
     <string name="tutorial_folders_title">Группируйте вкладки в папки</string>
-    <string name="tutorial_folders_body">Перетащите одну вкладку на другую или нажмите и удерживайте вкладку, затем выберите «Новая папка».</string>
+    <string name="tutorial_folders_body">Удерживайте вкладку и перетащите её на папку. Нажмите на папку, чтобы увидеть её вкладки.</string>
     <string name="tutorial_workspaces_title">Отдельные пространства</string>
     <string name="tutorial_workspaces_body">Смахните док вверх, чтобы переключить воркспейс. У каждого свои вкладки, избранное и логины.</string>
     <string name="tutorial_search_title">Переключайте поисковики</string>
