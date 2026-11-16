@@ -38,7 +38,8 @@ class ContentBlockingBridge(
     fun isEnabled(): Boolean = isEnabledProvider()
 
     /**
-     * Cosmetic data for [url] as JSON: `{css: [chunk, ...], generichide, exceptions, scriptlets}`.
+     * Cosmetic data for [url] as JSON: `{css: [chunk, ...], generichide, exceptions, scriptlets, procedural}`
+     * (`procedural` is a list of adblock-rust procedural filter objects, see `assets/scripts/procedural.js`).
      * `{}` when ads are off, for non-http(s) URLs, security-challenge and auth pages, on allowlisted
      * sites, and when the engines have nothing for the URL.
      */
@@ -124,6 +125,9 @@ class ContentBlockingBridge(
         private const val CSS_CHUNK_CHARS = 8_000
         private const val HIDE_DECLARATION = "{display:none!important}"
 
+        /** Upper bound on the procedural filters sent to one frame; the runner caps itself at the same figure. */
+        private const val MAX_PROCEDURAL = 1_000
+
         private const val FRAME_CACHE = 16
         private const val MAX_TOKENS = 1_000
         private const val MAX_TOKEN_CHARS = 100
@@ -139,13 +143,36 @@ class ContentBlockingBridge(
         fun encode(resources: CosmeticResources): String {
             // `{}` means "nothing for this frame, no generic rules either"; a frame without
             // site-specific rules still gets a real answer so the page can ask for generic ones.
-            if (resources.generichide && resources.hideSelectors.isEmpty() && resources.scriptlets.isEmpty()) return EMPTY_JSON
+            val procedural = proceduralFilters(resources.procedural)
+            if (resources.generichide && resources.hideSelectors.isEmpty() && resources.scriptlets.isEmpty() && procedural.length() == 0) {
+                return EMPTY_JSON
+            }
             return JSONObject()
                 .put("css", JSONArray(cssChunks(resources.hideSelectors)))
                 .put("generichide", resources.generichide)
                 .put("exceptions", JSONArray(resources.exceptions.toList()))
                 .put("scriptlets", JSONArray(resources.scriptlets.map { JSONArray(it) }))
+                .put("procedural", procedural)
                 .toString()
+        }
+
+        /**
+         * The engine's procedural filters (each a JSON string) as objects, so the page does not parse
+         * them again. Anything that is not an object with a non-empty `selector` array is dropped; the
+         * page ignores operators it does not know.
+         */
+        internal fun proceduralFilters(raw: List<String>): JSONArray {
+            val out = JSONArray()
+            for (item in raw) {
+                if (out.length() >= MAX_PROCEDURAL) break
+                val filter = try {
+                    JSONObject(item)
+                } catch (_: Exception) {
+                    continue
+                }
+                if ((filter.optJSONArray("selector")?.length() ?: 0) > 0) out.put(filter)
+            }
+            return out
         }
 
         internal fun cssChunks(selectors: List<String>): List<String> {

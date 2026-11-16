@@ -139,6 +139,87 @@ class ContentBlockingBridgeTest {
         }
     }
 
+    private val hasTextFilter =
+        """{"selector":[{"type":"css-selector","arg":".ad"},{"type":"has-text","arg":"/sponsored/i"}]}"""
+    private val removeFilter = """{"selector":[{"type":"css-selector","arg":".b"}],"action":{"type":"remove"}}"""
+
+    @Test
+    fun cosmetic_passesProceduralFiltersThroughAsObjects() {
+        val withProcedural = resources.copy(procedural = listOf(hasTextFilter, removeFilter))
+
+        val procedural = JSONObject(bridge(result = withProcedural).cosmetic("https://site.test/")).getJSONArray("procedural")
+
+        assertThat(procedural.length()).isEqualTo(2)
+        val first = procedural.getJSONObject(0)
+        assertThat(first.getJSONArray("selector").getJSONObject(1).getString("type")).isEqualTo("has-text")
+        assertThat(first.getJSONArray("selector").getJSONObject(1).getString("arg")).isEqualTo("/sponsored/i")
+        assertThat(first.has("action")).isFalse()
+        assertThat(procedural.getJSONObject(1).getJSONObject("action").getString("type")).isEqualTo("remove")
+    }
+
+    @Test
+    fun cosmetic_alwaysCarriesAProceduralArray() {
+        val json = JSONObject(bridge().cosmetic("https://site.test/"))
+
+        assertThat(json.getJSONArray("procedural").length()).isEqualTo(0)
+    }
+
+    @Test
+    fun cosmetic_dropsMalformedProceduralEntries() {
+        val broken = resources.copy(
+            procedural = listOf("not json", "[]", """{"selector":[]}""", """{"selector":"x"}""", """{"action":null}""", removeFilter),
+        )
+
+        val procedural = JSONObject(bridge(result = broken).cosmetic("https://site.test/")).getJSONArray("procedural")
+
+        assertThat(procedural.length()).isEqualTo(1)
+    }
+
+    @Test
+    fun cosmetic_capsTheProceduralFiltersPerFrame() {
+        val many = resources.copy(procedural = List(3000) { removeFilter })
+
+        val procedural = JSONObject(bridge(result = many).cosmetic("https://site.test/")).getJSONArray("procedural")
+
+        assertThat(procedural.length()).isEqualTo(1000)
+    }
+
+    @Test
+    fun cosmetic_isNotEmptyForGenerichideWithOnlyProceduralFilters() {
+        val onlyProcedural = CosmeticResources(emptyList(), emptySet(), listOf(removeFilter), true, emptyList())
+
+        val json = JSONObject(bridge(result = onlyProcedural).cosmetic("https://site.test/"))
+
+        assertThat(json.getBoolean("generichide")).isTrue()
+        assertThat(json.getJSONArray("procedural").length()).isEqualTo(1)
+    }
+
+    @Test
+    fun cosmetic_isEmptyForGenerichideWithOnlyMalformedProceduralFilters() {
+        val none = CosmeticResources(emptyList(), emptySet(), listOf("nope"), true, emptyList())
+
+        assertThat(bridge(result = none).cosmetic("https://site.test/")).isEqualTo("{}")
+    }
+
+    @Test
+    fun cosmetic_sendsNoProceduralFiltersForChallengePagesOrWhenAdsAreOff() {
+        val withProcedural = resources.copy(procedural = listOf(removeFilter))
+
+        assertThat(bridge(result = withProcedural).cosmetic("https://challenges.cloudflare.com/turnstile")).isEqualTo("{}")
+        assertThat(bridge(ads = { false }, result = withProcedural).cosmetic("https://site.test/")).isEqualTo("{}")
+    }
+
+    @Test
+    fun cosmetic_sendsNoProceduralFiltersOnAllowlistedSites() {
+        val b = ContentBlockingBridge(
+            isEnabledProvider = { true },
+            cosmeticProvider = { _, _, _ -> resources.copy(procedural = listOf(removeFilter)) },
+            isSiteAllowlisted = { true },
+        )
+
+        assertThat(b.cosmetic("https://site.test/")).isEqualTo("{}")
+    }
+
     @Test
     fun isEnabled_followsTheAdsProviderWithoutStackOverflow() {
         var flag = true

@@ -23,7 +23,7 @@ python3 tools/fixture_server.py --self-test 2>/dev/null
 if command -v node >/dev/null 2>&1; then
     echo "==> Checking the uBO scriptlet bundle..."
     node tools/build_scriptlets.mjs --check
-    node_out=$(node --test tools/build_scriptlets.test.mjs 2>&1) || { echo "$node_out"; exit 1; }
+    node_out=$(node --test tools/build_scriptlets.test.mjs tools/procedural_runner.test.mjs 2>&1) || { echo "$node_out"; exit 1; }
     echo "$node_out" | grep -E "^# (tests|pass|fail)"
 else
     echo "==> node not found: skipping the scriptlet bundle check"
