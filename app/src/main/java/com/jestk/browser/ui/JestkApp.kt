@@ -158,6 +158,7 @@ fun JestkApp(
                         uiState = uiState,
                         onEvent = viewModel::onEvent,
                         shouldInterceptForCleanPlayer = viewModel::shouldInterceptForCleanPlayer,
+                        liveUiState = { viewModel.uiState.value },
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

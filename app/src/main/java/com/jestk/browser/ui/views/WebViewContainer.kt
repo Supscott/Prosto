@@ -64,6 +64,7 @@ fun WebViewContainer(
     onEvent: (BrowserUiEvent) -> Unit,
     modifier: Modifier = Modifier,
     shouldInterceptForCleanPlayer: (String) -> Boolean = { false },
+    liveUiState: (() -> BrowserUiState)? = null,
 ) {
     val isDark = LocalIsDarkTheme.current
     val vibration = LocalVibrationFeedback.current
@@ -110,7 +111,10 @@ fun WebViewContainer(
     val clientDeps = remember(webViewPool) {
         WebViewClientDeps(
             webViewPool = webViewPool,
-            uiState = { currentUiState },
+            // WebView callbacks run on other threads right after an event: they must read the
+            // ViewModel's live state, not the last composed one (Proceed on a block page updates
+            // the allowance and loads the URL in the same call).
+            uiState = { liveUiState?.invoke() ?: currentUiState },
             onEvent = { currentOnEvent(it) },
             isDark = { currentIsDark },
             shouldInterceptForCleanPlayer = { currentShouldInterceptForCleanPlayer(it) },
