@@ -335,15 +335,20 @@ class WebViewPoolRobolectricTest {
         val maliciousDisposition = "attachment; filename=\"safe\\nInjected: True';\");\""
         val mimeType = "application/pdf"
 
-        val js = webViewPool.buildBlobDownloadScript(blobUrl, maliciousDisposition, mimeType)
+        val js = BlobDownloadScript.build(blobUrl, maliciousDisposition, mimeType)
 
         val quotedUrl = org.json.JSONObject.quote(blobUrl)
         val quotedMime = org.json.JSONObject.quote(mimeType)
 
         // Verifies parameters are wrapped in quotes and embedded safely
         assertThat(js).contains("xhr.open('GET', $quotedUrl, true);")
-        assertThat(js).contains("window.JestkBlobBridge.onBlobDownloaded($quotedUrl, reader.result,")
+        assertThat(js).contains("direct.onBlobDownloaded($quotedUrl, dataUrl,")
         assertThat(js).contains(quotedMime)
+        // The bridge has a random name and is reached through an event of that name, never a fixed global.
+        val quotedBridge = org.json.JSONObject.quote(com.jestk.browser.engine.adblock.ContentBlockingSetup.blobBridgeName)
+        assertThat(js).contains("window[$quotedBridge]")
+        assertThat(js).contains("new CustomEvent($quotedBridge, { detail: [$quotedUrl, dataUrl,")
+        assertThat(js).doesNotContain("JestkBlobBridge")
     }
 
     @Test

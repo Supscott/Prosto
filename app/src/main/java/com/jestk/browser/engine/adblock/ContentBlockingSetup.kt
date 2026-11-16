@@ -30,10 +30,21 @@ object ContentBlockingSetup {
     private const val NAME_LENGTH = 14
 
     /** Letters only, not starting with an underscore; generated once per process. */
-    internal val bridgeName: String by lazy {
+    internal val bridgeName: String by lazy { randomName() }
+
+    /**
+     * Name of the blob download bridge (registered by WebViewPool). The bootstrap captures and
+     * deletes it like [bridgeName], and the blob download script reaches it through a window event
+     * of this type, which no page listens for because it cannot know the name.
+     */
+    internal val blobBridgeName: String by lazy {
+        generateSequence { randomName() }.first { it != bridgeName }
+    }
+
+    private fun randomName(): String {
         val letters = ('a'..'z') + ('A'..'Z')
         val random = SecureRandom()
-        String(CharArray(NAME_LENGTH) { letters[random.nextInt(letters.size)] })
+        return String(CharArray(NAME_LENGTH) { letters[random.nextInt(letters.size)] })
     }
 
     /** Without document-start scripts there is no cosmetic filtering: network blocking only. */
@@ -45,7 +56,7 @@ object ContentBlockingSetup {
         try {
             WebViewCompat.addDocumentStartJavaScript(
                 webView,
-                AdBlockerScript.buildBootstrapScript(webView.context, bridgeName),
+                AdBlockerScript.buildBootstrapScript(webView.context, bridgeName, blobBridgeName),
                 setOf("*"),
             )
         } catch (t: Throwable) {

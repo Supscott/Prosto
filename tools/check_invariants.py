@@ -314,6 +314,9 @@ def check_injected_script_stealth():
                 errors.append(f"{rel}: {why} ({needle!r})")
         if "addJavascriptInterface(" in content and file.name not in bridge_files:
             errors.append(f"{rel}: addJavascriptInterface outside the reviewed bridge files")
+        # Site WebViews: a fixed bridge name is a window global any page can enumerate.
+        if file.name in {"WebViewPool.kt", "ContentBlockingSetup.kt"} and re.search(r'addJavascriptInterface\([^)]*,\s*"', content):
+            errors.append(f"{rel}: site WebView bridge registered under a fixed name (use a random, captured-and-deleted name)")
         if file.name not in {"JestkWebViewClient.kt", "WebViewClientBinder.kt"} and re.search(r"\bJestkWebViewClient\(", content):
             errors.append(f"{rel}: builds JestkWebViewClient outside WebViewClientBinder.kt")
     assets = MAIN_DIR / "assets"

@@ -20,6 +20,7 @@ object AdBlockerScript {
     private const val SCRIPTLETS_PLACEHOLDER = "/*@@SCRIPTLETS@@*/"
     private const val YOUTUBE_PLACEHOLDER = "/*@@YOUTUBE_FAST_START@@*/"
     private const val BRIDGE_PLACEHOLDER = "@@BRIDGE_NAME@@"
+    private const val BLOB_BRIDGE_PLACEHOLDER = "@@BLOB_BRIDGE_NAME@@"
 
     private val assetCache = ConcurrentHashMap<String, String>()
 
@@ -43,10 +44,11 @@ object AdBlockerScript {
      * challenges, relays fullscreen orientation locks, runs the list scriptlets and applies
      * list-driven cosmetic CSS (site rules, then generic class/id rules as the page's DOM grows).
      */
-    fun buildBootstrapScript(context: Context, bridgeName: String): String {
+    fun buildBootstrapScript(context: Context, bridgeName: String, blobBridgeName: String): String {
         return readAsset(context, BOOTSTRAP_ASSET)
             .replace(YOUTUBE_PLACEHOLDER, buildYouTubeFastStartScript(context))
             .replace(SCRIPTLETS_PLACEHOLDER, readAsset(context, SCRIPTLETS_ASSET))
+            .replace(BLOB_BRIDGE_PLACEHOLDER, blobBridgeName)
             .replace(BRIDGE_PLACEHOLDER, bridgeName)
     }
 

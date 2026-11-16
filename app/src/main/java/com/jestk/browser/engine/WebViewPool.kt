@@ -519,7 +519,7 @@ class WebViewPool(
                         handleDataUrlDownload(dataUrl, contentDisposition, mimeType, webView.context)
                     }
                 }
-                webView.addJavascriptInterface(blobBridge, "JestkBlobBridge")
+                webView.addJavascriptInterface(blobBridge, ContentBlockingSetup.blobBridgeName)
             } catch (t: Throwable) {
                 Log.w(TAG, "Failed to add BlobDownloadBridge interface", t)
             }
@@ -689,7 +689,7 @@ class WebViewPool(
         Log.d(TAG, "Preparing blob download: $blobUrl")
 
         pendingBlobUrls.add(blobUrl)
-        val js = buildBlobDownloadScript(blobUrl, contentDisposition, mimeType)
+        val js = BlobDownloadScript.build(blobUrl, contentDisposition, mimeType)
 
         try {
             webView.post {
@@ -699,52 +699,6 @@ class WebViewPool(
             Log.e(TAG, "Failed to evaluate blob download script", t)
             Toast.makeText(targetContext, downloadFailedText(targetContext, t), Toast.LENGTH_SHORT).show()
         }
-    }
-
-    internal fun buildBlobDownloadScript(
-        blobUrl: String,
-        contentDisposition: String?,
-        mimeType: String?
-    ): String {
-        val jsonUrl = org.json.JSONObject.quote(blobUrl)
-        val jsonDisposition = org.json.JSONObject.quote(contentDisposition ?: "")
-        val jsonMime = org.json.JSONObject.quote(mimeType ?: "")
-
-        return """
-            (function() {
-                try {
-                    var xhr = new XMLHttpRequest();
-                    xhr.open('GET', $jsonUrl, true);
-                    xhr.responseType = 'blob';
-                    xhr.onload = function() {
-                        if (this.status === 200 || this.status === 0) {
-                            var reader = new FileReader();
-                            reader.onloadend = function() {
-                                if (window.JestkBlobBridge) {
-                                    window.JestkBlobBridge.onBlobDownloaded($jsonUrl, reader.result, $jsonDisposition, $jsonMime);
-                                }
-                            };
-                            reader.readAsDataURL(this.response);
-                        }
-                    };
-                    xhr.onerror = function() {
-                        fetch($jsonUrl)
-                            .then(function(r) { return r.blob(); })
-                            .then(function(b) {
-                                var reader = new FileReader();
-                                reader.onloadend = function() {
-                                    if (window.JestkBlobBridge) {
-                                        window.JestkBlobBridge.onBlobDownloaded($jsonUrl, reader.result, $jsonDisposition, $jsonMime);
-                                    }
-                                };
-                                reader.readAsDataURL(b);
-                            })
-                            .catch(function(err) {});
-                    };
-                    xhr.send();
-                } catch(e) {}
-            })();
-        """.trimIndent()
     }
 
     /**

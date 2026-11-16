@@ -3,6 +3,19 @@
     // before anything else so no page script can see or call it.
     var bridge = window['@@BRIDGE_NAME@@'];
     try { delete window['@@BRIDGE_NAME@@']; } catch (e) {}
+    // The blob download bridge is hidden the same way. The download script that the app runs
+    // later reaches it through a window event whose type is the bridge's random name.
+    var blobBridge = window['@@BLOB_BRIDGE_NAME@@'];
+    try { delete window['@@BLOB_BRIDGE_NAME@@']; } catch (e) {}
+    if (blobBridge) {
+        try {
+            window.addEventListener('@@BLOB_BRIDGE_NAME@@', function(event) {
+                var d = event.detail;
+                if (!d || d.length !== 4) return;
+                try { blobBridge.onBlobDownloaded(String(d[0]), String(d[1]), String(d[2]), String(d[3])); } catch (e) {}
+            });
+        } catch (e) {}
+    }
     try {
         var h = (location.hostname || '').toLowerCase();
         var p = (location.pathname || '').toLowerCase();
