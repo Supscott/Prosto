@@ -91,6 +91,11 @@
     <string name="about_app_github_title">Source Code on GitHub</string>
     <string name="about_app_github_summary">github.com/Supscott/Prosto</string>
     <string name="about_love_footer">Crafted with love for a fast and private web</string>
+    <string name="background_playback_title">Background playback</string>
+    <string name="background_playback_summary">Keep playing video and audio when the screen is off or the app is in the background</string>
+    <string name="background_playback_channel_name">Background playback</string>
+    <string name="background_playback_pause">Pause</string>
+    <string name="background_playback_play">Play</string>
     <string name="vibration_setting_title">Vibration</string>
     <string name="vibration_setting_summary">Vibrate on gestures and long press</string>
     <string name="gray_unloaded_tabs_title">Gray unloaded tabs</string>

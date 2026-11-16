@@ -91,6 +91,11 @@
     <string name="about_app_github_title">Исходный код на GitHub</string>
     <string name="about_app_github_summary">github.com/Supscott/Prosto</string>
     <string name="about_love_footer">Создано с любовью для быстрого и приватного веба</string>
+    <string name="background_playback_title">Фоновое воспроизведение</string>
+    <string name="background_playback_summary">Продолжать воспроизведение видео и аудио при выключенном экране или в фоне</string>
+    <string name="background_playback_channel_name">Фоновое воспроизведение</string>
+    <string name="background_playback_pause">Пауза</string>
+    <string name="background_playback_play">Играть</string>
     <string name="vibration_setting_title">Вибрация</string>
     <string name="vibration_setting_summary">Вибрация при жестах и долгом нажатии</string>
     <string name="update_setting_title">Автоматическая проверка обновлений</string>

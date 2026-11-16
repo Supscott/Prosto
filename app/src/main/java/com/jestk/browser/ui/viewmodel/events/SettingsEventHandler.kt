@@ -8,6 +8,7 @@ import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.DownloadCoordinator
 import com.jestk.browser.ui.viewmodel.SearchCoordinator
+import com.jestk.browser.ui.viewmodel.SetBackgroundPlaybackEnabled
 import com.jestk.browser.ui.viewmodel.SettingsUiEvent
 import com.jestk.browser.ui.viewmodel.UpdateCoordinator
 import kotlinx.coroutines.CoroutineDispatcher
@@ -124,6 +125,13 @@ internal class SettingsEventHandler(
                 updateUiState { it.copy(settings = it.settings.copy(isGrayUnloadedTabsEnabled = event.enabled)) }
                 scope.launch(ioDispatcher) {
                     settingsRepository.setGrayUnloadedTabsEnabled(event.enabled)
+                }
+            }
+
+            is SetBackgroundPlaybackEnabled -> {
+                updateUiState { it.copy(settings = it.settings.copy(isBackgroundPlaybackEnabled = event.enabled)) }
+                scope.launch(ioDispatcher) {
+                    settingsRepository.setBackgroundPlaybackEnabled(event.enabled)
                 }
             }
 

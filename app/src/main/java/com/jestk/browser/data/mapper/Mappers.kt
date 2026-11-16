@@ -168,6 +168,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
     val feedbackPromptSnoozedUntil = map[SettingKeys.FEEDBACK_PROMPT_SNOOZED_UNTIL]?.toLongOrNull() ?: 0L
     val isHomePrivacyCardEnabled = map[SettingKeys.HOME_PRIVACY_CARD_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isTutorialCompleted = map[SettingKeys.TUTORIAL_COMPLETED]?.toBooleanStrictOrNull() ?: false
+    val isBackgroundPlaybackEnabled = map[SettingKeys.BACKGROUND_PLAYBACK_ENABLED]?.toBooleanStrictOrNull() ?: false
 
     val hiddenEngines =
         map[SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES]
@@ -195,6 +196,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
         feedbackPromptSnoozedUntil = feedbackPromptSnoozedUntil,
         isHomePrivacyCardEnabled = isHomePrivacyCardEnabled,
         isTutorialCompleted = isTutorialCompleted,
+        isBackgroundPlaybackEnabled = isBackgroundPlaybackEnabled,
     )
 }
 

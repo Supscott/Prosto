@@ -99,6 +99,7 @@ fun CleanVideoPlayerOverlay(
     onClose: () -> Unit,
     onOpenOnWeb: (String) -> Unit,
     modifier: Modifier = Modifier,
+    keepPlayingInBackground: Boolean = false,
 ) {
     var playerWebView by remember { mutableStateOf<WebView?>(null) }
     var isPlaybackRestricted by remember { mutableStateOf(false) }
@@ -147,10 +148,10 @@ fun CleanVideoPlayerOverlay(
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner, playerWebView) {
+    DisposableEffect(lifecycleOwner, playerWebView, keepPlayingInBackground) {
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_PAUSE -> playerWebView?.onPause()
+                Lifecycle.Event.ON_PAUSE -> if (!keepPlayingInBackground) playerWebView?.onPause()
                 Lifecycle.Event.ON_RESUME -> playerWebView?.onResume()
                 else -> {}
             }

@@ -18,6 +18,7 @@ data class BrowserSettings(
     val feedbackPromptSnoozedUntil: Long = 0L,
     val isHomePrivacyCardEnabled: Boolean = true,
     val isTutorialCompleted: Boolean = false,
+    val isBackgroundPlaybackEnabled: Boolean = false,
 ) {
     val isAutoConsentEnabled: Boolean
         get() = autoConsentEnabled

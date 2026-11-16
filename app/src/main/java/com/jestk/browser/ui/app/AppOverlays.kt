@@ -118,6 +118,7 @@ internal fun AppOverlays(
             onClose = { onEvent(BrowserUiEvent.CloseCleanPlayer) },
             onOpenOnWeb = { url -> onEvent(BrowserUiEvent.OpenCleanPlayerOnWeb(url)) },
             modifier = Modifier.fillMaxSize(),
+            keepPlayingInBackground = uiState.settings.isBackgroundPlaybackEnabled,
         )
     }
 }

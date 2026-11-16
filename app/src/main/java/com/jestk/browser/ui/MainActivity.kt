@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.jestk.browser.JestkApplication
+import com.jestk.browser.engine.media.BackgroundPlaybackController
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.engine.AdBlockerEngine
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHostOwner {
     private lateinit var viewModel: BrowserViewModel
+    private lateinit var backgroundPlayback: BackgroundPlaybackController
     override val fullscreenViewHost: FullscreenViewHost by lazy { FullscreenViewHost(this) }
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -146,6 +148,7 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
         AdBlockerEngine.initialize(applicationContext)
 
         viewModel = ViewModelProvider(this, container.viewModelFactory)[BrowserViewModel::class.java]
+        backgroundPlayback = BackgroundPlaybackController(this, container.webViewPool)
         viewModel.updateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(this))
         checkNotificationPermission()
 
@@ -162,6 +165,13 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
                 .map { it.themeMode }
                 .distinctUntilChanged()
                 .collect { applyAppNightMode(it) }
+        }
+
+        lifecycleScope.launch {
+            container.settingsRepository.getSettings()
+                .map { it.isBackgroundPlaybackEnabled }
+                .distinctUntilChanged()
+                .collect { enabled -> if (!enabled) backgroundPlayback.stop() }
         }
 
         setContent {
@@ -203,8 +213,20 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
         viewModel.onAppResume()
     }
 
+    override fun onPause() {
+        super.onPause()
+        val state = viewModel.uiState.value
+        backgroundPlayback.onActivityPaused(
+            enabled = state.settings.isBackgroundPlaybackEnabled,
+            inPictureInPicture = isInPictureInPictureMode,
+            changingConfigurations = isChangingConfigurations,
+            tab = state.tabs.find { it.id == state.activeTabId },
+        )
+    }
+
     override fun onResume() {
         super.onResume()
+        backgroundPlayback.onActivityResumed()
         viewModel.updateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(this))
     }
 
@@ -263,12 +285,14 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
 
     override fun onStop() {
         super.onStop()
+        backgroundPlayback.onActivityStopped()
         // The process may be killed while in the background; keep every tab's history.
         (application as JestkApplication).container.webViewPool.saveAllStates()
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        if (isFinishing) backgroundPlayback.stop()
         filePathCallback?.onReceiveValue(null)
         filePathCallback = null
     }
