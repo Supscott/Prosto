@@ -79,8 +79,6 @@ fun BlockedAdNavigationBanner(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     modifier: Modifier = Modifier,
-    isDocument: Boolean = false,
-    onGoBack: () -> Unit = onDismiss,
 ) {
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     val coroutineScope = rememberCoroutineScope()
@@ -195,7 +193,7 @@ fun BlockedAdNavigationBanner(
                 contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
             ) {
                 Text(
-                    text = stringResource(if (isDocument) R.string.blocked_document_proceed else R.string.blocked_ad_navigation_proceed),
+                    text = stringResource(R.string.blocked_ad_navigation_proceed),
                     color = mutedColor,
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Medium),
                 )
@@ -203,7 +201,7 @@ fun BlockedAdNavigationBanner(
             Spacer(modifier = Modifier.width(4.dp))
             // "Stay" (right, accent background)
             Button(
-                onClick = if (isDocument) onGoBack else onDismiss,
+                onClick = onDismiss,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = ProstoBrandPrimary,
                     contentColor = Color.White,
@@ -213,7 +211,7 @@ fun BlockedAdNavigationBanner(
                 elevation = null,
             ) {
                 Text(
-                    text = stringResource(if (isDocument) R.string.blocked_document_go_back else R.string.blocked_ad_navigation_stay),
+                    text = stringResource(R.string.blocked_ad_navigation_stay),
                     style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
                 )
             }

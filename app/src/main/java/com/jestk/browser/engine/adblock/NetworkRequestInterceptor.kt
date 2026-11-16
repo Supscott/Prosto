@@ -21,6 +21,7 @@ class NetworkRequestInterceptor(
     private val isDocumentAllowed: (url: String) -> Boolean = { false },
     private val siteAllowlist: SiteAllowlist = SiteAllowlist.shared,
     private val onBlockedResource: ((url: String, isTracker: Boolean) -> Unit)? = null,
+    /** A block page replaces the main-frame document of [url]; runs before the page commits. */
     private val onBlockedDocument: ((url: String) -> Unit)? = null,
 ) {
     /** Same for a tab WebView: its page URL and workspace feed the allowlist check. */
@@ -57,8 +58,12 @@ class NetworkRequestInterceptor(
                 AdBlockerEngine.recordBlockedRequest(false)
                 onBlockedDocument?.invoke(verdict.url)
                 BlockPage.response(
-                    title = context?.getString(R.string.blocked_document_title).orEmpty(),
-                    body = context?.getString(R.string.blocked_document_body).orEmpty(),
+                    text = BlockPageText(
+                        title = context?.getString(R.string.blocked_document_title).orEmpty(),
+                        body = context?.getString(R.string.blocked_document_body).orEmpty(),
+                        goBack = context?.getString(R.string.blocked_document_go_back).orEmpty(),
+                        proceed = context?.getString(R.string.blocked_document_proceed).orEmpty(),
+                    ),
                     host = UrlSecurityUtils.extractDisplayHost(verdict.url),
                 )
             }

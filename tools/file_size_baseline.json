@@ -1,6 +1,6 @@
 {
   "app/src/main/java/com/jestk/browser/engine/ExternalAppResolver.kt": 648,
-  "app/src/main/java/com/jestk/browser/engine/JestkWebViewClient.kt": 675,
+  "app/src/main/java/com/jestk/browser/engine/JestkWebViewClient.kt": 614,
   "app/src/main/java/com/jestk/browser/engine/WebViewPool.kt": 868,
   "app/src/main/java/com/jestk/browser/engine/download/HoriDownloadManager.kt": 591,
   "app/src/main/java/com/jestk/browser/ui/navigation/TabStripDragState.kt": 974,

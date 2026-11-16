@@ -41,6 +41,7 @@ internal class TabClosing(
         pendingExternalAppPrompts.remove(tabId)
         timedOutExternalAppDomains.remove(tabId)
         webViewPool?.removeWebView(tabId)
+        ctx.forgetDocumentAllowances(tabId)
         WebViewStateStore.onTabClosed(tabId)
         if (tabId in getCurrentState().externalAppTabIds) {
             updateUiState { it.copy(externalAppTabIds = it.externalAppTabIds - tabId) }
@@ -247,6 +248,7 @@ internal class TabClosing(
         pendingExternalAppPrompts.clear()
         timedOutExternalAppDomains.clear()
         webViewPool?.clearAll()
+        ctx.forgetDocumentAllowances()
         WebViewStateStore.deleteAll()
         scope.launch(ioDispatcher) {
             SnapshotEngine.deleteAllSnapshots()

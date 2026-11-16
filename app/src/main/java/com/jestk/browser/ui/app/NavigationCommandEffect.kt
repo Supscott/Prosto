@@ -7,6 +7,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.engine.adblock.goBackPastBlockPages
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.util.findActivity
@@ -43,7 +44,7 @@ internal fun NavigationCommandEffect(
                 }
 
                 is NavigationCommand.GoBack -> {
-                    webViewPool.getWebView(activeId)?.goBack()
+                    webViewPool.getWebView(activeId)?.goBackPastBlockPages()
                 }
 
                 is NavigationCommand.GoForward -> {

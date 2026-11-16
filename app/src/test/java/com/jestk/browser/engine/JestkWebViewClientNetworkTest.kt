@@ -3,6 +3,9 @@ package com.jestk.browser.engine
 import android.webkit.WebView
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import com.jestk.browser.engine.adblock.BlockPage
+import com.jestk.browser.engine.adblock.BlockPageAction
+import com.jestk.browser.engine.adblock.BlockPageActions
 import com.jestk.browser.engine.adblock.EngineSet
 import com.jestk.browser.engine.adblock.FakeContentMatcher
 import com.jestk.browser.engine.adblock.MatchResult
@@ -29,7 +32,7 @@ class JestkWebViewClientNetworkTest {
     private val privacy = FakeContentMatcher(blocked = mapOf("tracker.example/t.js" to block))
 
     private val blockedResources = mutableListOf<Pair<String, Boolean>>()
-    private val blockedDocuments = mutableListOf<Pair<String, String>>()
+    private val blockPageActions = mutableListOf<Triple<String, BlockPageAction, String>>()
     private var allowedHost: String? = null
 
     @Before
@@ -51,8 +54,8 @@ class JestkWebViewClientNetworkTest {
         onSnapshotReady = { _, _ -> },
         onBlockedResource = { url, tracker -> blockedResources += url to tracker },
         isTrackingProtectionEnabled = { trackersOn },
-        onBlockedDocument = { id, url -> blockedDocuments += id to url },
-        isAllowedAdNavigation = { url -> allowedHost?.let { url.contains(it) } == true },
+        isDocumentAllowed = { url -> allowedHost?.let { url.contains(it) } == true },
+        onBlockPageAction = { id, action, url -> blockPageActions += Triple(id, action, url) },
     )
 
     private fun request(url: String, mainFrame: Boolean = false) = object : android.webkit.WebResourceRequest {
@@ -103,7 +106,7 @@ class JestkWebViewClientNetworkTest {
     }
 
     @Test
-    fun mainFrameDocumentMatch_servesTheLocalBlockPageAndFiresTheCallback() {
+    fun mainFrameDocumentMatch_servesTheLocalBlockPageWithItsButtons() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val view = WebView(context)
 
@@ -113,7 +116,9 @@ class JestkWebViewClientNetworkTest {
         val html = response.data.readBytes().toString(Charsets.UTF_8)
         assertThat(html).contains(context.getString(com.jestk.browser.R.string.blocked_document_title))
         assertThat(html).doesNotContain("<script")
-        assertThat(blockedDocuments).containsExactly("tab_1" to "https://doc-blocked.example/x")
+        assertThat(html).contains(BlockPageActions.url(BlockPageAction.PROCEED))
+        assertThat(html).contains(BlockPageActions.url(BlockPageAction.GO_BACK))
+        assertThat(html).contains(BlockPage.TITLE_MARKER)
         assertThat(blockedResources).isEmpty()
     }
 
@@ -122,7 +127,6 @@ class JestkWebViewClientNetworkTest {
         val response = client().shouldInterceptRequest(null, request("https://news.example/", mainFrame = true))
 
         assertThat(response).isNull()
-        assertThat(blockedDocuments).isEmpty()
     }
 
     @Test
@@ -132,6 +136,42 @@ class JestkWebViewClientNetworkTest {
         val response = client().shouldInterceptRequest(null, request("https://doc-blocked.example/x", mainFrame = true))
 
         assertThat(response).isNull()
-        assertThat(blockedDocuments).isEmpty()
+    }
+
+    private fun blockPageView(title: String = "Page blocked${BlockPage.TITLE_MARKER}", url: String = "https://doc-blocked.example/x"): WebView {
+        val context = ApplicationProvider.getApplicationContext<android.content.Context>()
+        return object : WebView(context) {
+            override fun getTitle() = title
+            override fun getUrl() = url
+        }
+    }
+
+    @Test
+    fun blockPageButtons_reportTheActionAndNeverLoad() {
+        val c = client()
+        val view = blockPageView()
+
+        val proceed = c.shouldOverrideUrlLoading(view, request(BlockPageActions.url(BlockPageAction.PROCEED), mainFrame = true))
+        val back = c.shouldOverrideUrlLoading(view, request(BlockPageActions.url(BlockPageAction.GO_BACK), mainFrame = true))
+
+        assertThat(proceed).isTrue()
+        assertThat(back).isTrue()
+        assertThat(blockPageActions).containsExactly(
+            Triple("tab_1", BlockPageAction.PROCEED, "https://doc-blocked.example/x"),
+            Triple("tab_1", BlockPageAction.GO_BACK, "https://doc-blocked.example/x"),
+        ).inOrder()
+    }
+
+    @Test
+    fun forgedBlockPageAction_doesNothing() {
+        val c = client()
+
+        // Wrong token on a block page, and a right token while no block page is showing.
+        assertThat(c.shouldOverrideUrlLoading(blockPageView(), request("prosto-block://proceed/forged", mainFrame = true))).isTrue()
+        val normalPage = blockPageView(title = "News", url = "https://news.example/")
+        assertThat(c.shouldOverrideUrlLoading(normalPage, request(BlockPageActions.url(BlockPageAction.PROCEED), mainFrame = true))).isTrue()
+        assertThat(c.shouldOverrideUrlLoading(null, request(BlockPageActions.url(BlockPageAction.PROCEED), mainFrame = true))).isTrue()
+
+        assertThat(blockPageActions).isEmpty()
     }
 }
