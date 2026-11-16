@@ -1,7 +1,8 @@
 package com.jestk.browser.ui.overlays
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Density
@@ -79,8 +80,12 @@ fun HomePreview(
         CompositionLocalProvider(
             LocalDensity provides Density(baseDensity.density * fitScale, baseDensity.fontScale),
         ) {
+            // Top-aligned: on screens taller than the slot the bottom is cropped, never the top.
+            // A bare requiredSize larger than the slot would be centred and cut off the header.
             Box(
-                modifier = Modifier.requiredSize(screenWidthDp, screenHeightDp),
+                modifier = Modifier
+                    .wrapContentSize(Alignment.TopStart, unbounded = true)
+                    .size(screenWidthDp, screenHeightDp),
             ) {
                 HomeScreen(
                     uiState = previewState,
