@@ -52,6 +52,11 @@ class NavigationGuard(
     private val extractHost: (String) -> String = UrlSecurityUtils::extractHost,
     private val isSearchHost: (String) -> Boolean = UrlSecurityUtils::isSearchEngineHost,
     private val isAuthHost: (String) -> Boolean = UrlSecurityUtils::isAuthOrSecurityHost,
+    /**
+     * Whether a listed URL that is let through gets the `$document` block page. True once the
+     * native engine is loaded: the ad list check above is then the same `$document` check.
+     */
+    private val isBlockPageAvailable: () -> Boolean = AdBlockerEngine::isNativeReady,
 ) {
     fun evaluate(nav: GuardedNavigation, settings: GuardSettings): GuardVerdict {
         val url = nav.url
@@ -59,7 +64,12 @@ class NavigationGuard(
         val adBlockActive = settings.adBlockActive && !isSiteAllowlisted(nav.currentUrl, nav.workspaceId)
         if (!adBlockActive && !settings.redirectProtectionActive) return GuardVerdict.ALLOW
 
-        if (adBlockActive && isListedAdUrl(url)) return GuardVerdict.BLOCK_LISTED
+        // A tapped link to a listed host gets the block page, which explains and offers both
+        // "Go back" and "Proceed anyway"; stopping it here as well would ask twice. A script jump
+        // without a tap is still stopped here, so the user stays on the page they were reading.
+        if (adBlockActive && isListedAdUrl(url) && !(nav.hasGesture && isBlockPageAvailable())) {
+            return GuardVerdict.BLOCK_LISTED
+        }
 
         val current = nav.currentUrl
         if (current.isNullOrBlank() || current == "about:blank") return GuardVerdict.ALLOW

@@ -30,7 +30,20 @@ class NavigationGuardTest {
     ) = GuardedNavigation(tab, url, current, gesture, redirect)
 
     @Test
-    fun listedUrlIsBlockedEvenWithAGesture() {
+    fun tappedListedUrl_isLeftToTheBlockPageOnceTheEngineIsLoaded() {
+        listed += "https://ads.example/click"
+        val withBlockPage = NavigationGuard(
+            popunderDetector = detector,
+            isListedAdUrl = { it in listed },
+            isBlockPageAvailable = { true },
+        )
+        assertThat(withBlockPage.evaluate(nav("https://ads.example/click", gesture = true), on)).isEqualTo(GuardVerdict.ALLOW)
+        // A script jump to it without a tap is still stopped, so the reader stays on the page.
+        assertThat(withBlockPage.evaluate(nav("https://ads.example/click"), on)).isEqualTo(GuardVerdict.BLOCK_LISTED)
+    }
+
+    @Test
+    fun listedUrlIsBlockedEvenWithAGesture_whileThereIsNoBlockPage() {
         listed += "https://ads.example/click"
         assertThat(guard.evaluate(nav("https://ads.example/click", gesture = true), on)).isEqualTo(GuardVerdict.BLOCK_LISTED)
     }
