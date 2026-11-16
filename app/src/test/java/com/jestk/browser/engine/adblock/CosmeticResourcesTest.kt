@@ -20,6 +20,13 @@ class CosmeticResourcesTest {
         assertEquals(listOf(listOf("json-prune", "a"), listOf("abort-on-property-read", "b", "c")), r.scriptlets)
     }
 
+    @Test fun proceduralEntriesStayJsonStrings() {
+        val filter = """{"selector":[{"type":"css-selector","arg":".a"},{"type":"has-text","arg":"x"}]}"""
+        val json = org.json.JSONObject().put("procedural", org.json.JSONArray().put(filter)).toString()
+
+        assertEquals(listOf(filter), CosmeticResources.parse(json).procedural)
+    }
+
     @Test fun partialJson() {
         val r = CosmeticResources.parse("""{"hide":[".ad"]}""")
         assertEquals(CosmeticResources.EMPTY.copy(hideSelectors = listOf(".ad")), r)

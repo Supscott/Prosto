@@ -16,9 +16,9 @@ builds need no Rust.
 
 ## Pinned versions
 
-`adblock =0.13.5` (features `embedded-domain-resolver`, `full-regex-handling`; default features off,
+`adblock =0.13.5` (features `embedded-domain-resolver`, `full-regex-handling`, `css-validation`; default features off,
 which drops `single-thread`), `jni =0.21.1`, Rust stable, NDK r28 (`28.2.13676358`), platform 26.
-`nativeVersion()` returns `1-adblock-0.13.5`; the serialized engine format is only valid for the same
+`nativeVersion()` returns `2-adblock-0.13.5`; the serialized engine format is only valid for the same
 crate version, so cache file names must carry it.
 
 ## Rebuild
@@ -74,6 +74,16 @@ engine: call it again after every `createFromSerialized`.
 
 `{"hide":[..],"exceptions":[..],"procedural":[..],"generichide":false,"scriptlets":[["json-prune","a","b"]]}`;
 on error `{}`. Sets are sorted for stable output.
+
+`procedural` holds one JSON-encoded adblock-rust `ProceduralOrActionFilter` string per rule:
+`{"selector":[{"type":"css-selector","arg":".a"},{"type":"has-text","arg":"/foo/i"}],"action":{"type":"remove"}}`.
+`selector` is a list of operators (`css-selector`, `has-text`, `upward`, `xpath`, `matches-css`,
+`matches-css-before`, `matches-css-after`, `matches-attr`, `matches-path`, `min-text-length`; each
+`arg` is a string); `action` is absent (hide) or one of `remove`, `style`, `remove-attr`,
+`remove-class` (`arg` is a string except for `remove`). The `css-validation` crate feature is
+required: without it adblock-rust keeps `.a:has-text(x)` as one opaque CSS selector and puts it
+into `hide`, where it invalidates the whole stylesheet rule it is grouped into (pinned by
+`procedural_operators_are_split_out_of_the_hide_list`).
 
 ## `$popup`
 

@@ -18,6 +18,8 @@ object AdBlockerScript {
     private const val AUTOCONSENT_ASSET = "scripts/autoconsent.js"
     private const val SCRIPTLETS_ASSET = "scripts/scriptlets.js"
     private const val SCRIPTLETS_PLACEHOLDER = "/*@@SCRIPTLETS@@*/"
+    private const val PROCEDURAL_ASSET = "scripts/procedural.js"
+    private const val PROCEDURAL_PLACEHOLDER = "/*@@PROCEDURAL@@*/"
     private const val YOUTUBE_PLACEHOLDER = "/*@@YOUTUBE_FAST_START@@*/"
     private const val BRIDGE_PLACEHOLDER = "@@BRIDGE_NAME@@"
 
@@ -37,16 +39,19 @@ object AdBlockerScript {
 
     /**
      * The document-start bootstrap, from `assets/scripts/content_bootstrap.js`, with the bridge
-     * name, the YouTube scriptlet and the scriptlet bundle (`assets/scripts/scriptlets.js`, a function
-     * expression that stays closure-local) filled in. It runs in every
-     * frame before page scripts: it captures and deletes the hidden bridge global, skips security
-     * challenges, relays fullscreen orientation locks, runs the list scriptlets and applies
-     * list-driven cosmetic CSS (site rules, then generic class/id rules as the page's DOM grows).
+     * name, the YouTube scriptlet, the scriptlet bundle (`assets/scripts/scriptlets.js`) and the
+     * procedural cosmetic runner (`assets/scripts/procedural.js`) filled in; the last two are function
+     * expressions that stay closure-local and are evaluated only by frames that need them. It runs in
+     * every frame before page scripts: it captures and deletes the hidden bridge global, skips
+     * security challenges, relays fullscreen orientation locks, runs the list scriptlets and applies
+     * list-driven cosmetic CSS (site rules, then generic class/id rules as the page's DOM grows) and
+     * procedural filters.
      */
     fun buildBootstrapScript(context: Context, bridgeName: String): String {
         return readAsset(context, BOOTSTRAP_ASSET)
             .replace(YOUTUBE_PLACEHOLDER, buildYouTubeFastStartScript(context))
             .replace(SCRIPTLETS_PLACEHOLDER, readAsset(context, SCRIPTLETS_ASSET))
+            .replace(PROCEDURAL_PLACEHOLDER, readAsset(context, PROCEDURAL_ASSET))
             .replace(BRIDGE_PLACEHOLDER, bridgeName)
     }
 

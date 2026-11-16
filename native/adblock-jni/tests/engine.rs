@@ -249,3 +249,60 @@ fn standard_lists_answer_generic_class_and_id_selectors() {
     let excepted = hidden_selectors(&e, vec!["advert--banner-wrap".into()], vec![], vec![".advert--banner-wrap".into()]);
     assert!(excepted.iter().all(|s| s != ".advert--banner-wrap"));
 }
+
+fn procedural_of(rules: &str) -> (serde_json::Value, Vec<serde_json::Value>) {
+    let e = engine(&[rules]);
+    let v: serde_json::Value = serde_json::from_str(&cosmetic_json(&e, "https://example.org/p")).unwrap();
+    let parsed = v["procedural"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| serde_json::from_str(s.as_str().expect("JSON string")).unwrap())
+        .collect();
+    (v, parsed)
+}
+
+#[test]
+fn procedural_operators_are_split_out_of_the_hide_list() {
+    let (v, parsed) = procedural_of(
+        "example.org##.a:remove()\nexample.org##.b:style(color: red !important)\n\
+example.org##.c:remove-attr(onclick)\nexample.org##.d:remove-class(x)\n\
+example.org##.e:has-text(/foo/i)\nexample.org##.f:upward(2)\n\
+example.org##div:matches-css(display: block):xpath(//a)\nexample.org##.h:has(.x)\n\
+example.org##.i:min-text-length(5)\nexample.org##.m:has-text(a):remove()\n",
+    );
+    // Native CSS (`:has`) stays in `hide`; no procedural operator leaks into it.
+    assert_eq!(v["hide"], serde_json::json!([".h:has(.x)"]));
+    assert_eq!(parsed.len(), 9);
+    let find = |css: &str| parsed.iter().find(|p| p["selector"][0]["arg"] == css).unwrap_or_else(|| panic!("{css}"));
+    assert_eq!(find(".a")["action"], serde_json::json!({"type": "remove"}));
+    assert_eq!(find(".b")["action"], serde_json::json!({"type": "style", "arg": "color: red !important"}));
+    assert_eq!(find(".c")["action"], serde_json::json!({"type": "remove-attr", "arg": "onclick"}));
+    assert_eq!(find(".d")["action"], serde_json::json!({"type": "remove-class", "arg": "x"}));
+    assert_eq!(find(".e")["selector"][1], serde_json::json!({"type": "has-text", "arg": "/foo/i"}));
+    assert!(find(".e").get("action").is_none());
+    assert_eq!(find(".f")["selector"][1], serde_json::json!({"type": "upward", "arg": "2"}));
+    assert_eq!(find(".i")["selector"][1], serde_json::json!({"type": "min-text-length", "arg": "5"}));
+    assert_eq!(find(".m")["selector"][1]["type"], "has-text");
+    assert_eq!(find(".m")["action"]["type"], "remove");
+    let chain = find("div");
+    assert_eq!(chain["selector"][1], serde_json::json!({"type": "matches-css", "arg": "display: block"}));
+    assert_eq!(chain["selector"][2], serde_json::json!({"type": "xpath", "arg": "//a"}));
+}
+
+#[test]
+fn remaining_operators_serialize_with_string_args() {
+    let (v, parsed) = procedural_of(
+        "example.org##.j:matches-attr(\"a\"=\"b\")\nexample.org##.k:matches-path(/foo)\n\
+example.org##.l:matches-css-before(content: x)\nexample.org##.n:matches-css-after(content: y)\n",
+    );
+    assert_eq!(v["hide"], serde_json::json!([]));
+    let ops: Vec<String> = parsed
+        .iter()
+        .map(|p| format!("{}={}", p["selector"][1]["type"].as_str().unwrap(), p["selector"][1]["arg"].as_str().unwrap()))
+        .collect();
+    assert_eq!(
+        ops,
+        ["matches-attr=\"a\"=\"b\"", "matches-path=/foo", "matches-css-before=content: x", "matches-css-after=content: y"]
+    );
+}

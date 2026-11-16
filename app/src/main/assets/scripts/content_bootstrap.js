@@ -107,6 +107,14 @@
             }
         } catch(e) {}
 
+        // Natives the procedural runner needs, taken before the scriptlets below can patch anything.
+        var proceduralNatives = cosmetic.procedural && cosmetic.procedural.length ? {
+            setTimeout: window.setTimeout,
+            MutationObserver: window.MutationObserver,
+            getComputedStyle: window.getComputedStyle,
+            now: Date.now
+        } : null;
+
         // 3. Scriptlets: list-driven [name, ...args] calls, run synchronously here so they patch the
         // page's main world before any page script. The bundle is closure-local and is evaluated
         // only for frames that have scriptlets; unknown names are ignored.
@@ -157,6 +165,32 @@
         }
         if (cssText) injectStyle();
 
+        // Rules (one per line) appended to the cosmetic stylesheet after the first batch: generic
+        // class/id rules and the procedural runner's marker rules.
+        function appendCosmeticRules(text) {
+            injectStyle();
+            if (cosmeticSheet) {
+                var rules = text.split('\n');
+                for (var i = 0; i < rules.length; i++) {
+                    try { cosmeticSheet.insertRule(rules[i], cosmeticSheet.cssRules.length); } catch(e) {}
+                }
+            } else if (cosmeticStyle) {
+                cosmeticStyle.appendChild(document.createTextNode(text));
+            }
+        }
+
+        // 3b. Procedural cosmetics: list filters that need script (:has-text, :upward, :xpath, :remove(),
+        // :style(), ...). The runner is closure-local and evaluated only for frames that have such
+        // filters; it hides through the cosmetic stylesheet and applies the other actions to the DOM.
+        if (proceduralNatives) {
+            try {
+                proceduralNatives.document = document;
+                proceduralNatives.window = window;
+                proceduralNatives.addRules = appendCosmeticRules;
+                (/*@@PROCEDURAL@@*/)(proceduralNatives, cosmetic.procedural);
+            } catch(e) {}
+        }
+
         // 4. Generic cosmetics: the list's class/id based hide rules apply to whichever classes and
         // ids the page actually uses, so collect them (initial DOM, added nodes, class/id attribute
         // changes), ask the bridge in small batches and append the returned rules. Skipped when the
@@ -205,25 +239,13 @@
                 for (var i = 0; i < all.length && !capped; i++) scanElement(all[i]);
             };
 
-            var appendGenericRules = function(text) {
-                injectStyle();
-                if (cosmeticSheet) {
-                    var rules = text.split('\n');
-                    for (var i = 0; i < rules.length; i++) {
-                        try { cosmeticSheet.insertRule(rules[i], cosmeticSheet.cssRules.length); } catch(e) {}
-                    }
-                } else if (cosmeticStyle) {
-                    cosmeticStyle.appendChild(document.createTextNode(text));
-                }
-            };
-
             var flushTokens = function() {
                 var classes = newClasses.splice(0, GENERIC_BATCH_TOKENS);
                 var ids = newIds.splice(0, GENERIC_BATCH_TOKENS - classes.length);
                 if (!classes.length && !ids.length) return;
                 try {
                     var css = bridge.generic(location.href, classes.join(' '), ids.join(' '));
-                    if (typeof css === 'string' && css.length) appendGenericRules(css);
+                    if (typeof css === 'string' && css.length) appendCosmeticRules(css);
                 } catch(e) {}
             };
 

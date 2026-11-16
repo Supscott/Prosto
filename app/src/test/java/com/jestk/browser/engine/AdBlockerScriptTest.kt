@@ -97,9 +97,15 @@ class AdBlockerScriptTest {
         // The scriptlet bundle patches page globals on purpose when a list rule asks for it
         // (alert-buster, window.name-defuser); the bootstrap itself must assign none.
         val bundle = context.assets.open("scripts/scriptlets.js").bufferedReader().use { it.readText() }.trimEnd()
-        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE).replace(bundle, "")
+        val runnerText = context.assets.open("scripts/procedural.js").bufferedReader().use { it.readText() }.trimEnd()
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE).replace(bundle, "").replace(runnerText, "")
         assertThat(Regex("""window\.[A-Za-z_$][\w$]*\s*=[^=]""").findAll(js).map { it.value }.toList()).isEmpty()
         assertThat(js).doesNotContain("HoriAdBlockBridge")
+        val runner = context.assets.open("scripts/procedural.js").bufferedReader().use { it.readText() }.trimEnd()
+        assertThat(Regex("""(window|win|globalThis|self)\.[A-Za-z_$][\w$]*\s*=[^=]""").findAll(runner).map { it.value }.toList()).isEmpty()
+        assertThat(runner).doesNotContain("window.__")
+        assertThat(runner).doesNotContain("new Function")
+        assertThat(runner).doesNotContain("eval(")
     }
 
     @Test
@@ -261,6 +267,43 @@ class AdBlockerScriptTest {
         assertThat(js).doesNotContain("window.scriptlets")
         assertThat(js).doesNotContain("globalThis.scriptlets")
         assertThat(js).doesNotContain("new Function")
+    }
+
+    @Test
+    fun buildBootstrapScript_inlinesTheProceduralRunnerOnceAndEvaluatesItOnlyWhenFiltersExist() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+        val runner = context.assets.open("scripts/procedural.js").bufferedReader().use { it.readText() }.trimEnd()
+
+        assertThat(js).doesNotContain("@@PROCEDURAL@@")
+        assertThat(js).contains(runner)
+        assertThat(js.split("function prostoProcedural(").size - 1).isEqualTo(1)
+        // The call sits behind the frame's own answer, so frames without procedural filters never run it.
+        assertThat(js).contains("cosmetic.procedural && cosmetic.procedural.length")
+        assertThat(js).contains("(proceduralNatives, cosmetic.procedural)")
+        assertThat(js.indexOf("prostoProcedural")).isGreaterThan(js.indexOf("bridge.cosmetic(location.href)"))
+        assertThat(js.trimStart()).startsWith("(function() {")
+        assertThat(js.trimEnd()).endsWith("})();")
+    }
+
+    @Test
+    fun buildBootstrapScript_takesTheProceduralNativesBeforeTheScriptletsRun() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+
+        val natives = js.indexOf("var proceduralNatives")
+        assertThat(natives).isAtLeast(0)
+        assertThat(natives).isLessThan(js.indexOf("var scriptletMap"))
+        assertThat(js).contains("MutationObserver: window.MutationObserver")
+        assertThat(js).contains("getComputedStyle: window.getComputedStyle")
+    }
+
+    @Test
+    fun buildBootstrapScript_sharesTheCosmeticSheetBetweenGenericAndProceduralRules() {
+        val js = AdBlockerScript.buildBootstrapScript(context, BRIDGE)
+
+        assertThat(js.split("function appendCosmeticRules(").size - 1).isEqualTo(1)
+        assertThat(js).contains("proceduralNatives.addRules = appendCosmeticRules")
+        assertThat(js).contains("appendCosmeticRules(css)")
+        assertThat(js).doesNotContain("appendGenericRules")
     }
 
     @Test

@@ -14,7 +14,7 @@ pub const EXCEPTION: i32 = 4;
 pub const REDIRECT: i32 = 8;
 pub const MATCHED: i32 = 16;
 
-pub const VERSION: &str = concat!("1-adblock-", "0.13.5");
+pub const VERSION: &str = concat!("2-adblock-", "0.13.5");
 
 const _: fn() = || {
     fn assert_send_sync<T: Send + Sync>() {}
