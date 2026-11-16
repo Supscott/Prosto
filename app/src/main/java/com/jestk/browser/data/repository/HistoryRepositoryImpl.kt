@@ -47,6 +47,12 @@ class HistoryRepositoryImpl(
         }
     }
 
+    override suspend fun updateVisitTitle(url: String, title: String, workspaceId: String) = withContext(ioDispatcher) {
+        if (url.isNotBlank() && title.isNotBlank()) {
+            historyDao.updateLatestTitle(url, title, workspaceId)
+        }
+    }
+
     override suspend fun clearHistory(workspaceId: String?) = withContext(ioDispatcher) {
         if (workspaceId != null) {
             historyDao.clearHistoryByWorkspace(workspaceId)

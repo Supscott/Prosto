@@ -308,6 +308,7 @@ class JestkWebViewClient(
         val validUrl = url.orEmpty()
         if (validUrl.isEmpty() || validUrl == "about:blank") return
         navigationState = NavigationState.STARTED
+        startedUrl = validUrl
 
         if (isCleanPlayerEnabled?.invoke() == true) {
             val videoId =
@@ -354,6 +355,7 @@ class JestkWebViewClient(
 
     @Volatile
     private var navigationState = NavigationState.IDLE
+    private var startedUrl: String? = null
 
     /**
      * Progress reached 100%. A page restored from the back/forward cache reports onPageStarted
@@ -460,9 +462,13 @@ class JestkWebViewClient(
             (view as? NestedWebView)?.loadedUrl = validUrl
             onPageStarted(tabId, validUrl)
             checkExternalAppOffer(view, validUrl)
-            val title = view?.title
-            if (!title.isNullOrBlank() && validUrl != blockPageUrl) {
-                onTitleReceived?.invoke(tabId, title)
+            // Only a same-document (history API) navigation already has its own title here; a
+            // cross-document one still reports the previous page's title. Its onPageStarted may
+            // come just before or after this callback, so decide once both have run.
+            view?.post {
+                val crossDocument = navigationState == NavigationState.STARTED && startedUrl == validUrl
+                val title = view.title
+                if (!crossDocument && !title.isNullOrBlank() && validUrl != blockPageUrl) onTitleReceived?.invoke(tabId, title)
             }
         }
         view?.let { wv ->
@@ -530,85 +536,5 @@ class JestkWebViewClient(
         }
 
         fun extractHost(url: String): String = UrlSecurityUtils.extractHost(url)
-
-        fun parseCssColor(raw: String?): Int? {
-            if (raw.isNullOrBlank()) return null
-            val clean = raw.trim().removeSurrounding("\"").trim()
-            if (clean.isEmpty() || clean == "null" || clean.equals("transparent", ignoreCase = true) ||
-                clean == "rgba(0, 0, 0, 0)" || clean == "rgba(0,0,0,0)"
-            ) {
-                return null
-            }
-            if (clean.startsWith("#")) {
-                return try {
-                    val hex = clean.substring(1)
-                    when (hex.length) {
-                        3 -> {
-                            val r = hex[0].toString().repeat(2).toInt(16)
-                            val g = hex[1].toString().repeat(2).toInt(16)
-                            val b = hex[2].toString().repeat(2).toInt(16)
-                            android.graphics.Color.rgb(r, g, b)
-                        }
-
-                        4 -> {
-                            val r = hex[0].toString().repeat(2).toInt(16)
-                            val g = hex[1].toString().repeat(2).toInt(16)
-                            val b = hex[2].toString().repeat(2).toInt(16)
-                            val a = hex[3].toString().repeat(2).toInt(16)
-                            if (a < 25) null else android.graphics.Color.rgb(r, g, b)
-                        }
-
-                        6 -> {
-                            android.graphics.Color.parseColor(clean)
-                        }
-
-                        8 -> {
-                            // CSS hex #RRGGBBAA -> Android Color expects #AARRGGBB
-                            val rr = clean.substring(1, 3).toInt(16)
-                            val gg = clean.substring(3, 5).toInt(16)
-                            val bb = clean.substring(5, 7).toInt(16)
-                            val aa = clean.substring(7, 9).toInt(16)
-                            if (aa < 25) null else android.graphics.Color.rgb(rr, gg, bb)
-                        }
-
-                        else -> {
-                            null
-                        }
-                    }
-                } catch (t: Throwable) {
-                    Log.w("HoriEngine", "Failed to parse CSS hex color: $clean", t)
-                    null
-                }
-            }
-            if (clean.startsWith("rgb", ignoreCase = true)) {
-                return try {
-                    val content = clean.substringAfter("(").substringBefore(")")
-                    val parts = content.split(",").map { it.trim() }
-                    if (parts.size >= 3) {
-                        val r = parts[0].toInt().coerceIn(0, 255)
-                        val g = parts[1].toInt().coerceIn(0, 255)
-                        val b = parts[2].toInt().coerceIn(0, 255)
-                        val a =
-                            if (parts.size >= 4) {
-                                val alphaFloat = parts[3].toFloatOrNull() ?: 1f
-                                if (alphaFloat <= 1.0f) {
-                                    (alphaFloat * 255).toInt().coerceIn(0, 255)
-                                } else {
-                                    alphaFloat.toInt().coerceIn(0, 255)
-                                }
-                            } else {
-                                255
-                            }
-                        if (a < 25) null else android.graphics.Color.rgb(r, g, b)
-                    } else {
-                        null
-                    }
-                } catch (t: Throwable) {
-                    Log.w("HoriEngine", "Failed to parse CSS rgb color: $clean", t)
-                    null
-                }
-            }
-            return null
-        }
     }
 }

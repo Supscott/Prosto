@@ -3,6 +3,7 @@ package com.jestk.browser.ui.viewmodel.tabs
 import android.util.Log
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.SearchEngine
+import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.adblock.BlockPage
 import com.jestk.browser.ui.viewmodel.NavigationCommand
@@ -29,6 +30,9 @@ internal class PageEvents(
     private val dismissedExternalAppDomains = ctx.dismissedExternalAppDomains
     private val pendingExternalAppPrompts = ctx.pendingExternalAppPrompts
     private val timedOutExternalAppDomains = ctx.timedOutExternalAppDomains
+
+    /** Per tab, the URL whose visit is already in history; see [claimVisit]. */
+    private val recordedVisitUrls = mutableMapOf<String, String>()
 
     fun navigateToUrl(finalUrl: String, matchedShortcutEngine: SearchEngine? = null) {
         val activeId = getCurrentState().activeTabId ?: run {
@@ -213,6 +217,7 @@ internal class PageEvents(
                 state.copy(tabs = updatedTabs)
             }
         }
+        val isNewVisit = !isBlockPage && claimVisit(tabId, url)
         scope.launch(ioDispatcher) {
             val tab = tabRepository.getTabById(tabId)
             tabRepository.updateTabDetails(
@@ -222,17 +227,7 @@ internal class PageEvents(
                 canGoBack = tab?.canGoBack ?: getCurrentState().canGoBack,
                 canGoForward = tab?.canGoForward ?: false,
             )
-            if (!isBlockPage && url.isNotEmpty() && !url.startsWith("about:")) {
-                val effectiveWorkspaceId = tab?.workspaceId ?: getCurrentState().activeWorkspaceId
-                historyRepository.recordVisit(url, displayTitle, workspaceId = effectiveWorkspaceId)
-                recentTabRepository?.recordRecentTab(
-                    url = url,
-                    title = displayTitle,
-                    snapshotPath = tab?.snapshotPath,
-                    faviconUrl = tab?.faviconUrl,
-                    workspaceId = effectiveWorkspaceId,
-                )
-            }
+            if (!isBlockPage) persistVisit(tab, url, displayTitle, isNewVisit)
         }
     }
 
@@ -258,28 +253,47 @@ internal class PageEvents(
             }
         }
 
+        // A title for a page that has no visit yet (a same-document navigation never reports
+        // onPageFinished) records it; later titles for the same page only rename that visit.
+        val isNewVisit = !isBlockPage && claimVisit(tabId, effectiveUrl)
         scope.launch(ioDispatcher) {
             val tab = tabRepository.getTabById(tabId)
-            val url = tab?.url?.takeIf { it.isNotEmpty() } ?: effectiveUrl
             tabRepository.updateTabDetails(
                 id = tabId,
-                url = url,
+                url = effectiveUrl,
                 title = trimmedTitle,
                 canGoBack = tab?.canGoBack ?: (if (getCurrentState().activeTabId == tabId) getCurrentState().canGoBack else false),
                 canGoForward = tab?.canGoForward ?: false,
             )
-            if (!isBlockPage && url.isNotEmpty() && !url.startsWith("about:")) {
-                val effectiveWorkspaceId = tab?.workspaceId ?: getCurrentState().activeWorkspaceId
-                historyRepository.recordVisit(url, trimmedTitle, workspaceId = effectiveWorkspaceId)
-                recentTabRepository?.recordRecentTab(
-                    url = url,
-                    title = trimmedTitle,
-                    snapshotPath = tab?.snapshotPath,
-                    faviconUrl = tab?.faviconUrl,
-                    workspaceId = effectiveWorkspaceId,
-                )
-            }
+            if (!isBlockPage) persistVisit(tab, effectiveUrl, trimmedTitle, isNewVisit)
         }
+    }
+
+    /**
+     * True when [url] is a new visit for [tabId]: one page load reports several finish and title
+     * events (onReceivedTitle, doUpdateVisitedHistory, the back/forward cache finish), and only
+     * the first of them may count a visit. Main thread only.
+     */
+    private fun claimVisit(tabId: String, url: String): Boolean {
+        if (url.isEmpty() || url.startsWith("about:")) return false
+        return recordedVisitUrls.put(tabId, url) != url
+    }
+
+    private suspend fun persistVisit(tab: Tab?, url: String, title: String, isNewVisit: Boolean) {
+        if (url.isEmpty() || url.startsWith("about:")) return
+        val workspaceId = tab?.workspaceId ?: getCurrentState().activeWorkspaceId
+        if (isNewVisit) {
+            historyRepository.recordVisit(url, title, workspaceId = workspaceId)
+        } else {
+            historyRepository.updateVisitTitle(url, title, workspaceId = workspaceId)
+        }
+        recentTabRepository?.recordRecentTab(
+            url = url,
+            title = title,
+            snapshotPath = tab?.snapshotPath,
+            faviconUrl = tab?.faviconUrl,
+            workspaceId = workspaceId,
+        )
     }
 
     fun handleProgressChanged(tabId: String, progress: Int) {

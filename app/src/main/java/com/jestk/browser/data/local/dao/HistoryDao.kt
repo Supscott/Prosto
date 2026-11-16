@@ -146,6 +146,21 @@ interface HistoryDao {
         timestamp: Long,
     )
 
+    /** Sets the title of the latest visit to [url] without counting a new visit. */
+    @Query(
+        """
+        UPDATE history SET title = :title WHERE id = (
+            SELECT id FROM history WHERE url = :url AND workspaceId = :workspaceId
+            ORDER BY timestamp DESC, id DESC LIMIT 1
+        )
+    """,
+    )
+    suspend fun updateLatestTitle(
+        url: String,
+        title: String,
+        workspaceId: String = "default_personal",
+    )
+
     @Transaction
     suspend fun recordVisit(
         url: String,
