@@ -7,6 +7,7 @@
 #   tools/device.sh install         build and install the debug app (retries once)
 #   tools/device.sh start | stop    launch from the launcher | force-stop
 #   tools/device.sh kill            kill the process in the background (simulates process death)
+#   tools/device.sh reset           wipe the app's data (tabs, settings) and pre-grant notifications
 #   tools/device.sh open <url>      open a link the way another app does (ACTION_VIEW)
 #   tools/device.sh caller          open Settings: a stand-in for "the app the link came from"
 #   tools/device.sh back | home     press Back | Home
@@ -99,6 +100,12 @@ case "$cmd" in
     kill)
         adb shell am kill "$PKG"
         ;;
+    reset)
+        adb shell pm clear "$PKG" >/dev/null
+        # MainActivity asks for this at launch; a dialog on top would break later steps.
+        adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
+        echo "cleared $PKG"
+        ;;
     open)
         [[ $# -ge 1 ]] || die "usage: device.sh open <url>"
         adb shell "am start -a android.intent.action.VIEW -d $(device_quote "$1") $PKG" >/dev/null
@@ -140,7 +147,7 @@ case "$cmd" in
         echo "$out"
         ;;
     *)
-        sed -n '2,22p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+        sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
         exit 1
         ;;
 esac

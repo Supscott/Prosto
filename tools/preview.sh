@@ -4,6 +4,9 @@ set -euo pipefail
 # Render Compose Previews to PNG using Robolectric native graphics
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=tools/ensure_worktree_files.sh
+source "$ROOT/tools/ensure_worktree_files.sh"
+ensure_worktree_files "$ROOT"
 
 TARGET="${1:-BottomBarPreviewTest}"
 

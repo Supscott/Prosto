@@ -4,6 +4,9 @@ set -euo pipefail
 # Fast verification script for Prosto Browser
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+# shellcheck source=tools/ensure_worktree_files.sh
+source "$ROOT/tools/ensure_worktree_files.sh"
+ensure_worktree_files "$ROOT"
 
 echo "==> Checking architectural invariants..."
 python3 tools/check_invariants.py
