@@ -12,10 +12,13 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.domain.repository.SettingsRepository
+import com.jestk.browser.engine.adblock.BlockPageAction
+import com.jestk.browser.engine.adblock.BlockPageActions
 import com.jestk.browser.engine.adblock.GuardSettings
 import com.jestk.browser.engine.adblock.GuardVerdict
 import com.jestk.browser.engine.adblock.GuardedNavigation
 import com.jestk.browser.engine.adblock.NetworkRequestInterceptor
+import com.jestk.browser.engine.adblock.canGoBackPastBlockPages
 import com.jestk.browser.util.UrlSecurityUtils
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -41,7 +44,10 @@ class JestkWebViewClient(
     private val isCleanPlayerEnabled: (() -> Boolean)? = null,
     private val onCleanPlayerRequested: ((url: String) -> Boolean)? = null,
     private val onBlockedAdNavigation: ((tabId: String, url: String) -> Unit)? = null,
-    private val onBlockedDocument: ((tabId: String, url: String) -> Unit)? = null,
+    /** `$document` rules: whether [url]'s host was allowed ("Proceed anyway") in this tab. */
+    private val isDocumentAllowed: ((url: String) -> Boolean)? = null,
+    /** A button of the block page was tapped; the URL is the blocked page. */
+    private val onBlockPageAction: ((tabId: String, action: BlockPageAction, blockedUrl: String) -> Unit)? = null,
     private val isAdRedirectProtectionEnabled: (() -> Boolean)? = null,
     /** A popunder was stopped: (tab, page the user tapped, destination). The popup pill reacts. */
     private val onPopunderBlocked: ((tabId: String, openerUrl: String?, blockedUrl: String) -> Unit)? = null,
@@ -59,12 +65,16 @@ class JestkWebViewClient(
 
     private val navigationGuard = WindowTransportHandler.navigationGuard
 
+    /** The last URL a block page was served for; its commit must not report the stale title of the page before. */
+    @Volatile
+    private var blockPageUrl: String? = null
+
     private val networkInterceptor = NetworkRequestInterceptor(
         adsEnabled = isAdBlockerEnabled,
         trackersEnabled = { isTrackingProtectionEnabled?.invoke() ?: true },
-        isDocumentAllowed = { isAllowedAdNavigation?.invoke(it) == true },
+        isDocumentAllowed = { isDocumentAllowed?.invoke(it) == true },
         onBlockedResource = onBlockedResource,
-        onBlockedDocument = { onBlockedDocument?.invoke(tabId, it) },
+        onBlockedDocument = { blockPageUrl = it },
     )
 
     override fun onRenderProcessGone(
@@ -91,6 +101,12 @@ class JestkWebViewClient(
         if (request == null) return false
         val url = request.url?.toString().orEmpty()
         if (url.isBlank()) return false
+
+        // The block page buttons; a forged or misplaced navigation to the scheme just does nothing.
+        if (BlockPageActions.isActionUrl(url)) {
+            BlockPageActions.resolve(view, request)?.let { (action, blockedUrl) -> onBlockPageAction?.invoke(tabId, action, blockedUrl) }
+            return true
+        }
 
         // YouTube Clean Player interceptor for main frame navigations
         if (request.isForMainFrame && isCleanPlayerEnabled?.invoke() == true) {
@@ -308,7 +324,7 @@ class JestkWebViewClient(
         onPageStarted(tabId, validUrl)
         view?.let { wv ->
             checkExternalAppOffer(wv, validUrl)
-            onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
+            onNavigationStateChanged(tabId, wv.canGoBackPastBlockPages(), wv.canGoForward())
             val isDark = isDarkTheme?.invoke() ?: false
             if (validUrl.contains("apple.com", ignoreCase = true)) {
                 notifyThemeColors(tabId, android.graphics.Color.parseColor("#161617"), android.graphics.Color.parseColor("#161617"))
@@ -384,7 +400,7 @@ class JestkWebViewClient(
         val title = view?.title.orEmpty()
         onPageFinished(tabId, validUrl, title)
         view?.let { wv ->
-            onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
+            onNavigationStateChanged(tabId, wv.canGoBackPastBlockPages(), wv.canGoForward())
             injectPageScripts(wv, validUrl, title)
             wv.post {
                 extractThemeColor(wv, isPageStarted = false)
@@ -424,84 +440,7 @@ class JestkWebViewClient(
         webView: WebView,
         isPageStarted: Boolean = false,
     ) {
-        val js =
-            """
-            (function() {
-                try {
-                    var host = location.hostname || '';
-                    if (host.indexOf('apple.com') !== -1) {
-                        return '#161617';
-                    }
-                    if (host.indexOf('youtube.com') !== -1) {
-                        var isDark = document.documentElement.hasAttribute('dark') || 
-                                     document.documentElement.getAttribute('dark') === 'true' ||
-                                     document.querySelector('ytd-app[dark], ytm-app[dark]');
-                        return isDark ? '#0f0f0f' : '#ffffff';
-                    }
-
-                    var meta = document.querySelector('meta[name="theme-color"]');
-                    if (meta && meta.content) {
-                        var c = meta.content.trim();
-                        if (c) return c;
-                    }
-
-                    function getBg(el) {
-                        if (!el) return null;
-                        var style = window.getComputedStyle(el);
-                        var bg = style ? style.backgroundColor : null;
-                        if (bg && bg !== 'transparent' && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'rgba(0,0,0,0)') {
-                            return bg.trim();
-                        }
-                        return null;
-                    }
-
-                    var headerSelectors = [
-                        '#globalnav',
-                        '#ac-globalnav',
-                        'header',
-                        'nav',
-                        '[role="banner"]',
-                        '.navbar',
-                        '#navbar',
-                        '.header',
-                        '#header',
-                        '.top-bar',
-                        '#top-bar',
-                        '[data-header]'
-                    ];
-                    for (var i = 0; i < headerSelectors.length; i++) {
-                        var headerEl = document.querySelector(headerSelectors[i]);
-                        var headerBg = getBg(headerEl);
-                        if (headerBg) return headerBg;
-                    }
-
-                    try {
-                        var topEl = document.elementFromPoint(window.innerWidth / 2, 10);
-                        var curr = topEl;
-                        while (curr && curr !== document.documentElement && curr !== document.body) {
-                            var topBg = getBg(curr);
-                            if (topBg) return topBg;
-                            curr = curr.parentElement;
-                        }
-                    } catch(e) {}
-
-                    var appBg = getBg(document.querySelector('ytm-app')) ||
-                                getBg(document.querySelector('ytd-app')) ||
-                                getBg(document.querySelector('#app')) ||
-                                getBg(document.querySelector('#root')) ||
-                                getBg(document.querySelector('main'));
-                    if (appBg) return appBg;
-
-                    if (!$isPageStarted) {
-                        var bodyBg = getBg(document.body) || getBg(document.documentElement);
-                        if (bodyBg) return bodyBg;
-                    }
-                    return '';
-                } catch(e) {
-                    return '';
-                }
-            })()
-            """.trimIndent()
+        val js = ThemeColorScript.build(isPageStarted)
         webView.evaluateJavascript(js) { rawResult ->
             val parsedColor = parseCssColor(rawResult)
             if (parsedColor != null) {
@@ -522,12 +461,12 @@ class JestkWebViewClient(
             onPageStarted(tabId, validUrl)
             checkExternalAppOffer(view, validUrl)
             val title = view?.title
-            if (!title.isNullOrBlank()) {
+            if (!title.isNullOrBlank() && validUrl != blockPageUrl) {
                 onTitleReceived?.invoke(tabId, title)
             }
         }
         view?.let { wv ->
-            onNavigationStateChanged(tabId, wv.canGoBack(), wv.canGoForward())
+            onNavigationStateChanged(tabId, wv.canGoBackPastBlockPages(), wv.canGoForward())
         }
     }
 

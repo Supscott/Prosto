@@ -8,11 +8,14 @@ import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.NestedWebView
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.WindowTransportHandler
+import com.jestk.browser.engine.adblock.BlockPageAction
 import com.jestk.browser.ui.FileChooserHandler
+import com.jestk.browser.ui.viewmodel.AllowBlockedDocument
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
-import com.jestk.browser.ui.viewmodel.ShowBlockedDocument
+import com.jestk.browser.ui.viewmodel.GoBackFromBlockedDocument
 import com.jestk.browser.ui.viewmodel.ShowPopupBlocked
+import com.jestk.browser.ui.viewmodel.allowsDocument
 import com.jestk.browser.ui.viewmodel.isSameDomain
 import com.jestk.browser.util.UrlSecurityUtils
 import com.jestk.browser.util.YouTubeUrlHelper
@@ -75,8 +78,14 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
         onBlockedAdNavigation = { id, url -> onEvent(BrowserUiEvent.ShowBlockedAdNavigation(url = url, tabId = id)) },
         isAdRedirectProtectionEnabled = { deps.uiState().settings.isAdRedirectProtectionEnabled },
         onPopunderBlocked = { _, openerUrl, _ -> openerUrl?.let { onEvent(ShowPopupBlocked(it)) } },
-        onBlockedDocument = { id, url ->
-            deps.scope.launch { onEvent(ShowBlockedDocument(url = url, tabId = id)) }
+        isDocumentAllowed = { url -> deps.uiState().documentAllowedHostsByTab.allowsDocument(tabId, url) },
+        onBlockPageAction = { id, action, url ->
+            onEvent(
+                when (action) {
+                    BlockPageAction.PROCEED -> AllowBlockedDocument(tabId = id, url = url)
+                    BlockPageAction.GO_BACK -> GoBackFromBlockedDocument(tabId = id)
+                },
+            )
         },
         isAllowedAdNavigation = { url ->
             val host = UrlSecurityUtils.extractHost(url)

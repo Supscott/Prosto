@@ -64,6 +64,12 @@ internal class TabCoordinatorContext(
         pool.markAwaitingFirstPaint(tabId)
     }
 
+    /** A closed tab takes its "Proceed anyway" hosts with it; [tabId] null forgets them all. */
+    fun forgetDocumentAllowances(tabId: String? = null) {
+        if (getCurrentState().documentAllowedHostsByTab.isEmpty()) return
+        updateUiState { it.copy(documentAllowedHostsByTab = if (tabId == null) emptyMap() else it.documentAllowedHostsByTab - tabId) }
+    }
+
     fun checkAndPruneEmptyFolder(folderId: String, remainingTabs: List<Tab>) {
         val remainingInFolder = remainingTabs.filter { it.folderId == folderId }
         if (remainingInFolder.isEmpty()) {

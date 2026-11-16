@@ -7,30 +7,58 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 class BlockPageTest {
+    private val text = BlockPageText(title = "Page blocked", body = "Reason", goBack = "Go back", proceed = "Proceed anyway")
+    private val back = BlockPageActions.url(BlockPageAction.GO_BACK, token = "tok")
+    private val proceed = BlockPageActions.url(BlockPageAction.PROCEED, token = "tok")
+
     @Test
     fun html_hasNoScriptAndNoExternalResources() {
-        val html = BlockPage.html("Page blocked", "Reason", "ads.example").lowercase()
+        val html = BlockPage.html(text, "ads.example", back, proceed).lowercase()
 
-        for (forbidden in listOf("<script", "src=", "href=", "url(", "@import", "<link", "<iframe", "<img", "onclick")) {
+        for (forbidden in listOf("<script", "src=", "url(", "@import", "<link", "<iframe", "<img", "onclick")) {
             assertThat(html).doesNotContain(forbidden)
         }
-        assertThat(html).contains("<title>page blocked</title>")
+        // The only links are the two action buttons.
+        assertThat(Regex("href=\"([^\"]*)\"").findAll(html).map { it.groupValues[1] }.toList())
+            .containsExactly(back, proceed)
+        assertThat(html).contains("<title>page blocked${BlockPage.TITLE_MARKER}</title>")
+    }
+
+    @Test
+    fun html_hasBothButtonsWithTheirLabels() {
+        val html = BlockPage.html(text, "ads.example", back, proceed)
+
+        assertThat(html).contains(">Go back</a>")
+        assertThat(html).contains(">Proceed anyway</a>")
     }
 
     @Test
     fun html_escapesTextSoTheHostCannotInjectMarkup() {
-        val html = BlockPage.html("T", "B", "<script>alert(1)</script>\"")
+        val html = BlockPage.html(text, "<script>alert(1)</script>\"", back, proceed)
 
         assertThat(html).doesNotContain("<script>")
         assertThat(html).contains("&lt;script&gt;")
     }
 
     @Test
-    fun response_isUncachedHtml() {
-        val response = BlockPage.response("T", "B", "h.example")
+    fun response_isUncachedHtmlWithTheProcessTokenLinks() {
+        val response = BlockPage.response(text, "h.example")
 
         assertThat(response.mimeType).isEqualTo("text/html")
         assertThat(response.responseHeaders["Cache-Control"]).isEqualTo("no-store")
-        assertThat(response.data.readBytes().toString(Charsets.UTF_8)).contains("h.example")
+        val html = response.data.readBytes().toString(Charsets.UTF_8)
+        assertThat(html).contains("h.example")
+        assertThat(html).contains(BlockPageActions.url(BlockPageAction.PROCEED))
+        assertThat(html).contains(BlockPageActions.url(BlockPageAction.GO_BACK))
+    }
+
+    @Test
+    fun titleMarker_isRecognisedAndStrippedForDisplay() {
+        val title = "Page blocked${BlockPage.TITLE_MARKER}"
+
+        assertThat(BlockPage.isBlockPageTitle(title)).isTrue()
+        assertThat(BlockPage.displayTitle(title)).isEqualTo("Page blocked")
+        assertThat(BlockPage.isBlockPageTitle("Page blocked")).isFalse()
+        assertThat(BlockPage.isBlockPageTitle(null)).isFalse()
     }
 }

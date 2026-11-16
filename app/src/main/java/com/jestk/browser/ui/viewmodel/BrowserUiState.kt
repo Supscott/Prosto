@@ -104,6 +104,8 @@ data class BrowserUiState(
     val insecureHttpPrompt: InsecureHttpPrompt? = null,
     val blockedAdNavigation: BlockedAdNavigationPrompt? = null,
     val allowedAdNavigationUrls: Set<String> = emptySet(),
+    /** Hosts allowed through a `$document` block page, per tab id; see [allowsDocument]. */
+    val documentAllowedHostsByTab: Map<String, Set<String>> = emptyMap(),
     val popupBlocked: PopupBlockedPrompt? = null,
     val allowedInsecureHosts: Set<String> = emptySet(),
     /** Every persisted per-site blocking switch-off, for all workspaces (CB-14). */

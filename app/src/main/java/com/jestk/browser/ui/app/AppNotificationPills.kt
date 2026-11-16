@@ -56,7 +56,6 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.DismissPopupBlocked
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
-import com.jestk.browser.ui.viewmodel.GoBackFromBlockedDocument
 import com.jestk.browser.util.DownloadFileOpener
 import kotlinx.coroutines.delay
 
@@ -390,8 +389,6 @@ internal fun BoxScope.AppNotificationPills(
                 url = blockedNav.url,
                 onDismiss = { onEvent(BrowserUiEvent.DismissBlockedAdNavigation) },
                 onConfirm = { onEvent(BrowserUiEvent.AllowBlockedAdNavigation) },
-                isDocument = blockedNav.isDocument,
-                onGoBack = { onEvent(GoBackFromBlockedDocument) },
             )
         }
     }

@@ -172,6 +172,7 @@ internal class Workspaces(
                     pendingExternalAppPrompts.remove(tab.id)
                     timedOutExternalAppDomains.remove(tab.id)
                     webViewPool?.removeWebView(tab.id, keepState = false)
+                    ctx.forgetDocumentAllowances(tab.id)
                     WebViewStateStore.delete(tab.id)
                     tabRepository.deleteTab(tab.id)
                 }

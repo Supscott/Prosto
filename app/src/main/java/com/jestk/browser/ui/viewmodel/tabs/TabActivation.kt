@@ -3,6 +3,7 @@ package com.jestk.browser.ui.viewmodel.tabs
 import android.util.Log
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.engine.adblock.canGoBackPastBlockPages
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
@@ -72,7 +73,7 @@ internal class TabActivation(
         val effectiveUrl = liveUrl ?: selected.url
         if (liveWebView == null) ctx.holdUntilFirstPaintIfRecreated(tabId, effectiveUrl)
         val effectiveTitle = liveTitle ?: (if (liveUrl != null && selected.title.isEmpty()) liveUrl else selected.title)
-        val effectiveCanGoBack = liveWebView?.canGoBack() ?: selected.canGoBack
+        val effectiveCanGoBack = liveWebView?.canGoBackPastBlockPages() ?: selected.canGoBack
         val effectiveCanGoForward = liveWebView?.canGoForward() ?: selected.canGoForward
 
         val isHome = effectiveUrl.isEmpty() || effectiveUrl == "about:blank"

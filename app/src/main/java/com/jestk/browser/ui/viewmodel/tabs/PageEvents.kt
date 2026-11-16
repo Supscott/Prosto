@@ -4,6 +4,7 @@ import android.util.Log
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.engine.adblock.BlockPage
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.viewmodel.isSameDomain
 import kotlinx.coroutines.flow.map
@@ -193,7 +194,9 @@ internal class PageEvents(
         if (url.isEmpty() || url == "about:blank") return
         Log.d(TAG, "Page finished in tab $tabId: $url")
         tabLoadingProgress[tabId] = 100
-        val displayTitle = title.ifEmpty { url }
+        // A `$document` block page is shown but is not a visit: no history, no recent tab.
+        val isBlockPage = BlockPage.isBlockPageTitle(title)
+        val displayTitle = BlockPage.displayTitle(title).ifEmpty { url }
         updateUiState { state ->
             val updatedTabs = state.tabs.map { tab ->
                 if (tab.id == tabId) tab.copy(url = url, title = displayTitle) else tab
@@ -219,7 +222,7 @@ internal class PageEvents(
                 canGoBack = tab?.canGoBack ?: getCurrentState().canGoBack,
                 canGoForward = tab?.canGoForward ?: false,
             )
-            if (url.isNotEmpty() && !url.startsWith("about:")) {
+            if (!isBlockPage && url.isNotEmpty() && !url.startsWith("about:")) {
                 val effectiveWorkspaceId = tab?.workspaceId ?: getCurrentState().activeWorkspaceId
                 historyRepository.recordVisit(url, displayTitle, workspaceId = effectiveWorkspaceId)
                 recentTabRepository?.recordRecentTab(
@@ -234,7 +237,8 @@ internal class PageEvents(
     }
 
     fun handleTitleReceived(tabId: String, title: String) {
-        val trimmedTitle = title.trim()
+        val isBlockPage = BlockPage.isBlockPageTitle(title)
+        val trimmedTitle = BlockPage.displayTitle(title).trim()
         if (trimmedTitle.isEmpty() || trimmedTitle.equals("about:blank", ignoreCase = true)) return
         val currentTab = getCurrentState().tabs.find { it.id == tabId }
         val effectiveUrl = currentTab?.url.orEmpty()
@@ -264,7 +268,7 @@ internal class PageEvents(
                 canGoBack = tab?.canGoBack ?: (if (getCurrentState().activeTabId == tabId) getCurrentState().canGoBack else false),
                 canGoForward = tab?.canGoForward ?: false,
             )
-            if (url.isNotEmpty() && !url.startsWith("about:")) {
+            if (!isBlockPage && url.isNotEmpty() && !url.startsWith("about:")) {
                 val effectiveWorkspaceId = tab?.workspaceId ?: getCurrentState().activeWorkspaceId
                 historyRepository.recordVisit(url, trimmedTitle, workspaceId = effectiveWorkspaceId)
                 recentTabRepository?.recordRecentTab(

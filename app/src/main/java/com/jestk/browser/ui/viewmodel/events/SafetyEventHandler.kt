@@ -7,6 +7,7 @@ import com.jestk.browser.domain.model.InsecureNavigationTarget
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.PopupBlockedPrompt
 import com.jestk.browser.engine.WindowTransportHandler
+import com.jestk.browser.ui.viewmodel.AllowBlockedDocument
 import com.jestk.browser.ui.viewmodel.AllowPopupsForSite
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
@@ -15,10 +16,10 @@ import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 import com.jestk.browser.ui.viewmodel.GoBackFromBlockedDocument
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.viewmodel.SafetyUiEvent
-import com.jestk.browser.ui.viewmodel.ShowBlockedDocument
 import com.jestk.browser.ui.viewmodel.ShowPopupBlocked
 import com.jestk.browser.ui.viewmodel.SiteAllowlistUiEvent
 import com.jestk.browser.ui.viewmodel.TabCoordinator
+import com.jestk.browser.ui.viewmodel.withDocumentAllowed
 import com.jestk.browser.util.UrlSecurityUtils
 
 private const val TAG = "BrowserViewModel"
@@ -112,32 +113,25 @@ internal class SafetyEventHandler(
                 }
             }
 
-            is ShowBlockedDocument -> {
-                updateUiState {
-                    it.copy(
-                        blockedAdNavigation = BlockedAdNavigationPrompt(
-                            url = event.url,
-                            tabId = event.tabId,
-                            isDocument = true,
-                        ),
-                    )
+            // The block page is the tab's current history entry and Back steps over block pages, so
+            // one step back lands on the page the user came from. With nothing behind it the tab closes.
+            is GoBackFromBlockedDocument -> {
+                val tab = getCurrentState().tabs.find { it.id == event.tabId }
+                if (tab?.canGoBack == true) {
+                    if (event.tabId != getCurrentState().activeTabId) tabCoordinator.activation.selectTab(event.tabId)
+                    emitNavigation(NavigationCommand.GoBack)
+                } else if (tab != null) {
+                    tabCoordinator.closing.closeTab(event.tabId)
                 }
             }
 
-            // The block page is the tab's current history entry, so one step back lands on the page
-            // the user came from, never on the block page. With nothing behind it the tab closes.
-            is GoBackFromBlockedDocument -> {
-                val prompt = getCurrentState().blockedAdNavigation
-                updateUiState { it.copy(blockedAdNavigation = null) }
-                if (prompt != null) {
-                    val tab = getCurrentState().tabs.find { it.id == prompt.tabId }
-                    if (tab?.canGoBack == true) {
-                        if (prompt.tabId != getCurrentState().activeTabId) tabCoordinator.activation.selectTab(prompt.tabId)
-                        emitNavigation(NavigationCommand.GoBack)
-                    } else if (tab != null) {
-                        tabCoordinator.closing.closeTab(prompt.tabId)
-                    }
+            // Loading the block page's own URL again replaces its history entry with the real page.
+            is AllowBlockedDocument -> {
+                updateUiState {
+                    it.copy(documentAllowedHostsByTab = it.documentAllowedHostsByTab.withDocumentAllowed(event.tabId, event.url))
                 }
+                if (event.tabId != getCurrentState().activeTabId) tabCoordinator.activation.selectTab(event.tabId)
+                tabCoordinator.pageEvents.navigateToUrl(event.url, null)
             }
 
             is BrowserUiEvent.AllowBlockedAdNavigation -> {
