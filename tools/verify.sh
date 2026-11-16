@@ -38,22 +38,54 @@ status=0
 # pipefail makes the function return the Gradle status, not tail's.
 run_tests() { ./gradlew -q testDebugUnitTest "$@" 2>&1 | tail -40; }
 
-if [[ "${1:-}" == "--all" ]]; then
-    echo "==> Running full test suite (testDebugUnitTest)..."
-    run_tests || status=$?
-elif [[ "${1:-}" == "--ui" ]]; then
-    echo "==> Running UI & preview tests (BottomBar, Dock, Dialogs)..."
-    run_tests \
-        --tests "com.jestk.browser.ui.navigation.BottomBarPreviewTest" \
-        --tests "com.jestk.browser.ui.navigation.DockRefinementsTest" \
-        --tests "com.jestk.browser.ui.navigation.TabContextMenuTest" || status=$?
-else
-    echo "==> Running core coordination & engine unit tests..."
-    run_tests \
-        --tests "com.jestk.browser.ui.viewmodel.TabCoordinatorTest" \
-        --tests "com.jestk.browser.ui.viewmodel.BrowserViewModelTest" \
-        --tests "com.jestk.browser.engine.JestkWebChromeClientTest" || status=$?
-fi
+# Test classes added or edited on this branch (vs main) or in the working tree.
+changed_test_args() {
+    local base f cls
+    base="$(git merge-base HEAD main 2>/dev/null || echo HEAD)"
+    { git diff --name-only "$base"; git ls-files --others --exclude-standard; } |
+        grep -E '^app/src/test/java/.*Test\.kt$' | sort -u | while IFS= read -r f; do
+            [[ -f "$f" ]] || continue
+            cls="${f#app/src/test/java/}"
+            cls="${cls%.kt}"
+            printf -- '--tests\n%s\n' "${cls//\//.}"
+        done
+}
+
+CORE_TESTS=(
+    --tests "com.jestk.browser.ui.viewmodel.TabCoordinatorTest"
+    --tests "com.jestk.browser.ui.viewmodel.BrowserViewModelTest"
+    --tests "com.jestk.browser.engine.JestkWebChromeClientTest"
+)
+
+case "${1:-}" in
+    --all)
+        echo "==> Running full test suite (testDebugUnitTest)..."
+        run_tests || status=$?
+        ;;
+    --changed)
+        # The core set is fixed, so a new test class runs only here or with --all.
+        changed=()
+        while IFS= read -r line; do changed+=("$line"); done < <(changed_test_args)
+        if [[ ${#changed[@]} -eq 0 ]]; then
+            echo "==> No changed test classes; running the core coordination & engine tests..."
+            run_tests "${CORE_TESTS[@]}" || status=$?
+        else
+            echo "==> Running the $(( ${#changed[@]} / 2 )) test classes changed on this branch..."
+            run_tests "${changed[@]}" || status=$?
+        fi
+        ;;
+    --ui)
+        echo "==> Running UI & preview tests (BottomBar, Dock, Dialogs)..."
+        run_tests \
+            --tests "com.jestk.browser.ui.navigation.BottomBarPreviewTest" \
+            --tests "com.jestk.browser.ui.navigation.DockRefinementsTest" \
+            --tests "com.jestk.browser.ui.navigation.TabContextMenuTest" || status=$?
+        ;;
+    *)
+        echo "==> Running core coordination & engine unit tests (new test classes: --changed)..."
+        run_tests "${CORE_TESTS[@]}" || status=$?
+        ;;
+esac
 
 python3 tools/test_summary.py "$started"
 if [[ $status -ne 0 ]]; then
