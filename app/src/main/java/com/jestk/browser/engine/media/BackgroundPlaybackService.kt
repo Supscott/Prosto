@@ -9,6 +9,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
@@ -31,6 +32,7 @@ class BackgroundPlaybackService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        running = this
         createChannel()
         mediaSession =
             MediaSessionCompat(this, "ProstoBackgroundPlayback").apply {
@@ -64,6 +66,7 @@ class BackgroundPlaybackService : Service() {
     }
 
     override fun onDestroy() {
+        if (running === this) running = null
         mediaSession?.release()
         mediaSession = null
         super.onDestroy()
@@ -154,6 +157,7 @@ class BackgroundPlaybackService : Service() {
     }
 
     companion object {
+        private const val TAG = "BackgroundPlayback"
         private const val CHANNEL_ID = "prosto_background_playback"
         private const val NOTIFICATION_ID = 9002
         private const val ACTION_PLAY = "com.jestk.browser.action.BACKGROUND_PLAY"
@@ -162,17 +166,34 @@ class BackgroundPlaybackService : Service() {
         private const val EXTRA_HOST = "extra_host"
         private const val EXTRA_PLAYING = "extra_playing"
 
-        /** Starts the service or refreshes its notification. */
+        /** The started service; set and read on the main thread. */
+        private var running: BackgroundPlaybackService? = null
+
+        /**
+         * Starts the service or refreshes its notification. A running service is updated in
+         * place: Android 12+ refuses `startForegroundService` from the background, which is
+         * where every later play/pause update comes from.
+         */
         internal fun show(
             context: Context,
             info: BackgroundPlaybackInfo,
         ) {
+            running?.let {
+                it.showNotification(info)
+                return
+            }
             val intent =
                 Intent(context, BackgroundPlaybackService::class.java)
                     .putExtra(EXTRA_TITLE, info.title)
                     .putExtra(EXTRA_HOST, info.host)
                     .putExtra(EXTRA_PLAYING, info.isPlaying)
-            ContextCompat.startForegroundService(context, intent)
+            try {
+                ContextCompat.startForegroundService(context, intent)
+            } catch (e: IllegalStateException) {
+                // ForegroundServiceStartNotAllowedException (API 31+) extends it: the app left
+                // the screen too long ago for a new start. Playback goes on without the service.
+                Log.w(TAG, "Background playback service not allowed to start", e)
+            }
         }
 
         internal fun stop(context: Context) {
