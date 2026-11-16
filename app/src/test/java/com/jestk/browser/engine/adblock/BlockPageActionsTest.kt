@@ -35,13 +35,13 @@ class BlockPageActionsTest {
     }
 
     @Test
-    fun url_usesAPerProcessRandomToken() {
-        val first = BlockPageActions.url(BlockPageAction.PROCEED)
+    fun newToken_isRandomPerBlockPage() {
+        val first = BlockPageActions.newToken()
 
-        assertThat(first).isEqualTo(BlockPageActions.url(BlockPageAction.PROCEED))
-        assertThat(BlockPageActions.parse(first)).isEqualTo(BlockPageAction.PROCEED)
-        val actionToken = first.substringAfterLast('/')
-        assertThat(actionToken).matches("[0-9a-f]{32}")
+        assertThat(first).matches("[0-9a-f]{32}")
+        assertThat(BlockPageActions.newToken()).isNotEqualTo(first)
+        assertThat(BlockPageActions.parse(BlockPageActions.url(BlockPageAction.PROCEED, first), BlockPageActions.newToken())).isNull()
+        assertThat(BlockPageActions.parse(BlockPageActions.url(BlockPageAction.PROCEED, first), null)).isNull()
     }
 
     @Test
@@ -69,24 +69,24 @@ class BlockPageActionsTest {
     }
 
     private val blockTitle = "Page blocked${BlockPage.TITLE_MARKER}"
-    private val validProceed get() = BlockPageActions.url(BlockPageAction.PROCEED)
+    private val validProceed get() = BlockPageActions.url(BlockPageAction.PROCEED, token)
 
     @Test
     fun resolve_returnsTheActionAndTheBlockedUrlOnABlockPage() {
         val view = webView(blockTitle, "https://ads.example/x")
 
-        assertThat(BlockPageActions.resolve(view, request(validProceed)))
+        assertThat(BlockPageActions.resolve(view, request(validProceed), token))
             .isEqualTo(BlockPageAction.PROCEED to "https://ads.example/x")
     }
 
     @Test
     fun resolve_ignoresActionsOutsideABlockPageOrAMainFrameOrWithAForgedToken() {
         // A normal page (not showing the block page) cannot trigger an action even with the token.
-        assertThat(BlockPageActions.resolve(webView("News", "https://news.example"), request(validProceed))).isNull()
-        assertThat(BlockPageActions.resolve(null, request(validProceed))).isNull()
-        assertThat(BlockPageActions.resolve(webView(blockTitle, "https://ads.example/x"), request(validProceed, mainFrame = false))).isNull()
+        assertThat(BlockPageActions.resolve(webView("News", "https://news.example"), request(validProceed), token)).isNull()
+        assertThat(BlockPageActions.resolve(null, request(validProceed), token)).isNull()
+        assertThat(BlockPageActions.resolve(webView(blockTitle, "https://ads.example/x"), request(validProceed, mainFrame = false), token)).isNull()
         assertThat(
-            BlockPageActions.resolve(webView(blockTitle, "https://ads.example/x"), request("prosto-block://proceed/forged")),
+            BlockPageActions.resolve(webView(blockTitle, "https://ads.example/x"), request("prosto-block://proceed/forged"), token),
         ).isNull()
     }
 }

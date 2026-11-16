@@ -24,7 +24,7 @@ internal object BlockPage {
     /** The title as people read it, without [TITLE_MARKER]. */
     fun displayTitle(title: String): String = title.removeSuffix(TITLE_MARKER)
 
-    fun response(text: BlockPageText, host: String): WebResourceResponse =
+    fun response(text: BlockPageText, host: String, token: String): WebResourceResponse =
         WebResourceResponse(
             "text/html",
             "UTF-8",
@@ -35,8 +35,8 @@ internal object BlockPage {
                 html(
                     text,
                     host,
-                    goBackUrl = BlockPageActions.url(BlockPageAction.GO_BACK),
-                    proceedUrl = BlockPageActions.url(BlockPageAction.PROCEED),
+                    goBackUrl = BlockPageActions.url(BlockPageAction.GO_BACK, token),
+                    proceedUrl = BlockPageActions.url(BlockPageAction.PROCEED, token),
                 ).toByteArray(Charsets.UTF_8),
             ),
         )

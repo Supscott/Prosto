@@ -41,15 +41,15 @@ class BlockPageTest {
     }
 
     @Test
-    fun response_isUncachedHtmlWithTheProcessTokenLinks() {
-        val response = BlockPage.response(text, "h.example")
+    fun response_isUncachedHtmlWithItsTokenLinks() {
+        val response = BlockPage.response(text, "h.example", token = "tok")
 
         assertThat(response.mimeType).isEqualTo("text/html")
         assertThat(response.responseHeaders["Cache-Control"]).isEqualTo("no-store")
         val html = response.data.readBytes().toString(Charsets.UTF_8)
         assertThat(html).contains("h.example")
-        assertThat(html).contains(BlockPageActions.url(BlockPageAction.PROCEED))
-        assertThat(html).contains(BlockPageActions.url(BlockPageAction.GO_BACK))
+        assertThat(html).contains(proceed)
+        assertThat(html).contains(back)
     }
 
     @Test

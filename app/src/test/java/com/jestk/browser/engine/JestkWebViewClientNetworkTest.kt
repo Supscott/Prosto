@@ -116,8 +116,9 @@ class JestkWebViewClientNetworkTest {
         val html = response.data.readBytes().toString(Charsets.UTF_8)
         assertThat(html).contains(context.getString(com.jestk.browser.R.string.blocked_document_title))
         assertThat(html).doesNotContain("<script")
-        assertThat(html).contains(BlockPageActions.url(BlockPageAction.PROCEED))
-        assertThat(html).contains(BlockPageActions.url(BlockPageAction.GO_BACK))
+        val token = html.substringAfter("prosto-block://proceed/").substringBefore('"')
+        assertThat(token).matches("[0-9a-f]{32}")
+        assertThat(html).contains(BlockPageActions.url(BlockPageAction.GO_BACK, token))
         assertThat(html).contains(BlockPage.TITLE_MARKER)
         assertThat(blockedResources).isEmpty()
     }
@@ -146,13 +147,21 @@ class JestkWebViewClientNetworkTest {
         }
     }
 
+    /** Serves a block page through [c] and returns the action token in its buttons. */
+    private fun serveBlockPage(c: JestkWebViewClient): String {
+        val html = c.shouldInterceptRequest(null, request("https://doc-blocked.example/x", mainFrame = true))!!
+            .data.readBytes().toString(Charsets.UTF_8)
+        return html.substringAfter("prosto-block://proceed/").substringBefore('"')
+    }
+
     @Test
     fun blockPageButtons_reportTheActionAndNeverLoad() {
         val c = client()
         val view = blockPageView()
+        val token = serveBlockPage(c)
 
-        val proceed = c.shouldOverrideUrlLoading(view, request(BlockPageActions.url(BlockPageAction.PROCEED), mainFrame = true))
-        val back = c.shouldOverrideUrlLoading(view, request(BlockPageActions.url(BlockPageAction.GO_BACK), mainFrame = true))
+        val proceed = c.shouldOverrideUrlLoading(view, request(BlockPageActions.url(BlockPageAction.PROCEED, token), mainFrame = true))
+        val back = c.shouldOverrideUrlLoading(view, request(BlockPageActions.url(BlockPageAction.GO_BACK, token), mainFrame = true))
 
         assertThat(proceed).isTrue()
         assertThat(back).isTrue()
@@ -165,12 +174,29 @@ class JestkWebViewClientNetworkTest {
     @Test
     fun forgedBlockPageAction_doesNothing() {
         val c = client()
+        val token = serveBlockPage(c)
 
         // Wrong token on a block page, and a right token while no block page is showing.
         assertThat(c.shouldOverrideUrlLoading(blockPageView(), request("prosto-block://proceed/forged", mainFrame = true))).isTrue()
         val normalPage = blockPageView(title = "News", url = "https://news.example/")
-        assertThat(c.shouldOverrideUrlLoading(normalPage, request(BlockPageActions.url(BlockPageAction.PROCEED), mainFrame = true))).isTrue()
-        assertThat(c.shouldOverrideUrlLoading(null, request(BlockPageActions.url(BlockPageAction.PROCEED), mainFrame = true))).isTrue()
+        assertThat(c.shouldOverrideUrlLoading(normalPage, request(BlockPageActions.url(BlockPageAction.PROCEED, token), mainFrame = true))).isTrue()
+        assertThat(c.shouldOverrideUrlLoading(null, request(BlockPageActions.url(BlockPageAction.PROCEED, token), mainFrame = true))).isTrue()
+
+        assertThat(blockPageActions).isEmpty()
+    }
+
+    @Test
+    fun blockPageToken_worksOnlyInTheTabItWasServedToAndOnlyForTheLatestPage() {
+        val first = client()
+        val stolen = serveBlockPage(first)
+        // Another tab (a same-origin popup of the blocked site) with its own block page.
+        val other = client()
+        serveBlockPage(other)
+
+        other.shouldOverrideUrlLoading(blockPageView(), request(BlockPageActions.url(BlockPageAction.PROCEED, stolen), mainFrame = true))
+        // A later block page in the first tab retires the token of the earlier one.
+        serveBlockPage(first)
+        first.shouldOverrideUrlLoading(blockPageView(), request(BlockPageActions.url(BlockPageAction.PROCEED, stolen), mainFrame = true))
 
         assertThat(blockPageActions).isEmpty()
     }

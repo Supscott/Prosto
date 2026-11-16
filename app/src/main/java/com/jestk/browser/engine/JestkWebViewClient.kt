@@ -69,12 +69,19 @@ class JestkWebViewClient(
     @Volatile
     private var blockPageUrl: String? = null
 
+    /** The action token of that block page; see [BlockPageActions]. */
+    @Volatile
+    private var blockPageToken: String? = null
+
     private val networkInterceptor = NetworkRequestInterceptor(
         adsEnabled = isAdBlockerEnabled,
         trackersEnabled = { isTrackingProtectionEnabled?.invoke() ?: true },
         isDocumentAllowed = { isDocumentAllowed?.invoke(it) == true },
         onBlockedResource = onBlockedResource,
-        onBlockedDocument = { blockPageUrl = it },
+        onBlockedDocument = { url, token ->
+            blockPageUrl = url
+            blockPageToken = token
+        },
     )
 
     override fun onRenderProcessGone(
@@ -104,7 +111,7 @@ class JestkWebViewClient(
 
         // The block page buttons; a forged or misplaced navigation to the scheme just does nothing.
         if (BlockPageActions.isActionUrl(url)) {
-            BlockPageActions.resolve(view, request)?.let { (action, blockedUrl) -> onBlockPageAction?.invoke(tabId, action, blockedUrl) }
+            BlockPageActions.resolve(view, request, blockPageToken)?.let { (action, blockedUrl) -> onBlockPageAction?.invoke(tabId, action, blockedUrl) }
             return true
         }
 
