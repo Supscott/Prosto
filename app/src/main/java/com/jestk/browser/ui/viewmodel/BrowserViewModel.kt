@@ -23,6 +23,7 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.download.HoriDownloadManager
 import com.jestk.browser.engine.update.AppUpdateManager
 import com.jestk.browser.ui.viewmodel.events.BackPressHandler
+import com.jestk.browser.ui.viewmodel.events.DomainGroupEventHandler
 import com.jestk.browser.ui.viewmodel.events.LibraryEventHandler
 import com.jestk.browser.ui.viewmodel.events.MediaEventHandler
 import com.jestk.browser.ui.viewmodel.events.OverlayEventHandler
@@ -145,6 +146,14 @@ class BrowserViewModel(
             workspaceRepository = workspaceRepository,
         )
 
+    private val domainGroupEvents =
+        DomainGroupEventHandler(
+            tabCoordinator = tabCoordinator,
+            getCurrentState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+            scope = viewModelScope,
+        )
+
     private val tabEvents =
         TabEventHandler(
             tabCoordinator = tabCoordinator,
@@ -155,6 +164,7 @@ class BrowserViewModel(
             dispatch = this::onEvent,
             loadUrl = this::loadUrl,
             shouldWarnForInsecureUrl = this::shouldWarnForInsecureUrl,
+            domainGroupEvents = domainGroupEvents,
         )
 
     private val overlayEvents =

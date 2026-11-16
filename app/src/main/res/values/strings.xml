@@ -167,6 +167,12 @@
         <item quantity="one">%d tab</item>
         <item quantity="other">%d tabs</item>
     </plurals>
+    <plurals name="domain_group_message">
+        <item quantity="one">Group %1$d tab from %2$s</item>
+        <item quantity="other">Group %1$d tabs from %2$s</item>
+    </plurals>
+    <string name="domain_group_create">Create</string>
+    <string name="domain_group_dismiss">Dismiss</string>
     <string name="folder_edit_action">Edit folder</string>
     <!-- Localization completeness pass -->
     <string name="action_done">Done</string>

@@ -75,6 +75,8 @@ internal fun BoxScope.AppNotificationPills(
         label = "SnackbarBaseBottomOffset",
     )
 
+    DomainGroupSuggestionHost(uiState, onEvent, isDark, activeWorkspaceColor, isBottomBarVisible, snackbarBaseBottomOffset)
+
     // Undo Closed Tab Floating Notification Pill
     AnimatedVisibility(
         visible = uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null,
