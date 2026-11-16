@@ -15,6 +15,7 @@
 #   tools/device.sh top             package of the resumed activity
 #   tools/device.sh pages           WebView pages over CDP: "visible <url>" or "hidden <url>"
 #   tools/device.sh visible         URL of the page that is on screen
+#   tools/device.sh eval <url> <js> run JS in the page whose URL starts with <url>; prints JSON
 #   tools/device.sh log <regex> [n] last n (default 20) logcat lines matching regex
 #   tools/device.sh clearlog        clear logcat
 #   tools/device.sh shot [name]     screenshot, downscaled to 540px wide; prints the PNG path
@@ -53,7 +54,7 @@ forward_cdp() {
 
 pages() {
     forward_cdp
-    curl -s "http://127.0.0.1:$CDP_PORT/json/list" | python3 -c '
+    curl -s --max-time 5 "http://127.0.0.1:$CDP_PORT/json/list" | python3 -c '
 import json, sys
 for target in json.load(sys.stdin):
     if target.get("type") != "page":
@@ -132,6 +133,11 @@ case "$cmd" in
     visible)
         pages | sed -n 's/^visible //p' | head -1
         ;;
+    eval)
+        [[ $# -ge 2 ]] || die "usage: device.sh eval <url-prefix> <expression>"
+        forward_cdp
+        node "$ROOT/tools/cdp_eval.mjs" "$1" "$2" "$CDP_PORT"
+        ;;
     log)
         [[ $# -ge 1 ]] || die "usage: device.sh log <regex> [lines]"
         adb logcat -d | grep -E "$1" | tail -n "${2:-20}" || true
@@ -147,7 +153,7 @@ case "$cmd" in
         echo "$out"
         ;;
     *)
-        sed -n '2,23p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+        sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
         exit 1
         ;;
 esac
