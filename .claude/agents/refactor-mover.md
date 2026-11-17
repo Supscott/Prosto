@@ -19,6 +19,9 @@ the file to split.
    and read it in parts by those line ranges instead of whole.
 4. Prefix commands with `rtk` where the docs do. Never use adb, `tools/device.sh` or
    `tools/smoke.sh`: the user and other agents share the phone.
+5. Edit code with the Write and Edit tools, not with heredocs, `sed` or Python scripts, and run
+   one command per Bash call (no `cd … &&` chains): the worktree guard rejects compound
+   commands and has silently dropped a multi-part scripted edit.
 
 ## Rules
 

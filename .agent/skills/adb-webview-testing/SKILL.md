@@ -98,6 +98,13 @@ async function run() {
 run();
 ```
 
+> **Origin checks:** `location.origin` is derived from the URL. A page served with a CSP
+> `sandbox` (the `$document` block page) has an opaque origin that only `self.origin` shows
+> (`"null"`). Shortcut for one expression: `tools/device.sh eval <url-prefix> <js>`;
+> `CDP_GESTURE=1` makes it a user gesture.
+> `requestFullscreen()` is refused over CDP even with a gesture ("not granted"): tap the
+> player's own fullscreen button with `adb shell input tap` instead (show the controls first).
+
 ### Pattern B: Inspect Cookies & Partition Keys
 Inspect cookies including `HttpOnly`, `SameSite`, and `partitionKey`:
 ```javascript
