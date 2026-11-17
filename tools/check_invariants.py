@@ -434,6 +434,30 @@ def check_dark_theme_resolved_once():
     return errors
 
 
+def check_time_ordered_queries_have_tiebreaker():
+    """Verify every SQL query ordered by a time column has a second, unique sort key.
+
+    `System.currentTimeMillis()` repeats within a millisecond, so rows inserted together (tests,
+    rapid actions) tie, and `ORDER BY timestamp DESC` alone returns them in any order. Add a
+    deterministic tie-breaker: `ORDER BY timestamp DESC, id DESC`.
+    """
+    errors = []
+    order_by = re.compile(r"ORDER BY\s+([^\"]*)", re.IGNORECASE)
+    time_column = re.compile(r"(timestamp|At)$", re.IGNORECASE)
+    for file in (ROOT / "app/src/main/java").rglob("*.kt"):
+        for lineno, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
+            for match in order_by.finditer(line):
+                clause = re.split(r"\s+(LIMIT|OFFSET)\b", match.group(1), flags=re.IGNORECASE)[0]
+                keys = [k.strip() for k in clause.split(",") if k.strip()]
+                first = keys[0].split()[0] if keys else ""
+                if time_column.search(first) and len(keys) < 2:
+                    errors.append(
+                        f"{file.relative_to(ROOT)}:{lineno}: ORDER BY {first} has no tie-breaker; "
+                        "add a unique second key such as `, id DESC`."
+                    )
+    return errors
+
+
 def main():
     all_errors = []
     all_errors.extend(check_no_blur())
@@ -456,6 +480,7 @@ def main():
     all_errors.extend(check_file_sizes())
     all_errors.extend(check_tasks_file_size())
     all_errors.extend(check_dark_theme_resolved_once())
+    all_errors.extend(check_time_ordered_queries_have_tiebreaker())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -467,7 +492,7 @@ def main():
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
         "Fullscreen Sync Attach, Pull-Only Refresh Spinner, Single Browser Activity, No English Sentinels, No Composition File I/O, No Test Detection, "
-        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme)."
+        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme, Ordered Query Tie-Breaker)."
     )
     return 0
 

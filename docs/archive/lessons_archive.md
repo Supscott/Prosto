@@ -50,3 +50,17 @@ Retired lessons that are permanently guarded by automated tests, assertions, or 
 - **Cause:** In Android Chromium WebView, onPageStarted(view, url, favicon) and view.favicon in onPageFinished frequently return the favicon of the previous page loaded in that WebView during cross-domain navigation. Relying on them corrupts both tab state and the domain cache.
 - **Do:** Treat WebChromeClient.onReceivedIcon as the sole source of truth for favicons, enforce isSameDomain(tab.url, pageUrl) before applying icons, and evict stale per-tab icon files on cross-domain navigation.
 - **Don't:** Never extract or forward favicons from WebViewClient callbacks, and never apply a foreign domain's favicon to a tab.
+
+## Retired Lesson: Download redirect filename desync between database item and filesystem rename
+- **Graduated On:** 2026-11-17
+- **Graduation Reason:** HoriDownloadManagerTest covers a redirect whose Content-Disposition renames the file: the final file, the record and the absence of the pre-redirect .crdownload are asserted.
+- **Cause:** When HTTP `Content-Disposition` changes the resolved filename during redirects, updating the database record without updating the active destination file path causes `partFile.renameTo()` and media scanning to reference stale file paths.
+- **Do:** Maintain a mutable `targetDestinationFile` in download tasks and update it immediately whenever `Content-Disposition` yields a new filename during redirects.
+- **Don't:** Rely on the pre-redirect destination path when renaming completed `.crdownload` temporary files.
+
+## Retired Lesson: SQLite identical timestamp ties in rapid insertions cause non-deterministic query ordering
+- **Graduated On:** 2026-11-17
+- **Graduation Reason:** tools/check_invariants.py (check_time_ordered_queries_have_tiebreaker) fails any query ordered by a timestamp/At column without a second sort key.
+- **Cause:** `System.currentTimeMillis()` has millisecond resolution. High-speed insertions in automated tests or rapid actions yield identical timestamps, producing unpredictable row order with `ORDER BY timestamp DESC`.
+- **Do:** Always specify a secondary deterministic tie-breaker in SQL queries: `ORDER BY timestamp DESC, id DESC`.
+- **Don't:** Order SQLite queries or pagination solely by timestamp without an auto-incrementing secondary tie-breaker.
