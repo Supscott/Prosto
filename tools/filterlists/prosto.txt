@@ -1,0 +1,11 @@
+! Title: Prosto site fixes
+! Description: Site-specific rules that the upstream lists do not cover yet. Edited by hand;
+!   run `python3 tools/update_filterlists.py --offline` after a change to refresh the asset.
+!   Prefer reporting a rule upstream (uBlockOrigin/uAssets) as well, and delete it here once
+!   the upstream list carries it.
+! Expires: never (bundled)
+
+! mangadot.net: a first-party inline script opens gotaku.to in a new tab on the first tap
+! anywhere on the page, once an hour (document click listener -> window.open). A real tap, so
+! the popup gate and redirect protection let it through.
+mangadot.net##+js(nowoif, gotaku)

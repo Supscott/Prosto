@@ -11,9 +11,14 @@ Preprocessing environment (what a Chromium-based Android WebView can do): `env_c
 `env_mobile` and `ext_ublock` are true; `env_firefox`, `env_safari`, `env_mv3`, `ext_ubol`, `ext_abp`,
 `cap_html_filtering` and `cap_ipaddress` are false.
 
+A list marked `"local": true` (tools/filterlists/prosto.txt, Prosto's own site fixes) is edited by
+hand: it is never fetched and stays out of the runtime catalog, so the runtime updater leaves the
+bundled copy alone.
+
 Usage:
-    python3 tools/update_filterlists.py          # download, update sha256, refresh assets
-    python3 tools/update_filterlists.py --check  # offline: assets match tools/filterlists and sha256
+    python3 tools/update_filterlists.py            # download, update sha256, refresh assets
+    python3 tools/update_filterlists.py --offline  # no download: refresh assets and sha256 from tools/filterlists
+    python3 tools/update_filterlists.py --check    # offline: assets match tools/filterlists and sha256
 """
 
 import hashlib
@@ -90,7 +95,7 @@ def preprocess(text: str, base_url: str, depth: int = 0) -> str:
 
 def catalog_text(lists: list) -> str:
     """The metadata the runtime updater needs (CB-13): id, engines, preset and URL of every list."""
-    entries = [{k: e[k] for k in ("id", "engine", "preset", "url")} for e in lists]
+    entries = [{k: e[k] for k in ("id", "engine", "preset", "url")} for e in lists if not e.get("local")]
     return json.dumps({"lists": entries}, indent=2, ensure_ascii=False) + "\n"
 
 
@@ -107,9 +112,11 @@ def asset_paths(entry: dict):
         yield ASSETS / entry["preset"] / engine / f"{entry['id']}.txt"
 
 
-def update() -> int:
+def update(offline: bool = False) -> int:
     lists = load_manifest()
     for entry in lists:
+        if offline or entry.get("local"):
+            continue
         print(f"fetching {entry['id']} <- {entry['url']}")
         text = preprocess(fetch(entry["url"]), entry["url"])
         head = text.lstrip()[:200]
@@ -140,7 +147,7 @@ def check() -> int:
             continue
         if sha256(source) != entry.get("sha256"):
             errors.append(f"{source.name}: sha256 differs from lists.json")
-        if not entry["url"].startswith("https://"):
+        if not entry.get("local") and not entry["url"].startswith("https://"):
             errors.append(f"{entry['id']}: url is not HTTPS")
         for target in asset_paths(entry):
             expected_assets.add(target)
@@ -159,4 +166,4 @@ def check() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(check() if "--check" in sys.argv else update())
+    sys.exit(check() if "--check" in sys.argv else update(offline="--offline" in sys.argv))

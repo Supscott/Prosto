@@ -132,6 +132,18 @@
       "licence": "GPL-3.0",
       "homepage": "https://github.com/AdguardTeam/AdguardFilters",
       "sha256": "eb377f026d5dac97453e0eb93d2ac22dbf2ce01ea6900bf826f80f2fc1cb6afc"
+    },
+    {
+      "id": "prosto",
+      "title": "Prosto site fixes",
+      "engine": [
+        "ads"
+      ],
+      "preset": "standard",
+      "local": true,
+      "licence": "Same as the app",
+      "homepage": "tools/filterlists/prosto.txt",
+      "sha256": "bb52002e3b7c57486d9ded7158c2ab68fd5e99f6a30716558762977266757515"
     }
   ]
 }
