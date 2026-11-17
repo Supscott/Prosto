@@ -10,7 +10,8 @@ internal class BlockPageText(val title: String, val body: String, val goBack: St
  * The minimal local page served when a `$document` rule blocks a top-level navigation.
  * No script and no external resources: only inline CSS, escaped text and two links ("Go back",
  * "Proceed anyway") to [BlockPageActions] URLs that the WebView client intercepts. `no-store`
- * keeps it out of the back/forward cache, so going forward to it asks the policy again.
+ * keeps it out of the back/forward cache, so going forward to it asks the policy again;
+ * [CSP_SANDBOX] keeps other windows of the blocked site out of it.
  *
  * Its `<title>` ends with [TITLE_MARKER], the only way to recognise a block page in the WebView
  * back/forward list (a history item exposes just URL and title); see [BlockPageHistory].
@@ -18,6 +19,13 @@ internal class BlockPageText(val title: String, val body: String, val goBack: St
 internal object BlockPage {
     /** Invisible suffix of the block page title: neither collapsed nor stripped by the HTML title rules. */
     const val TITLE_MARKER = "⁠​"
+
+    /**
+     * Gives the page an opaque origin. It is served in the blocked site's origin, so without the
+     * sandbox a same-origin window of that site could read the action token from its links.
+     * The custom-protocol allowance lets the links reach [BlockPageActions] URLs.
+     */
+    const val CSP_SANDBOX = "sandbox allow-top-navigation-to-custom-protocols"
 
     fun isBlockPageTitle(title: String?): Boolean = title?.endsWith(TITLE_MARKER) == true
 
@@ -30,7 +38,7 @@ internal object BlockPage {
             "UTF-8",
             200,
             "OK",
-            mapOf("Cache-Control" to "no-store"),
+            mapOf("Cache-Control" to "no-store", "Content-Security-Policy" to CSP_SANDBOX),
             ByteArrayInputStream(
                 html(
                     text,

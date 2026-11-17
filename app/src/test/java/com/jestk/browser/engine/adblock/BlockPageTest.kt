@@ -46,6 +46,7 @@ class BlockPageTest {
 
         assertThat(response.mimeType).isEqualTo("text/html")
         assertThat(response.responseHeaders["Cache-Control"]).isEqualTo("no-store")
+        assertThat(response.responseHeaders["Content-Security-Policy"]).isEqualTo("sandbox allow-top-navigation-to-custom-protocols")
         val html = response.data.readBytes().toString(Charsets.UTF_8)
         assertThat(html).contains("h.example")
         assertThat(html).contains(proceed)
