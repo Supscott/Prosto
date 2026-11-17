@@ -20,6 +20,8 @@
 #   tools/device.sh visible         URL of the page that is on screen
 #   tools/device.sh eval <url> <js> run JS in the page whose URL starts with <url>; prints JSON
 #                                   (CDP_GESTURE=1: run it as a user gesture)
+#   tools/device.sh serve [stop]    serve tools/fixtures/adblock/ to the phone at http://127.0.0.1:8765/
+#                                   (adb reverse; loopback needs no HTTP warning); "stop" ends it
 #   tools/device.sh log <regex> [n] last n (default 20) logcat lines matching regex
 #   tools/device.sh clearlog        clear logcat
 #   tools/device.sh shot [name]     screenshot, downscaled to 540px wide; prints the PNG path
@@ -157,6 +159,22 @@ case "$cmd" in
         [[ $# -ge 2 ]] || die "usage: device.sh eval <url-prefix> <expression>"
         forward_cdp
         node "$ROOT/tools/cdp_eval.mjs" "$1" "$2" "$CDP_PORT"
+        ;;
+    serve)
+        port="${FIXTURE_PORT:-8765}"
+        if [[ "${1:-}" == "stop" ]]; then
+            pkill -f "fixture_server.py --port $port" || true
+            adb reverse --remove "tcp:$port" 2>/dev/null || true
+            echo "stopped"
+            exit 0
+        fi
+        if ! curl -s -o /dev/null "http://127.0.0.1:$port/__hits"; then
+            mkdir -p "$SHOT_DIR"
+            nohup python3 "$ROOT/tools/fixture_server.py" --port "$port" >"$SHOT_DIR/fixture_server.log" 2>&1 &
+            for _ in 1 2 3 4 5 6 7 8 9 10; do curl -s -o /dev/null "http://127.0.0.1:$port/__hits" && break; sleep 0.3; done
+        fi
+        adb reverse "tcp:$port" "tcp:$port" >/dev/null
+        echo "http://127.0.0.1:$port/"
         ;;
     log)
         [[ $# -ge 1 ]] || die "usage: device.sh log <regex> [lines]"
