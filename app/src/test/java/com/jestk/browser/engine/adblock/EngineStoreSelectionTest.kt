@@ -104,11 +104,16 @@ class EngineStoreSelectionTest {
         val assets = FilterAssets(context.assets, "standard")
 
         for (engine in listOf("ads", "privacy")) {
-            val ids = assets.names(engine).map { it.removeSuffix(".txt") }.toSet()
+            // Hand-edited lists ("local": true in tools/filterlists/lists.json) ship only in the APK.
+            val ids = assets.names(engine).map { it.removeSuffix(".txt") }.toSet() - LOCAL_LISTS
             val cataloged = catalog.forPreset(ProtectionPreset.STANDARD).filter { engine in it.engines }.map { it.id }.toSet()
             assertThat(cataloged).isEqualTo(ids)
         }
         assertThat(catalog.downloadOnly()).isNotEmpty()
         assertThat(catalog.entries.all { it.url.startsWith("https://") }).isTrue()
+    }
+
+    private companion object {
+        val LOCAL_LISTS = setOf("prosto")
     }
 }
