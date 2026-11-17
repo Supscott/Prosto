@@ -16,6 +16,7 @@
 #   tools/device.sh pages           WebView pages over CDP: "visible <url>" or "hidden <url>"
 #   tools/device.sh visible         URL of the page that is on screen
 #   tools/device.sh eval <url> <js> run JS in the page whose URL starts with <url>; prints JSON
+#                                   (CDP_GESTURE=1: run it as a user gesture)
 #   tools/device.sh log <regex> [n] last n (default 20) logcat lines matching regex
 #   tools/device.sh clearlog        clear logcat
 #   tools/device.sh shot [name]     screenshot, downscaled to 540px wide; prints the PNG path
