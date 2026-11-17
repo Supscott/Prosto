@@ -39,6 +39,17 @@ object UrlSecurityUtils {
         }
     }
 
+    private val LOOPBACK_IPV4 = Regex("""127(\.\d{1,3}){3}""")
+
+    /**
+     * True for hosts that never leave the device: localhost, *.localhost, 127.0.0.0/8 and ::1.
+     * Chrome treats them as secure contexts, so plain HTTP to them gets no warning.
+     */
+    fun isLoopbackHost(host: String): Boolean {
+        val h = host.lowercase().removePrefix("[").removeSuffix("]")
+        return h == "localhost" || h.endsWith(".localhost") || h == "::1" || LOOPBACK_IPV4.matches(h)
+    }
+
     /**
      * Extracts host and custom port (e.g. "localhost:8080" or "example.com:8443")
      * for displaying clear, honest target host information in security modals.

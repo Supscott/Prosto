@@ -84,6 +84,18 @@ class InsecureHttpWarningTest {
     }
 
     @Test
+    fun loopbackHosts_needNoInsecureWarning() = runTest(testDispatcher) {
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        for (url in listOf("http://localhost:8765/", "http://127.0.0.1:8765/a", "http://127.1.2.3/", "http://[::1]:80/", "http://app.localhost/")) {
+            assertThat(viewModel.shouldWarnForInsecureUrl(url)).isFalse()
+        }
+        for (url in listOf("http://127.0.0.1.evil.example/", "http://localhost.example/", "http://192.168.1.1/")) {
+            assertThat(viewModel.shouldWarnForInsecureUrl(url)).isTrue()
+        }
+    }
+
+    @Test
     fun loadUrl_withInsecureHttpUrl_showsWarningAndDoesNotNavigateImmediately() = runTest(testDispatcher) {
         val viewModel = createViewModel()
         advanceUntilIdle()
