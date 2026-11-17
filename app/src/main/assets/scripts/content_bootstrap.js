@@ -25,7 +25,10 @@
                     var link = document.querySelector('a[download][href="' + CSS.escape(blobUrl) + '"]');
                     if (link && link.getAttribute('download')) return link.getAttribute('download');
                 } catch (e) {}
-                return lastBlobLink && lastBlobLink.href === blobUrl ? lastBlobLink.name : '';
+                if (lastBlobLink && lastBlobLink.href === blobUrl && lastBlobLink.name) return lastBlobLink.name;
+                // FileSaver.js and export buttons click an <a download> that is never in the page:
+                // no listener or query can see it, so the page title names the file instead.
+                return (document.title || '').trim().slice(0, 80);
             };
             var readBlob = function(blobUrl, disposition, mime) {
                 if (!disposition) {
