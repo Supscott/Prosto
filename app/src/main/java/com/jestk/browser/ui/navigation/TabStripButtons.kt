@@ -26,6 +26,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -80,6 +82,8 @@ fun InactiveTabButton(
         if (isGray) ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) else null
     }
     val crossAlpha = if (isRemovePending) 1f else ((removeProgress - 0.15f) / 0.70f).coerceIn(0f, 1f)
+    // TalkBack and tools/device.sh tapui find the tab by this label; the favicon has none.
+    val label = if (tab.isHomeTab) stringResource(R.string.tab_home_title) else tab.title.ifBlank { tab.url }
 
     Surface(
         shape = CircleShape,
@@ -90,7 +94,8 @@ fun InactiveTabButton(
             modifier
                 .size(38.dp)
                 .clip(CircleShape)
-                .clickable(onClick = onClick),
+                .clickable(onClick = onClick)
+                .semantics { contentDescription = label },
     ) {
         Box(
             modifier = Modifier

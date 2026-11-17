@@ -12,6 +12,9 @@
 #   tools/device.sh caller          open Settings: a stand-in for "the app the link came from"
 #   tools/device.sh back | home     press Back | Home
 #   tools/device.sh tap <x> <y>     tap at device pixels
+#   tools/device.sh ui              labelled UI nodes on screen: text | content-desc | bounds
+#   tools/device.sh tapui <label>   tap the node whose text or content-desc is exactly <label>
+#   tools/device.sh swipe <x1> <y1> <x2> <y2> [ms]   swipe at device pixels (default 400 ms)
 #   tools/device.sh top             package of the resumed activity
 #   tools/device.sh pages           WebView pages over CDP: "visible <url>" or "hidden <url>"
 #   tools/device.sh visible         URL of the page that is on screen
@@ -43,6 +46,9 @@ is_locked() { adb shell dumpsys window | grep -q "isKeyguardShowing=true"; }
 # Quotes a value for the device shell, which re-parses the command line: "(", "&", "?" and
 # spaces in URLs would break it otherwise.
 device_quote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+
+# The current window hierarchy as uiautomator XML.
+ui_dump() { adb exec-out uiautomator dump /dev/tty 2>/dev/null | sed 's/UI hierchary dumped to.*//'; }
 
 pid() { adb shell pidof "$PKG" | tr -d '\r'; }
 
@@ -125,6 +131,19 @@ case "$cmd" in
         [[ $# -ge 2 ]] || die "usage: device.sh tap <x> <y>"
         adb shell input tap "$1" "$2"
         ;;
+    ui)
+        ui_dump | python3 "$ROOT/tools/ui_nodes.py" list
+        ;;
+    tapui)
+        [[ $# -ge 1 ]] || die "usage: device.sh tapui <label>"
+        xy="$(ui_dump | python3 "$ROOT/tools/ui_nodes.py" find "$1")" || die "no node labelled '$1' on screen"
+        # shellcheck disable=SC2086
+        adb shell input tap $xy
+        ;;
+    swipe)
+        [[ $# -ge 4 ]] || die "usage: device.sh swipe <x1> <y1> <x2> <y2> [ms]"
+        adb shell input swipe "$1" "$2" "$3" "$4" "${5:-400}"
+        ;;
     top)
         adb shell dumpsys activity activities | grep -m1 "topResumedActivity" | sed -E 's/.* ([a-zA-Z0-9_.]+)\/.*/\1/'
         ;;
@@ -154,7 +173,7 @@ case "$cmd" in
         echo "$out"
         ;;
     *)
-        sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+        sed -n '2,/^[^#]/p' "${BASH_SOURCE[0]}" | grep '^#' | sed 's/^# \{0,1\}//'
         exit 1
         ;;
 esac
