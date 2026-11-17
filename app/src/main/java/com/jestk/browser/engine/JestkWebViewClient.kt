@@ -334,10 +334,9 @@ class JestkWebViewClient(
             checkExternalAppOffer(wv, validUrl)
             onNavigationStateChanged(tabId, wv.canGoBackPastBlockPages(), wv.canGoForward())
             val isDark = isDarkTheme?.invoke() ?: false
-            if (validUrl.contains("apple.com", ignoreCase = true)) {
-                notifyThemeColors(tabId, android.graphics.Color.parseColor("#161617"), android.graphics.Color.parseColor("#161617"))
-            } else if (validUrl.contains("youtube.com", ignoreCase = true) && isDark) {
-                notifyThemeColors(tabId, android.graphics.Color.parseColor("#0f0f0f"), android.graphics.Color.parseColor("#0f0f0f"))
+            val fixedBar = SiteThemeOverride.barColor(validUrl, isDark)
+            if (fixedBar != null) {
+                notifyThemeColors(tabId, fixedBar, fixedBar)
             } else {
                 wv.post {
                     extractThemeColor(wv, isPageStarted = true)
@@ -419,7 +418,7 @@ class JestkWebViewClient(
                     tabId = tabId,
                     context = wv.context,
                     onVisualColorsSampled = { topColor, bottomColor ->
-                        if (!validUrl.contains("apple.com", ignoreCase = true)) {
+                        if (!SiteThemeOverride.ignoresSampledColors(validUrl)) {
                             notifyThemeColors(tabId, topColor, bottomColor)
                         }
                     },
