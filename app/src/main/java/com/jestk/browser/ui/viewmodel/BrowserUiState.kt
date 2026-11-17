@@ -28,6 +28,8 @@ data class BrowserUiState(
     val folders: List<TabFolder> = emptyList(),
     /** Per workspace and site: the ungrouped tab count when its folder suggestion was dismissed. Not persisted. */
     val domainGroupDismissals: Map<com.jestk.browser.domain.model.DomainGroupKey, Int> = emptyMap(),
+    /** The "create a folder for these tabs" chip; derived from tabs by [launchDomainGroupSuggestions]. */
+    val domainGroupSuggestion: com.jestk.browser.domain.model.DomainGroupSuggestion? = null,
     val recentTabs: List<com.jestk.browser.domain.model.RecentTabItem> = emptyList(),
     val activeTabId: String? = null,
     val loadedTabIds: Set<String> = emptySet(),

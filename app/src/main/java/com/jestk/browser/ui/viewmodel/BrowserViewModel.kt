@@ -284,6 +284,7 @@ class BrowserViewModel(
                 }
             }
         }
+        viewModelScope.launchDomainGroupSuggestions(_uiState, ioDispatcher)
         viewModelScope.launch(ioDispatcher) {
             restoreSession()
             observeDatabaseFlows()

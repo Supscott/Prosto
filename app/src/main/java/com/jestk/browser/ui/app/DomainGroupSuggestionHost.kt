@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.DomainGroupSuggestion
 import com.jestk.browser.domain.model.OverlayType
-import com.jestk.browser.domain.model.suggestDomainGroup
 import com.jestk.browser.ui.overlays.DomainGroupSuggestionPill
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
@@ -61,9 +60,7 @@ internal fun BoxScope.DomainGroupSuggestionHost(
     isBottomBarVisible: Boolean,
     bottomOffset: Dp,
 ) {
-    val suggestion = remember(uiState.tabs, uiState.activeWorkspaceId, uiState.domainGroupDismissals) {
-        suggestDomainGroup(uiState.tabs, uiState.activeWorkspaceId, uiState.domainGroupDismissals)
-    }
+    val suggestion = uiState.domainGroupSuggestion
     // The last suggestion keeps the chip's text while it animates out.
     var lastSuggestion by remember { mutableStateOf<DomainGroupSuggestion?>(null) }
     LaunchedEffect(suggestion) { if (suggestion != null) lastSuggestion = suggestion }
