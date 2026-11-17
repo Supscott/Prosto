@@ -8,7 +8,8 @@ class FakeContentMatcher(
 ) : ContentMatcher {
     data class Call(val url: String, val sourceUrl: String, val type: RequestType)
 
-    val calls = mutableListOf<Call>()
+    /** Synchronized: EngineSwapConcurrencyTest calls check() from several threads. */
+    val calls: MutableList<Call> = java.util.Collections.synchronizedList(mutableListOf())
     var closed = false
         private set
 

@@ -22,7 +22,9 @@ class EngineSwapConcurrencyTest {
         EngineSet(FakeContentMatcher(mapOf(blocked to 1)), FakeContentMatcher(mapOf(blocked to 1)), 1)
 
     @Test
-    fun concurrentChecksDuringSwaps_neverThrowAndNeverSeeAnEnginelessWindow() {
+    fun concurrentChecksDuringSwaps_neverThrowAndNeverSeeAnEnginelessWindow() = repeat(40) { iteration() }
+
+    private fun iteration() {
         AdBlockerEngine.resetForTests()
         val store = AdBlockerEngine.engineStore
         store.swap(newSet("old.example"))
