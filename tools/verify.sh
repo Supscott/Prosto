@@ -4,6 +4,86 @@ set -euo pipefail
 # Fast verification script for Prosto Browser
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
+
+# Test classes added or edited on this branch (vs main) or in the working tree.
+changed_paths() {
+    local base
+    base="$(git merge-base HEAD main 2>/dev/null || echo HEAD)"
+    { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u
+}
+
+# Extra rules for --changed: a change to these paths can break tests that never mention the
+# file (adding assets/filters/standard/ads/prosto.txt broke EngineStoreSelectionTest), so the
+# tests they cover run too. One rule per line: "path glob|test group|label".
+EXTRA_TEST_RULES=(
+    "tools/filterlists/*|adblock|ad-block filter list sources"
+    "app/src/main/assets/filters/*|adblock|bundled filter lists"
+    "app/src/main/assets/adblock/*|adblock|ad-block resources"
+    "app/src/main/assets/adblock_*.txt|adblock|ad-block host lists"
+    "app/src/main/assets/scripts/*|scripts|bundled content scripts"
+)
+
+# The Test.kt files of a test group. Helpers without "Test" in the name are not classes.
+extra_test_files() {
+    case "$1" in
+        adblock) find app/src/test -name '*Test.kt' -path '*/engine/adblock/*' || true ;;
+        scripts) grep -rl --include='*Test.kt' 'scripts/' app/src/test || true ;;
+    esac
+}
+
+# Prints the test file paths --changed runs. One note per rule hit goes to stderr.
+test_file_paths() {
+    local paths rule glob rest group label hits f tests names
+    paths="$(changed_paths)"
+    printf '%s\n' "$paths" | grep -E '^app/src/test/java/.*Test\.kt$' || true
+    for rule in "${EXTRA_TEST_RULES[@]}"; do
+        glob="${rule%%|*}"
+        rest="${rule#*|}"
+        group="${rest%%|*}"
+        label="${rest#*|}"
+        hits=""
+        while IFS= read -r f; do
+            # shellcheck disable=SC2254
+            case "$f" in
+                $glob) hits="${hits:+$hits }$f" ;;
+            esac
+        done <<<"$paths"
+        [[ -n "$hits" ]] || continue
+        tests="$(extra_test_files "$group" | grep -E '^app/src/test/java/.*Test\.kt$' || true)"
+        names="$(printf '%s\n' "$tests" | sed -e 's|.*/||' -e 's|\.kt$||' | paste -sd, -)"
+        echo "extra tests: $label changed ($hits) -> added $names" >&2
+        printf '%s\n' "$tests"
+    done
+}
+
+# Gradle --tests pairs ("--tests" and the class name on separate lines) for --changed.
+changed_test_args() {
+    local f cls
+    test_file_paths | sort -u | while IFS= read -r f; do
+        [[ -f "$f" ]] || continue
+        cls="${f#app/src/test/java/}"
+        cls="${cls%.kt}"
+        printf -- '--tests\n%s\n' "${cls//\//.}"
+    done
+}
+
+CORE_TESTS=(
+    --tests "com.jestk.browser.ui.viewmodel.TabCoordinatorTest"
+    --tests "com.jestk.browser.ui.viewmodel.BrowserViewModelTest"
+    --tests "com.jestk.browser.engine.JestkWebChromeClientTest"
+)
+
+# Prints the --tests filter that --changed would run, and exits without running anything.
+if [[ "${1:-}" == --changed && "${2:-}" == --dry-run ]]; then
+    dry_list="$(changed_test_args | paste - - | sed 's/\t/ /')"
+    if [[ -z "$dry_list" ]]; then
+        echo "(no changed test classes: --changed would run the core set)"
+    else
+        echo "$dry_list"
+    fi
+    exit 0
+fi
+
 # shellcheck source=tools/ensure_worktree_files.sh
 source "$ROOT/tools/ensure_worktree_files.sh"
 ensure_worktree_files "$ROOT"
@@ -37,25 +117,6 @@ started=$(date +%s)
 status=0
 # pipefail makes the function return the Gradle status, not tail's.
 run_tests() { ./gradlew -q testDebugUnitTest "$@" 2>&1 | tail -40; }
-
-# Test classes added or edited on this branch (vs main) or in the working tree.
-changed_test_args() {
-    local base f cls
-    base="$(git merge-base HEAD main 2>/dev/null || echo HEAD)"
-    { git diff --name-only "$base"; git ls-files --others --exclude-standard; } |
-        grep -E '^app/src/test/java/.*Test\.kt$' | sort -u | while IFS= read -r f; do
-            [[ -f "$f" ]] || continue
-            cls="${f#app/src/test/java/}"
-            cls="${cls%.kt}"
-            printf -- '--tests\n%s\n' "${cls//\//.}"
-        done
-}
-
-CORE_TESTS=(
-    --tests "com.jestk.browser.ui.viewmodel.TabCoordinatorTest"
-    --tests "com.jestk.browser.ui.viewmodel.BrowserViewModelTest"
-    --tests "com.jestk.browser.engine.JestkWebChromeClientTest"
-)
 
 case "${1:-}" in
     --all)

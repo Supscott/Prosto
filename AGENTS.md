@@ -26,7 +26,7 @@ Welcome to the **Prosto** project. This file provides operational rules, archite
   - `rtk tools/verify.sh`: Invariants + core coordination and engine tests (~20s).
   - `rtk tools/verify.sh --ui`: Invariants + UI previews and bottom dock tests (~25s).
   - `rtk tools/verify.sh --all`: Full unit test suite (`testDebugUnitTest`).
-  - `rtk tools/verify.sh --changed`: Invariants + the test classes added or edited on the branch (vs `main`) or in the working tree. The default run uses a fixed set, so a new test class runs only with `--changed` or `--all`.
+  - `rtk tools/verify.sh --changed`: Invariants + the test classes added or edited on the branch (vs `main`) or in the working tree. The default run uses a fixed set, so a new test class runs only with `--changed` or `--all`. `--changed` also adds the tests that cover changed filter lists, ad-block assets and content scripts (one `extra tests:` line per rule hit); `--changed --dry-run` prints the selection without Gradle.
   - Each run ends with `==> Tests: N/M passed` and one `FAIL Class.test: message` line per failure (`tools/test_summary.py`); no need to open the XML reports.
 - **Visual UI Previews**: Run `rtk tools/preview.sh <TestName>` (e.g. `rtk tools/preview.sh BottomBarPreviewTest`) to render Compose previews to PNG in `build/` using Robolectric native graphics without deploying to a physical device.
 - **Unit test target**: Always run `rtk ./gradlew testDebugUnitTest`. Never run bare `./gradlew test`, as `testReleaseUnitTest` fails without Robolectric release configuration. In coroutine tests `advanceUntilIdle()` skips `backgroundScope` work; use `runCurrent()` there.
