@@ -24,10 +24,12 @@ import com.jestk.browser.JestkApplication
 import com.jestk.browser.engine.media.BackgroundPlaybackController
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.engine.AdBlockerEngine
+import com.jestk.browser.ui.viewmodel.BackgroundStamp
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.views.FullscreenViewHost
 import com.jestk.browser.ui.views.FullscreenViewHostOwner
+import com.jestk.browser.util.BackgroundStampStore
 import com.jestk.browser.util.DefaultBrowserHelper
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.VibratorVibrationFeedback
@@ -38,6 +40,10 @@ import kotlinx.coroutines.launch
 class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHostOwner {
     private lateinit var viewModel: BrowserViewModel
     private lateinit var backgroundPlayback: BackgroundPlaybackController
+    private val backgroundStamps by lazy { BackgroundStampStore(this) }
+
+    /** A link arrived since the last stop; that return is not a plain return to the app. */
+    private var linkOpenedSinceStop = false
     override val fullscreenViewHost: FullscreenViewHost by lazy { FullscreenViewHost(this) }
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -211,6 +217,12 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
     override fun onStart() {
         super.onStart()
         viewModel.onAppResume()
+        viewModel.onReturnedToForeground(
+            stamp = backgroundStamps.take(),
+            returnedWithLink = linkOpenedSinceStop,
+            mediaActiveNow = backgroundPlayback.isSessionActive,
+        )
+        linkOpenedSinceStop = false
     }
 
     override fun onPause() {
@@ -238,6 +250,7 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
     private fun handleIntent(intent: Intent?) {
         val data = intent?.dataString
         if (!data.isNullOrEmpty()) {
+            linkOpenedSinceStop = true
             // Our own links (Settings "About", feedback) reach us here too; they are not external.
             val openedByExternalApp = referrer?.host != packageName
             viewModel.onEvent(BrowserUiEvent.OpenNewTab(data, openedByExternalApp = openedByExternalApp))
@@ -286,6 +299,14 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
     override fun onStop() {
         super.onStop()
         backgroundPlayback.onActivityStopped()
+        linkOpenedSinceStop = false
+        val state = viewModel.uiState.value
+        backgroundStamps.save(
+            BackgroundStamp(
+                atMs = System.currentTimeMillis(),
+                mediaActive = state.isVideoPlaying || state.isFullscreenCustomView || isInPictureInPictureMode,
+            ),
+        )
         // The process may be killed while in the background; keep every tab's history.
         (application as JestkApplication).container.webViewPool.saveAllStates()
     }

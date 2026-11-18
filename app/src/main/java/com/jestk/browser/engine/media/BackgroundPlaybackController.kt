@@ -31,6 +31,9 @@ internal class BackgroundPlaybackController(
     private var keptVisible: NestedWebView? = null
     private val poll = Runnable { pollPage() }
 
+    /** True while the app plays media in the background; cleared when the app returns on screen. */
+    val isSessionActive: Boolean get() = session != null
+
     private class Candidate(val tabId: String, val title: String, val host: String)
 
     private class Session(val candidate: Candidate) {

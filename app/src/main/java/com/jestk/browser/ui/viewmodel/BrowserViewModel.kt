@@ -146,6 +146,8 @@ class BrowserViewModel(
             workspaceRepository = workspaceRepository,
         )
 
+    private val lastTabs = LastTabCoordinator.create(_uiState, tabCoordinator, viewModelScope, currentTimeProvider)
+
     private val domainGroupEvents =
         DomainGroupEventHandler(
             tabCoordinator = tabCoordinator,
@@ -165,6 +167,7 @@ class BrowserViewModel(
             loadUrl = this::loadUrl,
             shouldWarnForInsecureUrl = this::shouldWarnForInsecureUrl,
             domainGroupEvents = domainGroupEvents,
+            lastTabs = lastTabs,
         )
 
     private val overlayEvents =
@@ -388,6 +391,9 @@ class BrowserViewModel(
     fun shouldWarnForInsecureUrl(url: String): Boolean {
         return url.isNotEmpty() && UrlSecurityUtils.isHttpUrl(url) && !isInsecureHostAllowed(url)
     }
+
+    fun onReturnedToForeground(stamp: BackgroundStamp?, returnedWithLink: Boolean, mediaActiveNow: Boolean) =
+        lastTabs.onReturnedToForeground(stamp, returnedWithLink, mediaActiveNow)
 
     fun onAppResume() {
         updateCoordinator.onAppResume()

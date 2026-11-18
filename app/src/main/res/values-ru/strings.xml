@@ -19,6 +19,7 @@
     <string name="tab_opened_in_background">Вкладка открыта в фоне</string>
     <string name="url_copied">URL скопирован в буфер обмена</string>
     <string name="tab_closed">Вкладка закрыта</string>
+    <string name="last_tab_pill">Последняя вкладка: %1$s</string>
     <string name="undo">Отмена</string>
     <string name="default_browser_tile_title">Браузер по умолчанию</string>
     <string name="default_browser_tile_desc">Назначить Prosto браузером по умолчанию</string>

@@ -39,6 +39,8 @@ data class BrowserUiState(
     val homeHoldTabId: String? = null,
     /** Tabs opened by a link from another app; Back at their history start returns to it. */
     val externalAppTabIds: Set<String> = emptySet(),
+    /** The "Last tab" pill offered after the app opened a Home tab on return. Not persisted. */
+    val lastTabPrompt: LastTabPrompt? = null,
     val recentlyClosedTab: Tab? = null,
     val showUndoTabCloseSnackbar: Boolean = false,
     val externalAppPrompt: ExternalAppPrompt? = null,

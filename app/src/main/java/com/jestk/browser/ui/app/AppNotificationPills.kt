@@ -75,6 +75,16 @@ internal fun BoxScope.AppNotificationPills(
     )
 
     DomainGroupSuggestionHost(uiState, onEvent, isDark, activeWorkspaceColor, isBottomBarVisible, snackbarBaseBottomOffset)
+    LastTabPillHost(
+        uiState = uiState,
+        onEvent = onEvent,
+        isDark = isDark,
+        activeWorkspaceColor = activeWorkspaceColor,
+        isBottomBarVisible = isBottomBarVisible,
+        bottomOffset = snackbarBaseBottomOffset +
+            (if (uiState.showUndoTabCloseSnackbar && uiState.recentlyClosedTab != null) 56.dp else 0.dp) +
+            (if (uiState.showDownloadSnackbar && uiState.lastDownloadNotification != null) 56.dp else 0.dp),
+    )
 
     // Undo Closed Tab Floating Notification Pill
     AnimatedVisibility(

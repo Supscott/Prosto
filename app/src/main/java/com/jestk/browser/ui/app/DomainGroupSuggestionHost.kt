@@ -30,7 +30,7 @@ import com.jestk.browser.ui.viewmodel.CreateDomainGroup
 import com.jestk.browser.ui.viewmodel.DismissDomainGroup
 
 /** Overlays that cover the page and the dock; the chip belongs to the browsing view only. */
-private val OVERLAYS_WITHOUT_CHIP = setOf(
+internal val OVERLAYS_WITHOUT_CHIP = setOf(
     OverlayType.SEARCH,
     OverlayType.TAB_GRID,
     OverlayType.SETTINGS,
@@ -43,6 +43,7 @@ private fun BrowserUiState.hasTransientPill(): Boolean =
     (showUndoTabCloseSnackbar && recentlyClosedTab != null) ||
         (showDownloadSnackbar && lastDownloadNotification != null) ||
         externalAppPrompt != null ||
+        lastTabPrompt != null ||
         popupBlocked != null ||
         blockedAdNavigation != null ||
         insecureHttpPrompt != null

@@ -19,6 +19,7 @@
     <string name="tab_opened_in_background">Tab opened in background</string>
     <string name="url_copied">URL copied</string>
     <string name="tab_closed">Tab closed</string>
+    <string name="last_tab_pill">Last tab: %1$s</string>
     <string name="undo">Undo</string>
     <string name="default_browser_tile_title">Default Browser</string>
     <string name="default_browser_tile_desc">Set Prosto as your default browser</string>

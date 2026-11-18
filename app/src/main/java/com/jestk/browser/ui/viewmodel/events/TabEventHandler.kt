@@ -6,6 +6,8 @@ import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.DomainGroupUiEvent
+import com.jestk.browser.ui.viewmodel.LastTabCoordinator
+import com.jestk.browser.ui.viewmodel.LastTabUiEvent
 import com.jestk.browser.ui.viewmodel.SearchCoordinator
 import com.jestk.browser.ui.viewmodel.TabCoordinator
 import com.jestk.browser.ui.viewmodel.TabUiEvent
@@ -24,6 +26,7 @@ internal class TabEventHandler(
     private val loadUrl: (String) -> Unit,
     private val shouldWarnForInsecureUrl: (String) -> Boolean,
     private val domainGroupEvents: DomainGroupEventHandler? = null,
+    private val lastTabs: LastTabCoordinator? = null,
 ) {
     fun handle(event: TabUiEvent) {
         when (event) {
@@ -244,6 +247,8 @@ internal class TabEventHandler(
             }
 
             is DomainGroupUiEvent -> domainGroupEvents?.handle(event)
+
+            is LastTabUiEvent -> lastTabs?.handle(event)
 
             is BrowserUiEvent.CreateTabInFolder -> {
                 tabCoordinator.folders.createTabInFolder(event.folderId)
