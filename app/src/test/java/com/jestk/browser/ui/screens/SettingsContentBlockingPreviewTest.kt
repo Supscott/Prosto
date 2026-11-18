@@ -77,7 +77,7 @@ class SettingsContentBlockingPreviewTest {
     fun section_showsStrictDownloadNoticeNetworkOnlyNoticeAndAllowlistScopes() {
         show(sampleState)
 
-        composeRule.onNodeWithText("CONTENT BLOCKING").assertExists()
+        composeRule.onNodeWithText("Content blocking").assertExists()
         composeRule.onNodeWithText("Strict lists are downloading. Standard protection is active until they finish.").assertExists()
         composeRule.onNodeWithText("Your WebView supports network blocking only.", substring = true).assertExists()
         composeRule.onNodeWithText("Rules: 187,342", substring = true).assertExists()

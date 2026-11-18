@@ -36,6 +36,8 @@ test_file_paths() {
     local paths rule glob rest group label hits f tests names
     paths="$(changed_paths)"
     printf '%s\n' "$paths" | grep -E '^app/src/test/java/.*Test\.kt$' || true
+    # Unedited tests of edited classes (tools/related_tests.py notes each hit on stderr).
+    printf '%s\n' "$paths" | python3 tools/related_tests.py
     for rule in "${EXTRA_TEST_RULES[@]}"; do
         glob="${rule%%|*}"
         rest="${rule#*|}"

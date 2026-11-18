@@ -33,10 +33,10 @@ class BlockedAdNavigationBannerTest {
             )
         }
 
-        // Start a small horizontal drag (below the swipe-away threshold) and keep holding.
+        // Start a small vertical drag (below the swipe-away threshold) and keep holding.
         composeTestRule.onNodeWithTag("banner").performTouchInput {
             down(center)
-            moveBy(androidx.compose.ui.geometry.Offset(40f, 0f))
+            moveBy(androidx.compose.ui.geometry.Offset(0f, 20f))
         }
         composeTestRule.mainClock.advanceTimeBy(6_000L)
         assertEquals(0, dismissals)
