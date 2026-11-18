@@ -34,9 +34,12 @@ import com.jestk.browser.util.BackgroundStampStore
 import com.jestk.browser.util.DefaultBrowserHelper
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.VibratorVibrationFeedback
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHostOwner {
     private lateinit var viewModel: BrowserViewModel
@@ -45,6 +48,11 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
 
     /** A link arrived since the last stop; that return is not a plain return to the app. */
     private var linkOpenedSinceStop = false
+
+    private val pipVideoFill = PipVideoFill()
+
+    /** Whether a video was playing when the user left for PiP, so the PiP window resumes it. */
+    private var pipResumeVideo = false
     override val fullscreenViewHost: FullscreenViewHost by lazy { FullscreenViewHost(this) }
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
 
@@ -265,7 +273,9 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
         // Enter Android System PiP if video is active when leaving app
-        if (viewModel.uiState.value.isVideoPlaying || viewModel.uiState.value.isFullscreenCustomView) {
+        val state = viewModel.uiState.value
+        if (state.isVideoPlaying || state.isFullscreenCustomView) {
+            pipResumeVideo = state.isVideoPlaying
             enterPipMode()
         }
     }
@@ -294,10 +304,31 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
         newConfig: Configuration,
     ) {
         super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
-        if (isInPictureInPictureMode) {
-            viewModel.onEvent(BrowserUiEvent.SetBottomBarVisibility(false))
-        } else {
-            viewModel.onEvent(BrowserUiEvent.SetBottomBarVisibility(true))
+        viewModel.onEvent(BrowserUiEvent.SetBottomBarVisibility(!isInPictureInPictureMode))
+        val activeWebView = viewModel.uiState.value.activeTabId?.let {
+            (application as JestkApplication).container.webViewPool.getWebView(it)
+        }
+        if (!isInPictureInPictureMode) {
+            pipVideoFill.restore(activeWebView)
+        } else if (activeWebView != null) {
+            // Chromium leaves HTML5 fullscreen when the window shrinks, and players pause on that
+            // exit: wait for it (and the page's own handlers), then keep the video in the window.
+            lifecycleScope.launch {
+                withTimeoutOrNull(1_500) { viewModel.uiState.first { !it.isFullscreenCustomView } }
+                delay(300)
+                if (isInPictureInPictureMode) applyPipVideoFill(activeWebView)
+            }
+        }
+    }
+
+    private fun applyPipVideoFill(activeWebView: android.webkit.WebView) {
+        pipVideoFill.apply(activeWebView, resume = pipResumeVideo) { width, height ->
+            val ratio = (width.toFloat() / height).coerceIn(1f / 2.39f, 2.39f)
+            runCatching {
+                setPictureInPictureParams(
+                    PictureInPictureParams.Builder().setAspectRatio(Rational((ratio * 1000).toInt(), 1000)).build(),
+                )
+            }
         }
     }
 
