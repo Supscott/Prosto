@@ -375,9 +375,7 @@ class BrowserViewModel(
         downloadCoordinator.onDownloadStarted(item)
     }
 
-    fun onDownloadFailed(fileName: String?, message: String) {
-        downloadCoordinator.onDownloadFailed(fileName, message)
-    }
+    fun onDownloadFailed(fileName: String?, message: String) = downloadCoordinator.onDownloadFailed(fileName, message)
 
     fun dismissDownloadSnackbar() {
         downloadCoordinator.dismissDownloadSnackbar()

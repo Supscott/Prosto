@@ -84,7 +84,9 @@ internal class WebViewDownloads(
                             }
                         }
                     } catch (t: Throwable) {
+                        if (t is kotlinx.coroutines.CancellationException) throw t
                         Log.e(TAG, "Failed to enqueue download", t)
+                        withContext(Dispatchers.Main) { onDownloadFailed(fileName, t.message.orEmpty()) }
                     }
                 }
             }
