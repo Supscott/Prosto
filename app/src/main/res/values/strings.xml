@@ -288,7 +288,7 @@
     <string name="toast_no_url_to_copy">No URL to copy</string>
     <string name="toast_no_url_to_share">No URL to share</string>
     <string name="toast_share_failed">Could not share link</string>
-    <string name="toast_download_failed_reason">Download failed: %1$s</string>
+    <string name="download_failed_pill">Download failed: %1$s</string>
     <string name="download_notification_starting">Downloading file…</string>
     <string name="download_notification_complete">Download complete</string>
     <plurals name="tabs_overview_count_filtered">

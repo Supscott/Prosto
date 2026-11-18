@@ -3,13 +3,10 @@ package com.jestk.browser.engine
 import android.content.Context
 import android.util.Log
 import android.webkit.WebView
-import android.widget.Toast
-import com.jestk.browser.R
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.engine.download.DownloadFileNameResolver
 import com.jestk.browser.engine.download.HoriDownloadManager
-import com.jestk.browser.util.findActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -25,7 +22,8 @@ internal class WebViewDownloads(
     private val downloadRepository: () -> DownloadRepository?,
     private val downloadManager: () -> HoriDownloadManager?,
     private val activeScope: () -> CoroutineScope,
-    private val onDownloadStarted: (DownloadItem) -> Unit
+    private val onDownloadStarted: (DownloadItem) -> Unit,
+    private val onDownloadFailed: (fileName: String?, message: String) -> Unit
 ) {
 
     private companion object {
@@ -42,20 +40,17 @@ internal class WebViewDownloads(
         contentDisposition: String?,
         mimeType: String?,
         contentLength: Long,
-        context: Context,
         webView: WebView?
     ) {
-        val targetContext = context.findActivity() ?: applicationContext
-
         // Check for data: URI scheme
         if (url.startsWith("data:", ignoreCase = true)) {
-            handleDataUrlDownload(url, contentDisposition, mimeType, targetContext)
+            handleDataUrlDownload(url, contentDisposition, mimeType)
             return
         }
 
         // Check for blob: URI scheme
         if (url.startsWith("blob:", ignoreCase = true)) {
-            handleBlobDownload(url, contentDisposition, mimeType, targetContext, webView)
+            handleBlobDownload(url, contentDisposition, mimeType, webView)
             return
         }
 
@@ -95,22 +90,15 @@ internal class WebViewDownloads(
             }
         } catch (e: Throwable) {
             Log.e(TAG, "Download failed for $url", e)
-            val failureContext = context.findActivity() ?: applicationContext
-            try {
-                Toast.makeText(failureContext, downloadFailedText(failureContext, e), Toast.LENGTH_SHORT).show()
-            } catch (t: Throwable) {
-                Log.w(TAG, "Failed to show download error toast", t)
-            }
+            onDownloadFailed(null, e.message.orEmpty())
         }
     }
 
     fun handleDataUrlDownload(
         url: String,
         contentDisposition: String?,
-        mimeType: String?,
-        context: Context
+        mimeType: String?
     ) {
-        val targetContext = context.findActivity() ?: applicationContext
         val downloadMgr = resolveManager()
 
         if (downloadMgr != null) {
@@ -126,7 +114,7 @@ internal class WebViewDownloads(
                 } catch (e: Throwable) {
                     Log.e(TAG, "Data URL download failed", e)
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(targetContext, downloadFailedText(targetContext, e), Toast.LENGTH_SHORT).show()
+                        onDownloadFailed(null, e.message.orEmpty())
                     }
                 }
             }
@@ -137,13 +125,11 @@ internal class WebViewDownloads(
         blobUrl: String,
         contentDisposition: String?,
         mimeType: String?,
-        context: Context,
         webView: WebView?
     ) {
-        val targetContext = context.findActivity() ?: applicationContext
         if (webView == null) {
             Log.w(TAG, "Cannot handle blob download without originating WebView reference")
-            Toast.makeText(targetContext, R.string.downloads_failed, Toast.LENGTH_SHORT).show()
+            onDownloadFailed(null, "")
             return
         }
 
@@ -151,16 +137,11 @@ internal class WebViewDownloads(
 
         try {
             pendingBlobDownloads.request(webView, blobUrl, contentDisposition, mimeType) {
-                Toast.makeText(targetContext, R.string.downloads_failed, Toast.LENGTH_SHORT).show()
+                onDownloadFailed(null, "")
             }
         } catch (t: Throwable) {
             Log.e(TAG, "Failed to evaluate blob download script", t)
-            Toast.makeText(targetContext, downloadFailedText(targetContext, t), Toast.LENGTH_SHORT).show()
+            onDownloadFailed(null, t.message.orEmpty())
         }
     }
-
-    private fun downloadFailedText(context: Context, error: Throwable): String =
-        error.message?.takeIf { it.isNotBlank() }
-            ?.let { context.getString(R.string.toast_download_failed_reason, it) }
-            ?: context.getString(R.string.downloads_failed)
 }

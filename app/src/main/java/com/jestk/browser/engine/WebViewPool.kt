@@ -48,6 +48,7 @@ class WebViewPool(
     }
 
     var onDownloadStarted: ((DownloadItem) -> Unit)? = null
+    var onDownloadFailed: ((fileName: String?, message: String) -> Unit)? = null
     var isAdBlockerEnabled: (() -> Boolean)? = null
     var isTrackingProtectionEnabled: (() -> Boolean)? = null
     var isCleanPlayerEnabled: (() -> Boolean)? = null
@@ -104,7 +105,8 @@ class WebViewPool(
         downloadRepository = { downloadRepository },
         downloadManager = { downloadManager },
         activeScope = { activeScope() },
-        onDownloadStarted = { item -> onDownloadStarted?.invoke(item) }
+        onDownloadStarted = { item -> onDownloadStarted?.invoke(item) },
+        onDownloadFailed = { fileName, message -> onDownloadFailed?.invoke(fileName, message) }
     )
 
     private val pool = ConcurrentHashMap<String, WebView>()
@@ -501,7 +503,7 @@ class WebViewPool(
             try {
                 val blobBridge = pendingBlobDownloads.createBridge { dataUrl, contentDisposition, mimeType ->
                     activeScope().launch(Dispatchers.Main) {
-                        downloads.handleDataUrlDownload(dataUrl, contentDisposition, mimeType, webView.context)
+                        downloads.handleDataUrlDownload(dataUrl, contentDisposition, mimeType)
                     }
                 }
                 webView.addJavascriptInterface(blobBridge, ContentBlockingSetup.blobBridgeName)
@@ -561,7 +563,7 @@ class WebViewPool(
         context: Context,
         webView: WebView? = null
     ) {
-        downloads.handleDownload(url, userAgent, contentDisposition, mimeType, contentLength, context, webView)
+        downloads.handleDownload(url, userAgent, contentDisposition, mimeType, contentLength, webView)
     }
 
     internal fun handleBlobDownload(
@@ -570,9 +572,7 @@ class WebViewPool(
         mimeType: String?,
         context: Context,
         webView: WebView?
-    ) {
-        downloads.handleBlobDownload(blobUrl, contentDisposition, mimeType, context, webView)
-    }
+    ) = downloads.handleBlobDownload(blobUrl, contentDisposition, mimeType, webView)
 
     /**
      * Applies the app theme to [webView]. Pages see `prefers-color-scheme` through the hosting

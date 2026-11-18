@@ -275,6 +275,7 @@ class BrowserViewModel(
 
     init {
         webViewPool?.onDownloadStarted = { item -> onDownloadStarted(item) }
+        webViewPool?.onDownloadFailed = { fileName, message -> onDownloadFailed(fileName, message) }
         webViewPool?.let { pool ->
             viewModelScope.launch {
                 pool.loadedTabIds.collect { loaded ->
@@ -298,6 +299,7 @@ class BrowserViewModel(
     override fun onCleared() {
         super.onCleared()
         webViewPool?.onDownloadStarted = null
+        webViewPool?.onDownloadFailed = null
     }
 
     var bypassCleanPlayerVideoId: String? = null
@@ -371,6 +373,10 @@ class BrowserViewModel(
 
     fun onDownloadStarted(item: DownloadItem) {
         downloadCoordinator.onDownloadStarted(item)
+    }
+
+    fun onDownloadFailed(fileName: String?, message: String) {
+        downloadCoordinator.onDownloadFailed(fileName, message)
     }
 
     fun dismissDownloadSnackbar() {

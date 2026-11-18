@@ -6,6 +6,7 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.DismissDownloadFailure
 import com.jestk.browser.ui.viewmodel.DownloadCoordinator
 import com.jestk.browser.ui.viewmodel.SearchCoordinator
 import com.jestk.browser.ui.viewmodel.SetBackgroundPlaybackEnabled
@@ -34,6 +35,8 @@ internal class SettingsEventHandler(
             is BrowserUiEvent.DismissDownloadSnackbar -> {
                 dismissDownloadSnackbar()
             }
+
+            is DismissDownloadFailure -> downloadCoordinator.dismissDownloadFailure()
 
             is BrowserUiEvent.PauseDownload -> {
                 Log.d(TAG, "Download command: pause ${event.id}")

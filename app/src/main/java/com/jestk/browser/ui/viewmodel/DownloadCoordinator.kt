@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicLong
 
 private const val TAG = "DownloadCoordinator"
 
@@ -21,6 +22,8 @@ internal class DownloadCoordinator(
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher,
 ) {
+    private val failureCounter = AtomicLong()
+
     fun observeDatabaseFlows() {
         if (downloadRepository != null) {
             scope.launch(ioDispatcher) {
@@ -90,6 +93,16 @@ internal class DownloadCoordinator(
                 activeDownloadIds = it.activeDownloadIds + item.id,
             )
         }
+    }
+
+    fun onDownloadFailed(fileName: String?, message: String) {
+        Log.d(TAG, "Download failed: file=$fileName message=$message")
+        val id = failureCounter.incrementAndGet()
+        updateUiState { it.copy(downloadFailure = DownloadFailure(id, fileName, message)) }
+    }
+
+    fun dismissDownloadFailure() {
+        updateUiState { it.copy(downloadFailure = null) }
     }
 
     fun dismissDownloadSnackbar() {
