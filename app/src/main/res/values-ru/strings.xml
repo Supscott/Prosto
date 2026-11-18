@@ -181,7 +181,6 @@
         <item quantity="other">Сгруппировать %1$d вкладки с %2$s</item>
     </plurals>
     <string name="domain_group_create">Создать</string>
-    <string name="domain_group_dismiss">Закрыть</string>
     <string name="folder_edit_action">Редактировать папку</string>
     <!-- Localization completeness pass -->
     <string name="action_done">Готово</string>

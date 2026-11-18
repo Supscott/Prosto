@@ -4,11 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -24,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
+import com.jestk.browser.ui.components.swipeToDismissPill
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.ProstoBorders
@@ -58,7 +55,7 @@ internal fun PopupBlockedPill(
         color = if (isDark) DarkSurface else Color.White,
         border = ProstoBorders.floatingBorder(isDark, workspaceColor = accent),
         shadowElevation = 8.dp,
-        modifier = modifier.wrapContentSize(),
+        modifier = modifier.wrapContentSize().swipeToDismissPill(promptKey, onDismiss),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -80,12 +77,6 @@ internal fun PopupBlockedPill(
                     color = accent ?: ProstoBrandPrimary,
                 ),
                 modifier = Modifier.clickable(onClick = onAllow).padding(horizontal = 4.dp, vertical = 2.dp),
-            )
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(16.dp).clickable(onClick = onDismiss),
             )
         }
     }

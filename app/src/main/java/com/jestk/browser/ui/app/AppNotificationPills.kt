@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +37,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.isVisible
+import com.jestk.browser.ui.components.swipeToDismissPill
 import com.jestk.browser.ui.components.tabDisplayTitle
 import com.jestk.browser.ui.launchExternalApp
 import com.jestk.browser.ui.overlays.BlockedAdNavigationBanner
@@ -106,7 +106,10 @@ internal fun BoxScope.AppNotificationPills(
             color = if (isDark) DarkSurface else Color.White,
             border = ProstoBorders.floatingBorder(isDark, workspaceColor = activeWorkspaceColor),
             shadowElevation = 8.dp,
-            modifier = Modifier.wrapContentSize(),
+            modifier =
+                Modifier
+                    .wrapContentSize()
+                    .swipeToDismissPill(tab?.id, onDismiss = { onEvent(BrowserUiEvent.DismissUndoTabCloseSnackbar) }),
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -131,17 +134,6 @@ internal fun BoxScope.AppNotificationPills(
                             .clickable {
                                 onEvent(BrowserUiEvent.UndoCloseTab)
                             }.padding(horizontal = 4.dp, vertical = 2.dp),
-                )
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.outline,
-                    modifier =
-                        Modifier
-                            .size(16.dp)
-                            .clickable {
-                                onEvent(BrowserUiEvent.DismissUndoTabCloseSnackbar)
-                            },
                 )
             }
         }
@@ -185,7 +177,10 @@ internal fun BoxScope.AppNotificationPills(
             color = if (isDark) DarkSurface else Color.White,
             border = ProstoBorders.floatingBorder(isDark, workspaceColor = activeWorkspaceColor),
             shadowElevation = 8.dp,
-            modifier = Modifier.wrapContentSize(),
+            modifier =
+                Modifier
+                    .wrapContentSize()
+                    .swipeToDismissPill(download?.id, onDismiss = { onEvent(BrowserUiEvent.DismissDownloadSnackbar) }),
         ) {
             Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -228,17 +223,6 @@ internal fun BoxScope.AppNotificationPills(
                                 }
                                 onEvent(BrowserUiEvent.DismissDownloadSnackbar)
                             }.padding(horizontal = 4.dp, vertical = 2.dp),
-                )
-                Icon(
-                    imageVector = Icons.Default.Close,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.outline,
-                    modifier =
-                        Modifier
-                            .size(16.dp)
-                            .clickable {
-                                onEvent(BrowserUiEvent.DismissDownloadSnackbar)
-                            },
                 )
             }
         }

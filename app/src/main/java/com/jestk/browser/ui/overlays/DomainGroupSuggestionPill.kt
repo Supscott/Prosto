@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.DomainGroupSuggestion
+import com.jestk.browser.ui.components.swipeToDismissPill
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.ProstoBorders
@@ -33,7 +33,7 @@ import com.jestk.browser.ui.theme.ProstoShapes
 
 /**
  * Chip above the dock offering to put the open tabs of one site into a folder: how many tabs, the
- * site, a "Create" action and a dismiss cross. It stays until the user answers.
+ * site, a "Create" action. It stays until the user answers or swipes it away.
  */
 @Composable
 internal fun DomainGroupSuggestionPill(
@@ -51,7 +51,7 @@ internal fun DomainGroupSuggestionPill(
         color = if (isDark) DarkSurface else Color.White,
         border = ProstoBorders.floatingBorder(isDark, workspaceColor = accent),
         shadowElevation = 8.dp,
-        modifier = modifier.wrapContentSize(),
+        modifier = modifier.wrapContentSize().swipeToDismissPill(suggestion.domain, onDismiss),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -76,12 +76,6 @@ internal fun DomainGroupSuggestionPill(
                 text = stringResource(R.string.domain_group_create),
                 style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold, color = accentColor),
                 modifier = Modifier.clickable(onClick = onCreate).padding(horizontal = 4.dp, vertical = 2.dp),
-            )
-            Icon(
-                imageVector = Icons.Default.Close,
-                contentDescription = stringResource(R.string.domain_group_dismiss),
-                tint = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.size(16.dp).clickable(onClick = onDismiss),
             )
         }
     }

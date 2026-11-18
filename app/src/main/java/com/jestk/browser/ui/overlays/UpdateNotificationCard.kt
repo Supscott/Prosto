@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.AppUpdateUiState
+import com.jestk.browser.ui.components.swipeToDismissPill
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
@@ -63,7 +64,7 @@ fun UpdateNotificationCard(
         color = if (isDark) DarkSurface else Color.White,
         border = ProstoBorders.cardBorder(isDark),
         shadowElevation = 4.dp,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().swipeToDismissPill(state.update.versionName, onDismiss),
     ) {
         Column(
             modifier =
