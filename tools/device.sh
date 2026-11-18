@@ -12,6 +12,10 @@
 #   tools/device.sh caller          open Settings: a stand-in for "the app the link came from"
 #   tools/device.sh back | home     press Back | Home
 #   tools/device.sh tap <x> <y>     tap at device pixels
+#   tools/device.sh tap <url-prefix> <css-selector>
+#                                   tap the centre of the first match with a real touch (the page
+#                                   sees a user gesture); fails when nothing matches or the centre
+#                                   is off screen
 #   tools/device.sh ui              labelled UI nodes on screen: text | content-desc | bounds
 #   tools/device.sh tapui <label>   tap the node whose text or content-desc is exactly <label>
 #   tools/device.sh swipe <x1> <y1> <x2> <y2> [ms]   swipe at device pixels (default 400 ms)
@@ -77,6 +81,21 @@ for target in json.load(sys.stdin):
 '
 }
 
+# Taps the centre of the first element matching <selector> in the page whose URL starts with
+# <url>. The page reports the element's CSS rect; the WebView's bounds on screen map CSS pixels to
+# device pixels (x = left + cssX * dpr). adb sends a real touch, so the page sees a user gesture.
+tap_selector() {
+    local url="$1" selector="$2" sel_json js page wv xy
+    sel_json="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$selector")"
+    js="JSON.stringify((e=>e?(r=>[r.left+r.width/2,r.top+r.height/2,innerWidth,innerHeight])(e.getBoundingClientRect()).concat(devicePixelRatio):null)(document.querySelector($sel_json)))"
+    forward_cdp
+    page="$(node "$ROOT/tools/cdp_eval.mjs" "$url" "$js" "$CDP_PORT")" || die "could not read the page at $url"
+    wv="$(ui_dump | python3 "$ROOT/tools/ui_nodes.py" webview)" || die "no WebView on screen (is the page visible?)"
+    xy="$(python3 "$ROOT/tools/ui_nodes.py" tap-point "$wv" "$page")" || exit 1
+    # shellcheck disable=SC2086
+    adb shell input tap $xy
+}
+
 cmd="${1:-}"
 shift || true
 case "$cmd" in
@@ -130,8 +149,13 @@ case "$cmd" in
         adb shell input keyevent KEYCODE_HOME
         ;;
     tap)
-        [[ $# -ge 2 ]] || die "usage: device.sh tap <x> <y>"
-        adb shell input tap "$1" "$2"
+        [[ $# -ge 2 ]] || die "usage: device.sh tap <x> <y> | device.sh tap <url-prefix> <css-selector>"
+        if [[ "$1" =~ ^[0-9]+$ ]]; then
+            [[ "$2" =~ ^[0-9]+$ ]] || die "tap: <x> and <y> must be device pixels; a selector needs <url-prefix> first"
+            adb shell input tap "$1" "$2"
+        else
+            tap_selector "$1" "$2"
+        fi
         ;;
     ui)
         ui_dump | python3 "$ROOT/tools/ui_nodes.py" list
