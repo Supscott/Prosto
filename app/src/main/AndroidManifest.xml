@@ -113,6 +113,14 @@
                 <data android:scheme="http" />
                 <data android:scheme="https" />
             </intent-filter>
+
+            <!-- Debug-only fixture filter list loader (PRO-56); ignored unless the app is debuggable. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="prosto-debug" android:host="add-list" />
+            </intent-filter>
         </activity>
 
         <provider

@@ -19,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.lifecycle.ViewModelProvider
+import com.jestk.browser.engine.adblock.DebugFilterListIntent
 import androidx.lifecycle.lifecycleScope
 import com.jestk.browser.JestkApplication
 import com.jestk.browser.engine.media.BackgroundPlaybackController
@@ -248,6 +249,10 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
     }
 
     private fun handleIntent(intent: Intent?) {
+        if (DebugFilterListIntent.matches(intent)) {
+            lifecycleScope.launch { DebugFilterListIntent.handle(applicationContext, intent!!) }
+            return
+        }
         val data = intent?.dataString
         if (!data.isNullOrEmpty()) {
             linkOpenedSinceStop = true

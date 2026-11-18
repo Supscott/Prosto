@@ -16,6 +16,8 @@
 !
 ! document-blocked.html
 ||fixture-docblock.test^$document
+! localhost:8765 (adb reverse) is a second live origin, separate from 127.0.0.1:8765.
+||localhost^$document
 !
 ! popup.html: $popup blocks the host and the same-origin target page.
 ||fixture-popup.test^$popup

@@ -198,6 +198,8 @@ case "$cmd" in
             for _ in 1 2 3 4 5 6 7 8 9 10; do curl -s -o /dev/null "http://127.0.0.1:$port/__hits" && break; sleep 0.3; done
         fi
         adb reverse "tcp:$port" "tcp:$port" >/dev/null
+        # Debug builds load the fixture's filter list from this URL (prosto-debug://add-list, PRO-56).
+        adb shell "am start -a android.intent.action.VIEW -d $(device_quote "prosto-debug://add-list?url=http%3A%2F%2F127.0.0.1%3A$port%2Ffixture-filters.txt") $PKG" >/dev/null
         echo "http://127.0.0.1:$port/"
         ;;
     log)

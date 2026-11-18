@@ -2,6 +2,7 @@ package com.jestk.browser.engine.adblock
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.content.pm.ApplicationInfo
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -77,6 +78,8 @@ internal class FilterListController(
     private val prefs: SharedPreferences,
     private val smoke: SmokeCheck = SmokeCheck.DEFAULT,
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /** Debug builds only: fetches the extra fixture list over plain HTTP (loopback). Null in release. */
+    private val debugUpdater: FilterListUpdater? = null,
 ) {
     private val mutex = Mutex()
     private val mutableState = MutableStateFlow(ListUpdateState(preset = preset()))
@@ -109,7 +112,32 @@ internal class FilterListController(
                 extras.getOrPut(engine) { ArrayList() } += ExtraList(entry.id, stored.text, stored.digest)
             }
         }
+        updater.read(DEBUG_LIST_ID)?.let { stored ->
+            for (engine in DEBUG_LIST_ENGINES) {
+                extras.getOrPut(engine) { ArrayList() } += ExtraList(DEBUG_LIST_ID, stored.text, stored.digest)
+            }
+        }
         return ListSelection(effective.id, extras)
+    }
+
+    /**
+     * Debug builds only (PRO-56): installs the single extra list [DEBUG_LIST_ID] from [url] (replacing
+     * the previous one) or removes it when [url] is blank. Always false in release (no debug updater).
+     */
+    suspend fun setDebugList(url: String): Boolean {
+        val debug = debugUpdater ?: return false
+        return mutex.withLock {
+            withContext(dispatcher) {
+                if (url.isBlank()) {
+                    debug.remove(listOf(DEBUG_LIST_ID))
+                    rebuildIfNeeded(emptyList()) == null
+                } else {
+                    val entry = ListEntry(DEBUG_LIST_ID, DEBUG_LIST_ENGINES,ProtectionPreset.STANDARD, url)
+                    val result = debug.update(listOf(entry), force = true)
+                    result.failures.isEmpty() && rebuildIfNeeded(result.changed) == null
+                }
+            }
+        }
     }
 
     /** Persists the protection level. Dropping Strict deletes its lists and cached engines and rebuilds. */
@@ -179,6 +207,8 @@ internal class FilterListController(
     companion object {
         private const val KEY_PRESET = "preset"
         const val PREFS = "adblock_lists"
+        const val DEBUG_LIST_ID = "debug-fixture"
+        private val DEBUG_LIST_ENGINES = listOf("ads", "privacy")
 
         fun create(context: Context, storeProvider: () -> EngineStore): FilterListController {
             val app = context.applicationContext
@@ -187,12 +217,14 @@ internal class FilterListController(
                 .readTimeout(TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .build()
             val dir = File(app.filesDir, "adblock/lists")
+            val debuggable = app.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0
             return FilterListController(
                 context = app,
                 catalog = FilterListCatalog.load(app.assets),
                 updater = FilterListUpdater(client, dir),
                 storeProvider = storeProvider,
                 prefs = app.getSharedPreferences(PREFS, Context.MODE_PRIVATE),
+                debugUpdater = if (debuggable) FilterListUpdater(client, dir, requireHttps = false) else null,
             )
         }
 

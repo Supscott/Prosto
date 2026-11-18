@@ -49,7 +49,7 @@ Fixed sites for the memory run: the three first rows of the site matrix that the
 
 Request latency: read the debug latency histogram added in CB-06 (logcat tag to be named there).
 Fixture site for manual and instrumented checks: `tools/fixture_server.sh`, then open the printed
-URL on the phone (`10.0.2.2` on an emulator) and load `<base>/fixture-filters.txt` as an extra list.
+URL on the phone (`10.0.2.2` on an emulator). `tools/device.sh serve` serves it at `http://127.0.0.1:8765/` and makes the debug app load `fixture-filters.txt` as an extra list (`prosto-debug://add-list?url=<encoded>`, empty `url` removes it).
 
 ## Manual site matrix (owner fills in before Phase 1)
 
