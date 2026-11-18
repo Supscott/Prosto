@@ -25,7 +25,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
 import com.jestk.browser.ui.components.ProstoToggleSwitch
 import com.jestk.browser.ui.theme.DarkOnSurface
@@ -167,11 +166,7 @@ fun SettingsSectionHeader(
 ) {
     Text(
         text = title,
-        style =
-            LocalProstoTypography.current.labelMd.copy(
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 0.5.sp,
-            ),
+        style = LocalProstoTypography.current.labelMd.copy(fontWeight = FontWeight.SemiBold),
         color = ProstoMutedSlate,
         modifier = modifier.padding(bottom = 8.dp, start = 4.dp),
     )

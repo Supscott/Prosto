@@ -41,7 +41,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.DarkSurface
@@ -65,7 +64,7 @@ internal fun SettingsAppearanceSection(
     onEvent: (BrowserUiEvent) -> Unit,
     isDark: Boolean,
 ) {
-    SettingsSectionHeader(title = stringResource(R.string.settings_section_appearance))
+    SettingsSectionHeader(title = stringResource(R.string.settings_group_appearance))
     SegmentedThemeControl(
         selectedMode = uiState.settings.themeMode,
         isDark = isDark,
@@ -95,7 +94,7 @@ internal fun SettingsGeneralSection(
     vibration: VibrationFeedback,
     defaultBrowserLauncher: ActivityResultLauncher<Intent>,
 ) {
-    SettingsSectionHeader(title = stringResource(R.string.settings_section_general))
+    SettingsSectionHeader(title = stringResource(R.string.settings_group_behavior))
     InsetGroupedCard(isDark = isDark) {
         // Default Browser (Only visible if not currently default browser)
         if (!uiState.isDefaultBrowser) {
@@ -164,47 +163,7 @@ internal fun SettingsPrivacySection(
     onEvent: (BrowserUiEvent) -> Unit,
     isDark: Boolean,
 ) {
-    Row(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        SettingsSectionHeader(
-            title = stringResource(R.string.settings_section_privacy),
-            modifier = Modifier.padding(bottom = 0.dp),
-        )
-
-        Surface(
-            shape = RoundedCornerShape(12.dp),
-            color = if (isDark) DarkSurfaceVariant else ProstoPaleBlue,
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.VerifiedUser,
-                    contentDescription = null,
-                    tint = ProstoBrandPrimary,
-                    modifier = Modifier.size(13.dp),
-                )
-                Text(
-                    text = stringResource(R.string.privacy_status_protected),
-                    style =
-                        LocalProstoTypography.current.labelMd.copy(
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold,
-                        ),
-                    color = ProstoBrandPrimary,
-                )
-            }
-        }
-    }
-
+    SettingsSectionHeader(title = stringResource(R.string.settings_group_privacy))
     InsetGroupedCard(isDark = isDark) {
         // Ad Blocker Row
         SettingToggleRow(

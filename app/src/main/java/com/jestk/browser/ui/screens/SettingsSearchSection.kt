@@ -65,7 +65,6 @@ internal fun SettingsSearchSection(
 ) {
     var showProvidersDialog by remember { mutableStateOf(false) }
 
-    SettingsSectionHeader(title = stringResource(R.string.settings_section_search))
     InsetGroupedCard(isDark = isDark) {
         // Preferred Search Engine Row with Dropdown Menu
         var searchMenuExpanded by remember { mutableStateOf(false) }

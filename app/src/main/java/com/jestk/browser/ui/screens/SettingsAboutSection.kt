@@ -49,7 +49,6 @@ internal fun SettingsAboutSection(
     context: Context,
     appVersion: String,
 ) {
-    SettingsSectionHeader(title = stringResource(R.string.settings_section_about))
     InsetGroupedCard(isDark = isDark) {
         // Auto-update Toggle Row
         SettingToggleRow(

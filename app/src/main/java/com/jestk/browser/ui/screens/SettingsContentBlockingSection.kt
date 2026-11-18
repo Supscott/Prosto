@@ -67,7 +67,7 @@ internal fun SettingsContentBlockingSection(
     isDark: Boolean,
 ) {
     val status = uiState.contentBlocking
-    SettingsSectionHeader(title = stringResource(R.string.settings_section_content_blocking))
+    SettingsSectionHeader(title = stringResource(R.string.settings_group_content_blocking))
 
     ProtectionLevelControl(
         selected = status.level,
