@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <activity android:name=".ui.MainActivity">
+            <!-- Fixture filter list loader for tools/device.sh serve (PRO-56). Debug builds only,
+                 and not BROWSABLE, so a web page cannot send it; only adb (am start) reaches it. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="prosto-debug" android:host="add-list" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>
