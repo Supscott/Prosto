@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.MutableContextWrapper
-import com.jestk.browser.R
 import com.jestk.browser.util.findActivity
 import android.os.Handler
 import android.os.Looper
@@ -13,7 +12,6 @@ import android.view.ViewGroup
 import android.webkit.CookieManager
 import android.webkit.WebSettings
 import android.webkit.WebView
-import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.webkit.Profile
 import androidx.webkit.ProfileStore
@@ -25,7 +23,6 @@ import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.engine.adblock.ContentBlockingHooks
 import com.jestk.browser.engine.adblock.ContentBlockingSetup
-import com.jestk.browser.engine.download.DownloadFileNameResolver
 import com.jestk.browser.engine.download.HoriDownloadManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -37,7 +34,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedDeque
 
@@ -101,6 +97,15 @@ class WebViewPool(
     }
 
     private val pendingBlobDownloads = PendingBlobDownloads()
+
+    private val downloads = WebViewDownloads(
+        applicationContext = applicationContext,
+        pendingBlobDownloads = pendingBlobDownloads,
+        downloadRepository = { downloadRepository },
+        downloadManager = { downloadManager },
+        activeScope = { activeScope() },
+        onDownloadStarted = { item -> onDownloadStarted?.invoke(item) }
+    )
 
     private val pool = ConcurrentHashMap<String, WebView>()
     private val tabProfiles = ConcurrentHashMap<String, String>()
@@ -496,7 +501,7 @@ class WebViewPool(
             try {
                 val blobBridge = pendingBlobDownloads.createBridge { dataUrl, contentDisposition, mimeType ->
                     activeScope().launch(Dispatchers.Main) {
-                        handleDataUrlDownload(dataUrl, contentDisposition, mimeType, webView.context)
+                        downloads.handleDataUrlDownload(dataUrl, contentDisposition, mimeType, webView.context)
                     }
                 }
                 webView.addJavascriptInterface(blobBridge, ContentBlockingSetup.blobBridgeName)
@@ -556,99 +561,7 @@ class WebViewPool(
         context: Context,
         webView: WebView? = null
     ) {
-        val targetContext = context.findActivity() ?: applicationContext
-
-        // Check for data: URI scheme
-        if (url.startsWith("data:", ignoreCase = true)) {
-            handleDataUrlDownload(url, contentDisposition, mimeType, targetContext)
-            return
-        }
-
-        // Check for blob: URI scheme
-        if (url.startsWith("blob:", ignoreCase = true)) {
-            handleBlobDownload(url, contentDisposition, mimeType, targetContext, webView)
-            return
-        }
-
-        try {
-            val fileName = DownloadFileNameResolver.resolveFileName(url, contentDisposition, mimeType)
-            Log.d(TAG, "Download requested: $fileName from $url")
-            val downloadMgr = downloadManager ?: downloadRepository?.let {
-                HoriDownloadManager.getInstance(applicationContext, it)
-            }
-            val refererUrl = try {
-                webView?.url
-            } catch (t: Throwable) {
-                Log.d(TAG, "Best-effort read of referer URL failed, continuing without referer", t)
-                null
-            }
-
-            Toast.makeText(targetContext, targetContext.getString(R.string.download_in_progress_notification, fileName), Toast.LENGTH_SHORT).show()
-
-            if (downloadMgr != null) {
-                activeScope().launch {
-                    try {
-                        val downloadId = downloadMgr.enqueueDownload(
-                            url = url,
-                            userAgent = userAgent,
-                            contentDisposition = contentDisposition,
-                            mimeType = mimeType,
-                            contentLength = contentLength,
-                            referer = refererUrl,
-                            customFileName = fileName
-                        )
-                        val item = downloadRepository?.getDownloadById(downloadId)
-                        if (item != null) {
-                            withContext(Dispatchers.Main) {
-                                onDownloadStarted?.invoke(item)
-                            }
-                        }
-                    } catch (t: Throwable) {
-                        Log.e(TAG, "Failed to enqueue download", t)
-                    }
-                }
-            }
-        } catch (e: Throwable) {
-            Log.e(TAG, "Download failed for $url", e)
-            val targetContext = context.findActivity() ?: applicationContext
-            try {
-                Toast.makeText(targetContext, downloadFailedText(targetContext, e), Toast.LENGTH_SHORT).show()
-            } catch (t: Throwable) {
-                Log.w(TAG, "Failed to show download error toast", t)
-            }
-        }
-    }
-
-    private fun handleDataUrlDownload(
-        url: String,
-        contentDisposition: String?,
-        mimeType: String?,
-        context: Context
-    ) {
-        val targetContext = context.findActivity() ?: applicationContext
-        val downloadMgr = downloadManager ?: downloadRepository?.let {
-            HoriDownloadManager.getInstance(applicationContext, it)
-        }
-
-        if (downloadMgr != null) {
-            activeScope().launch {
-                try {
-                    val downloadId = downloadMgr.handleDataUrl(url, contentDisposition, mimeType)
-                    val item = downloadRepository?.getDownloadById(downloadId)
-                    if (item != null) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(targetContext, targetContext.getString(R.string.download_in_progress_notification, item.fileName), Toast.LENGTH_SHORT).show()
-                            onDownloadStarted?.invoke(item)
-                        }
-                    }
-                } catch (e: Throwable) {
-                    Log.e(TAG, "Data URL download failed", e)
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(targetContext, downloadFailedText(targetContext, e), Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-        }
+        downloads.handleDownload(url, userAgent, contentDisposition, mimeType, contentLength, context, webView)
     }
 
     internal fun handleBlobDownload(
@@ -658,24 +571,7 @@ class WebViewPool(
         context: Context,
         webView: WebView?
     ) {
-        val targetContext = context.findActivity() ?: applicationContext
-        if (webView == null) {
-            Log.w(TAG, "Cannot handle blob download without originating WebView reference")
-            Toast.makeText(targetContext, R.string.downloads_failed, Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        Toast.makeText(targetContext, R.string.toast_preparing_download, Toast.LENGTH_SHORT).show()
-        Log.d(TAG, "Preparing blob download: $blobUrl")
-
-        try {
-            pendingBlobDownloads.request(webView, blobUrl, contentDisposition, mimeType) {
-                Toast.makeText(targetContext, R.string.downloads_failed, Toast.LENGTH_SHORT).show()
-            }
-        } catch (t: Throwable) {
-            Log.e(TAG, "Failed to evaluate blob download script", t)
-            Toast.makeText(targetContext, downloadFailedText(targetContext, t), Toast.LENGTH_SHORT).show()
-        }
+        downloads.handleBlobDownload(blobUrl, contentDisposition, mimeType, context, webView)
     }
 
     /**
@@ -791,9 +687,4 @@ class WebViewPool(
     }
 
     fun size(): Int = pool.size
-
-    private fun downloadFailedText(context: Context, error: Throwable): String =
-        error.message?.takeIf { it.isNotBlank() }
-            ?.let { context.getString(R.string.toast_download_failed_reason, it) }
-            ?: context.getString(R.string.downloads_failed)
 }
