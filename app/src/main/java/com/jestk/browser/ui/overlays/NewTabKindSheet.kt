@@ -1,26 +1,21 @@
 package com.jestk.browser.ui.overlays
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.VisibilityOff
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Text
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -30,18 +25,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
 import androidx.webkit.WebViewFeature
 import com.jestk.browser.R
-import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.navigation.PopupMenuItem
 import com.jestk.browser.ui.theme.DarkSurface
-import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
-import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoCardSurface
 import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.OpenIncognitoTab
@@ -52,35 +54,40 @@ internal var isIncognitoSupported: () -> Boolean = {
 }
 
 /**
- * Owns the new-tab choice sheet for a "+" button. [content] receives the long-press handler to
+ * Owns the new-tab choice menu for a "+" button. [content] receives the long-press handler to
  * give the button (null when incognito is unavailable, so the long press does nothing).
- * [onChosen] runs after either choice, e.g. to close the tab grid.
+ * [onChosen] runs after either choice, e.g. to close the tab grid. The menu anchors to the box
+ * around [content], so it opens right above (or below) the button.
  */
 @Composable
 fun NewTabKindHost(
     isDark: Boolean,
     onEvent: (BrowserUiEvent) -> Unit,
     onChosen: () -> Unit = {},
+    modifier: Modifier = Modifier,
     content: @Composable (onLongClick: (() -> Unit)?) -> Unit,
 ) {
-    var showSheet by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
     val supported = remember { isIncognitoSupported() }
-    content(if (supported) ({ showSheet = true }) else null)
-    if (showSheet) {
-        NewTabKindSheet(
-            isDark = isDark,
-            onIncognito = {
-                showSheet = false
-                onEvent(OpenIncognitoTab)
-                onChosen()
-            },
-            onRegular = {
-                showSheet = false
-                onEvent(BrowserUiEvent.OpenNewTab(""))
-                onChosen()
-            },
-            onDismiss = { showSheet = false },
-        )
+    // Placement modifiers (e.g. align in the dock) go on [modifier]: [content] sits inside this box.
+    Box(modifier = modifier) {
+        content(if (supported) ({ showMenu = true }) else null)
+        if (showMenu) {
+            NewTabKindMenu(
+                isDark = isDark,
+                onIncognito = {
+                    showMenu = false
+                    onEvent(OpenIncognitoTab)
+                    onChosen()
+                },
+                onRegular = {
+                    showMenu = false
+                    onEvent(BrowserUiEvent.OpenNewTab(""))
+                    onChosen()
+                },
+                onDismiss = { showMenu = false },
+            )
+        }
     }
 }
 
@@ -109,93 +116,87 @@ fun GridNewTabButton(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The new-tab choice as a floating card like the dock's Menu popup ([PopupMenuItem] rows on a
+ * Card surface). It sits above the "+" button, or below it when there is no room above (the "+"
+ * of the tab grid header).
+ */
 @Composable
-fun NewTabKindSheet(
+fun NewTabKindMenu(
     isDark: Boolean,
     onIncognito: () -> Unit,
     onRegular: () -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    ModalBottomSheet(
+    BackHandler(onBack = onDismiss)
+    val density = LocalDensity.current
+    val positionProvider = remember(density) { AboveOrBelowAnchorPosition(density) }
+    Popup(
         onDismissRequest = onDismiss,
-        containerColor = if (isDark) DarkSurface else Color.White,
-        dragHandle = { FolderDragHandle() },
-        modifier = modifier.testTag("new_tab_kind_sheet"),
+        popupPositionProvider = positionProvider,
+        properties = PopupProperties(focusable = true, dismissOnClickOutside = true, dismissOnBackPress = true),
     ) {
         NewTabKindSheetContent(isDark = isDark, onIncognito = onIncognito, onRegular = onRegular)
     }
 }
 
-/** The sheet body, apart from the bottom-sheet window so previews can render it. */
+/** The menu card, apart from the popup window so previews can render it. */
 @Composable
 internal fun NewTabKindSheetContent(
     isDark: Boolean,
     onIncognito: () -> Unit,
     onRegular: () -> Unit,
 ) {
-    Column(
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .navigationBarsPadding()
-                .padding(bottom = 16.dp),
+    val dividerColor = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)
+    Surface(
+        shape = ProstoShapes.Card,
+        color = if (isDark) DarkSurface else ProstoCardSurface,
+        shadowElevation = 12.dp,
+        border = ProstoBorders.floatingBorder(isDark),
+        modifier = Modifier.width(200.dp).testTag("new_tab_kind_sheet"),
     ) {
-        Text(
-            text = stringResource(R.string.action_new_tab),
-            style = LocalProstoTypography.current.headlineSm,
-            color = if (isDark) DarkOnSurface else ProstoDarkText,
-            fontWeight = FontWeight.Bold,
-        )
-        Spacer(modifier = Modifier.padding(top = 12.dp))
-        NewTabKindRow(
-            icon = Icons.Outlined.VisibilityOff,
-            label = stringResource(R.string.new_tab_incognito),
-            isDark = isDark,
-            onClick = onIncognito,
-            modifier = Modifier.testTag("new_tab_kind_incognito"),
-        )
-        NewTabKindRow(
-            icon = Icons.Default.Add,
-            label = stringResource(R.string.new_tab_regular),
-            isDark = isDark,
-            onClick = onRegular,
-            modifier = Modifier.testTag("new_tab_kind_regular"),
-        )
+        Column(
+            modifier = Modifier.padding(4.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            PopupMenuItem(
+                icon = Icons.Outlined.VisibilityOff,
+                label = stringResource(R.string.new_tab_incognito),
+                isActive = false,
+                isDark = isDark,
+                onClick = onIncognito,
+                modifier = Modifier.testTag("new_tab_kind_incognito"),
+            )
+            HorizontalDivider(color = dividerColor, thickness = 1.dp)
+            PopupMenuItem(
+                icon = Icons.Default.Add,
+                label = stringResource(R.string.new_tab_regular),
+                isActive = false,
+                isDark = isDark,
+                onClick = onRegular,
+                modifier = Modifier.testTag("new_tab_kind_regular"),
+            )
+        }
     }
 }
 
-@Composable
-private fun NewTabKindRow(
-    icon: ImageVector,
-    label: String,
-    isDark: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .clip(ProstoShapes.Pill)
-                .clickable(onClick = onClick)
-                .heightIn(min = 52.dp)
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = ProstoBrandPrimary,
-            modifier = Modifier.size(22.dp),
-        )
-        Text(
-            text = label,
-            style = LocalProstoTypography.current.bodyMd.copy(fontWeight = FontWeight.Medium),
-            color = if (isDark) DarkOnSurface else ProstoDarkText,
-        )
+/**
+ * Centres the card on the anchor and puts its bottom [gap] above the anchor's top, like the tab
+ * context menu above the dock; when that would leave the window, it goes [gap] below the anchor.
+ */
+private class AboveOrBelowAnchorPosition(private val density: Density) : PopupPositionProvider {
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize,
+    ): IntOffset {
+        val margin = with(density) { 12.dp.roundToPx() }
+        val gap = with(density) { 16.dp.roundToPx() }
+        val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
+            .coerceIn(margin, (windowSize.width - popupContentSize.width - margin).coerceAtLeast(margin))
+        val above = anchorBounds.top - gap - popupContentSize.height
+        val y = if (above >= margin) above else anchorBounds.bottom + gap
+        return IntOffset(x, y)
     }
 }

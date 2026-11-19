@@ -366,7 +366,11 @@ fun TabStripRow(
         }
 
         // Pinned New Tab Button (absolute right-0 over tab strip)
-        NewTabKindHost(isDark = isDark, onEvent = onEvent) { onLongClick ->
+        NewTabKindHost(
+            isDark = isDark,
+            onEvent = onEvent,
+            modifier = Modifier.align(Alignment.CenterEnd).padding(end = 4.dp),
+        ) { onLongClick ->
             AddTabDockButton(
                 isDark = isDark,
                 backgroundColor = Color.Transparent,
@@ -375,10 +379,6 @@ fun TabStripRow(
                     onEvent(BrowserUiEvent.OpenNewTab(""))
                 },
                 onLongClick = onLongClick,
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterEnd)
-                        .padding(end = 4.dp),
             )
         }
 
