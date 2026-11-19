@@ -1,14 +1,12 @@
 package com.jestk.browser.ui.viewmodel
 
 import android.content.Intent
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.FeedbackPromptState
 import com.jestk.browser.domain.model.InsecureNavigationTarget
 import com.jestk.browser.domain.model.OverlayType
-import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
@@ -51,7 +49,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import java.util.concurrent.ConcurrentHashMap
 
-private const val TAG = "BrowserViewModel"
 private const val PRECONNECT_DEBOUNCE_MS = 300L
 
 class BrowserViewModel(
@@ -274,23 +271,17 @@ class BrowserViewModel(
         )
 
     init {
-        webViewPool?.onDownloadStarted = { item -> onDownloadStarted(item) }
-        webViewPool?.onDownloadFailed = { fileName, message -> onDownloadFailed(fileName, message) }
-        webViewPool?.let { pool ->
-            viewModelScope.launch {
-                pool.loadedTabIds.collect { loaded ->
-                    _uiState.update { it.copy(loadedTabIds = loaded) }
-                }
-            }
-            viewModelScope.launch {
-                pool.awaitingFirstPaintTabIds.collect { awaiting ->
-                    _uiState.update { it.withAwaitingFirstPaint(awaiting) }
-                }
-            }
-        }
+        webViewPool?.let { viewModelScope.bindWebViewPool(it, _uiState, downloadCoordinator) }
         viewModelScope.launchDomainGroupSuggestions(_uiState, ioDispatcher)
         viewModelScope.launch(ioDispatcher) {
-            restoreSession()
+            restoreSession(
+                workspaceRepository,
+                settingsRepository,
+                searchEngineRepository,
+                _uiState,
+                currentTimeProvider,
+                tabCoordinator.sessionSync,
+            )
             observeDatabaseFlows()
         }
         updateCoordinator.onAppStart()
@@ -298,8 +289,7 @@ class BrowserViewModel(
 
     override fun onCleared() {
         super.onCleared()
-        webViewPool?.onDownloadStarted = null
-        webViewPool?.onDownloadFailed = null
+        webViewPool?.unbindViewModel()
     }
 
     var bypassCleanPlayerVideoId: String? = null
@@ -315,30 +305,6 @@ class BrowserViewModel(
         // A different video is being navigated to; clear bypass and intercept it
         bypassCleanPlayerVideoId = null
         return true
-    }
-
-    private fun calculateFeedbackCardVisible(settings: com.jestk.browser.domain.model.BrowserSettings): Boolean {
-        return when (settings.feedbackPromptState) {
-            FeedbackPromptState.DISMISSED -> false
-            FeedbackPromptState.SNOOZED -> currentTimeProvider() >= settings.feedbackPromptSnoozedUntil
-            FeedbackPromptState.VISIBLE -> true
-        }
-    }
-
-    private suspend fun restoreSession() {
-        Log.d(TAG, "Restoring session")
-        workspaceRepository?.ensureDefaultWorkspaces()
-        val initialSettings = settingsRepository.getCurrentSettings()
-        _uiState.update { it.copy(isFeedbackCardVisible = calculateFeedbackCardVisible(initialSettings)) }
-        val currentEngines =
-            if (searchEngineRepository != null) {
-                searchEngineRepository.ensureDefaultEnginesSeeded()
-                val engines = searchEngineRepository.getAllSearchEngines()
-                if (engines.isNotEmpty()) engines else SearchEngine.DEFAULT_ENGINES
-            } else {
-                SearchEngine.DEFAULT_ENGINES
-            }
-        tabCoordinator.sessionSync.restoreSession(initialSettings, currentEngines)
     }
 
     private fun observeDatabaseFlows() {
@@ -403,7 +369,7 @@ class BrowserViewModel(
         updateCoordinator.onAppResume()
         val currentSettings = _uiState.value.settings
         if (currentSettings.feedbackPromptState == FeedbackPromptState.SNOOZED) {
-            val visible = calculateFeedbackCardVisible(currentSettings)
+            val visible = calculateFeedbackCardVisible(currentSettings, currentTimeProvider)
             if (visible != _uiState.value.isFeedbackCardVisible) {
                 _uiState.update { it.copy(isFeedbackCardVisible = visible) }
             }
