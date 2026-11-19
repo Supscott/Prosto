@@ -49,8 +49,21 @@ private fun BrowserUiState.hasTransientPill(): Boolean =
         insecureHttpPrompt != null
 
 /**
+ * The chip is up only on the browsing view, with no other pill on screen, and only while the open
+ * tab is one of the tabs it would group: offering to group sites the user is not looking at reads
+ * as noise (PRO-65).
+ */
+internal fun BrowserUiState.shouldShowDomainGroupChip(isBottomBarVisible: Boolean): Boolean {
+    val suggestion = domainGroupSuggestion ?: return false
+    return isBottomBarVisible &&
+        activeTabId in suggestion.tabIds &&
+        activeOverlay !in OVERLAYS_WITHOUT_CHIP &&
+        !hasTransientPill()
+}
+
+/**
  * The "create a folder for these tabs" chip above the dock. Shown only while the dock is visible,
- * no overlay covers the page and no other pill is up.
+ * no overlay covers the page, no other pill is up and the open tab belongs to the group.
  */
 @Composable
 internal fun BoxScope.DomainGroupSuggestionHost(
@@ -66,10 +79,7 @@ internal fun BoxScope.DomainGroupSuggestionHost(
     var lastSuggestion by remember { mutableStateOf<DomainGroupSuggestion?>(null) }
     LaunchedEffect(suggestion) { if (suggestion != null) lastSuggestion = suggestion }
 
-    val visible = suggestion != null &&
-        isBottomBarVisible &&
-        uiState.activeOverlay !in OVERLAYS_WITHOUT_CHIP &&
-        !uiState.hasTransientPill()
+    val visible = uiState.shouldShowDomainGroupChip(isBottomBarVisible)
 
     AnimatedVisibility(
         visible = visible,
