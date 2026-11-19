@@ -3,6 +3,7 @@ package com.jestk.browser.ui.viewmodel
 import android.content.Intent
 import android.net.Uri
 import android.util.Log
+import com.jestk.browser.domain.model.AppUpdate
 import com.jestk.browser.domain.model.AppUpdateUiState
 import com.jestk.browser.domain.model.compareVersions
 import com.jestk.browser.domain.repository.SettingsRepository
@@ -103,8 +104,21 @@ class UpdateCoordinator(
             return
         }
 
+        // Free probe first: when the latest tag is not newer than the cached release, the cached
+        // release is current and the rate-limited API is not asked at all.
+        val cached = store.cachedRelease
+        if (cached != null) {
+            val latestTag = manager.fetchLatestTagVersion()
+            if (latestTag != null && compareVersions(latestTag, cached.versionName) <= 0) {
+                Log.d(TAG, "update check: tag $latestTag matches the cached release, no API request")
+                recordSuccess(store, now)
+                publishIfNewer(cached, settings.skippedUpdateVersion, manual, manager.currentVersion())
+                return
+            }
+        }
+
         val release =
-            when (val result = manager.fetchLatestRelease(etag = store.etag?.takeIf { store.cachedRelease != null })) {
+            when (val result = manager.fetchLatestRelease(etag = store.etag?.takeIf { cached != null })) {
                 is UpdateFetchResult.Fresh -> {
                     Log.d(TAG, "update check: 200, release ${result.release.versionName}")
                     store.etag = result.etag
@@ -127,17 +141,20 @@ class UpdateCoordinator(
                 }
             } ?: return
 
-        val currentVersion = manager.currentVersion()
-        if (compareVersions(release.versionName, currentVersion) > 0) {
-            if (!manual && release.versionName == settings.skippedUpdateVersion) {
-                Log.d(TAG, "Version ${release.versionName} was skipped by user")
-                return
-            }
-            Log.d(TAG, "Publishing update available for ${release.versionName}")
-            publish(AppUpdateUiState.Available(release))
-        } else {
+        publishIfNewer(release, settings.skippedUpdateVersion, manual, manager.currentVersion())
+    }
+
+    private fun publishIfNewer(release: AppUpdate, skippedVersion: String?, manual: Boolean, currentVersion: String) {
+        if (compareVersions(release.versionName, currentVersion) <= 0) {
             Log.d(TAG, "Current version is up to date ($currentVersion >= ${release.versionName})")
+            return
         }
+        if (!manual && release.versionName == skippedVersion) {
+            Log.d(TAG, "Version ${release.versionName} was skipped by user")
+            return
+        }
+        Log.d(TAG, "Publishing update available for ${release.versionName}")
+        publish(AppUpdateUiState.Available(release))
     }
 
     private fun recordSuccess(store: UpdateCheckStore, now: Long) {

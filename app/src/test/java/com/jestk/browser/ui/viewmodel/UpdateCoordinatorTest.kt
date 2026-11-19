@@ -111,6 +111,35 @@ class UpdateCoordinatorTest {
     }
 
     @Test
+    fun cachedRelease_tagNotNewer_skipsTheApi() = runTest(testDispatcher) {
+        fakeUpdateManager.currentVer = "0.4.0"
+        store.cachedRelease = AppUpdate("0.5.0", "notes", "https://github.com/Supscott/Prosto/releases/tag/v0.5.0")
+        fakeUpdateManager.latestTag = "0.5.0"
+        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
+
+        createCoordinator().checkForUpdate(manual = false)
+
+        assertThat(fakeUpdateManager.tagProbeCount).isEqualTo(1)
+        assertThat(fakeUpdateManager.fetchCount).isEqualTo(0)
+        assertThat(store.lastSuccessAt).isEqualTo(currentTime)
+        assertThat((uiState.updateState as AppUpdateUiState.Available).update.versionName).isEqualTo("0.5.0")
+    }
+
+    @Test
+    fun cachedRelease_newerTag_asksTheApiForTheNotes() = runTest(testDispatcher) {
+        fakeUpdateManager.currentVer = "0.4.0"
+        store.cachedRelease = AppUpdate("0.5.0", "old", "u")
+        fakeUpdateManager.latestTag = "0.6.0"
+        fakeUpdateManager.latestRelease = AppUpdate("0.6.0", "new notes", "https://github.com/Supscott/Prosto/releases/tag/v0.6.0")
+        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
+
+        createCoordinator().checkForUpdate(manual = false)
+
+        assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
+        assertThat(store.cachedRelease?.releaseNotes).isEqualTo("new notes")
+    }
+
+    @Test
     fun onAppStart_whenInstalledVersionIsEqualOrNewer_staysNone() = runTest(testDispatcher) {
         fakeUpdateManager.currentVer = "0.5.0"
         fakeUpdateManager.latestRelease = AppUpdate(
@@ -388,6 +417,13 @@ class UpdateCoordinatorTest {
 
         /** Simulates network latency, so concurrent checks overlap as they do on a device. */
         var fetchDelayMs = 0L
+        var latestTag: String? = null
+        var tagProbeCount = 0
+
+        override suspend fun fetchLatestTagVersion(repo: String): String? {
+            tagProbeCount++
+            return latestTag
+        }
 
         override fun currentVersion(): String = currentVer
 

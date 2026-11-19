@@ -24,6 +24,7 @@ open class AppUpdateManager(
     private val context: Context,
     val store: UpdateCheckStore = SharedPrefsUpdateCheckStore(context),
     private val baseUrl: String = "https://api.github.com",
+    private val webBaseUrl: String = "https://github.com",
     private val clock: () -> Long = { System.currentTimeMillis() },
 ) {
     private val client =
@@ -33,9 +34,40 @@ open class AppUpdateManager(
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
 
+    /** The same client without redirects: the tag check reads the redirect target itself. */
+    private val noRedirectClient = client.newBuilder().followRedirects(false).followSslRedirects(false).build()
+
     /**
-     * Asks GitHub for the latest release that ships an APK. A stored [etag] makes the request
-     * conditional, so an unchanged release answers 304 and costs no rate-limit budget.
+     * The latest release's version from the `github.com/<repo>/releases/latest` redirect, or null.
+     * That page is outside the REST API's anonymous limit (60 requests an hour per IP, shared by
+     * everyone behind the IP), so it is the cheap "did anything change?" probe; the API is asked
+     * for the notes only when this returns a newer version.
+     */
+    open suspend fun fetchLatestTagVersion(repo: String = DEFAULT_REPO): String? =
+        withContext(Dispatchers.IO) {
+            runCatching {
+                val request =
+                    Request
+                        .Builder()
+                        .url("${webBaseUrl.trimEnd('/')}/$repo/releases/latest")
+                        .header("User-Agent", USER_AGENT)
+                        .head()
+                        .build()
+                noRedirectClient.newCall(request).execute().use { response ->
+                    if (!response.isRedirect) return@use null
+                    versionFromReleaseLocation(response.header("Location"))
+                }
+            }.getOrElse { e ->
+                Log.w(TAG, "Latest tag probe failed: ${e.message}")
+                null
+            }
+        }
+
+    /**
+     * Asks the GitHub API for the latest release. A stored [etag] makes the request conditional,
+     * so an unchanged release answers 304 without a body. For anonymous requests a 304 still
+     * counts against the rate limit (measured 2026-11-19), so callers probe
+     * [fetchLatestTagVersion] first.
      */
     open suspend fun fetchLatestRelease(
         repo: String = DEFAULT_REPO,
@@ -101,6 +133,14 @@ sealed interface UpdateFetchResult {
 
     /** [code] is the HTTP status, or 0 for a network or parse error; [retryAtMs] comes from the rate-limit headers. */
     data class Failed(val code: Int, val retryAtMs: Long?) : UpdateFetchResult
+}
+
+/** `https://github.com/o/r/releases/tag/v1.2.3` -> `1.2.3`; null for any other location. */
+fun versionFromReleaseLocation(location: String?): String? {
+    val tag = location?.substringAfter("/releases/tag/", missingDelimiterValue = "")
+        ?.substringBefore('?')?.substringBefore('#')?.trim('/')
+    if (tag.isNullOrBlank()) return null
+    return tag.removePrefix("v").removePrefix("V").takeIf { it.isNotBlank() }
 }
 
 /**

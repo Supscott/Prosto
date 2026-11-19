@@ -30,6 +30,7 @@ class AppUpdateManagerRequestTest {
                 ApplicationProvider.getApplicationContext(),
                 store = NoStore,
                 baseUrl = server.url("/").toString(),
+                webBaseUrl = server.url("/").toString(),
                 clock = { now },
             )
     }
@@ -95,5 +96,34 @@ class AppUpdateManagerRequestTest {
         override var failureCount = 0
         override var etag: String? = null
         override var cachedRelease: AppUpdate? = null
+    }
+
+    @Test
+    fun tagProbe_readsTheRedirectWithoutFollowingIt() = kotlinx.coroutines.test.runTest {
+        server.enqueue(
+            okhttp3.mockwebserver.MockResponse()
+                .setResponseCode(302)
+                .setHeader("Location", "https://github.com/Supscott/Prosto/releases/tag/v0.13.0"),
+        )
+
+        assertThat(manager.fetchLatestTagVersion()).isEqualTo("0.13.0")
+        val request = server.takeRequest()
+        assertThat(request.method).isEqualTo("HEAD")
+        assertThat(request.path).isEqualTo("/Supscott/Prosto/releases/latest")
+        assertThat(server.requestCount).isEqualTo(1)
+    }
+
+    @Test
+    fun tagProbe_withoutARedirect_returnsNull() = kotlinx.coroutines.test.runTest {
+        server.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(200))
+        assertThat(manager.fetchLatestTagVersion()).isNull()
+    }
+
+    @Test
+    fun versionFromReleaseLocation_parsesTheTag() {
+        assertThat(versionFromReleaseLocation("https://github.com/o/r/releases/tag/v1.2.3")).isEqualTo("1.2.3")
+        assertThat(versionFromReleaseLocation("https://github.com/o/r/releases/tag/v1.2.3?x=1")).isEqualTo("1.2.3")
+        assertThat(versionFromReleaseLocation("https://github.com/o/r/releases")).isNull()
+        assertThat(versionFromReleaseLocation(null)).isNull()
     }
 }
