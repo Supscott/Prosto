@@ -11,6 +11,7 @@ import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.domain.model.WorkspaceHomeData
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.WebViewStateStore
+import com.jestk.browser.ui.viewmodel.LastTabPrompt
 import com.jestk.browser.util.UrlSecurityUtils
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -50,6 +51,13 @@ internal class TabSessionSync(
         set(value) {
             ctx.cachedAllFolders = value
         }
+
+    /**
+     * Asked once while the session loads (with the restored active tab); true opens a fresh Home
+     * tab as the active one so the restored tab is never shown. Cleared by its owner after use.
+     */
+    @Volatile
+    var resumeOnRestore: ((Tab) -> Boolean)? = null
 
     suspend fun restoreSession(
         initialSettings: BrowserSettings,
@@ -94,7 +102,7 @@ internal class TabSessionSync(
             val activeWorkspaceId = getCurrentState().activeWorkspaceId
             val workspaceTabs = initialTabs.filter { it.workspaceId == activeWorkspaceId }
 
-            val activeTab: Tab =
+            val restoredActive: Tab =
                 if (workspaceTabs.isEmpty()) {
                     val newTab = tabRepository.createTab(url = "", title = "", workspaceId = activeWorkspaceId)
                     tabRepository.setActiveTab(newTab.id)
@@ -107,6 +115,16 @@ internal class TabSessionSync(
                     tabRepository.setActiveTab(found.id)
                     found.copy(isActive = true)
                 }
+
+            // The app came back after a long absence: the restored session opens on a fresh Home tab.
+            val resumeHome =
+                if (workspaceTabs.isNotEmpty() && resumeOnRestore?.invoke(restoredActive) == true) {
+                    tabRepository.createTab(url = "", title = "", workspaceId = activeWorkspaceId)
+                        .also { tabRepository.setActiveTab(it.id) }
+                } else {
+                    null
+                }
+            val activeTab = resumeHome?.copy(isActive = true) ?: restoredActive
 
             val currentTabs = tabRepository.getInitialTabs().filter { it.workspaceId == activeWorkspaceId }
             val rawTabsWithActive = if (currentTabs.isEmpty()) listOf(activeTab) else currentTabs
@@ -172,6 +190,8 @@ internal class TabSessionSync(
                     isMenuExpanded = false,
                     isSearchEngineSwitcherEditExpanded = false,
                     activeOverlay = if (hasWebUrl) OverlayType.NONE else OverlayType.HOME,
+                    lastTabPrompt =
+                        resumeHome?.let { LastTabPrompt(restoredActive.id, it.id) } ?: state.lastTabPrompt,
                 )
             }
         }

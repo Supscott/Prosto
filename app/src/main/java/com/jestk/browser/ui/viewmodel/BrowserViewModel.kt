@@ -146,7 +146,7 @@ class BrowserViewModel(
             workspaceRepository = workspaceRepository,
         )
 
-    private val lastTabs = LastTabCoordinator.create(_uiState, tabCoordinator, viewModelScope, currentTimeProvider)
+    private val lastTabs = LastTabCoordinator.create(_uiState, tabCoordinator, currentTimeProvider)
 
     private val domainGroupEvents =
         DomainGroupEventHandler(

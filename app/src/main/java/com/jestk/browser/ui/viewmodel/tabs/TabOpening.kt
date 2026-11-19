@@ -10,6 +10,7 @@ import com.jestk.browser.ui.viewmodel.NavigationCommand
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
+import java.util.UUID
 
 private const val TAG = "TabCoordinator"
 
@@ -87,6 +88,47 @@ internal class TabOpening(
         }
         webViewPool?.onTabActivated(created.id, false)
         val fallbackTabs = loadFallbackTabs(created.id, getCurrentState().activeWorkspaceId)
+        publishActiveTab(created, url, pageTitle, cachedFavicon, isWebLoading, isHome, fallbackTabs)
+    }
+
+    /**
+     * Makes a Home tab active in the UI state before this call returns, so the next frame already
+     * shows it; the database write follows on the IO dispatcher. Returns the id of the active tab.
+     */
+    fun openHomeTabNow(): String {
+        val state = getCurrentState()
+        val existing = state.tabs.firstOrNull { it.isHomeTab && it.workspaceId == state.activeWorkspaceId }
+        val tab =
+            existing ?: Tab(
+                id = UUID.randomUUID().toString(),
+                url = "",
+                title = "",
+                lastActiveTimestamp = System.currentTimeMillis(),
+                position = (state.tabs.maxOfOrNull { it.position } ?: -1) + 1,
+                workspaceId = state.activeWorkspaceId,
+            )
+        webViewPool?.onTabActivated(tab.id, false)
+        publishActiveTab(tab, "", "", null, isWebLoading = false, isHome = true, fallbackTabs = emptyList())
+        scope.launch(ioDispatcher) {
+            tabOperationMutex.withLock {
+                if (existing == null) {
+                    tabRepository.createTab(url = "", title = "", id = tab.id, workspaceId = tab.workspaceId)
+                }
+                tabRepository.setActiveTab(tab.id)
+            }
+        }
+        return tab.id
+    }
+
+    private fun publishActiveTab(
+        created: Tab,
+        url: String,
+        pageTitle: String,
+        cachedFavicon: String?,
+        isWebLoading: Boolean,
+        isHome: Boolean,
+        fallbackTabs: List<Tab>,
+    ) {
         tabLoadingProgress[created.id] = if (isWebLoading) 15 else 100
         updateUiState {
             it.copy(

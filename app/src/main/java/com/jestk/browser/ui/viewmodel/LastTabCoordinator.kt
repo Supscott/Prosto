@@ -1,26 +1,25 @@
 package com.jestk.browser.ui.viewmodel
 
-import kotlinx.coroutines.CoroutineScope
+import com.jestk.browser.domain.model.Tab
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
-
-private const val SESSION_WAIT_MS = 5_000L
 
 /**
  * Opens a Home tab when the app comes back after a long time away and offers a "Last tab" pill
  * that returns to the tab the user left. See [ResumeNewTabPolicy] for when this applies.
+ *
+ * The switch is synchronous so the first frame after the Activity starts already shows the new
+ * tab: with tabs in memory it happens inside [onReturnedToForeground]; after process death it is
+ * folded into the session restore through [installRestoreHook].
  */
 internal class LastTabCoordinator(
     private val policy: ResumeNewTabPolicy,
     private val state: StateFlow<BrowserUiState>,
     private val updateUiState: ((BrowserUiState) -> BrowserUiState) -> Unit,
-    private val scope: CoroutineScope,
     private val now: () -> Long,
-    private val openNewTab: () -> Unit,
+    private val openHomeTab: () -> String,
+    private val installRestoreHook: (((Tab) -> Boolean)?) -> Unit,
     private val selectTab: (String) -> Unit,
     private val closeTab: (String) -> Unit,
     private val clearUndoSnackbar: () -> Unit,
@@ -32,27 +31,30 @@ internal class LastTabCoordinator(
         mediaActiveNow: Boolean,
     ) {
         if (stamp == null) return
-        scope.launch {
-            // After process death the tabs load a moment after the Activity starts.
-            val loaded = withTimeoutOrNull(SESSION_WAIT_MS) { state.first { it.activeTabId != null } } ?: return@launch
-            val previous = loaded.activeTab ?: return@launch
-            val open =
-                policy.shouldOpenNewTab(
-                    stamp = stamp,
-                    nowMs = now(),
-                    hasTabs = loaded.tabs.isNotEmpty(),
-                    activeTabIsHome = previous.isHomeTab,
-                    returnedWithLink = returnedWithLink,
-                    mediaActiveNow = mediaActiveNow,
-                )
-            if (!open) return@launch
-            openNewTab()
-            val withNewTab =
-                withTimeoutOrNull(SESSION_WAIT_MS) {
-                    state.first { it.activeTabId != null && it.activeTabId != previous.id }
-                } ?: return@launch
-            updateUiState { it.copy(lastTabPrompt = LastTabPrompt(previous.id, withNewTab.activeTabId!!)) }
+        fun shouldOpen(activeTabIsHome: Boolean) =
+            policy.shouldOpenNewTab(
+                stamp = stamp,
+                nowMs = now(),
+                hasTabs = true,
+                activeTabIsHome = activeTabIsHome,
+                returnedWithLink = returnedWithLink,
+                mediaActiveNow = mediaActiveNow,
+            )
+
+        val loaded = state.value
+        if (loaded.activeTabId == null) {
+            // After process death the tabs load after the Activity starts: decide when they do.
+            installRestoreHook { restored ->
+                installRestoreHook(null)
+                shouldOpen(restored.isHomeTab)
+            }
+            return
         }
+        val previous = loaded.activeTab ?: return
+        if (loaded.tabs.isEmpty() || !shouldOpen(previous.isHomeTab)) return
+        val newTabId = openHomeTab()
+        if (newTabId == previous.id) return
+        updateUiState { it.copy(lastTabPrompt = LastTabPrompt(previous.id, newTabId)) }
     }
 
     fun handle(event: LastTabUiEvent) {
@@ -82,16 +84,15 @@ internal class LastTabCoordinator(
         internal fun create(
             state: MutableStateFlow<BrowserUiState>,
             tabs: TabCoordinator,
-            scope: CoroutineScope,
             now: () -> Long,
             policy: ResumeNewTabPolicy = ResumeNewTabPolicy(),
         ) = LastTabCoordinator(
             policy = policy,
             state = state,
             updateUiState = { transform -> state.update(transform) },
-            scope = scope,
             now = now,
-            openNewTab = { tabs.opening.openNewTab("") },
+            openHomeTab = { tabs.opening.openHomeTabNow() },
+            installRestoreHook = { tabs.sessionSync.resumeOnRestore = it },
             selectTab = { tabs.activation.selectTab(it) },
             closeTab = { tabs.closing.closeTab(it) },
             clearUndoSnackbar = { tabs.closing.clearRecentlyClosedTab() },
