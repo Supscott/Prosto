@@ -24,6 +24,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -39,6 +42,7 @@ import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import androidx.webkit.WebViewFeature
 import com.jestk.browser.R
+import com.jestk.browser.ui.navigation.DockShadowUnderClipShape
 import com.jestk.browser.ui.navigation.PopupMenuItem
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.ProstoBorders
@@ -64,6 +68,7 @@ fun NewTabKindHost(
     isDark: Boolean,
     onEvent: (BrowserUiEvent) -> Unit,
     onChosen: () -> Unit = {},
+    aboveDock: Boolean = true,
     modifier: Modifier = Modifier,
     content: @Composable (onLongClick: (() -> Unit)?) -> Unit,
 ) {
@@ -75,6 +80,7 @@ fun NewTabKindHost(
         if (showMenu) {
             NewTabKindMenu(
                 isDark = isDark,
+                aboveDock = aboveDock,
                 onIncognito = {
                     showMenu = false
                     onEvent(OpenIncognitoTab)
@@ -118,27 +124,62 @@ fun GridNewTabButton(
 
 /**
  * The new-tab choice as a floating card like the dock's Menu popup ([PopupMenuItem] rows on a
- * Card surface). It sits above the "+" button, or below it when there is no room above (the "+"
- * of the tab grid header).
+ * Card surface). [aboveDock]: the card sits above the dock's "+" and its shadow is clipped
+ * [DOCK_GAP] below the card, so it falls under the dock (as in TabContextMenu); otherwise (the
+ * tab grid header) it opens below the button with its full shadow.
  */
 @Composable
 fun NewTabKindMenu(
     isDark: Boolean,
+    aboveDock: Boolean,
     onIncognito: () -> Unit,
     onRegular: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     BackHandler(onBack = onDismiss)
     val density = LocalDensity.current
-    val positionProvider = remember(density) { AboveOrBelowAnchorPosition(density) }
+    val positionProvider = remember(density, aboveDock) { NewTabMenuPosition(density, aboveDock) }
     Popup(
         onDismissRequest = onDismiss,
         popupPositionProvider = positionProvider,
         properties = PopupProperties(focusable = true, dismissOnClickOutside = true, dismissOnBackPress = true),
     ) {
-        NewTabKindSheetContent(isDark = isDark, onIncognito = onIncognito, onRegular = onRegular)
+        val card = @Composable {
+            NewTabKindSheetContent(isDark = isDark, onIncognito = onIncognito, onRegular = onRegular)
+        }
+        if (!aboveDock) {
+            card()
+            return@Popup
+        }
+        val dockGapPx = with(density) { DOCK_GAP.toPx() }
+        val overflowPx = with(density) { SHADOW_OVERFLOW.toPx() }
+        Box(
+            modifier =
+                Modifier
+                    .graphicsLayer {
+                        shape = DockShadowUnderClipShape(dockGapPx, overflowPx)
+                        clip = true
+                    }
+                    .drawWithContent {
+                        clipRect(
+                            left = -overflowPx,
+                            top = -overflowPx,
+                            right = size.width + overflowPx,
+                            bottom = size.height + dockGapPx,
+                        ) {
+                            this@drawWithContent.drawContent()
+                        }
+                    },
+        ) {
+            card()
+        }
     }
 }
+
+// The same clip as TabContextMenu: the shadow may spread 32dp up and sideways but stops 10dp
+// below the card, at the dock's top edge.
+private val DOCK_GAP = 10.dp
+private val SHADOW_OVERFLOW = 32.dp
 
 /** The menu card, apart from the popup window so previews can render it. */
 @Composable
@@ -181,10 +222,11 @@ internal fun NewTabKindSheetContent(
 }
 
 /**
- * Centres the card on the anchor and puts its bottom [gap] above the anchor's top, like the tab
- * context menu above the dock; when that would leave the window, it goes [gap] below the anchor.
+ * Centres the card on the anchor. [above]: its bottom is `gap` above the anchor's top, like the
+ * tab context menu above the dock; otherwise, or when that would leave the window, it goes `gap`
+ * below the anchor.
  */
-private class AboveOrBelowAnchorPosition(private val density: Density) : PopupPositionProvider {
+private class NewTabMenuPosition(private val density: Density, private val above: Boolean) : PopupPositionProvider {
     override fun calculatePosition(
         anchorBounds: IntRect,
         windowSize: IntSize,
@@ -195,8 +237,8 @@ private class AboveOrBelowAnchorPosition(private val density: Density) : PopupPo
         val gap = with(density) { 16.dp.roundToPx() }
         val x = (anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2)
             .coerceIn(margin, (windowSize.width - popupContentSize.width - margin).coerceAtLeast(margin))
-        val above = anchorBounds.top - gap - popupContentSize.height
-        val y = if (above >= margin) above else anchorBounds.bottom + gap
+        val aboveY = anchorBounds.top - gap - popupContentSize.height
+        val y = if (above && aboveY >= margin) aboveY else anchorBounds.bottom + gap
         return IntOffset(x, y)
     }
 }

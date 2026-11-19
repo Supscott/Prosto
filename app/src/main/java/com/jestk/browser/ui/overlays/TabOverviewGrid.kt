@@ -400,6 +400,7 @@ fun TabOverviewGrid(
                         isDark = isDark,
                         onEvent = onEvent,
                         onChosen = { onEvent(BrowserUiEvent.DismissOverlay) },
+                        aboveDock = false,
                     ) { onLongClick ->
                         GridNewTabButton(
                             onClick = {
