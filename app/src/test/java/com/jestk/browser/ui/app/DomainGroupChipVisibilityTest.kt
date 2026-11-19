@@ -38,6 +38,11 @@ class DomainGroupChipVisibilityTest {
     }
 
     @Test
+    fun hiddenWhileTheMenuIsOpen() {
+        assertThat(state(activeTabId = "1").copy(isMenuExpanded = true).shouldShowDomainGroupChip(isBottomBarVisible = true)).isFalse()
+    }
+
+    @Test
     fun hiddenWithoutASuggestion() {
         assertThat(BrowserUiState(activeTabId = "1").shouldShowDomainGroupChip(isBottomBarVisible = true)).isFalse()
     }

@@ -57,6 +57,8 @@ internal fun BrowserUiState.shouldShowDomainGroupChip(isBottomBarVisible: Boolea
     val suggestion = domainGroupSuggestion ?: return false
     return isBottomBarVisible &&
         activeTabId in suggestion.tabIds &&
+        // The chip sits where the expanded menu ends and covered its last item (Settings).
+        !isMenuExpanded &&
         activeOverlay !in OVERLAYS_WITHOUT_CHIP &&
         !hasTransientPill()
 }
