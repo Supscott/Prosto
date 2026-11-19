@@ -56,6 +56,7 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.DismissPopupBlocked
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
+import com.jestk.browser.ui.viewmodel.RecordOpenInAppDismissal
 import com.jestk.browser.util.DownloadFileOpener
 import kotlinx.coroutines.delay
 
@@ -265,6 +266,7 @@ internal fun BoxScope.AppNotificationPills(
                 },
                 onDismiss = {
                     onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.EXPLICIT))
+                    onEvent(RecordOpenInAppDismissal(prompt.domain))
                 },
                 onTimeout = {
                     // A hint the user ignored must not block a later deliberate tap on the
@@ -276,6 +278,8 @@ internal fun BoxScope.AppNotificationPills(
             )
         }
     }
+
+    OpenInAppExclusionPillHost(uiState, onEvent, isDark, activeWorkspaceColor, snackbarBaseBottomOffset)
 
     // Confirmation for a deliberate tap on the site's own "Open app" control. Cancel and
     // Close tab dismiss it transiently so a later tap is offered again.

@@ -3,6 +3,7 @@ package com.jestk.browser.ui.viewmodel.tabs
 import com.jestk.browser.domain.model.ExternalAppPrompt
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 import com.jestk.browser.ui.viewmodel.NavigationCommand
+import com.jestk.browser.ui.viewmodel.OpenInAppExclusionPrompt
 import java.util.concurrent.ConcurrentHashMap
 
 internal class ExternalAppPrompts(
@@ -23,7 +24,11 @@ internal class ExternalAppPrompts(
         val current = getCurrentState()
         if (current.tabs.none { it.id == tabId }) return
 
-        if (isExternalAppDomainSuppressed(tabId, prompt.domain, userInitiated = userInitiated)) {
+        // A site the user opted out of gets no passive pill; a deliberate tap on the site's own
+        // "Open in app" control still asks (a user gesture must never become a silent no-op).
+        val excluded = !userInitiated && !prompt.requiresConfirmation &&
+            OpenInAppExclusions.isExcluded(current.settings, prompt.domain)
+        if (excluded || isExternalAppDomainSuppressed(tabId, prompt.domain, userInitiated = userInitiated)) {
             // A held-back web link must not become a dead tap: load it as if no app existed.
             prompt.webFallbackUrl?.let { emitNavigation(NavigationCommand.LoadUrl(it)) }
             return
@@ -47,7 +52,16 @@ internal class ExternalAppPrompts(
                 return
             }
         }
-        updateUiState { it.copy(externalAppPrompt = prompt) }
+        publish(prompt)
+    }
+
+    /** After repeated swipe-aways a passive pill turns into the "don't offer" question. */
+    private fun publish(prompt: ExternalAppPrompt) {
+        if (!prompt.requiresConfirmation && OpenInAppExclusions.shouldAsk(getCurrentState().settings, prompt.domain)) {
+            updateUiState { it.copy(openInAppExclusionPrompt = OpenInAppExclusionPrompt(prompt.tabId, prompt.domain)) }
+        } else {
+            updateUiState { it.copy(externalAppPrompt = prompt) }
+        }
     }
 
     private fun areExternalAppDomainsEqual(domain1: String, domain2: String): Boolean =
@@ -85,7 +99,8 @@ internal class ExternalAppPrompts(
     fun publishPendingExternalAppPrompt(tabId: String) {
         val prompt = pendingExternalAppPrompts.remove(tabId) ?: return
         if (isExternalAppDomainSuppressed(tabId, prompt.domain, userInitiated = false)) return
-        updateUiState { it.copy(externalAppPrompt = prompt) }
+        if (OpenInAppExclusions.isExcluded(getCurrentState().settings, prompt.domain)) return
+        publish(prompt)
     }
 
     fun dismissExternalAppPrompt(reason: ExternalAppDismissReason = ExternalAppDismissReason.EXPLICIT) {

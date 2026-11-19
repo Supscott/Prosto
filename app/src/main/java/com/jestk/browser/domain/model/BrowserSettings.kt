@@ -10,6 +10,10 @@ data class BrowserSettings(
     val isTrackingProtectionEnabled: Boolean = true,
     val hiddenSearchPageEngineIds: Set<String> = emptySet(),
     val isOpenInAppsEnabled: Boolean = true,
+    /** Sites the user chose never to be offered in an app (passive pill only). */
+    val openInAppExcludedSites: Set<String> = emptySet(),
+    /** Explicit (swipe) dismissals of the open-in-app pill per site, toward the "don't offer" question. */
+    val openInAppDismissCounts: Map<String, Int> = emptyMap(),
     val isAutoUpdateEnabled: Boolean = true,
     val isVibrationEnabled: Boolean = true,
     val skippedUpdateVersion: String? = null,

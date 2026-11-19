@@ -134,6 +134,13 @@
     <string name="blocked_document_proceed">Proceed anyway</string>
     <string name="popup_blocked_message">Popup blocked</string>
     <string name="popup_blocked_allow_site">Allow for this site</string>
+    <string name="open_in_app_exclusion_message">Don\'t offer to open %1$s in the app?</string>
+    <string name="open_in_app_exclusion_action">Don\'t offer</string>
+    <string name="open_in_app_excluded_sites_title">Sites not offered in apps</string>
+    <string name="open_in_app_excluded_sites_none">None</string>
+    <string name="open_in_app_excluded_sites_empty">No sites. Swipe away the open-in-app pill of a site a few times to be asked.</string>
+    <string name="open_in_app_excluded_sites_remove">Offer apps again for %1$s</string>
+    <string name="open_in_app_excluded_sites_close">Close</string>
     <string name="menu_disable_blocking">Disable blocking on this site</string>
     <string name="menu_enable_blocking">Enable blocking on this site</string>
     <string name="disable_blocking_title">Disable blocking?</string>

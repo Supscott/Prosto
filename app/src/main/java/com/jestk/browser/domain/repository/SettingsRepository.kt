@@ -28,6 +28,10 @@ interface SettingsRepository {
 
     suspend fun setOpenInAppsEnabled(enabled: Boolean)
 
+    suspend fun setOpenInAppExcludedSites(sites: Set<String>) {}
+
+    suspend fun setOpenInAppDismissCounts(counts: Map<String, Int>) {}
+
     suspend fun setAutoUpdateEnabled(enabled: Boolean)
 
     suspend fun setVibrationEnabled(enabled: Boolean)

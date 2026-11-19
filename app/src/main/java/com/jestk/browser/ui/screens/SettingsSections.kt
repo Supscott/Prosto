@@ -54,6 +54,7 @@ import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.IncludeOpenInAppSite
 import com.jestk.browser.ui.viewmodel.SetBackgroundPlaybackEnabled
 import com.jestk.browser.util.DefaultBrowserHelper
 import com.jestk.browser.util.VibrationFeedback
@@ -119,6 +120,17 @@ internal fun SettingsGeneralSection(
             checked = uiState.settings.isOpenInAppsEnabled,
             onCheckedChange = { onEvent(BrowserUiEvent.SetOpenInAppsEnabled(it)) },
             isDark = isDark,
+        )
+
+        HorizontalDivider(
+            color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+            modifier = Modifier.padding(start = 56.dp),
+        )
+
+        OpenInAppExcludedSitesRow(
+            sites = uiState.settings.openInAppExcludedSites,
+            isDark = isDark,
+            onRemove = { onEvent(IncludeOpenInAppSite(it)) },
         )
 
         HorizontalDivider(

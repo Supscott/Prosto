@@ -44,6 +44,7 @@ data class BrowserUiState(
     val recentlyClosedTab: Tab? = null,
     val showUndoTabCloseSnackbar: Boolean = false,
     val externalAppPrompt: ExternalAppPrompt? = null,
+    val openInAppExclusionPrompt: OpenInAppExclusionPrompt? = null,
     // Active Viewport / Overlay
     val activeOverlay: OverlayType = OverlayType.NONE,
     val activeScreen: ScreenType = ScreenType.NONE,

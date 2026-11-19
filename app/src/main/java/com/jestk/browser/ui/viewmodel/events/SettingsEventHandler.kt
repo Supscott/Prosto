@@ -7,6 +7,10 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.DismissDownloadFailure
+import com.jestk.browser.ui.viewmodel.DismissOpenInAppExclusionPrompt
+import com.jestk.browser.ui.viewmodel.ExcludeOpenInAppSite
+import com.jestk.browser.ui.viewmodel.IncludeOpenInAppSite
+import com.jestk.browser.ui.viewmodel.RecordOpenInAppDismissal
 import com.jestk.browser.ui.viewmodel.DownloadCoordinator
 import com.jestk.browser.ui.viewmodel.SearchCoordinator
 import com.jestk.browser.ui.viewmodel.SetBackgroundPlaybackEnabled
@@ -30,8 +34,14 @@ internal class SettingsEventHandler(
     private val dismissDownloadSnackbar: () -> Unit,
     private val updateDefaultBrowserStatus: (Boolean) -> Unit,
 ) {
+    private val openInAppExclusions =
+        OpenInAppExclusionHandler(settingsRepository, updateUiState, scope, ioDispatcher)
+
     fun handle(event: SettingsUiEvent) {
         when (event) {
+            is RecordOpenInAppDismissal, is ExcludeOpenInAppSite, is IncludeOpenInAppSite,
+            is DismissOpenInAppExclusionPrompt -> openInAppExclusions.handle(event)
+
             is BrowserUiEvent.DismissDownloadSnackbar -> {
                 dismissDownloadSnackbar()
             }

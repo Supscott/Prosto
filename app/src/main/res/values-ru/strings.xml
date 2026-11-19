@@ -134,6 +134,13 @@
     <string name="blocked_document_proceed">Всё равно открыть</string>
     <string name="popup_blocked_message">Всплывающее окно заблокировано</string>
     <string name="popup_blocked_allow_site">Разрешить для этого сайта</string>
+    <string name="open_in_app_exclusion_message">Не предлагать открывать %1$s в приложении?</string>
+    <string name="open_in_app_exclusion_action">Не предлагать</string>
+    <string name="open_in_app_excluded_sites_title">Сайты без предложения приложения</string>
+    <string name="open_in_app_excluded_sites_none">Нет</string>
+    <string name="open_in_app_excluded_sites_empty">Пусто. Несколько раз смахните плашку «Открыть в приложении» на сайте, и приложение спросит.</string>
+    <string name="open_in_app_excluded_sites_remove">Снова предлагать приложение для %1$s</string>
+    <string name="open_in_app_excluded_sites_close">Закрыть</string>
     <string name="menu_disable_blocking">Отключить блокировку на этом сайте</string>
     <string name="menu_enable_blocking">Включить блокировку на этом сайте</string>
     <string name="disable_blocking_title">Отключить блокировку?</string>

@@ -3,6 +3,8 @@ package com.jestk.browser.data.repository
 import com.jestk.browser.data.local.dao.SettingDao
 import com.jestk.browser.data.local.entity.SettingEntity
 import com.jestk.browser.data.local.entity.SettingKeys
+import com.jestk.browser.data.mapper.serializeSiteCounts
+import com.jestk.browser.data.mapper.serializeSiteSet
 import com.jestk.browser.data.mapper.toBrowserSettings
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.SearchEngine
@@ -84,6 +86,16 @@ class SettingsRepositoryImpl(
     override suspend fun setOpenInAppsEnabled(enabled: Boolean) =
         withContext(ioDispatcher) {
             settingDao.setSetting(SettingEntity(SettingKeys.OPEN_IN_APPS_ENABLED, enabled.toString()))
+        }
+
+    override suspend fun setOpenInAppExcludedSites(sites: Set<String>) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.OPEN_IN_APP_EXCLUDED_SITES, serializeSiteSet(sites)))
+        }
+
+    override suspend fun setOpenInAppDismissCounts(counts: Map<String, Int>) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.OPEN_IN_APP_DISMISS_COUNTS, serializeSiteCounts(counts)))
         }
 
     override suspend fun setAutoUpdateEnabled(enabled: Boolean) =

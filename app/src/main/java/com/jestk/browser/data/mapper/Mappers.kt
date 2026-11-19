@@ -179,6 +179,8 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
             ?.toSet() ?: emptySet()
 
     return BrowserSettings(
+        openInAppExcludedSites = parseSiteSet(map[SettingKeys.OPEN_IN_APP_EXCLUDED_SITES]),
+        openInAppDismissCounts = parseSiteCounts(map[SettingKeys.OPEN_IN_APP_DISMISS_COUNTS]),
         themeMode = themeMode,
         searchEngine = searchEngine,
         isAdBlockerEnabled = isAdBlockerEnabled,
