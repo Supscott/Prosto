@@ -2,7 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <application>
-        <activity android:name=".ui.MainActivity">
+        <!-- exported matches src/main; lint checks this overlay on its own (IntentFilterExportedReceiver). -->
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true">
             <!-- Fixture filter list loader for tools/device.sh serve (PRO-56). Debug builds only,
                  and not BROWSABLE, so a web page cannot send it; only adb (am start) reaches it. -->
             <intent-filter>
