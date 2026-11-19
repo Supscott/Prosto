@@ -103,7 +103,10 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
 ### 8. Update Linear
 - Start: move worked issues to *In Progress* (one Linear write per call, not in parallel).
 - After merge: a comment with commit ids, what changed and the remaining device checks.
-- After device verification: *Done*. Not reproduced: comment with what was tried; keep it open.
+- After device verification: *Done*. Anything waiting on the user (not reproduced → repro steps,
+  a decision, permission for an outward action, a check only the user can do): comment, then
+  *In Review*. *Todo* is only for work an agent can start now. Before the final report, sweep
+  `In Progress`/`In Review` too: older issues whose device check already passed go to *Done*.
 - Every new finding (follow-up, harness gap, near-limit file) → its own issue, duplicate search first.
 
 ### 9. Measure and improve
