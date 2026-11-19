@@ -7,12 +7,15 @@ import com.jestk.browser.domain.model.AppUpdateUiState
 import com.jestk.browser.domain.model.compareVersions
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.engine.update.AppUpdateManager
+import com.jestk.browser.engine.update.UpdateFetchResult
+import com.jestk.browser.util.UpdateCheckStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
 private const val TAG = "UpdateCoordinator"
-private const val DEFAULT_THROTTLE_MS = 60 * 60 * 1000L // 1 hour
+private const val MIN_SUCCESS_INTERVAL_MS = 6 * 60 * 60 * 1000L
+private val BACKOFF_STEPS_MS = longArrayOf(5 * 60_000L, 15 * 60_000L, 60 * 60_000L, 6 * 60 * 60_000L)
 
 /**
  * Coordinates update discovery using the Notify & Redirect pattern:
@@ -29,33 +32,23 @@ class UpdateCoordinator(
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher,
     private val clock: () -> Long = { System.currentTimeMillis() },
-    val checkThrottleMs: Long = DEFAULT_THROTTLE_MS,
     var onLaunchIntent: (Intent) -> Unit = {},
 ) {
-    private var lastCheckTimestamp: Long = 0L
-
     fun onAppStart() {
         Log.d(TAG, "onAppStart: scheduling update check")
-        lastCheckTimestamp = clock()
-        scope.launch(ioDispatcher) { checkForUpdate(manual = false) }
+        scope.launch(ioDispatcher) {
+            publishCachedRelease()
+            checkForUpdate(manual = false)
+        }
     }
 
     fun onAppResume() {
-        val now = clock()
-        val elapsed = now - lastCheckTimestamp
-        if (elapsed in 0 until checkThrottleMs) {
-            Log.d(TAG, "onAppResume: throttled (elapsed ${elapsed / 1000}s < ${checkThrottleMs / 1000}s)")
-            return
-        }
-        Log.d(TAG, "onAppResume: checking for updates after ${elapsed / 1000}s")
-        lastCheckTimestamp = now
         scope.launch(ioDispatcher) { checkForUpdate(manual = false) }
     }
 
     fun onAutoUpdateEnabled() {
-        Log.d(TAG, "onAutoUpdateEnabled: immediate check")
-        lastCheckTimestamp = clock()
-        scope.launch(ioDispatcher) { checkForUpdate(manual = false) }
+        Log.d(TAG, "onAutoUpdateEnabled: check bypassing the interval")
+        scope.launch(ioDispatcher) { checkForUpdate(manual = false, bypassInterval = true) }
     }
 
     fun onAutoUpdateDisabled() {
@@ -63,32 +56,86 @@ class UpdateCoordinator(
         publish(AppUpdateUiState.None)
     }
 
-    suspend fun checkForUpdate(manual: Boolean = false) {
+    /** Shows the release remembered from an earlier check without touching the network. */
+    private suspend fun publishCachedRelease() {
+        val manager = appUpdateManager ?: return
+        val cached = manager.store.cachedRelease ?: return
+        val settings = settingsRepository.getCurrentSettings()
+        if (!settings.isAutoUpdateEnabled) return
+        if (compareVersions(cached.versionName, manager.currentVersion()) <= 0) return
+        if (cached.versionName == settings.skippedUpdateVersion) return
+        Log.d(TAG, "update check: cached release ${cached.versionName}, no request")
+        publish(AppUpdateUiState.Available(cached))
+    }
+
+    /**
+     * Checks GitHub for a newer release. The failure backoff always applies; the
+     * [MIN_SUCCESS_INTERVAL_MS] interval is skipped for [manual] checks and [bypassInterval].
+     */
+    suspend fun checkForUpdate(manual: Boolean = false, bypassInterval: Boolean = manual) {
         val manager = appUpdateManager ?: return
         val settings = settingsRepository.getCurrentSettings()
         if (!manual && !settings.isAutoUpdateEnabled) {
-            Log.d(TAG, "checkForUpdate: auto-update check disabled in settings")
+            Log.d(TAG, "update check skipped: auto-update disabled in settings")
             return
         }
 
-        val currentVersion = manager.currentVersion()
-        Log.d(TAG, "checkForUpdate: currentVer=$currentVersion, manual=$manual")
+        val store = manager.store
+        val now = clock()
+        if (now < store.nextAllowedAt) {
+            Log.d(TAG, "update check skipped: backoff until ${store.nextAllowedAt} (failures=${store.failureCount})")
+            return
+        }
+        val sinceSuccess = now - store.lastSuccessAt
+        if (!bypassInterval && store.lastSuccessAt > 0 && sinceSuccess < MIN_SUCCESS_INTERVAL_MS) {
+            Log.d(TAG, "update check skipped: interval (${sinceSuccess / 1000}s since last success)")
+            return
+        }
 
-        val release = manager.fetchLatestRelease()
-        if (release != null && compareVersions(release.versionName, currentVersion) > 0) {
+        val release =
+            when (val result = manager.fetchLatestRelease(etag = store.etag?.takeIf { store.cachedRelease != null })) {
+                is UpdateFetchResult.Fresh -> {
+                    Log.d(TAG, "update check: 200, release ${result.release.versionName}")
+                    store.etag = result.etag
+                    store.cachedRelease = result.release
+                    recordSuccess(store, now)
+                    result.release
+                }
+                UpdateFetchResult.NotModified -> {
+                    Log.d(TAG, "update check: 304 not modified")
+                    recordSuccess(store, now)
+                    store.cachedRelease
+                }
+                is UpdateFetchResult.Failed -> {
+                    val failures = store.failureCount + 1
+                    val backoffUntil = now + backoffMs(failures)
+                    store.failureCount = failures
+                    store.nextAllowedAt = maxOf(backoffUntil, result.retryAtMs ?: 0L)
+                    Log.w(TAG, "update check failed: HTTP ${result.code}, retry after ${store.nextAllowedAt}")
+                    return
+                }
+            } ?: return
+
+        val currentVersion = manager.currentVersion()
+        if (compareVersions(release.versionName, currentVersion) > 0) {
             if (!manual && release.versionName == settings.skippedUpdateVersion) {
                 Log.d(TAG, "Version ${release.versionName} was skipped by user")
                 return
             }
             Log.d(TAG, "Publishing update available for ${release.versionName}")
             publish(AppUpdateUiState.Available(release))
-            return
-        }
-
-        if (release != null) {
+        } else {
             Log.d(TAG, "Current version is up to date ($currentVersion >= ${release.versionName})")
         }
     }
+
+    private fun recordSuccess(store: UpdateCheckStore, now: Long) {
+        store.lastSuccessAt = now
+        store.failureCount = 0
+        store.nextAllowedAt = 0L
+    }
+
+    private fun backoffMs(failures: Int): Long = BACKOFF_STEPS_MS[minOf(failures, BACKOFF_STEPS_MS.size) - 1]
 
     fun onRedirectRequested() {
         val state = getCurrentState().updateState

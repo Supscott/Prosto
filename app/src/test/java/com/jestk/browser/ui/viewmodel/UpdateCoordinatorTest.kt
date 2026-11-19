@@ -12,6 +12,8 @@ import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.engine.update.AppUpdateManager
+import com.jestk.browser.engine.update.UpdateFetchResult
+import com.jestk.browser.util.UpdateCheckStore
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -37,15 +39,17 @@ class UpdateCoordinatorTest {
     private var uiState = BrowserUiState()
     private lateinit var fakeSettingsRepo: FakeSettingsRepository
     private lateinit var fakeUpdateManager: FakeAppUpdateManager
+    private lateinit var store: InMemoryUpdateCheckStore
     private var launchedIntent: Intent? = null
 
-    private var currentTime = 1_000_000L
+    private var currentTime = 100 * 3600_000L
 
     @Before
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         fakeSettingsRepo = FakeSettingsRepository()
-        fakeUpdateManager = FakeAppUpdateManager(ApplicationProvider.getApplicationContext())
+        store = InMemoryUpdateCheckStore()
+        fakeUpdateManager = FakeAppUpdateManager(ApplicationProvider.getApplicationContext(), store)
         launchedIntent = null
     }
 
@@ -54,7 +58,7 @@ class UpdateCoordinatorTest {
         Dispatchers.resetMain()
     }
 
-    private fun createCoordinator(throttleMs: Long = 60 * 60 * 1000L): UpdateCoordinator {
+    private fun createCoordinator(): UpdateCoordinator {
         return UpdateCoordinator(
             appUpdateManager = fakeUpdateManager,
             settingsRepository = fakeSettingsRepo,
@@ -63,7 +67,6 @@ class UpdateCoordinatorTest {
             scope = testScope,
             ioDispatcher = testDispatcher,
             clock = { currentTime },
-            checkThrottleMs = throttleMs,
             onLaunchIntent = { intent -> launchedIntent = intent },
         )
     }
@@ -127,33 +130,146 @@ class UpdateCoordinatorTest {
         assertThat(fakeUpdateManager.fetchCount).isEqualTo(0)
     }
 
-    @Test
-    fun onAppResume_throttlesChecksWithinInterval() = runTest(testDispatcher) {
-        fakeUpdateManager.currentVer = "0.4.0"
-        fakeUpdateManager.latestRelease = AppUpdate(
-            versionName = "0.5.0",
-            releaseNotes = "Notes",
-            releaseUrl = "https://example.com",
-        )
+    private val release05 = AppUpdate("0.5.0", "Notes", "https://example.com")
+    private val hour = 3600_000L
 
-        val throttleMs = 3600_000L // 1 hour
-        val coordinator = createCoordinator(throttleMs = throttleMs)
+    @Test
+    fun onAppResume_throttlesChecksWithinSixHours() = runTest(testDispatcher) {
+        fakeUpdateManager.latestRelease = release05
+        val coordinator = createCoordinator()
 
         coordinator.onAppStart()
         advanceUntilIdle()
         assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
 
-        // Resume after only 10 minutes -> should be throttled
-        currentTime += 600_000L
+        currentTime += 5 * hour
         coordinator.onAppResume()
         advanceUntilIdle()
         assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
 
-        // Resume after 65 minutes -> interval exceeded, should trigger check
-        currentTime += 3300_000L
+        currentTime += 2 * hour
         coordinator.onAppResume()
         advanceUntilIdle()
         assertThat(fakeUpdateManager.fetchCount).isEqualTo(2)
+    }
+
+    @Test
+    fun coldStart_withinSixHoursOfLastSuccess_makesNoRequest() = runTest(testDispatcher) {
+        store.lastSuccessAt = currentTime - hour
+        fakeUpdateManager.latestRelease = release05
+
+        createCoordinator().onAppStart()
+        advanceUntilIdle()
+
+        assertThat(fakeUpdateManager.fetchCount).isEqualTo(0)
+    }
+
+    @Test
+    fun coldStart_showsCachedUpdateWithoutRequest() = runTest(testDispatcher) {
+        store.lastSuccessAt = currentTime - hour
+        store.cachedRelease = release05
+
+        createCoordinator().onAppStart()
+        advanceUntilIdle()
+
+        assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.Available(release05))
+        assertThat(fakeUpdateManager.fetchCount).isEqualTo(0)
+    }
+
+    @Test
+    fun coldStart_cachedSkippedVersion_staysHidden() = runTest(testDispatcher) {
+        store.lastSuccessAt = currentTime - hour
+        store.cachedRelease = release05
+        fakeSettingsRepo.settings.value = BrowserSettings(skippedUpdateVersion = "0.5.0")
+
+        createCoordinator().onAppStart()
+        advanceUntilIdle()
+
+        assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.None)
+    }
+
+    @Test
+    fun failure_backsOffFiveThenFifteenMinutes() = runTest(testDispatcher) {
+        fakeUpdateManager.resultOverride = UpdateFetchResult.Failed(403, null)
+        val coordinator = createCoordinator()
+
+        coordinator.checkForUpdate()
+        assertThat(store.failureCount).isEqualTo(1)
+        assertThat(store.nextAllowedAt).isEqualTo(currentTime + 5 * 60_000L)
+        assertThat(store.lastSuccessAt).isEqualTo(0L)
+
+        currentTime += 4 * 60_000L
+        coordinator.checkForUpdate()
+        assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
+
+        currentTime += 2 * 60_000L
+        coordinator.checkForUpdate()
+        assertThat(fakeUpdateManager.fetchCount).isEqualTo(2)
+        assertThat(store.failureCount).isEqualTo(2)
+        assertThat(store.nextAllowedAt).isEqualTo(currentTime + 15 * 60_000L)
+    }
+
+    @Test
+    fun failure_backoffIsCappedAtSixHours() = runTest(testDispatcher) {
+        fakeUpdateManager.resultOverride = UpdateFetchResult.Failed(500, null)
+        store.failureCount = 10
+        createCoordinator().checkForUpdate()
+        assertThat(store.nextAllowedAt).isEqualTo(currentTime + 6 * hour)
+    }
+
+    @Test
+    fun failure_retryAtFromHeadersExtendsBackoff() = runTest(testDispatcher) {
+        val resetAt = currentTime + 40 * 60_000L
+        fakeUpdateManager.resultOverride = UpdateFetchResult.Failed(403, resetAt)
+        createCoordinator().checkForUpdate()
+        assertThat(store.nextAllowedAt).isEqualTo(resetAt)
+    }
+
+    @Test
+    fun success_resetsFailureStateAndStoresEtag() = runTest(testDispatcher) {
+        store.failureCount = 3
+        store.nextAllowedAt = currentTime - 1
+        fakeUpdateManager.latestRelease = release05
+
+        createCoordinator().checkForUpdate()
+
+        assertThat(store.failureCount).isEqualTo(0)
+        assertThat(store.nextAllowedAt).isEqualTo(0L)
+        assertThat(store.lastSuccessAt).isEqualTo(currentTime)
+        assertThat(store.etag).isEqualTo("etag-0.5.0")
+        assertThat(store.cachedRelease).isEqualTo(release05)
+    }
+
+    @Test
+    fun notModified_usesCachedReleaseAndCountsAsSuccess() = runTest(testDispatcher) {
+        store.cachedRelease = release05
+        store.etag = "abc"
+        store.failureCount = 1
+        fakeUpdateManager.resultOverride = UpdateFetchResult.NotModified
+
+        createCoordinator().checkForUpdate()
+
+        assertThat(fakeUpdateManager.lastEtag).isEqualTo("abc")
+        assertThat(store.lastSuccessAt).isEqualTo(currentTime)
+        assertThat(store.failureCount).isEqualTo(0)
+        assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.Available(release05))
+    }
+
+    @Test
+    fun autoUpdateEnabled_bypassesIntervalButNotBackoff() = runTest(testDispatcher) {
+        fakeUpdateManager.latestRelease = release05
+        store.lastSuccessAt = currentTime - hour
+        val coordinator = createCoordinator()
+
+        coordinator.onAutoUpdateEnabled()
+        advanceUntilIdle()
+        assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
+
+        store.nextAllowedAt = currentTime + 60_000L
+        coordinator.onAutoUpdateEnabled()
+        coordinator.checkForUpdate(manual = true)
+        advanceUntilIdle()
+        assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
     }
 
     @Test
@@ -248,17 +364,31 @@ class UpdateCoordinatorTest {
         assertThat(uiState.updateState).isEqualTo(AppUpdateUiState.None)
     }
 
-    private class FakeAppUpdateManager(context: Context) : AppUpdateManager(context) {
+    private class FakeAppUpdateManager(context: Context, store: UpdateCheckStore) :
+        AppUpdateManager(context, store) {
         var currentVer: String = "0.4.0"
         var latestRelease: AppUpdate? = null
+        var resultOverride: UpdateFetchResult? = null
         var fetchCount = 0
+        var lastEtag: String? = null
 
         override fun currentVersion(): String = currentVer
 
-        override suspend fun fetchLatestRelease(repo: String): AppUpdate? {
+        override suspend fun fetchLatestRelease(repo: String, etag: String?): UpdateFetchResult {
             fetchCount++
-            return latestRelease
+            lastEtag = etag
+            return resultOverride
+                ?: latestRelease?.let { UpdateFetchResult.Fresh(it, "etag-${it.versionName}") }
+                ?: UpdateFetchResult.Failed(0, null)
         }
+    }
+
+    private class InMemoryUpdateCheckStore : UpdateCheckStore {
+        override var lastSuccessAt = 0L
+        override var nextAllowedAt = 0L
+        override var failureCount = 0
+        override var etag: String? = null
+        override var cachedRelease: AppUpdate? = null
     }
 
     private class FakeSettingsRepository : SettingsRepository {

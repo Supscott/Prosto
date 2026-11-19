@@ -6,7 +6,10 @@ import com.jestk.browser.domain.model.AppUpdate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import com.jestk.browser.util.SharedPrefsUpdateCheckStore
+import com.jestk.browser.util.UpdateCheckStore
 import okhttp3.Request
+import okhttp3.Response
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 
@@ -19,6 +22,9 @@ private const val TAG = "AppUpdateManager"
  */
 open class AppUpdateManager(
     private val context: Context,
+    val store: UpdateCheckStore = SharedPrefsUpdateCheckStore(context),
+    private val baseUrl: String = "https://api.github.com",
+    private val clock: () -> Long = { System.currentTimeMillis() },
 ) {
     private val client =
         OkHttpClient
@@ -27,37 +33,52 @@ open class AppUpdateManager(
             .readTimeout(30, TimeUnit.SECONDS)
             .build()
 
-    /** Returns the latest GitHub release that ships an APK, or null when unavailable. */
-    open suspend fun fetchLatestRelease(repo: String = DEFAULT_REPO): AppUpdate? =
+    /**
+     * Asks GitHub for the latest release that ships an APK. A stored [etag] makes the request
+     * conditional, so an unchanged release answers 304 and costs no rate-limit budget.
+     */
+    open suspend fun fetchLatestRelease(
+        repo: String = DEFAULT_REPO,
+        etag: String? = null,
+    ): UpdateFetchResult =
         withContext(Dispatchers.IO) {
             runCatching {
-                val url = "https://api.github.com/repos/$repo/releases/latest"
-                Log.d(TAG, "Fetching latest release from $url")
+                val url = "${baseUrl.trimEnd('/')}/repos/$repo/releases/latest"
+                Log.d(TAG, "Fetching latest release from $url (etag=${etag != null})")
                 val request =
                     Request
                         .Builder()
                         .url(url)
                         .header("Accept", "application/vnd.github+json")
                         .header("User-Agent", USER_AGENT)
+                        .apply { if (etag != null) header("If-None-Match", etag) }
                         .build()
                 client.newCall(request).execute().use { response ->
+                    if (response.code == 304) return@use UpdateFetchResult.NotModified
                     if (!response.isSuccessful) {
-                        Log.w(TAG, "GitHub release fetch failed: HTTP ${response.code} ${response.message}")
-                        return@use null
+                        return@use UpdateFetchResult.Failed(response.code, retryAtMs(response))
                     }
-                    val body = response.body?.string().orEmpty()
-                    val parsed = parseGithubRelease(body)
-                    if (parsed != null) {
-                        Log.d(TAG, "Fetched release: ${parsed.versionName}")
-                    } else {
+                    val parsed = parseGithubRelease(response.body?.string().orEmpty())
+                    if (parsed == null) {
                         Log.w(TAG, "Could not parse valid release with APK from response")
+                        return@use UpdateFetchResult.Failed(response.code, null)
                     }
-                    parsed
+                    UpdateFetchResult.Fresh(parsed, response.header("ETag"))
                 }
-            }.onFailure { e ->
+            }.getOrElse { e ->
                 Log.e(TAG, "Exception while fetching latest release", e)
-            }.getOrNull()
+                UpdateFetchResult.Failed(0, null)
+            }
         }
+
+    /** Earliest time GitHub asks us to retry: `Retry-After` seconds, or `X-RateLimit-Reset` when the quota is spent. */
+    private fun retryAtMs(response: Response): Long? {
+        response.header("Retry-After")?.trim()?.toLongOrNull()?.let { return clock() + it * 1000L }
+        if (response.header("X-RateLimit-Remaining")?.trim() == "0") {
+            response.header("X-RateLimit-Reset")?.trim()?.toLongOrNull()?.let { return it * 1000L }
+        }
+        return null
+    }
 
     /** Version of the build that is currently installed. */
     open fun currentVersion(): String =
@@ -70,6 +91,16 @@ open class AppUpdateManager(
         const val DEFAULT_REPO = "Supscott/Prosto"
         private const val USER_AGENT = "Prosto-Android"
     }
+}
+
+/** Outcome of one release request. */
+sealed interface UpdateFetchResult {
+    data class Fresh(val release: AppUpdate, val etag: String?) : UpdateFetchResult
+
+    data object NotModified : UpdateFetchResult
+
+    /** [code] is the HTTP status, or 0 for a network or parse error; [retryAtMs] comes from the rate-limit headers. */
+    data class Failed(val code: Int, val retryAtMs: Long?) : UpdateFetchResult
 }
 
 /**
