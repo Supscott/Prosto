@@ -39,19 +39,19 @@ Output example:
 
 ### Forward Port to Localhost
 ```bash
-rtk adb forward tcp:9222 localabstract:webview_devtools_remote_<PID>
+rtk adb forward tcp:9333 localabstract:webview_devtools_remote_<PID>
 ```
 
 ### Inspect Open Pages, Tabs, and Service Workers
 ```bash
-curl -s http://127.0.0.1:9222/json/list | jq .
+curl -s http://127.0.0.1:9333/json/list | jq .
 ```
 Each target provides:
 - `id`: Target ID
 - `title`: Page title
 - `url`: Current loaded URL
 - `type`: `"page"`, `"service_worker"`, or `"iframe"`
-- `webSocketDebuggerUrl`: WebSocket URL for CDP communication (`ws://127.0.0.1:9222/devtools/page/<id>`)
+- `webSocketDebuggerUrl`: WebSocket URL for CDP communication (`ws://127.0.0.1:9333/devtools/page/<id>`)
 
 ---
 
@@ -63,7 +63,7 @@ Use modern Node.js (v22+ with built-in `WebSocket`) to inspect or drive the page
 ```javascript
 // scratch/eval_page.js
 async function run() {
-  const res = await fetch('http://127.0.0.1:9222/json/list');
+  const res = await fetch('http://127.0.0.1:9333/json/list');
   const targets = await res.json();
   const target = targets.find(t => t.type === 'page' && t.url.includes('example.com'));
   if (!target) throw new Error('Target not found');
@@ -110,7 +110,7 @@ Inspect cookies including `HttpOnly`, `SameSite`, and `partitionKey`:
 ```javascript
 // scratch/check_cookies.js
 async function run() {
-  const res = await fetch('http://127.0.0.1:9222/json/list');
+  const res = await fetch('http://127.0.0.1:9333/json/list');
   const targets = await res.json();
   const target = targets.find(t => t.type === 'page');
   const ws = new WebSocket(target.webSocketDebuggerUrl);
@@ -140,7 +140,7 @@ Monitor network requests in real time to diagnose 403s, missing headers, or Clou
 ```javascript
 // scratch/trace_network.js
 async function run() {
-  const res = await fetch('http://127.0.0.1:9222/json/list');
+  const res = await fetch('http://127.0.0.1:9333/json/list');
   const targets = await res.json();
   const target = targets.find(t => t.type === 'page');
   const ws = new WebSocket(target.webSocketDebuggerUrl);
@@ -172,7 +172,7 @@ PWA Service Workers (e.g. Serwist / Workbox) can cache stale error responses:
 ```javascript
 // scratch/check_cache.js
 async function run() {
-  const res = await fetch('http://127.0.0.1:9222/json/list');
+  const res = await fetch('http://127.0.0.1:9333/json/list');
   const targets = await res.json();
   const target = targets.find(t => t.type === 'page');
   const ws = new WebSocket(target.webSocketDebuggerUrl);
