@@ -6,7 +6,7 @@ import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.engine.WebViewStateStore
-import com.jestk.browser.engine.deleteProfileOnMainThread
+import com.jestk.browser.engine.ProfileCleanup
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
@@ -172,7 +172,6 @@ internal class Workspaces(
                     dismissedExternalAppDomains.remove(tab.id)
                     pendingExternalAppPrompts.remove(tab.id)
                     timedOutExternalAppDomains.remove(tab.id)
-                    webViewPool?.removeWebView(tab.id, keepState = false)
                     ctx.forgetDocumentAllowances(tab.id)
                     WebViewStateStore.delete(tab.id)
                     tabRepository.deleteTab(tab.id)
@@ -187,7 +186,8 @@ internal class Workspaces(
                 // Delete profile and workspace itself
                 val wsToDelete = currentWorkspaces.find { it.id == workspaceId }
                 val profileToDelete = wsToDelete?.profileName ?: workspaceId
-                webViewPool?.deleteProfileOnMainThread(profileToDelete)
+                // WebView teardown and profile deletion are @UiThread; this coroutine runs on IO.
+                webViewPool?.let { ProfileCleanup.deleteWorkspaceProfile(it, profileToDelete, tabsToDelete.map { tab -> tab.id }) }
                 workspaceRepository?.deleteWorkspace(workspaceId)
             }
         }
