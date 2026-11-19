@@ -65,6 +65,8 @@ Rules: Edit/Write only, one command per Bash call (no && chains), prefix with rt
 comments, strings in both locales, baseline files cannot grow.
 Verify: `rtk tools/verify.sh --changed` and `rtk tools/verify.sh` (`--ui` for UI work; render
 previews with `tools/preview.sh` and look at the PNGs).
+UI work: also render a preview at fontScale 1.3 (the user's phone is at 1.15); no fixed heights
+around text. Name the real trigger of each event in the design (a link tap is userInitiated too).
 Run Gradle in the foreground (no run_in_background, no Monitor polling). If a run shows mass
 Robolectric native errors (UnsatisfiedLinkError, SQLite open) across unrelated classes, it is the
 shared machine: rerun once with `LOW_MEM=1`, then report; do not chase them.
@@ -116,6 +118,11 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
   → Adopted: discipline block in every brief, pre-located files, fresh agents, Haiku for scripts.
 - 2026-11-18 — Two tests broke after merging because `--changed` ran only edited tests.
   → Added `tools/related_tests.py` to `--changed`; run `--all` once after the last merge.
+- 2026-11-19 — Device checks found 3 bugs that 1572 green tests missed: quick tiles clipped at font
+  scale 1.15 (fixed height), the per-site exclusion skipped every userInitiated offer (link taps are
+  userInitiated), the folder chip covered the open menu. → Brief rules above; never mark a UI issue
+  Done before the phone check. Smoke FAILs reading 'nothing' were a desktop Chrome on CDP port 9222
+  → device.sh now uses 9333 and dies when the forward fails.
 - 2026-11-19 — 4 Sonnet agents + refactor-mover: refactor-mover with a written plan 165k (13 turns);
   settings UI 413k; PRO-66 593k (20 Monitor polls of its own background Gradle → repeated
   hand-backs); PRO-64 902k (a data+UI feature, plus chasing 188 failures that came from a concurrent
