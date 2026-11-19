@@ -118,7 +118,12 @@ fi
 started=$(date +%s)
 status=0
 # pipefail makes the function return the Gradle status, not tail's.
-run_tests() { ./gradlew -q testDebugUnitTest "$@" 2>&1 | tail -40; }
+# LOW_MEM=1 compiles in-process when the Kotlin daemon runs out of memory (parallel worktrees).
+LOW_MEM_ARGS=()
+if [[ "${LOW_MEM:-}" == "1" ]]; then
+  LOW_MEM_ARGS=(-Pkotlin.compiler.execution.strategy=in-process -Pkotlin.daemon.jvmargs=-Xmx3g --max-workers=2)
+fi
+run_tests() { ./gradlew -q testDebugUnitTest ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"} "$@" 2>&1 | tail -40; }
 
 case "${1:-}" in
     --all)

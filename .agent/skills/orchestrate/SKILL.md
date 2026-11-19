@@ -51,6 +51,8 @@ while the agents work.
 ### 5. Brief template (Agent tool: `isolation: "worktree"`, `run_in_background: true`)
 ```
 Implement Linear PRO-NN in the Prosto Android browser (Kotlin/Compose) in this worktree.
+FIRST: `git merge --ff-only main` (the worktree may start from a stale commit; name the commit
+the log must show after it).
 <issue text + the user's decisions, pasted: do not make the agent call Linear>
 Where to look (already located): <files, functions, line ranges, existing APIs to reuse>.
 Design: <the decisions that are yours, not the agent's>. New code in new files; add only a call
@@ -111,5 +113,7 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
   → Adopted: discipline block in every brief, pre-located files, fresh agents, Haiku for scripts.
 - 2026-11-18 — Two tests broke after merging because `--changed` ran only edited tests.
   → Added `tools/related_tests.py` to `--changed`; run `--all` once after the last merge.
+- 2026-11-19 — Agent worktrees started 18 commits behind local main (unpushed work), so agents
+  lacked the files the brief named. → Brief template starts with `git merge --ff-only main`.
 - 2026-11-18 — A delegated agent put a debug-only `prosto-debug://` filter (BROWSABLE) in the main
   manifest. → Review step 6.1 checks for release exposure.
