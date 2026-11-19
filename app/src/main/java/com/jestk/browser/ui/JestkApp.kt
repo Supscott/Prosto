@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -216,19 +217,22 @@ fun JestkApp(
             val effectiveBottomBarAlpha = if (uiState.isFullscreenCustomView) 0f else bottomBarAlpha
 
             if (effectiveBottomBarAlpha > 0f) {
-                UnifiedBottomBar(
-                    uiState = uiState,
-                    onEvent = handleUiEvent,
-                    workspaceSwitcher = workspaceSwitcher,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .graphicsLayer {
-                            translationY = effectiveBottomBarSlide.toPx()
-                            // The dock fades out quickly while the screen shrinks into the carousel.
-                            val switcherFade = (1f - workspaceSwitcher.progress.value * 3f).coerceIn(0f, 1f)
-                            alpha = effectiveBottomBarAlpha * switcherFade
-                        },
-                )
+                // An incognito tab gets the dark dock whatever the app theme is.
+                CompositionLocalProvider(LocalIsDarkTheme provides (isDark || uiState.activeTab?.isIncognito == true)) {
+                    UnifiedBottomBar(
+                        uiState = uiState,
+                        onEvent = handleUiEvent,
+                        workspaceSwitcher = workspaceSwitcher,
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .graphicsLayer {
+                                translationY = effectiveBottomBarSlide.toPx()
+                                // The dock fades out quickly while the screen shrinks into the carousel.
+                                val switcherFade = (1f - workspaceSwitcher.progress.value * 3f).coerceIn(0f, 1f)
+                                alpha = effectiveBottomBarAlpha * switcherFade
+                            },
+                    )
+                }
             }
 
             AppOverlays(uiState, handleUiEvent, workspaceSwitcher)

@@ -396,23 +396,17 @@ fun TabOverviewGrid(
                     }
 
                     // Solid "+" Add Tab Button
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(ProstoBrandPrimary)
-                                .clickable {
-                                    onEvent(BrowserUiEvent.OpenNewTab(""))
-                                    onEvent(BrowserUiEvent.DismissOverlay)
-                                },
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = stringResource(R.string.action_new_tab),
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp),
+                    NewTabKindHost(
+                        isDark = isDark,
+                        onEvent = onEvent,
+                        onChosen = { onEvent(BrowserUiEvent.DismissOverlay) },
+                    ) { onLongClick ->
+                        GridNewTabButton(
+                            onClick = {
+                                onEvent(BrowserUiEvent.OpenNewTab(""))
+                                onEvent(BrowserUiEvent.DismissOverlay)
+                            },
+                            onLongClick = onLongClick,
                         )
                     }
                 }

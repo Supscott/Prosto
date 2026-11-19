@@ -3,6 +3,7 @@ package com.jestk.browser.ui.viewmodel.tabs
 import android.util.Log
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.engine.INCOGNITO_PROFILE_NAME
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewStateStore
 import com.jestk.browser.ui.viewmodel.NavigationCommand
@@ -40,7 +41,11 @@ internal class TabClosing(
         dismissedExternalAppDomains.remove(tabId)
         pendingExternalAppPrompts.remove(tabId)
         timedOutExternalAppDomains.remove(tabId)
-        webViewPool?.removeWebView(tabId)
+        val isIncognito = getCurrentState().allTabs.find { it.id == tabId }?.isIncognito == true
+        val isLastIncognito = isIncognito && getCurrentState().allTabs.none { it.isIncognito && it.id != tabId }
+        // The WebView is gone before the profile is deleted; an incognito state is never saved.
+        webViewPool?.removeWebView(tabId, keepState = !isIncognito)
+        val releaseIncognitoProfile = { if (isLastIncognito) webViewPool?.deleteProfile(INCOGNITO_PROFILE_NAME) }
         ctx.forgetDocumentAllowances(tabId)
         WebViewStateStore.onTabClosed(tabId)
         if (tabId in getCurrentState().externalAppTabIds) {
@@ -58,8 +63,10 @@ internal class TabClosing(
         }
 
         val effectiveWorkspaceId = closingTab?.workspaceId ?: getCurrentState().activeWorkspaceId
-        if (closingTab != null) {
-            recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = closingTab
+        // An incognito tab leaves no trace: it cannot be undone or reopened from the recent list.
+        val undoTab = closingTab?.takeUnless { it.isIncognito }
+        if (undoTab != null) {
+            recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = undoTab
         }
 
         if (!wasActive) {
@@ -70,19 +77,20 @@ internal class TabClosing(
                 }
                 state.copy(
                     tabs = updatedTabs,
-                    recentlyClosedTab = closingTab,
-                    showUndoTabCloseSnackbar = closingTab != null,
+                    recentlyClosedTab = undoTab,
+                    showUndoTabCloseSnackbar = undoTab != null,
                 )
             }
             scope.launch(ioDispatcher) {
                 SnapshotEngine.deleteTabSnapshot(tabId)
                 FaviconManager.deleteTabFavicons(tabId)
                 tabOperationMutex.withLock {
-                    val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                    val tabToSave = undoTab ?: tabRepository.getTabById(tabId)?.takeUnless { it.isIncognito }
                     if (tabToSave != null) {
                         recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = tabToSave
                     }
                     tabRepository.closeTab(tabId)
+                    releaseIncognitoProfile()
                 }
             }
             return
@@ -99,8 +107,8 @@ internal class TabClosing(
                     loadingProgress = 0f,
                     activeThemeColor = null,
                     activeOverlay = if (state.activeOverlay == OverlayType.TAB_GRID) OverlayType.TAB_GRID else OverlayType.HOME,
-                    recentlyClosedTab = closingTab,
-                    showUndoTabCloseSnackbar = closingTab != null,
+                    recentlyClosedTab = undoTab,
+                    showUndoTabCloseSnackbar = undoTab != null,
                     externalAppPrompt = null,
                 )
             }
@@ -108,11 +116,12 @@ internal class TabClosing(
                 SnapshotEngine.deleteTabSnapshot(tabId)
                 FaviconManager.deleteTabFavicons(tabId)
                 tabOperationMutex.withLock {
-                    val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                    val tabToSave = undoTab ?: tabRepository.getTabById(tabId)?.takeUnless { it.isIncognito }
                     if (tabToSave != null) {
                         recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = tabToSave
                     }
                     tabRepository.closeTab(tabId)
+                    releaseIncognitoProfile()
                     val newTab = tabRepository.createTab(url = "", title = "", workspaceId = getCurrentState().activeWorkspaceId)
                     tabRepository.setActiveTab(newTab.id)
                     webViewPool?.onTabActivated(newTab.id, false)
@@ -147,18 +156,19 @@ internal class TabClosing(
                 selected = nextActive,
                 removedTabId = tabId,
                 keepOverlayIfTabGrid = true,
-                recentlyClosedTab = closingTab,
+                recentlyClosedTab = undoTab,
             )
 
             scope.launch(ioDispatcher) {
                 SnapshotEngine.deleteTabSnapshot(tabId)
                 FaviconManager.deleteTabFavicons(tabId)
                 tabOperationMutex.withLock {
-                    val tabToSave = closingTab ?: tabRepository.getTabById(tabId)
+                    val tabToSave = undoTab ?: tabRepository.getTabById(tabId)?.takeUnless { it.isIncognito }
                     if (tabToSave != null) {
                         recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = tabToSave
                     }
                     tabRepository.closeTab(tabId)
+                    releaseIncognitoProfile()
                     tabRepository.setActiveTab(nextActive.id)
                 }
             }
@@ -242,6 +252,7 @@ internal class TabClosing(
 
     fun closeAllTabs() {
         Log.d(TAG, "Closing all tabs")
+        val hadIncognito = getCurrentState().allTabs.any { it.isIncognito }
         tabThemeColors.clear()
         tabLoadingProgress.clear()
         dismissedExternalAppDomains.clear()
@@ -255,6 +266,7 @@ internal class TabClosing(
             FaviconManager.deleteAllFavicons()
             tabOperationMutex.withLock {
                 tabRepository.closeAllTabs()
+                if (hadIncognito) webViewPool?.deleteProfile(INCOGNITO_PROFILE_NAME)
                 val newTab = tabRepository.createTab(url = "", title = "", workspaceId = getCurrentState().activeWorkspaceId)
                 tabRepository.setActiveTab(newTab.id)
                 webViewPool?.onTabActivated(newTab.id, false)

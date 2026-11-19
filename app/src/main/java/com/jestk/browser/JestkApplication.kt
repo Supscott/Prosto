@@ -7,6 +7,7 @@ import com.jestk.browser.domain.model.registrableDomain
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewStateStore
+import com.jestk.browser.engine.deleteLeftoverIncognitoProfile
 import com.jestk.browser.engine.adblock.FilterListServices
 import com.jestk.browser.engine.adblock.SiteAllowlistSync
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,8 @@ class JestkApplication : Application() {
         // OkHttp reads and unpacks its public suffix list on the first registrable-domain lookup and
         // makes the caller wait; do it here so the first composition of the domain-group chip does not.
         background.launch { registrableDomain("https://www.example.com/") }
+        // Incognito tabs do not survive the process; drop the profile a killed process left behind.
+        background.launch { deleteLeftoverIncognitoProfile() }
     }
 
     override fun onTrimMemory(level: Int) {

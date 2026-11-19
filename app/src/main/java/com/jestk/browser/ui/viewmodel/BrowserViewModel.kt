@@ -18,6 +18,7 @@ import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.domain.repository.WorkspaceRepository
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.engine.profileNameFor
 import com.jestk.browser.engine.download.HoriDownloadManager
 import com.jestk.browser.engine.update.AppUpdateManager
 import com.jestk.browser.ui.viewmodel.events.BackPressHandler
@@ -435,7 +436,7 @@ class BrowserViewModel(
             val state = _uiState.value
             val origin = preconnectPlanner.originToPreconnect(query) { state.settings.searchEngine.buildSearchUrl(it) }
                 ?: return@launch
-            val profileName = state.workspaces.find { it.id == state.activeWorkspaceId }?.profileName ?: state.activeWorkspaceId
+            val profileName = profileNameFor(state.activeTab, state.workspaces, state.activeWorkspaceId)
             pool.preconnect(origin, profileName)
         }
     }

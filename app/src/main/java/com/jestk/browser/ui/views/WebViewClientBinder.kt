@@ -8,6 +8,7 @@ import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.NestedWebView
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.engine.WindowTransportHandler
+import com.jestk.browser.engine.profileNameFor
 import com.jestk.browser.engine.adblock.BlockPageAction
 import com.jestk.browser.ui.FileChooserHandler
 import com.jestk.browser.ui.viewmodel.AllowBlockedDocument
@@ -118,8 +119,9 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
         },
         onCreateWindowRequest = { originView, _, isUserGesture, resultMsg ->
             val state = deps.uiState()
-            val openerWorkspaceId = state.tabs.find { it.id == tabId }?.workspaceId ?: state.activeWorkspaceId
-            val profileName = state.workspaces.find { it.id == openerWorkspaceId }?.profileName
+            val openerTab = state.tabs.find { it.id == tabId }
+            val openerWorkspaceId = openerTab?.workspaceId ?: state.activeWorkspaceId
+            val profileName = profileNameFor(openerTab, state.workspaces, openerWorkspaceId)
             WindowTransportHandler.handleCreateWindow(
                 resultMsg = resultMsg,
                 context = webView.context,
@@ -154,6 +156,7 @@ internal fun openCleanPlayerIfIntercepted(url: String, deps: WebViewClientDeps):
  * the tab only goes to the domain cache (favicon domain guard, see CLAUDE.md).
  */
 private fun saveFavicon(webView: WebView, tabId: String, icon: Bitmap, pageUrl: String?, deps: WebViewClientDeps) {
+    if ((webView as? NestedWebView)?.isIncognito == true) return
     val context = webView.context.applicationContext
     deps.scope.launch {
         val tabUrl = deps.uiState().tabs.find { it.id == tabId }?.url?.takeIf { it.isNotBlank() && it != "about:blank" }

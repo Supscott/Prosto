@@ -7,6 +7,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.jestk.browser.engine.JestkWebChromeClient
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.engine.profileNameFor
 import com.jestk.browser.engine.adblock.goBackPastBlockPages
 import com.jestk.browser.ui.viewmodel.BrowserViewModel
 import com.jestk.browser.ui.viewmodel.NavigationCommand
@@ -33,7 +34,7 @@ internal fun NavigationCommandEffect(
             val activeId = viewModel.uiState.value.activeTabId ?: return@collectLatest
             val currentTab = viewModel.uiState.value.allTabs.find { it.id == activeId } ?: viewModel.uiState.value.tabs.find { it.id == activeId }
             val activeWorkspaceId = currentTab?.workspaceId ?: viewModel.uiState.value.activeWorkspaceId
-            val profileName = viewModel.uiState.value.workspaces.find { it.id == activeWorkspaceId }?.profileName ?: activeWorkspaceId
+            val profileName = profileNameFor(currentTab, viewModel.uiState.value.workspaces, activeWorkspaceId)
             when (command) {
                 is NavigationCommand.LoadUrl -> {
                     val webView = webViewPool.getWebView(activeId) ?: webViewPool.getOrCreateWebView(activeId, context, profileName = profileName)

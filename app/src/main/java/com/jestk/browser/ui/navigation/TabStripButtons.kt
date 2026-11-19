@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
@@ -13,6 +14,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -119,7 +121,14 @@ fun InactiveTabButton(
                     modifier = Modifier.graphicsLayer { alpha = 1f - crossAlpha },
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (isHome) {
+                    if (tab.isIncognito && (isHome || tab.faviconUrl == null)) {
+                        Icon(
+                            imageVector = Icons.Outlined.VisibilityOff,
+                            contentDescription = stringResource(R.string.tab_incognito_indicator),
+                            tint = normalTint,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    } else if (isHome) {
                         Icon(
                             imageVector = Icons.Default.Home,
                             contentDescription = stringResource(R.string.tab_home_title),
@@ -202,6 +211,7 @@ fun AddTabDockButton(
     border: BorderStroke? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val normalTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
 
@@ -214,7 +224,7 @@ fun AddTabDockButton(
             modifier
                 .size(38.dp)
                 .clip(CircleShape)
-                .clickable(onClick = onClick),
+                .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),

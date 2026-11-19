@@ -9,6 +9,7 @@ import android.webkit.WebView
 import androidx.core.view.NestedScrollingChild3
 import androidx.core.view.NestedScrollingChildHelper
 import androidx.core.view.ViewCompat
+import androidx.webkit.WebViewCompat
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -30,6 +31,11 @@ class NestedWebView @JvmOverloads constructor(
     }
 
     @Volatile var loadedUrl: String? = null
+
+    /** True for a WebView in the incognito profile (a profile cannot change). Main thread only. */
+    val isIncognito: Boolean by lazy {
+        runCatching { WebViewCompat.getProfile(this).name == INCOGNITO_PROFILE_NAME }.getOrDefault(false)
+    }
 
     /**
      * The workspace this tab belongs to, read from any thread on every call (the tab can move).

@@ -179,6 +179,7 @@ internal fun LazyItemScope.TabStripDockItem(
                         url = displayInfo.url,
                         faviconUrl = tab.faviconUrl,
                         isHome = tabIsHome,
+                        isIncognito = tab.isIncognito,
                         backgroundColor = centerPillBg,
                         border = centerPillBorder,
                         isDark = isDark,

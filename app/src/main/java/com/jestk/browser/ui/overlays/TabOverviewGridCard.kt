@@ -27,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Language
 import androidx.compose.material.icons.filled.Public
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -174,8 +175,8 @@ internal fun GridTabCard(
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.Language,
-                                    contentDescription = null,
+                                    imageVector = if (tab.isIncognito) Icons.Outlined.VisibilityOff else Icons.Default.Language,
+                                    contentDescription = if (tab.isIncognito) stringResource(R.string.tab_incognito_indicator) else null,
                                     tint = ProstoBrandPrimary,
                                     modifier = Modifier.size(12.dp),
                                 )

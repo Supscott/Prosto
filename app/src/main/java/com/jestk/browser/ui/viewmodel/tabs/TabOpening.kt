@@ -5,6 +5,7 @@ import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.engine.INCOGNITO_PROFILE_NAME
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import kotlinx.coroutines.flow.map
@@ -97,7 +98,7 @@ internal class TabOpening(
      */
     fun openHomeTabNow(): String {
         val state = getCurrentState()
-        val existing = state.tabs.firstOrNull { it.isHomeTab && it.workspaceId == state.activeWorkspaceId }
+        val existing = state.tabs.firstOrNull { it.isHomeTab && !it.isIncognito && it.workspaceId == state.activeWorkspaceId }
         val tab =
             existing ?: Tab(
                 id = UUID.randomUUID().toString(),
@@ -151,14 +152,20 @@ internal class TabOpening(
         }
     }
 
-    fun openNewTab(url: String, openedByExternalApp: Boolean = false) {
+    /**
+     * Opens [url] in a new active tab. [isIncognito] null means a link opened from an incognito
+     * tab stays incognito; an empty URL (the "+" button) and external-app links are regular.
+     */
+    fun openNewTab(url: String, openedByExternalApp: Boolean = false, isIncognito: Boolean? = null) {
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 val isHome = url.isEmpty() || url == "about:blank"
                 val title = ""
+                val incognito = isIncognito
+                    ?: (!isHome && !openedByExternalApp && getCurrentState().activeTab?.isIncognito == true)
                 val cachedFavicon = if (!isHome) FaviconManager.getCachedFaviconForUrl(url) else null
                 val activeWorkspaceId = getCurrentState().activeWorkspaceId
-                val created = tabRepository.createTab(url = url, title = title, workspaceId = activeWorkspaceId)
+                val created = tabRepository.createTab(url = url, title = title, isIncognito = incognito, workspaceId = activeWorkspaceId)
                 Log.d(TAG, "Created tab ${created.id} for $url")
                 val isWebLoading = !isHome && url.isNotEmpty()
                 activateNewTabState(created, url, title, cachedFavicon, isWebLoading, isHome)
@@ -176,7 +183,9 @@ internal class TabOpening(
         scope.launch(ioDispatcher) {
             tabOperationMutex.withLock {
                 val activeWorkspaceId = getCurrentState().activeWorkspaceId
-                val created = tabRepository.createTab(url = "", title = "", id = tabId, workspaceId = activeWorkspaceId)
+                // The popup WebView already exists; its profile says whether the opener was incognito.
+                val incognito = webViewPool?.getProfileForTab(tabId) == INCOGNITO_PROFILE_NAME
+                val created = tabRepository.createTab(url = "", title = "", isIncognito = incognito, id = tabId, workspaceId = activeWorkspaceId)
                 Log.d(TAG, "Created popup tab ${created.id}")
                 activateNewTabState(created, "", "", null, isWebLoading = true, isHome = false)
             }
@@ -191,7 +200,8 @@ internal class TabOpening(
                     FaviconManager.getCachedFaviconForUrl(url)
                 } else null
                 val activeWorkspaceId = getCurrentState().activeWorkspaceId
-                val created = tabRepository.createTab(url = url, title = title, workspaceId = activeWorkspaceId)
+                val incognito = getCurrentState().activeTab?.isIncognito == true
+                val created = tabRepository.createTab(url = url, title = title, isIncognito = incognito, workspaceId = activeWorkspaceId)
                 Log.d(TAG, "Created background tab ${created.id} for $url")
                 if (cachedFavicon != null) {
                     tabRepository.updateFavicon(created.id, cachedFavicon)

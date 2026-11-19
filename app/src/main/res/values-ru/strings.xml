@@ -205,6 +205,9 @@
     <string name="action_close">Закрыть</string>
     <string name="action_more">Ещё</string>
     <string name="action_new_tab">Новая вкладка</string>
+    <string name="new_tab_incognito">Инкогнито</string>
+    <string name="new_tab_regular">Обычная</string>
+    <string name="tab_incognito_indicator">Вкладка инкогнито</string>
     <string name="tab_home_title">Главная</string>
     <string name="a11y_remove_tab">Закрыть вкладку</string>
     <string name="a11y_close_tab">Закрыть вкладку</string>

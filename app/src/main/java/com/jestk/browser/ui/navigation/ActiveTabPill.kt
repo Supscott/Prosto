@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Language
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -135,6 +136,7 @@ fun ActiveTabPill(
     onRemoveFromFolder: (() -> Unit)? = null,
     availableWorkspaces: List<com.jestk.browser.domain.model.Workspace> = emptyList(),
     onMoveToWorkspace: ((String) -> Unit)? = null,
+    isIncognito: Boolean = false,
 ) {
     val context = LocalContext.current
     val typography = LocalProstoTypography.current
@@ -225,8 +227,8 @@ fun ActiveTabPill(
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Home,
-                            contentDescription = stringResource(R.string.tab_home_title),
+                            imageVector = if (isIncognito) Icons.Outlined.VisibilityOff else Icons.Default.Home,
+                            contentDescription = stringResource(if (isIncognito) R.string.tab_incognito_indicator else R.string.tab_home_title),
                             tint = iconTint,
                             modifier = Modifier.size(17.dp),
                         )
@@ -237,7 +239,14 @@ fun ActiveTabPill(
                         imageSize = 18.dp,
                         placeholder = {
                             val initial = title.trim().firstOrNull()?.uppercaseChar()
-                            if (initial != null && initial.isLetterOrDigit() && title != stringResource(R.string.app_name)) {
+                            if (isIncognito) {
+                                Icon(
+                                    imageVector = Icons.Outlined.VisibilityOff,
+                                    contentDescription = stringResource(R.string.tab_incognito_indicator),
+                                    tint = iconTint,
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            } else if (initial != null && initial.isLetterOrDigit() && title != stringResource(R.string.app_name)) {
                                 Text(
                                     text = initial.toString(),
                                     style =
@@ -346,8 +355,8 @@ fun ActiveTabPill(
                         ) {
                             if (isHome) {
                                 Icon(
-                                    imageVector = Icons.Default.Home,
-                                    contentDescription = stringResource(R.string.tab_home_title),
+                                    imageVector = if (isIncognito) Icons.Outlined.VisibilityOff else Icons.Default.Home,
+                                    contentDescription = stringResource(if (isIncognito) R.string.tab_incognito_indicator else R.string.tab_home_title),
                                     tint = iconTint,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -357,7 +366,7 @@ fun ActiveTabPill(
                                     imageSize = 18.dp,
                                     placeholder = {
                                         Icon(
-                                            imageVector = Icons.Default.Language,
+                                            imageVector = if (isIncognito) Icons.Outlined.VisibilityOff else Icons.Default.Language,
                                             contentDescription = title,
                                             tint = iconTint,
                                             modifier = Modifier.size(18.dp),

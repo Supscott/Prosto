@@ -43,6 +43,7 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.jestk.browser.engine.NestedWebView
 import com.jestk.browser.engine.JestkWebViewClient
 import com.jestk.browser.engine.WebViewPool
+import com.jestk.browser.engine.profileNameFor
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.findActivity
 import com.jestk.browser.ui.theme.DarkSurface
@@ -101,7 +102,7 @@ fun WebViewContainer(
         withFrameNanos { }
         val activity = context.findActivity() ?: return@LaunchedEffect
         val workspaceId = currentTab?.workspaceId ?: currentUiState.activeWorkspaceId
-        val profileName = currentUiState.workspaces.find { it.id == workspaceId }?.profileName ?: workspaceId
+        val profileName = profileNameFor(currentTab, currentUiState.workspaces, workspaceId)
         webViewPool.warmUp(activity, profileName)
     }
     val currentActiveTabId by rememberUpdatedState(tabId)
@@ -258,7 +259,7 @@ fun WebViewContainer(
                     }
 
                     val initialWorkspaceId = currentTab?.workspaceId ?: currentUiState.activeWorkspaceId
-                    val initialProfileName = currentUiState.workspaces.find { it.id == initialWorkspaceId }?.profileName ?: initialWorkspaceId
+                    val initialProfileName = profileNameFor(currentTab, currentUiState.workspaces, initialWorkspaceId)
                     val initialWebView = webViewPool.getOrCreateWebView(tabId, act, profileName = initialProfileName)
                     (initialWebView.parent as? ViewGroup)?.removeView(initialWebView)
                     configureWebView(initialWebView, tabId, act)
@@ -316,7 +317,7 @@ fun WebViewContainer(
                     val act = swipeRefresh.context.findActivity() ?: swipeRefresh.context
                     val updateTab = uiState.tabs.find { it.id == tabId }
                     val targetWorkspaceId = updateTab?.workspaceId ?: uiState.activeWorkspaceId
-                    val targetProfileName = uiState.workspaces.find { it.id == targetWorkspaceId }?.profileName ?: targetWorkspaceId
+                    val targetProfileName = profileNameFor(updateTab, uiState.workspaces, targetWorkspaceId)
                     val targetWebView = webViewPool.getOrCreateWebView(tabId, act, profileName = targetProfileName)
 
                     if (targetWebView.parent !== tabsContainer) {

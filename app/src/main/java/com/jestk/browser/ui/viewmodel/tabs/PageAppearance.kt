@@ -25,7 +25,7 @@ internal class PageAppearance(
         scope.launch(ioDispatcher) {
             tabRepository.updateSnapshot(tabId, path)
             val tab = tabRepository.getTabById(tabId)
-            if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:")) {
+            if (tab != null && !tab.isIncognito && tab.url.isNotEmpty() && !tab.url.startsWith("about:")) {
                 recentTabRepository?.updateSnapshot(tab.url, path, tab.workspaceId)
             }
         }
@@ -69,7 +69,7 @@ internal class PageAppearance(
         scope.launch(ioDispatcher) {
             tabRepository.updateFavicon(tabId, faviconUrl)
             val tab = tabRepository.getTabById(tabId)
-            if (tab != null && tab.url.isNotEmpty() && !tab.url.startsWith("about:") && !faviconUrl.isNullOrEmpty()) {
+            if (tab != null && !tab.isIncognito && tab.url.isNotEmpty() && !tab.url.startsWith("about:") && !faviconUrl.isNullOrEmpty()) {
                 val effectiveUrl = pageUrl ?: tab.url
                 if (isSameDomain(tab.url, effectiveUrl)) {
                     recentTabRepository?.updateFavicon(tab.url, faviconUrl, tab.workspaceId)

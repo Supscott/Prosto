@@ -280,7 +280,8 @@ internal class PageEvents(
     }
 
     private suspend fun persistVisit(tab: Tab?, url: String, title: String, isNewVisit: Boolean) {
-        if (url.isEmpty() || url.startsWith("about:")) return
+        // An incognito tab leaves no history visit and no recent-tab entry.
+        if (tab?.isIncognito == true || url.isEmpty() || url.startsWith("about:")) return
         val workspaceId = tab?.workspaceId ?: getCurrentState().activeWorkspaceId
         if (isNewVisit) {
             historyRepository.recordVisit(url, title, workspaceId = workspaceId)

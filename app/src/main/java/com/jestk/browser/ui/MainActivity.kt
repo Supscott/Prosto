@@ -174,6 +174,7 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
         if (!isRedelivered) handleIntent(intent)
 
         viewModel.onLaunchIntent = { intent -> startActivity(intent) }
+        keepWindowSecureDuringIncognito(viewModel.uiState)
 
         lifecycleScope.launch {
             container.settingsRepository.getSettings()

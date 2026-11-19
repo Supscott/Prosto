@@ -145,6 +145,7 @@ internal fun TabStripDragOverlays(
                 url = displayInfo.url,
                 faviconUrl = elevatedTab.faviconUrl,
                 isHome = tabIsHome,
+                isIncognito = elevatedTab.isIncognito,
                 backgroundColor = activePillBgActual,
                 border = activePillBorderActual,
                 isDark = isDark,

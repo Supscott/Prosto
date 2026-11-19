@@ -126,6 +126,8 @@ object SnapshotEngine {
         onComplete: (String?) -> Unit
     ) {
         init(context)
+        // An incognito page is never written to disk; colors are still sampled from the bitmap.
+        val persist = (webView as? NestedWebView)?.isIncognito != true
         val width = webView.width
         val height = webView.height
 
@@ -140,14 +142,14 @@ object SnapshotEngine {
         try {
             webView.postVisualStateCallback(requestId, object : WebView.VisualStateCallback() {
                 override fun onComplete(requestId: Long) {
-                    processCanvasCapture(webView, tabId, context, onVisualColorsSampled, onComplete)
+                    processCanvasCapture(webView, tabId, context, onVisualColorsSampled, persist, onComplete)
                 }
             })
         } catch (e: Exception) {
             // Fallback with small delay if visual state callback throws
             Log.w(TAG, "Visual state callback failed for tab $tabId, retrying with delay", e)
             mainHandler.postDelayed({
-                processCanvasCapture(webView, tabId, context, onVisualColorsSampled, onComplete)
+                processCanvasCapture(webView, tabId, context, onVisualColorsSampled, persist, onComplete)
             }, 100)
         }
     }
@@ -157,6 +159,7 @@ object SnapshotEngine {
         tabId: String,
         context: Context,
         onVisualColorsSampled: ((topColor: Int, bottomColor: Int) -> Unit)?,
+        persist: Boolean,
         onComplete: (String?) -> Unit
     ) {
         val appContext = context.applicationContext
@@ -198,6 +201,11 @@ object SnapshotEngine {
             }
         }
 
+        if (!persist) {
+            thumbnailBitmap.recycle()
+            onComplete(null)
+            return
+        }
         saveSnapshotBitmap(thumbnailBitmap, tabId, context, onComplete)
     }
 

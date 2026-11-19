@@ -201,6 +201,9 @@
     <string name="action_close">Close</string>
     <string name="action_more">More</string>
     <string name="action_new_tab">New Tab</string>
+    <string name="new_tab_incognito">Incognito</string>
+    <string name="new_tab_regular">Regular</string>
+    <string name="tab_incognito_indicator">Incognito tab</string>
     <string name="tab_home_title">Home</string>
     <string name="a11y_remove_tab">Remove Tab</string>
     <string name="a11y_close_tab">Close tab</string>

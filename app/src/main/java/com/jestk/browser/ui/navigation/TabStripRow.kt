@@ -1,5 +1,7 @@
 package com.jestk.browser.ui.navigation
 
+import com.jestk.browser.ui.overlays.NewTabKindHost
+
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.spring
@@ -364,18 +366,21 @@ fun TabStripRow(
         }
 
         // Pinned New Tab Button (absolute right-0 over tab strip)
-        AddTabDockButton(
-            isDark = isDark,
-            backgroundColor = Color.Transparent,
-            border = null,
-            onClick = {
-                onEvent(BrowserUiEvent.OpenNewTab(""))
-            },
-            modifier =
-                Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 4.dp),
-        )
+        NewTabKindHost(isDark = isDark, onEvent = onEvent) { onLongClick ->
+            AddTabDockButton(
+                isDark = isDark,
+                backgroundColor = Color.Transparent,
+                border = null,
+                onClick = {
+                    onEvent(BrowserUiEvent.OpenNewTab(""))
+                },
+                onLongClick = onLongClick,
+                modifier =
+                    Modifier
+                        .align(Alignment.CenterEnd)
+                        .padding(end = 4.dp),
+            )
+        }
 
         TabStripDragOverlays(
             uiState = uiState,

@@ -8,6 +8,7 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.DomainGroupUiEvent
 import com.jestk.browser.ui.viewmodel.LastTabCoordinator
 import com.jestk.browser.ui.viewmodel.LastTabUiEvent
+import com.jestk.browser.ui.viewmodel.OpenIncognitoTab
 import com.jestk.browser.ui.viewmodel.SearchCoordinator
 import com.jestk.browser.ui.viewmodel.TabCoordinator
 import com.jestk.browser.ui.viewmodel.TabUiEvent
@@ -43,6 +44,8 @@ internal class TabEventHandler(
                     tabCoordinator.opening.openNewTab(event.url, openedByExternalApp = event.openedByExternalApp)
                 }
             }
+
+            is OpenIncognitoTab -> tabCoordinator.opening.openNewTab("", isIncognito = true)
 
             is BrowserUiEvent.OpenPopupTab -> {
                 Log.d(TAG, "Navigation command: open popup tab for ${event.tabId}")

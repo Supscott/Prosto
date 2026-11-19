@@ -8,6 +8,7 @@ import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.DownloadRepositoryImpl
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
+import com.jestk.browser.data.repository.IncognitoAwareTabRepository
 import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
 import com.jestk.browser.data.repository.SettingsBlockedRequestStats
@@ -90,7 +91,7 @@ class DefaultAppContainer(
     override val webViewPool: WebViewPool by webViewPoolDelegate
 
     override val tabRepository: TabRepository by lazy {
-        TabRepositoryImpl(database.tabDao())
+        IncognitoAwareTabRepository(TabRepositoryImpl(database.tabDao()))
     }
 
     override val tabFolderRepository: TabFolderRepository by lazy {
