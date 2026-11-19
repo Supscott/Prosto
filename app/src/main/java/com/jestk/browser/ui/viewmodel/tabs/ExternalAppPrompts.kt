@@ -24,9 +24,10 @@ internal class ExternalAppPrompts(
         val current = getCurrentState()
         if (current.tabs.none { it.id == tabId }) return
 
-        // A site the user opted out of gets no passive pill; a deliberate tap on the site's own
-        // "Open in app" control still asks (a user gesture must never become a silent no-op).
-        val excluded = !userInitiated && !prompt.requiresConfirmation &&
+        // A site the user opted out of gets no passive pill, even after a tap on an ordinary link
+        // to it (userInitiated). A deliberate tap on the site's own "Open in app" control arrives
+        // with requiresConfirmation and still asks: a user gesture must never become a no-op.
+        val excluded = !prompt.requiresConfirmation &&
             OpenInAppExclusions.isExcluded(current.settings, prompt.domain)
         if (excluded || isExternalAppDomainSuppressed(tabId, prompt.domain, userInitiated = userInitiated)) {
             // A held-back web link must not become a dead tap: load it as if no app existed.

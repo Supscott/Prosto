@@ -136,6 +136,11 @@ class OpenInAppExclusionTest {
             assertThat(viewModel.uiState.value.externalAppPrompt).isNull()
             assertThat(viewModel.uiState.value.openInAppExclusionPrompt).isNull()
 
+            // A tap on an ordinary link to the site is user-initiated but still only a passive hint:
+            // the exclusion covers it (seen on the phone: the pill came back on every link tap).
+            viewModel.onEvent(BrowserUiEvent.OnExternalAppOffered(tabId, prompt(tabId), true))
+            assertThat(viewModel.uiState.value.externalAppPrompt).isNull()
+
             viewModel.onEvent(BrowserUiEvent.OnExternalAppOffered(tabId, prompt(tabId, confirm = true), true))
             assertThat(viewModel.uiState.value.externalAppPrompt?.requiresConfirmation).isTrue()
         }
