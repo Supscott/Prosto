@@ -5,7 +5,7 @@ import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
-import com.jestk.browser.engine.INCOGNITO_PROFILE_NAME
+import com.jestk.browser.engine.IncognitoProfile
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import kotlinx.coroutines.flow.map
@@ -184,7 +184,7 @@ internal class TabOpening(
             tabOperationMutex.withLock {
                 val activeWorkspaceId = getCurrentState().activeWorkspaceId
                 // The popup WebView already exists; its profile says whether the opener was incognito.
-                val incognito = webViewPool?.getProfileForTab(tabId) == INCOGNITO_PROFILE_NAME
+                val incognito = IncognitoProfile.isIncognito(webViewPool?.getProfileForTab(tabId))
                 val created = tabRepository.createTab(url = "", title = "", isIncognito = incognito, id = tabId, workspaceId = activeWorkspaceId)
                 Log.d(TAG, "Created popup tab ${created.id}")
                 activateNewTabState(created, "", "", null, isWebLoading = true, isHome = false)

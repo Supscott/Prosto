@@ -3,10 +3,9 @@ package com.jestk.browser.ui.viewmodel.tabs
 import android.util.Log
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.engine.FaviconManager
-import com.jestk.browser.engine.INCOGNITO_PROFILE_NAME
+import com.jestk.browser.engine.IncognitoProfile
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewStateStore
-import com.jestk.browser.engine.deleteProfileOnMainThread
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -44,9 +43,11 @@ internal class TabClosing(
         timedOutExternalAppDomains.remove(tabId)
         val isIncognito = getCurrentState().allTabs.find { it.id == tabId }?.isIncognito == true
         val isLastIncognito = isIncognito && getCurrentState().allTabs.none { it.isIncognito && it.id != tabId }
-        // The WebView is gone before the profile is deleted; an incognito state is never saved.
+        // An incognito state is never saved. The last incognito tab clears the session's HTTP cache
+        // through its WebView, then ends the session now, so a tab opened next gets a fresh profile.
+        if (isLastIncognito) webViewPool?.getWebView(tabId)?.clearCache(true)
         webViewPool?.removeWebView(tabId, keepState = !isIncognito)
-        val releaseIncognitoProfile = { if (isLastIncognito) webViewPool?.deleteProfileOnMainThread(INCOGNITO_PROFILE_NAME) }
+        if (isLastIncognito) IncognitoProfile.endSession()
         ctx.forgetDocumentAllowances(tabId)
         WebViewStateStore.onTabClosed(tabId)
         if (tabId in getCurrentState().externalAppTabIds) {
@@ -91,7 +92,6 @@ internal class TabClosing(
                         recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = tabToSave
                     }
                     tabRepository.closeTab(tabId)
-                    releaseIncognitoProfile()
                 }
             }
             return
@@ -122,7 +122,6 @@ internal class TabClosing(
                         recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = tabToSave
                     }
                     tabRepository.closeTab(tabId)
-                    releaseIncognitoProfile()
                     val newTab = tabRepository.createTab(url = "", title = "", workspaceId = getCurrentState().activeWorkspaceId)
                     tabRepository.setActiveTab(newTab.id)
                     webViewPool?.onTabActivated(newTab.id, false)
@@ -169,7 +168,6 @@ internal class TabClosing(
                         recentlyClosedTabsByWorkspace[effectiveWorkspaceId] = tabToSave
                     }
                     tabRepository.closeTab(tabId)
-                    releaseIncognitoProfile()
                     tabRepository.setActiveTab(nextActive.id)
                 }
             }
@@ -260,6 +258,7 @@ internal class TabClosing(
         pendingExternalAppPrompts.clear()
         timedOutExternalAppDomains.clear()
         webViewPool?.clearAll()
+        if (hadIncognito) IncognitoProfile.endSession()
         ctx.forgetDocumentAllowances()
         WebViewStateStore.deleteAll()
         scope.launch(ioDispatcher) {
@@ -267,7 +266,6 @@ internal class TabClosing(
             FaviconManager.deleteAllFavicons()
             tabOperationMutex.withLock {
                 tabRepository.closeAllTabs()
-                if (hadIncognito) webViewPool?.deleteProfileOnMainThread(INCOGNITO_PROFILE_NAME)
                 val newTab = tabRepository.createTab(url = "", title = "", workspaceId = getCurrentState().activeWorkspaceId)
                 tabRepository.setActiveTab(newTab.id)
                 webViewPool?.onTabActivated(newTab.id, false)

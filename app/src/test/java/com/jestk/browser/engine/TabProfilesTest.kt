@@ -13,7 +13,7 @@ class TabProfilesTest {
         val tab = Tab(id = "t", isIncognito = true)
 
         workspaces.forEach { ws ->
-            assertThat(profileNameFor(tab, workspaces, ws.id)).isEqualTo(INCOGNITO_PROFILE_NAME)
+            assertThat(profileNameFor(tab, workspaces, ws.id)).isEqualTo(IncognitoProfile.name)
         }
     }
 
@@ -31,6 +31,14 @@ class TabProfilesTest {
 
     @Test
     fun incognitoProfileName_isNotAWorkspaceProfile() {
-        assertThat(workspaces.map { it.profileName }).doesNotContain(INCOGNITO_PROFILE_NAME)
+        assertThat(workspaces.map { it.profileName }).doesNotContain(IncognitoProfile.name)
+    }
+
+    @Test
+    fun isIncognito_matchesEverySessionProfileAndNoWorkspaceProfile() {
+        assertThat(IncognitoProfile.isIncognito(IncognitoProfile.name)).isTrue()
+        assertThat(IncognitoProfile.isIncognito("incognito-7")).isTrue()
+        assertThat(IncognitoProfile.isIncognito(null)).isFalse()
+        workspaces.forEach { assertThat(IncognitoProfile.isIncognito(it.profileName)).isFalse() }
     }
 }

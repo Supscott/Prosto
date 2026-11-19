@@ -7,7 +7,7 @@ import com.jestk.browser.domain.model.registrableDomain
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewStateStore
-import com.jestk.browser.engine.scheduleLeftoverIncognitoProfileCleanup
+import com.jestk.browser.engine.IncognitoProfile
 import com.jestk.browser.engine.adblock.FilterListServices
 import com.jestk.browser.engine.adblock.SiteAllowlistSync
 import kotlinx.coroutines.CoroutineScope
@@ -34,7 +34,7 @@ class JestkApplication : Application() {
         background.launch { registrableDomain("https://www.example.com/") }
         // Incognito tabs do not survive the process; drop the profile a killed process left behind.
         // No WebView uses it yet (incognito tabs are never restored), so after onCreate is soon enough.
-        scheduleLeftoverIncognitoProfileCleanup()
+        IncognitoProfile.scheduleLeftoverCleanup()
     }
 
     override fun onTrimMemory(level: Int) {

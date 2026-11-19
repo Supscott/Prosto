@@ -34,7 +34,7 @@ class NestedWebView @JvmOverloads constructor(
 
     /** True for a WebView in the incognito profile (a profile cannot change). Main thread only. */
     val isIncognito: Boolean by lazy {
-        runCatching { WebViewCompat.getProfile(this).name == INCOGNITO_PROFILE_NAME }.getOrDefault(false)
+        runCatching { IncognitoProfile.isIncognito(WebViewCompat.getProfile(this).name) }.getOrDefault(false)
     }
 
     /**

@@ -167,14 +167,14 @@ class WebViewPool(
      */
     @OptIn(markerClass = [Profile.ExperimentalWarmUpRendererProcess::class])
     fun warmUp(activity: Context, profileName: String?) {
-        if (profileName != INCOGNITO_PROFILE_NAME && WebViewFeature.isFeatureSupported(WebViewFeature.WARM_UP_RENDERER_PROCESS) && isMultiProfileSupported()) {
+        if (!IncognitoProfile.isIncognito(profileName) && WebViewFeature.isFeatureSupported(WebViewFeature.WARM_UP_RENDERER_PROCESS) && isMultiProfileSupported()) {
             try {
                 profileProvider(profileName ?: Profile.DEFAULT_PROFILE_NAME)?.warmUpRendererProcess()
             } catch (t: Throwable) {
                 Log.w(TAG, "Failed to warm up the renderer process", t)
             }
         }
-        if (profileName != INCOGNITO_PROFILE_NAME) spareWebView.schedule(activity, profileName)
+        if (!IncognitoProfile.isIncognito(profileName)) spareWebView.schedule(activity, profileName)
     }
 
     /**
@@ -194,7 +194,7 @@ class WebViewPool(
 
     /** Saves the history of every live tab, so it survives the process being killed in the background. */
     fun saveAllStates() {
-        pool.forEach { (tabId, webView) -> if (hasPage(webView) && tabProfiles[tabId] != INCOGNITO_PROFILE_NAME) WebViewStateStore.save(tabId, webView) }
+        pool.forEach { (tabId, webView) -> if (hasPage(webView) && !IncognitoProfile.isIncognito(tabProfiles[tabId])) WebViewStateStore.save(tabId, webView) }
     }
 
     /**
@@ -464,7 +464,7 @@ class WebViewPool(
         val source = if (spare != null) "spare" else "new"
         Log.d(TAG, "Created WebView for tab $tabId ($source, ${android.os.SystemClock.elapsedRealtime() - createStartedAt}ms)")
         onWebViewCreated?.invoke(tabId, webView)
-        if (activity != null && !isActivityDestroyed && profileName != INCOGNITO_PROFILE_NAME) spareWebView.schedule(activity, profileName)
+        if (activity != null && !isActivityDestroyed && !IncognitoProfile.isIncognito(profileName)) spareWebView.schedule(activity, profileName)
         return webView
     }
 
@@ -624,7 +624,7 @@ class WebViewPool(
         markFirstPaint(tabId)
         val webView = pool.remove(tabId) ?: return
         updateLoadedTabIds()
-        if (keepState && profile != INCOGNITO_PROFILE_NAME && hasPage(webView)) WebViewStateStore.save(tabId, webView)
+        if (keepState && !IncognitoProfile.isIncognito(profile) && hasPage(webView)) WebViewStateStore.save(tabId, webView)
         Log.d(TAG, "Removing WebView for tab $tabId")
         detachFromParent(webView)
         try {
