@@ -45,6 +45,11 @@ while the agents work.
 - **Fresh agent per task.** Do not hand a new task to a finished agent: its whole history is
   re-read on every turn (measured: ~750k units vs 330–460k fresh). SendMessage is for short fix-ups
   of the agent's own work.
+- **Check platform API contracts before writing the design.** When the brief's design rests on a
+  WebView/Android lifecycle call (profile deletion, cookie flush, destroy), read its reference
+  page first: the brief is copied faithfully, so a wrong premise ships green and fails on the phone.
+- **Split a feature that spans data, engine and UI** (>25 files) into two agents (data+engine,
+  then UI with the first one's API named); one agent for all of it ran 79 turns.
 - **Small fixes yourself.** A change of a few lines (a missing callback, a file-size squeeze, a
   manifest move) is cheaper in the main session than a new agent round.
 
@@ -115,6 +120,12 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
 - Finish with the session retrospective from AGENTS.md §3 and fix small harness gaps at once.
 
 ## Practice log
+- 2026-11-19 — PRO-75 incognito (35 files) on one Sonnet agent: 79 turns, 2008k units. Haiku did
+  two harness issues (PRO-70+71) for 375k. Green tests plus lint missed that
+  `ProfileStore.deleteProfile` refuses any profile loaded in this process; the brief's design
+  assumed it worked. The agent's "platform assumptions" list named it, and the device check
+  confirmed it. → Added rules: check platform API contracts before designing; split features
+  of more than 25 files.
 - 2026-11-18 — 9 issues (PRO-51…60). Costs in units (`agent_cost.py`): Haiku harness scripts 591k
   Haiku units ≈ 1/3 of the Sonnet price, correct; Sonnet features 462k/773k without the token-discipline
   block, 328k with it (20 turns, 0 whole-file Reads); continued agent for a second task ~750k.
