@@ -5,9 +5,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -66,7 +69,10 @@ internal fun SettingsQuickTiles(
     val themeMode = settings.themeMode
 
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.height(IntrinsicSize.Min),
+        ) {
             QuickTile(
                 icon = Icons.Default.MusicNote,
                 title = stringResource(R.string.background_playback_title),
@@ -77,7 +83,7 @@ internal fun SettingsQuickTiles(
                     vibration.tick()
                     onEvent(SetBackgroundPlaybackEnabled(!settings.isBackgroundPlaybackEnabled))
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             QuickTile(
                 icon = Icons.Default.PlayCircle,
@@ -89,10 +95,13 @@ internal fun SettingsQuickTiles(
                     vibration.tick()
                     onEvent(BrowserUiEvent.SetCleanYouTubePlayerEnabled(!settings.isCleanYouTubePlayerEnabled))
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            modifier = Modifier.height(IntrinsicSize.Min),
+        ) {
             QuickTile(
                 icon = Icons.Default.Shield,
                 title = stringResource(R.string.ad_blocker_title),
@@ -103,7 +112,7 @@ internal fun SettingsQuickTiles(
                     vibration.tick()
                     onEvent(BrowserUiEvent.SetAdBlockerEnabled(!settings.isAdBlockerEnabled))
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             QuickTile(
                 icon =
@@ -127,7 +136,7 @@ internal fun SettingsQuickTiles(
                     vibration.tick()
                     onEvent(BrowserUiEvent.SetThemeMode(themeMode.next()))
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
                 role = Role.Button,
             )
         }
@@ -171,7 +180,9 @@ private fun QuickTile(
         shape = shape,
         color = container,
         border = if (active) null else ProstoBorders.cardBorder(isDark),
-        modifier = modifier.height(112.dp),
+        // A minimum, not a fixed height: at a large font scale a two-line title plus the state
+        // line needs more room, and a fixed height clipped the state line.
+        modifier = modifier.heightIn(min = 112.dp),
     ) {
         Column(
             modifier =
