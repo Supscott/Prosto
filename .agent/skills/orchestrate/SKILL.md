@@ -65,6 +65,9 @@ Rules: Edit/Write only, one command per Bash call (no && chains), prefix with rt
 comments, strings in both locales, baseline files cannot grow.
 Verify: `rtk tools/verify.sh --changed` and `rtk tools/verify.sh` (`--ui` for UI work; render
 previews with `tools/preview.sh` and look at the PNGs).
+Run Gradle in the foreground (no run_in_background, no Monitor polling). If a run shows mass
+Robolectric native errors (UnsatisfiedLinkError, SQLite open) across unrelated classes, it is the
+shared machine: rerun once with `LOW_MEM=1`, then report; do not chase them.
 Commit "<type>(<scope>): <summary> (PRO-NN)" + the Co-Authored-By line.
 Report in <=12 lines: branch, files, test result lines, platform assumptions a device check must confirm.
 ```
@@ -113,6 +116,11 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
   → Adopted: discipline block in every brief, pre-located files, fresh agents, Haiku for scripts.
 - 2026-11-18 — Two tests broke after merging because `--changed` ran only edited tests.
   → Added `tools/related_tests.py` to `--changed`; run `--all` once after the last merge.
+- 2026-11-19 — 4 Sonnet agents + refactor-mover: refactor-mover with a written plan 165k (13 turns);
+  settings UI 413k; PRO-66 593k (20 Monitor polls of its own background Gradle → repeated
+  hand-backs); PRO-64 902k (a data+UI feature, plus chasing 188 failures that came from a concurrent
+  Gradle run; `--all` on main was 1572/1572). → Brief: foreground Gradle, rerun mass native errors
+  once with LOW_MEM=1 instead of chasing them. A written move plan makes refactor-mover the cheapest run.
 - 2026-11-19 — Agent worktrees started 18 commits behind local main (unpushed work), so agents
   lacked the files the brief named. → Brief template starts with `git merge --ff-only main`.
 - 2026-11-18 — A delegated agent put a debug-only `prosto-debug://` filter (BROWSABLE) in the main
