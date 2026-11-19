@@ -49,7 +49,7 @@ import kotlinx.coroutines.delay
  * Floating Prosto Canvas notification pill offering to open a web link or intent in a native app.
  * Features:
  * - Auto-dismiss after 5 seconds, paused while interacting/touching.
- * - Vertical swipe-to-dismiss gesture (see [swipeToDismissPill]).
+ * - Horizontal swipe-to-dismiss gesture (see [swipeToDismissPill]).
  * - Action button ("Open").
  * - Shows app icon and specific app name if available.
  */

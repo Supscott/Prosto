@@ -14,6 +14,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.unit.dp
 import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
@@ -46,17 +47,25 @@ class SwipeToDismissPillTest {
     }
 
     @Test
-    fun swipeDown_dismisses() {
+    fun swipeLeft_dismisses() {
         showPill()
-        composeRule.onNodeWithTag("pill").performTouchInput { swipeDown() }
+        composeRule.onNodeWithTag("pill").performTouchInput { swipeLeft() }
         composeRule.waitForIdle()
         assertThat(dismissed).isEqualTo(1)
     }
 
     @Test
-    fun horizontalSwipe_doesNotDismiss() {
+    fun swipeRight_dismisses() {
         showPill()
-        composeRule.onNodeWithTag("pill").performTouchInput { swipeLeft() }
+        composeRule.onNodeWithTag("pill").performTouchInput { swipeRight() }
+        composeRule.waitForIdle()
+        assertThat(dismissed).isEqualTo(1)
+    }
+
+    @Test
+    fun verticalSwipe_doesNotDismiss() {
+        showPill()
+        composeRule.onNodeWithTag("pill").performTouchInput { swipeDown() }
         composeRule.waitForIdle()
         assertThat(dismissed).isEqualTo(0)
     }

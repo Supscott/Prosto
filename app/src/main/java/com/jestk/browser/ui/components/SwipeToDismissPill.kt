@@ -36,8 +36,8 @@ private const val FLING_VELOCITY_DP_PER_SEC = 600f
 private const val FLY_OUT_MS = 150
 
 /**
- * Lets the user dismiss a floating notification pill with a vertical swipe (down or up) instead of
- * a close icon. The pill follows the finger and fades; past [DISMISS_FRACTION] of its height or on
+ * Lets the user dismiss a floating notification pill with a horizontal swipe (left or right) instead
+ * of a close icon. The pill follows the finger and fades; past [DISMISS_FRACTION] of its width or on
  * a fast fling it flies out and [onDismiss] runs, otherwise it springs back. Taps on the pill's own
  * actions are unaffected (dragging starts only after the touch slop). A TalkBack "Dismiss" custom
  * action calls [onDismiss] directly. [onInteraction] reports whether a finger is dragging, so a
@@ -54,38 +54,38 @@ fun Modifier.swipeToDismissPill(
     val currentOnDismiss by rememberUpdatedState(onDismiss)
     val currentOnInteraction by rememberUpdatedState(onInteraction)
     val scope = rememberCoroutineScope()
-    val offsetY = remember(resetKey) { Animatable(0f, visibilityThreshold = 0.5f) }
-    var heightPx by remember(resetKey) { mutableFloatStateOf(1f) }
+    val offsetX = remember(resetKey) { Animatable(0f, visibilityThreshold = 0.5f) }
+    var widthPx by remember(resetKey) { mutableFloatStateOf(1f) }
     val flingThresholdPx = with(LocalDensity.current) { FLING_VELOCITY_DP_PER_SEC.dp.toPx() }
     val dismissLabel = stringResource(R.string.dismiss)
 
     val dragState = rememberDraggableState { delta ->
-        scope.launch { offsetY.snapTo(offsetY.value + delta) }
+        scope.launch { offsetX.snapTo(offsetX.value + delta) }
     }
 
     return this
-        .onSizeChanged { heightPx = it.height.coerceAtLeast(1).toFloat() }
-        .offset { IntOffset(0, offsetY.value.roundToInt()) }
+        .onSizeChanged { widthPx = it.width.coerceAtLeast(1).toFloat() }
+        .offset { IntOffset(offsetX.value.roundToInt(), 0) }
         .graphicsLayer {
-            val progress = (abs(offsetY.value) / (heightPx * 1.5f)).coerceIn(0f, 1f)
+            val progress = (abs(offsetX.value) / widthPx).coerceIn(0f, 1f)
             alpha = 1f - progress * 0.8f
         }
         .draggable(
             state = dragState,
-            orientation = Orientation.Vertical,
+            orientation = Orientation.Horizontal,
             onDragStarted = { currentOnInteraction(true) },
             onDragStopped = { velocity ->
                 currentOnInteraction(false)
                 scope.launch {
-                    val offset = offsetY.value
+                    val offset = offsetX.value
                     val flung = abs(velocity) > flingThresholdPx && velocity * offset >= 0f
-                    if (abs(offset) > heightPx * DISMISS_FRACTION || flung) {
+                    if (abs(offset) > widthPx * DISMISS_FRACTION || flung) {
                         val direction = if (offset != 0f) offset else velocity
-                        val target = if (direction >= 0f) heightPx * 2f else -heightPx * 2f
-                        offsetY.animateTo(target, tween(FLY_OUT_MS, easing = FastOutLinearInEasing))
+                        val target = if (direction >= 0f) widthPx * 1.5f else -widthPx * 1.5f
+                        offsetX.animateTo(target, tween(FLY_OUT_MS, easing = FastOutLinearInEasing))
                         currentOnDismiss()
                     } else {
-                        offsetY.animateTo(
+                        offsetX.animateTo(
                             0f,
                             spring(
                                 stiffness = Spring.StiffnessMedium,

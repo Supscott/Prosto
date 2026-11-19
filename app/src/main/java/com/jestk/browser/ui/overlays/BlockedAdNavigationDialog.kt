@@ -55,7 +55,7 @@ import kotlinx.coroutines.flow.first
  * - 100% solid, opaque background (zero blur, zero transparency).
  * - Floats above the dock with a spring overshoot bump on enter.
  * - Auto-dismisses after 5 seconds.
- * - Vertical swipe-to-dismiss gesture.
+ * - Horizontal swipe-to-dismiss gesture.
  * - Single row: [Shield + Target Host] ... [Proceed (no bg)] [Stay (solid bg)]
  */
 @Composable
