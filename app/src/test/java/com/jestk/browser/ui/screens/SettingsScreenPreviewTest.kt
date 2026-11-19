@@ -66,6 +66,29 @@ class SettingsScreenPreviewTest {
     }
 
     @Test
+    fun settingsRoot_quickTilesEmitToggleEvents() {
+        val events = mutableListOf<BrowserUiEvent>()
+        show(null) { events += it }
+
+        composeRule.onNodeWithText("Ad Blocker").performClick()
+        composeRule.onNodeWithText("Theme").performClick()
+        composeRule.onNodeWithText("Clean YouTube Player").performClick()
+
+        assertThat(events).contains(BrowserUiEvent.SetAdBlockerEnabled(!state().settings.isAdBlockerEnabled))
+        assertThat(events).contains(BrowserUiEvent.SetThemeMode(state().settings.themeMode.next()))
+        assertThat(events).contains(BrowserUiEvent.SetCleanYouTubePlayerEnabled(!state().settings.isCleanYouTubePlayerEnabled))
+    }
+
+    @Test
+    fun settingsRoot_feedbackButtonOpensFeedbackSheet() {
+        var capturedEvent: BrowserUiEvent? = null
+        show(null) { capturedEvent = it }
+
+        composeRule.onNodeWithText("Send feedback").performScrollTo().performClick()
+        assertThat(capturedEvent).isEqualTo(BrowserUiEvent.OpenFeedbackSheet)
+    }
+
+    @Test
     fun settingsRoot_backDismissesOverlay() {
         var capturedEvent: BrowserUiEvent? = null
         show(null) { capturedEvent = it }

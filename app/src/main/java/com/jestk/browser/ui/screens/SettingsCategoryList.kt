@@ -43,6 +43,8 @@ import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
+import com.jestk.browser.ui.viewmodel.BrowserUiEvent
+import com.jestk.browser.ui.viewmodel.BrowserUiState
 
 /** Top-level Settings categories; each one opens its own sub-screen. */
 enum class SettingsCategory(
@@ -59,6 +61,8 @@ enum class SettingsCategory(
 /** Root Settings body: two airy groups of category rows. */
 @Composable
 internal fun SettingsCategoryList(
+    uiState: BrowserUiState,
+    onEvent: (BrowserUiEvent) -> Unit,
     isDark: Boolean,
     onSelect: (SettingsCategory) -> Unit,
     modifier: Modifier = Modifier,
@@ -71,16 +75,23 @@ internal fun SettingsCategoryList(
                 .padding(horizontal = 16.dp)
                 .padding(top = 8.dp, bottom = 36.dp),
     ) {
+        SettingsQuickTiles(uiState = uiState, onEvent = onEvent, isDark = isDark)
+        Spacer(modifier = Modifier.height(24.dp))
         CategoryGroup(
             categories = listOf(SettingsCategory.GENERAL, SettingsCategory.SEARCH),
             isDark = isDark,
             onSelect = onSelect,
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         CategoryGroup(
             categories = listOf(SettingsCategory.PROTECTION, SettingsCategory.ABOUT),
             isDark = isDark,
             onSelect = onSelect,
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        SettingsFeedbackButton(
+            isDark = isDark,
+            onClick = { onEvent(BrowserUiEvent.OpenFeedbackSheet) },
         )
     }
 }

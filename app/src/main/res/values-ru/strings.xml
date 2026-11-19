@@ -63,6 +63,10 @@
     <string name="settings_category_protection_summary">Блокировка рекламы, куки, трекеры</string>
     <string name="settings_category_about">О Prosto</string>
     <string name="settings_category_about_summary">Обновления, обратная связь, лицензии</string>
+    <string name="settings_tile_on">Вкл</string>
+    <string name="settings_tile_off">Выкл</string>
+    <string name="settings_tile_theme">Тема</string>
+    <string name="settings_send_feedback">Отправить отзыв</string>
     <string name="settings_group_appearance">Внешний вид</string>
     <string name="settings_group_behavior">Поведение</string>
     <string name="settings_group_privacy">Конфиденциальность</string>

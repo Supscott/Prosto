@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -64,6 +67,17 @@ fun ProstoToggleSwitch(
                 Modifier
                     .offset { IntOffset(thumbOffset.roundToPx(), 0) }
                     .size(27.dp),
-        ) {}
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                if (checked) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = ProstoBrandPrimary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+            }
+        }
     }
 }

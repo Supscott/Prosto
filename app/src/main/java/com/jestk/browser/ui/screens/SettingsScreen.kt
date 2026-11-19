@@ -90,6 +90,8 @@ fun SettingsScreen(
                         onBackClick = { onEvent(BrowserUiEvent.DismissOverlay) },
                     )
                     SettingsCategoryList(
+                        uiState = uiState,
+                        onEvent = onEvent,
                         isDark = isDark,
                         onSelect = { selected = it },
                         modifier = Modifier.weight(1f),
