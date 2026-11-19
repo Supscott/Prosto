@@ -83,7 +83,7 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
    stash (`git stash push -m <tag> -- <files>`) and drop it by tag once the merge contains it.
 4. `git merge --ff-only <branch>`, then `rtk tools/verify.sh --changed` on main: parallel
    branches can break the 500-line cap or each other's tests after the rebase.
-5. After the last merge: `rtk tools/verify.sh --all` once. `--changed` now includes tests of edited
+5. After the last merge: `rtk tools/verify.sh --all` once (it now also runs Android Lint). `--changed` now includes tests of edited
    classes (`tools/related_tests.py`), but the full suite is the final word before reporting green.
 
 ### 7. Device checks (main session; agents cannot see the phone)

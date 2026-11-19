@@ -12,6 +12,19 @@ changed_paths() {
     { git diff --name-only "$base"; git ls-files --others --exclude-standard; } | sort -u
 }
 
+# Why --changed runs Android Lint: the first changed path that can change its result (empty: none).
+changed_lint_reason() {
+    local f
+    while IFS= read -r f; do
+        case "$f" in
+            *AndroidManifest.xml) echo "manifest changed"; return 0 ;;
+            app/src/*/res/*) echo "resources changed"; return 0 ;;
+            *.gradle.kts|gradle/libs.versions.toml) echo "build files changed"; return 0 ;;
+            lint.xml|*/lint.xml|lint-baseline.xml|*/lint-baseline.xml) echo "lint config changed"; return 0 ;;
+        esac
+    done < <(changed_paths)
+}
+
 # Extra rules for --changed: a change to these paths can break tests that never mention the
 # file (adding assets/filters/standard/ads/prosto.txt broke EngineStoreSelectionTest), so the
 # tests they cover run too. One rule per line: "path glob|test group|label".
@@ -83,6 +96,8 @@ if [[ "${1:-}" == --changed && "${2:-}" == --dry-run ]]; then
     else
         echo "$dry_list"
     fi
+    lint_why="$(changed_lint_reason)"
+    if [[ -n "$lint_why" ]]; then echo "lint: would run ($lint_why)"; else echo "lint: skipped"; fi
     exit 0
 fi
 
@@ -159,5 +174,23 @@ python3 tools/test_summary.py "$started"
 if [[ $status -ne 0 ]]; then
     echo "==> Tests FAILED"
     exit "$status"
+fi
+# Android Lint, the same task the pre-push hook runs. --all always lints; --changed lints when a
+# changed path can change its result. Runs only after the tests passed.
+lint_why=""
+case "${1:-}" in
+    --all) lint_why="full run" ;;
+    --changed) lint_why="$(changed_lint_reason)" ;;
+esac
+if [[ -n "$lint_why" ]]; then
+    run_lint() { ./gradlew -q :app:lintDebug ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"} 2>&1 | tail -40; }
+    echo "==> Running Android Lint ($lint_why)..."
+    lint_status=0
+    run_lint || lint_status=$?
+    if [[ $lint_status -ne 0 ]]; then
+        echo "==> Lint: FAILED (see app/build/reports/lint-results-debug.xml)"
+        exit "$lint_status"
+    fi
+    echo "==> Lint: OK"
 fi
 echo "==> All checks passed!"
