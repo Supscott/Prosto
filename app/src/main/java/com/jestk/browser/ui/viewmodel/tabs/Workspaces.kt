@@ -6,6 +6,7 @@ import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.engine.WebViewStateStore
+import com.jestk.browser.engine.deleteProfileOnMainThread
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
@@ -186,7 +187,7 @@ internal class Workspaces(
                 // Delete profile and workspace itself
                 val wsToDelete = currentWorkspaces.find { it.id == workspaceId }
                 val profileToDelete = wsToDelete?.profileName ?: workspaceId
-                webViewPool?.deleteProfile(profileToDelete)
+                webViewPool?.deleteProfileOnMainThread(profileToDelete)
                 workspaceRepository?.deleteWorkspace(workspaceId)
             }
         }

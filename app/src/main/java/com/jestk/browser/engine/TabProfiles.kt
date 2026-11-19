@@ -1,9 +1,29 @@
 package com.jestk.browser.engine
 
+import android.os.Handler
+import android.os.Looper
 import androidx.webkit.ProfileStore
 import androidx.webkit.WebViewFeature
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.Workspace
+
+/**
+ * Deletes a WebView profile on the main thread. `ProfileStore` and `WebView.destroy()` are
+ * @UiThread, and [WebViewPool.deleteProfile] catches what a call from another thread throws, so a
+ * call from an IO coroutine would silently leave the profile's cookies and storage on disk.
+ */
+fun WebViewPool.deleteProfileOnMainThread(profileName: String) {
+    if (Looper.myLooper() == Looper.getMainLooper()) {
+        deleteProfile(profileName)
+    } else {
+        Handler(Looper.getMainLooper()).post { deleteProfile(profileName) }
+    }
+}
+
+/** Posts [deleteLeftoverIncognitoProfile] to the main thread (it is @UiThread). */
+fun scheduleLeftoverIncognitoProfileCleanup() {
+    Handler(Looper.getMainLooper()).post { deleteLeftoverIncognitoProfile() }
+}
 
 /**
  * Name of the WebView profile shared by all incognito tabs; it is deleted with the last one.

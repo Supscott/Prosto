@@ -6,6 +6,7 @@ import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.INCOGNITO_PROFILE_NAME
 import com.jestk.browser.engine.SnapshotEngine
 import com.jestk.browser.engine.WebViewStateStore
+import com.jestk.browser.engine.deleteProfileOnMainThread
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -45,7 +46,7 @@ internal class TabClosing(
         val isLastIncognito = isIncognito && getCurrentState().allTabs.none { it.isIncognito && it.id != tabId }
         // The WebView is gone before the profile is deleted; an incognito state is never saved.
         webViewPool?.removeWebView(tabId, keepState = !isIncognito)
-        val releaseIncognitoProfile = { if (isLastIncognito) webViewPool?.deleteProfile(INCOGNITO_PROFILE_NAME) }
+        val releaseIncognitoProfile = { if (isLastIncognito) webViewPool?.deleteProfileOnMainThread(INCOGNITO_PROFILE_NAME) }
         ctx.forgetDocumentAllowances(tabId)
         WebViewStateStore.onTabClosed(tabId)
         if (tabId in getCurrentState().externalAppTabIds) {
@@ -266,7 +267,7 @@ internal class TabClosing(
             FaviconManager.deleteAllFavicons()
             tabOperationMutex.withLock {
                 tabRepository.closeAllTabs()
-                if (hadIncognito) webViewPool?.deleteProfile(INCOGNITO_PROFILE_NAME)
+                if (hadIncognito) webViewPool?.deleteProfileOnMainThread(INCOGNITO_PROFILE_NAME)
                 val newTab = tabRepository.createTab(url = "", title = "", workspaceId = getCurrentState().activeWorkspaceId)
                 tabRepository.setActiveTab(newTab.id)
                 webViewPool?.onTabActivated(newTab.id, false)
