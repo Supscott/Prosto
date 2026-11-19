@@ -4,7 +4,7 @@
 //   node tools/cdp_eval.mjs <urlPrefix> <expression> [port]
 //
 // CDP_GESTURE=1 runs the expression as a user gesture (window.open, link clicks that need one).
-const [prefix, expr, port = '9222'] = process.argv.slice(2);
+const [prefix, expr, port = '9333'] = process.argv.slice(2);
 setTimeout(() => { console.error('timeout: the page did not answer (app frozen or busy?)'); process.exit(2); }, 8000);
 const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
 const t = list.find(x => x.type === 'page' && x.url.startsWith(prefix));

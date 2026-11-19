@@ -37,7 +37,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PKG="${PROSTO_PKG:-com.jestk.browser.debug}"
 ACTIVITY="com.jestk.browser.ui.MainActivity"
-CDP_PORT="${PROSTO_CDP_PORT:-9222}"
+# Not 9222: a desktop Chrome started with --remote-debugging-port holds it, and the page
+# checks would then read the desktop browser (or nothing) instead of the phone.
+CDP_PORT="${PROSTO_CDP_PORT:-9333}"
 SHOT_DIR="${PROSTO_SHOT_DIR:-$ROOT/build/device}"
 
 if [[ "$PKG" == "com.jestk.browser" && "${PROSTO_ALLOW_MAIN_APP:-0}" != "1" ]]; then
@@ -62,7 +64,8 @@ forward_cdp() {
     local p
     p="$(pid)"
     [[ -n "$p" ]] || die "App $PKG is not running"
-    adb forward "tcp:$CDP_PORT" "localabstract:webview_devtools_remote_$p" >/dev/null
+    adb forward "tcp:$CDP_PORT" "localabstract:webview_devtools_remote_$p" >/dev/null 2>&1 \
+        || die "cannot forward CDP to port $CDP_PORT (in use: lsof -nP -iTCP:$CDP_PORT); set PROSTO_CDP_PORT"
 }
 
 pages() {
