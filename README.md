@@ -6,7 +6,7 @@
 
   **A new way to interact with the internet.**
 
-  An ultra-fast, gesture-driven Android browser crafted around one-handed ergonomics, tactile physics, and zero distractions.
+  An ultra-fast, gesture-driven Android browser crafted around tactile physics and zero distractions.
 
   [![Download APK](https://img.shields.io/badge/Download-prosto.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/Prosto/releases/latest/download/prosto.apk)
 
@@ -31,13 +31,11 @@
 
 ## 💡 Why Prosto?
 
-Most mobile browsers hide your tabs behind a button and keep their controls at the top of a screen that is too tall to reach. Prosto is built around one idea: **make working with the browser more convenient**.
+Most mobile browsers hide your tabs behind a button. Prosto is built around one idea: **make working with the browser more convenient**.
 
 - **Tabs always in sight:** the dock at the bottom of the screen shows your open tabs, so you switch between them with one tap or swipe.
-- **Everything within thumb reach:** tabs, search and navigation live in the bottom third of the display.
 - **Instant feel:** a warm engine, preconnect and a last-frame hold make new tabs open and tab switches happen without a blank flash.
-- **Privacy by default:** built-in ad and tracker blocking, zero telemetry, no analytics.
-- **Solid, tactile UI:** precision micro-borders and elevation shadows, strictly **no blur** shaders wasting battery or GPU cycles.
+- **Privacy by default:** built-in ad and tracker blocking, incognito tabs, zero telemetry, no analytics.
 
 ---
 
@@ -46,6 +44,9 @@ Most mobile browsers hide your tabs behind a button and keep their controls at t
 ### 🗂️ Tabs & Folders
 - **Dock-first tabs:** open tabs stay on the dock; drag to reorder with spring physics.
 - **Folders in the dock and the tab grid:** group tabs into folders. In the tab grid a folder opens in place, not in a modal dialog.
+- **Folder suggestions:** when several tabs are open on the same site, Prosto offers to group them into a folder.
+- **Incognito tabs:** long-press "+" and pick an incognito tab. It keeps its cookies and storage apart from your other tabs, saves no history, blocks screenshots, and is wiped when you close it.
+- **Fresh start:** come back after 30 minutes away and a new tab is waiting, with a pill that takes you back to the last one.
 - **Gesture dock:** the dock hides while you scroll down and returns on a slight upward flick.
 
 ### 🎨 Workspaces
@@ -68,8 +69,18 @@ Most mobile browsers hide your tabs behind a button and keep their controls at t
 - **Cosmetic filtering** hides empty ad containers without layout shifts.
 - **Live statistics** of blocked ads and trackers on the Home screen.
 
+### 🎧 Video & Apps
+- **Background playback:** turn it on in Settings and audio and video keep playing with the screen off or the app in the background.
+- **Picture-in-picture:** a fullscreen video continues in a floating window when you leave the app.
+- **Open in app:** links that have an app (Telegram, Instagram and others) offer to open it; turn the offer off per site.
+
 ### 📥 Downloads
 - Pause, resume and cancel; interrupted transfers resume via HTTP `Range`.
+- A failed download says so in an in-app pill instead of failing silently.
+
+### ⚙️ Settings & Updates
+- **Organised settings:** categories with their own screens, and quick-toggle tiles for the switches you use most.
+- **In-app updates:** Prosto checks GitHub Releases for a new version, shows an update card and downloads the APK for you to install.
 
 ### 🎬 In Action
 
@@ -110,7 +121,7 @@ Get the latest release directly from GitHub:
 # Run unit and Robolectric tests
 ./gradlew :app:testDebugUnitTest
 
-# Check architectural invariants (no blur, domain purity)
+# Check architectural invariants (domain purity, script stealth, file size)
 python3 tools/check_invariants.py
 ```
 
