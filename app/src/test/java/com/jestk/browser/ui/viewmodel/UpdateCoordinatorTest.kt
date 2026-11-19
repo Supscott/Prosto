@@ -97,6 +97,20 @@ class UpdateCoordinatorTest {
     }
 
     @Test
+    fun coldStart_onAppStartAndOnAppResumeTogether_sendOneRequest() = runTest(testDispatcher) {
+        fakeUpdateManager.latestRelease = AppUpdate("0.5.0", "", "https://github.com/Supscott/Prosto/releases/tag/v0.5.0")
+        fakeUpdateManager.fetchDelayMs = 500
+        fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
+
+        val coordinator = createCoordinator()
+        coordinator.onAppStart()
+        coordinator.onAppResume()
+        advanceUntilIdle()
+
+        assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
+    }
+
+    @Test
     fun onAppStart_whenInstalledVersionIsEqualOrNewer_staysNone() = runTest(testDispatcher) {
         fakeUpdateManager.currentVer = "0.5.0"
         fakeUpdateManager.latestRelease = AppUpdate(
@@ -372,11 +386,15 @@ class UpdateCoordinatorTest {
         var fetchCount = 0
         var lastEtag: String? = null
 
+        /** Simulates network latency, so concurrent checks overlap as they do on a device. */
+        var fetchDelayMs = 0L
+
         override fun currentVersion(): String = currentVer
 
         override suspend fun fetchLatestRelease(repo: String, etag: String?): UpdateFetchResult {
             fetchCount++
             lastEtag = etag
+            if (fetchDelayMs > 0) kotlinx.coroutines.delay(fetchDelayMs)
             return resultOverride
                 ?: latestRelease?.let { UpdateFetchResult.Fresh(it, "etag-${it.versionName}") }
                 ?: UpdateFetchResult.Failed(0, null)

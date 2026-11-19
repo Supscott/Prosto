@@ -12,6 +12,8 @@ import com.jestk.browser.util.UpdateCheckStore
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private const val TAG = "UpdateCoordinator"
 private const val MIN_SUCCESS_INTERVAL_MS = 6 * 60 * 60 * 1000L
@@ -72,7 +74,16 @@ class UpdateCoordinator(
      * Checks GitHub for a newer release. The failure backoff always applies; the
      * [MIN_SUCCESS_INTERVAL_MS] interval is skipped for [manual] checks and [bypassInterval].
      */
-    suspend fun checkForUpdate(manual: Boolean = false, bypassInterval: Boolean = manual) {
+    /**
+     * One check at a time: a cold start fires onAppStart and onAppResume together, and both would
+     * pass the interval and backoff gates before either stores its result (two requests).
+     */
+    private val checkMutex = Mutex()
+
+    suspend fun checkForUpdate(manual: Boolean = false, bypassInterval: Boolean = manual) =
+        checkMutex.withLock { checkLocked(manual, bypassInterval) }
+
+    private suspend fun checkLocked(manual: Boolean, bypassInterval: Boolean) {
         val manager = appUpdateManager ?: return
         val settings = settingsRepository.getCurrentSettings()
         if (!manual && !settings.isAutoUpdateEnabled) {
