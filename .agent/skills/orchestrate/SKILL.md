@@ -7,8 +7,9 @@ description: "Work through the Linear Todo queue (team PRO) as an orchestrator: 
 
 > **Living skill.** This file records the best orchestration practice found so far. When a
 > session finds a better one (cheaper, faster or safer, measured with `tools/agent_cost.py` or
-> shown by a real failure), update the rule here, add a line to the *Practice log* at the end
-> with the date and the evidence, and delete what it replaces. Keep the file under 200 lines.
+> shown by a real failure), update the rule here, add an entry with the date and the evidence to
+> `PRACTICE_LOG.md` (next to this file; read it first, prune stale details as its header says),
+> and delete what the new rule replaces. Keep this file under 200 lines.
 
 ## Pipeline (run in this order when the skill is invoked)
 
@@ -128,45 +129,12 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
 
 ### 9. Measure and improve
 - `python3 tools/agent_cost.py <output_file of each agent>`: turns, tokens, weighted units.
-- Compare against the *Practice log*; if a new approach wins, update this skill (see the banner).
+- Compare against the *Baselines* below; if a new approach wins, update this skill (see the banner).
 - Finish with the session retrospective from AGENTS.md §3 and fix small harness gaps at once.
 
-## Practice log
-- 2026-11-20 — PRO-83 (new prompt card + 5 dialogs moved onto it), Sonnet, 24 turns, 519k. Three
-  fixes after the agent: the dim over the dock (my brief said "whole screen"; the user disliked
-  it on the phone), a lone primary button wrapped onto its own line (the brief said only "wrap"),
-  grey text in dark theme (the agent skipped the dark PNG). All three would have shown up in one
-  preview before the migration. → Added: mock first for new visual components, edge-case
-  layout in the brief, visual self-check in the template.
-- 2026-11-20 — PRO-77…80, four parallel agents with pre-located briefs: Sonnet UI feature (PRO-80)
-  22 turns 341k; Sonnet data+UI feature (PRO-78, 21 files) 27 turns 473k; Haiku shell harness
-  (PRO-77) 253k; Sonnet research without Gradle (PRO-79) 134k. Running a research agent as a
-  third parallel agent cost nothing extra in memory. After both merges `--all` showed 298 stale
-  `NoSuchMethodError`s (→ step 6.5 note, PRO-81). Incognito sets FLAG_SECURE, so `shot` is black:
-  colour checks of incognito UI go to the user (PRO-82).
-- 2026-11-19 — PRO-75 incognito (35 files) on one Sonnet agent: 79 turns, 2008k units. Haiku did
-  two harness issues (PRO-70+71) for 375k. Green tests plus lint missed that
-  `ProfileStore.deleteProfile` refuses any profile loaded in this process; the brief's design
-  assumed it worked. The agent's "platform assumptions" list named it, and the device check
-  confirmed it. → Added rules: check platform API contracts before designing; split features
-  of more than 25 files.
-- 2026-11-18 — 9 issues (PRO-51…60). Costs in units (`agent_cost.py`): Haiku harness scripts 591k
-  Haiku units ≈ 1/3 of the Sonnet price, correct; Sonnet features 462k/773k without the token-discipline
-  block, 328k with it (20 turns, 0 whole-file Reads); continued agent for a second task ~750k.
-  → Adopted: discipline block in every brief, pre-located files, fresh agents, Haiku for scripts.
-- 2026-11-18 — Two tests broke after merging because `--changed` ran only edited tests.
-  → Added `tools/related_tests.py` to `--changed`; run `--all` once after the last merge.
-- 2026-11-19 — Device checks found 3 bugs that 1572 green tests missed: quick tiles clipped at font
-  scale 1.15 (fixed height), the per-site exclusion skipped every userInitiated offer (link taps are
-  userInitiated), the folder chip covered the open menu. → Brief rules above; never mark a UI issue
-  Done before the phone check. Smoke FAILs reading 'nothing' were a desktop Chrome on CDP port 9222
-  → device.sh now uses 9333 and dies when the forward fails.
-- 2026-11-19 — 4 Sonnet agents + refactor-mover: refactor-mover with a written plan 165k (13 turns);
-  settings UI 413k; PRO-66 593k (20 Monitor polls of its own background Gradle → repeated
-  hand-backs); PRO-64 902k (a data+UI feature, plus chasing 188 failures that came from a concurrent
-  Gradle run; `--all` on main was 1572/1572). → Brief: foreground Gradle, rerun mass native errors
-  once with LOW_MEM=1 instead of chasing them. A written move plan makes refactor-mover the cheapest run.
-- 2026-11-19 — Agent worktrees started 18 commits behind local main (unpushed work), so agents
-  lacked the files the brief named. → Brief template starts with `git merge --ff-only main`.
-- 2026-11-18 — A delegated agent put a debug-only `prosto-debug://` filter (BROWSABLE) in the main
-  manifest. → Review step 6.1 checks for release exposure.
+## Baselines (`tools/agent_cost.py` units, 2026-11; evidence in `PRACTICE_LOG.md`)
+- Sonnet UI feature with the discipline block: 330–520k, 20–27 turns (without it: 460–770k).
+- Sonnet data+UI feature: 470–900k; over 25 files ~2000k, so split it.
+- Haiku shell/Python harness: 250–590k Haiku units (about 1/3 of the Sonnet price).
+- Sonnet research without Gradle: ~130k. refactor-mover with a written plan: ~165k.
+- A finished agent given a new task: ~750k. Use a fresh agent instead.
