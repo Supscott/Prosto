@@ -6,7 +6,8 @@
 #                                      have no uncommitted files, then delete every local branch
 #                                      merged into main (git branch -D, ancestors only); asks first (--yes skips it)
 #
-# Never touches the main checkout, the current worktree, a dirty worktree or an unmerged branch.
+# Never touches the main checkout, the current worktree, a dirty worktree, an unmerged branch or
+# a "fresh" worktree (its branch has no commits of its own: an agent may be starting in it).
 set -uo pipefail
 
 BASE="${WORKTREES_BASE:-main}"
@@ -17,7 +18,13 @@ current="$(git rev-parse --show-toplevel)"
 rows() {
     git worktree list --porcelain | awk '/^worktree/{w=$2} /^branch/{sub("refs/heads/", "", $2); print w, $2}' |
         while read -r path branch; do
-            if git merge-base --is-ancestor "$branch" "$BASE" 2>/dev/null; then
+            # Read the whole reflog first: `| grep -q` under pipefail fails on a long one (SIGPIPE).
+            reflog="$(git reflog show --format='%gs' "$branch" 2>/dev/null)"
+            if ! grep -qE '^(commit|rebase|cherry-pick)' <<<"$reflog"; then
+                # Never committed on: a worktree an agent may have just started in (it is merged
+                # trivially). Kept; remove it by hand with `git worktree remove` once it is idle.
+                state=fresh
+            elif git merge-base --is-ancestor "$branch" "$BASE" 2>/dev/null; then
                 state=merged
             else
                 state="unmerged+$(git rev-list --count "$BASE..$branch")"

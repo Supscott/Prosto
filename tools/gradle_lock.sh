@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Sourced by verify.sh, preview.sh and device.sh install. One Gradle build at a time across all
+# Sourced by verify.sh, preview.sh and device.sh install, or run as a wrapper for a bare Gradle
+# command: `tools/gradle_lock.sh ./gradlew testDebugUnitTest --tests X`. One Gradle build at a time across all
 # worktrees of this repo: two parallel builds on the 8 GB machine swap for half an hour (2026-11-20).
 # The lock is a directory in the shared git dir, so every worktree sees the same one. It holds the
 # owner's PID: a lock whose owner is gone is taken over. Released on exit of the sourcing script.
@@ -27,3 +28,10 @@ gradle_lock() {
     # shellcheck disable=SC2064
     trap "rm -rf '$dir'" EXIT
 }
+
+# Run directly: take the lock, run the given command, release on exit.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    [[ $# -ge 1 ]] || { echo "usage: tools/gradle_lock.sh <command...>" >&2; exit 2; }
+    gradle_lock "$@"
+    "$@"
+fi

@@ -84,8 +84,9 @@ Visual self-check: open EVERY PNG you render and compare it with the preview of 
 existing component (e.g. the Menu card). Look for a lone element wrapped onto its own line,
 secondary text that is hard to read in dark theme, and parts that look detached.
 Run Gradle in the foreground with `timeout: 600000` (no run_in_background, no Monitor polling).
-If a run outlives that and is moved to the background, wait for it with ONE Yield; never poll
-its output or start another Gradle command meanwhile. A "Gradle lock: waiting" line just means
+If a run outlives that and is moved to the background, wait for it with Yield (call it again if
+it returns while the build still runs); never poll its output or start another Gradle command
+meanwhile. A "Gradle lock: waiting" line just means
 another build is running. If a run shows mass
 Robolectric native errors (UnsatisfiedLinkError, SQLite open) across unrelated classes, it is the
 shared machine: rerun once with `LOW_MEM=1`, then report; do not chase them.
@@ -106,8 +107,8 @@ harness, "confirmed" only with evidence): anything you noticed outside this task
    stash (`git stash push -m <tag> -- <files>`) and drop it by tag once the merge contains it.
 4. `git merge --ff-only <branch>`, then `rtk tools/verify.sh --changed` on main: parallel
    branches can break the 500-line cap or each other's tests after the rebase.
-5. After the last merge: `tools/worktrees.sh prune-merged --yes` (merged worktrees and branches
-   go; the user wants none kept), then `rtk tools/verify.sh --all` once (it now also runs Android Lint). `--changed` now includes tests of edited
+5. After the last merge, once no agent is running: `tools/worktrees.sh prune-merged --yes`
+   (merged worktrees and branches go; the user wants none kept), then `rtk tools/verify.sh --all` once (it now also runs Android Lint). `--changed` now includes tests of edited
    classes (`tools/related_tests.py`), but the full suite is the final word before reporting green.
    Mass `NoSuchMethodError` after a merge that changed a data class = stale incremental test
    classes: delete `app/build/tmp/kotlin-classes/debugUnitTest` and

@@ -17,15 +17,18 @@ How to keep it useful:
 - 2026-11-20 — PRO-84 and PRO-86, two Sonnet UI agents built at the same time on the 8 GB machine:
   one preview run took 34 min, one Kotlin OOM, and the user saw the machine stall. Costs: 932k
   (41 turns) and 989k (56 turns), each with a mock-first review and one fix-up, plus 7 and 12
-  Yield turns waiting on slow Gradle. After the repo-wide Gradle lock, PRO-82 (Sonnet) cost 244k in
-  18 turns, and its build queued behind the main session's run with no OOM. The Yields were not
+  Yield turns waiting on slow Gradle. After the repo-wide Gradle lock, PRO-82 (Sonnet, a smaller
+  task: no previews, no mock round, so its 244k / 18 turns does not measure the lock) ran with no
+  OOM, and the main session's install queued 125 s behind its verify. Swapping was not measured
+  (memory_pressure showed 35% free); the stall is the user's report. The Yields were not
   the cost driver: all runs were in the foreground at a 600 s timeout, and the harness moved the
   10+ min builds to the background (1, 5 and 2 times), so Yield was the cheapest way to wait. The
   driver was the build length. PRO-81 (Haiku, no
   Gradle): 274k. → `tools/gradle_lock.sh` in verify/preview/install; parallel Gradle agents now
   overlap only while reading and editing.
-- 2026-11-20 — Over wireless adb, `stayon usb` does nothing, and the 60 s screen timeout locked the
-  phone while an install waited for the lock. → `wake` raises `screen_off_timeout`; `sleep` restores it.
+- 2026-11-20 — The phone was on battery (`dumpsys battery`: no USB/AC power) over wireless adb,
+  so `stayon usb` had no effect, and its 60 s screen timeout locked it while an install waited
+  for the lock. → `wake` raises `screen_off_timeout`; `sleep` restores it.
 - 2026-11-20 — PRO-83 (new prompt card + 5 dialogs moved onto it), Sonnet, 24 turns, 519k. Three
   fixes after the agent: the dim over the dock (my brief said "whole screen"; the user disliked
   it on the phone), a lone primary button wrapped onto its own line (the brief said only "wrap"),
