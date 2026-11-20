@@ -52,6 +52,12 @@ while the agents work.
   then UI with the first one's API named); one agent for all of it ran 79 turns.
 - **Small fixes yourself.** A change of a few lines (a missing callback, a file-size squeeze, a
   manifest move) is cheaper in the main session than a new agent round.
+- **Mock first for a new visual component or pattern** (not for tweaks that follow an existing
+  one). The brief says: build the component plus one preview, commit, stop and report the PNG
+  paths. Review the PNGs in the main session; ask the user only on a taste decision (e.g. dim the
+  dock or not). Then continue the same agent with SendMessage (a short follow-up of its own work).
+  Spell out edge-case layout in the brief: what wraps and how, what the dim covers, colours in
+  both themes.
 
 ### 5. Brief template (Agent tool: `isolation: "worktree"`, `run_in_background: true`)
 ```
@@ -72,6 +78,9 @@ Verify: `rtk tools/verify.sh --changed` and `rtk tools/verify.sh` (`--ui` for UI
 previews with `tools/preview.sh` and look at the PNGs).
 UI work: also render a preview at fontScale 1.3 (the user's phone is at 1.15); no fixed heights
 around text. Name the real trigger of each event in the design (a link tap is userInitiated too).
+Visual self-check: open EVERY PNG you render and compare it with the preview of the closest
+existing component (e.g. the Menu card). Look for a lone element wrapped onto its own line,
+secondary text that is hard to read in dark theme, and parts that look detached.
 Run Gradle in the foreground (no run_in_background, no Monitor polling). If a run shows mass
 Robolectric native errors (UnsatisfiedLinkError, SQLite open) across unrelated classes, it is the
 shared machine: rerun once with `LOW_MEM=1`, then report; do not chase them.
@@ -123,6 +132,12 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
 - Finish with the session retrospective from AGENTS.md §3 and fix small harness gaps at once.
 
 ## Practice log
+- 2026-11-20 — PRO-83 (new prompt card + 5 dialogs moved onto it), Sonnet, 24 turns, 519k. Three
+  fixes after the agent: the dim over the dock (my brief said "whole screen"; the user disliked
+  it on the phone), a lone primary button wrapped onto its own line (the brief said only "wrap"),
+  grey text in dark theme (the agent skipped the dark PNG). All three would have shown up in one
+  preview before the migration. → Added: mock first for new visual components, edge-case
+  layout in the brief, visual self-check in the template.
 - 2026-11-20 — PRO-77…80, four parallel agents with pre-located briefs: Sonnet UI feature (PRO-80)
   22 turns 341k; Sonnet data+UI feature (PRO-78, 21 files) 27 turns 473k; Haiku shell harness
   (PRO-77) 253k; Sonnet research without Gradle (PRO-79) 134k. Running a research agent as a
