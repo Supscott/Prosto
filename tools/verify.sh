@@ -140,10 +140,10 @@ if [[ "${LOW_MEM:-}" == "1" ]]; then
 fi
 run_tests() { ./gradlew -q testDebugUnitTest ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"} "$@" 2>&1 | tail -40; }
 
+test_args=()
 case "${1:-}" in
     --all)
         echo "==> Running full test suite (testDebugUnitTest)..."
-        run_tests || status=$?
         ;;
     --changed)
         # The core set is fixed, so a new test class runs only here or with --all.
@@ -151,26 +151,43 @@ case "${1:-}" in
         while IFS= read -r line; do changed+=("$line"); done < <(changed_test_args)
         if [[ ${#changed[@]} -eq 0 ]]; then
             echo "==> No changed test classes; running the core coordination & engine tests..."
-            run_tests "${CORE_TESTS[@]}" || status=$?
+            test_args=("${CORE_TESTS[@]}")
         else
             echo "==> Running the $(( ${#changed[@]} / 2 )) test classes changed on this branch..."
-            run_tests "${changed[@]}" || status=$?
+            test_args=("${changed[@]}")
         fi
         ;;
     --ui)
         echo "==> Running UI & preview tests (BottomBar, Dock, Dialogs)..."
-        run_tests \
-            --tests "com.jestk.browser.ui.navigation.BottomBarPreviewTest" \
-            --tests "com.jestk.browser.ui.navigation.DockRefinementsTest" \
-            --tests "com.jestk.browser.ui.navigation.TabContextMenuTest" || status=$?
+        test_args=(
+            --tests "com.jestk.browser.ui.navigation.BottomBarPreviewTest"
+            --tests "com.jestk.browser.ui.navigation.DockRefinementsTest"
+            --tests "com.jestk.browser.ui.navigation.TabContextMenuTest"
+        )
         ;;
     *)
         echo "==> Running core coordination & engine unit tests (new test classes: --changed)..."
-        run_tests "${CORE_TESTS[@]}" || status=$?
+        test_args=("${CORE_TESTS[@]}")
         ;;
 esac
+run_tests ${test_args[@]+"${test_args[@]}"} || status=$?
 
 python3 tools/test_summary.py "$started"
+if [[ $status -ne 0 ]]; then
+    # Mass NoSuchMethodError/NoSuchFieldError means stale incremental test classes, not a real
+    # failure: drop their compiled output and rerun the same selection once. A second failure is
+    # reported as it is.
+    stale_rc=0
+    python3 tools/test_summary.py "$started" --stale-check || stale_rc=$?
+    if [[ $stale_rc -eq 3 ]]; then
+        echo "==> Stale incremental test classes (NoSuchMethodError); cleaning and rerunning once"
+        rm -rf app/build/tmp/kotlin-classes/debugUnitTest app/build/kotlin/compileDebugUnitTestKotlin
+        started=$(date +%s)
+        status=0
+        run_tests ${test_args[@]+"${test_args[@]}"} || status=$?
+        python3 tools/test_summary.py "$started"
+    fi
+fi
 if [[ $status -ne 0 ]]; then
     echo "==> Tests FAILED"
     exit "$status"

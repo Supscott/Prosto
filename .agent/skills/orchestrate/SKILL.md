@@ -102,7 +102,7 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
    classes (`tools/related_tests.py`), but the full suite is the final word before reporting green.
    Mass `NoSuchMethodError` after a merge that changed a data class = stale incremental test
    classes: delete `app/build/tmp/kotlin-classes/debugUnitTest` and
-   `app/build/kotlin/compileDebugUnitTestKotlin`, rerun (PRO-81 automates this).
+   `app/build/kotlin/compileDebugUnitTestKotlin`, rerun (`tools/verify.sh` does this automatically and reruns once).
 
 ### 7. Device checks (main session; agents cannot see the phone)
 - `tools/device.sh wake`, `install`, `rtk tools/smoke.sh` (always after Activity/intent/tab changes).
