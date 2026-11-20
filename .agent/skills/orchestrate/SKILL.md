@@ -90,6 +90,9 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
    branches can break the 500-line cap or each other's tests after the rebase.
 5. After the last merge: `rtk tools/verify.sh --all` once (it now also runs Android Lint). `--changed` now includes tests of edited
    classes (`tools/related_tests.py`), but the full suite is the final word before reporting green.
+   Mass `NoSuchMethodError` after a merge that changed a data class = stale incremental test
+   classes: delete `app/build/tmp/kotlin-classes/debugUnitTest` and
+   `app/build/kotlin/compileDebugUnitTestKotlin`, rerun (PRO-81 automates this).
 
 ### 7. Device checks (main session; agents cannot see the phone)
 - `tools/device.sh wake`, `install`, `rtk tools/smoke.sh` (always after Activity/intent/tab changes).
@@ -120,6 +123,12 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
 - Finish with the session retrospective from AGENTS.md §3 and fix small harness gaps at once.
 
 ## Practice log
+- 2026-11-20 — PRO-77…80, four parallel agents with pre-located briefs: Sonnet UI feature (PRO-80)
+  22 turns 341k; Sonnet data+UI feature (PRO-78, 21 files) 27 turns 473k; Haiku shell harness
+  (PRO-77) 253k; Sonnet research without Gradle (PRO-79) 134k. Running a research agent as a
+  third parallel agent cost nothing extra in memory. After both merges `--all` showed 298 stale
+  `NoSuchMethodError`s (→ step 6.5 note, PRO-81). Incognito sets FLAG_SECURE, so `shot` is black:
+  colour checks of incognito UI go to the user (PRO-82).
 - 2026-11-19 — PRO-75 incognito (35 files) on one Sonnet agent: 79 turns, 2008k units. Haiku did
   two harness issues (PRO-70+71) for 375k. Green tests plus lint missed that
   `ProfileStore.deleteProfile` refuses any profile loaded in this process; the brief's design
