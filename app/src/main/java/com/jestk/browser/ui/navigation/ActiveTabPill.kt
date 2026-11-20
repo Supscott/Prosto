@@ -71,6 +71,7 @@ import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.ui.components.SiteFavicon
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkTextHighContrast
+import com.jestk.browser.ui.theme.IncognitoAccent
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoAccent
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
@@ -143,7 +144,7 @@ fun ActiveTabPill(
 
     val titleColor = if (isDark) DarkTextHighContrast else ProstoDarkText
     val domainColor = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
-    val iconTint = if (isDark) ProstoAccent else ProstoBrandPrimary
+    val iconTint = if (isIncognito) IncognitoAccent else if (isDark) ProstoAccent else ProstoBrandPrimary
     val closeTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
     val resolvedBg = backgroundColor
     val resolvedBorder = border

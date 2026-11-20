@@ -87,7 +87,7 @@ fun UnifiedBottomBar(
 
     // Dock container: 80% opacity in both light (white) and dark (#0D1824) with workspace color tint
     val baseDockBg = when {
-        isIncognito -> IncognitoDockSurface.copy(alpha = 0.80f)
+        isIncognito -> IncognitoDockSurface.copy(alpha = 0.92f)
         isDark -> DarkDockSurface.copy(alpha = 0.80f)
         else -> Color.White.copy(alpha = 0.80f)
     }
