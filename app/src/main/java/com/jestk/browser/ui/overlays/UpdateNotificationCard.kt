@@ -105,7 +105,7 @@ fun UpdateNotificationCard(
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
-                        text = updateBody(state),
+                        text = stringResource(R.string.update_card_body, state.update.versionName),
                         style =
                             LocalProstoTypography.current.bodySm.copy(
                                 fontSize = 12.sp,
@@ -185,8 +185,3 @@ private fun PrimaryActionButton(
         )
     }
 }
-
-@Composable
-private fun updateBody(state: AppUpdateUiState.Available): String =
-    state.update.releaseNotes.takeIf { it.isNotBlank() }
-        ?: stringResource(R.string.update_card_body, state.update.versionName)

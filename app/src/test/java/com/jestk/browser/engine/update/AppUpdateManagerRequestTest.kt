@@ -46,7 +46,7 @@ class AppUpdateManagerRequestTest {
 
         val result = manager.fetchLatestRelease()
 
-        assertThat(result).isEqualTo(UpdateFetchResult.Fresh(AppUpdate("0.5.0", "n", "https://example.com/r"), "\"abc\""))
+        assertThat(result).isEqualTo(UpdateFetchResult.Fresh(AppUpdate("0.5.0", "https://example.com/r"), "\"abc\""))
         assertThat(server.takeRequest().getHeader("If-None-Match")).isNull()
     }
 

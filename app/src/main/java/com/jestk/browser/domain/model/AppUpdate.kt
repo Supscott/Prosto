@@ -5,7 +5,6 @@ package com.jestk.browser.domain.model
  */
 data class AppUpdate(
     val versionName: String,
-    val releaseNotes: String,
     val releaseUrl: String,
 )
 

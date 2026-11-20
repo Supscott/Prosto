@@ -81,7 +81,6 @@ class UpdateCoordinatorTest {
         fakeUpdateManager.currentVer = "0.4.0"
         fakeUpdateManager.latestRelease = AppUpdate(
             versionName = "0.5.0",
-            releaseNotes = "New features",
             releaseUrl = "https://github.com/Supscott/Prosto/releases/tag/v0.5.0",
         )
         fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
@@ -98,7 +97,7 @@ class UpdateCoordinatorTest {
 
     @Test
     fun coldStart_onAppStartAndOnAppResumeTogether_sendOneRequest() = runTest(testDispatcher) {
-        fakeUpdateManager.latestRelease = AppUpdate("0.5.0", "", "https://github.com/Supscott/Prosto/releases/tag/v0.5.0")
+        fakeUpdateManager.latestRelease = AppUpdate("0.5.0", "https://github.com/Supscott/Prosto/releases/tag/v0.5.0")
         fakeUpdateManager.fetchDelayMs = 500
         fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
 
@@ -113,7 +112,7 @@ class UpdateCoordinatorTest {
     @Test
     fun cachedRelease_tagNotNewer_skipsTheApi() = runTest(testDispatcher) {
         fakeUpdateManager.currentVer = "0.4.0"
-        store.cachedRelease = AppUpdate("0.5.0", "notes", "https://github.com/Supscott/Prosto/releases/tag/v0.5.0")
+        store.cachedRelease = AppUpdate("0.5.0", "https://github.com/Supscott/Prosto/releases/tag/v0.5.0")
         fakeUpdateManager.latestTag = "0.5.0"
         fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
 
@@ -126,17 +125,17 @@ class UpdateCoordinatorTest {
     }
 
     @Test
-    fun cachedRelease_newerTag_asksTheApiForTheNotes() = runTest(testDispatcher) {
+    fun cachedRelease_newerTag_asksTheApiForTheRelease() = runTest(testDispatcher) {
         fakeUpdateManager.currentVer = "0.4.0"
-        store.cachedRelease = AppUpdate("0.5.0", "old", "u")
+        store.cachedRelease = AppUpdate("0.5.0", "u")
         fakeUpdateManager.latestTag = "0.6.0"
-        fakeUpdateManager.latestRelease = AppUpdate("0.6.0", "new notes", "https://github.com/Supscott/Prosto/releases/tag/v0.6.0")
+        fakeUpdateManager.latestRelease = AppUpdate("0.6.0", "https://github.com/Supscott/Prosto/releases/tag/v0.6.0")
         fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = true)
 
         createCoordinator().checkForUpdate(manual = false)
 
         assertThat(fakeUpdateManager.fetchCount).isEqualTo(1)
-        assertThat(store.cachedRelease?.releaseNotes).isEqualTo("new notes")
+        assertThat(store.cachedRelease?.versionName).isEqualTo("0.6.0")
     }
 
     @Test
@@ -144,7 +143,6 @@ class UpdateCoordinatorTest {
         fakeUpdateManager.currentVer = "0.5.0"
         fakeUpdateManager.latestRelease = AppUpdate(
             versionName = "0.5.0",
-            releaseNotes = "New features",
             releaseUrl = "https://github.com/Supscott/Prosto/releases/tag/v0.5.0",
         )
 
@@ -160,7 +158,6 @@ class UpdateCoordinatorTest {
         fakeUpdateManager.currentVer = "0.4.0"
         fakeUpdateManager.latestRelease = AppUpdate(
             versionName = "0.5.0",
-            releaseNotes = "New features",
             releaseUrl = "https://github.com/Supscott/Prosto/releases/tag/v0.5.0",
         )
         fakeSettingsRepo.settings.value = BrowserSettings(isAutoUpdateEnabled = false)
@@ -173,7 +170,7 @@ class UpdateCoordinatorTest {
         assertThat(fakeUpdateManager.fetchCount).isEqualTo(0)
     }
 
-    private val release05 = AppUpdate("0.5.0", "Notes", "https://example.com")
+    private val release05 = AppUpdate("0.5.0", "https://example.com")
     private val hour = 3600_000L
 
     @Test
@@ -319,7 +316,6 @@ class UpdateCoordinatorTest {
     fun onRedirectRequested_launchesViewIntentAndClearsState() = runTest(testDispatcher) {
         val update = AppUpdate(
             versionName = "0.5.0",
-            releaseNotes = "Notes",
             releaseUrl = "https://github.com/Supscott/Prosto/releases/tag/v0.5.0",
         )
         uiState = uiState.copy(updateState = AppUpdateUiState.Available(update))
@@ -338,7 +334,6 @@ class UpdateCoordinatorTest {
     fun onSkip_persistsSkippedVersionAndClearsState() = runTest(testDispatcher) {
         val update = AppUpdate(
             versionName = "0.5.0",
-            releaseNotes = "Notes",
             releaseUrl = "https://example.com",
         )
         uiState = uiState.copy(updateState = AppUpdateUiState.Available(update))
@@ -355,7 +350,6 @@ class UpdateCoordinatorTest {
     fun onDismiss_clearsStateWithoutPersistingSkip() = runTest(testDispatcher) {
         val update = AppUpdate(
             versionName = "0.5.0",
-            releaseNotes = "Notes",
             releaseUrl = "https://example.com",
         )
         uiState = uiState.copy(updateState = AppUpdateUiState.Available(update))
@@ -372,7 +366,6 @@ class UpdateCoordinatorTest {
         fakeUpdateManager.currentVer = "0.4.0"
         fakeUpdateManager.latestRelease = AppUpdate(
             versionName = "0.5.0",
-            releaseNotes = "Notes",
             releaseUrl = "https://example.com",
         )
         fakeSettingsRepo.settings.value = BrowserSettings(
@@ -396,7 +389,6 @@ class UpdateCoordinatorTest {
     fun onAutoUpdateDisabled_clearsUpdateState() = runTest(testDispatcher) {
         val update = AppUpdate(
             versionName = "0.5.0",
-            releaseNotes = "Notes",
             releaseUrl = "https://example.com",
         )
         uiState = uiState.copy(updateState = AppUpdateUiState.Available(update))

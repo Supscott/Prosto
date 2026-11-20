@@ -101,7 +101,6 @@ class UpdateNotificationCardTest {
             AppUpdateUiState.Available(
                 AppUpdate(
                     versionName = "1.2.0",
-                    releaseNotes = "Bug fixes",
                     releaseUrl = "https://example.com/release",
                 ),
             )
@@ -126,7 +125,6 @@ class UpdateNotificationCardTest {
             AppUpdateUiState.Available(
                 AppUpdate(
                     versionName = "0.5.0",
-                    releaseNotes = "Fixes",
                     releaseUrl = "https://example.com/release",
                 ),
             )

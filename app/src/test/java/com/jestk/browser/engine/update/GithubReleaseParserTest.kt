@@ -24,12 +24,11 @@ class GithubReleaseParserTest {
         """.trimIndent()
 
     @Test
-    fun parseGithubRelease_readsTagNotesAndReleaseUrl() {
+    fun parseGithubRelease_readsTagAndReleaseUrl() {
         val update = parseGithubRelease(release())
 
         assertThat(update).isNotNull()
         assertThat(update?.versionName).isEqualTo("1.2.0")
-        assertThat(update?.releaseNotes).isEqualTo("Bug fixes")
         assertThat(update?.releaseUrl).contains("/releases/tag/v1.2.0")
     }
 

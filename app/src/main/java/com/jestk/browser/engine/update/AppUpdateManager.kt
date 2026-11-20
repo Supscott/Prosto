@@ -159,7 +159,6 @@ fun parseGithubRelease(json: String): AppUpdate? {
     val releaseUrl = root.optString("html_url").ifBlank { "https://github.com/Supscott/Prosto/releases/tag/$tag" }
     return AppUpdate(
         versionName = versionName,
-        releaseNotes = root.optString("body"),
         releaseUrl = releaseUrl,
     )
 }

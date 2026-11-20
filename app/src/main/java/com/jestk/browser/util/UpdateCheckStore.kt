@@ -41,14 +41,12 @@ class SharedPrefsUpdateCheckStore(context: Context) : UpdateCheckStore {
             val version = prefs.getString(KEY_VERSION, null) ?: return null
             return AppUpdate(
                 versionName = version,
-                releaseNotes = prefs.getString(KEY_NOTES, "").orEmpty(),
                 releaseUrl = prefs.getString(KEY_URL, "").orEmpty(),
             )
         }
         set(value) {
             prefs.edit()
                 .putString(KEY_VERSION, value?.versionName)
-                .putString(KEY_NOTES, value?.releaseNotes)
                 .putString(KEY_URL, value?.releaseUrl)
                 .apply()
         }
@@ -60,7 +58,6 @@ class SharedPrefsUpdateCheckStore(context: Context) : UpdateCheckStore {
         const val KEY_FAILURES = "failure_count"
         const val KEY_ETAG = "etag"
         const val KEY_VERSION = "release_version"
-        const val KEY_NOTES = "release_notes"
         const val KEY_URL = "release_url"
     }
 }
