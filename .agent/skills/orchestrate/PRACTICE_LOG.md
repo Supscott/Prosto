@@ -14,6 +14,15 @@ How to keep it useful:
 - Keep the file under ~60 lines.
 
 ## Entries
+- 2026-11-20 — PRO-84 and PRO-86, two Sonnet UI agents built at the same time on the 8 GB machine:
+  one preview run took 34 min, one Kotlin OOM, and the user saw the machine stall. Costs: 932k
+  (41 turns) and 989k (56 turns), each with a mock-first review and one fix-up, plus 7 and 12
+  Yield turns waiting on slow Gradle. After the repo-wide Gradle lock, PRO-82 (Sonnet) cost 244k in
+  18 turns, and its build queued behind the main session's run with no OOM. PRO-81 (Haiku, no
+  Gradle): 274k. → `tools/gradle_lock.sh` in verify/preview/install; parallel Gradle agents now
+  overlap only while reading and editing.
+- 2026-11-20 — Over wireless adb, `stayon usb` does nothing, and the 60 s screen timeout locked the
+  phone while an install waited for the lock. → `wake` raises `screen_off_timeout`; `sleep` restores it.
 - 2026-11-20 — PRO-83 (new prompt card + 5 dialogs moved onto it), Sonnet, 24 turns, 519k. Three
   fixes after the agent: the dim over the dock (my brief said "whole screen"; the user disliked
   it on the phone), a lone primary button wrapped onto its own line (the brief said only "wrap"),
@@ -47,7 +56,5 @@ How to keep it useful:
   price, correct; Sonnet features 462k/773k without the token-discipline block, 328k with it
   (20 turns, 0 whole-file Reads); a continued agent given a second task ~750k. → Discipline block
   in every brief, pre-located files, fresh agents, Haiku for scripts.
-- 2026-11-18 — Two tests broke after merging because `--changed` ran only edited tests.
-  → `tools/related_tests.py` in `--changed`; run `--all` once after the last merge.
-- 2026-11-18 — A delegated agent put a debug-only `prosto-debug://` filter (BROWSABLE) in the main
-  manifest. → Review step 6.1 checks for release exposure.
+- 2026-11-18 — `--changed` missed related tests (→ `related_tests.py`, `--all` after the last
+  merge); an agent put a BROWSABLE debug filter in the main manifest (→ review step 6.1).

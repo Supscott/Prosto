@@ -93,7 +93,9 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
 ### 6. Review and merge each branch as it finishes
 1. `git diff --stat main...<branch>`, then read only the key files. Look for: release-build
    exposure (debug-only code in `src/main`, BROWSABLE intent filters), missing failure paths,
-   leftovers the report admits ("not covered: …").
+   leftovers the report admits ("not covered: …"), and deleted test files: list their `@Test`s
+   (`git show <base>:<file> | grep -A1 @Test`); PRO-84 deleted a dialog test that also held the
+   dropdown card's previews.
 2. `git -C <worktree> rebase main` (linear history; resolve doc conflicts by hand: keep both edits).
 3. If the main checkout has uncommitted user work in the same files, set it aside with a tagged
    stash (`git stash push -m <tag> -- <files>`) and drop it by tag once the merge contains it.
