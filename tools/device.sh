@@ -185,7 +185,7 @@ case "$cmd" in
         adb shell input swipe "$1" "$2" "$3" "$4" "${5:-400}"
         ;;
     top)
-        adb shell dumpsys activity activities | grep -m1 "topResumedActivity" | sed -E 's/.* ([a-zA-Z0-9_.]+)\/.*/\1/'
+        adb shell dumpsys activity activities | grep -m1 -E "(topResumedActivity|ResumedActivity)" | sed -E 's/.* ([a-zA-Z0-9_.]+)\/.*/\1/'
         ;;
     pages)
         pages
