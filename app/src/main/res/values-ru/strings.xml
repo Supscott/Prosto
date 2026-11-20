@@ -311,6 +311,8 @@
     <string name="toast_no_url_to_share">Нет адреса, чтобы поделиться</string>
     <string name="toast_share_failed">Не удалось поделиться ссылкой</string>
     <string name="download_failed_pill">Не удалось скачать: %1$s</string>
+    <string name="duplicate_download_title">Файл уже скачан</string>
+    <string name="duplicate_download_again">Скачать снова</string>
     <string name="download_notification_starting">Загрузка файла…</string>
     <string name="download_notification_complete">Загрузка завершена</string>
     <plurals name="tabs_overview_count_filtered">

@@ -70,6 +70,7 @@ data class BrowserUiState(
     val lastDownloadNotification: DownloadItem? = null,
     val showDownloadSnackbar: Boolean = false,
     val downloadFailure: DownloadFailure? = null,
+    val duplicateDownloadPrompt: DownloadItem? = null,
     val activeDownloadIds: Set<Long> = emptySet(),
     val downloadProgressMap: Map<Long, DownloadProgressInfo> = emptyMap(),
     // Settings

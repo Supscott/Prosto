@@ -8,6 +8,9 @@ interface DownloadRepository {
     fun getAllDownloads(): Flow<List<DownloadItem>>
     suspend fun getDownloadById(id: Long): DownloadItem?
     suspend fun getActiveOrPendingDownloads(): List<DownloadItem>
+
+    /** Completed downloads of [url], latest first. */
+    suspend fun findCompletedByUrl(url: String): List<DownloadItem>
     suspend fun recordDownload(
         url: String,
         fileName: String,

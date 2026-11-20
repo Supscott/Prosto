@@ -344,6 +344,8 @@ class BrowserViewModel(
 
     fun onDownloadFailed(fileName: String?, message: String) = downloadCoordinator.onDownloadFailed(fileName, message)
 
+    fun onDuplicateDownload(existing: DownloadItem, proceed: () -> Unit) = downloadCoordinator.onDuplicateDownload(existing, proceed)
+
     fun dismissDownloadSnackbar() {
         downloadCoordinator.dismissDownloadSnackbar()
     }

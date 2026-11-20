@@ -26,6 +26,9 @@ internal class WebViewDownloads(
     private val onDownloadFailed: (fileName: String?, message: String) -> Unit
 ) {
 
+    /** Called on the main thread when the file was already downloaded; invoke `proceed` to download it again. */
+    var onDuplicateDownload: ((existing: DownloadItem, proceed: () -> Unit) -> Unit)? = null
+
     private companion object {
         private const val TAG = "WebViewPool"
     }
@@ -66,7 +69,7 @@ internal class WebViewDownloads(
             }
 
             if (downloadMgr != null) {
-                activeScope().launch {
+                val enqueue: suspend () -> Unit = {
                     try {
                         val downloadId = downloadMgr.enqueueDownload(
                             url = url,
@@ -87,6 +90,17 @@ internal class WebViewDownloads(
                         if (t is kotlinx.coroutines.CancellationException) throw t
                         Log.e(TAG, "Failed to enqueue download", t)
                         withContext(Dispatchers.Main) { onDownloadFailed(fileName, t.message.orEmpty()) }
+                    }
+                }
+                activeScope().launch {
+                    val existing = downloadRepository()?.let { findExistingDownload(it, url) }
+                    val prompt = onDuplicateDownload
+                    if (existing != null && prompt != null) {
+                        withContext(Dispatchers.Main) {
+                            prompt(existing) { activeScope().launch { enqueue() } }
+                        }
+                    } else {
+                        enqueue()
                     }
                 }
             }

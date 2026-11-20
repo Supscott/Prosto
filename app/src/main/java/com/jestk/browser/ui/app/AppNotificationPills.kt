@@ -240,6 +240,7 @@ internal fun BoxScope.AppNotificationPills(
     }
 
     DownloadFailedPill(uiState, onEvent, isDark, activeWorkspaceColor, snackbarBaseBottomOffset)
+    com.jestk.browser.ui.overlays.DuplicateDownloadHost(uiState, onEvent)
 
     // External App Floating Notification Pill
     AnimatedVisibility(

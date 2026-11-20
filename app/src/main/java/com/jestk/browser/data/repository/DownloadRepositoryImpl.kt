@@ -32,6 +32,10 @@ class DownloadRepositoryImpl(
         downloadDao.getActiveOrPendingDownloads().map { it.toDomain() }
     }
 
+    override suspend fun findCompletedByUrl(url: String): List<DownloadItem> = withContext(ioDispatcher) {
+        downloadDao.findCompletedByUrl(url).map { it.toDomain() }
+    }
+
     override suspend fun recordDownload(
         url: String,
         fileName: String,

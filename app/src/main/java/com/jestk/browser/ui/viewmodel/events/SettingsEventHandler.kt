@@ -6,7 +6,9 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.ConfirmDuplicateDownload
 import com.jestk.browser.ui.viewmodel.DismissDownloadFailure
+import com.jestk.browser.ui.viewmodel.DismissDuplicateDownload
 import com.jestk.browser.ui.viewmodel.DismissOpenInAppExclusionPrompt
 import com.jestk.browser.ui.viewmodel.ExcludeOpenInAppSite
 import com.jestk.browser.ui.viewmodel.IncludeOpenInAppSite
@@ -47,6 +49,10 @@ internal class SettingsEventHandler(
             }
 
             is DismissDownloadFailure -> downloadCoordinator.dismissDownloadFailure()
+
+            is ConfirmDuplicateDownload -> downloadCoordinator.confirmDuplicateDownload()
+
+            is DismissDuplicateDownload -> downloadCoordinator.dismissDuplicateDownload()
 
             is BrowserUiEvent.PauseDownload -> {
                 Log.d(TAG, "Download command: pause ${event.id}")

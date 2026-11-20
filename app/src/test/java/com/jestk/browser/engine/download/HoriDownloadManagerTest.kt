@@ -529,6 +529,10 @@ class HoriDownloadManagerTest {
             }
         }
 
+        override suspend fun findCompletedByUrl(url: String): List<DownloadItem> =
+            storage.values.filter { it.url == url && it.status == DownloadStatus.COMPLETED }
+                .sortedByDescending { it.timestamp }
+
         override suspend fun recordDownload(
             url: String,
             fileName: String,

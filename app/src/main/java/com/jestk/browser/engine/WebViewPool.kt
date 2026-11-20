@@ -99,7 +99,7 @@ class WebViewPool(
 
     private val pendingBlobDownloads = PendingBlobDownloads()
 
-    private val downloads = WebViewDownloads(
+    internal val downloads = WebViewDownloads(
         applicationContext = applicationContext,
         pendingBlobDownloads = pendingBlobDownloads,
         downloadRepository = { downloadRepository },

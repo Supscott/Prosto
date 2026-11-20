@@ -31,6 +31,9 @@ interface DownloadDao {
     @Query("SELECT * FROM downloads WHERE status IN ('PENDING', 'DOWNLOADING', 'PAUSED') ORDER BY timestamp ASC, id ASC")
     suspend fun getActiveOrPendingDownloads(): List<DownloadEntity>
 
+    @Query("SELECT * FROM downloads WHERE url = :url AND status = 'COMPLETED' ORDER BY timestamp DESC, id DESC")
+    suspend fun findCompletedByUrl(url: String): List<DownloadEntity>
+
     @Query("DELETE FROM downloads WHERE id = :id")
     suspend fun deleteDownloadById(id: Long)
 

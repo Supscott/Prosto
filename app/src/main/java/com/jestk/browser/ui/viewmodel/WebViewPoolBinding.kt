@@ -13,6 +13,7 @@ internal fun CoroutineScope.bindWebViewPool(
 ) {
     pool.onDownloadStarted = { item -> downloads.onDownloadStarted(item) }
     pool.onDownloadFailed = { fileName, message -> downloads.onDownloadFailed(fileName, message) }
+    pool.downloads.onDuplicateDownload = { existing, proceed -> downloads.onDuplicateDownload(existing, proceed) }
     launch {
         pool.loadedTabIds.collect { loaded ->
             state.update { it.copy(loadedTabIds = loaded) }
@@ -28,4 +29,5 @@ internal fun CoroutineScope.bindWebViewPool(
 internal fun WebViewPool.unbindViewModel() {
     onDownloadStarted = null
     onDownloadFailed = null
+    downloads.onDuplicateDownload = null
 }

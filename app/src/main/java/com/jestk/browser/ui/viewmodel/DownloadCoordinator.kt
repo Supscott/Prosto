@@ -23,6 +23,7 @@ internal class DownloadCoordinator(
     private val ioDispatcher: CoroutineDispatcher,
 ) {
     private val failureCounter = AtomicLong()
+    private var pendingDuplicate: (() -> Unit)? = null
 
     fun observeDatabaseFlows() {
         if (downloadRepository != null) {
@@ -99,6 +100,22 @@ internal class DownloadCoordinator(
         Log.d(TAG, "Download failed: file=$fileName message=$message")
         val id = failureCounter.incrementAndGet()
         updateUiState { it.copy(downloadFailure = DownloadFailure(id, fileName, message)) }
+    }
+
+    fun onDuplicateDownload(existing: DownloadItem, proceed: () -> Unit) {
+        pendingDuplicate = proceed
+        updateUiState { it.copy(duplicateDownloadPrompt = existing) }
+    }
+
+    fun confirmDuplicateDownload() {
+        val proceed = pendingDuplicate
+        dismissDuplicateDownload()
+        proceed?.invoke()
+    }
+
+    fun dismissDuplicateDownload() {
+        pendingDuplicate = null
+        updateUiState { it.copy(duplicateDownloadPrompt = null) }
     }
 
     fun dismissDownloadFailure() {

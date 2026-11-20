@@ -39,6 +39,7 @@ internal fun WebViewPoolBindingEffects(
         webViewPool.onDownloadFailed = { fileName, message ->
             viewModel.onDownloadFailed(fileName, message)
         }
+        webViewPool.downloads.onDuplicateDownload = viewModel::onDuplicateDownload
         webViewPool.isAdBlockerEnabled = { viewModel.uiState.value.settings.isAdBlockerEnabled }
         webViewPool.isTrackingProtectionEnabled = { viewModel.uiState.value.settings.isTrackingProtectionEnabled }
         ServiceWorkerBlocking.register(
