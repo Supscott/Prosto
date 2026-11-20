@@ -3,10 +3,10 @@
 #
 #   tools/worktrees.sh list            one line per worktree: state, uncommitted files, branch, path
 #   tools/worktrees.sh prune-merged    remove worktrees whose branch is merged into main and that
-#                                      have no uncommitted files; asks first (--yes skips the question)
+#                                      have no uncommitted files, then delete every local branch
+#                                      merged into main (git branch -D, ancestors only); asks first (--yes skips it)
 #
 # Never touches the main checkout, the current worktree, a dirty worktree or an unmerged branch.
-# Branches are kept; delete them with `git branch -d` if wanted.
 set -uo pipefail
 
 BASE="${WORKTREES_BASE:-main}"
@@ -33,20 +33,31 @@ case "${1:-list}" in
         ;;
     prune-merged)
         candidates="$(rows | awk -v m="$main_checkout" -v c="$current" '$1 == "merged" && $2 == 0 && $4 != m && $4 != c {print $4}')"
-        if [[ -z "$candidates" ]]; then
+        current_branch="$(git rev-parse --abbrev-ref HEAD)"
+        # Merged local branches, minus the base and the current one (a branch still checked out in a
+        # kept worktree makes `git branch -d` refuse, which is fine).
+        branches="$(git for-each-ref --format='%(refname:short)' --merged "$BASE" refs/heads |
+            grep -vxF -e "$BASE" -e "$current_branch" || true)"
+        if [[ -z "$candidates" && -z "$branches" ]]; then
             echo "nothing to prune"
             exit 0
         fi
-        echo "Merged into $BASE, no uncommitted files:"
-        echo "$candidates" | sed 's/^/  /'
+        [[ -n "$candidates" ]] && { echo "Worktrees merged into $BASE, no uncommitted files:"; echo "$candidates" | sed 's/^/  /'; }
+        [[ -n "$branches" ]] && echo "Local branches merged into $BASE: $(echo "$branches" | wc -l | tr -d ' ')"
         if [[ "${2:-}" != "--yes" ]]; then
-            read -r -p "Remove these $(echo "$candidates" | wc -l | tr -d ' ') worktrees? [y/N] " answer
+            read -r -p "Remove these worktrees and branches? [y/N] " answer
             [[ "$answer" == "y" || "$answer" == "Y" ]] || { echo "kept"; exit 0; }
         fi
-        echo "$candidates" | while read -r path; do
+        [[ -n "$candidates" ]] && echo "$candidates" | while read -r path; do
             git worktree remove "$path" && echo "removed $path"
         done
         git worktree prune
+        [[ -n "$branches" ]] && echo "$branches" | while read -r branch; do
+            # -D: every listed branch is an ancestor of $BASE (--merged), so nothing is lost; -d would
+            # refuse one whose remote copy has newer commits (the remote keeps them).
+            git branch -D "$branch" >/dev/null 2>&1 && echo "deleted branch $branch"
+        done
+        exit 0
         ;;
     *)
         sed -n '2,/^[^#]/p' "${BASH_SOURCE[0]}" | grep '^#' | sed 's/^# \{0,1\}//'
