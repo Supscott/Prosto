@@ -18,7 +18,10 @@ How to keep it useful:
   one preview run took 34 min, one Kotlin OOM, and the user saw the machine stall. Costs: 932k
   (41 turns) and 989k (56 turns), each with a mock-first review and one fix-up, plus 7 and 12
   Yield turns waiting on slow Gradle. After the repo-wide Gradle lock, PRO-82 (Sonnet) cost 244k in
-  18 turns, and its build queued behind the main session's run with no OOM. PRO-81 (Haiku, no
+  18 turns, and its build queued behind the main session's run with no OOM. The Yields were not
+  the cost driver: all runs were in the foreground at a 600 s timeout, and the harness moved the
+  10+ min builds to the background (1, 5 and 2 times), so Yield was the cheapest way to wait. The
+  driver was the build length. PRO-81 (Haiku, no
   Gradle): 274k. → `tools/gradle_lock.sh` in verify/preview/install; parallel Gradle agents now
   overlap only while reading and editing.
 - 2026-11-20 — Over wireless adb, `stayon usb` does nothing, and the 60 s screen timeout locked the

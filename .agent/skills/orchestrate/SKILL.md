@@ -83,8 +83,10 @@ around text. Name the real trigger of each event in the design (a link tap is us
 Visual self-check: open EVERY PNG you render and compare it with the preview of the closest
 existing component (e.g. the Menu card). Look for a lone element wrapped onto its own line,
 secondary text that is hard to read in dark theme, and parts that look detached.
-Run Gradle in the foreground (no run_in_background, no Monitor polling, no Yield: each wakeup
-re-reads your whole context; a "Gradle lock: waiting" line just means another build). If a run shows mass
+Run Gradle in the foreground with `timeout: 600000` (no run_in_background, no Monitor polling).
+If a run outlives that and is moved to the background, wait for it with ONE Yield; never poll
+its output or start another Gradle command meanwhile. A "Gradle lock: waiting" line just means
+another build is running. If a run shows mass
 Robolectric native errors (UnsatisfiedLinkError, SQLite open) across unrelated classes, it is the
 shared machine: rerun once with `LOW_MEM=1`, then report; do not chase them.
 Commit "<type>(<scope>): <summary> (PRO-NN)" + the Co-Authored-By line.
