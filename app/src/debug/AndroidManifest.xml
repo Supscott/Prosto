@@ -13,6 +13,12 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="prosto-debug" android:host="add-list" />
             </intent-filter>
+            <!-- FLAG_SECURE switch for tools/device.sh secure (PRO-82); same restrictions. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="prosto-debug" android:host="secure" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

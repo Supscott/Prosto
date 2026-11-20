@@ -458,8 +458,25 @@ def check_time_ordered_queries_have_tiebreaker():
     return errors
 
 
+def check_secure_window_switch_debug_only():
+    """The adb switch that drops FLAG_SECURE (PRO-82) must stay debug-only.
+
+    Its code checks FLAG_DEBUGGABLE, and no manifest under src/main may declare the intent.
+    """
+    switch = MAIN_DIR / "java" / "com" / "jestk" / "browser" / "ui" / "DebugSecureWindowSwitch.kt"
+    errors = []
+    if "FLAG_DEBUGGABLE" not in switch.read_text(encoding="utf-8"):
+        errors.append(f"{switch.relative_to(ROOT)}: the FLAG_SECURE switch must check FLAG_DEBUGGABLE")
+    for manifest in MAIN_DIR.rglob("AndroidManifest.xml"):
+        text = manifest.read_text(encoding="utf-8")
+        if "prosto-debug" in text:
+            errors.append(f"{manifest.relative_to(ROOT)}: prosto-debug intents belong in app/src/debug only")
+    return errors
+
+
 def main():
     all_errors = []
+    all_errors.extend(check_secure_window_switch_debug_only())
     all_errors.extend(check_no_blur())
     all_errors.extend(check_webkit_crash_resilience())
     all_errors.extend(check_domain_layer_purity())

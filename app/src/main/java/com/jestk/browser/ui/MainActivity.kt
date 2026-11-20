@@ -262,6 +262,7 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
             lifecycleScope.launch { DebugFilterListIntent.handle(applicationContext, intent!!) }
             return
         }
+        if (DebugSecureWindowSwitch.handle(applicationContext, intent)) return
         val data = intent?.dataString
         if (!data.isNullOrEmpty()) {
             linkOpenedSinceStop = true

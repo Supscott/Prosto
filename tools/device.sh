@@ -27,6 +27,8 @@
 #                                   (CDP_GESTURE=1: run it as a user gesture)
 #   tools/device.sh serve [stop]    serve tools/fixtures/adblock/ to the phone at http://127.0.0.1:8765/
 #                                   (adb reverse; loopback needs no HTTP warning); "stop" ends it
+#   tools/device.sh secure off|on   debug build: off lets shot capture incognito tabs (FLAG_SECURE is on
+#                                   by default and persists across restarts); turn it back on with "on"
 #   tools/device.sh log <regex> [n] last n (default 20) logcat lines matching regex
 #   tools/device.sh clearlog        clear logcat
 #   tools/device.sh shot [name]     screenshot, downscaled to 540px wide; prints the PNG path
@@ -215,6 +217,16 @@ case "$cmd" in
         # Debug builds load the fixture's filter list from this URL (prosto-debug://add-list, PRO-56).
         adb shell "am start -a android.intent.action.VIEW -d $(device_quote "prosto-debug://add-list?url=http%3A%2F%2F127.0.0.1%3A$port%2Ffixture-filters.txt") $PKG" >/dev/null
         echo "http://127.0.0.1:$port/"
+        ;;
+    secure)
+        case "${1:-}" in
+            off) value=0 ;;
+            on) value=1 ;;
+            *) die "usage: device.sh secure off|on" ;;
+        esac
+        # Debug builds only (PRO-82): FLAG_SECURE stays on by default; "off" lets shot capture incognito.
+        adb shell "am start -a android.intent.action.VIEW -d $(device_quote "prosto-debug://secure?enabled=$value") $PKG" >/dev/null
+        echo "FLAG_SECURE $1 (incognito)"
         ;;
     log)
         [[ $# -ge 1 ]] || die "usage: device.sh log <regex> [lines]"
