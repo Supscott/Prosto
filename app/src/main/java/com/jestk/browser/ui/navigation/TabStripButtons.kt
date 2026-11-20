@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
@@ -87,14 +88,16 @@ fun InactiveTabButton(
     // TalkBack and tools/device.sh tapui find the tab by this label; the favicon has none.
     val label = if (tab.isHomeTab) stringResource(R.string.tab_home_title) else tab.title.ifBlank { tab.url }
 
+    // The badge sits outside the circular clip so its corner is not cut off.
+    Box(modifier = modifier.size(38.dp)) {
     Surface(
         shape = CircleShape,
         color = backgroundColor,
-        border = border,
+        border = if (tab.isIncognito) IncognitoRingStroke else border,
         shadowElevation = 0.dp,
         modifier =
-            modifier
-                .size(38.dp)
+            Modifier
+                .fillMaxSize()
                 .clip(CircleShape)
                 .clickable(onClick = onClick)
                 .semantics { contentDescription = label },
@@ -124,7 +127,7 @@ fun InactiveTabButton(
                     if (tab.isIncognito && (isHome || tab.faviconUrl == null)) {
                         Icon(
                             imageVector = Icons.Outlined.VisibilityOff,
-                            contentDescription = stringResource(R.string.tab_incognito_indicator),
+                            contentDescription = null, // the badge carries the label
                             tint = normalTint,
                             modifier = Modifier.size(18.dp),
                         )
@@ -198,6 +201,8 @@ fun InactiveTabButton(
                 onMoveToWorkspace = onMoveToWorkspace,
             )
         }
+    }
+    if (tab.isIncognito) IncognitoBadge(Modifier.align(Alignment.BottomEnd).offset(x = 1.dp, y = 1.dp))
     }
 }
 

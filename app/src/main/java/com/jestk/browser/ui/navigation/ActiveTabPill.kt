@@ -176,7 +176,8 @@ fun ActiveTabPill(
                     clip = false,
                     ambientColor = if (isDark) Color.Black else Color.Black.copy(alpha = 0.60f),
                     spotColor = Color.Black,
-                ),
+                )
+                .incognitoPillMarks(isIncognito, 21.dp),
     ) {
         Box(
             modifier =

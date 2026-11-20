@@ -37,6 +37,9 @@ import com.jestk.browser.R
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.DarkDockSurface
+import com.jestk.browser.ui.theme.IncognitoAccent
+import com.jestk.browser.ui.theme.IncognitoActivePill
+import com.jestk.browser.ui.theme.IncognitoDockSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.theme.LocalActiveWorkspaceColor
 import com.jestk.browser.ui.theme.LocalIsDarkTheme
@@ -74,11 +77,20 @@ fun UnifiedBottomBar(
     val isDark = LocalIsDarkTheme.current
     val isHome = uiState.isHome
 
-    val workspaceColor = uiState.activeWorkspace?.let { Color(it.color) }
-        ?: LocalActiveWorkspaceColor.current
+    val isIncognito = uiState.activeTab?.isIncognito == true
+    // Incognito overrides the workspace tint: the dock is violet in both themes.
+    val workspaceColor = if (isIncognito) {
+        null
+    } else {
+        uiState.activeWorkspace?.let { Color(it.color) } ?: LocalActiveWorkspaceColor.current
+    }
 
     // Dock container: 80% opacity in both light (white) and dark (#0D1824) with workspace color tint
-    val baseDockBg = if (isDark) DarkDockSurface.copy(alpha = 0.80f) else Color.White.copy(alpha = 0.80f)
+    val baseDockBg = when {
+        isIncognito -> IncognitoDockSurface.copy(alpha = 0.80f)
+        isDark -> DarkDockSurface.copy(alpha = 0.80f)
+        else -> Color.White.copy(alpha = 0.80f)
+    }
     val dockBg = if (workspaceColor != null) {
         val tintAlpha = if (isDark) 0.14f else 0.10f
         workspaceColor.copy(alpha = tintAlpha).compositeOver(baseDockBg)
@@ -87,7 +99,11 @@ fun UnifiedBottomBar(
     }
 
     // Active tab capsule: 100% solid with subtle workspace tint for crisp shadow casting and Arc style
-    val baseActivePillBg = if (isDark) DarkDockSurface else Color.White
+    val baseActivePillBg = when {
+        isIncognito -> IncognitoActivePill
+        isDark -> DarkDockSurface
+        else -> Color.White
+    }
     val activePillBg = if (workspaceColor != null) {
         val pillTintAlpha = if (isDark) 0.08f else 0.04f
         workspaceColor.copy(alpha = pillTintAlpha).compositeOver(baseActivePillBg)
@@ -95,7 +111,12 @@ fun UnifiedBottomBar(
         baseActivePillBg
     }
 
-    val activePillBorder: BorderStroke? = if (workspaceColor != null) {
+    val activePillBorder: BorderStroke? = if (isIncognito) {
+        BorderStroke(
+            1.dp,
+            Brush.verticalGradient(listOf(IncognitoAccent.copy(alpha = 0.55f), IncognitoAccent.copy(alpha = 0.20f))),
+        )
+    } else if (workspaceColor != null) {
         BorderStroke(
             1.dp,
             Brush.verticalGradient(

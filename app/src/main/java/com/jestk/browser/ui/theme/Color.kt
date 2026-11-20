@@ -81,6 +81,11 @@ val DarkOnErrorContainer = Color(0xFFFFDAD6)
 val DarkDockSurface = Color(0xFF0C1A18)
 val DarkTextHighContrast = Color(0xFFF8FAFC)
 
+// Incognito marks: deep violet dock and accent ring/badge, same in light and dark themes
+val IncognitoDockSurface = Color(0xFF1E1631)
+val IncognitoActivePill = Color(0xFF2A2040)
+val IncognitoAccent = Color(0xFFA78BFA)
+
 // ==========================================
 // Prosto Gradients & Brushes (Calm Mint Theme)
 // ==========================================

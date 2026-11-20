@@ -69,6 +69,8 @@ import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.ui.theme.ProstoShapes
+import com.jestk.browser.ui.navigation.IncognitoBadge
+import com.jestk.browser.ui.navigation.IncognitoRingStroke
 import kotlin.math.roundToInt
 
 /**
@@ -101,6 +103,7 @@ internal fun GridTabCard(
     val borderStroke = when {
         isHovered -> BorderStroke(2.5.dp, ProstoBrandPrimary)
         isActive -> BorderStroke(2.dp, ProstoBrandPrimary)
+        tab.isIncognito -> IncognitoRingStroke
         else -> ProstoBorders.cardBorder(isDark)
     }
     val elevation = if (isHovered) 8.dp else (if (isActive) 6.dp else 2.dp)
@@ -176,13 +179,15 @@ internal fun GridTabCard(
                             ) {
                                 Icon(
                                     imageVector = if (tab.isIncognito) Icons.Outlined.VisibilityOff else Icons.Default.Language,
-                                    contentDescription = if (tab.isIncognito) stringResource(R.string.tab_incognito_indicator) else null,
+                                    contentDescription = null,
                                     tint = ProstoBrandPrimary,
                                     modifier = Modifier.size(12.dp),
                                 )
                             }
                         },
                     )
+
+                    if (tab.isIncognito) IncognitoBadge()
 
                     // Title
                     Text(
