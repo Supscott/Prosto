@@ -31,6 +31,8 @@ import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.app.AppDialogs
 import com.jestk.browser.ui.app.AppNotificationPills
 import com.jestk.browser.ui.app.AppOverlays
+import com.jestk.browser.ui.app.DockPromptHost
+import com.jestk.browser.ui.app.hasDockPrompt
 import com.jestk.browser.ui.app.NavigationCommandEffect
 import com.jestk.browser.ui.app.WebViewPoolBindingEffects
 import com.jestk.browser.ui.app.rememberSystemBarsEffects
@@ -237,9 +239,13 @@ fun JestkApp(
 
             AppOverlays(uiState, handleUiEvent, workspaceSwitcher)
 
-            AppNotificationPills(uiState, handleUiEvent, isDark, activeWorkspaceColor, isBottomBarVisible)
+            if (!hasDockPrompt(uiState)) {
+                AppNotificationPills(uiState, handleUiEvent, isDark, activeWorkspaceColor, isBottomBarVisible)
+            }
 
             AppDialogs(uiState, handleUiEvent, isDark, webViewPool)
+
+            DockPromptHost(uiState, handleUiEvent, isDark)
 
             // Fullscreen Custom View (HTML5 Video Fullscreen)
             val customView = uiState.fullscreenCustomView

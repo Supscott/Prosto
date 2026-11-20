@@ -6,16 +6,12 @@ import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
 import com.jestk.browser.ui.overlays.AddFavoriteDialog
-import com.jestk.browser.ui.overlays.DisableBlockingDialog
 import com.jestk.browser.ui.overlays.FeedbackBottomSheet
 import com.jestk.browser.ui.overlays.FolderEditBottomSheet
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
-import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.overlays.LinkContextMenuModal
 import com.jestk.browser.ui.overlays.TutorialStoriesScreen
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
-import com.jestk.browser.ui.viewmodel.ConfirmDisableBlocking
-import com.jestk.browser.ui.viewmodel.DismissDisableBlockingDialog
 import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 
@@ -85,26 +81,6 @@ internal fun AppDialogs(
                     )
                 )
             },
-        )
-    }
-
-    // Insecure HTTP Warning Modal Dialog
-    uiState.insecureHttpPrompt?.let { prompt ->
-        InsecureHttpWarningDialog(
-            isDark = isDark,
-            url = prompt.url,
-            onDismiss = { onEvent(BrowserUiEvent.DismissInsecureHttpWarning) },
-            onConfirm = { onEvent(BrowserUiEvent.ConfirmInsecureHttpNavigation) },
-        )
-    }
-
-    // Disable content blocking for the current site
-    uiState.siteBlockingPromptHost?.let { host ->
-        DisableBlockingDialog(
-            isDark = isDark,
-            host = host,
-            onDismiss = { onEvent(DismissDisableBlockingDialog) },
-            onConfirm = { allWorkspaces -> onEvent(ConfirmDisableBlocking(allWorkspaces)) },
         )
     }
 

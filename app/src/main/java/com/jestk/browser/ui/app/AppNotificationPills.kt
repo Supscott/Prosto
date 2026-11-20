@@ -41,7 +41,6 @@ import com.jestk.browser.ui.components.swipeToDismissPill
 import com.jestk.browser.ui.components.tabDisplayTitle
 import com.jestk.browser.ui.launchExternalApp
 import com.jestk.browser.ui.overlays.BlockedAdNavigationBanner
-import com.jestk.browser.ui.overlays.ExternalAppConfirmDialog
 import com.jestk.browser.ui.overlays.ExternalAppNotificationPill
 import com.jestk.browser.ui.overlays.PopupBlockedPill
 import com.jestk.browser.ui.overlays.UpdateNotificationCard
@@ -240,7 +239,6 @@ internal fun BoxScope.AppNotificationPills(
     }
 
     DownloadFailedPill(uiState, onEvent, isDark, activeWorkspaceColor, snackbarBaseBottomOffset)
-    com.jestk.browser.ui.overlays.DuplicateDownloadHost(uiState, onEvent)
 
     // External App Floating Notification Pill
     AnimatedVisibility(
@@ -281,27 +279,6 @@ internal fun BoxScope.AppNotificationPills(
     }
 
     OpenInAppExclusionPillHost(uiState, onEvent, isDark, activeWorkspaceColor, snackbarBaseBottomOffset)
-
-    // Confirmation for a deliberate tap on the site's own "Open app" control. Cancel and
-    // Close tab dismiss it transiently so a later tap is offered again.
-    uiState.externalAppPrompt?.takeIf { it.requiresConfirmation }?.let { prompt ->
-        ExternalAppConfirmDialog(
-            isDark = isDark,
-            onOpen = {
-                onEvent(BrowserUiEvent.OpenExternalApp(prompt))
-                context.launchExternalApp(prompt)
-            },
-            onCloseTab = {
-                onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT))
-                onEvent(BrowserUiEvent.CloseTab(prompt.tabId))
-            },
-            onCancel = {
-                onEvent(BrowserUiEvent.DismissExternalAppPrompt(ExternalAppDismissReason.TRANSIENT))
-                // A held-back web link loads in the browser after all.
-                prompt.webFallbackUrl?.let { onEvent(BrowserUiEvent.LoadUrl(it)) }
-            },
-        )
-    }
 
     // Update Floating Notification Banner
     AnimatedVisibility(
