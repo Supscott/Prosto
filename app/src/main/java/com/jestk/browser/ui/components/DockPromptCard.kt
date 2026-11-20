@@ -8,7 +8,12 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.unit.Dp
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -65,6 +70,9 @@ val LocalDockPromptAnimateEnter = staticCompositionLocalOf { true }
 /** Distance from the bottom navigation bar inset to the card: the same as the Menu card above the dock. */
 private val CardBottomOffset = 64.dp
 
+/** Top edge of the dock above the navigation bar inset (BottomBar: 54.dp row + 2.dp bottom padding). */
+val DockTopAboveNavBar = 56.dp
+
 /**
  * In-window confirmation card shown directly above the dock (not a Dialog / Popup window, so the
  * area behind it can get a blur later). It fills its parent: a light dim consumes every touch so the
@@ -82,7 +90,9 @@ fun DockPromptCard(
     modifier: Modifier = Modifier,
     message: String? = null,
     content: (@Composable ColumnScope.() -> Unit)? = null,
+    undimmedBottom: Dp = DockTopAboveNavBar,
 ) {
+    val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val animateEnter = LocalDockPromptAnimateEnter.current
     val typography = LocalProstoTypography.current
     val cardBg = if (isDark) DarkSurface else ProstoCardSurface
@@ -94,7 +104,11 @@ fun DockPromptCard(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.32f))
+            .drawBehind {
+                // Dim the page only: the dock strip stays clear, but a tap on it still dismisses.
+                val clearBottom = navBarBottom.toPx() + undimmedBottom.toPx()
+                drawRect(Color.Black.copy(alpha = 0.32f), size = Size(size.width, (size.height - clearBottom).coerceAtLeast(0f)))
+            }
             .pointerInput(onDismiss) { detectTapGestures(onTap = { onDismiss() }) },
         contentAlignment = Alignment.BottomCenter,
     ) {
