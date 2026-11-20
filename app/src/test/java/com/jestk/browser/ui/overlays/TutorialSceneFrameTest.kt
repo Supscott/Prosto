@@ -9,7 +9,6 @@ class TutorialSceneFrameTest {
 
     private val capsule = MockDockMetrics.capsuleWidth(379f)
     private val pills = listOf(130f, 110f, 108f, 96f, 104f, 110f)
-    private val M_PAD_END = 0f
     private val home =MockSite("", "Home", "", Color.Gray, isHome = true)
 
     private fun dock(p: Float) = dockSceneFrame(p, capsule, pills, home, homePillWidth = 90f)
@@ -158,7 +157,7 @@ class TutorialSceneFrameTest {
         assertThat(last.expansion).isEqualTo(1f)
         assertThat((violet.entries[IncognitoSceneMetrics.ACTIVE_INDEX] as StripEntry.TabEntry).expansion).isEqualTo(0f)
         val right = violet.entries.startOf(violet.entries.lastIndex) + last.width - violet.scroll
-        assertThat(right).isAtMost(capsule - M_PAD_END)
+        assertThat(right).isAtMost(capsule)
     }
 
     @Test

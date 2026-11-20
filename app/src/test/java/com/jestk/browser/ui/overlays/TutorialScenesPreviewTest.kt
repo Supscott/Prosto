@@ -38,7 +38,7 @@ class TutorialScenesPreviewTest {
     private val searchFrames = listOf(0f, 0.20f, 0.30f, 0.46f, 0.55f, 0.70f, 1f)
     private val protectionFrames = listOf(0f, 0.15f, 0.36f, 0.50f, 0.66f, 1f)
     private val defaultFrames = listOf(0f, 0.20f, 0.30f, 0.44f, 0.60f, 0.72f, 1f)
-    private val incognitoFrames = listOf(0f, 0.20f, 0.34f, 0.48f, 0.56f, 0.64f, 0.80f, 1f)
+    private val incognitoFrames = listOf(0f, 0.34f, 0.48f, 0.56f, 0.63f, 0.68f, 0.72f, 0.80f, 0.93f)
     private val folderFrames = listOf(0f, 0.13f, 0.20f, 0.30f, 0.43f, 0.50f, 0.68f, 1f)
 
     @Test

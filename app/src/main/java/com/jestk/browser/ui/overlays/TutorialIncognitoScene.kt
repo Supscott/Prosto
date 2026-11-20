@@ -75,7 +75,7 @@ internal fun incognitoSceneFrame(
     incognitoPillWidth: Float,
 ): IncognitoSceneFrame {
     val sceneWidth = capsuleWidth + 2 * (M.SIDE_BUTTON + M.ROW_SPACING)
-    val incognito = eased(p, 0.60f, 0.70f) * (1f - eased(p, 0.92f, 1f))
+    val incognito = eased(p, 0.64f, 0.74f) * (1f - eased(p, 0.88f, 0.94f))
     val menu = eased(p, 0.30f, 0.38f) * (1f - eased(p, 0.58f, 0.64f))
     val entries =
         DockSceneSites.take(pillWidths.size).mapIndexed { i, site ->
@@ -114,8 +114,13 @@ internal fun TutorialIncognitoScene(progress: Float, isDark: Boolean, modifier: 
         val normal = DockSceneFrame(frame.entries.dropLast(1), scroll = 0f, maxScroll = frame.maxScroll, touch = null)
         val violet = DockSceneFrame(frame.entries, frame.scroll, frame.maxScroll, touch = null)
         Box(modifier = Modifier.fillMaxWidth().height(MockScreenHeight.dp)) {
-            MockScreen(frame = normal, isDark = isDark, workspaceColor = MockPersonalColor)
-            Box(modifier = Modifier.graphicsLayer { alpha = frame.incognito }) {
+            // The two docks fade one after the other, so their strips are never visible together.
+            val normalAlpha = maxOf(1f - phase(progress, 0.60f, 0.66f), phase(progress, 0.96f, 1f))
+            val violetAlpha = phase(progress, 0.66f, 0.74f) * (1f - phase(progress, 0.90f, 0.96f))
+            Box(modifier = Modifier.graphicsLayer { alpha = normalAlpha }) {
+                MockScreen(frame = normal, isDark = isDark, workspaceColor = MockPersonalColor)
+            }
+            Box(modifier = Modifier.graphicsLayer { alpha = violetAlpha }) {
                 MockScreen(frame = violet, isDark = true, workspaceColor = IncognitoAccent, style = incognitoDockStyle())
                 IncognitoPageGlyph()
                 IncognitoPillMarks(frame, widths.last())
