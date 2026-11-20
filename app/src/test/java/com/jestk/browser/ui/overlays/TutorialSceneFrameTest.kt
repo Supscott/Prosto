@@ -9,7 +9,8 @@ class TutorialSceneFrameTest {
 
     private val capsule = MockDockMetrics.capsuleWidth(379f)
     private val pills = listOf(130f, 110f, 108f, 96f, 104f, 110f)
-    private val home = MockSite("", "Home", "", Color.Gray, isHome = true)
+    private val M_PAD_END = 0f
+    private val home =MockSite("", "Home", "", Color.Gray, isHome = true)
 
     private fun dock(p: Float) = dockSceneFrame(p, capsule, pills, home, homePillWidth = 90f)
 
@@ -134,6 +135,49 @@ class TutorialSceneFrameTest {
         assertThat(end.trackersStopped).isEqualTo(ProtectionSceneMetrics.TRACKERS_BEFORE + TrackerCatches.size)
         assertThat(end.trackers.map { it.alpha }).containsExactly(0f, 0f, 0f, 0f)
         assertThat(end.adCollapse).containsExactly(1f, 1f)
+    }
+
+    private fun incognito(p: Float) =
+        incognitoSceneFrame(p, capsule, pills.take(4), MockSite("", "Home", "", Color.Black), incognitoPillWidth = 90f)
+
+    @Test
+    fun incognitoMenuOpensOnLongPressOfPlusThenIncognitoDockReplacesTheNormalOne() {
+        val start = incognito(0f)
+        assertThat(start.menu).isEqualTo(0f)
+        assertThat(start.incognito).isEqualTo(0f)
+        val plus = incognito(0.25f).touch!!
+        assertThat(plus.x).isEqualTo(IncognitoSceneMetrics.plusX(capsule))
+        assertThat(plus.press).isEqualTo(1f)
+        assertThat(incognito(0.45f).menu).isEqualTo(1f)
+        val tap = incognito(0.54f).touch!!
+        assertThat(tap.y).isEqualTo(IncognitoSceneMetrics.incognitoRowY())
+        val violet = incognito(0.80f)
+        assertThat(violet.menu).isEqualTo(0f)
+        assertThat(violet.incognito).isEqualTo(1f)
+        val last = violet.entries.last() as StripEntry.TabEntry
+        assertThat(last.expansion).isEqualTo(1f)
+        assertThat((violet.entries[IncognitoSceneMetrics.ACTIVE_INDEX] as StripEntry.TabEntry).expansion).isEqualTo(0f)
+        val right = violet.entries.startOf(violet.entries.lastIndex) + last.width - violet.scroll
+        assertThat(right).isAtMost(capsule - M_PAD_END)
+    }
+
+    @Test
+    fun incognitoLoopEndsWhereItStarted() {
+        val start = incognito(0f)
+        val end = incognito(1f)
+        assertThat(end.incognito).isEqualTo(0f)
+        assertThat(end.menu).isEqualTo(0f)
+        assertThat(end.touch).isNull()
+        assertThat(end.scroll).isEqualTo(start.scroll)
+        assertThat((end.entries.last() as StripEntry.TabEntry).appear).isEqualTo(0f)
+    }
+
+    @Test
+    fun incognitoMenuCardStaysInsideTheScene() {
+        val width = 379f
+        val left = IncognitoSceneMetrics.cardLeft(width, capsule)
+        assertThat(left).isAtLeast(IncognitoSceneMetrics.WINDOW_MARGIN)
+        assertThat(left + IncognitoSceneMetrics.CARD_WIDTH).isAtMost(width - IncognitoSceneMetrics.WINDOW_MARGIN)
     }
 
     @Test

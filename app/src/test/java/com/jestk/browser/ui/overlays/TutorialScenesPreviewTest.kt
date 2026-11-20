@@ -38,6 +38,7 @@ class TutorialScenesPreviewTest {
     private val searchFrames = listOf(0f, 0.20f, 0.30f, 0.46f, 0.55f, 0.70f, 1f)
     private val protectionFrames = listOf(0f, 0.15f, 0.36f, 0.50f, 0.66f, 1f)
     private val defaultFrames = listOf(0f, 0.20f, 0.30f, 0.44f, 0.60f, 0.72f, 1f)
+    private val incognitoFrames = listOf(0f, 0.20f, 0.34f, 0.48f, 0.56f, 0.64f, 0.80f, 1f)
     private val folderFrames = listOf(0f, 0.13f, 0.20f, 0.30f, 0.43f, 0.50f, 0.68f, 1f)
 
     @Test
@@ -98,6 +99,16 @@ class TutorialScenesPreviewTest {
     @Test
     fun defaultSceneDark() = renderSheet("tutorial_default_scene_dark_preview.png", isDark = true, defaultFrames) { p, dark ->
         TutorialDefaultBrowserScene(p, dark)
+    }
+
+    @Test
+    fun incognitoSceneLight() = renderSheet("tutorial_incognito_scene_light_preview.png", isDark = false, incognitoFrames) { p, dark ->
+        TutorialIncognitoScene(p, dark)
+    }
+
+    @Test
+    fun incognitoSceneDark() = renderSheet("tutorial_incognito_scene_dark_preview.png", isDark = true, incognitoFrames) { p, dark ->
+        TutorialIncognitoScene(p, dark)
     }
 
     private fun renderSheet(

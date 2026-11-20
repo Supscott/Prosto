@@ -350,6 +350,8 @@
     <string name="tutorial_folders_body">Hold a tab and drag it onto a folder to add it. Tap the folder to show its tabs.</string>
     <string name="tutorial_workspaces_title">Separate spaces for everything</string>
     <string name="tutorial_workspaces_body">Swipe up on the dock to switch workspaces. Each has its own tabs, favorites and logins.</string>
+    <string name="tutorial_incognito_title">Incognito tabs</string>
+    <string name="tutorial_incognito_body">Hold \"+\" and pick Incognito tab. History, cookies and logins are gone once you close it.</string>
     <string name="tutorial_search_title">Switch search providers</string>
     <string name="tutorial_search_body">Fling across the engine carousel in the search bar, or start a query with a prefix like g or d.</string>
     <string name="tutorial_protection_title">Blocked before it loads</string>

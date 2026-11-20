@@ -86,11 +86,12 @@ internal fun MockScreen(
     isDark: Boolean,
     workspaceColor: Color,
     modifier: Modifier = Modifier,
+    style: MockDockStyle = mockDockStyle(isDark, workspaceColor),
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
         MockPageCard(color = frame.entries.pageColor(), isDark = isDark)
         Spacer(modifier = Modifier.height(M.PAGE_TO_DOCK.dp))
-        MockDockRow(frame = frame, isDark = isDark, style = mockDockStyle(isDark, workspaceColor))
+        MockDockRow(frame = frame, isDark = isDark, style = style)
     }
 }
 

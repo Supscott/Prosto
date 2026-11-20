@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Tab
 import androidx.compose.material.icons.filled.TravelExplore
 import androidx.compose.material.icons.filled.Workspaces
+import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -42,6 +43,15 @@ internal val TutorialSlides: List<TutorialSlide> =
             durationMs = WORKSPACE_SCENE_DURATION_MS,
         ) { p, dark ->
             TutorialWorkspaceScene(p, dark)
+        },
+        TutorialSlide(
+            Icons.Outlined.VisibilityOff,
+            Color(0xFF8B5CF6),
+            R.string.tutorial_incognito_title,
+            R.string.tutorial_incognito_body,
+            durationMs = INCOGNITO_SCENE_DURATION_MS,
+        ) { p, dark ->
+            TutorialIncognitoScene(p, dark)
         },
         TutorialSlide(
             Icons.Default.TravelExplore,

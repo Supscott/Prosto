@@ -360,6 +360,8 @@
     <string name="tutorial_folders_body">Удерживайте вкладку и перетащите её на папку. Нажмите на папку, чтобы увидеть её вкладки.</string>
     <string name="tutorial_workspaces_title">Отдельные пространства</string>
     <string name="tutorial_workspaces_body">Смахните док вверх, чтобы переключить воркспейс. У каждого свои вкладки, избранное и логины.</string>
+    <string name="tutorial_incognito_title">Вкладки инкогнито</string>
+    <string name="tutorial_incognito_body">Удерживайте «+» и выберите «Вкладка инкогнито». История, куки и логины не сохранятся после закрытия.</string>
     <string name="tutorial_search_title">Переключайте поисковики</string>
     <string name="tutorial_search_body">Листайте карусель поисковиков в строке поиска или начните запрос с префикса, например g или d.</string>
     <string name="tutorial_protection_title">Блокировка до загрузки</string>
