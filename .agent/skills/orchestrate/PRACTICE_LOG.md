@@ -14,6 +14,14 @@ How to keep it useful:
 - Keep the file under ~60 lines.
 
 ## Entries
+- 2026-11-20 — Main-session transcript of the 2026-11-20 orchestration (`agent_cost.py` works on
+  it): 189 turns, 40M cache reads, 4950k Opus units. Of 228 Bash calls about half were device
+  commands (`device.sh`/`smoke.sh`/adb); of 92 edits, 80 were skills, docs and `tools/`, 13 were
+  `app/`. Per `/cost`, one main call cost ~$0.067, more than the whole Haiku run ($0.04).
+  → `prosto-device` agent (Sonnet) runs the checks; no late harness edits in the orchestrator,
+  batch them to one Haiku agent; measure the orchestrator from its transcript. Not measured
+  yet: the first `prosto-device` run's cost and whether the auto-mode classifier lets a
+  subagent run adb.
 - 2026-11-20 — `/cost` for the whole session: $14.43, of which the Opus main session $11.25
   (78%): 35.4M cache-read tokens over 169 requests, about 210k of context per call. Sonnet agents
   $3.13, Haiku $0.04. The orchestrator, not the agents, was the cost; it did device checks, two
@@ -22,18 +30,10 @@ How to keep it useful:
   → Measure the orchestrator; small fixes in the main session only while its context is small;
   /clear after the pipeline; the `prosto-coder` agent type holds the standing brief rules;
   unused plugins and skills turned off in `.claude/settings.local.json`.
-- 2026-11-20 — PRO-84 and PRO-86, two Sonnet UI agents built at the same time on the 8 GB machine:
-  one preview run took 34 min, one Kotlin OOM, and the user saw the machine stall. Costs: 932k
-  (41 turns) and 989k (56 turns), each with a mock-first review and one fix-up, plus 7 and 12
-  Yield turns waiting on slow Gradle. After the repo-wide Gradle lock, PRO-82 (Sonnet, a smaller
-  task: no previews, no mock round, so its 244k / 18 turns does not measure the lock) ran with no
-  OOM, and the main session's install queued 125 s behind its verify. Swapping was not measured
-  (memory_pressure showed 35% free); the stall is the user's report. The Yields were not
-  the cost driver: all runs were in the foreground at a 600 s timeout, and the harness moved the
-  10+ min builds to the background (1, 5 and 2 times), so Yield was the cheapest way to wait. The
-  driver was the build length. PRO-81 (Haiku, no
-  Gradle): 274k. → `tools/gradle_lock.sh` in verify/preview/install; parallel Gradle agents now
-  overlap only while reading and editing.
+- 2026-11-20 — PRO-84 and PRO-86 built at the same time on the 8 GB machine: a 34 min preview
+  run, a Kotlin OOM, a stall the user saw; 932k and 989k units, driven by build length (Yield
+  was the cheapest way to wait). After the lock, PRO-82 ran with no OOM; the main session's
+  install queued 125 s. → `tools/gradle_lock.sh` in verify/preview/install.
 - 2026-11-20 — The phone was on battery (`dumpsys battery`: no USB/AC power) over wireless adb,
   so `stayon usb` had no effect, and its 60 s screen timeout locked it while an install waited
   for the lock. → `wake` raises `screen_off_timeout`; `sleep` restores it.

@@ -1,6 +1,6 @@
 ---
 name: prosto-coder
-description: Implements one Linear task (Kotlin/Compose feature, bug fix, or shell/Python harness work) in the Prosto Android browser, in an isolated worktree, and commits it on its own branch. The brief carries the issue text, the decisions, the located files and the commit message; this file carries the standing rules. Not for design decisions or device checks (it cannot use the phone).
+description: Implements one Linear task (Kotlin/Compose feature, bug fix, or shell/Python harness work) in the Prosto Android browser, in an isolated worktree, and commits it on its own branch. The brief carries the issue text, the decisions, the located files and the commit message; this file carries the standing rules. Not for design decisions or device checks (`prosto-device` runs those).
 model: sonnet
 tools: Read, Edit, Write, Bash, Yield
 ---

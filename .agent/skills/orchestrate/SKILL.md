@@ -42,8 +42,9 @@ while the agents work.
 - **Parallelism:** at most 2 Gradle agents at a time; their builds queue on the repo-wide Gradle
   lock (`tools/gradle_lock.sh`), so agents overlap only in reading/editing. Main-session builds
   queue too. Shell/Python harness agents that do not run Gradle can be a third.
-- **Model:** Haiku for shell/Python harness scripts, Sonnet for Kotlin/Compose features, the main
-  session (Opus) for design, review, merging, device checks and small fixes.
+- **Model:** Haiku for shell/Python harness scripts, Sonnet for Kotlin/Compose features and for
+  running device checks (`prosto-device`), the main session (Opus) for design, review decisions,
+  merging and judging device results.
 - **Fresh agent per task.** Do not hand a new task to a finished agent: its whole history is
   re-read on every turn (measured: ~750k units vs 330–460k fresh). SendMessage is for short fix-ups
   of the agent's own work.
@@ -52,11 +53,12 @@ while the agents work.
   page first: the brief is copied faithfully, so a wrong premise ships green and fails on the phone.
 - **Split a feature that spans data, engine and UI** (>25 files) into two agents (data+engine,
   then UI with the first one's API named); one agent for all of it ran 79 turns.
-- **Small fixes yourself, while your context is small.** A change of a few lines (a missing
-  callback, a file-size squeeze, a manifest move) is cheaper in the main session only early on:
-  every main-session tool call re-reads its whole context on Opus (2026-11-20: ~210k per call,
-  78% of the session's cost). Late in a long session, give even small fixes and harness edits to
-  a fresh `prosto-coder` agent; keep decisions, review and the phone in the main session.
+- **Small fixes yourself only while your context is small.** Every main-session call re-reads
+  the whole context on Opus: 2026-11-20 it was ~$0.067 per call at ~210k, while a whole Haiku
+  agent run cost $0.04. So inline only in the first few dozen calls. After that, file each fix
+  (code or harness) in Linear as you find it and hand them to one batched `prosto-coder` agent
+  (`model: "haiku"` for harness work) at the end. Never edit skills, docs or `tools/` in the
+  orchestrator session late: 80 of its 92 edits on 2026-11-20 were such edits.
 - **Mock first for a new visual component or pattern** (not for tweaks that follow an existing
   one). The brief says: build the component plus one preview, commit, stop and report the PNG
   paths. Review the PNGs in the main session; ask the user only on a taste decision (e.g. dim the
@@ -100,23 +102,25 @@ Platform assumptions to list: <what the device check will need, e.g. IME insets,
 5. After the last merge, once no agent is running: `tools/worktrees.sh prune-merged --yes`
    (merged worktrees and branches go; the user wants none kept), then `rtk tools/verify.sh --all` once (it now also runs Android Lint). `--changed` now includes tests of edited
    classes (`tools/related_tests.py`), but the full suite is the final word before reporting green.
-   Mass `NoSuchMethodError` after a merge that changed a data class = stale incremental test
-   classes: delete `app/build/tmp/kotlin-classes/debugUnitTest` and
-   `app/build/kotlin/compileDebugUnitTestKotlin`, rerun (`tools/verify.sh` does this automatically and reruns once).
 
-### 7. Device checks (main session; agents cannot see the phone)
-- `tools/device.sh wake`, `install`, `rtk tools/smoke.sh` (always after Activity/intent/tab changes).
-- Turn each agent's "platform assumptions" list into checks. Prefer `ui`/`visible`/`eval`/`log`
-  over screenshots; take a `shot` only for layout.
-- Time-based features: age the persisted state instead of waiting (e.g. rewrite
-  `shared_prefs/<name>.xml` via `adb shell run-as com.jestk.browser.debug`, then cold start).
-- `requestFullscreen()` needs a real tap: inject a button and press it with
-  `device.sh tap <url-prefix> <selector>`; `CDP_GESTURE=1` is not enough.
-- Need to know who calls a WebView callback? Add a temporary `Log.d(TAG, "x", Throwable())`,
-  install, repro, read the stack, then revert it before committing.
+### 7. Device checks (a `prosto-device` agent runs them; you write the list and judge)
+Device commands were about half of the orchestrator's 228 Bash calls on 2026-11-20, each at full
+Opus context. Hand them off:
+- After the merges, write one checklist for all merged issues: each agent's "platform
+  assumptions" plus each issue's acceptance, as `<action> → <expected result>`; say whether
+  `smoke.sh` is needed (Activity/intent/tab changes) and which `shared_prefs` value to age for
+  time-based features.
+- Launch `subagent_type: "prosto-device"` with that list and the commit on main. No
+  `isolation` (it runs in the main checkout), `run_in_background: true`. One at a time, and do not
+  run `device.sh` yourself while it runs. Check `adb devices` first; ask the user to plug in or
+  unlock now, not after a BLOCKED report.
+- Judge the report: FAIL → a fix-up for the coding agent or a new issue; BLOCKED → ask the user.
+  Never mark a UI issue Done without a PASS from the phone.
+- Who calls a WebView callback? Have a coding agent add a temporary
+  `Log.d(TAG, "x", Throwable())` on a branch, let `prosto-device` install it and read `log`, then
+  drop the branch.
 - Box investigations: when a site-specific behaviour (e.g. YouTube's own player logic) blocks
   the last step, commit the generic fix and file the rest as a `verif` issue with the evidence.
-- `tools/device.sh sleep` when done.
 
 ### 8. Update Linear
 - Start: move worked issues to *In Progress* (save_issue/save_comment are allowlisted: send them all in one message).
@@ -131,8 +135,12 @@ Platform assumptions to list: <what the device check will need, e.g. IME insets,
 
 ### 9. Measure and improve
 - `python3 tools/agent_cost.py <output_file of each agent>`: turns, tokens, weighted units.
-- Measure the orchestrator too: ask the user for `/cost` (or `/usage`) at the end and log the
-  split per model. The main session was 78% of the 2026-11-20 session; agents alone miss that.
+- Measure the orchestrator too, without asking the user: its own transcript is the newest
+  `~/.claude/projects/-Users-ilya-CODING-browser/*.jsonl`, and `agent_cost.py` reads it like an
+  agent's. The main session was 78% of the 2026-11-20 session; agents alone miss that. Ask for
+  `/cost` only when you need dollars across models.
+- Harness ideas from the retrospective: file them (step 8) and hand the small ones to one batched
+  Haiku `prosto-coder` agent; do not edit them in this session (see step 4).
 - Compare against the *Baselines* below; if a new approach wins, update this skill (see the banner).
 - Finish with the session retrospective from AGENTS.md §3 and fix small harness gaps at once.
 - When the pipeline is done, tell the user to `/clear` (or open a new session) before an
@@ -141,8 +149,13 @@ Platform assumptions to list: <what the device check will need, e.g. IME insets,
 ## Baselines (`tools/agent_cost.py` units, 2026-11; evidence in `PRACTICE_LOG.md`)
 - Sonnet UI feature with the discipline block: 330–520k, 20–27 turns (without it: 460–770k).
 - Sonnet data+UI feature: 470–900k; over 25 files ~2000k, so split it.
-- Haiku shell/Python harness: 250–590k Haiku units (about 1/3 of the Sonnet price).
+- Haiku shell/Python harness: 250–590k Haiku units. Units compare runs of one model only;
+  multiply by the model's price to compare models.
 - Sonnet research without Gradle: ~130k. refactor-mover with a written plan: ~165k.
 - A finished agent given a new task: ~750k. Use a fresh agent instead.
 - Dollars, 2026-11-20 `/cost` (5 issues, 4 Sonnet runs, 1 Haiku run): Opus main session $11.25,
-  Sonnet agents $3.13, Haiku $0.04 (so Haiku was far below the "1/3 of Sonnet" above: recheck it).
+  Sonnet agents $3.13, Haiku $0.04. Open question: a 274k-unit Haiku run should cost more than
+  $0.04, so that line may be Claude Code's own Haiku calls; next time compare one agent's units
+  × price with `/cost`.
+- Orchestrator, 2026-11-20 transcript via `agent_cost.py`: 189 turns, 40M cache reads, 4950k
+  Opus units. Target: device checks and late edits moved out (steps 4 and 7).
