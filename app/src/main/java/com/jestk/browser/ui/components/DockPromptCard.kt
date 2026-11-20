@@ -9,12 +9,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -32,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -39,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.gestures.detectTapGestures
 import com.jestk.browser.ui.theme.DarkOnSurface
+import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
@@ -74,7 +73,6 @@ private val CardBottomOffset = 64.dp
  * Surface and enter animation mirror [com.jestk.browser.ui.navigation.ActionPopupMenu]. Put it
  * in a Box that spans the screen. Actions wrap onto further lines when they do not fit.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DockPromptCard(
     title: String,
@@ -134,7 +132,7 @@ fun DockPromptCard(
                     Text(
                         text = message,
                         style = typography.bodyMd,
-                        color = ProstoMutedSlate,
+                        color = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
                         modifier = Modifier.padding(top = 10.dp),
                     )
                 }
@@ -147,12 +145,46 @@ fun DockPromptCard(
                         content = content,
                     )
                 }
-                FlowRow(
+                PromptActions(
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
-                    actions.sortedBy { it.primary }.forEach { action -> PromptButton(action) }
+                    actions.sortedBy { it.primary }.forEach { action -> PromptButton(action, isDark) }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Lays the buttons out in one row aligned to the end when they all fit; otherwise stacks them at
+ * full width with the last child (the primary action) on top and the rest below it in order.
+ */
+@Composable
+private fun PromptActions(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Layout(content = content, modifier = modifier) { measurables, constraints ->
+        val gap = 8.dp.roundToPx()
+        val rowWidth = measurables.sumOf { it.maxIntrinsicWidth(constraints.maxHeight) } + gap * (measurables.size - 1).coerceAtLeast(0)
+        if (rowWidth <= constraints.maxWidth) {
+            val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0)) }
+            val height = placeables.maxOfOrNull { it.height } ?: 0
+            layout(constraints.maxWidth, height) {
+                var x = constraints.maxWidth - rowWidth
+                placeables.forEach { p ->
+                    p.placeRelative(x, (height - p.height) / 2)
+                    x += p.width + gap
+                }
+            }
+        } else {
+            val full = constraints.copy(minWidth = constraints.maxWidth)
+            val measured = measurables.map { it.measure(full) }
+            // The primary action is the last child: it goes on top, the others keep their order.
+            val placeables = measured.takeLast(1) + measured.dropLast(1)
+            val height = placeables.sumOf { it.height } + gap / 2 * (placeables.size - 1)
+            layout(constraints.maxWidth, height) {
+                var y = 0
+                placeables.forEach { p ->
+                    p.placeRelative(0, y)
+                    y += p.height + gap / 2
                 }
             }
         }
@@ -160,7 +192,7 @@ fun DockPromptCard(
 }
 
 @Composable
-private fun PromptButton(action: DockPromptAction) {
+private fun PromptButton(action: DockPromptAction, isDark: Boolean) {
     val typography = LocalProstoTypography.current
     val tag = if (action.testTag != null) Modifier.testTag(action.testTag) else Modifier
     if (action.primary) {
@@ -177,7 +209,11 @@ private fun PromptButton(action: DockPromptAction) {
         }
     } else {
         TextButton(onClick = action.onClick, modifier = tag) {
-            Text(text = action.label, style = typography.labelMd, color = action.color ?: ProstoMutedSlate)
+            Text(
+                text = action.label,
+                style = typography.labelMd,
+                color = action.color ?: if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
+            )
         }
     }
 }
