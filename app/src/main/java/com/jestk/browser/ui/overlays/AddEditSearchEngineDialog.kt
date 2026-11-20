@@ -66,7 +66,7 @@ fun AddEditSearchEngineDialog(
 ) {
     var title by remember { mutableStateOf(engineToEdit?.displayName.orEmpty()) }
     var shortcut by remember { mutableStateOf(engineToEdit?.shortcut.orEmpty()) }
-    var urlTemplate by remember { mutableStateOf(engineToEdit?.searchUrlTemplate ?: "https://") }
+    var urlTemplate by remember { mutableStateOf(engineToEdit?.searchUrlTemplate ?: URL_TEMPLATE_PREFILL) }
     val focusRequester = remember { FocusRequester() }
     val paste = rememberPasteFromClipboard { urlTemplate = it }
 
@@ -78,7 +78,7 @@ fun AddEditSearchEngineDialog(
             engine.id != engineToEdit?.id && engine.shortcut?.equals(trimmedShortcut, ignoreCase = true) == true
         }
     }
-    val isTemplateMissing = trimmedUrl.isNotBlank() && !trimmedUrl.contains("%s")
+    val isTemplateMissing = isUrlTemplatePlaceholderMissing(trimmedUrl)
     val isUrlValid = trimmedUrl.isNotBlank() && trimmedUrl.contains("%s") &&
         (trimmedUrl.startsWith("http://") || trimmedUrl.startsWith("https://") || trimmedUrl.contains("."))
     val isFormValid = trimmedTitle.isNotBlank() && isUrlValid && !isShortcutDuplicate
@@ -156,7 +156,7 @@ fun AddEditSearchEngineDialog(
                 },
                 trailingIcon = {
                     if (urlTemplate.length > 8) {
-                        ClearButton { urlTemplate = "https://" }
+                        ClearButton { urlTemplate = URL_TEMPLATE_PREFILL }
                     } else {
                         IconButton(onClick = paste) {
                             Icon(
@@ -178,6 +178,16 @@ fun AddEditSearchEngineDialog(
         },
     )
 }
+
+/** What a new engine's URL field starts with (and returns to when cleared). */
+internal const val URL_TEMPLATE_PREFILL = "https://"
+
+/**
+ * True when the "must contain %s" error should show: only after the user typed past the
+ * [URL_TEMPLATE_PREFILL], so a fresh form opens without a red error (PRO-87).
+ */
+internal fun isUrlTemplatePlaceholderMissing(trimmedUrl: String): Boolean =
+    trimmedUrl.isNotBlank() && trimmedUrl != URL_TEMPLATE_PREFILL && !trimmedUrl.contains("%s")
 
 @Composable
 private fun TemplateHint(isDark: Boolean) {
