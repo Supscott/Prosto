@@ -4,7 +4,8 @@
 #
 #   tools/device.sh wake            wake the screen, keep it on over USB, fail if the phone is locked
 #   tools/device.sh sleep           restore the normal screen timeout (undoes "wake")
-#   tools/device.sh install         build and install the debug app (retries once)
+#   tools/device.sh install         build and install the debug app (retries once); records the build
+#                                   in build/device/installed.txt, which later commands check
 #   tools/device.sh start | stop    launch from the launcher | force-stop
 #   tools/device.sh kill            kill the process in the background (simulates process death)
 #   tools/device.sh reset           wipe the app's data (tabs, settings) and pre-grant notifications
@@ -48,6 +49,10 @@ if [[ "$PKG" == "com.jestk.browser" && "${PROSTO_ALLOW_MAIN_APP:-0}" != "1" ]]; 
 fi
 
 die() { echo "$*" >&2; exit 1; }
+
+# Records the installed build and warns when the working tree is newer (see the helper).
+# shellcheck source=lib/install_stamp.sh
+source "$ROOT/tools/lib/install_stamp.sh"
 
 is_locked() { adb shell dumpsys window | grep -q "isKeyguardShowing=true"; }
 
@@ -102,6 +107,9 @@ tap_selector() {
 cmd="${1:-}"
 shift || true
 case "$cmd" in
+    open|tap|tapui|eval|ui|log|visible|pages) install_stamp_check "$ROOT" ;;
+esac
+case "$cmd" in
     wake)
         adb shell input keyevent KEYCODE_WAKEUP
         adb shell svc power stayon usb
@@ -120,7 +128,9 @@ case "$cmd" in
         echo "normal screen timeout restored"
         ;;
     install)
+        state="$(install_stamp_state "$ROOT" 2>/dev/null || true)"
         (cd "$ROOT" && { ./gradlew -q :app:installDebug || { echo "install failed, retrying once" >&2; ./gradlew -q :app:installDebug; }; })
+        install_stamp_write "$ROOT" "$state"
         echo "installed $PKG"
         ;;
     start)
