@@ -14,6 +14,14 @@ How to keep it useful:
 - Keep the file under ~60 lines.
 
 ## Entries
+- 2026-11-20 — `/cost` for the whole session: $14.43, of which the Opus main session $11.25
+  (78%): 35.4M cache-read tokens over 169 requests, about 210k of context per call. Sonnet agents
+  $3.13, Haiku $0.04. The orchestrator, not the agents, was the cost; it did device checks, two
+  small fixes and harness edits late, at full context, and took three unrelated follow-up tasks
+  without a /clear. Per the usage report, unused skills added ~15k tokens per request.
+  → Measure the orchestrator; small fixes in the main session only while its context is small;
+  /clear after the pipeline; the `prosto-coder` agent type holds the standing brief rules;
+  unused plugins and skills turned off in `.claude/settings.local.json`.
 - 2026-11-20 — PRO-84 and PRO-86, two Sonnet UI agents built at the same time on the 8 GB machine:
   one preview run took 34 min, one Kotlin OOM, and the user saw the machine stall. Costs: 932k
   (41 turns) and 989k (56 turns), each with a mock-first review and one fix-up, plus 7 and 12
@@ -35,12 +43,8 @@ How to keep it useful:
   grey text in dark theme (the agent skipped the dark PNG). All three would have shown up in one
   preview before the migration. → Mock first for new visual components, edge-case layout in the
   brief, visual self-check in the template.
-- 2026-11-20 — PRO-77…80, four parallel agents with pre-located briefs: Sonnet UI feature (PRO-80)
-  22 turns 341k; Sonnet data+UI feature (PRO-78, 21 files) 27 turns 473k; Haiku shell harness
-  (PRO-77) 253k; Sonnet research without Gradle (PRO-79) 134k. A research agent as a third
-  parallel agent cost nothing extra in memory. After both merges `--all` showed 298 stale
-  `NoSuchMethodError`s (→ step 6.5 note, PRO-81). Incognito sets FLAG_SECURE, so `shot` is black:
-  colour checks of incognito UI go to the user (PRO-82).
+- 2026-11-20 — PRO-77…80 with pre-located briefs: numbers in *Baselines*; a research agent as a
+  third parallel agent cost no memory. Its follow-ups (stale classes, FLAG_SECURE) became PRO-81/82.
 - 2026-11-19 — PRO-75 incognito (35 files) on one Sonnet agent: 79 turns, 2008k units. Haiku did
   two harness issues (PRO-70+71) for 375k. Green tests plus lint missed that
   `ProfileStore.deleteProfile` refuses any profile loaded in this process; the brief's design
@@ -51,16 +55,11 @@ How to keep it useful:
   scale 1.15 (fixed height), the per-site exclusion skipped every userInitiated offer (link taps are
   userInitiated), the folder chip covered the open menu. → UI brief rules; never mark a UI issue
   Done before the phone check.
-- 2026-11-19 — 4 Sonnet agents + refactor-mover: refactor-mover with a written plan 165k (13 turns);
-  settings UI 413k; PRO-66 593k (20 Monitor polls of its own background Gradle → repeated
-  hand-backs); PRO-64 902k (a data+UI feature, plus chasing 188 failures that came from a concurrent
-  Gradle run; `--all` on main was 1572/1572). → Foreground Gradle; rerun mass native errors once
-  with LOW_MEM=1 instead of chasing them. A written move plan makes refactor-mover the cheapest run.
-- 2026-11-19 — Agent worktrees started 18 commits behind local main (unpushed work), so agents
-  lacked the files the brief named. → The brief template starts with `git merge --ff-only main`.
-- 2026-11-18 — 9 issues (PRO-51…60): Haiku harness scripts 591k Haiku units ≈ 1/3 of the Sonnet
-  price, correct; Sonnet features 462k/773k without the token-discipline block, 328k with it
-  (20 turns, 0 whole-file Reads); a continued agent given a second task ~750k. → Discipline block
-  in every brief, pre-located files, fresh agents, Haiku for scripts.
+- 2026-11-19 — PRO-66 polled its background Gradle 20 times with Monitor (593k, repeated
+  hand-backs); PRO-64 chased 188 failures caused by a concurrent Gradle run (902k). → Foreground
+  Gradle, LOW_MEM=1 rerun instead of chasing; the first sign of what the Gradle lock now prevents.
+  Worktrees started 18 commits behind main → `git merge --ff-only main` first.
+- 2026-11-18 — PRO-51…60: the token-discipline block cut Sonnet runs to 328k from 462–773k; a
+  continued agent ~750k; Haiku harness correct (→ now in `prosto-coder.md` and *Baselines*).
 - 2026-11-18 — `--changed` missed related tests (→ `related_tests.py`, `--all` after the last
   merge); an agent put a BROWSABLE debug filter in the main manifest (→ review step 6.1).

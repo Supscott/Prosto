@@ -52,8 +52,11 @@ while the agents work.
   page first: the brief is copied faithfully, so a wrong premise ships green and fails on the phone.
 - **Split a feature that spans data, engine and UI** (>25 files) into two agents (data+engine,
   then UI with the first one's API named); one agent for all of it ran 79 turns.
-- **Small fixes yourself.** A change of a few lines (a missing callback, a file-size squeeze, a
-  manifest move) is cheaper in the main session than a new agent round.
+- **Small fixes yourself, while your context is small.** A change of a few lines (a missing
+  callback, a file-size squeeze, a manifest move) is cheaper in the main session only early on:
+  every main-session tool call re-reads its whole context on Opus (2026-11-20: ~210k per call,
+  78% of the session's cost). Late in a long session, give even small fixes and harness edits to
+  a fresh `prosto-coder` agent; keep decisions, review and the phone in the main session.
 - **Mock first for a new visual component or pattern** (not for tweaks that follow an existing
   one). The brief says: build the component plus one preview, commit, stop and report the PNG
   paths. Review the PNGs in the main session; ask the user only on a taste decision (e.g. dim the
@@ -61,39 +64,21 @@ while the agents work.
   Spell out edge-case layout in the brief: what wraps and how, what the dim covers, colours in
   both themes.
 
-### 5. Brief template (Agent tool: `isolation: "worktree"`, `run_in_background: true`)
+### 5. Brief template (Agent tool: `subagent_type: "prosto-coder"`, `isolation: "worktree"`, `run_in_background: true`; add `model: "haiku"` for shell/Python harness work)
+The standing rules (token discipline, Edit/Write only, Gradle lock and waiting, UI previews and
+visual self-check, report format and the "Findings" list) live in `.claude/agents/prosto-coder.md`.
+Do not repeat them: the brief carries only what is specific to the task.
 ```
-Implement Linear PRO-NN in the Prosto Android browser (Kotlin/Compose) in this worktree.
-FIRST: `git merge --ff-only main` (the worktree may start from a stale commit; name the commit
-the log must show after it).
+Implement Linear PRO-NN. Base commit after `git merge --ff-only main`: <hash> (<subject>).
 <issue text + the user's decisions, pasted: do not make the agent call Linear>
 Where to look (already located): <files, functions, line ranges, existing APIs to reuse>.
-Design: <the decisions that are yours, not the agent's>. New code in new files; add only a call
-line to shared host files (e.g. AppNotificationPills.kt, BrowserUiEvent.kt has a per-file rule).
-Token discipline: Batch all independent Read/Grep/Edit calls of a step into ONE message. Map a big
-file with `python3 tools/outline.py` and read it by offset/limit; never read a >300-line file
-whole. Don't re-read a file after editing it, and don't re-run a passing check. Keep narration
-minimal.
-Rules: Edit/Write only, one command per Bash call (no && chains), prefix with rtk, English
-comments, strings in both locales, baseline files cannot grow.
-Verify: `rtk tools/verify.sh --changed` and `rtk tools/verify.sh` (`--ui` for UI work; render
-previews with `tools/preview.sh` and look at the PNGs).
-UI work: also render a preview at fontScale 1.3 (the user's phone is at 1.15); no fixed heights
-around text. Name the real trigger of each event in the design (a link tap is userInitiated too).
-Visual self-check: open EVERY PNG you render and compare it with the preview of the closest
-existing component (e.g. the Menu card). Look for a lone element wrapped onto its own line,
-secondary text that is hard to read in dark theme, and parts that look detached.
-Run Gradle in the foreground with `timeout: 600000` (no run_in_background, no Monitor polling).
-If a run outlives that and is moved to the background, wait for it with Yield (call it again if
-it returns while the build still runs); never poll its output or start another Gradle command
-meanwhile. A "Gradle lock: waiting" line just means
-another build is running. If a run shows mass
-Robolectric native errors (UnsatisfiedLinkError, SQLite open) across unrelated classes, it is the
-shared machine: rerun once with `LOW_MEM=1`, then report; do not chase them.
-Commit "<type>(<scope>): <summary> (PRO-NN)" + the Co-Authored-By line.
-Report in <=12 lines: branch, files, test result lines, platform assumptions a device check must confirm.
-Then a "Findings" list (outside the 12 lines, one line each, `file:line` + what + bug/improvement/
-harness, "confirmed" only with evidence): anything you noticed outside this task. Do not fix them.
+Design: <the decisions that are yours, not the agent's>. Host files that take only a call line:
+<e.g. AppNotificationPills.kt>. Name the real trigger of each event (a link tap is userInitiated too).
+UI: <edge-case layout: what wraps and how, what the dim covers, colours in both themes>;
+compare with <closest existing component>. <"Mock first" if it is a new visual pattern.>
+Verify: <`--ui` or the default set, and the preview classes to render>.
+Commit "<type>(<scope>): <summary> (PRO-NN)" + "Co-Authored-By: <line from the attribution reminder>".
+Platform assumptions to list: <what the device check will need, e.g. IME insets, FLAG_SECURE>.
 ```
 
 ### 6. Review and merge each branch as it finishes
@@ -141,8 +126,12 @@ harness, "confirmed" only with evidence): anything you noticed outside this task
 
 ### 9. Measure and improve
 - `python3 tools/agent_cost.py <output_file of each agent>`: turns, tokens, weighted units.
+- Measure the orchestrator too: ask the user for `/cost` (or `/usage`) at the end and log the
+  split per model. The main session was 78% of the 2026-11-20 session; agents alone miss that.
 - Compare against the *Baselines* below; if a new approach wins, update this skill (see the banner).
 - Finish with the session retrospective from AGENTS.md §3 and fix small harness gaps at once.
+- When the pipeline is done, tell the user to `/clear` (or open a new session) before an
+  unrelated next task: it would otherwise re-read the whole orchestration context on every call.
 
 ## Baselines (`tools/agent_cost.py` units, 2026-11; evidence in `PRACTICE_LOG.md`)
 - Sonnet UI feature with the discipline block: 330–520k, 20–27 turns (without it: 460–770k).
@@ -150,3 +139,5 @@ harness, "confirmed" only with evidence): anything you noticed outside this task
 - Haiku shell/Python harness: 250–590k Haiku units (about 1/3 of the Sonnet price).
 - Sonnet research without Gradle: ~130k. refactor-mover with a written plan: ~165k.
 - A finished agent given a new task: ~750k. Use a fresh agent instead.
+- Dollars, 2026-11-20 `/cost` (5 issues, 4 Sonnet runs, 1 Haiku run): Opus main session $11.25,
+  Sonnet agents $3.13, Haiku $0.04 (so Haiku was far below the "1/3 of Sonnet" above: recheck it).
