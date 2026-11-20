@@ -83,11 +83,14 @@ around text. Name the real trigger of each event in the design (a link tap is us
 Visual self-check: open EVERY PNG you render and compare it with the preview of the closest
 existing component (e.g. the Menu card). Look for a lone element wrapped onto its own line,
 secondary text that is hard to read in dark theme, and parts that look detached.
-Run Gradle in the foreground (no run_in_background, no Monitor polling). If a run shows mass
+Run Gradle in the foreground (no run_in_background, no Monitor polling, no Yield: each wakeup
+re-reads your whole context; a "Gradle lock: waiting" line just means another build). If a run shows mass
 Robolectric native errors (UnsatisfiedLinkError, SQLite open) across unrelated classes, it is the
 shared machine: rerun once with `LOW_MEM=1`, then report; do not chase them.
 Commit "<type>(<scope>): <summary> (PRO-NN)" + the Co-Authored-By line.
 Report in <=12 lines: branch, files, test result lines, platform assumptions a device check must confirm.
+Then a "Findings" list (outside the 12 lines, one line each, `file:line` + what + bug/improvement/
+harness, "confirmed" only with evidence): anything you noticed outside this task. Do not fix them.
 ```
 
 ### 6. Review and merge each branch as it finishes
@@ -129,7 +132,9 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
   a decision, permission for an outward action, a check only the user can do): comment, then
   *In Review*. *Todo* is only for work an agent can start now. Before the final report, sweep
   `In Progress`/`In Review` too: older issues whose device check already passed go to *Done*.
-- Every new finding (follow-up, harness gap, near-limit file) → its own issue, duplicate search first.
+- Every new finding (follow-up, harness gap, near-limit file, each agent's "Findings" list, what
+  you saw yourself during review and device checks) → its own issue, duplicate search first.
+  File them as they come, not at the end: by then they are forgotten.
 
 ### 9. Measure and improve
 - `python3 tools/agent_cost.py <output_file of each agent>`: turns, tokens, weighted units.
