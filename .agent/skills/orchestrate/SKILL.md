@@ -82,6 +82,11 @@ Platform assumptions to list: <what the device check will need, e.g. IME insets,
 ```
 
 ### 6. Review and merge each branch as it finishes
+0. For a Kotlin branch of more than ~100 changed lines, first run a `prosto-reviewer` agent
+   (Sonnet, read-only) with the worktree, the base commit and the issue summary; then confirm its
+   findings in the main session instead of reading the whole diff. Not measured yet: compare
+   its cost and hit rate with `tools/agent_cost.py` on the first runs and log it in
+   `PRACTICE_LOG.md`.
 1. `git diff --stat main...<branch>`, then read only the key files. Look for: release-build
    exposure (debug-only code in `src/main`, BROWSABLE intent filters), missing failure paths,
    leftovers the report admits ("not covered: …"), and deleted test files: list their `@Test`s

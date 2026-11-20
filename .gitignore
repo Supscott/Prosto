@@ -18,6 +18,7 @@ __pycache__/
 .claude/*
 !.claude/skills
 !.claude/agents
+!.claude/settings.json
 runs/
 .scratch/
 .env
