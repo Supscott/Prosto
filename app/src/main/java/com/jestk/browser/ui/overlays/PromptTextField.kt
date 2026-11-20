@@ -1,5 +1,8 @@
 package com.jestk.browser.ui.overlays
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -64,11 +67,19 @@ internal fun PromptTextField(
     val textColor = if (isDark) DarkOnSurface else ProstoDarkText
     val hintColor = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
     val borderColor = if (isDark) Color(0xFF475569) else Color(0xFFE2E8F0)
+    Column(modifier = Modifier.fillMaxWidth()) {
+    if (label != null) {
+        Text(
+            text = label,
+            style = typography.bodySm,
+            color = hintColor,
+            modifier = Modifier.padding(start = 4.dp, bottom = 5.dp),
+        )
+    }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         textStyle = typography.bodyMd,
-        label = label?.let { { Text(text = it, style = typography.bodySm) } },
         placeholder = { Text(text = placeholder, style = typography.bodyMd, color = hintColor) },
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
@@ -83,8 +94,6 @@ internal fun PromptTextField(
             unfocusedBorderColor = borderColor,
             focusedTextColor = textColor,
             unfocusedTextColor = textColor,
-            focusedLabelColor = ProstoBrandPrimary,
-            unfocusedLabelColor = hintColor,
             focusedPlaceholderColor = hintColor,
             unfocusedPlaceholderColor = hintColor,
         ),
@@ -92,4 +101,5 @@ internal fun PromptTextField(
         keyboardActions = keyboardActions,
         modifier = modifier,
     )
+    }
 }
