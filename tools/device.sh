@@ -115,6 +115,11 @@ case "$cmd" in
     wake)
         adb shell input keyevent KEYCODE_WAKEUP
         adb shell svc power stayon usb
+        # "stayon usb" needs a USB cable; over wireless adb the phone locked after its 60 s timeout
+        # while an install waited for the Gradle lock. Raise the timeout too; sleep restores it.
+        mkdir -p "$SHOT_DIR"
+        [[ -s "$SHOT_DIR/screen_timeout" ]] || adb shell settings get system screen_off_timeout | tr -d '\r' > "$SHOT_DIR/screen_timeout"
+        adb shell settings put system screen_off_timeout 1800000
         if is_locked; then
             adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
             sleep 1
@@ -127,6 +132,10 @@ case "$cmd" in
         ;;
     sleep)
         adb shell svc power stayon false
+        if [[ -s "$SHOT_DIR/screen_timeout" ]]; then
+            adb shell settings put system screen_off_timeout "$(cat "$SHOT_DIR/screen_timeout")"
+            rm -f "$SHOT_DIR/screen_timeout"
+        fi
         echo "normal screen timeout restored"
         ;;
     install)
@@ -225,7 +234,15 @@ case "$cmd" in
             *) die "usage: device.sh secure off|on" ;;
         esac
         # Debug builds only (PRO-82): FLAG_SECURE stays on by default; "off" lets shot capture incognito.
-        adb shell "am start -a android.intent.action.VIEW -d $(device_quote "prosto-debug://secure?enabled=$value") $PKG" >/dev/null
+        adb shell "am start -a android.intent.action.VIEW -d $(device_quote "prosto-debug://secure?enabled=$value") $PKG" >/dev/null 2>&1
+        # The flag changes a moment after the intent; wait for it so an immediate shot is not black.
+        # Only checkable while an incognito tab is active (the flag is never set otherwise).
+        for _ in 1 2 3 4 5 6 7 8 9 10; do
+            secure_now="$(adb shell dumpsys window windows | grep -A12 "Window{.*$PKG/" | grep -c SECURE || true)"
+            [[ "$value" == 0 && "$secure_now" == 0 ]] && break
+            [[ "$value" == 1 && "$secure_now" != 0 ]] && break
+            sleep 0.3
+        done
         echo "FLAG_SECURE $1 (incognito)"
         ;;
     log)
