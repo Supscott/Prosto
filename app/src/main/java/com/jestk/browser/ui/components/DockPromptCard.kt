@@ -19,8 +19,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
@@ -44,6 +45,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoCardSurface
@@ -62,10 +64,17 @@ data class DockPromptAction(
     val primary: Boolean = false,
     val color: Color? = null,
     val testTag: String? = null,
+    val enabled: Boolean = true,
 )
 
 /** Previews switch the enter animation off so a still frame shows the finished card. */
 val LocalDockPromptAnimateEnter = staticCompositionLocalOf { true }
+
+/** Previews set this to simulate an open keyboard (bottom inset of the IME, including the nav bar). */
+val LocalDockPromptImeBottom = staticCompositionLocalOf<Dp?> { null }
+
+/** Gap between the top edge of the keyboard and the card while the keyboard is open. */
+private val CardAboveImeGap = 8.dp
 
 /** Distance from the bottom navigation bar inset to the card: the same as the Menu card above the dock. */
 private val CardBottomOffset = 64.dp
@@ -93,6 +102,9 @@ fun DockPromptCard(
     undimmedBottom: Dp = DockTopAboveNavBar,
 ) {
     val navBarBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    // The IME inset animates with the keyboard, so the card follows it frame by frame.
+    val imeBottom = LocalDockPromptImeBottom.current ?: WindowInsets.ime.asPaddingValues().calculateBottomPadding()
+    val cardBottom = maxOf(navBarBottom + CardBottomOffset, imeBottom + CardAboveImeGap)
     val animateEnter = LocalDockPromptAnimateEnter.current
     val typography = LocalProstoTypography.current
     val cardBg = if (isDark) DarkSurface else ProstoCardSurface
@@ -106,7 +118,8 @@ fun DockPromptCard(
             .fillMaxSize()
             .drawBehind {
                 // Dim the page only: the dock strip stays clear, but a tap on it still dismisses.
-                val clearBottom = navBarBottom.toPx() + undimmedBottom.toPx()
+                // The keyboard covers the strip as it rises, so the clear part shrinks with it.
+                val clearBottom = (navBarBottom.toPx() + undimmedBottom.toPx() - imeBottom.toPx()).coerceAtLeast(0f)
                 drawRect(Color.Black.copy(alpha = 0.32f), size = Size(size.width, (size.height - clearBottom).coerceAtLeast(0f)))
             }
             .pointerInput(onDismiss) { detectTapGestures(onTap = { onDismiss() }) },
@@ -120,8 +133,8 @@ fun DockPromptCard(
                     slideInVertically(animationSpec = tween(220, easing = FastOutSlowInEasing)) { it / 3 },
             exit = androidx.compose.animation.ExitTransition.None,
             modifier = Modifier
-                .navigationBarsPadding()
-                .padding(start = 16.dp, end = 16.dp, bottom = CardBottomOffset),
+                .statusBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = cardBottom),
         ) {
             Column(
                 modifier = Modifier
@@ -212,17 +225,20 @@ private fun PromptButton(action: DockPromptAction, isDark: Boolean) {
     if (action.primary) {
         Button(
             onClick = action.onClick,
+            enabled = action.enabled,
             shape = ProstoShapes.Pill,
             colors = ButtonDefaults.buttonColors(
                 containerColor = action.color ?: ProstoBrandPrimary,
                 contentColor = Color.White,
+                disabledContainerColor = if (isDark) DarkSurfaceVariant else Color(0xFFE2E8F0),
+                disabledContentColor = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate,
             ),
             modifier = tag,
         ) {
             Text(text = action.label, style = typography.labelMd, fontWeight = FontWeight.SemiBold)
         }
     } else {
-        TextButton(onClick = action.onClick, modifier = tag) {
+        TextButton(onClick = action.onClick, enabled = action.enabled, modifier = tag) {
             Text(
                 text = action.label,
                 style = typography.labelMd,

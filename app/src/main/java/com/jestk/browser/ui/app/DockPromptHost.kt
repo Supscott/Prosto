@@ -3,6 +3,8 @@ package com.jestk.browser.ui.app
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import com.jestk.browser.ui.launchExternalApp
+import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
+import com.jestk.browser.ui.overlays.AddFavoriteDialog
 import com.jestk.browser.ui.overlays.DisableBlockingDialog
 import com.jestk.browser.ui.overlays.DuplicateDownloadHost
 import com.jestk.browser.ui.overlays.ExternalAppConfirmDialog
@@ -15,7 +17,9 @@ import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 
 /** True while one of the confirmations hosted by [DockPromptHost] is on screen. */
 internal fun hasDockPrompt(uiState: BrowserUiState): Boolean =
-    uiState.insecureHttpPrompt != null ||
+    uiState.showAddFavoriteDialog ||
+        uiState.showAddEditSearchEngineDialog ||
+        uiState.insecureHttpPrompt != null ||
         uiState.siteBlockingPromptHost != null ||
         uiState.duplicateDownloadPrompt != null ||
         uiState.externalAppPrompt?.requiresConfirmation == true
@@ -32,6 +36,24 @@ internal fun DockPromptHost(uiState: BrowserUiState, onEvent: (BrowserUiEvent) -
     val blockingHost = uiState.siteBlockingPromptHost
     val external = uiState.externalAppPrompt?.takeIf { it.requiresConfirmation }
     when {
+        // Forms come first so a prompt arriving meanwhile does not tear down what the user typed.
+        uiState.showAddFavoriteDialog -> AddFavoriteDialog(
+            isDark = isDark,
+            onDismiss = { onEvent(BrowserUiEvent.DismissAddFavoriteDialog) },
+            onConfirm = { title, url ->
+                onEvent(BrowserUiEvent.AddFavorite(title, url))
+                onEvent(BrowserUiEvent.DismissAddFavoriteDialog)
+            },
+        )
+        uiState.showAddEditSearchEngineDialog -> AddEditSearchEngineDialog(
+            isDark = isDark,
+            existingEngines = uiState.searchEngines,
+            engineToEdit = uiState.editingSearchEngine,
+            onDismiss = { onEvent(BrowserUiEvent.DismissAddSearchEngineDialog) },
+            onSave = { id, title, shortcut, urlTemplate ->
+                onEvent(BrowserUiEvent.SaveSearchEngine(id = id, title = title, shortcut = shortcut, urlTemplate = urlTemplate))
+            },
+        )
         insecure != null -> InsecureHttpWarningDialog(
             isDark = isDark,
             url = insecure.url,

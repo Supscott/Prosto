@@ -4,8 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.engine.WebViewPool
-import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
-import com.jestk.browser.ui.overlays.AddFavoriteDialog
 import com.jestk.browser.ui.overlays.FeedbackBottomSheet
 import com.jestk.browser.ui.overlays.FolderEditBottomSheet
 import com.jestk.browser.ui.overlays.ImageContextMenuModal
@@ -47,38 +45,6 @@ internal fun AppDialogs(
                     mimeType = "image/*",
                     contentLength = 0L,
                     context = context,
-                )
-            },
-        )
-    }
-
-    // Add Favorite Modal Dialog
-    if (uiState.showAddFavoriteDialog) {
-        AddFavoriteDialog(
-            isDark = isDark,
-            onDismiss = { onEvent(BrowserUiEvent.DismissAddFavoriteDialog) },
-            onConfirm = { title, url ->
-                onEvent(BrowserUiEvent.AddFavorite(title, url))
-                onEvent(BrowserUiEvent.DismissAddFavoriteDialog)
-            },
-        )
-    }
-
-    // Add / Edit Search Engine Modal Dialog
-    if (uiState.showAddEditSearchEngineDialog) {
-        AddEditSearchEngineDialog(
-            isDark = isDark,
-            existingEngines = uiState.searchEngines,
-            engineToEdit = uiState.editingSearchEngine,
-            onDismiss = { onEvent(BrowserUiEvent.DismissAddSearchEngineDialog) },
-            onSave = { id, title, shortcut, urlTemplate ->
-                onEvent(
-                    BrowserUiEvent.SaveSearchEngine(
-                        id = id,
-                        title = title,
-                        shortcut = shortcut,
-                        urlTemplate = urlTemplate,
-                    )
                 )
             },
         )

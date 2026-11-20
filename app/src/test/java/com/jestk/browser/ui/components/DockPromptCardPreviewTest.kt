@@ -21,6 +21,10 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.domain.model.ThemeMode
+import androidx.compose.ui.unit.Dp
+import com.jestk.browser.domain.model.SearchEngine
+import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
+import com.jestk.browser.ui.overlays.AddFavoriteDialog
 import com.jestk.browser.ui.overlays.DuplicateDownloadPrompt
 import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
 import com.jestk.browser.ui.theme.JestkBrowserTheme
@@ -53,10 +57,38 @@ class DockPromptCardPreviewTest {
         }
     }
 
+    @Test
+    fun renderFormPreviews() {
+        val engines = SearchEngine.DEFAULT_ENGINES
+        for (dark in listOf(false, true)) {
+            val suffix = if (dark) "dark" else "light"
+            render("dock_prompt_favorite_$suffix.png", dark, 1.0f) { d ->
+                AddFavoriteDialog(d, {}, { _, _ -> }, initialTitle = "GitHub", initialUrl = "https://github.com")
+            }
+            render("dock_prompt_favorite_empty_$suffix.png", dark, 1.0f) { d -> AddFavoriteDialog(d, {}, { _, _ -> }) }
+            render("dock_prompt_favorite_large_font_$suffix.png", dark, 1.3f) { d ->
+                AddFavoriteDialog(d, {}, { _, _ -> }, initialTitle = "GitHub", initialUrl = "https://github.com")
+            }
+            render("dock_prompt_engine_$suffix.png", dark, 1.0f) { d ->
+                AddEditSearchEngineDialog(d, engines, null, {}, { _, _, _, _ -> })
+            }
+            render("dock_prompt_engine_edit_large_font_$suffix.png", dark, 1.3f) { d ->
+                AddEditSearchEngineDialog(d, engines, engines.first(), {}, { _, _, _, _ -> })
+            }
+            render("dock_prompt_engine_ime_$suffix.png", dark, 1.15f, imeBottom = 340.dp) { d ->
+                AddEditSearchEngineDialog(d, engines, engines.first(), {}, { _, _, _, _ -> })
+            }
+            render("dock_prompt_favorite_ime_$suffix.png", dark, 1.15f, imeBottom = 340.dp) { d ->
+                AddFavoriteDialog(d, {}, { _, _ -> }, initialTitle = "GitHub", initialUrl = "https://github.com")
+            }
+        }
+    }
+
     private fun render(
         fileName: String,
         isDark: Boolean,
         fontScale: Float,
+        imeBottom: Dp? = null,
         prompt: @Composable (Boolean) -> Unit,
     ) {
         val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
@@ -65,6 +97,7 @@ class DockPromptCardPreviewTest {
                 CompositionLocalProvider(
                     androidx.compose.ui.platform.LocalDensity provides Density(3f, fontScale),
                     LocalDockPromptAnimateEnter provides false,
+                    LocalDockPromptImeBottom provides imeBottom,
                 ) {
                     JestkBrowserTheme(themeMode = if (isDark) ThemeMode.DARK else ThemeMode.LIGHT) {
                         Box(modifier = Modifier.fillMaxSize().background(if (isDark) Color(0xFF0F172A) else Color(0xFFE9F6F2))) {
