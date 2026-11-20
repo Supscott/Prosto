@@ -109,7 +109,7 @@ Report in <=12 lines: branch, files, test result lines, platform assumptions a d
 - `tools/device.sh sleep` when done.
 
 ### 8. Update Linear
-- Start: move worked issues to *In Progress* (one Linear write per call, not in parallel).
+- Start: move worked issues to *In Progress* (save_issue/save_comment are allowlisted: send them all in one message).
 - After merge: a comment with commit ids, what changed and the remaining device checks.
 - After device verification: *Done*. Anything waiting on the user (not reproduced → repro steps,
   a decision, permission for an outward action, a check only the user can do): comment, then
