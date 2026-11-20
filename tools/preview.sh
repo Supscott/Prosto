@@ -7,6 +7,9 @@ cd "$ROOT"
 # shellcheck source=tools/ensure_worktree_files.sh
 source "$ROOT/tools/ensure_worktree_files.sh"
 ensure_worktree_files "$ROOT"
+# shellcheck source=tools/gradle_lock.sh
+source "$ROOT/tools/gradle_lock.sh"
+gradle_lock "$@"
 
 TARGET="${1:-BottomBarPreviewTest}"
 # LOW_MEM=1 compiles in-process when the Kotlin daemon runs out of memory (parallel worktrees).

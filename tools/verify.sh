@@ -133,6 +133,10 @@ fi
 started=$(date +%s)
 status=0
 # pipefail makes the function return the Gradle status, not tail's.
+# shellcheck source=tools/gradle_lock.sh
+source "$ROOT/tools/gradle_lock.sh"
+gradle_lock "$@"
+
 # LOW_MEM=1 compiles in-process when the Kotlin daemon runs out of memory (parallel worktrees).
 LOW_MEM_ARGS=()
 if [[ "${LOW_MEM:-}" == "1" ]]; then

@@ -39,8 +39,9 @@ while the agents work.
 - **Group by files.** Small issues touching the same files → one agent. A task that builds on
   another's new API (e.g. PRO-59 used PRO-60's swipe pill) waits for it and gets that API named
   in its brief.
-- **Parallelism:** at most 2 agents that run Gradle at the same time (8 GB machine). Shell/Python
-  harness agents that do not run Gradle can be a third.
+- **Parallelism:** at most 2 Gradle agents at a time; their builds queue on the repo-wide Gradle
+  lock (`tools/gradle_lock.sh`), so agents overlap only in reading/editing. Main-session builds
+  queue too. Shell/Python harness agents that do not run Gradle can be a third.
 - **Model:** Haiku for shell/Python harness scripts, Sonnet for Kotlin/Compose features, the main
   session (Opus) for design, review, merging, device checks and small fixes.
 - **Fresh agent per task.** Do not hand a new task to a finished agent: its whole history is

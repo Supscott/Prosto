@@ -129,7 +129,8 @@ case "$cmd" in
         ;;
     install)
         state="$(install_stamp_state "$ROOT" 2>/dev/null || true)"
-        (cd "$ROOT" && { ./gradlew -q :app:installDebug || { echo "install failed, retrying once" >&2; ./gradlew -q :app:installDebug; }; })
+        # shellcheck source=tools/gradle_lock.sh
+        (cd "$ROOT" && source tools/gradle_lock.sh && gradle_lock install && { ./gradlew -q :app:installDebug || { echo "install failed, retrying once" >&2; ./gradlew -q :app:installDebug; }; })
         install_stamp_write "$ROOT" "$state"
         echo "installed $PKG"
         ;;
