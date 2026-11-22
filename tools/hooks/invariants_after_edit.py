@@ -24,6 +24,21 @@ def find_root(path):
     return None
 
 
+def ensure_worktree_files(root):
+    """Copies the git-ignored TASKS.md and local.properties into a fresh worktree, so the check does
+    not report 'TASKS.md is missing' before the first verify.sh run. Best effort: never fails the hook."""
+    script = root / "tools" / "ensure_worktree_files.sh"
+    if not script.is_file():
+        return
+    try:
+        subprocess.run(
+            ["bash", "-c", 'source "$1"; ensure_worktree_files "$2"', "ensure", str(script), str(root)],
+            cwd=root, capture_output=True, text=True, timeout=30,
+        )
+    except (OSError, subprocess.SubprocessError):
+        pass
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -40,6 +55,7 @@ def main():
     if not rel.startswith(WATCHED):
         return 0
 
+    ensure_worktree_files(root)
     try:
         result = subprocess.run(
             [sys.executable, "tools/check_invariants.py"],
