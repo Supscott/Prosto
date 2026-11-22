@@ -16,6 +16,8 @@ import test_summary
 
 NO_SUCH_METHOD = "java.lang.NoSuchMethodError: BrowserUiState.<init>(Lcom/jestk/Foo;)V"
 ASSERTION = "expected:<true> but was:<false>"
+APP_CLASS_MISSING = "java.lang.NoClassDefFoundError: com/jestk/browser/ui/overlays/AddEditSearchEngineDialogKt"
+NON_APP_CLASS_MISSING = "java.lang.NoClassDefFoundError: org/foo/Bar"
 
 
 def write_report(directory, name, failures, passing=0):
@@ -44,8 +46,12 @@ class StaleBuildTest(unittest.TestCase):
         write_report(self.directory.name, "TEST-a.xml", [(NO_SUCH_METHOD, "")] * 6)
         self.assertEqual(self.exit_code(), test_summary.STALE_EXIT_CODE)
 
-    def test_below_minimum_failures_is_not_stale(self):
+    def test_few_failures_all_linkage_is_stale(self):
         write_report(self.directory.name, "TEST-a.xml", [(NO_SUCH_METHOD, "")] * 4)
+        self.assertEqual(self.exit_code(), test_summary.STALE_EXIT_CODE)
+
+    def test_below_minimum_mixed_failures_is_not_stale(self):
+        write_report(self.directory.name, "TEST-a.xml", [(NO_SUCH_METHOD, "")] * 3 + [(ASSERTION, "")])
         self.assertEqual(self.exit_code(), 0)
 
     def test_below_share_threshold_is_not_stale(self):
@@ -60,6 +66,24 @@ class StaleBuildTest(unittest.TestCase):
 
     def test_ordinary_assertion_failures_are_not_stale(self):
         write_report(self.directory.name, "TEST-a.xml", [(ASSERTION, "")] * 6)
+        self.assertEqual(self.exit_code(), 0)
+
+    def test_four_app_class_not_found_failures_are_stale(self):
+        write_report(self.directory.name, "TEST-a.xml", [(APP_CLASS_MISSING, "")] * 4)
+        self.assertEqual(self.exit_code(), test_summary.STALE_EXIT_CODE)
+
+    def test_dotted_app_class_not_found_is_stale(self):
+        dotted = APP_CLASS_MISSING.replace("com/jestk/browser/ui/overlays/AddEditSearchEngineDialogKt",
+                                           "com.jestk.browser.ui.overlays.AddEditSearchEngineDialogKt")
+        write_report(self.directory.name, "TEST-a.xml", [(dotted, "")] * 4)
+        self.assertEqual(self.exit_code(), test_summary.STALE_EXIT_CODE)
+
+    def test_non_app_class_not_found_is_not_stale(self):
+        write_report(self.directory.name, "TEST-a.xml", [(NON_APP_CLASS_MISSING, "")] * 4)
+        self.assertEqual(self.exit_code(), 0)
+
+    def test_one_linkage_and_one_assertion_is_not_stale(self):
+        write_report(self.directory.name, "TEST-a.xml", [(APP_CLASS_MISSING, ""), (ASSERTION, "")])
         self.assertEqual(self.exit_code(), 0)
 
     def test_marker_only_in_stack_trace_counts(self):

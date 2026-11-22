@@ -9,16 +9,20 @@ run started are counted.
 classes (a constructor or field they call changed and they were not recompiled), else 0.
 """
 
+import re
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
 RESULTS = Path(__file__).resolve().parent.parent / "app" / "build" / "test-results" / "testDebugUnitTest"
 MAX_LISTED_FAILURES = 20
-# Stale-build detection: at least this many failures, and at least this share of them linkage errors.
+# Stale-build detection: a run is stale when every failure is a linkage error, or when at least
+# STALE_MIN_FAILURES failures exist and at least STALE_MIN_SHARE of them are linkage errors.
 STALE_MIN_FAILURES = 5
 STALE_MIN_SHARE = 0.8
-STALE_MARKERS = ("NoSuchMethodError", "NoSuchFieldError", "NoClassDefFoundError")
+STALE_MARKERS = ("NoSuchMethodError", "NoSuchFieldError")
+# A NoClassDefFoundError counts only for an app class (a renamed or deleted file leaves its old class behind).
+APP_CLASS_NOT_FOUND = re.compile(r"NoClassDefFoundError: com[/.]jestk[/.]browser[/.]")
 STALE_EXIT_CODE = 3
 
 
@@ -49,12 +53,19 @@ def collect(reports):
     return total, skipped, failures
 
 
+def is_linkage_error(raw):
+    return any(marker in raw for marker in STALE_MARKERS) or APP_CLASS_NOT_FOUND.search(raw) is not None
+
+
 def is_stale_build(raw_messages):
-    """True when the failures are mostly linkage errors, the signature of stale incremental classes."""
-    if len(raw_messages) < STALE_MIN_FAILURES:
+    """True when the failures are linkage errors, the signature of stale incremental classes:
+    every failure is one, or at least STALE_MIN_FAILURES failures with STALE_MIN_SHARE of them."""
+    if not raw_messages:
         return False
-    linkage = sum(1 for raw in raw_messages if any(marker in raw for marker in STALE_MARKERS))
-    return linkage / len(raw_messages) >= STALE_MIN_SHARE
+    linkage = sum(1 for raw in raw_messages if is_linkage_error(raw))
+    if linkage == len(raw_messages):
+        return True
+    return len(raw_messages) >= STALE_MIN_FAILURES and linkage / len(raw_messages) >= STALE_MIN_SHARE
 
 
 def main(argv):

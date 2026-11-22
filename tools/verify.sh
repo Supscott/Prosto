@@ -178,13 +178,13 @@ run_tests ${test_args[@]+"${test_args[@]}"} || status=$?
 
 python3 tools/test_summary.py "$started"
 if [[ $status -ne 0 ]]; then
-    # Mass NoSuchMethodError/NoSuchFieldError means stale incremental test classes, not a real
-    # failure: drop their compiled output and rerun the same selection once. A second failure is
-    # reported as it is.
+    # Linkage errors (NoSuchMethodError/NoSuchFieldError, NoClassDefFoundError for app classes) mean
+    # stale incremental test classes, not a real failure: drop their compiled output and rerun the
+    # same selection once. A second failure is reported as it is.
     stale_rc=0
     python3 tools/test_summary.py "$started" --stale-check || stale_rc=$?
     if [[ $stale_rc -eq 3 ]]; then
-        echo "==> Stale incremental test classes (NoSuchMethodError); cleaning and rerunning once"
+        echo "==> Stale incremental test classes (linkage errors); cleaning and rerunning once"
         rm -rf app/build/tmp/kotlin-classes/debugUnitTest app/build/kotlin/compileDebugUnitTestKotlin
         started=$(date +%s)
         status=0
