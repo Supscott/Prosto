@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
@@ -40,7 +39,7 @@ internal fun LazyItemScope.TabStripDockItem(
     centerPillBorder: BorderStroke?,
     circleBtnBg: Color,
     tabSpacingPx: Float,
-    renderedActiveWidth: Dp,
+    tabSwitch: TabSwitchAnimationState,
     homeTitle: String,
     fallbackTitle: String,
     contextMenuTabIdState: MutableState<String?>,
@@ -132,6 +131,7 @@ internal fun LazyItemScope.TabStripDockItem(
         is DockItem.TabItem -> {
             val tab = item.tab
             val isActive = tab.id == uiState.activeTabId
+            val isPill = tab.id == tabSwitch.pillTabId
             val tabIsHome = tab.isHomeTab || (isHome && isActive)
             val isElevated = dragState.draggingTabId == tab.id || dragState.settlingTabId == tab.id
             val folder = item.folder
@@ -142,11 +142,17 @@ internal fun LazyItemScope.TabStripDockItem(
                 } else {
                     Modifier.animateItem(
                         fadeOutSpec = null,
+                        // A sequential switch moves neighbours with the animated pill width: a placement
+                        // spring on top would lag behind it and overlap the growing pill.
                         placementSpec =
-                            spring(
-                                stiffness = Spring.StiffnessMedium,
-                                dampingRatio = Spring.DampingRatioLowBouncy,
-                            ),
+                            if (tabSwitch.isSequencing) {
+                                null
+                            } else {
+                                spring(
+                                    stiffness = Spring.StiffnessMedium,
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                )
+                            },
                     )
                 }
 
@@ -170,7 +176,7 @@ internal fun LazyItemScope.TabStripDockItem(
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                if (isActive) {
+                if (isPill) {
                     val displayInfo = resolveTabDisplayInfo(tab = tab, isActive = true, isHome = tabIsHome, uiState = uiState, homeTitle = homeTitle, fallbackTitle = fallbackTitle)
 
                     ActiveTabPill(
@@ -203,14 +209,14 @@ internal fun LazyItemScope.TabStripDockItem(
                         },
                         modifier =
                             Modifier
-                                .width(renderedActiveWidth)
+                                .layoutWidth { tabSwitch.pillWidth }
                                 .testTag("tab_${tab.id}")
                                 .graphicsLayer {
                                     alpha = if (isElevated) 0f else 1f
                                 },
                         menuExpanded = contextMenuTabId == tab.id,
                         onMenuDismiss = { contextMenuTabId = null },
-                        isCompact = false,
+                        isCompact = tabSwitch.isCompact,
                         isRemovePending = false,
                         removeProgress = 0f,
                         folderId = tab.folderId,

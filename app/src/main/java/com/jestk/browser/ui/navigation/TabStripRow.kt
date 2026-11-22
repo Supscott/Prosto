@@ -311,6 +311,13 @@ fun TabStripRow(
             ),
             label = "ActiveTabDragWidth",
         )
+        val tabSwitch = rememberTabSwitchAnimation(
+            activeTabId = uiState.activeTabId,
+            dockItems = dockItems,
+            activeWidth = activeTabWidth,
+            bypass = dragState.isDragging || dragState.isSettling,
+            draggedWidth = renderedActiveWidth,
+        )
 
         LazyRow(
             state = lazyListState,
@@ -355,7 +362,7 @@ fun TabStripRow(
                     centerPillBorder = centerPillBorder,
                     circleBtnBg = circleBtnBg,
                     tabSpacingPx = tabSpacingPx,
-                    renderedActiveWidth = renderedActiveWidth,
+                    tabSwitch = tabSwitch,
                     homeTitle = homeTitle,
                     fallbackTitle = fallbackTitle,
                     contextMenuTabIdState = contextMenuTabIdState,
