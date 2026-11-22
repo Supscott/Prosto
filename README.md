@@ -12,6 +12,8 @@
 
   <sub>Android 8.0+ · free · GPL-3.0 · no telemetry</sub>
 
+  <sub>If Prosto is useful to you, a ⭐ helps others find it.</sub>
+
   [![Release](https://img.shields.io/github/v/release/Supscott/Prosto?style=flat-square&color=2563EB&label=Release)](https://github.com/Supscott/Prosto/releases)
   [![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-3B82F6.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
   [![Android Min SDK](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-34D399.svg?style=flat-square)](https://developer.android.com/about/versions/oreo)
@@ -24,6 +26,14 @@
 <p align="center">
   <img src="assets/home-light-dark.png" alt="Prosto Home screen, light and dark themes" width="560" />
 </p>
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="assets/switch-tabs.gif" alt="Switching tabs in the dock" width="240" /><br/><sub>Tabs always on the dock</sub></td>
+    <td align="center"><img src="assets/folder.gif" alt="Opening and closing a folder in the tab grid" width="240" /><br/><sub>Folders open in place</sub></td>
+    <td align="center"><img src="assets/workspaces.gif" alt="Switching between workspaces" width="240" /><br/><sub>Swipe up to pick a workspace</sub></td>
+  </tr>
+</table>
 
 > **Join the closed test.** Prosto is coming to Google Play, and Google requires 12 testers for 14 days first. If you are on Android 8.0+, [sign up here](https://forms.gle/2txbUY8orJMC7czk6) (one minute). You will get a Play opt-in link by email; staying opted in for 14 days is all it takes.
 
@@ -81,16 +91,6 @@ Most mobile browsers hide your tabs behind a button. Prosto is built around one 
 ### ⚙️ Settings & Updates
 - **Organised settings:** categories with their own screens, and quick-toggle tiles for the switches you use most.
 - **In-app updates:** Prosto checks GitHub Releases for a new version, shows an update card and downloads the APK for you to install.
-
-### 🎬 In Action
-
-<table>
-  <tr>
-    <td align="center"><img src="assets/switch-tabs.gif" alt="Switching tabs in the dock" width="240" /><br/><sub>Tabs always on the dock</sub></td>
-    <td align="center"><img src="assets/folder.gif" alt="Opening and closing a folder in the tab grid" width="240" /><br/><sub>Folders open in place</sub></td>
-    <td align="center"><img src="assets/workspaces.gif" alt="Switching between workspaces" width="240" /><br/><sub>Swipe up to pick a workspace</sub></td>
-  </tr>
-</table>
 
 ---
 
