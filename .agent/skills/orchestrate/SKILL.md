@@ -42,6 +42,10 @@ while the agents work.
 - **Parallelism:** at most 2 Gradle agents at a time; their builds queue on the repo-wide Gradle
   lock (`tools/gradle_lock.sh`), so agents overlap only in reading/editing. Main-session builds
   queue too. Shell/Python harness agents that do not run Gradle can be a third.
+- **One shared test run (user's rule).** Parallel coding agents run only their own new/edited
+  test classes (under `timeout 300`), previews and invariants, then commit; no full
+  `verify.sh`. The orchestrator merges all branches and runs `verify.sh --all` once on main.
+  If an agent's build idles at 0% CPU while others wait on the lock, kill its test JVM.
 - **Model:** Haiku for shell/Python harness scripts, Sonnet for Kotlin/Compose features and for
   running device checks (`prosto-device`), the main session (Opus) for design, review decisions,
   merging and judging device results.

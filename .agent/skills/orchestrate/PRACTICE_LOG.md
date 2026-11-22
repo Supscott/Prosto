@@ -14,6 +14,12 @@ How to keep it useful:
 - Keep the file under ~60 lines.
 
 ## Entries
+- 2026-11-22 — PRO-93 (Sonnet, 59 turns, 913k) hung its test JVM twice at 0% CPU (its test used
+  the TestScope as the engine scope; a `withContext(Main)` hop deadlocked the Robolectric looper)
+  and held the Gradle lock ~26 min, so PRO-94 (Sonnet, 35 turns, 436k) waited; the user saw it
+  first. Haiku PRO-91+92: 246k. After the user asked, both agents committed after their own tests
+  and one `verify.sh --all` on main passed 1671/1671. → "One shared test run" rule; PRO-97
+  (Gradle test timeout).
 - 2026-11-20 — Main-session transcript of the 2026-11-20 orchestration (`agent_cost.py` works on
   it): 189 turns, 40M cache reads, 4950k Opus units. Of 228 Bash calls about half were device
   commands (`device.sh`/`smoke.sh`/adb); of 92 edits, 80 were skills, docs and `tools/`, 13 were
