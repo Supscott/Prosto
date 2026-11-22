@@ -98,9 +98,9 @@ data class BrowserUiState(
     val isFolderSheetVisible: Boolean = false,
     val folderSheetTargetTabId: String? = null,
     val folderSheetEditingFolderId: String? = null,
-    val showAddFavoriteDialog: Boolean = false,
+    val showAddFavoritePrompt: Boolean = false,
     val searchEngines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
-    val showAddEditSearchEngineDialog: Boolean = false,
+    val showAddEditSearchEnginePrompt: Boolean = false,
     val editingSearchEngine: SearchEngine? = null,
     val isSearchEngineSwitcherEditExpanded: Boolean = false,
     val blockedAdsCount: Long = 0L,
@@ -119,7 +119,7 @@ data class BrowserUiState(
     val siteAllowlist: List<com.jestk.browser.domain.model.SiteAllowlistEntry> = emptyList(),
     /** Protection level and filter-list state for the settings screen (CB-15). */
     val contentBlocking: com.jestk.browser.engine.adblock.ContentBlockingStatus = com.jestk.browser.engine.adblock.ContentBlockingStatus(),
-    /** The site the "Disable blocking" dialog is asking about; null while it is closed. */
+    /** The site the "Disable blocking" prompt is asking about; null while it is closed. */
     val siteBlockingPromptHost: String? = null,
 ) {
     val visibleSearchPageEngines: List<SearchEngine>

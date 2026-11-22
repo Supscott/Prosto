@@ -252,7 +252,7 @@ internal class SearchCoordinator(
             state.copy(
                 searchEngines = updatedList,
                 settings = updatedSettings,
-                showAddEditSearchEngineDialog = false,
+                showAddEditSearchEnginePrompt = false,
                 editingSearchEngine = null,
             )
         }

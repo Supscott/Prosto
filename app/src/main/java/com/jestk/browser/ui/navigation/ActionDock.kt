@@ -70,7 +70,7 @@ import com.jestk.browser.ui.theme.prostoFloatingSurface
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.EnableBlockingForCurrentSite
-import com.jestk.browser.ui.viewmodel.OpenDisableBlockingDialog
+import com.jestk.browser.ui.viewmodel.OpenDisableBlockingPrompt
 import com.jestk.browser.ui.viewmodel.currentAllowlistSite
 import com.jestk.browser.ui.viewmodel.isCurrentSiteAllowlisted
 
@@ -190,7 +190,7 @@ fun ActionPopupMenu(
                         isActive = isAllowlisted,
                         isDark = isDark,
                         onClick = {
-                            onEvent(if (isAllowlisted) EnableBlockingForCurrentSite else OpenDisableBlockingDialog)
+                            onEvent(if (isAllowlisted) EnableBlockingForCurrentSite else OpenDisableBlockingPrompt)
                             onEvent(BrowserUiEvent.SetMenuExpanded(false))
                         },
                     )

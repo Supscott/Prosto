@@ -44,7 +44,7 @@ import com.jestk.browser.util.UrlSecurityUtils
  * Primary safe choice (Go back) vs deliberate secondary choice (Continue anyway).
  */
 @Composable
-fun InsecureHttpWarningDialog(
+fun InsecureHttpWarningPrompt(
     isDark: Boolean,
     url: String,
     onDismiss: () -> Unit,

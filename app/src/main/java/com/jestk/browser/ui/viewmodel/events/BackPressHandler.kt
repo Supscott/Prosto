@@ -28,9 +28,9 @@ internal class BackPressHandler(
             is BackAction.Dispatch -> dispatch(action.event)
             BackAction.CloseSearchEngineSwitcherEdit ->
                 updateUiState { it.copy(isSearchEngineSwitcherEditExpanded = false) }
-            BackAction.CloseAddEditSearchEngineDialog ->
-                updateUiState { it.copy(showAddEditSearchEngineDialog = false, editingSearchEngine = null) }
-            BackAction.CloseAddFavoriteDialog -> updateUiState { it.copy(showAddFavoriteDialog = false) }
+            BackAction.CloseAddEditSearchEnginePrompt ->
+                updateUiState { it.copy(showAddEditSearchEnginePrompt = false, editingSearchEngine = null) }
+            BackAction.CloseAddFavoritePrompt -> updateUiState { it.copy(showAddFavoritePrompt = false) }
             BackAction.CloseImageContextMenu -> updateUiState {
                 it.copy(
                     selectedImageUrl = null,

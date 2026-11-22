@@ -3,22 +3,22 @@ package com.jestk.browser.ui.app
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import com.jestk.browser.ui.launchExternalApp
-import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
-import com.jestk.browser.ui.overlays.AddFavoriteDialog
-import com.jestk.browser.ui.overlays.DisableBlockingDialog
+import com.jestk.browser.ui.overlays.AddEditSearchEnginePrompt
+import com.jestk.browser.ui.overlays.AddFavoritePrompt
+import com.jestk.browser.ui.overlays.DisableBlockingPrompt
 import com.jestk.browser.ui.overlays.DuplicateDownloadHost
-import com.jestk.browser.ui.overlays.ExternalAppConfirmDialog
-import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
+import com.jestk.browser.ui.overlays.ExternalAppConfirmPrompt
+import com.jestk.browser.ui.overlays.InsecureHttpWarningPrompt
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.ConfirmDisableBlocking
-import com.jestk.browser.ui.viewmodel.DismissDisableBlockingDialog
+import com.jestk.browser.ui.viewmodel.DismissDisableBlockingPrompt
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 
 /** True while one of the confirmations hosted by [DockPromptHost] is on screen. */
 internal fun hasDockPrompt(uiState: BrowserUiState): Boolean =
-    uiState.showAddFavoriteDialog ||
-        uiState.showAddEditSearchEngineDialog ||
+    uiState.showAddFavoritePrompt ||
+        uiState.showAddEditSearchEnginePrompt ||
         uiState.insecureHttpPrompt != null ||
         uiState.siteBlockingPromptHost != null ||
         uiState.duplicateDownloadPrompt != null ||
@@ -37,38 +37,38 @@ internal fun DockPromptHost(uiState: BrowserUiState, onEvent: (BrowserUiEvent) -
     val external = uiState.externalAppPrompt?.takeIf { it.requiresConfirmation }
     when {
         // Forms come first so a prompt arriving meanwhile does not tear down what the user typed.
-        uiState.showAddFavoriteDialog -> AddFavoriteDialog(
+        uiState.showAddFavoritePrompt -> AddFavoritePrompt(
             isDark = isDark,
-            onDismiss = { onEvent(BrowserUiEvent.DismissAddFavoriteDialog) },
+            onDismiss = { onEvent(BrowserUiEvent.DismissAddFavoritePrompt) },
             onConfirm = { title, url ->
                 onEvent(BrowserUiEvent.AddFavorite(title, url))
-                onEvent(BrowserUiEvent.DismissAddFavoriteDialog)
+                onEvent(BrowserUiEvent.DismissAddFavoritePrompt)
             },
         )
-        uiState.showAddEditSearchEngineDialog -> AddEditSearchEngineDialog(
+        uiState.showAddEditSearchEnginePrompt -> AddEditSearchEnginePrompt(
             isDark = isDark,
             existingEngines = uiState.searchEngines,
             engineToEdit = uiState.editingSearchEngine,
-            onDismiss = { onEvent(BrowserUiEvent.DismissAddSearchEngineDialog) },
+            onDismiss = { onEvent(BrowserUiEvent.DismissAddSearchEnginePrompt) },
             onSave = { id, title, shortcut, urlTemplate ->
                 onEvent(BrowserUiEvent.SaveSearchEngine(id = id, title = title, shortcut = shortcut, urlTemplate = urlTemplate))
             },
         )
-        insecure != null -> InsecureHttpWarningDialog(
+        insecure != null -> InsecureHttpWarningPrompt(
             isDark = isDark,
             url = insecure.url,
             onDismiss = { onEvent(BrowserUiEvent.DismissInsecureHttpWarning) },
             onConfirm = { onEvent(BrowserUiEvent.ConfirmInsecureHttpNavigation) },
         )
-        blockingHost != null -> DisableBlockingDialog(
+        blockingHost != null -> DisableBlockingPrompt(
             isDark = isDark,
             host = blockingHost,
-            onDismiss = { onEvent(DismissDisableBlockingDialog) },
+            onDismiss = { onEvent(DismissDisableBlockingPrompt) },
             onConfirm = { allWorkspaces -> onEvent(ConfirmDisableBlocking(allWorkspaces)) },
         )
         uiState.duplicateDownloadPrompt != null -> DuplicateDownloadHost(uiState, isDark, onEvent)
         // Cancel and Close tab dismiss transiently so a later tap is offered again.
-        external != null -> ExternalAppConfirmDialog(
+        external != null -> ExternalAppConfirmPrompt(
             isDark = isDark,
             onOpen = {
                 onEvent(BrowserUiEvent.OpenExternalApp(external))

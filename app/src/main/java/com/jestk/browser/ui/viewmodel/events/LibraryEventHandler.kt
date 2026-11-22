@@ -25,12 +25,12 @@ internal class LibraryEventHandler(
 ) {
     fun handle(event: LibraryUiEvent) {
         when (event) {
-            is BrowserUiEvent.ShowAddFavoriteDialog -> {
-                updateUiState { it.copy(showAddFavoriteDialog = true) }
+            is BrowserUiEvent.ShowAddFavoritePrompt -> {
+                updateUiState { it.copy(showAddFavoritePrompt = true) }
             }
 
-            is BrowserUiEvent.DismissAddFavoriteDialog -> {
-                updateUiState { it.copy(showAddFavoriteDialog = false) }
+            is BrowserUiEvent.DismissAddFavoritePrompt -> {
+                updateUiState { it.copy(showAddFavoritePrompt = false) }
             }
 
             is BrowserUiEvent.AddCurrentTabToFavorites -> {
@@ -90,19 +90,19 @@ internal class LibraryEventHandler(
                 searchCoordinator.loadMoreSearchHistory()
             }
 
-            is BrowserUiEvent.ShowAddSearchEngineDialog -> {
+            is BrowserUiEvent.ShowAddSearchEnginePrompt -> {
                 updateUiState {
                     it.copy(
-                        showAddEditSearchEngineDialog = true,
+                        showAddEditSearchEnginePrompt = true,
                         editingSearchEngine = event.engineToEdit,
                     )
                 }
             }
 
-            is BrowserUiEvent.DismissAddSearchEngineDialog -> {
+            is BrowserUiEvent.DismissAddSearchEnginePrompt -> {
                 updateUiState {
                     it.copy(
-                        showAddEditSearchEngineDialog = false,
+                        showAddEditSearchEnginePrompt = false,
                         editingSearchEngine = null,
                     )
                 }

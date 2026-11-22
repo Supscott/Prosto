@@ -27,7 +27,7 @@ import com.jestk.browser.ui.theme.ProstoDarkText
  * workspace unless "Apply to all workspaces" is on.
  */
 @Composable
-fun DisableBlockingDialog(
+fun DisableBlockingPrompt(
     isDark: Boolean,
     host: String,
     onDismiss: () -> Unit,

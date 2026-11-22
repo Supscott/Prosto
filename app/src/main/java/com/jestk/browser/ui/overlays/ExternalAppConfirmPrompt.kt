@@ -13,7 +13,7 @@ import com.jestk.browser.ui.components.DockPromptCard
  * for the handoff, [onCancel] (also back / outside tap) keeps the page as it is.
  */
 @Composable
-fun ExternalAppConfirmDialog(
+fun ExternalAppConfirmPrompt(
     isDark: Boolean,
     onOpen: () -> Unit,
     onCloseTab: () -> Unit,

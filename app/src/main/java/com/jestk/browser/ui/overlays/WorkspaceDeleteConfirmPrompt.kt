@@ -13,7 +13,7 @@ import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoDarkText
 
 @Composable
-fun WorkspaceDeleteConfirmDialog(
+fun WorkspaceDeleteConfirmPrompt(
     workspaceName: String,
     isDark: Boolean,
     onConfirm: () -> Unit,

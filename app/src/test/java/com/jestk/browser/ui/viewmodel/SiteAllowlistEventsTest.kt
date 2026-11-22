@@ -74,7 +74,7 @@ class SiteAllowlistEventsTest {
 
     @Test
     fun menuItemOpensTheDialogForTheRegistrableDomainAndClosesTheMenu() = runTest(dispatcher) {
-        handler().handle(OpenDisableBlockingDialog)
+        handler().handle(OpenDisableBlockingPrompt)
 
         assertThat(state.siteBlockingPromptHost).isEqualTo("example.com")
         assertThat(state.isMenuExpanded).isFalse()
@@ -83,7 +83,7 @@ class SiteAllowlistEventsTest {
     @Test
     fun noDialogOnHomeOrNonWebPages() = runTest(dispatcher) {
         state = state.copy(currentUrl = "")
-        handler().handle(OpenDisableBlockingDialog)
+        handler().handle(OpenDisableBlockingPrompt)
         assertThat(state.siteBlockingPromptHost).isNull()
         assertThat(state.currentAllowlistSite).isNull()
 
@@ -94,7 +94,7 @@ class SiteAllowlistEventsTest {
     @Test
     fun confirmAddsTheActiveWorkspaceEntryRefreshesTheSnapshotAndReloads() = runTest(dispatcher) {
         val handler = handler()
-        handler.handle(OpenDisableBlockingDialog)
+        handler.handle(OpenDisableBlockingPrompt)
 
         handler.handle(ConfirmDisableBlocking(allWorkspaces = false))
         settle { commands.isNotEmpty() }
@@ -109,7 +109,7 @@ class SiteAllowlistEventsTest {
     @Test
     fun confirmWithAllWorkspacesStoresTheNullScope() = runTest(dispatcher) {
         val handler = handler()
-        handler.handle(OpenDisableBlockingDialog)
+        handler.handle(OpenDisableBlockingPrompt)
 
         handler.handle(ConfirmDisableBlocking(allWorkspaces = true))
         settle { snapshot.isAllowlisted("https://example.com/", null) }
@@ -121,9 +121,9 @@ class SiteAllowlistEventsTest {
     @Test
     fun dismissClosesTheDialogWithoutChanges() = runTest(dispatcher) {
         val handler = handler()
-        handler.handle(OpenDisableBlockingDialog)
+        handler.handle(OpenDisableBlockingPrompt)
 
-        handler.handle(DismissDisableBlockingDialog)
+        handler.handle(DismissDisableBlockingPrompt)
         advanceUntilIdle()
 
         assertThat(state.siteBlockingPromptHost).isNull()

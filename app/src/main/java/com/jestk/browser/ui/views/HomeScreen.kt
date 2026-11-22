@@ -158,7 +158,7 @@ fun HomeScreen(
                 },
                 onBookmarkCurrent = { onEvent(BrowserUiEvent.AddCurrentTabToFavorites) },
                 onToggleExpand = { onEvent(BrowserUiEvent.ToggleFavoritesExpanded) },
-                onAddClick = { onEvent(BrowserUiEvent.ShowAddFavoriteDialog) },
+                onAddClick = { onEvent(BrowserUiEvent.ShowAddFavoritePrompt) },
                 modifier = cardModifier,
             )
 

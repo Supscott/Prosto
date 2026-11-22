@@ -56,7 +56,7 @@ import com.jestk.browser.ui.theme.ProstoPaleBlue
  * shortcut is not used by another engine.
  */
 @Composable
-fun AddEditSearchEngineDialog(
+fun AddEditSearchEnginePrompt(
     isDark: Boolean,
     existingEngines: List<SearchEngine>,
     engineToEdit: SearchEngine? = null,

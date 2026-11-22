@@ -1831,33 +1831,33 @@ class BrowserViewModelTest {
         }
 
     @Test
-    fun showAddFavoriteDialog_updatesState() =
+    fun showAddFavoritePrompt_updatesState() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()
             advanceUntilIdle()
 
-            assertThat(viewModel.uiState.value.showAddFavoriteDialog).isFalse()
+            assertThat(viewModel.uiState.value.showAddFavoritePrompt).isFalse()
 
-            viewModel.onEvent(BrowserUiEvent.ShowAddFavoriteDialog)
-            assertThat(viewModel.uiState.value.showAddFavoriteDialog).isTrue()
+            viewModel.onEvent(BrowserUiEvent.ShowAddFavoritePrompt)
+            assertThat(viewModel.uiState.value.showAddFavoritePrompt).isTrue()
 
-            viewModel.onEvent(BrowserUiEvent.DismissAddFavoriteDialog)
-            assertThat(viewModel.uiState.value.showAddFavoriteDialog).isFalse()
+            viewModel.onEvent(BrowserUiEvent.DismissAddFavoritePrompt)
+            assertThat(viewModel.uiState.value.showAddFavoritePrompt).isFalse()
         }
 
     @Test
-    fun handleBackPress_dismissesAddFavoriteDialogFirst() =
+    fun handleBackPress_dismissesAddFavoritePromptFirst() =
         runTest(testDispatcher) {
             val viewModel = createViewModel()
             advanceUntilIdle()
 
-            viewModel.onEvent(BrowserUiEvent.ShowAddFavoriteDialog)
-            assertThat(viewModel.uiState.value.showAddFavoriteDialog).isTrue()
+            viewModel.onEvent(BrowserUiEvent.ShowAddFavoritePrompt)
+            assertThat(viewModel.uiState.value.showAddFavoritePrompt).isTrue()
 
             viewModel.onEvent(BrowserUiEvent.HandleBackPress)
             advanceUntilIdle()
 
-            assertThat(viewModel.uiState.value.showAddFavoriteDialog).isFalse()
+            assertThat(viewModel.uiState.value.showAddFavoritePrompt).isFalse()
         }
 
     @Test

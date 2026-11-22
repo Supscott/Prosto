@@ -52,13 +52,13 @@ class ResolveBackPressTest {
         ),
         Case(
             "add/edit search engine dialog",
-            onWebsite.copy(showAddEditSearchEngineDialog = true),
-            BackAction.CloseAddEditSearchEngineDialog,
+            onWebsite.copy(showAddEditSearchEnginePrompt = true),
+            BackAction.CloseAddEditSearchEnginePrompt,
         ),
         Case(
             "add favorite dialog",
-            onWebsite.copy(showAddFavoriteDialog = true),
-            BackAction.CloseAddFavoriteDialog,
+            onWebsite.copy(showAddFavoritePrompt = true),
+            BackAction.CloseAddFavoritePrompt,
         ),
         Case(
             "image context menu wins over link context menu",

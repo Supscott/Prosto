@@ -167,9 +167,9 @@ sealed interface BrowserUiEvent {
     ) : PageUiEvent
 
     // Favorites & History
-    data object ShowAddFavoriteDialog : LibraryUiEvent
+    data object ShowAddFavoritePrompt : LibraryUiEvent
 
-    data object DismissAddFavoriteDialog : LibraryUiEvent
+    data object DismissAddFavoritePrompt : LibraryUiEvent
 
     data object AddCurrentTabToFavorites : LibraryUiEvent
 
@@ -247,11 +247,11 @@ sealed interface BrowserUiEvent {
     data object DismissUpdate : SettingsUiEvent
 
     // Search Engine Management
-    data class ShowAddSearchEngineDialog(
+    data class ShowAddSearchEnginePrompt(
         val engineToEdit: SearchEngine? = null,
     ) : LibraryUiEvent
 
-    data object DismissAddSearchEngineDialog : LibraryUiEvent
+    data object DismissAddSearchEnginePrompt : LibraryUiEvent
 
     data class SaveSearchEngine(
         val id: String?,

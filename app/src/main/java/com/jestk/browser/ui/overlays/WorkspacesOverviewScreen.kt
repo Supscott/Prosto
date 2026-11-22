@@ -520,7 +520,7 @@ fun WorkspacesOverviewScreen(
 
         val toDelete = workspaceToDelete
         if (toDelete != null) {
-            WorkspaceDeleteConfirmDialog(
+            WorkspaceDeleteConfirmPrompt(
                 workspaceName = workspaceDisplayName(toDelete),
                 isDark = isDark,
                 onConfirm = {

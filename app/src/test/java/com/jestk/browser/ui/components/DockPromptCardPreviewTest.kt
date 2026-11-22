@@ -23,10 +23,10 @@ import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.domain.model.ThemeMode
 import androidx.compose.ui.unit.Dp
 import com.jestk.browser.domain.model.SearchEngine
-import com.jestk.browser.ui.overlays.AddEditSearchEngineDialog
-import com.jestk.browser.ui.overlays.AddFavoriteDialog
+import com.jestk.browser.ui.overlays.AddEditSearchEnginePrompt
+import com.jestk.browser.ui.overlays.AddFavoritePrompt
 import com.jestk.browser.ui.overlays.DuplicateDownloadPrompt
-import com.jestk.browser.ui.overlays.InsecureHttpWarningDialog
+import com.jestk.browser.ui.overlays.InsecureHttpWarningPrompt
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,7 +50,7 @@ class DockPromptCardPreviewTest {
             DuplicateDownloadPrompt("quarterly-financial-report-final-version-2026-11.pdf", dark, {}, {}, {})
         }
         render("dock_prompt_insecure_dark.png", isDark = true, fontScale = 1.0f) { dark ->
-            InsecureHttpWarningDialog(dark, "http://example.com/login", {}, {})
+            InsecureHttpWarningPrompt(dark, "http://example.com/login", {}, {})
         }
         render("dock_prompt_duplicate_large_font.png", isDark = false, fontScale = 1.3f) { dark ->
             DuplicateDownloadPrompt("quarterly-financial-report-final-version-2026-11.pdf", dark, {}, {}, {})
@@ -63,23 +63,23 @@ class DockPromptCardPreviewTest {
         for (dark in listOf(false, true)) {
             val suffix = if (dark) "dark" else "light"
             render("dock_prompt_favorite_$suffix.png", dark, 1.0f) { d ->
-                AddFavoriteDialog(d, {}, { _, _ -> }, initialTitle = "GitHub", initialUrl = "https://github.com")
+                AddFavoritePrompt(d, {}, { _, _ -> }, initialTitle = "GitHub", initialUrl = "https://github.com")
             }
-            render("dock_prompt_favorite_empty_$suffix.png", dark, 1.0f) { d -> AddFavoriteDialog(d, {}, { _, _ -> }) }
+            render("dock_prompt_favorite_empty_$suffix.png", dark, 1.0f) { d -> AddFavoritePrompt(d, {}, { _, _ -> }) }
             render("dock_prompt_favorite_large_font_$suffix.png", dark, 1.3f) { d ->
-                AddFavoriteDialog(d, {}, { _, _ -> }, initialTitle = "GitHub", initialUrl = "https://github.com")
+                AddFavoritePrompt(d, {}, { _, _ -> }, initialTitle = "GitHub", initialUrl = "https://github.com")
             }
             render("dock_prompt_engine_$suffix.png", dark, 1.0f) { d ->
-                AddEditSearchEngineDialog(d, engines, null, {}, { _, _, _, _ -> })
+                AddEditSearchEnginePrompt(d, engines, null, {}, { _, _, _, _ -> })
             }
             render("dock_prompt_engine_edit_large_font_$suffix.png", dark, 1.3f) { d ->
-                AddEditSearchEngineDialog(d, engines, engines.first(), {}, { _, _, _, _ -> })
+                AddEditSearchEnginePrompt(d, engines, engines.first(), {}, { _, _, _, _ -> })
             }
             render("dock_prompt_engine_ime_$suffix.png", dark, 1.15f, imeBottom = 340.dp) { d ->
-                AddEditSearchEngineDialog(d, engines, engines.first(), {}, { _, _, _, _ -> })
+                AddEditSearchEnginePrompt(d, engines, engines.first(), {}, { _, _, _, _ -> })
             }
             render("dock_prompt_favorite_ime_$suffix.png", dark, 1.15f, imeBottom = 340.dp) { d ->
-                AddFavoriteDialog(d, {}, { _, _ -> }, initialTitle = "GitHub", initialUrl = "https://github.com")
+                AddFavoritePrompt(d, {}, { _, _ -> }, initialTitle = "GitHub", initialUrl = "https://github.com")
             }
         }
     }

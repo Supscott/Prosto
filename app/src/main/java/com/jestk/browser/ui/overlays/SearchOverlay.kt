@@ -509,11 +509,11 @@ fun SearchOverlay(
                 },
                 onAddEngineClick = {
                     isDropdownOpen = false
-                    onEvent(BrowserUiEvent.ShowAddSearchEngineDialog())
+                    onEvent(BrowserUiEvent.ShowAddSearchEnginePrompt())
                 },
                 onEditEngineClick = { engine ->
                     isDropdownOpen = false
-                    onEvent(BrowserUiEvent.ShowAddSearchEngineDialog(engine))
+                    onEvent(BrowserUiEvent.ShowAddSearchEnginePrompt(engine))
                 },
                 onDeleteEngineClick = { engine ->
                     onEvent(BrowserUiEvent.DeleteSearchEngine(engine.id))

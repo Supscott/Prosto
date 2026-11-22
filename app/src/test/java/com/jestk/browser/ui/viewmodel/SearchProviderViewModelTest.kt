@@ -260,19 +260,19 @@ class SearchProviderViewModelTest {
         val vm = createViewModel()
         advanceUntilIdle()
 
-        assertThat(vm.uiState.value.showAddEditSearchEngineDialog).isFalse()
+        assertThat(vm.uiState.value.showAddEditSearchEnginePrompt).isFalse()
 
-        vm.onEvent(BrowserUiEvent.ShowAddSearchEngineDialog())
-        assertThat(vm.uiState.value.showAddEditSearchEngineDialog).isTrue()
+        vm.onEvent(BrowserUiEvent.ShowAddSearchEnginePrompt())
+        assertThat(vm.uiState.value.showAddEditSearchEnginePrompt).isTrue()
         assertThat(vm.uiState.value.editingSearchEngine).isNull()
 
         val google = vm.uiState.value.searchEngines.find { it.id == "google" }
-        vm.onEvent(BrowserUiEvent.ShowAddSearchEngineDialog(engineToEdit = google))
-        assertThat(vm.uiState.value.showAddEditSearchEngineDialog).isTrue()
+        vm.onEvent(BrowserUiEvent.ShowAddSearchEnginePrompt(engineToEdit = google))
+        assertThat(vm.uiState.value.showAddEditSearchEnginePrompt).isTrue()
         assertThat(vm.uiState.value.editingSearchEngine?.id).isEqualTo("google")
 
-        vm.onEvent(BrowserUiEvent.DismissAddSearchEngineDialog)
-        assertThat(vm.uiState.value.showAddEditSearchEngineDialog).isFalse()
+        vm.onEvent(BrowserUiEvent.DismissAddSearchEnginePrompt)
+        assertThat(vm.uiState.value.showAddEditSearchEnginePrompt).isFalse()
         assertThat(vm.uiState.value.editingSearchEngine).isNull()
     }
 }

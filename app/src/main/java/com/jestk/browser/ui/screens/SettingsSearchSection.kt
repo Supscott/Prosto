@@ -188,7 +188,7 @@ internal fun SettingsSearchSection(
             icon = Icons.Default.Add,
             title = stringResource(R.string.add_search_engine_title),
             summary = stringResource(R.string.add_search_engine_summary),
-            onClick = { onEvent(BrowserUiEvent.ShowAddSearchEngineDialog()) },
+            onClick = { onEvent(BrowserUiEvent.ShowAddSearchEnginePrompt()) },
             isDark = isDark,
         )
 

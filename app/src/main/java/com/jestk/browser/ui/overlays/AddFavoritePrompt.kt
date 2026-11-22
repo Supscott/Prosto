@@ -37,7 +37,7 @@ import com.jestk.browser.ui.theme.ProstoMutedSlate
  * keyboard). A missing protocol is normalised to https://, an empty name is derived from the host.
  */
 @Composable
-fun AddFavoriteDialog(
+fun AddFavoritePrompt(
     isDark: Boolean,
     onDismiss: () -> Unit,
     onConfirm: (title: String, url: String) -> Unit,

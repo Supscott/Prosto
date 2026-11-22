@@ -12,8 +12,8 @@ internal sealed interface BackAction {
     data class Dispatch(val event: BrowserUiEvent) : BackAction
 
     data object CloseSearchEngineSwitcherEdit : BackAction
-    data object CloseAddEditSearchEngineDialog : BackAction
-    data object CloseAddFavoriteDialog : BackAction
+    data object CloseAddEditSearchEnginePrompt : BackAction
+    data object CloseAddFavoritePrompt : BackAction
     data object CloseImageContextMenu : BackAction
     data object CloseScreen : BackAction
     data object CloseLinkContextMenu : BackAction
@@ -51,8 +51,8 @@ internal fun resolveBackPress(state: BrowserUiState): BackAction {
         state.insecureHttpPrompt != null -> return BackAction.Dispatch(BrowserUiEvent.DismissInsecureHttpWarning)
         state.blockedAdNavigation != null -> return BackAction.Dispatch(BrowserUiEvent.DismissBlockedAdNavigation)
         state.isSearchEngineSwitcherEditExpanded -> return BackAction.CloseSearchEngineSwitcherEdit
-        state.showAddEditSearchEngineDialog -> return BackAction.CloseAddEditSearchEngineDialog
-        state.showAddFavoriteDialog -> return BackAction.CloseAddFavoriteDialog
+        state.showAddEditSearchEnginePrompt -> return BackAction.CloseAddEditSearchEnginePrompt
+        state.showAddFavoritePrompt -> return BackAction.CloseAddFavoritePrompt
         state.selectedImageUrl != null -> return BackAction.CloseImageContextMenu
         state.activeScreen != ScreenType.NONE -> return BackAction.CloseScreen
         state.linkContextMenuUrl != null -> return BackAction.CloseLinkContextMenu

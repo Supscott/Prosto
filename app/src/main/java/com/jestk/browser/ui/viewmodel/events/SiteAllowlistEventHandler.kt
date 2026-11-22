@@ -5,10 +5,10 @@ import com.jestk.browser.domain.repository.SiteAllowlistRepository
 import com.jestk.browser.engine.adblock.SiteAllowlist
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.ConfirmDisableBlocking
-import com.jestk.browser.ui.viewmodel.DismissDisableBlockingDialog
+import com.jestk.browser.ui.viewmodel.DismissDisableBlockingPrompt
 import com.jestk.browser.ui.viewmodel.EnableBlockingForCurrentSite
 import com.jestk.browser.ui.viewmodel.NavigationCommand
-import com.jestk.browser.ui.viewmodel.OpenDisableBlockingDialog
+import com.jestk.browser.ui.viewmodel.OpenDisableBlockingPrompt
 import com.jestk.browser.ui.viewmodel.RemoveSiteAllowlistEntry
 import com.jestk.browser.ui.viewmodel.SiteAllowlistUiEvent
 import com.jestk.browser.ui.viewmodel.allowlistSiteOf
@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
- * The per-site content-blocking switch: the menu item and its dialog, the "Allow for this site"
+ * The per-site content-blocking switch: the menu item and its prompt, the "Allow for this site"
  * pill action and the list for the settings screen. Entries are keyed by workspace id (PLAN Q8).
  * After a change the in-memory [SiteAllowlist] snapshot is refreshed before the page reloads, so
  * the reload already sees it.
@@ -43,7 +43,7 @@ internal class SiteAllowlistEventHandler(
 
     fun handle(event: SiteAllowlistUiEvent) {
         when (event) {
-            is OpenDisableBlockingDialog -> {
+            is OpenDisableBlockingPrompt -> {
                 val site = getCurrentState().currentAllowlistSite ?: return
                 updateUiState { it.copy(siteBlockingPromptHost = site, isMenuExpanded = false) }
             }
@@ -56,7 +56,7 @@ internal class SiteAllowlistEventHandler(
                 change(reload = true) { it.add(site, workspaceId) }
             }
 
-            is DismissDisableBlockingDialog -> updateUiState { it.copy(siteBlockingPromptHost = null) }
+            is DismissDisableBlockingPrompt -> updateUiState { it.copy(siteBlockingPromptHost = null) }
 
             is EnableBlockingForCurrentSite -> {
                 val state = getCurrentState()
