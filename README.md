@@ -1,5 +1,12 @@
 <div align="center">
 
+  [![Release](https://img.shields.io/github/v/release/Supscott/Prosto?style=flat-square&color=2563EB&label=Release)](https://github.com/Supscott/Prosto/releases)
+  [![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-3B82F6.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
+  [![Android Min SDK](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-34D399.svg?style=flat-square)](https://developer.android.com/about/versions/oreo)
+  [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7C3AED.svg?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+  [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202025.12-4285F4.svg?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
+  [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
+
   <img src="assets/banner.png" alt="Prosto, a browser for Android: your tabs always in sight. One-handed, fast, private." width="800" />
 
   [![Download APK](https://img.shields.io/badge/Download-prosto.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/Prosto/releases/latest/download/prosto.apk)
@@ -7,13 +14,6 @@
   <sub>Android 8.0+ · free · GPL-3.0 · no telemetry</sub>
 
   <sub>If Prosto is useful to you, a ⭐ helps others find it.</sub>
-
-  [![Release](https://img.shields.io/github/v/release/Supscott/Prosto?style=flat-square&color=2563EB&label=Release)](https://github.com/Supscott/Prosto/releases)
-  [![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-3B82F6.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
-  [![Android Min SDK](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-34D399.svg?style=flat-square)](https://developer.android.com/about/versions/oreo)
-  [![Kotlin](https://img.shields.io/badge/Kotlin-2.0.21-7C3AED.svg?style=flat-square&logo=kotlin&logoColor=white)](https://kotlinlang.org)
-  [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202025.12-4285F4.svg?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
-  [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
 
 </div>
 
@@ -35,17 +35,17 @@ Most mobile browsers hide your tabs behind a button. Prosto is built around one 
 
 - **Tabs always in sight:** the dock at the bottom of the screen shows your open tabs, so you switch between them with one tap or swipe.
 - **Instant feel:** a warm engine, preconnect and a last-frame hold make new tabs open and tab switches happen without a blank flash.
-- **Privacy by default:** built-in ad and tracker blocking, incognito tabs, zero telemetry, no analytics.
+- **Privacy by default:** a real ad-blocking engine with standard filter lists, incognito tabs, zero telemetry, no analytics.
 
 ---
 
 ## ✨ Key Features
 
 ### 🗂️ Tabs & Folders
-- **Dock-first tabs:** open tabs stay on the dock; drag to reorder with spring physics.
+- **Dock-first tabs:** open tabs stay on the dock; drag to reorder with spring physics, or drag a tab up off the dock to close it.
 - **Folders in the dock and the tab grid:** group tabs into folders. In the tab grid a folder opens in place, not in a modal dialog.
-- **Folder suggestions:** when several tabs are open on the same site, Prosto offers to group them into a folder.
-- **Incognito tabs:** long-press "+" and pick an incognito tab. It keeps its cookies and storage apart from your other tabs, saves no history, blocks screenshots, and is wiped when you close it.
+- **Folder suggestions:** when three or more tabs are open on the same site, Prosto offers to group them into a folder.
+- **Incognito tabs:** long-press "+" and pick an incognito tab. It runs in a separate profile, keeps its cookies and storage apart, saves no history, blocks screenshots and is wiped when you close it. A violet dock and a mask badge show you are in one.
 - **Fresh start:** come back after 30 minutes away and a new tab is waiting, with a pill that takes you back to the last one.
 - **Gesture dock:** the dock hides while you scroll down and returns on a slight upward flick.
 
@@ -61,24 +61,33 @@ Most mobile browsers hide your tabs behind a button. Prosto is built around one 
 
 ### 🔍 Search
 - **Engine carousel:** fling across search engines right in the omnibox.
+- **Inline autocomplete** from your history, and a shortcut to switch to a tab that already has the page open.
 - **Power prefixes:** switch engines as you type (e.g. `g <query>`, `d <query>`, `k <query>`).
 - **Custom providers** with your own URL templates.
 
-### 🛡️ Ad & Tracker Blocker
-- **Fast request filtering** with a compact domain index, built from open filter lists.
-- **Cosmetic filtering** hides empty ad containers without layout shifts.
-- **Live statistics** of blocked ads and trackers on the Home screen.
+### 🛡️ Ad & Tracker Blocking
+- **Native engine:** requests are filtered by [adblock-rust](https://github.com/brave/adblock-rust), the engine behind Brave, compiled into the app.
+- **Standard filter lists:** EasyList, EasyPrivacy, uBlock Origin filters, AdGuard mobile and tracking lists and RU AdList, updated in the background.
+- **Cosmetic filtering and scriptlets:** hides ad containers without layout shifts and runs uBlock Origin scriptlets for sites that need them.
+- **Popup and popunder blocking**, with a one-tap "Allow for this site".
+- **Cookie banners dismissed for you:** tracking cookies are rejected automatically (can be turned off).
+- **Per-site allowlist** in each workspace, and **live statistics** of blocked ads and trackers on the Home screen.
+- **Sites still work:** sign-ins and Cloudflare security checks are never touched by blocking or injected scripts.
 
 ### 🎧 Video & Apps
+- **Clean YouTube Player:** open a YouTube video in a distraction-free, ad-free player.
 - **Background playback:** turn it on in Settings and audio and video keep playing with the screen off or the app in the background.
 - **Picture-in-picture:** a fullscreen video continues in a floating window when you leave the app.
+- **Fullscreen rotation:** fullscreen videos turn to landscape on their own.
 - **Open in app:** links that have an app (Telegram, Instagram and others) offer to open it; turn the offer off per site.
 
 ### 📥 Downloads
 - Pause, resume and cancel; interrupted transfers resume via HTTP `Range`.
+- Prosto asks before downloading a file you already have.
 - A failed download says so in an in-app pill instead of failing silently.
 
 ### ⚙️ Settings & Updates
+- **Quick tour:** a short stories-style tour with animated scenes shows the gestures; start it from the Home screen card or from Settings → About.
 - **Organised settings:** categories with their own screens, and quick-toggle tiles for the switches you use most.
 - **In-app updates:** Prosto checks GitHub Releases for a new version, shows an update card and downloads the APK for you to install.
 
@@ -100,6 +109,7 @@ Get the latest release directly from GitHub:
 - **JDK:** OpenJDK 17 or JDK 23
 - **Android SDK:** Compile SDK 35, Build Tools 35.0.0
 - **Gradle:** Wrapper included
+- **Rust:** not needed. The native blocking library ships prebuilt for `arm64-v8a`, `armeabi-v7a` and `x86_64`; see [`native/adblock-jni/README.md`](native/adblock-jni/README.md) to rebuild it.
 
 ```bash
 # Build debug APK
@@ -121,9 +131,10 @@ python3 tools/check_invariants.py
 
 Prosto follows Clean Architecture principles with Jetpack Compose:
 - **UI:** Jetpack Compose with Material 3 (BOM `2025.12.00`)
-- **Database:** AndroidX Room with SQLite 3.18 support
-- **Engine:** Android WebKit with custom pooling and nested scroll integration
-- **Networking:** OkHttp 4.12 & Coil Compose
+- **Engine:** Android WebView (AndroidX WebKit) with a warm WebView pool, separate profiles per workspace and for incognito, and nested scroll integration
+- **Content blocking:** [adblock-rust](https://crates.io/crates/adblock) `0.13.5` through a JNI bridge (`native/adblock-jni`)
+- **Database:** AndroidX Room 2.6
+- **Networking:** OkHttp 4.12 & Coil 2.7
 - **Concurrency:** Kotlin Coroutines & `StateFlow`
 - **Domain Purity:** The `domain/` layer is pure Kotlin with zero Android framework dependencies.
 
@@ -131,7 +142,7 @@ Prosto follows Clean Architecture principles with Jetpack Compose:
 
 ## 🗺️ Planned Features
 
-- [ ] **Smart Tab Auto-Grouping:** Context-aware automatic tab grouping by URL domain and topic.
+- [ ] **Smart Tab Auto-Grouping** *(partly done)*: Prosto already suggests a folder for tabs of one site; automatic grouping by topic is next.
 - [ ] **Cross-Device Sync:** Secure cloud synchronization for open tabs, bookmarks, and settings.
 - [ ] **Plugins & Mods:** User-scriptable extensions and community add-ons.
 
