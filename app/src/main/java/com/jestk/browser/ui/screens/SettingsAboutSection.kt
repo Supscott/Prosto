@@ -25,6 +25,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -154,6 +156,18 @@ internal fun SettingsAboutSection(
         )
 
         LicensesRows(isDark = isDark, context = context)
+    }
+}
+
+/** Installed build's versionName, or "" when the package manager cannot tell. */
+@Composable
+internal fun rememberAppVersion(): String {
+    val context = LocalContext.current
+    return remember(context) {
+        runCatching {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull() ?: ""
     }
 }
 

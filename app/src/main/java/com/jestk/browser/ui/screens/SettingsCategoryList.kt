@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
@@ -92,6 +93,14 @@ internal fun SettingsCategoryList(
         SettingsFeedbackButton(
             isDark = isDark,
             onClick = { onEvent(BrowserUiEvent.OpenFeedbackSheet) },
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Text(
+            text = stringResource(R.string.settings_version, rememberAppVersion()),
+            style = LocalProstoTypography.current.labelSm,
+            color = ProstoMutedSlate.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
         )
     }
 }

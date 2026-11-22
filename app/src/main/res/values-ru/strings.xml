@@ -118,6 +118,7 @@
     <string name="update_check_manual">Проверить обновления</string>
     <string name="update_check_up_to_date">У вас установлена последняя версия (%1$s)</string>
     <string name="about_version">Prosto Browser %1$s • Prosto Canvas</string>
+    <string name="settings_version">Версия %1$s</string>
     <string name="switch_to_tab">Перейти</string>
     <string name="switch_to_open_tab">Перейти к открытой вкладке</string>
     <string name="gray_unloaded_tabs_title">Серые выгруженные вкладки</string>

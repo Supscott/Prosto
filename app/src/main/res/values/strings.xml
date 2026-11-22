@@ -120,6 +120,7 @@
     <string name="update_check_manual">Check for updates</string>
     <string name="update_check_up_to_date">You are using the latest version (%1$s)</string>
     <string name="about_version">Prosto Browser %1$s • Prosto Canvas</string>
+    <string name="settings_version">Version %1$s</string>
     <string name="switch_to_tab">Switch</string>
     <string name="switch_to_open_tab">Switch to open tab</string>
     <string name="insecure_site_warning_title">Site is not secure</string>
