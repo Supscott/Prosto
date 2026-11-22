@@ -13,8 +13,9 @@ the file to split.
 1. Your worktree may start on an old commit. Bring it to the base commit from the brief:
    `git merge --ff-only <base>`, or `git reset --hard <base>` if that fails (you have no work
    yet). Check `git log --oneline -1`.
-2. `cp /Users/ilya/CODING/browser/local.properties ./local.properties` (gitignored; the
-   build fails without it).
+2. Copy `local.properties` (gitignored; the build fails without it) from the main checkout:
+   run `git rev-parse --path-format=absolute --git-common-dir`, then
+   `cp <that path>/../local.properties ./local.properties`.
 3. Read `CLAUDE.md` and the plan section. Map the file with `python3 tools/outline.py <file>`
    and read it in parts by those line ranges instead of whole.
 4. Prefix commands with `rtk` where the docs do. Never use adb, `tools/device.sh` or

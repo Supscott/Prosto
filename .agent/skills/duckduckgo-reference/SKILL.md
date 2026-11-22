@@ -128,4 +128,4 @@ val finalBrandList = metadata.brandVersionList.map {
 ### Key Lesson
 DuckDuckGo **does not synthesize GREASE brands from scratch**. It queries the native `metadata = WebSettingsCompat.getUserAgentMetadata(settings)` initialized by Chromium, keeps Chromium's genuine GREASE brand (`Not?A_Brand`), preserves entropy fields (`bitness`, `architecture`, `platformVersion`, `model`), and only changes `"Android WebView"` $\to$ `"Google Chrome"`.
 
-Adopting this exact pattern in Prosto's [`UserAgentMetadataProvider.kt`](file:///Users/ilya/CODING/browser/app/src/main/java/com/jestk/browser/engine/UserAgentMetadataProvider.kt) resolved all Cloudflare challenges and 403 subresource failures immediately.
+Adopting this exact pattern in Prosto's [`UserAgentMetadataProvider.kt`](../../../app/src/main/java/com/jestk/browser/engine/UserAgentMetadataProvider.kt) resolved all Cloudflare challenges and 403 subresource failures immediately.

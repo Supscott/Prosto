@@ -32,7 +32,9 @@ READELF="$(ls "$ANDROID_NDK_HOME"/toolchains/llvm/prebuilt/*/bin/llvm-readelf | 
 cd "$CRATE"
 cargo test --locked
 
-export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-Wl,-z,max-page-size=16384"
+# --remap-path-prefix keeps the builder's home directory (cargo registry, checkout path) out of
+# panic messages and debug info in the committed .so files.
+export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-Wl,-z,max-page-size=16384 --remap-path-prefix=$HOME=~"
 cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 26 -o "$OUT" build --release --locked
 
 status=0

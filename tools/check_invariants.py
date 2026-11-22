@@ -2,6 +2,7 @@
 """Mechanical invariant checks for Prosto Browser."""
 
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -474,8 +475,26 @@ def check_secure_window_switch_debug_only():
     return errors
 
 
+def check_no_local_home_paths():
+    """The repo is public: no tracked file (binaries included) may carry a macOS home path.
+
+    Use repo-relative paths, or derive the main checkout from `git rev-parse --git-common-dir`.
+    Native libraries are built with --remap-path-prefix (tools/build_native.sh).
+    """
+    pattern = "/" + "Users/[^/[:space:]]+/"
+    result = subprocess.run(
+        ["git", "grep", "-l", "-E", pattern],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    return [
+        f"{path}: contains a local home path ({pattern}); use a repo-relative path"
+        for path in result.stdout.splitlines()
+    ]
+
+
 def main():
     all_errors = []
+    all_errors.extend(check_no_local_home_paths())
     all_errors.extend(check_secure_window_switch_debug_only())
     all_errors.extend(check_no_blur())
     all_errors.extend(check_webkit_crash_resilience())
@@ -509,7 +528,7 @@ def main():
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
         "Fullscreen Sync Attach, Pull-Only Refresh Spinner, Single Browser Activity, No English Sentinels, No Composition File I/O, No Test Detection, "
-        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme, Ordered Query Tie-Breaker)."
+        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme, Ordered Query Tie-Breaker, No Local Home Paths)."
     )
     return 0
 

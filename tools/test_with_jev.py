@@ -24,7 +24,11 @@ def load_api_key():
     if key:
         return key
 
-    env_paths = [ROOT / ".env", Path("/Users/ilya/CODING/browser/.env")]
+    common_dir = subprocess.run(
+        ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        cwd=ROOT, capture_output=True, text=True,
+    ).stdout.strip()
+    env_paths = [ROOT / ".env"] + ([Path(common_dir).parent / ".env"] if common_dir else [])
     for env_path in env_paths:
         if env_path.exists():
             for line in env_path.read_text(encoding="utf-8").splitlines():
