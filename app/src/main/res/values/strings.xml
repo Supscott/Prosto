@@ -306,6 +306,10 @@
     <string name="download_failed_pill">Download failed: %1$s</string>
     <string name="duplicate_download_title">File already downloaded</string>
     <string name="duplicate_download_again">Download again</string>
+    <string name="download_confirm_title">Download file?</string>
+    <string name="download_confirm_action">Download</string>
+    <string name="ask_before_download_title">Ask before downloading</string>
+    <string name="ask_before_download_summary">Confirm each file a website wants to download</string>
     <string name="download_notification_starting">Downloading file…</string>
     <string name="download_notification_complete">Download complete</string>
     <plurals name="tabs_overview_count_filtered">

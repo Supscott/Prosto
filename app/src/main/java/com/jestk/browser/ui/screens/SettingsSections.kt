@@ -20,6 +20,7 @@ import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material.icons.filled.LightMode
@@ -55,6 +56,7 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.IncludeOpenInAppSite
+import com.jestk.browser.ui.viewmodel.SetAskBeforeDownloadEnabled
 import com.jestk.browser.ui.viewmodel.SetBackgroundPlaybackEnabled
 import com.jestk.browser.util.DefaultBrowserHelper
 import com.jestk.browser.util.VibrationFeedback
@@ -164,6 +166,20 @@ internal fun SettingsGeneralSection(
             summary = stringResource(R.string.background_playback_summary),
             checked = uiState.settings.isBackgroundPlaybackEnabled,
             onCheckedChange = { onEvent(SetBackgroundPlaybackEnabled(it)) },
+            isDark = isDark,
+        )
+
+        HorizontalDivider(
+            color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+            modifier = Modifier.padding(start = 56.dp),
+        )
+
+        SettingToggleRow(
+            icon = Icons.Default.Download,
+            title = stringResource(R.string.ask_before_download_title),
+            summary = stringResource(R.string.ask_before_download_summary),
+            checked = uiState.settings.isAskBeforeDownloadEnabled,
+            onCheckedChange = { onEvent(SetAskBeforeDownloadEnabled(it)) },
             isDark = isDark,
         )
     }

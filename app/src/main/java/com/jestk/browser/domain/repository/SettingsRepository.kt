@@ -50,6 +50,8 @@ interface SettingsRepository {
 
     suspend fun setBackgroundPlaybackEnabled(enabled: Boolean) {}
 
+    suspend fun setAskBeforeDownloadEnabled(enabled: Boolean) {}
+
     fun getBlockedAdsCount(): Flow<Long>
 
     fun getBlockedTrackersCount(): Flow<Long>

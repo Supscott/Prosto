@@ -3,6 +3,7 @@ package com.jestk.browser.ui.viewmodel
 import android.content.Intent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.jestk.browser.domain.model.DownloadConfirmRequest
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.FeedbackPromptState
 import com.jestk.browser.domain.model.InsecureNavigationTarget
@@ -111,6 +112,7 @@ class BrowserViewModel(
             updateUiState = { transform -> _uiState.update(transform) },
             scope = viewModelScope,
             ioDispatcher = ioDispatcher,
+            askBeforeDownload = { _uiState.value.settings.isAskBeforeDownloadEnabled },
         )
 
     private val searchCoordinator =
@@ -345,6 +347,8 @@ class BrowserViewModel(
     fun onDownloadFailed(fileName: String?, message: String) = downloadCoordinator.onDownloadFailed(fileName, message)
 
     fun onDuplicateDownload(existing: DownloadItem, proceed: () -> Unit) = downloadCoordinator.onDuplicateDownload(existing, proceed)
+
+    fun onConfirmDownload(request: DownloadConfirmRequest, proceed: () -> Unit) = downloadCoordinator.onConfirmDownload(request, proceed)
 
     fun dismissDownloadSnackbar() {
         downloadCoordinator.dismissDownloadSnackbar()

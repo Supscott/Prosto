@@ -24,4 +24,5 @@ object SettingKeys {
     const val HOME_PRIVACY_CARD_ENABLED = "home_privacy_card_enabled"
     const val TUTORIAL_COMPLETED = "tutorial_completed"
     const val BACKGROUND_PLAYBACK_ENABLED = "background_playback_enabled"
+    const val ASK_BEFORE_DOWNLOAD_ENABLED = "ask_before_download_enabled"
 }

@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.Dp
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.ui.overlays.AddEditSearchEnginePrompt
 import com.jestk.browser.ui.overlays.AddFavoritePrompt
+import com.jestk.browser.ui.overlays.DownloadConfirmPrompt
 import com.jestk.browser.ui.overlays.DuplicateDownloadPrompt
 import com.jestk.browser.ui.overlays.InsecureHttpWarningPrompt
 import com.jestk.browser.ui.theme.JestkBrowserTheme
@@ -54,6 +55,29 @@ class DockPromptCardPreviewTest {
         }
         render("dock_prompt_duplicate_large_font.png", isDark = false, fontScale = 1.3f) { dark ->
             DuplicateDownloadPrompt("quarterly-financial-report-final-version-2026-11.pdf", dark, {}, {}, {})
+        }
+    }
+
+    @Test
+    fun renderDownloadConfirmPreviews() {
+        val longName = "quarterly-financial-report-final-version-with-all-appendices-2026-11-22.pdf"
+        render("dock_prompt_download_light.png", isDark = false, fontScale = 1.0f) { d ->
+            DownloadConfirmPrompt("annual-report.pdf", "4.2 MB · example.com", d, {}, {})
+        }
+        render("dock_prompt_download_dark.png", isDark = true, fontScale = 1.0f) { d ->
+            DownloadConfirmPrompt("annual-report.pdf", "4.2 MB · example.com", d, {}, {})
+        }
+        render("dock_prompt_download_long_name_dark.png", isDark = true, fontScale = 1.15f) { d ->
+            DownloadConfirmPrompt(longName, "128.0 MB · downloads.some-long-host.example.org", d, {}, {})
+        }
+        render("dock_prompt_download_unknown_size_light.png", isDark = false, fontScale = 1.0f) { d ->
+            DownloadConfirmPrompt("setup.apk", "example.com", d, {}, {})
+        }
+        render("dock_prompt_download_no_details_light.png", isDark = false, fontScale = 1.0f) { d ->
+            DownloadConfirmPrompt("image_1763800000000.png", null, d, {}, {})
+        }
+        render("dock_prompt_download_large_font.png", isDark = false, fontScale = 1.3f) { d ->
+            DownloadConfirmPrompt(longName, "128.0 MB · example.com", d, {}, {})
         }
     }
 

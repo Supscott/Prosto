@@ -3,6 +3,7 @@ package com.jestk.browser.engine
 import android.content.Context
 import android.util.Log
 import android.webkit.WebView
+import com.jestk.browser.domain.model.DownloadConfirmRequest
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.engine.download.DownloadFileNameResolver
@@ -29,6 +30,19 @@ internal class WebViewDownloads(
     /** Called on the main thread when the file was already downloaded; invoke `proceed` to download it again. */
     var onDuplicateDownload: ((existing: DownloadItem, proceed: () -> Unit) -> Unit)? = null
 
+    /**
+     * Called on the main thread before a download the page started is saved; invoke `proceed` to
+     * save it, drop it to cancel. Null means no UI is attached (tests): downloads start at once.
+     * Explicit user actions (`confirmed = true`) and "download again" skip it.
+     */
+    var onConfirmDownload: ((request: DownloadConfirmRequest, proceed: () -> Unit) -> Unit)? = null
+
+    /**
+     * Host of the page behind the latest `blob:` request. The blob bridge hands back only the
+     * bytes, not the blob URL, so the prompt takes the host from the newest request.
+     */
+    private var lastBlobHost: String? = null
+
     private companion object {
         private const val TAG = "WebViewPool"
     }
@@ -43,11 +57,12 @@ internal class WebViewDownloads(
         contentDisposition: String?,
         mimeType: String?,
         contentLength: Long,
-        webView: WebView?
+        webView: WebView?,
+        confirmed: Boolean = false,
     ) {
         // Check for data: URI scheme
         if (url.startsWith("data:", ignoreCase = true)) {
-            handleDataUrlDownload(url, contentDisposition, mimeType)
+            startDataUrlDownload(url, contentDisposition, mimeType, host = downloadHostOf(webView?.safeUrl()), confirmed)
             return
         }
 
@@ -100,7 +115,19 @@ internal class WebViewDownloads(
                             prompt(existing) { activeScope().launch { enqueue() } }
                         }
                     } else {
-                        enqueue()
+                        val confirm = onConfirmDownload
+                        if (confirmed || confirm == null) {
+                            enqueue()
+                        } else {
+                            val request = DownloadConfirmRequest(
+                                fileName = fileName,
+                                sizeBytes = contentLength.takeIf { it > 0 },
+                                host = downloadHostOf(refererUrl),
+                            )
+                            withContext(Dispatchers.Main) {
+                                confirm(request) { activeScope().launch { enqueue() } }
+                            }
+                        }
                     }
                 }
             }
@@ -110,7 +137,36 @@ internal class WebViewDownloads(
         }
     }
 
+    /** Entry point of the blob bridge: the page's blob bytes arrived as a data URL. */
     fun handleDataUrlDownload(
+        url: String,
+        contentDisposition: String?,
+        mimeType: String?
+    ) = startDataUrlDownload(url, contentDisposition, mimeType, host = lastBlobHost, confirmed = false)
+
+    /**
+     * For `data:` and `blob:` downloads the prompt comes after the bytes are in hand. Pages revoke
+     * a blob URL within milliseconds of starting the download, so asking first and reading after
+     * the answer would find nothing; the bytes wait in memory while the card is shown.
+     */
+    private fun startDataUrlDownload(
+        url: String,
+        contentDisposition: String?,
+        mimeType: String?,
+        host: String?,
+        confirmed: Boolean,
+    ) {
+        val confirm = onConfirmDownload
+        if (confirmed || confirm == null) {
+            saveDataUrl(url, contentDisposition, mimeType)
+        } else {
+            confirm(dataUrlConfirmRequest(url, contentDisposition, mimeType, host)) {
+                saveDataUrl(url, contentDisposition, mimeType)
+            }
+        }
+    }
+
+    private fun saveDataUrl(
         url: String,
         contentDisposition: String?,
         mimeType: String?
@@ -150,6 +206,7 @@ internal class WebViewDownloads(
         }
 
         Log.d(TAG, "Preparing blob download: $blobUrl")
+        lastBlobHost = blobOriginHost(blobUrl) ?: downloadHostOf(webView.safeUrl())
 
         try {
             pendingBlobDownloads.request(webView, blobUrl, contentDisposition, mimeType) {

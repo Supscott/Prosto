@@ -1,6 +1,7 @@
 package com.jestk.browser.ui.viewmodel
 
 import android.util.Log
+import com.jestk.browser.domain.model.DownloadConfirmRequest
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.engine.download.HoriDownloadManager
@@ -21,9 +22,11 @@ internal class DownloadCoordinator(
     private val updateUiState: ((BrowserUiState) -> BrowserUiState) -> Unit,
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher,
+    askBeforeDownload: () -> Boolean = { true },
 ) {
     private val failureCounter = AtomicLong()
     private var pendingDuplicate: (() -> Unit)? = null
+    private val confirmQueue = DownloadConfirmQueue(askBeforeDownload, updateUiState)
 
     fun observeDatabaseFlows() {
         if (downloadRepository != null) {
@@ -117,6 +120,12 @@ internal class DownloadCoordinator(
         pendingDuplicate = null
         updateUiState { it.copy(duplicateDownloadPrompt = null) }
     }
+
+    fun onConfirmDownload(request: DownloadConfirmRequest, proceed: () -> Unit) = confirmQueue.request(request, proceed)
+
+    fun confirmDownloadPrompt() = confirmQueue.confirm()
+
+    fun dismissDownloadPrompt() = confirmQueue.dismiss()
 
     fun dismissDownloadFailure() {
         updateUiState { it.copy(downloadFailure = null) }

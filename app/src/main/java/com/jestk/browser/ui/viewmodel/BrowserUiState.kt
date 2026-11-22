@@ -71,6 +71,7 @@ data class BrowserUiState(
     val showDownloadSnackbar: Boolean = false,
     val downloadFailure: DownloadFailure? = null,
     val duplicateDownloadPrompt: DownloadItem? = null,
+    val downloadConfirmPrompt: com.jestk.browser.domain.model.DownloadConfirmRequest? = null,
     val activeDownloadIds: Set<Long> = emptySet(),
     val downloadProgressMap: Map<Long, DownloadProgressInfo> = emptyMap(),
     // Settings

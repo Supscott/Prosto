@@ -169,6 +169,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
     val isHomePrivacyCardEnabled = map[SettingKeys.HOME_PRIVACY_CARD_ENABLED]?.toBooleanStrictOrNull() ?: true
     val isTutorialCompleted = map[SettingKeys.TUTORIAL_COMPLETED]?.toBooleanStrictOrNull() ?: false
     val isBackgroundPlaybackEnabled = map[SettingKeys.BACKGROUND_PLAYBACK_ENABLED]?.toBooleanStrictOrNull() ?: false
+    val isAskBeforeDownloadEnabled = map[SettingKeys.ASK_BEFORE_DOWNLOAD_ENABLED]?.toBooleanStrictOrNull() ?: true
 
     val hiddenEngines =
         map[SettingKeys.HIDDEN_SEARCH_PAGE_ENGINES]
@@ -199,6 +200,7 @@ fun List<SettingEntity>.toBrowserSettings(): BrowserSettings {
         isHomePrivacyCardEnabled = isHomePrivacyCardEnabled,
         isTutorialCompleted = isTutorialCompleted,
         isBackgroundPlaybackEnabled = isBackgroundPlaybackEnabled,
+        isAskBeforeDownloadEnabled = isAskBeforeDownloadEnabled,
     )
 }
 

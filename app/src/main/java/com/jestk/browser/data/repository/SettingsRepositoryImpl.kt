@@ -144,6 +144,11 @@ class SettingsRepositoryImpl(
             settingDao.setSetting(SettingEntity(SettingKeys.BACKGROUND_PLAYBACK_ENABLED, enabled.toString()))
         }
 
+    override suspend fun setAskBeforeDownloadEnabled(enabled: Boolean) =
+        withContext(ioDispatcher) {
+            settingDao.setSetting(SettingEntity(SettingKeys.ASK_BEFORE_DOWNLOAD_ENABLED, enabled.toString()))
+        }
+
     override fun getBlockedAdsCount(): Flow<Long> =
         settingDao
             .getSettingFlow(SettingKeys.KEY_BLOCKED_ADS_COUNT)

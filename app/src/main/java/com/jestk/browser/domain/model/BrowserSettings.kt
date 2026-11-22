@@ -23,6 +23,7 @@ data class BrowserSettings(
     val isHomePrivacyCardEnabled: Boolean = true,
     val isTutorialCompleted: Boolean = false,
     val isBackgroundPlaybackEnabled: Boolean = false,
+    val isAskBeforeDownloadEnabled: Boolean = true,
 ) {
     val isAutoConsentEnabled: Boolean
         get() = autoConsentEnabled

@@ -6,7 +6,10 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.ConfirmDownloadPrompt
 import com.jestk.browser.ui.viewmodel.ConfirmDuplicateDownload
+import com.jestk.browser.ui.viewmodel.DismissDownloadPrompt
+import com.jestk.browser.ui.viewmodel.SetAskBeforeDownloadEnabled
 import com.jestk.browser.ui.viewmodel.DismissDownloadFailure
 import com.jestk.browser.ui.viewmodel.DismissDuplicateDownload
 import com.jestk.browser.ui.viewmodel.DismissOpenInAppExclusionPrompt
@@ -53,6 +56,17 @@ internal class SettingsEventHandler(
             is ConfirmDuplicateDownload -> downloadCoordinator.confirmDuplicateDownload()
 
             is DismissDuplicateDownload -> downloadCoordinator.dismissDuplicateDownload()
+
+            is ConfirmDownloadPrompt -> downloadCoordinator.confirmDownloadPrompt()
+
+            is DismissDownloadPrompt -> downloadCoordinator.dismissDownloadPrompt()
+
+            is SetAskBeforeDownloadEnabled -> {
+                updateUiState { it.copy(settings = it.settings.copy(isAskBeforeDownloadEnabled = event.enabled)) }
+                scope.launch(ioDispatcher) {
+                    settingsRepository.setAskBeforeDownloadEnabled(event.enabled)
+                }
+            }
 
             is BrowserUiEvent.PauseDownload -> {
                 Log.d(TAG, "Download command: pause ${event.id}")

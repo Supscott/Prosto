@@ -1,7 +1,6 @@
 package com.jestk.browser.ui.app
 
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.engine.WebViewPool
 import com.jestk.browser.ui.overlays.FeedbackBottomSheet
@@ -20,7 +19,6 @@ internal fun AppDialogs(
     isDark: Boolean,
     webViewPool: WebViewPool,
 ) {
-    val context = LocalContext.current
     // Link Context Menu Floating Modal
     uiState.linkContextMenuUrl?.let { linkUrl ->
         LinkContextMenuModal(
@@ -38,13 +36,15 @@ internal fun AppDialogs(
             anchor = uiState.contextMenuAnchor,
             onEvent = onEvent,
             onDownloadImage = { url ->
-                webViewPool.handleDownload(
+                // A menu action is already a decision: no confirmation card.
+                webViewPool.downloads.handleDownload(
                     url = url,
                     userAgent = null,
                     contentDisposition = null,
                     mimeType = "image/*",
                     contentLength = 0L,
-                    context = context,
+                    webView = null,
+                    confirmed = true,
                 )
             },
         )
