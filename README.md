@@ -1,12 +1,6 @@
 <div align="center">
 
-  <img src="assets/logo.svg" alt="Prosto Browser Logo" width="80" height="80" />
-
-  # Prosto Browser
-
-  **A new way to interact with the internet.**
-
-  An ultra-fast, gesture-driven Android browser crafted around tactile physics and zero distractions.
+  <img src="assets/banner.png" alt="Prosto, a browser for Android: your tabs always in sight. One-handed, fast, private." width="800" />
 
   [![Download APK](https://img.shields.io/badge/Download-prosto.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/Prosto/releases/latest/download/prosto.apk)
 
@@ -22,10 +16,6 @@
   [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
 
 </div>
-
-<p align="center">
-  <img src="assets/home-light-dark.png" alt="Prosto Home screen, light and dark themes" width="560" />
-</p>
 
 <table align="center">
   <tr>
