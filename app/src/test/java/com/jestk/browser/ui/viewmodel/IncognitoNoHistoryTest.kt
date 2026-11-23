@@ -78,7 +78,7 @@ class IncognitoNoHistoryTest {
     }
 
     @Test
-    fun pageLoadedInAnIncognitoTab_recordsNoVisitAndNoRecentTab() = runTest(testDispatcher) {
+    fun pageLoadedInAnIncognitoTab_recordsNoVisit() = runTest(testDispatcher) {
         val tab = tabRepo.createTab(url = "", title = "", isIncognito = true)
         uiState = uiState.copy(tabs = listOf(tab), activeTabId = tab.id)
         val url = "https://secret.example/page"
