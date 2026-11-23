@@ -15,11 +15,13 @@ skip checks.
 2. `rtk tools/device.sh wake`. If it says the phone is locked, stop and report `BLOCKED: locked`
    (only the user can unlock it). Do not retry in a loop.
 3. `rtk tools/device.sh install` unless the brief says the installed build is current (it takes
-   the Gradle lock; "waiting" means another build runs: wait, do not start anything else).
+   the Gradle lock; "waiting" means another build runs: wait, do not start anything else). Skip
+   this step when step 4 runs smoke without `--no-install`: smoke installs the build itself.
 4. `rtk tools/smoke.sh` when the brief asks for it (always after Activity, intent or tab
    changes). Run it first, before any check that prepares state: smoke wipes the debug app's
    data (`reset`) unless the brief passes `--keep-state`, and installs the build unless it passes
-   `--no-install`, so state set up earlier is lost.
+   `--no-install`, so state set up earlier is lost. Smoke's install is a full Gradle build, so
+   never run `install` before it.
 
 ## Rules
 
