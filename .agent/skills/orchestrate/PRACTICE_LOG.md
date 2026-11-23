@@ -14,12 +14,18 @@ How to keep it useful:
 - Keep the file under ~60 lines.
 
 ## Entries
+- 2026-11-24 — PRO-106…124 (17 issues closed): Haiku harness 229–459k/20–39 turns, Sonnet UI and
+  data 325–764k, mover 359k, reviewer 127k/9, device 618–671k/113–121, Opus orchestrator
+  2586k/87. Reading the Haiku harness diffs found 3 bugs their own checks missed (a pathspec that
+  skipped 2 of 3 tests, `tapui ""` tapping a switch, a saved timeout lost on an adb failure).
+  PRO-112's first fix passed its reproduction and was closed, then 232 failures came back: the
+  real cause was a race (concurrent native loads), found by a Sonnet run (1150k/82). → Keep
+  reading harness diffs; never close a flaky failure on one green reproduction, repeat it and
+  prove the mechanism.
 - 2026-11-23 — PRO-95…105 (11 issues): Sonnet downloads 489k/41 turns, UI 198k/20, mover 231k/18,
   Haiku harness 484k/44, device 572k/97, Opus orchestrator 2179k/72. First `prosto-reviewer` run
   (158k, 11 turns): 4 of its findings fixed (boxing on the main thread, TalkBack stops, unconsumed
   hint, name limit), 1 rejected (`isTrusted` would drop names on `a.click()`). → Keep step 6.0.
-  One failed test made the next full runs report 435 and 266 false failures until
-  `app/build/test-results/testDebugUnitTest` was deleted (PRO-112).
 - 2026-11-22 — PRO-93 (Sonnet, 59 turns, 913k) hung its test JVM twice at 0% CPU (its test used
   the TestScope as the engine scope; a `withContext(Main)` hop deadlocked the Robolectric looper)
   and held the Gradle lock ~26 min, so PRO-94 (Sonnet, 35 turns, 436k) waited; the user saw it
