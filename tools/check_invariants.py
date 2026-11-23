@@ -507,7 +507,8 @@ def check_script_modes():
         # Format: "<mode> <object> <stage>\t<path>"
         meta, _, rel = line.partition("\t")
         mode = meta.split()[0] if meta else ""
-        if not rel.endswith(".sh"):
+        # A tracked script deleted in the working tree has no first line to read.
+        if not rel.endswith(".sh") or not (ROOT / rel).is_file():
             continue
         with open(ROOT / rel, "rb") as handle:
             first_line = handle.readline()
