@@ -16,6 +16,28 @@ internal fun downloadHostOf(url: String?): String? =
 internal fun blobOriginHost(blobUrl: String): String? = downloadHostOf(blobUrl.substringAfter("blob:", ""))
 
 /**
+ * The number of trailing base64 padding characters of [url] (0..2), after [payloadStart]: a
+ * literal `=` or a percent-encoded `%3D`. Scans from the end, no copy.
+ */
+internal fun base64PaddingCount(url: String, payloadStart: Int): Int {
+    var end = url.length
+    var pads = 0
+    while (pads < 2) {
+        if (end > payloadStart && url[end - 1] == '=') {
+            end -= 1
+        } else if (end - 3 >= payloadStart && url[end - 1].let { it == 'D' || it == 'd' } &&
+            url[end - 2] == '3' && url[end - 3] == '%'
+        ) {
+            end -= 3
+        } else {
+            break
+        }
+        pads++
+    }
+    return pads
+}
+
+/**
  * Builds the prompt text for a `data:` download without decoding the payload: the name comes from
  * the same resolver the saver uses, the size is estimated from the payload length.
  */
@@ -28,10 +50,12 @@ internal fun dataUrlConfirmRequest(
     val comma = url.indexOf(',')
     val metadata = if (comma > 5) url.substring(5, comma) else ""
     val payloadLength = if (comma >= 0) url.length - comma - 1 else 0
+    val decodedLength = payloadLength - 2L * url.count { it == '%' }
     val size = if (metadata.contains(";base64", ignoreCase = true)) {
-        payloadLength * 3L / 4
+        // `decodedLength` counts a `%3D` as one character, like the `=` it stands for.
+        decodedLength * 3L / 4 - base64PaddingCount(url, comma + 1)
     } else {
-        payloadLength - 2L * url.count { it == '%' }
+        decodedLength
     }
     val rawMime = metadata.substringBefore(';').trim().ifEmpty { null } ?: mimeType ?: "text/plain"
     val fileName = DownloadFileNameResolver.resolveFileName("data:$rawMime", contentDisposition, rawMime)
