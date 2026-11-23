@@ -23,6 +23,8 @@
 #                                   nodes (switches) add " | checked=true|false"
 #   tools/device.sh tapui <label>   tap the node whose text or content-desc is exactly <label>; exit 1
 #                                   with a message when it is not on screen (dock tabs scroll out of view)
+#   tools/device.sh type <text>     type into the focused field (adb input text): printable ASCII only;
+#                                   "%" and non-ASCII are refused, nothing is sent
 #   tools/device.sh swipe <x1> <y1> <x2> <y2> [ms]   swipe at device pixels (default 400 ms)
 #   tools/device.sh top             package of the resumed activity
 #   tools/device.sh pages           WebView pages over CDP: "visible <url>" or "hidden <url>"
@@ -80,7 +82,8 @@ require_device() {
 
 # Quotes a value for the device shell, which re-parses the command line: "(", "&", "?" and
 # spaces in URLs would break it otherwise.
-device_quote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
+# The replacement is held in a variable: written inline, bash 3.2 (macOS) keeps its backslashes.
+device_quote() { local q="'\\''"; printf "'%s'" "${1//\'/$q}"; }
 
 # The current window hierarchy as uiautomator XML.
 ui_dump() { adb exec-out uiautomator dump /dev/tty 2>/dev/null | sed 's/UI hierchary dumped to.*//'; }
@@ -139,7 +142,7 @@ tap_selector() {
 cmd="${1:-}"
 shift || true
 case "$cmd" in
-    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|tap|taps|ui|tapui|swipe|top|pages|visible|eval|serve|secure|log|clearlog|shot) require_device ;;
+    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|serve|secure|log|clearlog|shot) require_device ;;
 esac
 case "$cmd" in
     open|tap|tapui|eval|ui|log|visible|pages) install_stamp_check "$ROOT" ;;
@@ -254,6 +257,21 @@ case "$cmd" in
         esac
         # shellcheck disable=SC2086
         adb shell input tap $xy
+        ;;
+    type)
+        [[ $# -ge 1 ]] || die "usage: device.sh type <text>"
+        text="$*"
+        [[ -n "$text" ]] || die "type: nothing to type; nothing was sent"
+        # input text takes printable ASCII only: C locale, so every byte of a non-ASCII character
+        # counts as non-printable; tabs and newlines are refused too.
+        if (LC_ALL=C; [[ "$text" == *[![:print:]]* ]]); then
+            die "type: input text can only type printable ASCII (no non-ASCII, tabs or newlines); nothing was sent"
+        fi
+        # input text reads "%s" as a space, so a "%" cannot be typed literally.
+        [[ "$text" != *%* ]] || die "type: '%' cannot be typed (input text reads %s as a space); nothing was sent"
+        # A space becomes %s, which input text turns back into a space. device_quote keeps every other
+        # character literal through the device shell.
+        adb shell "input text $(device_quote "${text// /%s}")"
         ;;
     swipe)
         [[ $# -ge 4 ]] || die "usage: device.sh swipe <x1> <y1> <x2> <y2> [ms]"
