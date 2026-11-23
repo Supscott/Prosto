@@ -35,6 +35,12 @@ class DataUrlConfirmSizeTest {
     }
 
     @Test
+    fun percentInMetadataDoesNotChangeTheSize() {
+        assertThat(sizeOf("data:text/plain;name=a%20b;base64,aGVsbG8=")).isEqualTo(5L)
+        assertThat(sizeOf("data:text/plain;name=a%20b,hi")).isEqualTo(2L)
+    }
+
+    @Test
     fun base64_emptyPayloadHasNoSize() {
         assertThat(sizeOf("data:text/plain;base64,")).isNull()
         assertThat(sizeOf("data:text/plain;base64,==")).isNull()
