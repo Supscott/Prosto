@@ -1,7 +1,5 @@
 package com.jestk.browser.ui.navigation
 
-import android.content.Context
-import android.content.Intent
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -43,27 +41,17 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.BlendMode
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
@@ -77,7 +65,6 @@ import com.jestk.browser.ui.theme.ProstoAccent
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
-import com.jestk.browser.util.ClipboardHelper
 
 /**
  * Layout metrics and typography tokens for [ActiveTabPill].
@@ -409,90 +396,5 @@ fun ActiveTabPill(
                 onMoveToWorkspace = onMoveToWorkspace,
             )
         }
-    }
-}
-
-@Composable
-private fun FadingSingleLineText(
-    text: String,
-    style: TextStyle,
-    color: Color,
-    modifier: Modifier = Modifier,
-    fadeWidth: Dp = 8.dp,
-) {
-    var overflows by remember(text) { mutableStateOf(false) }
-    val density = LocalDensity.current
-
-    Text(
-        text = text,
-        style = style.copy(color = color),
-        maxLines = 1,
-        softWrap = false,
-        overflow = TextOverflow.Clip,
-        onTextLayout = { layoutResult ->
-            val overflowThresholdPx = with(density) { 6.dp.toPx() }
-            overflows = layoutResult.multiParagraph.maxIntrinsicWidth > (layoutResult.size.width + overflowThresholdPx)
-        },
-        modifier =
-            modifier.then(
-                if (overflows) {
-                    Modifier
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                        .drawWithContent {
-                            drawContent()
-                            if (size.width > 0f) {
-                                val fadePx = fadeWidth.toPx()
-                                val startX = (size.width - fadePx).coerceAtLeast(0f)
-                                val stopFraction = (startX / size.width).coerceIn(0f, 1f)
-                                drawRect(
-                                    brush =
-                                        Brush.horizontalGradient(
-                                            0f to Color.Black,
-                                            stopFraction to Color.Black,
-                                            1f to Color.Transparent,
-                                            startX = 0f,
-                                            endX = size.width,
-                                        ),
-                                    blendMode = BlendMode.DstIn,
-                                )
-                            }
-                        }
-                } else {
-                    Modifier
-                },
-            ),
-    )
-}
-
-internal fun copyUrlToClipboard(
-    context: Context,
-    url: String,
-) {
-    if (url.isNotBlank() && !url.startsWith("about:")) {
-        ClipboardHelper.copyToClipboard(context, url)
-    } else {
-        Toast.makeText(context, R.string.toast_no_url_to_copy, Toast.LENGTH_SHORT).show()
-    }
-}
-
-internal fun shareWebpageUrl(
-    context: Context,
-    urlToShare: String,
-) {
-    if (urlToShare.isNotBlank() && !urlToShare.startsWith("about:")) {
-        try {
-            val sendIntent =
-                Intent().apply {
-                    action = Intent.ACTION_SEND
-                    putExtra(Intent.EXTRA_TEXT, urlToShare)
-                    type = "text/plain"
-                }
-            val shareIntent = Intent.createChooser(sendIntent, context.getString(R.string.share_link))
-            context.startActivity(shareIntent)
-        } catch (_: Exception) {
-            Toast.makeText(context, R.string.toast_share_failed, Toast.LENGTH_SHORT).show()
-        }
-    } else {
-        Toast.makeText(context, R.string.toast_no_url_to_share, Toast.LENGTH_SHORT).show()
     }
 }
