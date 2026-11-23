@@ -501,7 +501,7 @@ class WebViewPool(
             }
             configureProfileAndCookies(webView, profileName)
             try {
-                val blobBridge = pendingBlobDownloads.createBridge { dataUrl, contentDisposition, mimeType ->
+                val blobBridge = pendingBlobDownloads.createBridge(webView) { dataUrl, contentDisposition, mimeType ->
                     activeScope().launch(Dispatchers.Main) {
                         downloads.handleDataUrlDownload(dataUrl, contentDisposition, mimeType)
                     }

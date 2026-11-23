@@ -2,9 +2,11 @@ package com.jestk.browser.engine
 
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import java.lang.ref.WeakReference
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -14,8 +16,19 @@ import java.util.concurrent.ConcurrentHashMap
  */
 class BlobDownloadBridge internal constructor(
     private val pendingBlobUrls: MutableSet<String>,
-    private val onBlobReceived: (dataUrl: String, contentDisposition: String?, mimeType: String?) -> Unit
+    private val onBlobReceived: (dataUrl: String, contentDisposition: String?, mimeType: String?) -> Unit,
+    private val onDataLinkDisposition: (contentDisposition: String) -> Unit = {},
 ) {
+    /**
+     * The content script reports a tapped `<a download="name" href="data:...">` here: WebView's
+     * DownloadListener gets no Content-Disposition for a `data:` URL, so the name would be lost.
+     */
+    @JavascriptInterface
+    fun onDataLinkClicked(contentDisposition: String) {
+        if (contentDisposition.length > MAX_DISPOSITION_LENGTH) return
+        onDataLinkDisposition(contentDisposition)
+    }
+
     @JavascriptInterface
     fun onBlobDownloaded(blobUrl: String, dataUrl: String, contentDisposition: String?, mimeType: String?) {
         if (!pendingBlobUrls.remove(blobUrl)) {
@@ -27,6 +40,7 @@ class BlobDownloadBridge internal constructor(
 
     private companion object {
         const val TAG = "BlobDownloadBridge"
+        const val MAX_DISPOSITION_LENGTH = 1024
     }
 }
 
@@ -39,12 +53,26 @@ class BlobDownloadBridge internal constructor(
 internal class PendingBlobDownloads(
     private val timeoutMs: Long = TIMEOUT_MS,
     private val mainHandler: Handler = Handler(Looper.getMainLooper()),
+    private val clock: () -> Long = { SystemClock.elapsedRealtime() },
 ) {
     private val urls: MutableSet<String> = ConcurrentHashMap.newKeySet()
+    private val dataLinkHints = DataLinkDispositionHints(clock)
 
     fun createBridge(
+        webView: WebView,
         onBlobReceived: (dataUrl: String, contentDisposition: String?, mimeType: String?) -> Unit,
-    ) = BlobDownloadBridge(urls, onBlobReceived)
+    ): BlobDownloadBridge {
+        val owner = WeakReference(webView)
+        return BlobDownloadBridge(urls, onBlobReceived) { disposition ->
+            owner.get()?.let { dataLinkHints.put(it, disposition) }
+        }
+    }
+
+    /**
+     * The Content-Disposition a tap on a `data:` link with a `download` name left for [webView]:
+     * one-shot, and only for [DataLinkDispositionHints.TTL_MS] after the tap.
+     */
+    fun consumeDataLinkDisposition(webView: WebView): String? = dataLinkHints.consume(webView)
 
     fun isPending(blobUrl: String): Boolean = blobUrl in urls
 

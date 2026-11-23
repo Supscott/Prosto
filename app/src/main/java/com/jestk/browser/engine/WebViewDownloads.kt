@@ -62,7 +62,10 @@ internal class WebViewDownloads(
     ) {
         // Check for data: URI scheme
         if (url.startsWith("data:", ignoreCase = true)) {
-            startDataUrlDownload(url, contentDisposition, mimeType, host = downloadHostOf(webView?.safeUrl()), confirmed)
+            // WebView passes no Content-Disposition for data: URLs; the page script's `download` name stands in.
+            val disposition = contentDisposition?.takeIf { it.isNotBlank() }
+                ?: webView?.let(pendingBlobDownloads::consumeDataLinkDisposition)
+            startDataUrlDownload(url, disposition, mimeType, host = downloadHostOf(webView?.safeUrl()), confirmed)
             return
         }
 

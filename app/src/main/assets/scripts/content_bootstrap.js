@@ -16,8 +16,14 @@
             var lastBlobLink = null;
             window.addEventListener('click', function(event) {
                 try {
-                    var link = event.target && event.target.closest && event.target.closest('a[href^="blob:"]');
+                    var target = event.target && event.target.closest;
+                    var link = target && event.target.closest('a[href^="blob:"]');
                     if (link) lastBlobLink = { href: link.href, name: link.getAttribute('download') || '' };
+                    // A data: link has no Content-Disposition in the DownloadListener: hand the
+                    // native side the name now, before the click's default action starts the download.
+                    var dataLink = target && event.target.closest('a[href^="data:" i]');
+                    var dataName = dataLink && dataLink.getAttribute('download');
+                    if (dataName) blobBridge.onDataLinkClicked("attachment; filename*=UTF-8''" + encodeURIComponent(dataName));
                 } catch (e) {}
             }, true);
             var downloadName = function(blobUrl) {

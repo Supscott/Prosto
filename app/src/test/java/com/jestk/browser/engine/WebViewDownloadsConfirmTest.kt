@@ -35,6 +35,7 @@ class WebViewDownloadsConfirmTest {
     private var proceed: (() -> Unit)? = null
 
     private val dataUrl = "data:text/plain;base64,SGVsbG8gSG9yaSBCcm93c2Vy"
+    private val pendingBlobDownloads = PendingBlobDownloads()
 
     @Before
     fun setUp() {
@@ -43,7 +44,7 @@ class WebViewDownloadsConfirmTest {
         val manager = HoriDownloadManager(context, repository, dispatcher)
         downloads = WebViewDownloads(
             applicationContext = context,
-            pendingBlobDownloads = PendingBlobDownloads(),
+            pendingBlobDownloads = pendingBlobDownloads,
             downloadRepository = { repository },
             downloadManager = { manager },
             activeScope = { engineScope },
@@ -94,6 +95,30 @@ class WebViewDownloadsConfirmTest {
         advanceUntilIdle()
 
         assertThat(savedCount()).isEqualTo(0)
+    }
+
+    @Test
+    fun dataLinkWithDownloadName_namesTheConfirmedFile() = scope.runTest {
+        attachPrompt()
+        val webView = android.webkit.WebView(ApplicationProvider.getApplicationContext())
+        pendingBlobDownloads.createBridge(webView) { _, _, _ -> }
+            .onDataLinkClicked("attachment; filename*=UTF-8''data-test.txt")
+
+        downloads.handleDownload("data:text/plain,hi", null, null, "text/plain", 0L, webView)
+        advanceUntilIdle()
+
+        assertThat(requests.single().fileName).isEqualTo("data-test.txt")
+    }
+
+    @Test
+    fun dataLinkWithoutHint_keepsTheGeneratedName() = scope.runTest {
+        attachPrompt()
+        val webView = android.webkit.WebView(ApplicationProvider.getApplicationContext())
+
+        downloads.handleDownload("data:text/plain,hi", null, null, "text/plain", 0L, webView)
+        advanceUntilIdle()
+
+        assertThat(requests.single().fileName).startsWith("download_")
     }
 
     @Test

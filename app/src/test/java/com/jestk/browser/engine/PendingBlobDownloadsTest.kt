@@ -8,9 +8,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
 import java.time.Duration
 
 @RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class PendingBlobDownloadsTest {
     private val webView = WebView(ApplicationProvider.getApplicationContext())
     private val blobUrl = "blob:https://viewer.example/0b1c"
@@ -34,7 +36,7 @@ class PendingBlobDownloadsTest {
         val pending = PendingBlobDownloads(timeoutMs = 1_000)
         var delivered: String? = null
         var timeouts = 0
-        val bridge = pending.createBridge { dataUrl, _, _ -> delivered = dataUrl }
+        val bridge = pending.createBridge(webView) { dataUrl, _, _ -> delivered = dataUrl }
         pending.request(webView, blobUrl, null, "text/plain") { timeouts++ }
 
         bridge.onBlobDownloaded(blobUrl, "data:text/plain;base64,aGk=", "", "text/plain")
@@ -48,10 +50,70 @@ class PendingBlobDownloadsTest {
     fun bridge_ignoresBlobUrlsTheDownloadListenerDidNotReport() {
         val pending = PendingBlobDownloads()
         var delivered = false
-        val bridge = pending.createBridge { _, _, _ -> delivered = true }
+        val bridge = pending.createBridge(webView) { _, _, _ -> delivered = true }
 
         bridge.onBlobDownloaded(blobUrl, "data:text/plain;base64,aGk=", "", "text/plain")
 
         assertThat(delivered).isFalse()
+    }
+
+    private var now = 0L
+    private val disposition = "attachment; filename*=UTF-8''data-test.txt"
+
+    private fun pendingWithClock() = PendingBlobDownloads(clock = { now })
+
+    @Test
+    fun dataLinkHint_isConsumedOnce() {
+        val pending = pendingWithClock()
+        val bridge = pending.createBridge(webView) { _, _, _ -> }
+
+        bridge.onDataLinkClicked(disposition)
+
+        assertThat(pending.consumeDataLinkDisposition(webView)).isEqualTo(disposition)
+        assertThat(pending.consumeDataLinkDisposition(webView)).isNull()
+    }
+
+    @Test
+    fun dataLinkHint_expiresAfterTwoSeconds() {
+        val pending = pendingWithClock()
+        val bridge = pending.createBridge(webView) { _, _, _ -> }
+
+        bridge.onDataLinkClicked(disposition)
+        now = 2_001L
+
+        assertThat(pending.consumeDataLinkDisposition(webView)).isNull()
+    }
+
+    @Test
+    fun dataLinkHint_stillValidAtTheLimit() {
+        val pending = pendingWithClock()
+        val bridge = pending.createBridge(webView) { _, _, _ -> }
+
+        bridge.onDataLinkClicked(disposition)
+        now = 2_000L
+
+        assertThat(pending.consumeDataLinkDisposition(webView)).isEqualTo(disposition)
+    }
+
+    @Test
+    fun dataLinkHint_isPerWebView() {
+        val pending = pendingWithClock()
+        val other = WebView(ApplicationProvider.getApplicationContext())
+        val bridge = pending.createBridge(webView) { _, _, _ -> }
+
+        bridge.onDataLinkClicked(disposition)
+
+        assertThat(pending.consumeDataLinkDisposition(other)).isNull()
+        assertThat(pending.consumeDataLinkDisposition(webView)).isEqualTo(disposition)
+    }
+
+    @Test
+    fun dataLinkHint_overLimitIsIgnored() {
+        val pending = pendingWithClock()
+        val bridge = pending.createBridge(webView) { _, _, _ -> }
+
+        bridge.onDataLinkClicked("a".repeat(1025))
+
+        assertThat(pending.consumeDataLinkDisposition(webView)).isNull()
     }
 }
