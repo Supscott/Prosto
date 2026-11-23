@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -42,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -239,6 +241,11 @@ internal fun SearchEngineSwitcherEditPopup(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .toggleable(
+                                    value = isVisible,
+                                    role = Role.Switch,
+                                    onValueChange = { onToggleEngine(engine.id, it) }
+                                )
                                 .padding(vertical = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
@@ -266,7 +273,7 @@ internal fun SearchEngineSwitcherEditPopup(
 
                             ProstoToggleSwitch(
                                 checked = isVisible,
-                                onCheckedChange = { onToggleEngine(engine.id, it) }
+                                onCheckedChange = null
                             )
                         }
 
