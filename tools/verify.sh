@@ -125,7 +125,7 @@ echo "==> Running the Python tool tests (tools/**/*_test.py)..."
 py_status=0
 while IFS= read -r py_test; do
     py_out=$(python3 "$py_test" 2>&1) || { echo "$py_out"; echo "FAIL $py_test"; py_status=1; }
-done < <(git ls-files 'tools/**/*_test.py')
+done < <(git ls-files ':(glob)tools/**/*_test.py')
 if [[ $py_status -ne 0 ]]; then
     echo "==> Python tool tests FAILED"
     exit 1
