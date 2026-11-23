@@ -17,7 +17,9 @@ skip checks.
 3. `rtk tools/device.sh install` unless the brief says the installed build is current (it takes
    the Gradle lock; "waiting" means another build runs: wait, do not start anything else).
 4. `rtk tools/smoke.sh` when the brief asks for it (always after Activity, intent or tab
-   changes).
+   changes). Run it first, before any check that prepares state: smoke wipes the debug app's
+   data (`reset`) unless the brief passes `--keep-state`, and installs the build unless it passes
+   `--no-install`, so state set up earlier is lost.
 
 ## Rules
 
