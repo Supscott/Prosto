@@ -61,21 +61,6 @@ class TabRepositoryTest {
         }
 
     @Test
-    fun getRecentTabs_returnsOrderedByLastActiveTimestamp() =
-        runTest(testDispatcher) {
-            val tab1 = repository.createTab(url = "https://site1.com", title = "Site 1")
-            val tab2 = repository.createTab(url = "https://site2.com", title = "Site 2")
-            val tab3 = repository.createTab(url = "https://site3.com", title = "Site 3")
-
-            repository.updateTab(tab1.copy(lastActiveTimestamp = 1000L))
-            repository.updateTab(tab2.copy(lastActiveTimestamp = 3000L))
-            repository.updateTab(tab3.copy(lastActiveTimestamp = 2000L))
-
-            val recent = repository.getRecentTabs(limit = 2).first()
-            assertThat(recent.map { it.id }).containsExactly(tab2.id, tab3.id).inOrder()
-        }
-
-    @Test
     fun setActiveTab_updatesActiveStatus() =
         runTest(testDispatcher) {
             val tab1 = repository.createTab(url = "https://site1.com", title = "Site 1")

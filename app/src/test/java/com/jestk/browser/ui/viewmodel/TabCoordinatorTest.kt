@@ -457,7 +457,7 @@ class TabCoordinatorTest {
         }
 
     @Test
-    fun handleUpdateFavicon_updatesRecentTabAndCachesDomainFavicon() =
+    fun handleUpdateFavicon_updatesTabAndCachesDomainFavicon() =
         runTest(testDispatcher) {
             val context = ApplicationProvider.getApplicationContext<Context>()
             FaviconManager.init(context)

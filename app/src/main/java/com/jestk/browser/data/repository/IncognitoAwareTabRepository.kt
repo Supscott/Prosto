@@ -36,13 +36,6 @@ class IncognitoAwareTabRepository(
     override fun getAllTabs(): Flow<List<Tab>> =
         combine(delegate.getAllTabs(), incognitoTabs, ::mergeTabs)
 
-    override fun getRecentTabs(limit: Int, workspaceId: String): Flow<List<Tab>> =
-        combine(delegate.getRecentTabs(limit, workspaceId), incognitoTabs) { stored, incognito ->
-            (stored + incognito.filter { it.workspaceId == workspaceId })
-                .sortedByDescending { it.lastActiveTimestamp }
-                .take(limit)
-        }
-
     override suspend fun getInitialTabs(): List<Tab> = mergeTabs(delegate.getInitialTabs(), incognitoTabs.value)
 
     override suspend fun getTabById(id: String): Tab? =
@@ -158,6 +151,4 @@ class IncognitoAwareTabRepository(
             delegate.updateWorkspaceId(id, workspaceId, folderId)
         }
     }
-
-    override suspend fun clearRecentTabs() = delegate.clearRecentTabs()
 }

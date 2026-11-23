@@ -26,12 +26,6 @@ class TabRepositoryImpl(
             .map { entities -> entities.map { it.toDomain() } }
             .flowOn(ioDispatcher)
 
-    override fun getRecentTabs(limit: Int, workspaceId: String): Flow<List<Tab>> =
-        tabDao
-            .getRecentTabsFlow(limit, workspaceId)
-            .map { entities -> entities.map { it.toDomain() } }
-            .flowOn(ioDispatcher)
-
     override suspend fun getInitialTabs(): List<Tab> =
         withContext(ioDispatcher) {
             tabDao.getAllTabs().map { it.toDomain() }
@@ -157,10 +151,5 @@ class TabRepositoryImpl(
     override suspend fun updateWorkspaceId(id: String, workspaceId: String, folderId: String?) =
         withContext(ioDispatcher) {
             tabDao.updateWorkspaceId(id, workspaceId, folderId)
-        }
-
-    override suspend fun clearRecentTabs() =
-        withContext(ioDispatcher) {
-            // No-op for TabRepository since recent tabs are derived from tabs table or managed by RecentTabRepository
         }
 }

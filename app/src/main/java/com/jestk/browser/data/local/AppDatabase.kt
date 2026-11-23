@@ -18,11 +18,9 @@ import com.jestk.browser.data.local.entity.DownloadEntity
 import com.jestk.browser.data.local.entity.FavoriteEntity
 import com.jestk.browser.data.local.entity.HistoryEntity
 import com.jestk.browser.data.local.entity.SettingEntity
-import com.jestk.browser.data.local.dao.RecentTabDao
 import com.jestk.browser.data.local.dao.SearchEngineDao
 import com.jestk.browser.data.local.dao.TabFolderDao
 import com.jestk.browser.data.local.dao.WorkspaceDao
-import com.jestk.browser.data.local.entity.RecentTabEntity
 import com.jestk.browser.data.local.entity.SearchEngineEntity
 import com.jestk.browser.data.local.entity.TabEntity
 import com.jestk.browser.data.local.entity.TabFolderEntity
@@ -35,14 +33,13 @@ import com.jestk.browser.domain.model.Workspace
         HistoryEntity::class,
         FavoriteEntity::class,
         SettingEntity::class,
-        RecentTabEntity::class,
         DownloadEntity::class,
         SearchEngineEntity::class,
         TabFolderEntity::class,
         WorkspaceEntity::class,
         SiteAllowlistEntity::class
     ],
-    version = 14,
+    version = 15,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -53,7 +50,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun historyDao(): HistoryDao
     abstract fun favoriteDao(): FavoriteDao
     abstract fun settingDao(): SettingDao
-    abstract fun recentTabDao(): RecentTabDao
     abstract fun downloadDao(): DownloadDao
     abstract fun searchEngineDao(): SearchEngineDao
     abstract fun workspaceDao(): WorkspaceDao
@@ -186,6 +182,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** PRO-116: the Home "Recently Closed" row is gone, so its table (and its indexes) goes with it. */
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS `recent_tabs`")
+            }
+        }
+
         fun seedDefaultWorkspaces(db: SupportSQLiteDatabase) {
             db.execSQL(
                 """
@@ -211,7 +214,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14)
+                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)

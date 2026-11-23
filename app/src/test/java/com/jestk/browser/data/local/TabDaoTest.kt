@@ -108,18 +108,6 @@ class TabDaoTest {
     }
 
     @Test
-    fun getRecentTabsFlow_ordersByLastActiveTimestampDescending() = runTest {
-        val tab1 = TabEntity(id = "tab-1", lastActiveTimestamp = 1000L)
-        val tab2 = TabEntity(id = "tab-2", lastActiveTimestamp = 3000L)
-        val tab3 = TabEntity(id = "tab-3", lastActiveTimestamp = 2000L)
-
-        tabDao.insertTabs(listOf(tab1, tab2, tab3))
-
-        val recent = tabDao.getRecentTabsFlow(limit = 2).first()
-        assertThat(recent.map { it.id }).containsExactly("tab-2", "tab-3").inOrder()
-    }
-
-    @Test
     fun updateSnapshotPath_updatesTargetTabSnapshotOnly() = runTest {
         val tab = TabEntity(id = "tab-1", snapshotPath = null)
         tabDao.insertTab(tab)

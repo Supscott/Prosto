@@ -116,18 +116,6 @@ class IncognitoAwareTabRepositoryTest {
     }
 
     @Test
-    fun recentTabs_includeIncognitoTabsOfTheWorkspace() = runTest(testDispatcher) {
-        repository.createTab(url = "https://a.example", workspaceId = "personal")
-        val incognito = repository.createTab(url = "https://i.example", isIncognito = true, workspaceId = "personal")
-        repository.createTab(url = "https://other.example", isIncognito = true, workspaceId = "work")
-
-        val recent = repository.getRecentTabs(limit = 6, workspaceId = "personal").first()
-
-        assertThat(recent.map { it.id }).contains(incognito.id)
-        assertThat(recent.map { it.workspaceId }.distinct()).containsExactly("personal")
-    }
-
-    @Test
     fun reorderTabs_sendsOnlyRegularTabsToTheDatabase() = runTest(testDispatcher) {
         val regularA = repository.createTab(url = "https://a.example")
         val regularB = repository.createTab(url = "https://b.example")

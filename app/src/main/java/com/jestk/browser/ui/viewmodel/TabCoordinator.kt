@@ -4,7 +4,6 @@ import android.net.Uri
 import android.util.Log
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.ExternalAppPrompt
-import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder

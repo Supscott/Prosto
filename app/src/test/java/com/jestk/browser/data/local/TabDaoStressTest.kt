@@ -135,7 +135,7 @@ class TabDaoStressTest {
     }
 
     @Test
-    fun batchInsertAndRecentTabsOrdering_1000Tabs_ordersCorrectly() = runTest {
+    fun batchInsert_1000Tabs_countsAndPositionsCorrectly() = runTest {
         val count = 1000
         val tabs = (0 until count).map { i ->
             TabEntity(
@@ -149,12 +149,6 @@ class TabDaoStressTest {
 
         assertThat(tabDao.getTabsCount()).isEqualTo(count)
         assertThat(tabDao.getMaxPosition()).isEqualTo(count - 1)
-
-        val recentTabs = tabDao.getRecentTabs(limit = 10)
-        assertThat(recentTabs).hasSize(10)
-        // Highest timestamps should come first (tab-999 down to tab-990)
-        val expectedRecentIds = (count - 1 downTo count - 10).map { "tab-$it" }
-        assertThat(recentTabs.map { it.id }).containsExactlyElementsIn(expectedRecentIds).inOrder()
     }
 
     @Test
@@ -198,7 +192,6 @@ class TabDaoStressTest {
         assertThat(tabDao.getActiveTab()).isNull()
         assertThat(tabDao.getMaxPosition()).isNull()
         assertThat(tabDao.getTabById("non-existent")).isNull()
-        assertThat(tabDao.getRecentTabs(10)).isEmpty()
 
         // Empty list reordering
         tabDao.reorderTabs(emptyList())
