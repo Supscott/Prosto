@@ -170,15 +170,18 @@ case "$cmd" in
         adb shell svc power stayon false
         if [[ -s "$SHOT_DIR/screen_timeout" ]]; then
             saved_ms="$(tr -d '[:space:]' < "$SHOT_DIR/screen_timeout")"
-            rm -f "$SHOT_DIR/screen_timeout"
+            # The saved value is removed only after adb succeeds, so a dropped connection can retry.
             # Android answers "null" when the setting was never set: delete it, do not write "null".
             if [[ "$saved_ms" == "null" ]]; then
                 adb shell settings delete system screen_off_timeout
+                rm -f "$SHOT_DIR/screen_timeout"
                 echo "normal screen timeout restored: the setting was unset before wake, so it is unset again"
             elif [[ "$saved_ms" =~ ^[1-9][0-9]*$ ]]; then
                 adb shell settings put system screen_off_timeout "$saved_ms"
+                rm -f "$SHOT_DIR/screen_timeout"
                 echo "normal screen timeout restored: $saved_ms ms"
             else
+                rm -f "$SHOT_DIR/screen_timeout"
                 echo "saved screen timeout '$saved_ms' is not a positive integer: nothing written (the file is removed)" >&2
                 exit 1
             fi
