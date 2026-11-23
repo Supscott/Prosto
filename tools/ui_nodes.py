@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Reads a `uiautomator dump` XML on stdin. Used by `tools/device.sh ui`, `tapui` and `tap <selector>`.
 
-    ui_nodes.py list            one line per labelled node: text | content-desc | bounds
+    ui_nodes.py list            one line per labelled node: text | content-desc | bounds, plus
+                                " | checked=true|false" for checkable nodes (switches)
     ui_nodes.py find <label>    centre "x y" of the first node whose text or content-desc
                                 equals <label>; exit 1 when there is none
     ui_nodes.py webview         "l t r b" of the largest android.webkit.WebView; exit 1 when none
@@ -16,10 +17,17 @@ import xml.etree.ElementTree as ET
 
 
 def nodes(root):
+    """(text, desc, bounds, checked) per node that has a label or is checkable.
+
+    `checked` is "true" or "false" for checkable nodes (uiautomator's `checkable` attribute)
+    and None for the others.
+    """
     for node in root.iter("node"):
         text, desc = node.get("text", ""), node.get("content-desc", "")
-        if text or desc:
-            yield text, desc, node.get("bounds", "")
+        checkable = node.get("checkable") == "true"
+        if text or desc or checkable:
+            checked = node.get("checked", "false") if checkable else None
+            yield text, desc, node.get("bounds", ""), checked
 
 
 def parse_bounds(bounds):
@@ -86,8 +94,9 @@ def main() -> int:
 
     root = ET.fromstring(sys.stdin.read())
     if argv == ["list"]:
-        for text, desc, bounds in nodes(root):
-            print(f"{text} | {desc} | {bounds}")
+        for text, desc, bounds, checked in nodes(root):
+            suffix = "" if checked is None else f" | checked={checked}"
+            print(f"{text} | {desc} | {bounds}{suffix}")
         return 0
     if argv == ["webview"]:
         box = webview_bounds(root)
@@ -97,7 +106,7 @@ def main() -> int:
         print(*box)
         return 0
     if len(argv) == 2 and argv[0] == "find":
-        for text, desc, bounds in nodes(root):
+        for text, desc, bounds, _checked in nodes(root):
             if argv[1] in (text, desc):
                 x1, y1, x2, y2 = map(int, re.findall(r"\d+", bounds))
                 print((x1 + x2) // 2, (y1 + y2) // 2)

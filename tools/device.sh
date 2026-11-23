@@ -19,7 +19,8 @@
 #                                   is off screen
 #   tools/device.sh taps x1,y1 x2,y2 ...   rapid taps at device pixels, sent in ONE adb shell call
 #                                   (no round trip between taps; every pair is validated first)
-#   tools/device.sh ui              labelled UI nodes on screen: text | content-desc | bounds
+#   tools/device.sh ui              labelled UI nodes on screen: text | content-desc | bounds; checkable
+#                                   nodes (switches) add " | checked=true|false"
 #   tools/device.sh tapui <label>   tap the node whose text or content-desc is exactly <label>
 #   tools/device.sh swipe <x1> <y1> <x2> <y2> [ms]   swipe at device pixels (default 400 ms)
 #   tools/device.sh top             package of the resumed activity
