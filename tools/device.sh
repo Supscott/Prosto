@@ -17,6 +17,8 @@
 #                                   tap the centre of the first match with a real touch (the page
 #                                   sees a user gesture); fails when nothing matches or the centre
 #                                   is off screen
+#   tools/device.sh taps x1,y1 x2,y2 ...   rapid taps at device pixels, sent in ONE adb shell call
+#                                   (no round trip between taps; every pair is validated first)
 #   tools/device.sh ui              labelled UI nodes on screen: text | content-desc | bounds
 #   tools/device.sh tapui <label>   tap the node whose text or content-desc is exactly <label>
 #   tools/device.sh swipe <x1> <y1> <x2> <y2> [ms]   swipe at device pixels (default 400 ms)
@@ -125,7 +127,7 @@ tap_selector() {
 cmd="${1:-}"
 shift || true
 case "$cmd" in
-    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|tap|ui|tapui|swipe|top|pages|visible|eval|serve|secure|log|clearlog|shot) require_device ;;
+    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|tap|taps|ui|tapui|swipe|top|pages|visible|eval|serve|secure|log|clearlog|shot) require_device ;;
 esac
 case "$cmd" in
     open|tap|tapui|eval|ui|log|visible|pages) install_stamp_check "$ROOT" ;;
@@ -200,6 +202,16 @@ case "$cmd" in
         else
             tap_selector "$1" "$2"
         fi
+        ;;
+    taps)
+        [[ $# -ge 1 ]] || die "usage: device.sh taps x1,y1 x2,y2 ..."
+        # Validate every pair before the first tap is sent.
+        taps_script=""
+        for pair in "$@"; do
+            [[ "$pair" =~ ^([0-9]+),([0-9]+)$ ]] || die "taps: '$pair' is not x,y (two integers, device pixels)"
+            taps_script+="input tap ${BASH_REMATCH[1]} ${BASH_REMATCH[2]}; "
+        done
+        adb shell "$taps_script"
         ;;
     ui)
         ui_dump | python3 "$ROOT/tools/ui_nodes.py" list
