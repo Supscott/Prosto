@@ -1,3 +1,5 @@
+import java.time.Duration
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -93,6 +95,11 @@ kotlin {
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// A hung test JVM once held the Gradle lock for 23 minutes (PRO-97): fail the task after 15 minutes.
+tasks.withType<Test>().configureEach {
+    timeout.set(Duration.ofMinutes(15))
 }
 
 dependencies {
