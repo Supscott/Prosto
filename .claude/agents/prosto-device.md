@@ -33,6 +33,8 @@ skip checks.
   when the brief names the file and the value.
 - Lock-screen checks last (after a lock the user must unlock the phone). Use Home where it covers
   the same path.
+- Do not switch dock tabs rapidly: the dock can lose a tap that comes right after a tab switch
+  (PRO-115, accepted). Tap one tab, confirm it with `visible`, then tap the next.
 - A check fails: collect evidence once (`log <regex>`, `ui`, `visible`), retry the check once,
   then record FAIL and move on. Do not debug the code.
 - Finish with `rtk tools/device.sh sleep`, also after a stop.
