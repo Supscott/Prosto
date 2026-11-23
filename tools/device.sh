@@ -33,6 +33,7 @@
 #   tools/device.sh clearlog        clear logcat
 #   tools/device.sh shot [name]     screenshot, downscaled to 540px wide; prints the PNG path
 #
+# Exit codes: 3 = phone locked (wake), 4 = BLOCKED, adb sees no device at all (reconnect or re-pair).
 # PROSTO_PKG picks the package (default com.jestk.browser.debug), ANDROID_SERIAL the device.
 # The user's own install (com.jestk.browser) is refused unless PROSTO_ALLOW_MAIN_APP=1.
 set -euo pipefail
@@ -57,6 +58,21 @@ die() { echo "$*" >&2; exit 1; }
 source "$ROOT/tools/lib/install_stamp.sh"
 
 is_locked() { adb shell dumpsys window | grep -q "isKeyguardShowing=true"; }
+
+# Exits 4 with one BLOCKED line when adb sees no device at all (unplugged, or wireless debugging
+# dropped), so "gone" is not mistaken for "locked" (exit 3). Other adb errors (more than one device,
+# offline, unauthorized) are left to the command, which reports them itself.
+require_device() {
+    local err
+    if err="$(adb get-state 2>&1 >/dev/null)"; then
+        return 0
+    fi
+    if [[ "$err" == *"no devices/emulators found"* ]]; then
+        echo "BLOCKED: no device (adb devices is empty: reconnect USB or re-pair wireless debugging)" >&2
+        exit 4
+    fi
+    return 0
+}
 
 # Quotes a value for the device shell, which re-parses the command line: "(", "&", "?" and
 # spaces in URLs would break it otherwise.
@@ -108,6 +124,9 @@ tap_selector() {
 
 cmd="${1:-}"
 shift || true
+case "$cmd" in
+    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|tap|ui|tapui|swipe|top|pages|visible|eval|serve|secure|log|clearlog|shot) require_device ;;
+esac
 case "$cmd" in
     open|tap|tapui|eval|ui|log|visible|pages) install_stamp_check "$ROOT" ;;
 esac
