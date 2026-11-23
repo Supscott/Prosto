@@ -106,8 +106,9 @@ def main() -> int:
         print(*box)
         return 0
     if len(argv) == 2 and argv[0] == "find":
+        # An empty label would match every unlabelled (checkable) node, so it never matches.
         for text, desc, bounds, _checked in nodes(root):
-            if argv[1] in (text, desc):
+            if argv[1] and argv[1] in (text, desc):
                 x1, y1, x2, y2 = map(int, re.findall(r"\d+", bounds))
                 print((x1 + x2) // 2, (y1 + y2) // 2)
                 return 0
