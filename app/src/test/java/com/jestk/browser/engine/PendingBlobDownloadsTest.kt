@@ -112,8 +112,19 @@ class PendingBlobDownloadsTest {
         val pending = pendingWithClock()
         val bridge = pending.createBridge(webView) { _, _, _ -> }
 
-        bridge.onDataLinkClicked("a".repeat(1025))
+        bridge.onDataLinkClicked("a".repeat(4097))
 
         assertThat(pending.consumeDataLinkDisposition(webView)).isNull()
+    }
+
+    @Test
+    fun dataLinkHint_longCyrillicNameFitsTheLimit() {
+        val pending = pendingWithClock()
+        val bridge = pending.createBridge(webView) { _, _, _ -> }
+        val disposition = "attachment; filename*=UTF-8''" + "%D1%84".repeat(200)
+
+        bridge.onDataLinkClicked(disposition)
+
+        assertThat(pending.consumeDataLinkDisposition(webView)).isEqualTo(disposition)
     }
 }

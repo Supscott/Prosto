@@ -6,6 +6,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.ui.theme.DarkOnSurface
@@ -42,7 +44,9 @@ internal fun DownloadPromptFileInfo(
             color = if (isDark) DarkOnSurface else ProstoDarkText,
         )
         if (shownSize != null || shownHost != null) {
-            Row(modifier = Modifier.padding(top = 2.dp)) {
+            // One TalkBack stop with the full host, and the separator is not read aloud.
+            val spokenDetails = listOfNotNull(shownSize, shownHost).joinToString(", ")
+            Row(modifier = Modifier.padding(top = 2.dp).clearAndSetSemantics { contentDescription = spokenDetails }) {
                 if (shownSize != null) {
                     Text(text = shownSize, style = typography.bodyMd, color = mutedColor, maxLines = 1, softWrap = false)
                 }

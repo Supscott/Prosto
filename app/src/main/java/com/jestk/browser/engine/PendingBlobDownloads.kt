@@ -40,7 +40,9 @@ class BlobDownloadBridge internal constructor(
 
     private companion object {
         const val TAG = "BlobDownloadBridge"
-        const val MAX_DISPOSITION_LENGTH = 1024
+
+        /** Percent-encoded: one Cyrillic letter takes 6 characters. */
+        const val MAX_DISPOSITION_LENGTH = 4096
     }
 }
 

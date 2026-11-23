@@ -50,7 +50,13 @@ internal fun dataUrlConfirmRequest(
     val comma = url.indexOf(',')
     val metadata = if (comma > 5) url.substring(5, comma) else ""
     val payloadLength = if (comma >= 0) url.length - comma - 1 else 0
-    val payloadEscapes = if (comma >= 0) (comma + 1 until url.length).count { url[it] == '%' } else 0
+    // Runs on the main thread for URLs of several MB: indexOf scans without boxing.
+    var payloadEscapes = 0
+    var escapeAt = if (comma >= 0) url.indexOf('%', comma + 1) else -1
+    while (escapeAt >= 0) {
+        payloadEscapes++
+        escapeAt = url.indexOf('%', escapeAt + 1)
+    }
     val decodedLength = payloadLength - 2L * payloadEscapes
     val size = if (metadata.contains(";base64", ignoreCase = true)) {
         // `decodedLength` counts a `%3D` as one character, like the `=` it stands for.
