@@ -4,11 +4,11 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -20,6 +20,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
@@ -33,7 +34,7 @@ import com.jestk.browser.ui.theme.ProstoBrandPrimary
 @Composable
 fun ProstoToggleSwitch(
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
+    onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val isDark = LocalIsDarkTheme.current
@@ -54,8 +55,17 @@ fun ProstoToggleSwitch(
                     } else {
                         (if (isDark) DarkSurfaceVariant else Color(0xFFE2E8F0))
                     },
-                ).clickable { onCheckedChange(!checked) }
-                .padding(vertical = 2.dp),
+                ).then(
+                    if (onCheckedChange != null) {
+                        Modifier.toggleable(
+                            value = checked,
+                            role = Role.Switch,
+                            onValueChange = onCheckedChange,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ).padding(vertical = 2.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
         Surface(
