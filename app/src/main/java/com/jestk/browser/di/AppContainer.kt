@@ -9,7 +9,6 @@ import com.jestk.browser.data.repository.DownloadRepositoryImpl
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
 import com.jestk.browser.data.repository.IncognitoAwareTabRepository
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
 import com.jestk.browser.data.repository.SettingsBlockedRequestStats
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
@@ -20,7 +19,6 @@ import com.jestk.browser.data.repository.WorkspaceRepositoryImpl
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
-import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.SiteAllowlistRepository
@@ -45,7 +43,6 @@ interface AppContainer {
     val historyRepository: HistoryRepository
     val favoriteRepository: FavoriteRepository
     val settingsRepository: SettingsRepository
-    val recentTabRepository: RecentTabRepository
     val downloadRepository: DownloadRepository
     val downloadManager: HoriDownloadManager
     val searchEngineRepository: SearchEngineRepository
@@ -120,10 +117,6 @@ class DefaultAppContainer(
         }
     }
 
-    override val recentTabRepository: RecentTabRepository by lazy {
-        RecentTabRepositoryImpl(database.recentTabDao())
-    }
-
     override val searchEngineRepository: SearchEngineRepository by lazy {
         SearchEngineRepositoryImpl(database.searchEngineDao(), context = context.applicationContext)
     }
@@ -144,7 +137,6 @@ class DefaultAppContainer(
                     historyRepository = historyRepository,
                     favoriteRepository = favoriteRepository,
                     settingsRepository = settingsRepository,
-                    recentTabRepository = recentTabRepository,
                     downloadRepository = downloadRepository,
                     downloadManager = downloadManager,
                     searchEngineRepository = searchEngineRepository,

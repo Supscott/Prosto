@@ -11,7 +11,6 @@ import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
-import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.domain.repository.WorkspaceRepository
@@ -60,7 +59,6 @@ internal fun isSameDomain(url1: String?, url2: String?): Boolean {
  */
 internal class TabCoordinator(
     private val tabRepository: TabRepository,
-    private val recentTabRepository: RecentTabRepository?,
     private val favoriteRepository: FavoriteRepository,
     private val historyRepository: HistoryRepository,
     private val webViewPool: WebViewPool?,
@@ -81,7 +79,6 @@ internal class TabCoordinator(
 ) {
     private val ctx = TabCoordinatorContext(
         tabRepository = tabRepository,
-        recentTabRepository = recentTabRepository,
         favoriteRepository = favoriteRepository,
         historyRepository = historyRepository,
         webViewPool = webViewPool,

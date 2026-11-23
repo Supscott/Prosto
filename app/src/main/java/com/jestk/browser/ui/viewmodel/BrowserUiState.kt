@@ -30,7 +30,6 @@ data class BrowserUiState(
     val domainGroupDismissals: Map<com.jestk.browser.domain.model.DomainGroupKey, Int> = emptyMap(),
     /** The "create a folder for these tabs" chip; derived from tabs by [launchDomainGroupSuggestions]. */
     val domainGroupSuggestion: com.jestk.browser.domain.model.DomainGroupSuggestion? = null,
-    val recentTabs: List<com.jestk.browser.domain.model.RecentTabItem> = emptyList(),
     val activeTabId: String? = null,
     val loadedTabIds: Set<String> = emptySet(),
     /** Mirrors `WebViewPool.awaitingFirstPaintTabIds`: tabs whose WebView shows no page yet. */

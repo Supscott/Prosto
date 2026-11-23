@@ -204,7 +204,6 @@
     <string name="action_done">Готово</string>
     <string name="action_back">Назад</string>
     <string name="action_close">Закрыть</string>
-    <string name="action_more">Ещё</string>
     <string name="action_new_tab">Новая вкладка</string>
     <string name="new_tab_incognito">Вкладка инкогнито</string>
     <string name="new_tab_regular">Обычная вкладка</string>
@@ -233,8 +232,6 @@
     <string name="a11y_insert_in_search">Вставить в поиск</string>
     <string name="home_greeting">Куда дальше?</string>
     <string name="home_bookmark_tab">В закладки</string>
-    <string name="home_recently_closed">Недавно закрытые</string>
-    <string name="home_recent_total">Всего %1$d</string>
     <string name="home_protection_active">Защита активна</string>
     <string name="downloads_title">Загрузки</string>
     <string name="downloads_empty_title">Пока нет загрузок</string>
@@ -326,11 +323,6 @@
         <item quantity="many">%1$d из %2$d вкладок</item>
         <item quantity="other">%1$d из %2$d вкладки</item>
     </plurals>
-    <string name="relative_time_just_now">Только что</string>
-    <string name="relative_time_minutes_ago">%1$d мин назад</string>
-    <string name="relative_time_hours_ago">%1$d ч назад</string>
-    <string name="relative_time_yesterday">Вчера</string>
-    <string name="relative_time_days_ago">%1$d дн. назад</string>
     <string name="file_size_bytes">%1$s Б</string>
     <string name="file_size_kb">%1$s КБ</string>
     <string name="file_size_mb">%1$s МБ</string>

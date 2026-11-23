@@ -52,15 +52,6 @@ internal class TabEventHandler(
                 tabCoordinator.opening.openPopupTab(event.tabId)
             }
 
-            is BrowserUiEvent.OpenRecentTab -> {
-                Log.d(TAG, "Navigation command: open recent tab ${event.item.url}")
-                tabCoordinator.opening.openRecentTab(
-                    item = event.item,
-                    onNavigateUrl = { loadUrl(it) },
-                    onOpenNewTab = { dispatch(BrowserUiEvent.OpenNewTab(it)) },
-                )
-            }
-
             is BrowserUiEvent.SelectTab -> {
                 Log.d(TAG, "Navigation command: select tab ${event.tabId}")
                 tabCoordinator.activation.selectTab(event.tabId)

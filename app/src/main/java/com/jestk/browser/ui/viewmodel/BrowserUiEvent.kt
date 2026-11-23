@@ -20,10 +20,6 @@ sealed interface BrowserUiEvent {
         val tabId: String,
     ) : TabUiEvent
 
-    data class OpenRecentTab(
-        val item: com.jestk.browser.domain.model.RecentTabItem,
-    ) : TabUiEvent
-
     data class SelectTab(
         val tabId: String,
     ) : TabUiEvent

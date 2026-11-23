@@ -2,7 +2,6 @@ package com.jestk.browser.ui.viewmodel.tabs
 
 import android.util.Log
 import com.jestk.browser.domain.model.OverlayType
-import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.IncognitoProfile
@@ -214,28 +213,6 @@ internal class TabOpening(
                         selectedImageUrl = null,
                     )
                 }
-            }
-        }
-    }
-
-    fun openRecentTab(
-        item: RecentTabItem,
-        onNavigateUrl: (String) -> Unit,
-        onOpenNewTab: (String) -> Unit = { openNewTab(it) },
-    ) {
-        Log.d(TAG, "Opening recent tab: ${item.url}")
-        val existingOpenTab = getCurrentState().tabs.firstOrNull { it.url == item.url }
-        if (existingOpenTab != null) {
-            activation.selectTab(existingOpenTab.id)
-            updateUiState { it.copy(activeOverlay = OverlayType.NONE) }
-        } else {
-            val currentTab = getCurrentState().activeTab
-            if (currentTab != null && (currentTab.url.isEmpty() || currentTab.url == "about:blank")) {
-                onNavigateUrl(item.url)
-                updateUiState { it.copy(activeOverlay = OverlayType.NONE) }
-            } else {
-                onOpenNewTab(item.url)
-                updateUiState { it.copy(activeOverlay = OverlayType.NONE) }
             }
         }
     }

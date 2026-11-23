@@ -7,7 +7,6 @@ import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.SearchEngine
@@ -45,7 +44,6 @@ class BlockedDocumentFlowTest {
     private lateinit var db: AppDatabase
     private lateinit var tabRepo: TabRepositoryImpl
     private lateinit var historyRepo: HistoryRepositoryImpl
-    private lateinit var recentTabRepo: RecentTabRepositoryImpl
     private lateinit var webViewPool: WebViewPool
     private lateinit var coordinator: TabCoordinator
     private lateinit var safety: SafetyEventHandler
@@ -63,11 +61,9 @@ class BlockedDocumentFlowTest {
         db = AppDatabase.createInMemory(context)
         tabRepo = TabRepositoryImpl(db.tabDao(), testDispatcher)
         historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
-        recentTabRepo = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher)
         webViewPool = WebViewPool(context)
         coordinator = TabCoordinator(
             tabRepository = tabRepo,
-            recentTabRepository = recentTabRepo,
             favoriteRepository = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher),
             historyRepository = historyRepo,
             webViewPool = webViewPool,
@@ -150,7 +146,7 @@ class BlockedDocumentFlowTest {
     }
 
     @Test
-    fun blockPage_isNotRecordedInHistoryOrRecentTabs() = runTest(testDispatcher) {
+    fun blockPage_isNotRecordedInHistory() = runTest(testDispatcher) {
         coordinator.sessionSync.restoreSession(BrowserSettings(), SearchEngine.DEFAULT_ENGINES)
         advanceUntilIdle()
         coordinator.opening.openNewTab("https://start-a.example")
@@ -163,7 +159,6 @@ class BlockedDocumentFlowTest {
         advanceUntilIdle()
 
         assertThat(historyRepo.getAllHistory().first().map { it.url }).doesNotContain(blockedUrl)
-        assertThat(recentTabRepo.getRecentTabs().first().map { it.url }).doesNotContain(blockedUrl)
         // The tab still shows what the WebView shows, without the invisible marker.
         assertThat(uiState.tabs.first { it.id == tab }.title).isEqualTo("Page blocked")
         assertThat(uiState.pageTitle).isEqualTo("Page blocked")

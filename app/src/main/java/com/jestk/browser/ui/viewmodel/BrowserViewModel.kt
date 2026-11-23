@@ -11,7 +11,6 @@ import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
-import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.SiteAllowlistRepository
@@ -58,7 +57,6 @@ class BrowserViewModel(
     private val historyRepository: HistoryRepository,
     private val favoriteRepository: FavoriteRepository,
     val settingsRepository: SettingsRepository,
-    private val recentTabRepository: RecentTabRepository? = null,
     private val downloadRepository: DownloadRepository? = null,
     private val downloadManager: HoriDownloadManager? = null,
     private val searchEngineRepository: SearchEngineRepository? = null,
@@ -131,7 +129,6 @@ class BrowserViewModel(
     internal val tabCoordinator =
         TabCoordinator(
             tabRepository = tabRepository,
-            recentTabRepository = recentTabRepository,
             favoriteRepository = favoriteRepository,
             historyRepository = historyRepository,
             webViewPool = webViewPool,
@@ -199,8 +196,6 @@ class BrowserViewModel(
             tabCoordinator = tabCoordinator,
             searchCoordinator = searchCoordinator,
             settingsRepository = settingsRepository,
-            recentTabRepository = recentTabRepository,
-            tabRepository = tabRepository,
             getCurrentState = { _uiState.value },
             updateUiState = { transform -> _uiState.update(transform) },
             scope = viewModelScope,

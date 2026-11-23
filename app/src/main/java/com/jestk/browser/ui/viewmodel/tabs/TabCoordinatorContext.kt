@@ -6,7 +6,6 @@ import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
-import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.domain.repository.WorkspaceRepository
@@ -26,7 +25,6 @@ import kotlinx.coroutines.sync.Mutex
  */
 internal class TabCoordinatorContext(
     val tabRepository: TabRepository,
-    val recentTabRepository: RecentTabRepository?,
     val favoriteRepository: FavoriteRepository,
     val historyRepository: HistoryRepository,
     val webViewPool: WebViewPool?,

@@ -7,7 +7,6 @@ import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
@@ -59,14 +58,12 @@ class SearchProviderViewModelTest {
         val historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
         val favoriteRepo = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher)
         val settingsRepo = SettingsRepositoryImpl(db.settingDao(), testDispatcher)
-        val recentTabRepo = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher)
 
         return BrowserViewModel(
             tabRepository = tabRepo,
             historyRepository = historyRepo,
             favoriteRepository = favoriteRepo,
             settingsRepository = settingsRepo,
-            recentTabRepository = recentTabRepo,
             searchEngineRepository = searchEngineRepo,
             ioDispatcher = testDispatcher,
         )

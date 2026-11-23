@@ -3,7 +3,6 @@ package com.jestk.browser.ui.viewmodel.tabs
 import android.util.Log
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.OverlayType
-import com.jestk.browser.domain.model.RecentTabItem
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
@@ -27,7 +26,6 @@ internal class TabSessionSync(
     private val ctx: TabCoordinatorContext,
 ) {
     private val tabRepository = ctx.tabRepository
-    private val recentTabRepository = ctx.recentTabRepository
     private val favoriteRepository = ctx.favoriteRepository
     private val webViewPool = ctx.webViewPool
     private val tabOperationMutex = ctx.tabOperationMutex
@@ -301,39 +299,6 @@ internal class TabSessionSync(
             }
         }
 
-        if (recentTabRepository != null) {
-            scope.launch(ioDispatcher) {
-                @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-                activeWorkspaceIdFlow
-                    .flatMapLatest { wsId -> recentTabRepository.getRecentTabs(10, wsId) }
-                    .collectLatest { recents ->
-                        updateUiState { it.copy(recentTabs = recents) }
-                    }
-            }
-        } else {
-            scope.launch(ioDispatcher) {
-                @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-                activeWorkspaceIdFlow
-                    .flatMapLatest { wsId -> tabRepository.getRecentTabs(6, wsId) }
-                    .collectLatest { recents ->
-                        updateUiState { state ->
-                            state.copy(
-                                recentTabs =
-                                    recents.map { tab ->
-                                        RecentTabItem(
-                                            url = tab.url,
-                                            title = tab.title,
-                                            snapshotPath = tab.snapshotPath,
-                                            faviconUrl = tab.faviconUrl,
-                                            lastVisitedTimestamp = tab.lastActiveTimestamp,
-                                        )
-                                    },
-                            )
-                        }
-                    }
-            }
-        }
-
         scope.launch(ioDispatcher) {
             @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
             activeWorkspaceIdFlow
@@ -351,21 +316,8 @@ internal class TabSessionSync(
                 .flatMapLatest { wsList ->
                     val effective = if (wsList.isNotEmpty()) wsList else Workspace.DEFAULT_WORKSPACES
                     val perWorkspace = effective.map { ws ->
-                        val recentsFlow: kotlinx.coroutines.flow.Flow<List<RecentTabItem>> =
-                            recentTabRepository?.getRecentTabs(10, ws.id)
-                                ?: tabRepository.getRecentTabs(6, ws.id).map { tabs ->
-                                    tabs.map { tab ->
-                                        RecentTabItem(
-                                            url = tab.url,
-                                            title = tab.title,
-                                            snapshotPath = tab.snapshotPath,
-                                            faviconUrl = tab.faviconUrl,
-                                            lastVisitedTimestamp = tab.lastActiveTimestamp,
-                                        )
-                                    }
-                                }
-                        combine(favoriteRepository.getFavorites(ws.id), recentsFlow) { favorites, recents ->
-                            ws.id to WorkspaceHomeData(favorites, recents)
+                        favoriteRepository.getFavorites(ws.id).map { favorites ->
+                            ws.id to WorkspaceHomeData(favorites)
                         }
                     }
                     if (perWorkspace.isEmpty()) {

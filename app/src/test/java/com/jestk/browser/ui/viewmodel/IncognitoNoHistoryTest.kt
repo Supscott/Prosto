@@ -8,9 +8,7 @@ import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
 import com.jestk.browser.data.repository.IncognitoAwareTabRepository
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
-import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.WebViewPool
 import kotlinx.coroutines.Dispatchers
@@ -58,7 +56,6 @@ class IncognitoNoHistoryTest {
         webViewPool = WebViewPool(context)
         coordinator = TabCoordinator(
             tabRepository = tabRepo,
-            recentTabRepository = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher),
             favoriteRepository = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher),
             historyRepository = historyRepo,
             webViewPool = webViewPool,
@@ -94,7 +91,6 @@ class IncognitoNoHistoryTest {
         advanceUntilIdle()
 
         assertThat(historyRepo.getAllHistory().first()).isEmpty()
-        assertThat(db.recentTabDao().getRecentTabs(10, Workspace.DEFAULT_PERSONAL_ID)).isEmpty()
         assertThat(db.tabDao().getAllTabs()).isEmpty()
         assertThat(tabRepo.getTabById(tab.id)?.snapshotPath).isNull()
     }

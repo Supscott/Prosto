@@ -1,8 +1,6 @@
 package com.jestk.browser.ui.viewmodel.events
 
-import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SettingsRepository
-import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.LibraryUiEvent
@@ -16,8 +14,6 @@ internal class LibraryEventHandler(
     private val tabCoordinator: TabCoordinator,
     private val searchCoordinator: SearchCoordinator,
     private val settingsRepository: SettingsRepository,
-    private val recentTabRepository: RecentTabRepository?,
-    private val tabRepository: TabRepository,
     private val getCurrentState: () -> BrowserUiState,
     private val updateUiState: ((BrowserUiState) -> BrowserUiState) -> Unit,
     private val scope: CoroutineScope,
@@ -54,13 +50,7 @@ internal class LibraryEventHandler(
             }
 
             is BrowserUiEvent.ClearAllHistory -> {
-                searchCoordinator.clearAllHistory {
-                    if (recentTabRepository != null) {
-                        recentTabRepository.clearRecentTabs()
-                    } else {
-                        tabRepository.clearRecentTabs()
-                    }
-                }
+                searchCoordinator.clearAllHistory()
             }
 
             is BrowserUiEvent.ToggleSearchHistoryExpanded -> {

@@ -90,33 +90,6 @@ val IncognitoAccent = Color(0xFFA78BFA)
 // Prosto Gradients & Brushes (Calm Mint Theme)
 // ==========================================
 
-val CardPreviewRoseBrush =
-    Brush.linearGradient(
-        colors =
-            listOf(
-                Color(0xFFDFF7F3).copy(alpha = 0.80f),
-                Color(0xFFB9EDE6).copy(alpha = 0.50f),
-            ),
-    )
-
-val CardPreviewPeachBrush =
-    Brush.linearGradient(
-        colors =
-            listOf(
-                Color(0xFFA5F2E9).copy(alpha = 0.80f),
-                Color(0xFF6FD9CE).copy(alpha = 0.50f),
-            ),
-    )
-
-val CardPreviewBlueBrush =
-    Brush.linearGradient(
-        colors =
-            listOf(
-                Color(0xFF6FD9CE).copy(alpha = 0.80f),
-                Color(0xFFFFFFFF).copy(alpha = 0.90f),
-            ),
-    )
-
 /**
  * Extension modifier that renders the ambient Prosto Canvas mint-glow multi-point gradients.
  * Uses a soft mint base (#E9F6F2) with delicate teal ambient glows (#CFF3EC) at the top.

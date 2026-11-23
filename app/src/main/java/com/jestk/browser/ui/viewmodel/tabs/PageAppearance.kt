@@ -12,7 +12,6 @@ internal class PageAppearance(
     ctx: TabCoordinatorContext,
 ) {
     private val tabRepository = ctx.tabRepository
-    private val recentTabRepository = ctx.recentTabRepository
     private val favoriteRepository = ctx.favoriteRepository
     private val tabThemeColors = ctx.tabThemeColors
     private val getCurrentState = ctx.getCurrentState
@@ -24,10 +23,6 @@ internal class PageAppearance(
     fun handleSnapshot(tabId: String, path: String) {
         scope.launch(ioDispatcher) {
             tabRepository.updateSnapshot(tabId, path)
-            val tab = tabRepository.getTabById(tabId)
-            if (tab != null && !tab.isIncognito && tab.url.isNotEmpty() && !tab.url.startsWith("about:")) {
-                recentTabRepository?.updateSnapshot(tab.url, path, tab.workspaceId)
-            }
         }
     }
 
@@ -72,7 +67,6 @@ internal class PageAppearance(
             if (tab != null && !tab.isIncognito && tab.url.isNotEmpty() && !tab.url.startsWith("about:") && !faviconUrl.isNullOrEmpty()) {
                 val effectiveUrl = pageUrl ?: tab.url
                 if (isSameDomain(tab.url, effectiveUrl)) {
-                    recentTabRepository?.updateFavicon(tab.url, faviconUrl, tab.workspaceId)
                     FaviconManager.cacheFaviconPathForDomain(tab.url, faviconUrl)
                     if (favoriteRepository.isFavorite(tab.url, tab.workspaceId)) {
                         val persistentIconPath = if (faviconUrl.startsWith("/") || faviconUrl.startsWith("file:")) {

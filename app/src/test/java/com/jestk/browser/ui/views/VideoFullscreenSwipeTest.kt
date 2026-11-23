@@ -9,12 +9,10 @@ import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
-import com.jestk.browser.domain.repository.RecentTabRepository
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.domain.repository.TabRepository
 import com.jestk.browser.engine.JestkWebChromeClient
@@ -49,7 +47,6 @@ class VideoFullscreenSwipeTest {
     private lateinit var historyRepo: HistoryRepository
     private lateinit var favoriteRepo: FavoriteRepository
     private lateinit var settingsRepo: SettingsRepository
-    private lateinit var recentTabRepo: RecentTabRepository
 
     @Before
     fun setUp() {
@@ -60,7 +57,6 @@ class VideoFullscreenSwipeTest {
         historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
         favoriteRepo = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher)
         settingsRepo = SettingsRepositoryImpl(db.settingDao(), testDispatcher)
-        recentTabRepo = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher)
     }
 
     @After
@@ -76,7 +72,6 @@ class VideoFullscreenSwipeTest {
             historyRepository = historyRepo,
             favoriteRepository = favoriteRepo,
             settingsRepository = settingsRepo,
-            recentTabRepository = recentTabRepo,
             ioDispatcher = testDispatcher
         )
     }

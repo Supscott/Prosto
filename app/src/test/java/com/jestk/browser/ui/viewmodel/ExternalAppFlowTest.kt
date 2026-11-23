@@ -14,7 +14,6 @@ import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.engine.ExternalAppResolver
@@ -54,7 +53,6 @@ class ExternalAppFlowTest {
     private lateinit var historyRepo: HistoryRepositoryImpl
     private lateinit var favoriteRepo: FavoriteRepositoryImpl
     private lateinit var settingsRepo: SettingsRepositoryImpl
-    private lateinit var recentTabRepo: RecentTabRepositoryImpl
     private lateinit var context: Context
 
     private val redditUrl = "https://www.reddit.com/r/android/comments/123"
@@ -69,7 +67,6 @@ class ExternalAppFlowTest {
         historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
         favoriteRepo = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher)
         settingsRepo = SettingsRepositoryImpl(db.settingDao(), testDispatcher)
-        recentTabRepo = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher)
         registerRedditApp()
         registerTelegramApp()
     }
@@ -87,7 +84,6 @@ class ExternalAppFlowTest {
             historyRepository = historyRepo,
             favoriteRepository = favoriteRepo,
             settingsRepository = settingsRepo,
-            recentTabRepository = recentTabRepo,
             ioDispatcher = testDispatcher,
         )
 

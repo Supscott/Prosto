@@ -7,7 +7,6 @@ import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.TabFolderRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.model.DomainGroupKey
@@ -56,7 +55,6 @@ class DomainGroupEventHandlerTest {
         tabFolderRepo = TabFolderRepositoryImpl(db.tabFolderDao(), testDispatcher)
         coordinator = TabCoordinator(
             tabRepository = TabRepositoryImpl(db.tabDao(), testDispatcher),
-            recentTabRepository = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher),
             favoriteRepository = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher),
             historyRepository = HistoryRepositoryImpl(db.historyDao(), testDispatcher),
             webViewPool = null,

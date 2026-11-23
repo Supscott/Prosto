@@ -7,7 +7,6 @@ import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.HistoryItem
@@ -57,7 +56,6 @@ class PageVisitHistoryTest {
         webViewPool = WebViewPool(context)
         coordinator = TabCoordinator(
             tabRepository = TabRepositoryImpl(db.tabDao(), testDispatcher),
-            recentTabRepository = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher),
             favoriteRepository = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher),
             historyRepository = historyRepo,
             webViewPool = webViewPool,

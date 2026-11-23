@@ -38,7 +38,6 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
 
 private val ScreenGutter = 20.dp
 private val SectionGap = 28.dp
-private const val MAX_RECENT_TABS = 4
 
 /**
  * Home Screen: deliberately quiet. A fresh install shows the workspace title, one tutorial card
@@ -161,19 +160,6 @@ fun HomeScreen(
                 onAddClick = { onEvent(BrowserUiEvent.ShowAddFavoritePrompt) },
                 modifier = cardModifier,
             )
-
-            val recentTabs = uiState.recentTabs.take(MAX_RECENT_TABS)
-            if (recentTabs.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(SectionGap + 8.dp))
-                RecentTabsSection(
-                    recentTabs = recentTabs,
-                    isDark = isDark,
-                    onOpenRecent = { item -> onEvent(BrowserUiEvent.OpenRecentTab(item)) },
-                    onMoreClick = {
-                        onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
-                    },
-                )
-            }
 
             // The rating prompt waits until the tour is done so a fresh Home stays calm.
             if (settings.isTutorialCompleted && uiState.isFeedbackCardVisible) {

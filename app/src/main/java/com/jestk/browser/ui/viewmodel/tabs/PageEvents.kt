@@ -17,7 +17,6 @@ internal class PageEvents(
     ctx: TabCoordinatorContext,
 ) {
     private val tabRepository = ctx.tabRepository
-    private val recentTabRepository = ctx.recentTabRepository
     private val historyRepository = ctx.historyRepository
     private val webViewPool = ctx.webViewPool
     private val tabThemeColors = ctx.tabThemeColors
@@ -280,7 +279,7 @@ internal class PageEvents(
     }
 
     private suspend fun persistVisit(tab: Tab?, url: String, title: String, isNewVisit: Boolean) {
-        // An incognito tab leaves no history visit and no recent-tab entry.
+        // An incognito tab leaves no history visit.
         if (tab?.isIncognito == true || url.isEmpty() || url.startsWith("about:")) return
         val workspaceId = tab?.workspaceId ?: getCurrentState().activeWorkspaceId
         if (isNewVisit) {
@@ -288,13 +287,6 @@ internal class PageEvents(
         } else {
             historyRepository.updateVisitTitle(url, title, workspaceId = workspaceId)
         }
-        recentTabRepository?.recordRecentTab(
-            url = url,
-            title = title,
-            snapshotPath = tab?.snapshotPath,
-            faviconUrl = tab?.faviconUrl,
-            workspaceId = workspaceId,
-        )
     }
 
     fun handleProgressChanged(tabId: String, progress: Int) {

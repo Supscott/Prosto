@@ -11,7 +11,6 @@ import com.jestk.browser.data.mapper.serializeSiteCounts
 import com.jestk.browser.data.mapper.serializeSiteSet
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.model.BrowserSettings
@@ -54,7 +53,6 @@ class OpenInAppExclusionTest {
             historyRepository = HistoryRepositoryImpl(db.historyDao(), testDispatcher),
             favoriteRepository = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher),
             settingsRepository = settingsRepo,
-            recentTabRepository = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher),
             ioDispatcher = testDispatcher,
         )
     }

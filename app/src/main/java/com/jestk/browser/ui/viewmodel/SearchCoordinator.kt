@@ -140,11 +140,10 @@ internal class SearchCoordinator(
         }
     }
 
-    fun clearAllHistory(onClearRecentTabs: suspend () -> Unit) {
+    fun clearAllHistory() {
         val activeWorkspaceId = getCurrentState().activeWorkspaceId
         updateUiState {
             it.copy(
-                recentTabs = emptyList(),
                 searchHistorySuggestions = emptyList(),
                 isLoadingMoreHistory = false,
                 hasMoreHistory = false,
@@ -152,7 +151,6 @@ internal class SearchCoordinator(
         }
         scope.launch(ioDispatcher) {
             historyRepository.clearHistory(activeWorkspaceId)
-            onClearRecentTabs()
         }
     }
 

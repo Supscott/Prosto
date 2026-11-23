@@ -9,7 +9,6 @@ import com.jestk.browser.data.local.entity.TabEntity
 import com.jestk.browser.data.local.entity.TabFolderEntity
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabFolderRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
@@ -50,7 +49,6 @@ class TabCoordinatorWorkspaceTest {
     private lateinit var workspaceRepo: WorkspaceRepositoryImpl
     private lateinit var historyRepo: HistoryRepositoryImpl
     private lateinit var favoriteRepo: FavoriteRepositoryImpl
-    private lateinit var recentTabRepo: RecentTabRepositoryImpl
 
     private var uiState = BrowserUiState()
     private val tabThemeColors = ConcurrentHashMap<String, Int>()
@@ -72,12 +70,10 @@ class TabCoordinatorWorkspaceTest {
         workspaceRepo = WorkspaceRepositoryImpl(db.workspaceDao(), testDispatcher)
         historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
         favoriteRepo = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher)
-        recentTabRepo = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher)
         webViewPool = com.jestk.browser.engine.WebViewPool(context)
 
         coordinator = TabCoordinator(
             tabRepository = tabRepo,
-            recentTabRepository = recentTabRepo,
             favoriteRepository = favoriteRepo,
             historyRepository = historyRepo,
             webViewPool = webViewPool,
@@ -296,7 +292,6 @@ class TabCoordinatorWorkspaceTest {
                 historyRepository = historyRepo,
                 favoriteRepository = favoriteRepo,
                 settingsRepository = SettingsRepositoryImpl(db.settingDao(), testDispatcher),
-                recentTabRepository = recentTabRepo,
                 tabFolderRepository = tabFolderRepo,
                 workspaceRepository = workspaceRepo,
                 ioDispatcher = testDispatcher,
@@ -447,7 +442,6 @@ class TabCoordinatorWorkspaceTest {
                 historyRepository = historyRepo,
                 favoriteRepository = favoriteRepo,
                 settingsRepository = SettingsRepositoryImpl(db.settingDao(), testDispatcher),
-                recentTabRepository = recentTabRepo,
                 tabFolderRepository = tabFolderRepo,
                 workspaceRepository = workspaceRepo,
                 ioDispatcher = testDispatcher,
@@ -609,40 +603,6 @@ class TabCoordinatorWorkspaceTest {
             advanceUntilIdle()
 
             assertThat(uiState.favorites).isEmpty()
-        }
-
-    @Test
-    fun coordinator_recentTabs_isolatedPerWorkspace() =
-        runTest(testDispatcher) {
-            workspaceRepo.ensureDefaultWorkspaces()
-            coordinator.sessionSync.observeDatabaseFlows()
-            advanceUntilIdle()
-
-            // 1. In Personal workspace, visit a site
-            val pTab = tabRepo.createTab("https://personal-site.com", "Personal Site", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
-            coordinator.pageEvents.handlePageFinished(pTab.id, "https://personal-site.com", "Personal Site")
-            advanceUntilIdle()
-
-            assertThat(uiState.recentTabs.map { it.url }).contains("https://personal-site.com")
-
-            // 2. Switch to Work workspace -> must NOT contain personal-site
-            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_WORK_ID)
-            advanceUntilIdle()
-
-            assertThat(uiState.recentTabs.map { it.url }).doesNotContain("https://personal-site.com")
-
-            // 3. In Work workspace, visit work-site
-            val wTab = tabRepo.createTab("https://work-site.com", "Work Site", workspaceId = Workspace.DEFAULT_WORK_ID)
-            coordinator.pageEvents.handlePageFinished(wTab.id, "https://work-site.com", "Work Site")
-            advanceUntilIdle()
-
-            assertThat(uiState.recentTabs.map { it.url }).containsExactly("https://work-site.com")
-
-            // 4. Switch back to Personal -> only personal-site
-            coordinator.workspaces.switchWorkspace(Workspace.DEFAULT_PERSONAL_ID)
-            advanceUntilIdle()
-
-            assertThat(uiState.recentTabs.map { it.url }).containsExactly("https://personal-site.com")
         }
 
     @Test

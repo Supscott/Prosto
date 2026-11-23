@@ -8,7 +8,6 @@ import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.data.local.AppDatabase
 import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
-import com.jestk.browser.data.repository.RecentTabRepositoryImpl
 import com.jestk.browser.data.repository.TabFolderRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.model.BrowserSettings
@@ -48,7 +47,6 @@ class TabCoordinatorTest {
     private lateinit var tabFolderRepo: TabFolderRepositoryImpl
     private lateinit var historyRepo: HistoryRepositoryImpl
     private lateinit var favoriteRepo: FavoriteRepositoryImpl
-    private lateinit var recentTabRepo: RecentTabRepositoryImpl
 
     private var uiState = BrowserUiState()
 
@@ -72,12 +70,10 @@ class TabCoordinatorTest {
         tabFolderRepo = TabFolderRepositoryImpl(db.tabFolderDao(), testDispatcher)
         historyRepo = HistoryRepositoryImpl(db.historyDao(), testDispatcher)
         favoriteRepo = FavoriteRepositoryImpl(db.favoriteDao(), testDispatcher)
-        recentTabRepo = RecentTabRepositoryImpl(db.recentTabDao(), testDispatcher)
         webViewPool = com.jestk.browser.engine.WebViewPool(context)
 
         coordinator = TabCoordinator(
             tabRepository = tabRepo,
-            recentTabRepository = recentTabRepo,
             favoriteRepository = favoriteRepo,
             historyRepository = historyRepo,
             webViewPool = webViewPool,
@@ -699,7 +695,6 @@ class TabCoordinatorTest {
             val pool = com.jestk.browser.engine.WebViewPool(context, null)
             val coordinatorWithPool = TabCoordinator(
                 tabRepository = tabRepo,
-                recentTabRepository = recentTabRepo,
                 favoriteRepository = favoriteRepo,
                 historyRepository = historyRepo,
                 webViewPool = pool,

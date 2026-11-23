@@ -21,7 +21,7 @@ import com.jestk.browser.ui.views.HomeScreen
 
 /**
  * Builds a home-page-scoped copy of [uiState] for [workspaceId]:
- * per-workspace favorites and recent tabs, current-url cleared (no active page),
+ * per-workspace favorites, current-url cleared (no active page),
  * workspace resolved through [BrowserUiState.workspaces].
  *
  * The active workspace returns [uiState] unchanged.
@@ -32,7 +32,6 @@ internal fun BrowserUiState.homePreviewState(workspaceId: String): BrowserUiStat
     return copy(
         activeWorkspaceId = workspaceId,
         favorites = data?.favorites ?: emptyList(),
-        recentTabs = data?.recentTabs ?: emptyList(),
         currentUrl = "",
     )
 }
