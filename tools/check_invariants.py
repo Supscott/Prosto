@@ -165,14 +165,14 @@ def check_no_hardcoded_ui_strings():
         r'\b(Toast\.makeText\([^,]+,|setContentTitle\(|setContentText\(|setSubText\(|'
         r'addAction\(\s*\d+\s*,|createChooser\([^,]+,)\s*"([^"]*[A-Za-z][^"]*)"'
     )
-    allowed = {"", "·"}
     for file in (MAIN_DIR / "java").rglob("*.kt"):
         content = file.read_text(encoding="utf-8")
         for lineno, line in enumerate(content.splitlines(), 1):
             if line.lstrip().startswith("//"):
                 continue
             for match in pattern.finditer(line):
-                if match.group(2) not in allowed:
+                # str.isalpha() is Unicode-aware: Cyrillic counts as letters, "·" and "" do not.
+                if any(ch.isalpha() for ch in match.group(2)):
                     errors.append(
                         f"{file.relative_to(ROOT)}:{lineno}: hardcoded {match.group(1)} "
                         f"literal {match.group(2)!r}"
