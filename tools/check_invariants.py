@@ -492,9 +492,36 @@ def check_no_local_home_paths():
     ]
 
 
+def check_script_modes():
+    """Every git-tracked tools/**/*.sh with a shebang must be mode 100755.
+
+    Modes come from the index (`git ls-files -s`), so a missing `chmod +x` plus
+    `git update-index --chmod=+x` shows up even when the working copy is executable.
+    """
+    result = subprocess.run(
+        ["git", "ls-files", "-s", "--", "tools"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    errors = []
+    for line in result.stdout.splitlines():
+        # Format: "<mode> <object> <stage>\t<path>"
+        meta, _, rel = line.partition("\t")
+        mode = meta.split()[0] if meta else ""
+        if not rel.endswith(".sh"):
+            continue
+        with open(ROOT / rel, "rb") as handle:
+            first_line = handle.readline()
+        if not first_line.startswith(b"#!"):
+            continue
+        if mode != "100755":
+            errors.append(f"{rel}: has a shebang but index mode is {mode}; run chmod +x and git update-index --chmod=+x")
+    return errors
+
+
 def main():
     all_errors = []
     all_errors.extend(check_no_local_home_paths())
+    all_errors.extend(check_script_modes())
     all_errors.extend(check_secure_window_switch_debug_only())
     all_errors.extend(check_no_blur())
     all_errors.extend(check_webkit_crash_resilience())
@@ -528,7 +555,7 @@ def main():
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
         "Fullscreen Sync Attach, Pull-Only Refresh Spinner, Single Browser Activity, No English Sentinels, No Composition File I/O, No Test Detection, "
-        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme, Ordered Query Tie-Breaker, No Local Home Paths)."
+        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme, Ordered Query Tie-Breaker, No Local Home Paths, Script Modes)."
     )
     return 0
 
