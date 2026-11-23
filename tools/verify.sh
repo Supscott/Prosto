@@ -120,6 +120,17 @@ python3 tools/build_adblock_resources.py --check
 echo "==> Self-testing the ad-block fixture server..."
 python3 tools/fixture_server.py --self-test 2>/dev/null
 
+# Every git-tracked Python test under tools/ (a new test file is picked up without editing this).
+echo "==> Running the Python tool tests (tools/**/*_test.py)..."
+py_status=0
+while IFS= read -r py_test; do
+    py_out=$(python3 "$py_test" 2>&1) || { echo "$py_out"; echo "FAIL $py_test"; py_status=1; }
+done < <(git ls-files 'tools/**/*_test.py')
+if [[ $py_status -ne 0 ]]; then
+    echo "==> Python tool tests FAILED"
+    exit 1
+fi
+
 if command -v node >/dev/null 2>&1; then
     echo "==> Checking the uBO scriptlet bundle..."
     node tools/build_scriptlets.mjs --check
