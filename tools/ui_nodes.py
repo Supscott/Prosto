@@ -92,7 +92,12 @@ def main() -> int:
         print(x, y)
         return 0
 
-    root = ET.fromstring(sys.stdin.read())
+    try:
+        root = ET.fromstring(sys.stdin.read())
+    except ET.ParseError as error:
+        # Exit 2 (not 1): callers read exit 1 as "the label is not on screen".
+        print(f"ui_nodes: the UI dump is not valid XML ({error})", file=sys.stderr)
+        return 2
     if argv == ["list"]:
         for text, desc, bounds, checked in nodes(root):
             suffix = "" if checked is None else f" | checked={checked}"

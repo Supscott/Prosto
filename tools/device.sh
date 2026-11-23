@@ -85,6 +85,15 @@ device_quote() { printf "'%s'" "${1//\'/\'\\\'\'}"; }
 # The current window hierarchy as uiautomator XML.
 ui_dump() { adb exec-out uiautomator dump /dev/tty 2>/dev/null | sed 's/UI hierchary dumped to.*//'; }
 
+# Captures the UI dump for command $1, or dies with "<command>: could not read the UI dump" when adb
+# fails or the dump is empty. Capturing first keeps these failures apart from "label not on screen".
+ui_dump_or_die() {
+    local dump
+    dump="$(ui_dump)" || die "$1: could not read the UI dump"
+    [[ -n "$dump" ]] || die "$1: could not read the UI dump"
+    printf '%s\n' "$dump"
+}
+
 pid() { adb shell pidof "$PKG" | tr -d '\r'; }
 
 forward_cdp() {
@@ -120,7 +129,8 @@ tap_selector() {
     js="JSON.stringify((e=>e?(r=>[r.left+r.width/2,r.top+r.height/2,innerWidth,innerHeight])(e.getBoundingClientRect()).concat(devicePixelRatio):null)(document.querySelector($sel_json)))"
     forward_cdp
     page="$(node "$ROOT/tools/cdp_eval.mjs" "$url" "$js" "$CDP_PORT")" || die "could not read the page at $url"
-    wv="$(ui_dump | python3 "$ROOT/tools/ui_nodes.py" webview)" || die "no WebView on screen (is the page visible?)"
+    dump="$(ui_dump_or_die tap)" || exit 1
+    wv="$(printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" webview)" || die "no WebView on screen (is the page visible?)"
     xy="$(python3 "$ROOT/tools/ui_nodes.py" tap-point "$wv" "$page")" || exit 1
     # shellcheck disable=SC2086
     adb shell input tap $xy
@@ -228,13 +238,20 @@ case "$cmd" in
         adb shell "$taps_script"
         ;;
     ui)
-        ui_dump | python3 "$ROOT/tools/ui_nodes.py" list
+        dump="$(ui_dump_or_die ui)" || exit 1
+        printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" list
         ;;
     tapui)
         [[ $# -ge 1 ]] || die "usage: device.sh tapui <label>"
         # Exit 1 (die) when the label is missing: with 5 tabs open the dock scrolls Home out of view.
-        xy="$(ui_dump | python3 "$ROOT/tools/ui_nodes.py" find "$1")" \
-            || die "tapui: '$1' is not on screen; it may be scrolled out of view (for example a dock tab)"
+        dump="$(ui_dump_or_die tapui)" || exit 1
+        status=0
+        xy="$(printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" find "$1")" || status=$?
+        case "$status" in
+            0) ;;
+            1) die "tapui: '$1' is not on screen; it may be scrolled out of view (for example a dock tab)" ;;
+            *) die "tapui: could not read the UI dump (it is not valid XML)" ;;
+        esac
         # shellcheck disable=SC2086
         adb shell input tap $xy
         ;;
