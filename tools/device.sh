@@ -155,10 +155,13 @@ case "$cmd" in
     sleep)
         adb shell svc power stayon false
         if [[ -s "$SHOT_DIR/screen_timeout" ]]; then
-            adb shell settings put system screen_off_timeout "$(cat "$SHOT_DIR/screen_timeout")"
+            saved_ms="$(tr -d '[:space:]' < "$SHOT_DIR/screen_timeout")"
+            adb shell settings put system screen_off_timeout "$saved_ms"
             rm -f "$SHOT_DIR/screen_timeout"
+            echo "normal screen timeout restored: $saved_ms ms"
+        else
+            echo "no saved screen timeout: nothing restored (wake did not save one)"
         fi
-        echo "normal screen timeout restored"
         ;;
     install)
         state="$(install_stamp_state "$ROOT" 2>/dev/null || true)"
