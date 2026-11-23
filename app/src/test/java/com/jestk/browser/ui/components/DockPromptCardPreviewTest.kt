@@ -62,22 +62,29 @@ class DockPromptCardPreviewTest {
     fun renderDownloadConfirmPreviews() {
         val longName = "quarterly-financial-report-final-version-with-all-appendices-2026-11-22.pdf"
         render("dock_prompt_download_light.png", isDark = false, fontScale = 1.0f) { d ->
-            DownloadConfirmPrompt("annual-report.pdf", "4.2 MB · example.com", d, {}, {})
+            DownloadConfirmPrompt("annual-report.pdf", "4.2 MB", "example.com", d, {}, {})
         }
         render("dock_prompt_download_dark.png", isDark = true, fontScale = 1.0f) { d ->
-            DownloadConfirmPrompt("annual-report.pdf", "4.2 MB · example.com", d, {}, {})
+            DownloadConfirmPrompt("annual-report.pdf", "4.2 MB", "example.com", d, {}, {})
         }
+        val longHost = "downloads.some-long-host.example.org"
         render("dock_prompt_download_long_name_dark.png", isDark = true, fontScale = 1.15f) { d ->
-            DownloadConfirmPrompt(longName, "128.0 MB · downloads.some-long-host.example.org", d, {}, {})
+            DownloadConfirmPrompt(longName, "128.0 MB", longHost, d, {}, {})
+        }
+        render("dock_prompt_download_long_name_light.png", isDark = false, fontScale = 1.15f) { d ->
+            DownloadConfirmPrompt(longName, "128.0 MB", longHost, d, {}, {})
         }
         render("dock_prompt_download_unknown_size_light.png", isDark = false, fontScale = 1.0f) { d ->
-            DownloadConfirmPrompt("setup.apk", "example.com", d, {}, {})
+            DownloadConfirmPrompt("setup.apk", null, "example.com", d, {}, {})
+        }
+        render("dock_prompt_download_size_only_light.png", isDark = false, fontScale = 1.0f) { d ->
+            DownloadConfirmPrompt("setup.apk", "4.2 MB", null, d, {}, {})
         }
         render("dock_prompt_download_no_details_light.png", isDark = false, fontScale = 1.0f) { d ->
-            DownloadConfirmPrompt("image_1763800000000.png", null, d, {}, {})
+            DownloadConfirmPrompt("image_1763800000000.png", null, null, d, {}, {})
         }
         render("dock_prompt_download_large_font.png", isDark = false, fontScale = 1.3f) { d ->
-            DownloadConfirmPrompt(longName, "128.0 MB · example.com", d, {}, {})
+            DownloadConfirmPrompt(longName, "128.0 MB", "example.com", d, {}, {})
         }
     }
 

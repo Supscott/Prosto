@@ -24,7 +24,7 @@ internal fun DuplicateDownloadPrompt(
 ) {
     DockPromptCard(
         title = stringResource(R.string.duplicate_download_title),
-        message = fileName,
+        content = { DownloadPromptFileInfo(fileName, isDark) },
         isDark = isDark,
         onDismiss = onCancel,
         actions = listOf(

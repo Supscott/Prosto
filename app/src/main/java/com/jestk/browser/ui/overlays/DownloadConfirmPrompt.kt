@@ -14,20 +14,21 @@ import com.jestk.browser.ui.viewmodel.DismissDownloadPrompt
 import com.jestk.browser.util.FileSizeFormatter
 
 /**
- * Asks before a file the page started is saved. The message is the file name; a second line holds
- * the size and the page's host, each only when known.
+ * Asks before a file the page started is saved: the file name, and one line with the size and the
+ * page's host, each only when known (see [DownloadPromptFileInfo]).
  */
 @Composable
 internal fun DownloadConfirmPrompt(
     fileName: String,
-    details: String?,
+    size: String?,
+    host: String?,
     isDark: Boolean,
     onDownload: () -> Unit,
     onCancel: () -> Unit,
 ) {
     DockPromptCard(
         title = stringResource(R.string.download_confirm_title),
-        message = if (details.isNullOrEmpty()) fileName else "$fileName\n$details",
+        content = { DownloadPromptFileInfo(fileName, isDark, size = size, host = host) },
         isDark = isDark,
         onDismiss = onCancel,
         actions = listOf(
@@ -45,7 +46,8 @@ internal fun DownloadConfirmHost(uiState: BrowserUiState, isDark: Boolean, onEve
     val size = request.sizeBytes?.let { FileSizeFormatter.formatFileSize(resources, it) }
     DownloadConfirmPrompt(
         fileName = request.fileName,
-        details = listOfNotNull(size?.takeIf { it.isNotEmpty() }, request.host).joinToString(" · "),
+        size = size,
+        host = request.host,
         isDark = isDark,
         onDownload = { onEvent(ConfirmDownloadPrompt) },
         onCancel = { onEvent(DismissDownloadPrompt) },
