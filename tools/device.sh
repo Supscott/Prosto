@@ -21,7 +21,8 @@
 #                                   (no round trip between taps; every pair is validated first)
 #   tools/device.sh ui              labelled UI nodes on screen: text | content-desc | bounds; checkable
 #                                   nodes (switches) add " | checked=true|false"
-#   tools/device.sh tapui <label>   tap the node whose text or content-desc is exactly <label>
+#   tools/device.sh tapui <label>   tap the node whose text or content-desc is exactly <label>; exit 1
+#                                   with a message when it is not on screen (dock tabs scroll out of view)
 #   tools/device.sh swipe <x1> <y1> <x2> <y2> [ms]   swipe at device pixels (default 400 ms)
 #   tools/device.sh top             package of the resumed activity
 #   tools/device.sh pages           WebView pages over CDP: "visible <url>" or "hidden <url>"
@@ -222,7 +223,9 @@ case "$cmd" in
         ;;
     tapui)
         [[ $# -ge 1 ]] || die "usage: device.sh tapui <label>"
-        xy="$(ui_dump | python3 "$ROOT/tools/ui_nodes.py" find "$1")" || die "no node labelled '$1' on screen"
+        # Exit 1 (die) when the label is missing: with 5 tabs open the dock scrolls Home out of view.
+        xy="$(ui_dump | python3 "$ROOT/tools/ui_nodes.py" find "$1")" \
+            || die "tapui: '$1' is not on screen; it may be scrolled out of view (for example a dock tab)"
         # shellcheck disable=SC2086
         adb shell input tap $xy
         ;;
