@@ -157,9 +157,18 @@ case "$cmd" in
         adb shell svc power stayon false
         if [[ -s "$SHOT_DIR/screen_timeout" ]]; then
             saved_ms="$(tr -d '[:space:]' < "$SHOT_DIR/screen_timeout")"
-            adb shell settings put system screen_off_timeout "$saved_ms"
             rm -f "$SHOT_DIR/screen_timeout"
-            echo "normal screen timeout restored: $saved_ms ms"
+            # Android answers "null" when the setting was never set: delete it, do not write "null".
+            if [[ "$saved_ms" == "null" ]]; then
+                adb shell settings delete system screen_off_timeout
+                echo "normal screen timeout restored: the setting was unset before wake, so it is unset again"
+            elif [[ "$saved_ms" =~ ^[1-9][0-9]*$ ]]; then
+                adb shell settings put system screen_off_timeout "$saved_ms"
+                echo "normal screen timeout restored: $saved_ms ms"
+            else
+                echo "saved screen timeout '$saved_ms' is not a positive integer: nothing written (the file is removed)" >&2
+                exit 1
+            fi
         else
             echo "no saved screen timeout: nothing restored (wake did not save one)"
         fi
