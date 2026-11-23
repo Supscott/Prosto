@@ -3,7 +3,10 @@ package com.jestk.browser.ui.overlays
 import android.graphics.Bitmap
 import android.view.View
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.hasAnyChild
 import androidx.compose.ui.test.onNodeWithTag
@@ -144,21 +147,43 @@ class TabOverviewGridPreviewTest {
 
     @Test
     fun renderTabOverviewGridLightPreview() {
+        renderPreview("tab_overview_grid_light_preview.png", ThemeMode.LIGHT, fontScale = 1.0f)
+    }
+
+    @Test
+    fun renderTabOverviewGridDarkPreview() {
+        renderPreview("tab_overview_grid_dark_preview.png", ThemeMode.DARK, fontScale = 1.0f)
+    }
+
+    @Test
+    fun renderTabOverviewGridLargeFontPreview() {
+        renderPreview("tab_overview_grid_large_font_preview.png", ThemeMode.LIGHT, fontScale = 1.3f)
+    }
+
+    private fun renderPreview(
+        fileName: String,
+        themeMode: ThemeMode,
+        fontScale: Float,
+    ) {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
         val activity = controller.get()
 
         val composeView =
             ComposeView(activity).apply {
                 setContent {
-                    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                        TabOverviewGrid(
-                            uiState =
-                                BrowserUiState(
-                                    tabs = tabs(4),
-                                    activeTabId = "1",
-                                ),
-                            onEvent = {},
-                        )
+                    CompositionLocalProvider(
+                        LocalDensity provides Density(LocalDensity.current.density, fontScale),
+                    ) {
+                        JestkBrowserTheme(themeMode = themeMode) {
+                            TabOverviewGrid(
+                                uiState =
+                                    BrowserUiState(
+                                        tabs = tabs(4),
+                                        activeTabId = "1",
+                                    ),
+                                onEvent = {},
+                            )
+                        }
                     }
                 }
             }
@@ -175,7 +200,7 @@ class TabOverviewGridPreviewTest {
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
-        val outputFile = File("build/tab_overview_grid_light_preview.png")
+        val outputFile = File("build/$fileName")
         outputFile.parentFile?.mkdirs()
         FileOutputStream(outputFile).use { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
