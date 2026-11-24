@@ -72,6 +72,13 @@ android {
         }
     }
 
+    // Exported Room schemas as assets: MigrationTestHelper reads <FQN>/<version>.json from them. A "test"
+    // source set is not enough: Robolectric unit tests read the merged assets of the debug variant
+    // (android_merged_assets in test_config.properties), so the schemas (188 KB) ship in debug builds only.
+    sourceSets {
+        getByName("debug").assets.srcDir("$projectDir/schemas")
+    }
+
     testOptions {
         unitTests {
             isIncludeAndroidResources = true

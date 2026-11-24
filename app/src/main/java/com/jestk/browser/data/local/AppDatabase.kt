@@ -39,7 +39,7 @@ import com.jestk.browser.domain.model.Workspace
         WorkspaceEntity::class,
         SiteAllowlistEntity::class
     ],
-    version = 15,
+    version = AppDatabase.VERSION,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -57,6 +57,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         private const val DATABASE_NAME = "jestk_browser.db"
+
+        /** Current schema version; `@Database(version = ...)` and the migration-chain test both read it. */
+        const val VERSION = 15
 
         val MIGRATION_7_8 = object : Migration(7, 8) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -189,6 +192,12 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** Every migration in order; add a new one here (the migration-chain test picks it up). */
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(
+            MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11,
+            MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15,
+        )
+
         fun seedDefaultWorkspaces(db: SupportSQLiteDatabase) {
             db.execSQL(
                 """
@@ -214,7 +223,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     DATABASE_NAME
                 )
-                .addMigrations(MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10, MIGRATION_10_11, MIGRATION_11_12, MIGRATION_12_13, MIGRATION_13_14, MIGRATION_14_15)
+                .addMigrations(*ALL_MIGRATIONS)
                 .addCallback(object : RoomDatabase.Callback() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
