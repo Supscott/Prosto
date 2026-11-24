@@ -20,14 +20,13 @@ fi
 
 echo "==> Rendering previews for target: $TARGET"
 # Marker for this run: only PNGs written after it are listed (older ones in app/build are stale).
-# No EXIT trap here: gradle_lock.sh already owns it.
-MARKER_DIR="$(mktemp -d)"
-MARKER="$MARKER_DIR/run-start"
+# A fixed path in build/ (no EXIT trap here: gradle_lock.sh owns it), so a failed run leaks nothing.
+MARKER="$ROOT/build/preview-run-start"
+mkdir -p "$ROOT/build"
 touch "$MARKER"
 ./gradlew testDebugUnitTest --tests "*$TARGET*" --rerun ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"}
 
 new_pngs="$(bash "$ROOT/tools/list_new_pngs.sh" "$ROOT/app/build" "$MARKER")"
-rm -rf "$MARKER_DIR"
 if [[ -n "$new_pngs" ]]; then
   echo "==> Rendered preview images written by this run:"
   echo "$new_pngs" | xargs ls -lh
