@@ -62,6 +62,8 @@ import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.ui.theme.LocalProstoTypography
+import com.jestk.browser.ui.theme.ProstoActiveTabContentDark
+import com.jestk.browser.ui.theme.ProstoActiveTabContentLight
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoCanvasFloor
@@ -151,6 +153,8 @@ internal fun GridTabCard(
                         if (isDark) DarkSurfaceVariant.copy(alpha = 0.50f) else ProstoCanvasFloor
                     }
 
+                val activeContent = if (isDark) ProstoActiveTabContentDark else ProstoActiveTabContentLight
+
                 Row(
                     modifier =
                         Modifier
@@ -197,7 +201,7 @@ internal fun GridTabCard(
                                 fontSize = 12.sp,
                                 fontWeight = if (isActive) FontWeight.Bold else FontWeight.SemiBold,
                             ),
-                        color = if (isActive) ProstoBrandPrimary else (if (isDark) DarkOnSurface else ProstoDarkText),
+                        color = if (isActive) activeContent else (if (isDark) DarkOnSurface else ProstoDarkText),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
@@ -211,7 +215,7 @@ internal fun GridTabCard(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.close_tab),
-                            tint = if (isActive) ProstoBrandPrimary else ProstoMutedSlate,
+                            tint = if (isActive) activeContent else ProstoMutedSlate,
                             modifier = Modifier.size(14.dp),
                         )
                     }

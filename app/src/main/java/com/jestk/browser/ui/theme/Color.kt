@@ -15,6 +15,12 @@ import kotlin.math.max
 
 val ProstoPrimary = Color(0xFF087E78)
 val ProstoBrandPrimary = Color(0xFF087E78)
+
+// Active tab title and close icon on the tinted tab header (PRO-125). The plain brand teal gives
+// 4.39:1 on the light header and 2.86:1 on the dark one; these give 4.89:1 and 7.41:1.
+val ProstoActiveTabContentLight = Color(0xFF077670)
+val ProstoActiveTabContentDark = Color(0xFF3FD0C6)
+
 val ProstoOnPrimary = Color(0xFFFFFFFF)
 val ProstoPrimaryContainer = Color(0xFFA5F2E9)
 val ProstoOnPrimaryContainer = Color(0xFF00201D)
