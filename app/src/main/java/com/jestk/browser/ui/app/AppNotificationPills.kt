@@ -25,7 +25,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,7 +56,6 @@ import com.jestk.browser.ui.viewmodel.DismissPopupBlocked
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 import com.jestk.browser.ui.viewmodel.RecordOpenInAppDismissal
 import com.jestk.browser.util.DownloadFileOpener
-import kotlinx.coroutines.delay
 
 @Composable
 internal fun BoxScope.AppNotificationPills(
@@ -104,12 +102,14 @@ internal fun BoxScope.AppNotificationPills(
         val undoText = stringResource(R.string.undo)
         val closedText = stringResource(R.string.tab_closed)
 
-        LaunchedEffect(uiState.showUndoTabCloseSnackbar, tab?.id) {
-            if (uiState.showUndoTabCloseSnackbar) {
-                kotlinx.coroutines.delay(4500)
-                onEvent(BrowserUiEvent.DismissUndoTabCloseSnackbar)
-            }
-        }
+        PillAutoDismissEffect(
+            active = uiState.showUndoTabCloseSnackbar,
+            restartKey = tab?.id,
+            baseTimeoutMs = 4500,
+            containsIcons = false,
+            containsControls = true,
+            onDismiss = { onEvent(BrowserUiEvent.DismissUndoTabCloseSnackbar) },
+        )
 
         Surface(
             shape = ProstoShapes.Pill,
@@ -174,12 +174,14 @@ internal fun BoxScope.AppNotificationPills(
         val defaultFileName = stringResource(R.string.download_default_filename)
         val fileName = download?.fileName?.ifEmpty { defaultFileName } ?: defaultFileName
 
-        LaunchedEffect(uiState.showDownloadSnackbar, download?.id, download?.timestamp) {
-            if (uiState.showDownloadSnackbar) {
-                kotlinx.coroutines.delay(5000)
-                onEvent(BrowserUiEvent.DismissDownloadSnackbar)
-            }
-        }
+        PillAutoDismissEffect(
+            active = uiState.showDownloadSnackbar,
+            restartKey = download?.id to download?.timestamp,
+            baseTimeoutMs = 5000,
+            containsIcons = true,
+            containsControls = true,
+            onDismiss = { onEvent(BrowserUiEvent.DismissDownloadSnackbar) },
+        )
 
         val downloadAccent = activeWorkspaceColor ?: ProstoBrandPrimary
         Surface(
