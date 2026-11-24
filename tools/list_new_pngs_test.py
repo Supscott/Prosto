@@ -30,8 +30,12 @@ class ListNewPngsTest(unittest.TestCase):
         self.new = self.build / "previews" / "new_preview.png"
         self.new.write_bytes(b"new")
         os.utime(self.new, (now, now))
-        self.other = self.build / "icon.png"
-        self.other.write_bytes(b"not a preview")
+        self.named = self.build / "home_screen_dark_feedback_card.png"
+        self.named.write_bytes(b"new, no 'preview' in its name")
+        os.utime(self.named, (now, now))
+        self.other = self.build / "intermediates" / "res" / "icon.png"
+        self.other.parent.mkdir(parents=True)
+        self.other.write_bytes(b"merged resource, not a preview")
         os.utime(self.other, (now, now))
 
     def run_script(self, build=None):
@@ -40,11 +44,12 @@ class ListNewPngsTest(unittest.TestCase):
         return result.stdout
 
     def test_lists_only_the_preview_written_after_the_marker(self):
-        self.assertEqual(self.run_script().splitlines(), [str(self.new)])
+        self.assertEqual(self.run_script().splitlines(), sorted([str(self.named), str(self.new)]))
 
     def test_prints_nothing_when_no_preview_is_newer(self):
         now = time.time()
         os.utime(self.new, (now - 300, now - 300))
+        os.utime(self.named, (now - 300, now - 300))
         self.assertEqual(self.run_script(), "")
 
     def test_missing_build_directory_prints_nothing(self):
