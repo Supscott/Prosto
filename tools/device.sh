@@ -158,7 +158,16 @@ case "$cmd" in
         # "stayon usb" needs a USB cable; over wireless adb the phone locked after its 60 s timeout
         # while an install waited for the Gradle lock. Raise the timeout too; sleep restores it.
         mkdir -p "$SHOT_DIR"
-        [[ -s "$SHOT_DIR/screen_timeout" ]] || adb shell settings get system screen_off_timeout | tr -d '\r' > "$SHOT_DIR/screen_timeout"
+        # Saved only when adb answered with a number or "null" (unset, which sleep deletes again), through
+        # a temp file: a failed read leaves no empty file for sleep to report as a saved value.
+        if [[ ! -s "$SHOT_DIR/screen_timeout" ]]; then
+            saved_now="$(adb shell settings get system screen_off_timeout 2>/dev/null | tr -d '\r[:space:]')" || saved_now=""
+            if [[ "$saved_now" == "null" || "$saved_now" =~ ^[1-9][0-9]*$ ]]; then
+                printf '%s\n' "$saved_now" > "$SHOT_DIR/screen_timeout.tmp" && mv "$SHOT_DIR/screen_timeout.tmp" "$SHOT_DIR/screen_timeout"
+            else
+                echo "could not read the screen timeout (adb answered '${saved_now:-nothing}'): not saved; sleep will restore nothing" >&2
+            fi
+        fi
         adb shell settings put system screen_off_timeout 1800000
         if is_locked; then
             adb shell wm dismiss-keyguard >/dev/null 2>&1 || true
