@@ -20,14 +20,18 @@ APP_CLASS_MISSING = "java.lang.NoClassDefFoundError: com/jestk/browser/ui/overla
 NON_APP_CLASS_MISSING = "java.lang.NoClassDefFoundError: org/foo/Bar"
 
 
-def write_report(directory, name, failures, passing=0):
-    """Writes one JUnit-style suite; each failure is a (message, stack trace text) pair."""
-    cases = [f'<testcase classname="com.jestk.browser.Sample" name="test{i}">'
-             f'<failure message={quoteattr(message)}>{escape(text)}</failure></testcase>'
-             for i, (message, text) in enumerate(failures)]
+def write_report(directory, name, failures, passing=0, timestamp="2026-11-24T10:00:00"):
+    """Writes one JUnit-style suite; each failure is a (message, stack trace text) pair. Like Gradle,
+    the failure's type attribute is the exception class named on the trace's first line."""
+    cases = []
+    for i, (message, text) in enumerate(failures):
+        kind = text.splitlines()[0].split(":", 1)[0] if text else ""
+        type_attr = f' type="{escape(kind)}"' if kind else ""
+        cases.append(f'<testcase classname="com.jestk.browser.Sample" name="test{i}">'
+                     f'<failure message={quoteattr(message)}{type_attr}>{escape(text)}</failure></testcase>')
     cases += [f'<testcase classname="com.jestk.browser.Sample" name="ok{i}"/>' for i in range(passing)]
     xml = (f'<?xml version="1.0"?><testsuite name="Sample" tests="{len(cases)}" skipped="0" '
-           f'failures="{len(failures)}">{"".join(cases)}</testsuite>')
+           f'failures="{len(failures)}" timestamp="{timestamp}">{"".join(cases)}</testsuite>')
     (Path(directory) / name).write_text(xml, encoding="utf-8")
 
 
@@ -106,6 +110,66 @@ class StaleBuildTest(unittest.TestCase):
             self.assertEqual(test_summary.main(["0"]), 0)
         self.assertIn("==> Tests: 1/2 passed in 1 classes, 1 FAILED", output.getvalue())
         self.assertIn("  FAIL Sample.test0: expected:<true> but was:<false>", output.getvalue())
+
+
+LINK_ERROR = ("dlopen failed", "java.lang.UnsatisfiedLinkError: dlopen failed\n\tat org.Native.load(Native.kt:1)")
+
+
+class MassFailureTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.results = Path(self.tmp.name) / "app" / "build" / "test-results" / "testDebugUnitTest"
+        self.results.mkdir(parents=True)
+        original = test_summary.RESULTS
+        test_summary.RESULTS = self.results
+        self.addCleanup(setattr, test_summary, "RESULTS", original)
+        self.failed = Path(self.tmp.name) / "app" / "build" / "test-results-failed"
+
+    def run_main(self):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(test_summary.main(["0"]), 0)
+        return output.getvalue()
+
+    def test_first_failure_follows_suite_timestamp_not_file_name(self):
+        write_report(self.results, "TEST-a.xml", [(ASSERTION, "")] * 5, timestamp="2026-11-24T10:00:05")
+        write_report(self.results, "TEST-b.xml", [LINK_ERROR] + [(ASSERTION, "")] * 4,
+                     timestamp="2026-11-24T10:00:00")
+        output = self.run_main()
+        self.assertIn("FIRST failure (by suite timestamp): Sample.test0: UnsatisfiedLinkError: dlopen failed",
+                      output)
+
+    def test_first_failure_follows_test_order_inside_a_suite(self):
+        failures = [("expected:<true> but was:<false>", "java.lang.AssertionError: expected:<true>")]
+        failures += [LINK_ERROR] * 4
+        write_report(self.results, "TEST-a.xml", failures, timestamp="2026-11-24T10:00:00")
+        output = self.run_main()
+        self.assertIn("FIRST failure (by suite timestamp): Sample.test0: AssertionError: expected:<true>",
+                      output)
+
+    def test_below_mass_threshold_names_no_first_failure_and_keeps_no_xml(self):
+        write_report(self.results, "TEST-a.xml", [LINK_ERROR] * 4)
+        output = self.run_main()
+        self.assertNotIn("FIRST failure", output)
+        self.assertFalse(self.failed.exists())
+
+    def test_mass_failure_copies_this_runs_reports_and_prints_the_path(self):
+        write_report(self.results, "TEST-a.xml", [LINK_ERROR] * 5)
+        output = self.run_main()
+        copies = [path for path in self.failed.iterdir() if path.is_dir()]
+        self.assertEqual(len(copies), 1)
+        self.assertTrue((copies[0] / "TEST-a.xml").is_file())
+        self.assertIn(f"==> XML of this run kept in: {copies[0]}", output)
+
+    def test_only_the_newest_three_copies_are_kept(self):
+        for stamp in ("19990101-000000", "19990102-000000", "19990103-000000", "19990104-000000"):
+            (self.failed / stamp).mkdir(parents=True)
+        write_report(self.results, "TEST-a.xml", [LINK_ERROR] * 5)
+        self.run_main()
+        remaining = sorted(path.name for path in self.failed.iterdir())
+        self.assertEqual(len(remaining), 3)
+        self.assertEqual(remaining[:2], ["19990103-000000", "19990104-000000"])
 
 
 if __name__ == "__main__":
