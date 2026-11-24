@@ -99,6 +99,7 @@ data class BrowserUiState(
     val folderSheetTargetTabId: String? = null,
     val folderSheetEditingFolderId: String? = null,
     val showAddFavoritePrompt: Boolean = false,
+    val showClearHistoryPrompt: Boolean = false,
     val searchEngines: List<SearchEngine> = SearchEngine.DEFAULT_ENGINES,
     val showAddEditSearchEnginePrompt: Boolean = false,
     val editingSearchEngine: SearchEngine? = null,

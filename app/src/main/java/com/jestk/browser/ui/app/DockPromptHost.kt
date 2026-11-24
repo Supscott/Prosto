@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalContext
 import com.jestk.browser.ui.launchExternalApp
 import com.jestk.browser.ui.overlays.AddEditSearchEnginePrompt
 import com.jestk.browser.ui.overlays.AddFavoritePrompt
+import com.jestk.browser.ui.overlays.ClearHistoryConfirmPrompt
 import com.jestk.browser.ui.overlays.DisableBlockingPrompt
 import com.jestk.browser.ui.overlays.DownloadConfirmHost
 import com.jestk.browser.ui.overlays.DuplicateDownloadHost
@@ -13,6 +14,7 @@ import com.jestk.browser.ui.overlays.InsecureHttpWarningPrompt
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.ConfirmDisableBlocking
+import com.jestk.browser.ui.viewmodel.DismissClearHistoryPrompt
 import com.jestk.browser.ui.viewmodel.DismissDisableBlockingPrompt
 import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 
@@ -20,6 +22,7 @@ import com.jestk.browser.ui.viewmodel.ExternalAppDismissReason
 internal fun hasDockPrompt(uiState: BrowserUiState): Boolean =
     uiState.showAddFavoritePrompt ||
         uiState.showAddEditSearchEnginePrompt ||
+        uiState.showClearHistoryPrompt ||
         uiState.insecureHttpPrompt != null ||
         uiState.siteBlockingPromptHost != null ||
         uiState.duplicateDownloadPrompt != null ||
@@ -55,6 +58,11 @@ internal fun DockPromptHost(uiState: BrowserUiState, onEvent: (BrowserUiEvent) -
             onSave = { id, title, shortcut, urlTemplate ->
                 onEvent(BrowserUiEvent.SaveSearchEngine(id = id, title = title, shortcut = shortcut, urlTemplate = urlTemplate))
             },
+        )
+        uiState.showClearHistoryPrompt -> ClearHistoryConfirmPrompt(
+            isDark = isDark,
+            onDismiss = { onEvent(DismissClearHistoryPrompt) },
+            onConfirm = { onEvent(BrowserUiEvent.ClearAllHistory) },
         )
         insecure != null -> InsecureHttpWarningPrompt(
             isDark = isDark,

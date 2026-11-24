@@ -1043,6 +1043,33 @@ class BrowserViewModelTest {
         }
 
     @Test
+    fun search_requestClearHistory_keepsHistoryUntilConfirmed() =
+        runTest(testDispatcher) {
+            historyRepo.recordVisit("https://apple.com", "Apple")
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null))
+            advanceUntilIdle()
+
+            viewModel.onEvent(RequestClearHistory)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.showClearHistoryPrompt).isTrue()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(1)
+
+            viewModel.onEvent(DismissClearHistoryPrompt)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.showClearHistoryPrompt).isFalse()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).hasSize(1)
+
+            viewModel.onEvent(RequestClearHistory)
+            viewModel.onEvent(BrowserUiEvent.ClearAllHistory)
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.showClearHistoryPrompt).isFalse()
+            assertThat(viewModel.uiState.value.searchHistorySuggestions).isEmpty()
+        }
+
+    @Test
     fun search_toggleSearchHistoryExpanded_updatesStateAndLoadsAllHistory() =
         runTest(testDispatcher) {
             for (i in 1..15) {

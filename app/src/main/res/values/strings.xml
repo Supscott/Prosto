@@ -6,6 +6,9 @@
     <string name="close_tab">Close Tab</string>
     <string name="reload_tab">Reload</string>
     <string name="clear_history">Clear History</string>
+    <string name="clear_history_confirm_title">Clear all history?</string>
+    <string name="clear_history_confirm_message">Every page you visited in this workspace will be deleted. This cannot be undone.</string>
+    <string name="clear_history_confirm">Clear</string>
     <string name="search_history_title">Search History</string>
     <string name="expand_history">All History</string>
     <string name="collapse_history">Collapse</string>

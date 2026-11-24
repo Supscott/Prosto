@@ -3,7 +3,9 @@ package com.jestk.browser.ui.viewmodel.events
 import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.DismissClearHistoryPrompt
 import com.jestk.browser.ui.viewmodel.LibraryUiEvent
+import com.jestk.browser.ui.viewmodel.RequestClearHistory
 import com.jestk.browser.ui.viewmodel.SearchCoordinator
 import com.jestk.browser.ui.viewmodel.TabCoordinator
 import kotlinx.coroutines.CoroutineDispatcher
@@ -49,7 +51,16 @@ internal class LibraryEventHandler(
                 updateUiState { it.copy(isFavoritesExpanded = !it.isFavoritesExpanded) }
             }
 
+            is RequestClearHistory -> {
+                updateUiState { it.copy(showClearHistoryPrompt = true) }
+            }
+
+            is DismissClearHistoryPrompt -> {
+                updateUiState { it.copy(showClearHistoryPrompt = false) }
+            }
+
             is BrowserUiEvent.ClearAllHistory -> {
+                updateUiState { it.copy(showClearHistoryPrompt = false) }
                 searchCoordinator.clearAllHistory()
             }
 

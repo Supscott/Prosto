@@ -67,6 +67,7 @@ import com.jestk.browser.ui.theme.LocalIsDarkTheme
 import com.jestk.browser.ui.theme.prostoSkyBackground
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.RequestClearHistory
 import com.jestk.browser.util.LocalVibrationFeedback
 import kotlinx.coroutines.flow.filter
 
@@ -356,9 +357,7 @@ fun SearchOverlay(
                             focusRequester.requestFocus()
                             keyboardController?.show()
                         },
-                        onClearHistory = {
-                            onEvent(BrowserUiEvent.ClearAllHistory)
-                        },
+                        onClearHistory = { onEvent(RequestClearHistory) },
                     )
                 } else {
                     HistoryEmptyCard(isDark = isDark)

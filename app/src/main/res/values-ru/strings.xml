@@ -6,6 +6,9 @@
     <string name="close_tab">Закрыть вкладку</string>
     <string name="reload_tab">Обновить</string>
     <string name="clear_history">Очистить историю</string>
+    <string name="clear_history_confirm_title">Очистить всю историю?</string>
+    <string name="clear_history_confirm_message">Все посещённые страницы в этом пространстве будут удалены. Это действие нельзя отменить.</string>
+    <string name="clear_history_confirm">Очистить</string>
     <string name="search_history_title">История поиска</string>
     <string name="expand_history">Вся история</string>
     <string name="collapse_history">Свернуть</string>
