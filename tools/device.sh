@@ -12,6 +12,7 @@
 #   tools/device.sh open <url>      open a link the way another app does (ACTION_VIEW)
 #   tools/device.sh caller          open Settings: a stand-in for "the app the link came from"
 #   tools/device.sh back | home     press Back | Home
+#   tools/device.sh enter           press Enter (KEYCODE_ENTER), e.g. to submit a typed search
 #   tools/device.sh tap <x> <y>     tap at device pixels
 #   tools/device.sh tap <url-prefix> <css-selector>
 #                                   tap the centre of the first match with a real touch (the page
@@ -142,7 +143,7 @@ tap_selector() {
 cmd="${1:-}"
 shift || true
 case "$cmd" in
-    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|serve|secure|log|clearlog|shot) require_device ;;
+    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|enter|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|serve|secure|log|clearlog|shot) require_device ;;
 esac
 case "$cmd" in
     open|tap|tapui|eval|ui|log|visible|pages) install_stamp_check "$ROOT" ;;
@@ -223,6 +224,9 @@ case "$cmd" in
         ;;
     home)
         adb shell input keyevent KEYCODE_HOME
+        ;;
+    enter)
+        adb shell input keyevent KEYCODE_ENTER
         ;;
     tap)
         [[ $# -ge 2 ]] || die "usage: device.sh tap <x> <y> | device.sh tap <url-prefix> <css-selector>"
