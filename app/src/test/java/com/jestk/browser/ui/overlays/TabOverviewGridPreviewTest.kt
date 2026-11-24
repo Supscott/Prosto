@@ -8,7 +8,6 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.getBoundsInRoot
-import androidx.compose.ui.test.hasAnyChild
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -23,13 +22,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.FileOutputStream
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class TabOverviewGridPreviewTest {
     @get:Rule

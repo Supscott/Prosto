@@ -1,14 +1,11 @@
 package com.jestk.browser.ui.overlays
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollDispatcher
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.SoftwareKeyboardController
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
@@ -24,7 +21,6 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeUp
-import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.HistoryItem
@@ -40,10 +36,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 class SearchOverlayInputTest {
 
     @get:Rule

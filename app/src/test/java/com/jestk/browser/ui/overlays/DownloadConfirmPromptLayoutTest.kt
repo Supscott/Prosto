@@ -17,7 +17,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
@@ -25,7 +24,6 @@ import org.robolectric.annotation.GraphicsMode
  * uses: the size must stay whole on one line, and only the host may be cut.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class DownloadConfirmPromptLayoutTest {
     @get:Rule

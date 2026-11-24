@@ -9,17 +9,14 @@ import android.widget.FrameLayout
 import androidx.test.core.app.ApplicationProvider
 import androidx.webkit.UserAgentMetadata
 import com.google.common.truth.Truth.assertThat
-import com.jestk.browser.R
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 class WebViewPoolRobolectricTest {
 
     private lateinit var appContext: Context

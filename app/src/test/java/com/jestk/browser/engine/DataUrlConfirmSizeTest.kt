@@ -4,10 +4,8 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 class DataUrlConfirmSizeTest {
     private fun sizeOf(url: String) = dataUrlConfirmRequest(url, null, null, null).sizeBytes
 

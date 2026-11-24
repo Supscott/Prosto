@@ -20,7 +20,7 @@ import org.robolectric.annotation.Config
 
 /** The last story closes only through Done or by making Prosto the default browser. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+@Config(qualifiers = "w411dp-h891dp-xxhdpi")
 @org.robolectric.annotation.GraphicsMode(org.robolectric.annotation.GraphicsMode.Mode.NATIVE)
 class TutorialStoriesScreenTest {
 

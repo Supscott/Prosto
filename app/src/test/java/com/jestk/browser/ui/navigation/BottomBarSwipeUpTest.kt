@@ -32,7 +32,7 @@ import org.robolectric.annotation.Config
  * either settles into the carousel or springs back (closing the overview again).
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+@Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class BottomBarSwipeUpTest {
 
     @get:Rule

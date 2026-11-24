@@ -23,7 +23,7 @@ import org.robolectric.annotation.GraphicsMode
 
 /** A 9:20 screen is taller than the 9:16 grid card, so the preview must crop the bottom, not the top. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w360dp-h800dp")
+@Config(qualifiers = "w360dp-h800dp")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class HomePreviewAlignmentTest {
     @get:Rule

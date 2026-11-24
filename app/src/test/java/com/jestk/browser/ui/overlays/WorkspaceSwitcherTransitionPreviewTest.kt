@@ -35,7 +35,7 @@ import java.io.File
  * and checks that at rest the live content sits exactly on the active card slot.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+@Config(qualifiers = "w411dp-h891dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class WorkspaceSwitcherTransitionPreviewTest {
 

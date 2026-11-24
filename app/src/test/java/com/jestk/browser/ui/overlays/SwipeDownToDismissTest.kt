@@ -23,14 +23,12 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 /**
  * Contract of [swipeDownToDismiss], tested against a recording parent instead of the real IME
  * so the keyboard-drag path is observable without a WindowInsets animation controller.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 class SwipeDownToDismissTest {
     @get:Rule
     val composeRule = createComposeRule()

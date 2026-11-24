@@ -19,7 +19,6 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
 /**
@@ -28,7 +27,6 @@ import org.robolectric.annotation.GraphicsMode
  * shows through, instead of collapsing into an opaque scrim.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SolidSurfaceFallbackTest {
     @Composable

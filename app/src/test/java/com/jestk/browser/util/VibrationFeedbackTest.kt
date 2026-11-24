@@ -12,7 +12,6 @@ import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 class VibrationFeedbackTest {
     private lateinit var vibrator: Vibrator
     private lateinit var shadow: org.robolectric.shadows.ShadowVibrator

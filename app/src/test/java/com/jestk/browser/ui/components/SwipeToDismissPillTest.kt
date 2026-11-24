@@ -26,7 +26,7 @@ import org.robolectric.annotation.GraphicsMode
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
-@Config(sdk = [34], qualifiers = "w412dp-h915dp-xhdpi")
+@Config(qualifiers = "w412dp-h915dp-xhdpi")
 class SwipeToDismissPillTest {
     @get:Rule
     val composeRule = createComposeRule()

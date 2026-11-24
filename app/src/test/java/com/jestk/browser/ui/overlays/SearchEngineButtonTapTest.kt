@@ -21,11 +21,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 /** A quick vertical swipe over a search engine button must not count as a tap on it. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 class SearchEngineButtonTapTest {
     @get:Rule
     val composeRule = createComposeRule()

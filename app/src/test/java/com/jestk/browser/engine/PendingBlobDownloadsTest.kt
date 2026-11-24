@@ -8,11 +8,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
-import org.robolectric.annotation.Config
 import java.time.Duration
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 class PendingBlobDownloadsTest {
     private val webView = WebView(ApplicationProvider.getApplicationContext())
     private val blobUrl = "blob:https://viewer.example/0b1c"

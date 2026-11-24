@@ -47,7 +47,7 @@ import org.robolectric.annotation.Config
  * dispatched.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+@Config(qualifiers = "w411dp-h891dp-xxhdpi")
 class TabStripRowDragTest {
 
     @get:Rule

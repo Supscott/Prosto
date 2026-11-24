@@ -10,14 +10,12 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.annotation.Config
 
 /**
  * Verifies the teardown contract of [WebViewPool]: the pooled WebViews must be destroyed and the
  * background scope cancelled, while the pool itself stays usable for the app that owns it.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34])
 class WebViewPoolShutdownTest {
 
     private lateinit var appContext: Context

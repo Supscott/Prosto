@@ -26,7 +26,7 @@ import java.io.File
  * values, top to bottom, so the whole motion can be reviewed in one PNG.
  */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w411dp-h2200dp-xxhdpi")
+@Config(qualifiers = "w411dp-h2200dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class TutorialScenesPreviewTest {
 

@@ -34,7 +34,7 @@ import java.io.FileOutputStream
 
 /** The tab strip marks incognito tabs with the incognito icon, active or not. */
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [34], qualifiers = "w411dp-h891dp-xxhdpi")
+@Config(qualifiers = "w411dp-h891dp-xxhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class IncognitoTabStripPreviewTest {
     @get:Rule
