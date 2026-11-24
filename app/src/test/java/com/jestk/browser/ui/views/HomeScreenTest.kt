@@ -5,6 +5,7 @@ import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.platform.ComposeView
 import com.google.common.truth.Truth.assertThat
+import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.theme.JestkBrowserTheme
@@ -122,6 +123,63 @@ class HomeScreenTest {
         composeView.draw(android.graphics.Canvas(bitmap))
 
         val outputFile = File("build/home_screen_dark_protection_card.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+
+        assertThat(outputFile.exists()).isTrue()
+        assertThat(outputFile.length()).isGreaterThan(0L)
+    }
+
+    @Test
+    fun renderHomeScreen_withFeedbackCard_lightMode() {
+        renderHomeWithFeedbackCard(ThemeMode.LIGHT, "home_screen_light_feedback_card.png")
+    }
+
+    @Test
+    fun renderHomeScreen_withFeedbackCard_darkMode() {
+        renderHomeWithFeedbackCard(ThemeMode.DARK, "home_screen_dark_feedback_card.png")
+    }
+
+    /** Favorites is directly followed by the feedback card once the tutorial is done. */
+    private fun renderHomeWithFeedbackCard(themeMode: ThemeMode, fileName: String) {
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
+
+        val state = BrowserUiState(
+            blockedAdsCount = 42L,
+            blockedTrackersCount = 380L,
+            isFeedbackCardVisible = true,
+            settings = BrowserSettings(isTutorialCompleted = true),
+            favorites = listOf(
+                FavoriteItem(1, "Google", "https://google.com"),
+                FavoriteItem(2, "GitHub", "https://github.com"),
+                FavoriteItem(3, "Wikipedia", "https://wikipedia.org"),
+                FavoriteItem(4, "YouTube", "https://youtube.com"),
+            )
+        )
+
+        val composeView = ComposeView(activity).apply {
+            setContent {
+                JestkBrowserTheme(themeMode = themeMode) {
+                    HomeScreen(uiState = state, onEvent = {})
+                }
+            }
+        }
+
+        activity.setContentView(composeView)
+        val width = 440
+        val height = 956
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/$fileName")
         outputFile.parentFile?.mkdirs()
         FileOutputStream(outputFile).use { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
