@@ -15,9 +15,9 @@
 #   tools/device.sh enter           press Enter (KEYCODE_ENTER), e.g. to submit a typed search
 #   tools/device.sh tap <x> <y>     tap at device pixels
 #   tools/device.sh tap <url-prefix> <css-selector>
-#                                   tap the centre of the first match with a real touch (the page
-#                                   sees a user gesture); fails when nothing matches or the centre
-#                                   is off screen
+#                                   scroll the first match into view, then tap its centre with a real
+#                                   touch (the page sees a user gesture); fails when nothing matches
+#                                   or the centre is still off screen
 #   tools/device.sh taps x1,y1 x2,y2 ...   rapid taps at device pixels, sent in ONE adb shell call
 #                                   (no round trip between taps; every pair is validated first)
 #   tools/device.sh ui              labelled UI nodes on screen: text | content-desc | bounds; checkable
@@ -130,7 +130,10 @@ for target in json.load(sys.stdin):
 tap_selector() {
     local url="$1" selector="$2" sel_json js page wv xy
     sel_json="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$selector")"
-    js="JSON.stringify((e=>e?(r=>[r.left+r.width/2,r.top+r.height/2,innerWidth,innerHeight])(e.getBoundingClientRect()).concat(devicePixelRatio):null)(document.querySelector($sel_json)))"
+    # Scrolls the element into view first (a below-the-fold element would otherwise fail the viewport
+    # check), then waits one frame, capped at 300 ms so a hidden page cannot hang the tap. Awaited by
+    # cdp_eval.mjs (awaitPromise).
+    js="(async()=>{const e=document.querySelector($sel_json);if(!e)return JSON.stringify(null);e.scrollIntoView({block:'center',inline:'center'});await Promise.race([new Promise(r=>requestAnimationFrame(()=>r())),new Promise(r=>setTimeout(r,300))]);const b=e.getBoundingClientRect();return JSON.stringify([b.left+b.width/2,b.top+b.height/2,innerWidth,innerHeight,devicePixelRatio]);})()"
     forward_cdp
     page="$(node "$ROOT/tools/cdp_eval.mjs" "$url" "$js" "$CDP_PORT")" || die "could not read the page at $url"
     dump="$(ui_dump_or_die tap)" || exit 1
