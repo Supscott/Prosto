@@ -4,8 +4,10 @@
 #
 #   tools/device.sh wake            wake the screen, keep it on over USB, fail if the phone is locked
 #   tools/device.sh sleep           restore the normal screen timeout (undoes "wake")
-#   tools/device.sh install         build and install the debug app (retries once); records the build
-#                                   in build/device/installed.txt, which later commands check
+#   tools/device.sh install [--force]  build and install the debug app (retries once); records the
+#                                   build in build/device/installed.txt, which later commands check.
+#                                   Skipped when that stamp matches the tree and the app is installed;
+#                                   --force builds anyway
 #   tools/device.sh start | stop    launch from the launcher | force-stop
 #   tools/device.sh kill            kill the process in the background (simulates process death)
 #   tools/device.sh reset           wipe the app's data (tabs, settings) and pre-grant notifications
@@ -203,7 +205,19 @@ case "$cmd" in
         fi
         ;;
     install)
+        force=0
+        case "${1:-}" in
+            "") ;;
+            --force) force=1 ;;
+            *) die "usage: device.sh install [--force]" ;;
+        esac
         state="$(install_stamp_state "$ROOT" 2>/dev/null || true)"
+        # Skip Gradle only when the stamp matches the working tree AND the app is on the phone.
+        if [[ "$force" == 0 ]] && install_stamp_matches "$ROOT" "$state" \
+            && [[ -n "$(adb shell pm path "$PKG" 2>/dev/null | tr -d '\r')" ]]; then
+            echo "installed build is current; skipping (use --force)" >&2
+            exit 0
+        fi
         # shellcheck source=tools/gradle_lock.sh
         (cd "$ROOT" && source tools/gradle_lock.sh && gradle_lock install && { ./gradlew -q :app:installDebug || { echo "install failed, retrying once" >&2; ./gradlew -q :app:installDebug; }; })
         install_stamp_write "$ROOT" "$state"

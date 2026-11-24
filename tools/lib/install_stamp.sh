@@ -38,6 +38,15 @@ install_stamp_write() {
     return 0
 }
 
+# Returns 0 when the stamp of repo $1 equals the state text $2: the same exact-text comparison
+# install_stamp_check makes before it warns. An empty state (not a repo) or no stamp is no match.
+install_stamp_matches() {
+    local root="$1" state="$2" recorded
+    [[ -n "$state" && -f "$root/build/device/installed.txt" ]] || return 1
+    recorded="$(cat "$root/build/device/installed.txt" 2>/dev/null || true)"
+    [[ "$recorded" == "$state" ]]
+}
+
 # "abc123" or "abc123+dirty" for a state text $1.
 install_stamp_label() {
     local commit dirty
