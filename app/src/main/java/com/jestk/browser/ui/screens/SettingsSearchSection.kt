@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -12,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -38,13 +38,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
-import com.jestk.browser.ui.components.ProstoToggleSwitch
+import com.jestk.browser.ui.components.ProstoSwitchRow
 import com.jestk.browser.ui.overlays.SearchEngineBadge
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -288,17 +287,10 @@ fun SearchPageProvidersDialog(
                 ) {
                     engines.forEachIndexed { index, engine ->
                         val isChecked = engine.id !in hiddenEngineIds
-                        Row(
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .toggleable(
-                                        value = isChecked,
-                                        role = Role.Switch,
-                                        onValueChange = { onToggleEngine(engine.id, it) },
-                                    ).padding(vertical = 12.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically,
+                        ProstoSwitchRow(
+                            checked = isChecked,
+                            onCheckedChange = { onToggleEngine(engine.id, it) },
+                            contentPadding = PaddingValues(vertical = 12.dp),
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -325,11 +317,6 @@ fun SearchPageProvidersDialog(
                                     }
                                 }
                             }
-
-                            ProstoToggleSwitch(
-                                checked = isChecked,
-                                onCheckedChange = null,
-                            )
                         }
 
                         if (index < engines.lastIndex) {

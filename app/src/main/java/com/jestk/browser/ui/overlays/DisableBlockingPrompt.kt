@@ -1,25 +1,20 @@
 package com.jestk.browser.ui.overlays
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
 import com.jestk.browser.ui.components.DockPromptAction
 import com.jestk.browser.ui.components.DockPromptCard
-import com.jestk.browser.ui.components.ProstoToggleSwitch
+import com.jestk.browser.ui.components.ProstoSwitchRow
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoDarkText
@@ -49,12 +44,10 @@ fun DisableBlockingPrompt(
             DockPromptAction(stringResource(R.string.cancel), onDismiss),
         ),
         content = {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .toggleable(value = allWorkspaces, role = Role.Switch, onValueChange = { allWorkspaces = it })
-                    .padding(top = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            ProstoSwitchRow(
+                checked = allWorkspaces,
+                onCheckedChange = { allWorkspaces = it },
+                contentPadding = PaddingValues(top = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
@@ -63,7 +56,6 @@ fun DisableBlockingPrompt(
                     color = textColor,
                     modifier = Modifier.weight(1f),
                 )
-                ProstoToggleSwitch(checked = allWorkspaces, onCheckedChange = null)
             }
         },
     )

@@ -14,6 +14,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,7 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -43,7 +43,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -51,7 +50,7 @@ import androidx.compose.ui.unit.sp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.ui.overlays.SearchEngineBadge
-import com.jestk.browser.ui.components.ProstoToggleSwitch
+import com.jestk.browser.ui.components.ProstoSwitchRow
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
 import com.jestk.browser.ui.theme.DarkSurface
@@ -238,17 +237,10 @@ internal fun SearchEngineSwitcherEditPopup(
                 ) {
                     engines.forEachIndexed { index, engine ->
                         val isVisible = engine.id !in hiddenEngineIds
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .toggleable(
-                                    value = isVisible,
-                                    role = Role.Switch,
-                                    onValueChange = { onToggleEngine(engine.id, it) }
-                                )
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                        ProstoSwitchRow(
+                            checked = isVisible,
+                            onCheckedChange = { onToggleEngine(engine.id, it) },
+                            contentPadding = PaddingValues(vertical = 8.dp),
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -270,11 +262,6 @@ internal fun SearchEngineSwitcherEditPopup(
                                     maxLines = 1
                                 )
                             }
-
-                            ProstoToggleSwitch(
-                                checked = isVisible,
-                                onCheckedChange = null
-                            )
                         }
 
                         if (index < engines.lastIndex) {

@@ -26,6 +26,7 @@ import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.ui.overlays.AddEditSearchEnginePrompt
 import com.jestk.browser.ui.overlays.AddFavoritePrompt
 import com.jestk.browser.ui.overlays.ClearHistoryConfirmPrompt
+import com.jestk.browser.ui.overlays.DisableBlockingPrompt
 import com.jestk.browser.ui.overlays.DownloadConfirmPrompt
 import com.jestk.browser.ui.overlays.DuplicateDownloadPrompt
 import com.jestk.browser.ui.overlays.InsecureHttpWarningPrompt
@@ -99,6 +100,16 @@ class DockPromptCardPreviewTest {
         }
         render("dock_prompt_clear_history_large_font.png", isDark = false, fontScale = 1.3f) { d ->
             ClearHistoryConfirmPrompt(d, {}, {})
+        }
+    }
+
+    @Test
+    fun renderDisableBlockingPreviews() {
+        render("dock_prompt_disable_blocking_light.png", isDark = false, fontScale = 1.0f) { d ->
+            DisableBlockingPrompt(d, "example.com", {}, {})
+        }
+        render("dock_prompt_disable_blocking_dark.png", isDark = true, fontScale = 1.3f) { d ->
+            DisableBlockingPrompt(d, "example.com", {}, {})
         }
     }
 

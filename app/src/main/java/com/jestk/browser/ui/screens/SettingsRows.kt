@@ -4,12 +4,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
@@ -24,11 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
-import com.jestk.browser.ui.components.ProstoToggleSwitch
+import com.jestk.browser.ui.components.ProstoSwitchRow
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
@@ -54,14 +53,11 @@ fun SettingToggleRow(
     isDark: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+    ProstoSwitchRow(
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+        modifier = modifier,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -93,11 +89,6 @@ fun SettingToggleRow(
                 )
             }
         }
-
-        ProstoToggleSwitch(
-            checked = checked,
-            onCheckedChange = null,
-        )
     }
 }
 
