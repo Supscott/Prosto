@@ -36,6 +36,8 @@
 #                                   (CDP_GESTURE=1: run it as a user gesture)
 #   tools/device.sh serve [stop]    serve tools/fixtures/adblock/ to the phone at http://127.0.0.1:8765/
 #                                   (adb reverse; loopback needs no HTTP warning); "stop" ends it
+#   tools/device.sh pill-timeout <ms>|reset   hold undo pills for <ms> (Android's accessibility timeout,
+#                                   saved once); reset, or sleep, puts the saved value back
 #   tools/device.sh secure off|on   debug build: off lets shot capture incognito tabs (FLAG_SECURE is on
 #                                   by default and persists across restarts); turn it back on with "on"
 #   tools/device.sh log <regex> [n] last n (default 20) logcat lines matching regex
@@ -145,10 +147,49 @@ tap_selector() {
     adb shell input tap $xy
 }
 
+# The accessibility timeout that holds undo pills on screen (PRO-134). "pill-timeout <ms>" saves the
+# current value once, into its own file; "reset" and "sleep" restore it. Written through a temp file,
+# like wake's screen timeout, so a failed adb read leaves no empty saved value.
+PILL_SAVED="$SHOT_DIR/pill_timeout"
+PILL_KEY=accessibility_interactive_ui_timeout_ms
+
+pill_timeout_save_once() {
+    local now
+    if [[ -s "$PILL_SAVED" ]]; then
+        return 0
+    fi
+    now="$(adb shell settings get secure "$PILL_KEY" 2>/dev/null | tr -d '\r[:space:]')" || now=""
+    if [[ "$now" == "null" || "$now" =~ ^[1-9][0-9]*$ ]]; then
+        mkdir -p "$SHOT_DIR"
+        printf '%s\n' "$now" > "$PILL_SAVED.tmp" && mv "$PILL_SAVED.tmp" "$PILL_SAVED"
+    else
+        die "could not read the undo-pill timeout (adb answered '${now:-nothing}'): nothing changed"
+    fi
+}
+
+# Puts the saved value back; "null" means the setting was unset, so it is deleted. The saved file
+# is removed only after adb succeeds, so a dropped connection can retry.
+pill_timeout_restore() {
+    local saved
+    saved="$(tr -d '[:space:]' < "$PILL_SAVED")"
+    if [[ "$saved" == "null" ]]; then
+        adb shell settings delete secure "$PILL_KEY"
+        rm -f "$PILL_SAVED"
+        echo "undo-pill timeout restored: the setting was unset before, so it is unset again"
+    elif [[ "$saved" =~ ^[1-9][0-9]*$ ]]; then
+        adb shell settings put secure "$PILL_KEY" "$saved"
+        rm -f "$PILL_SAVED"
+        echo "undo-pill timeout restored: $saved ms"
+    else
+        rm -f "$PILL_SAVED"
+        die "saved undo-pill timeout '$saved' is not a number: nothing written (the file is removed)"
+    fi
+}
+
 cmd="${1:-}"
 shift || true
 case "$cmd" in
-    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|enter|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|serve|secure|log|clearlog|shot) require_device ;;
+    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|enter|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|serve|secure|log|clearlog|shot|pill-timeout) require_device ;;
 esac
 case "$cmd" in
     open|tap|tapui|eval|ui|log|visible|pages) install_stamp_check "$ROOT" ;;
@@ -203,6 +244,26 @@ case "$cmd" in
         else
             echo "no saved screen timeout: nothing restored (wake did not save one)"
         fi
+        if [[ -s "$PILL_SAVED" ]]; then
+            pill_timeout_restore
+        fi
+        ;;
+    pill-timeout)
+        case "${1:-}" in
+            reset)
+                if [[ -s "$PILL_SAVED" ]]; then
+                    pill_timeout_restore
+                else
+                    echo "no saved undo-pill timeout: nothing restored"
+                fi
+                ;;
+            *)
+                [[ "${1:-}" =~ ^[1-9][0-9]*$ ]] || die "usage: device.sh pill-timeout <ms>|reset (ms: a positive integer)"
+                pill_timeout_save_once
+                adb shell settings put secure "$PILL_KEY" "$1"
+                echo "undo-pill timeout set to $1 ms (device.sh pill-timeout reset restores it)"
+                ;;
+        esac
         ;;
     install)
         force=0
