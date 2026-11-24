@@ -310,12 +310,6 @@ fun WebViewContainer(
                     (swipeRefresh as? JestkSwipeRefreshLayout)?.onRefreshTriggerReached = { vibration.confirm() }
 
                     swipeRefresh.applyPageCoverage(isPageCoveredByOverlay(uiState))
-                    // TEMP (PRO-127): device log, remove after the device check.
-                    android.util.Log.d(
-                        "PageCoverage",
-                        "covered=${isPageCoveredByOverlay(uiState)} overlay=${uiState.activeOverlay} " +
-                            "screen=${uiState.activeScreen} mode=${swipeRefresh.importantForAccessibility} tab=$tabId",
-                    )
                     val tabsContainer = (swipeRefresh as? JestkSwipeRefreshLayout)?.tabsContainer ?: return@AndroidView
                     val targetVisibility = if (isHome) View.INVISIBLE else View.VISIBLE
                     if (tabsContainer.visibility != targetVisibility) {
