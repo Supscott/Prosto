@@ -91,6 +91,8 @@ rtk grep -n "version" app/build.gradle.kts
 ### 3. Generate Release Notes
 Draft the release notes based on the commit log following the specification above.
 
+Then check `README.md` against the same `feat` commits: every user-visible feature in "What's New" should appear under "Key Features", and nothing there should describe replaced behaviour. If it is out of date, propose the README edit to the user and commit it before the version bump (the ad-blocking section once described a retired engine for three releases).
+
 ### 4. Update Version in Code
 Edit `app/build.gradle.kts` to update `versionCode` and `versionName`.
 
