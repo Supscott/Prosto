@@ -58,6 +58,17 @@ class PageCoverageTest {
     }
 
     @Test
+    fun coveredContainerInstallsTheChildHidingDelegate() {
+        // uiautomator dump (not compressed) ignores importance, so the node itself must drop its children.
+        // Robolectric's AccessibilityNodeInfo shadow does not track removeChild, so only the wiring is asserted.
+        val view = FrameLayout(ApplicationProvider.getApplicationContext())
+        view.applyPageCoverage(true)
+        assertThat(view.accessibilityDelegate).isNotNull()
+        view.applyPageCoverage(false)
+        assertThat(view.accessibilityDelegate).isNull()
+    }
+
+    @Test
     fun applyPageCoverageTogglesAccessibilityMode() {
         val view = FrameLayout(ApplicationProvider.getApplicationContext())
         view.applyPageCoverage(true)
