@@ -309,6 +309,7 @@ fun WebViewContainer(
                     swipeRefresh.setProgressBackgroundColorSchemeColor(surfaceColor)
                     (swipeRefresh as? JestkSwipeRefreshLayout)?.onRefreshTriggerReached = { vibration.confirm() }
 
+                    swipeRefresh.applyPageCoverage(isPageCoveredByOverlay(uiState))
                     val tabsContainer = (swipeRefresh as? JestkSwipeRefreshLayout)?.tabsContainer ?: return@AndroidView
                     val targetVisibility = if (isHome) View.INVISIBLE else View.VISIBLE
                     if (tabsContainer.visibility != targetVisibility) {
