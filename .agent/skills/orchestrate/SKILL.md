@@ -55,6 +55,10 @@ while the agents work.
 - **Check platform API contracts before writing the design.** When the brief's design rests on a
   WebView/Android lifecycle call (profile deletion, cookie flush, destroy), read its reference
   page first: the brief is copied faithfully, so a wrong premise ships green and fails on the phone.
+  Accessibility fixes: name the consumer's fetch flags (TalkBack and uncompressed `uiautomator
+  dump` include not-important views, so `importantForAccessibility` alone hides nothing; PRO-127).
+- **Mechanical edits over many files** (e.g. dropping 74 annotations): allow one reviewed script
+  for that step in the brief, instead of Edit only; per-file Edits cost PRO-121 308 calls and 1016k.
 - **Split a feature that spans data, engine and UI** (>25 files) into two agents (data+engine,
   then UI with the first one's API named); one agent for all of it ran 79 turns.
 - **Small fixes yourself only while your context is small.** Every main-session call re-reads

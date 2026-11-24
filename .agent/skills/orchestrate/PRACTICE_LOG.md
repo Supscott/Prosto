@@ -14,6 +14,13 @@ How to keep it useful:
 - Keep the file under ~60 lines.
 
 ## Entries
+- 2026-11-24 — PRO-121…139 (15 Todo issues closed, 1 already done): Sonnet 189–817k (UI pair
+  233k/25, Room test 189k/17), PRO-121 SDK move 1016k with 308 Edits over 74 files, Haiku harness
+  485–504k, device 833k/148 over 3 runs (one BLOCKED on a locked phone), Opus orchestrator
+  1665k/72. PRO-127's brief assumed `NO_HIDE_DESCENDANTS` suffices; it shipped green and failed
+  on the phone (uncompressed dumps ignore importance); a SendMessage fix-up + TEMP log fixed it.
+  Reading harness diffs again found 2 bugs (a leaked temp dir, a `*preview*` name filter that
+  hid most PNGs). → Skill step 4: a11y fetch flags; scripted step for mass mechanical edits.
 - 2026-11-24 — PRO-106…124 (17 issues closed): Haiku harness 229–459k/20–39 turns, Sonnet UI and
   data 325–764k, mover 359k, reviewer 127k/9, device 618–671k/113–121, Opus orchestrator
   2586k/87. Reading the Haiku harness diffs found 3 bugs their own checks missed (a pathspec that
