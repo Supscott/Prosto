@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from file_size_ratchet import check_file_sizes
+from robolectric_sdk_pins import check_robolectric_sdk_pins
 from unused_imports import check_unused_imports
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -547,6 +548,7 @@ def main():
     all_errors.extend(check_dark_theme_resolved_once())
     all_errors.extend(check_time_ordered_queries_have_tiebreaker())
     all_errors.extend(check_unused_imports())
+    all_errors.extend(check_robolectric_sdk_pins())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -558,7 +560,7 @@ def main():
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
         "Fullscreen Sync Attach, Pull-Only Refresh Spinner, Single Browser Activity, No English Sentinels, No Composition File I/O, No Test Detection, "
-        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme, Ordered Query Tie-Breaker, No Local Home Paths, Script Modes, Unused Imports in changed files)."
+        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme, Ordered Query Tie-Breaker, No Local Home Paths, Script Modes, Unused Imports in changed files, Robolectric SDK Pins)."
     )
     return 0
 
