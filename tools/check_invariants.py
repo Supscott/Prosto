@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from file_size_ratchet import check_file_sizes
+from unused_imports import check_unused_imports
 
 ROOT = Path(__file__).resolve().parent.parent
 MAIN_DIR = ROOT / "app" / "src" / "main"
@@ -545,6 +546,7 @@ def main():
     all_errors.extend(check_tasks_file_size())
     all_errors.extend(check_dark_theme_resolved_once())
     all_errors.extend(check_time_ordered_queries_have_tiebreaker())
+    all_errors.extend(check_unused_imports())
 
     if all_errors:
         print("=== Architectural Invariant Violations ===")
@@ -556,7 +558,7 @@ def main():
         "All architectural invariants satisfied (No Blur, WebKit Crash Resilience, "
         "Domain Purity, Favicon Safety, Localization, Security Challenge Protection, Script Stealth, "
         "Fullscreen Sync Attach, Pull-Only Refresh Spinner, Single Browser Activity, No English Sentinels, No Composition File I/O, No Test Detection, "
-        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme, Ordered Query Tie-Breaker, No Local Home Paths, Script Modes)."
+        "English Comments, File Size Ratchet, Short TASKS.md, Resolved Dark Theme, Ordered Query Tie-Breaker, No Local Home Paths, Script Modes, Unused Imports in changed files)."
     )
     return 0
 
