@@ -67,6 +67,7 @@ import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoDestructive
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.util.LocalVibrationFeedback
@@ -774,7 +775,7 @@ internal fun ReorderableSearchEngineRow(
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,
                         contentDescription = stringResource(R.string.a11y_delete_provider),
-                        tint = if (canDelete) com.jestk.browser.ui.theme.ProstoDestructive else if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1),
+                        tint = if (canDelete) ProstoDestructive else if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1),
                         modifier = Modifier.size(18.dp)
                     )
                 }

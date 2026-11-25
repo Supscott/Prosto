@@ -69,6 +69,7 @@ import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoDestructive
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.ui.theme.ProstoShapes
@@ -386,7 +387,7 @@ private fun DownloadItemCard(
                                     LocalProstoTypography.current.bodySm.copy(
                                         fontWeight = FontWeight.SemiBold,
                                     ),
-                                color = com.jestk.browser.ui.theme.ProstoDestructive,
+                                color = ProstoDestructive,
                             )
                         }
 

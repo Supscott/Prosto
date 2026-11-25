@@ -8,9 +8,13 @@ splitting a large file, run `python3 tools/file_size_ratchet.py --update` to low
 
 Scope: the Kotlin sources under app/src/main, plus the Python tools directly under tools/ and
 under tools/hooks/ (tools/*.py is not recursive on purpose: fixtures and filter lists stay out).
+
+Import lines do not count: Kotlin `import` and `package` lines, and top-level Python `import` and
+`from ... import` lines, are skipped, so a new import never trips the limit.
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -19,6 +23,7 @@ SOURCE_DIR = ROOT / "app" / "src" / "main"
 TOOLS_DIR = ROOT / "tools"
 BASELINE = Path(__file__).resolve().parent / "file_size_baseline.json"
 MAX_LINES = 500
+PY_IMPORT = re.compile(r"^(import\s+\S|from\s+\S+\s+import\s)")
 
 
 def _sources():
@@ -29,9 +34,22 @@ def _sources():
     )
 
 
+def counted_lines(text, suffix):
+    """Number of lines that count toward the limit: everything except import and package lines."""
+    count = 0
+    for line in text.splitlines():
+        if suffix == ".py":
+            if PY_IMPORT.match(line):
+                continue
+        elif line.startswith("import ") or line.startswith("package "):
+            continue
+        count += 1
+    return count
+
+
 def _line_counts():
     return {
-        str(file.relative_to(ROOT)): len(file.read_text(encoding="utf-8").splitlines())
+        str(file.relative_to(ROOT)): counted_lines(file.read_text(encoding="utf-8"), file.suffix)
         for file in _sources()
     }
 
