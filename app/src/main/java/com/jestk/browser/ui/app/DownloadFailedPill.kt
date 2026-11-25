@@ -21,7 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,7 +45,6 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.DismissDownloadFailure
 import com.jestk.browser.ui.viewmodel.DownloadFailure
-import kotlinx.coroutines.delay
 
 /** How long the pill stays before it dismisses itself. */
 internal const val DOWNLOAD_FAILED_PILL_TIMEOUT_MS = 5_000L
@@ -85,10 +83,14 @@ internal fun BoxScope.DownloadFailedPill(
             ),
     ) {
         if (shown != null) {
-            LaunchedEffect(shown.id) {
-                delay(DOWNLOAD_FAILED_PILL_TIMEOUT_MS)
-                currentOnEvent(DismissDownloadFailure)
-            }
+            PillAutoDismissEffect(
+                active = true,
+                restartKey = shown.id,
+                baseTimeoutMs = DOWNLOAD_FAILED_PILL_TIMEOUT_MS,
+                containsIcons = true,
+                containsControls = false,
+                onDismiss = { currentOnEvent(DismissDownloadFailure) },
+            )
             val reason = shown.message.ifBlank { shown.fileName.orEmpty() }
             val text = if (reason.isBlank()) {
                 stringResource(R.string.downloads_failed)

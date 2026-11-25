@@ -9,9 +9,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
+import com.jestk.browser.ui.app.PillAutoDismissEffect
 import com.jestk.browser.ui.components.swipeToDismissPill
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -27,7 +25,6 @@ import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoShapes
-import kotlinx.coroutines.delay
 
 /** How long the question stays before it dismisses itself. */
 internal const val OPEN_IN_APP_EXCLUSION_PILL_TIMEOUT_MS = 8_000L
@@ -46,11 +43,14 @@ internal fun OpenInAppExclusionPill(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val currentOnDismiss by rememberUpdatedState(onDismiss)
-    LaunchedEffect(promptKey) {
-        delay(OPEN_IN_APP_EXCLUSION_PILL_TIMEOUT_MS)
-        currentOnDismiss()
-    }
+    PillAutoDismissEffect(
+        active = true,
+        restartKey = promptKey,
+        baseTimeoutMs = OPEN_IN_APP_EXCLUSION_PILL_TIMEOUT_MS,
+        containsIcons = false,
+        containsControls = true,
+        onDismiss = onDismiss,
+    )
     Surface(
         shape = ProstoShapes.Pill,
         color = if (isDark) DarkSurface else Color.White,

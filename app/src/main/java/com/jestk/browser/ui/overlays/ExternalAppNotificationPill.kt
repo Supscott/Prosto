@@ -34,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.ExternalAppPrompt
+import com.jestk.browser.ui.app.rememberPillTimeoutMillis
 import com.jestk.browser.ui.components.swipeToDismissPill
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
@@ -68,7 +69,13 @@ fun ExternalAppNotificationPill(
     val currentOnTimeout by rememberUpdatedState(onTimeout)
 
     var isInteracting by remember(prompt.id) { mutableStateOf(false) }
-    var remainingTimeMs by remember(prompt.id) { mutableLongStateOf(autoDismissDurationMs) }
+    // The pause-while-touched countdown below runs on Android's recommended action timeout.
+    val timeoutMs = rememberPillTimeoutMillis(
+        baseTimeoutMs = autoDismissDurationMs,
+        containsIcons = true,
+        containsControls = true,
+    )
+    var remainingTimeMs by remember(prompt.id) { mutableLongStateOf(timeoutMs) }
 
     // Auto-dismiss timer: counts down every 100ms when not touched/interacting
     LaunchedEffect(prompt.id, isInteracting) {

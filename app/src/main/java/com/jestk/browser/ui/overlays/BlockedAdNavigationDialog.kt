@@ -35,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.R
+import com.jestk.browser.ui.app.rememberPillTimeoutMillis
 import com.jestk.browser.ui.components.swipeToDismissPill
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkOnSurfaceVariant
@@ -73,9 +74,15 @@ fun BlockedAdNavigationBanner(
 
     var isDragging by remember { mutableStateOf(false) }
 
-    // Auto-dismiss after 5 seconds; a banner held by the finger at that moment goes once released.
-    LaunchedEffect(url) {
-        delay(5000L)
+    // Auto-dismiss after 5 seconds (or Android's recommended action timeout); a banner held by the
+    // finger at that moment goes once released.
+    val timeoutMs = rememberPillTimeoutMillis(
+        baseTimeoutMs = 5000L,
+        containsIcons = true,
+        containsControls = true,
+    )
+    LaunchedEffect(url, timeoutMs) {
+        delay(timeoutMs)
         snapshotFlow { isDragging }.first { !it }
         currentOnDismiss()
     }
