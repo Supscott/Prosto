@@ -8,18 +8,18 @@
 
 import java.util.concurrent.ConcurrentHashMap
 
-val perTestSeconds = (findProperty("testTimeoutSeconds") as String?)?.toLongOrNull() ?: 240L
-val timeoutReport = layout.buildDirectory.file("test-timeout.txt").get().asFile
-
-fun killTestWorkers() {
-    ProcessHandle.current().descendants().forEach { process ->
-        val text = (listOfNotNull(process.info().command().orElse(null)) + process.info().arguments().orElse(emptyArray()))
-            .joinToString(" ")
-        if (text.contains("GradleWorkerMain") || text.contains("Gradle Test Executor")) process.destroyForcibly()
-    }
-}
-
+// No top-level vals or funs: Android Lint's Kotlin-script analysis crashes on script properties
+// ("findFirCompiledSymbol only works on compiled declarations"), so everything lives in this block.
 tasks.withType<Test>().configureEach {
+    val perTestSeconds = (project.findProperty("testTimeoutSeconds") as String?)?.toLongOrNull() ?: 240L
+    val timeoutReport = project.layout.buildDirectory.file("test-timeout.txt").get().asFile
+    val killTestWorkers = {
+        ProcessHandle.current().descendants().forEach { process ->
+            val text = (listOfNotNull(process.info().command().orElse(null)) + process.info().arguments().orElse(emptyArray()))
+                .joinToString(" ")
+            if (text.contains("GradleWorkerMain") || text.contains("Gradle Test Executor")) process.destroyForcibly()
+        }
+    }
     val running = ConcurrentHashMap<String, Long>()
     var watchdog: Thread? = null
 

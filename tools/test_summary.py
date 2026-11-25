@@ -130,7 +130,7 @@ def is_stale_build(raw_messages):
 
 
 def timeout_line(started):
-    """A FAIL line for the test the Gradle watchdog killed in this run (app/test-watchdog.gradle.kts
+    """A FAIL line for the test the Gradle watchdog killed in this run (gradle/test-watchdog.gradle.kts
     writes 'Class.method<TAB>seconds' to build/test-timeout.txt), or None."""
     report = RESULTS.parent.parent / "test-timeout.txt"
     if not report.is_file() or report.stat().st_mtime < started:

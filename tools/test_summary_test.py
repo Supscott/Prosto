@@ -173,7 +173,7 @@ class MassFailureTest(unittest.TestCase):
 
 
 class WatchdogTimeoutTest(unittest.TestCase):
-    """The Gradle watchdog (app/test-watchdog.gradle.kts) writes build/test-timeout.txt when it kills a hung test."""
+    """The Gradle watchdog (gradle/test-watchdog.gradle.kts) writes build/test-timeout.txt when it kills a hung test."""
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
