@@ -151,6 +151,7 @@ except ValueError:
     sys.exit(1)
 if not isinstance(targets, list):
     sys.exit(1)
+printed = 0
 for target in targets:
     if target.get("type") != "page":
         continue
@@ -160,6 +161,9 @@ for target in targets:
         info = {}
     shown = info.get("visible") and info.get("attached")
     print(("visible " if shown else "hidden  ") + target.get("url", ""))
+    printed += 1
+# A list with no page target is a failure too: callers must not see an empty result with exit 0.
+sys.exit(0 if printed else 1)
 ' || die "no WebView page found (is the app running and the phone unlocked?)"
 }
 
@@ -171,10 +175,11 @@ tap_selector() {
     sel_json="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$selector")"
     # Walks every match and takes the first one that is shown (not display:none or visibility:hidden,
     # non-empty box). It is scrolled into view, then waits one frame, capped at 300 ms so a hidden page
-    # cannot hang the tap; its centre must then be inside the viewport. Returns [cssX, cssY, innerWidth,
+    # cannot hang the tap; its centre must then be inside the viewport. A rejected candidate scrolls the
+    # window back to where it was first (nested scrollers are not restored). Returns [cssX, cssY, innerWidth,
     # innerHeight, dpr, skipped], "null" when nothing matches, or {total, selector} when none is shown.
     # Awaited by cdp_eval.mjs (awaitPromise).
-    js="(async()=>{const S=$sel_json;const all=[...document.querySelectorAll(S)];if(!all.length)return JSON.stringify(null);let skipped=0;for(const e of all){const cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'){skipped++;continue;}const r0=e.getBoundingClientRect();if(!r0.width||!r0.height){skipped++;continue;}e.scrollIntoView({block:'center',inline:'center'});await Promise.race([new Promise(r=>requestAnimationFrame(()=>r())),new Promise(r=>setTimeout(r,300))]);const b=e.getBoundingClientRect();const cx=b.left+b.width/2,cy=b.top+b.height/2;if(cx<0||cy<0||cx>innerWidth||cy>innerHeight){skipped++;continue;}return JSON.stringify([cx,cy,innerWidth,innerHeight,devicePixelRatio,skipped]);}return JSON.stringify({total:all.length,selector:S});})()"
+    js="(async()=>{const S=$sel_json;const all=[...document.querySelectorAll(S)];if(!all.length)return JSON.stringify(null);const sx=scrollX,sy=scrollY;const frame=()=>Promise.race([new Promise(r=>requestAnimationFrame(()=>r())),new Promise(r=>setTimeout(r,300))]);let skipped=0;for(const e of all){const cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'){skipped++;continue;}const r0=e.getBoundingClientRect();if(!r0.width||!r0.height){skipped++;continue;}e.scrollIntoView({block:'center',inline:'center'});await frame();const b=e.getBoundingClientRect();const cx=b.left+b.width/2,cy=b.top+b.height/2;if(cx<0||cy<0||cx>innerWidth||cy>innerHeight){scrollTo(sx,sy);await frame();skipped++;continue;}return JSON.stringify([cx,cy,innerWidth,innerHeight,devicePixelRatio,skipped]);}return JSON.stringify({total:all.length,selector:S});})()"
     forward_cdp
     page="$(node "$ROOT/tools/cdp_eval.mjs" "$url" "$js" "$CDP_PORT")" || die "could not read the page at $url"
     # The dump only supplies the WebView's bounds. A full dump of a very tall page can come back empty
@@ -397,6 +402,7 @@ case "$cmd" in
         case "$status" in
             0) ;;
             1) die "tapui: '$1' is not on screen; it may be scrolled out of view (for example a dock tab)" ;;
+            # Still reachable: ui_dump_try only checks for "<hierarchy", so a truncated dump gets here (ui_nodes exit 2).
             *) die "tapui: could not read the UI dump (it is not valid XML)" ;;
         esac
         # shellcheck disable=SC2086
