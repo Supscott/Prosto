@@ -2,6 +2,8 @@ package com.jestk.browser.ui.views
 
 import android.content.ClipData
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,17 +12,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,22 +24,22 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.toClipEntry
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.jestk.browser.R
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.engine.FaviconManager
-import com.jestk.browser.ui.components.workspaceDisplayName
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalProstoTypography
@@ -68,7 +61,8 @@ internal fun FavoriteSquircleCard(
     onMoveToWorkspace: ((String) -> Unit)? = null,
 ) {
     var showMenu by remember { mutableStateOf(false) }
-    var showWorkspacePicker by remember { mutableStateOf(false) }
+    var tileOrigin by remember { mutableStateOf(Offset.Zero) }
+    var pressOffset by remember { mutableStateOf(Offset.Zero) }
     val clipboard = LocalClipboard.current
     val coroutineScope = rememberCoroutineScope()
     val squircleBg = if (isDark) DarkSurfaceVariant else ProstoCanvasFloor
@@ -81,6 +75,14 @@ internal fun FavoriteSquircleCard(
             modifier =
                 Modifier
                     .fillMaxWidth()
+                    .onGloballyPositioned { tileOrigin = it.positionInWindow() }
+                    .pointerInput(Unit) {
+                        // Observe only: records where the finger went down so the long-press
+                        // menu can open there; the click handling below still gets the event.
+                        awaitEachGesture {
+                            pressOffset = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial).position
+                        }
+                    }
                     .combinedClickable(
                         onClick = onClick,
                         onLongClick = { showMenu = true },
@@ -151,94 +153,29 @@ internal fun FavoriteSquircleCard(
             )
         }
 
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = {
-                showMenu = false
-                showWorkspacePicker = false
-            },
-        ) {
-            if (showWorkspacePicker) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.tab_context_move_to_workspace_title)) },
-                    leadingIcon = {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    },
-                    onClick = { showWorkspacePicker = false },
-                )
-                availableWorkspaces.forEach { ws ->
-                    DropdownMenuItem(
-                        text = { Text(workspaceDisplayName(ws)) },
-                        leadingIcon = {
-                            Box(
-                                modifier = Modifier
-                                    .size(12.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(ws.color)),
-                            )
-                        },
-                        onClick = {
-                            showMenu = false
-                            showWorkspacePicker = false
-                            onMoveToWorkspace?.invoke(ws.id)
-                        },
-                    )
-                }
-            } else {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.copy_url_action)) },
-                    leadingIcon = {
-                        Icon(
-                            Icons.Default.ContentCopy,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    },
-                    onClick = {
-                        showMenu = false
-                        coroutineScope.launch {
-                            val clipData = ClipData.newPlainText("URL", item.url)
-                            clipboard.setClipEntry(clipData.toClipEntry())
-                        }
-                    },
-                )
-                if (item.id != null && availableWorkspaces.isNotEmpty() && onMoveToWorkspace != null) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.move_to_workspace)) },
-                        leadingIcon = {
-                            Icon(
-                                Icons.AutoMirrored.Filled.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                        onClick = {
-                            showWorkspacePicker = true
-                        },
-                    )
-                }
-                if (item.id != null && onDelete != null) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.delete_bookmark_action), color = MaterialTheme.colorScheme.error) },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp),
-                            )
-                        },
-                        onClick = {
-                            showMenu = false
-                            onDelete()
-                        },
-                    )
-                }
-            }
+        if (showMenu) {
+            HomeFavoriteContextMenuPopup(
+                anchorInWindow = tileOrigin + pressOffset,
+                availableWorkspaces = availableWorkspaces,
+                canMove = item.id != null && onMoveToWorkspace != null,
+                canDelete = item.id != null && onDelete != null,
+                onCopyUrl = {
+                    showMenu = false
+                    coroutineScope.launch {
+                        val clipData = ClipData.newPlainText("URL", item.url)
+                        clipboard.setClipEntry(clipData.toClipEntry())
+                    }
+                },
+                onMoveToWorkspace = { wsId ->
+                    showMenu = false
+                    onMoveToWorkspace?.invoke(wsId)
+                },
+                onDelete = {
+                    showMenu = false
+                    onDelete?.invoke()
+                },
+                onDismiss = { showMenu = false },
+            )
         }
     }
 }
