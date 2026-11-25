@@ -71,5 +71,56 @@ class TapPointCliTest(unittest.TestCase):
         self.assertEqual(done.stderr.strip(), "tap: 1 match(es) for #x, none visible")
 
 
+DUMPSYS_SAMPLE = SCRIPT.parent / "testdata" / "dumpsys_activity_component.txt"
+
+
+class WebviewFromDumpsysTest(unittest.TestCase):
+    """The sample is `dumpsys activity <component>` captured on a phone, where uiautomator reported
+    the same WebView as [0,128][1220,2486]."""
+
+    def test_sums_the_parent_offsets_and_skips_the_gone_webview(self):
+        self.assertEqual(
+            ui_nodes.webview_from_dumpsys(DUMPSYS_SAMPLE.read_text()), (0, 128, 1220, 2486)
+        )
+
+    def test_a_webview_under_a_hidden_ancestor_does_not_count(self):
+        text = (
+            "    View Hierarchy:\n"
+            "      a.Decor{1 V.E...... ........ 0,0-100,200}\n"
+            "        a.Holder{2 I.E...... ........ 0,50-100,200}\n"
+            "          a.NestedWebView{3 V.E...... ........ 0,0-100,150}\n"
+        )
+        self.assertIsNone(ui_nodes.webview_from_dumpsys(text))
+
+    def test_nested_offsets_add_up_and_the_largest_visible_one_wins(self):
+        text = (
+            "    View Hierarchy:\n"
+            "      a.Decor{1 V.E...... ........ 0,0-100,200}\n"
+            "        a.Holder{2 V.E...... ........ 10,20-100,200}\n"
+            "          a.Layout{3 V.E...... ........ 5,7-90,180}\n"
+            "            android.webkit.WebView{4 V.E...... ........ 1,2-31,52}\n"
+            "          a.Layout{5 V.E...... ........ 0,100-90,180}\n"
+            "            a.NestedWebView{6 V.E...... ........ 0,0-80,60}\n"
+            "    Looper (main)\n"
+            "      a.NestedWebView{7 V.E...... ........ 0,0-999,999}\n"
+        )
+        self.assertEqual(ui_nodes.webview_from_dumpsys(text), (10, 120, 90, 180))
+
+    def test_no_hierarchy_means_none(self):
+        self.assertIsNone(ui_nodes.webview_from_dumpsys("TASK 1:x id=1\n"))
+
+    def test_cli_prints_the_bounds_and_exits_1_without_a_webview(self):
+        done = subprocess.run(
+            [sys.executable, str(SCRIPT), "webview-from-dumpsys"],
+            input=DUMPSYS_SAMPLE.read_text(), capture_output=True, text=True,
+        )
+        self.assertEqual((done.returncode, done.stdout.strip()), (0, "0 128 1220 2486"))
+        done = subprocess.run(
+            [sys.executable, str(SCRIPT), "webview-from-dumpsys"],
+            input="nothing here", capture_output=True, text=True,
+        )
+        self.assertEqual(done.returncode, 1)
+
+
 if __name__ == "__main__":
     unittest.main()

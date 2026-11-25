@@ -18,8 +18,10 @@
 #   tools/device.sh tap <x> <y>     tap at device pixels
 #   tools/device.sh tap <url-prefix> <css-selector>
 #                                   scroll the first match into view, then tap its centre with a real
-#                                   touch (the page sees a user gesture); fails when nothing matches
-#                                   or the centre is still off screen
+#                                   touch (the page sees a user gesture); matches whose centre is covered
+#                                   by another element are skipped; fails when nothing matches or the
+#                                   centre is still off screen. The WebView's bounds come from
+#                                   `dumpsys activity` (uiautomator is the fallback)
 #   tools/device.sh taps x1,y1 x2,y2 ...   rapid taps at device pixels, sent in ONE adb shell call
 #                                   (no round trip between taps; every pair is validated first)
 #   tools/device.sh ui [--compressed]  labelled UI nodes on screen: text | content-desc | bounds; checkable
@@ -42,7 +44,7 @@
 #                                   saved once); reset, or sleep, puts the saved value back
 #   tools/device.sh secure off|on   debug build: off lets shot capture incognito tabs (FLAG_SECURE is on
 #                                   by default and persists across restarts); turn it back on with "on"
-#   tools/device.sh log <regex> [n] last n (default 20) logcat lines matching regex
+#   tools/device.sh log [-i] <regex> [n]  last n (default 20) logcat lines matching regex (-i: ignore case)
 #   tools/device.sh clearlog        clear logcat
 #   tools/device.sh shot [name]     screenshot, downscaled to 540px wide; prints the PNG path
 #
@@ -115,7 +117,10 @@ ui_dump_try() {
     if [[ -z "${UI_DUMP//[[:space:]]/}" ]]; then
         UI_DUMP_PROBLEM="uiautomator dump returned nothing ($detail)"
     else
-        UI_DUMP_PROBLEM="uiautomator dump did not return a UI hierarchy ($detail)"
+        # Show what uiautomator printed instead (first 150 chars, newlines flattened).
+        local said
+        said="$(printf '%s' "$UI_DUMP" | tr '\r\n' '  ' | sed -E 's/ +/ /g; s/^ //; s/ $//' | cut -c1-150)"
+        UI_DUMP_PROBLEM="uiautomator dump did not return a UI hierarchy ($detail; stdout: $said)"
     fi
     return 1
 }
@@ -131,7 +136,8 @@ pid() { adb shell pidof "$PKG" | tr -d '\r'; }
 
 forward_cdp() {
     local p
-    p="$(pid)"
+    # pidof exits 1 when the app is not running; under set -e that would end the script silently (PRO-151).
+    p="$(pid || true)"
     [[ -n "$p" ]] || die "App $PKG is not running"
     adb forward "tcp:$CDP_PORT" "localabstract:webview_devtools_remote_$p" >/dev/null 2>&1 \
         || die "cannot forward CDP to port $CDP_PORT (in use: lsof -nP -iTCP:$CDP_PORT); set PROSTO_CDP_PORT"
@@ -179,17 +185,21 @@ tap_selector() {
     # window back to where it was first (nested scrollers are not restored). Returns [cssX, cssY, innerWidth,
     # innerHeight, dpr, skipped], "null" when nothing matches, or {total, selector} when none is shown.
     # Awaited by cdp_eval.mjs (awaitPromise).
-    js="(async()=>{const S=$sel_json;const all=[...document.querySelectorAll(S)];if(!all.length)return JSON.stringify(null);const sx=scrollX,sy=scrollY;const frame=()=>Promise.race([new Promise(r=>requestAnimationFrame(()=>r())),new Promise(r=>setTimeout(r,300))]);let skipped=0;for(const e of all){const cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'){skipped++;continue;}const r0=e.getBoundingClientRect();if(!r0.width||!r0.height){skipped++;continue;}e.scrollIntoView({block:'center',inline:'center'});await frame();const b=e.getBoundingClientRect();const cx=b.left+b.width/2,cy=b.top+b.height/2;if(cx<0||cy<0||cx>innerWidth||cy>innerHeight){scrollTo(sx,sy);await frame();skipped++;continue;}return JSON.stringify([cx,cy,innerWidth,innerHeight,devicePixelRatio,skipped]);}return JSON.stringify({total:all.length,selector:S});})()"
+    js="(async()=>{const S=$sel_json;const all=[...document.querySelectorAll(S)];if(!all.length)return JSON.stringify(null);const sx=scrollX,sy=scrollY;const frame=()=>Promise.race([new Promise(r=>requestAnimationFrame(()=>r())),new Promise(r=>setTimeout(r,300))]);let skipped=0;for(const e of all){const cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'){skipped++;continue;}const r0=e.getBoundingClientRect();if(!r0.width||!r0.height){skipped++;continue;}e.scrollIntoView({block:'center',inline:'center'});await frame();const b=e.getBoundingClientRect();const cx=b.left+b.width/2,cy=b.top+b.height/2;if(cx<0||cy<0||cx>innerWidth||cy>innerHeight){scrollTo(sx,sy);await frame();skipped++;continue;}const hit=document.elementFromPoint(cx,cy);if(!hit||!(e===hit||e.contains(hit))){scrollTo(sx,sy);await frame();skipped++;continue;}return JSON.stringify([cx,cy,innerWidth,innerHeight,devicePixelRatio,skipped]);}return JSON.stringify({total:all.length,selector:S});})()"
     forward_cdp
     page="$(node "$ROOT/tools/cdp_eval.mjs" "$url" "$js" "$CDP_PORT")" || die "could not read the page at $url"
-    # The dump only supplies the WebView's bounds. A full dump of a very tall page can come back empty
-    # (PRO-148), so retry once with --compressed, which drops the page's subtree but keeps the WebView.
-    if ! ui_dump_try full; then
-        first="$UI_DUMP_PROBLEM"
-        ui_dump_try compressed || die "tap: $UI_DUMP_PROBLEM (full dump: $first)"
+    # Only the WebView's bounds are needed. The activity's view hierarchy gives them without uiautomator,
+    # which returns nothing on a very tall page (PRO-148); uiautomator is the fallback, retried once
+    # with --compressed (that drops the page's subtree but keeps the WebView).
+    if ! wv="$(adb shell "dumpsys activity $PKG/$ACTIVITY" 2>/dev/null | tr -d '\r' \
+        | python3 "$ROOT/tools/ui_nodes.py" webview-from-dumpsys 2>/dev/null)"; then
+        if ! ui_dump_try full; then
+            first="$UI_DUMP_PROBLEM"
+            ui_dump_try compressed || die "tap: $UI_DUMP_PROBLEM (full dump: $first; dumpsys found no WebView)"
+        fi
+        dump="$UI_DUMP"
+        wv="$(printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" webview)" || die "no WebView on screen (is the page visible?)"
     fi
-    dump="$UI_DUMP"
-    wv="$(printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" webview)" || die "no WebView on screen (is the page visible?)"
     xy="$(python3 "$ROOT/tools/ui_nodes.py" tap-point "$wv" "$page")" || exit 1
     # shellcheck disable=SC2086
     adb shell input tap $xy
@@ -478,8 +488,13 @@ case "$cmd" in
         echo "FLAG_SECURE $1 (incognito)"
         ;;
     log)
-        [[ $# -ge 1 ]] || die "usage: device.sh log <regex> [lines]"
-        adb logcat -d | grep -E "$1" | tail -n "${2:-20}" || true
+        grep_flags=-E
+        if [[ "${1:-}" == "-i" ]]; then
+            grep_flags=-Ei
+            shift
+        fi
+        [[ $# -ge 1 ]] || die "usage: device.sh log [-i] <regex> [lines]"
+        adb logcat -d | grep "$grep_flags" -e "$1" | tail -n "${2:-20}" || true
         ;;
     clearlog)
         adb logcat -c

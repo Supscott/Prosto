@@ -6,6 +6,10 @@
     ui_nodes.py find <label>    centre "x y" of the first node whose text or content-desc
                                 equals <label>; exit 1 when there is none
     ui_nodes.py webview         "l t r b" of the largest android.webkit.WebView; exit 1 when none
+    ui_nodes.py webview-from-dumpsys
+                                reads `dumpsys activity <component>` text instead of XML; prints the
+                                same "l t r b" for the largest visible WebView (works when uiautomator
+                                returns nothing on a very tall page); exit 1 when none
     ui_nodes.py tap-point <webview "l t r b"> <cdp-result>
                                 device "x y" for the CSS centre that the selector expression
                                 returned (see device.sh tap); exit 1 with the reason otherwise
@@ -48,6 +52,53 @@ def webview_bounds(root):
         area = (box[2] - box[0]) * (box[3] - box[1])
         if best is None or area > best[0]:
             best = (area, box)
+    return best[1] if best else None
+
+
+# One view line of `dumpsys activity <component>`: "<indent><class>{<hash> <flags> <flags> l,t-r,b ...}".
+# The first flag character is the visibility (V visible, I invisible, G gone); bounds are relative to the parent.
+_VIEW_LINE = re.compile(r"^(\s*)([\w.$]+)\{[0-9a-f]+ (\S+) \S+ (-?\d+),(-?\d+)-(-?\d+),(-?\d+)")
+
+
+def webview_from_dumpsys(text):
+    """Screen bounds (l, t, r, b) of the largest visible WebView in a `dumpsys activity <component>` dump.
+
+    The "View Hierarchy:" section lists every view with bounds relative to its parent, so the absolute
+    position is the sum of the offsets along the path from the window's root. A view hidden (invisible
+    or gone) anywhere on that path does not count: the pool keeps one WebView per tab, most of them
+    hidden. Scroll offsets are ignored (the layouts above the WebView do not scroll). The window is
+    assumed to start at the screen's origin, as the full-screen activity does. Returns None when no
+    WebView is visible. Unlike `uiautomator dump`, this keeps working on a very tall page (PRO-148).
+    """
+    best = None
+    section_indent = None
+    stack = []  # (indent, abs_left, abs_top, visible) of the open ancestors
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        indent = len(line) - len(stripped)
+        if stripped.startswith("View Hierarchy:"):
+            section_indent, stack = indent, []
+            continue
+        if section_indent is None:
+            continue
+        if stripped and indent <= section_indent:
+            section_indent, stack = None, []  # the next section ("Looper ...") ends the hierarchy
+            continue
+        match = _VIEW_LINE.match(line)
+        if not match:
+            continue
+        view_indent = len(match.group(1))
+        while stack and stack[-1][0] >= view_indent:
+            stack.pop()
+        left, top, right, bottom = (int(match.group(n)) for n in (4, 5, 6, 7))
+        base_left, base_top, parent_visible = (stack[-1][1], stack[-1][2], stack[-1][3]) if stack else (0, 0, True)
+        abs_left, abs_top = base_left + left, base_top + top
+        visible = parent_visible and match.group(3)[0] == "V"
+        stack.append((view_indent, abs_left, abs_top, visible))
+        if visible and match.group(2).endswith("WebView"):
+            area = (right - left) * (bottom - top)
+            if area > 0 and (best is None or area > best[0]):
+                best = (area, (abs_left, abs_top, abs_left + right - left, abs_top + bottom - top))
     return best[1] if best else None
 
 
@@ -96,6 +147,14 @@ def main() -> int:
         if skipped:
             print(f"tap: skipped {skipped} hidden match(es)", file=sys.stderr)
         print(x, y)
+        return 0
+
+    if argv == ["webview-from-dumpsys"]:
+        box = webview_from_dumpsys(sys.stdin.read())
+        if box is None:
+            print("no visible WebView in the dumpsys view hierarchy", file=sys.stderr)
+            return 1
+        print(*box)
         return 0
 
     try:

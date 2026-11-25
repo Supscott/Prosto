@@ -1,0 +1,26 @@
+TASK 10353:com.jestk.browser.debug id=16654 userId=0 displayId=0(type=INTERNAL)
+  ACTIVITY com.jestk.browser.debug/com.jestk.browser.ui.MainActivity 454f789 pid=3557 userId=0 uid=10353 displayId=0(type=INTERNAL)
+    Local Activity cf39f71 State:
+      mResumed=true mStopped=false mFinished=false
+    ViewRoot:
+      mAdded=true
+      mRemoved=false
+    View Hierarchy:
+      com.android.internal.policy.DecorView{77c0e4d V.E...... R....... 0,0-1220,2712 aid=1073741825}[MainActivity]
+        android.widget.LinearLayout{b711a02 V.E...... ........ 0,0-1220,2712}
+          android.view.ViewStub{4a0df13 G.E...... ......I. 0,0-0,0 #10201ff android:id/action_mode_bar_stub}
+          android.widget.FrameLayout{828f550 V.E...... ........ 0,0-1220,2712 #1020002 android:id/content}
+            androidx.compose.ui.platform.ComposeView{f0349 V.E...... ........ 0,0-1220,2712}
+              androidx.compose.ui.platform.AndroidComposeView{4163b07 VFED..... ........ 0,0-1220,2712 aid=1073741824}
+                android.view.View{cdad44e V.ED..... ........ 0,0-0,0}
+                androidx.compose.ui.platform.AndroidViewsHandler{830596f V.E...... ......ID 0,0-1220,2712}
+                  androidx.compose.ui.viewinterop.ViewFactoryHolder{df80c0 V.E...... ......I. 0,128-1220,2486}
+                    com.jestk.browser.ui.views.JestkSwipeRefreshLayout{2b0167c V.ED..... ........ 0,0-1220,2358}
+                      androidx.swiperefreshlayout.widget.CircleImageView{bbb8b05 G.ED..... ......ID 554,-112-666,0}
+                      android.widget.FrameLayout{e13e75a V.E...... ........ 0,0-1220,2358}
+                        com.jestk.browser.engine.NestedWebView{2430bdf GFED..CL. ......I. 0,0-1220,2358}
+                        com.jestk.browser.engine.NestedWebView{60dfeb VFED..CL. ........ 0,0-1220,2358}
+                  androidx.compose.ui.viewinterop.ViewFactoryHolder{b3670d9 V.E...... ......I. 0,0-0,0}
+                    android.widget.FrameLayout{8931d8b V.E...... ........ 0,0-0,0}
+    Looper (main, tid 2) {e261e68}
+      (MessageQueue is using Legacy implementation)
