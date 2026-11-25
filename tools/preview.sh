@@ -29,7 +29,7 @@ echo "==> Rendering previews for target: $TARGET"
 MARKER="$ROOT/build/preview-run-start"
 mkdir -p "$ROOT/build"
 touch "$MARKER"
-./gradlew testDebugUnitTest --tests "*$TARGET*" --rerun ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"}
+run_with_timeout ./gradlew testDebugUnitTest --tests "*$TARGET*" --rerun ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"}
 
 new_pngs="$(bash "$ROOT/tools/list_new_pngs.sh" "$ROOT/app/build" "$MARKER")"
 if [[ -n "$new_pngs" ]]; then

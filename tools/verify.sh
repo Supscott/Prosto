@@ -153,7 +153,7 @@ LOW_MEM_ARGS=()
 if [[ "${LOW_MEM:-}" == "1" ]]; then
   LOW_MEM_ARGS=(-Pkotlin.compiler.execution.strategy=in-process -Pkotlin.daemon.jvmargs=-Xmx3g --max-workers=2)
 fi
-run_tests() { ./gradlew -q testDebugUnitTest ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"} "$@" 2>&1 | tail -40; }
+run_tests() { run_with_timeout ./gradlew -q testDebugUnitTest ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"} "$@" 2>&1 | tail -40; }
 
 test_args=()
 case "${1:-}" in
@@ -215,7 +215,7 @@ case "${1:-}" in
     --changed) lint_why="$(changed_lint_reason)" ;;
 esac
 if [[ -n "$lint_why" ]]; then
-    run_lint() { ./gradlew -q :app:lintDebug ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"} 2>&1 | tail -40; }
+    run_lint() { run_with_timeout ./gradlew -q :app:lintDebug ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"} 2>&1 | tail -40; }
     echo "==> Running Android Lint ($lint_why)..."
     lint_status=0
     run_lint || lint_status=$?
