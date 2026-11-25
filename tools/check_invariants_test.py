@@ -6,7 +6,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import check_invariants
+import invariants_strings
 
 
 class HardcodedUiStringsTest(unittest.TestCase):
@@ -17,9 +17,9 @@ class HardcodedUiStringsTest(unittest.TestCase):
             kt_dir = main_dir / "java" / "com" / "example"
             kt_dir.mkdir(parents=True)
             (kt_dir / "Sample.kt").write_text("\n".join(lines) + "\n", encoding="utf-8")
-            with mock.patch.object(check_invariants, "MAIN_DIR", main_dir), \
-                    mock.patch.object(check_invariants, "ROOT", Path(tmp)):
-                return check_invariants.check_no_hardcoded_ui_strings()
+            with mock.patch.object(invariants_strings, "MAIN_DIR", main_dir), \
+                    mock.patch.object(invariants_strings, "ROOT", Path(tmp)):
+                return invariants_strings.check_no_hardcoded_ui_strings()
 
     def test_typographic_separator_is_allowed(self):
         self.assertEqual(self.run_rule_on(['Text(text = " · ")']), [])

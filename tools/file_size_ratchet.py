@@ -5,6 +5,9 @@ New files must stay within MAX_LINES. Files that were already larger are listed 
 file_size_baseline.json with their size at the time; they may shrink but never grow. After
 splitting a large file, run `python3 tools/file_size_ratchet.py --update` to lower its entry
 (the update never raises a limit and drops files that fit again).
+
+Scope: the Kotlin sources under app/src/main, plus the Python tools directly under tools/ and
+under tools/hooks/ (tools/*.py is not recursive on purpose: fixtures and filter lists stay out).
 """
 
 import json
@@ -13,14 +16,23 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SOURCE_DIR = ROOT / "app" / "src" / "main"
+TOOLS_DIR = ROOT / "tools"
 BASELINE = Path(__file__).resolve().parent / "file_size_baseline.json"
 MAX_LINES = 500
+
+
+def _sources():
+    return (
+        sorted(SOURCE_DIR.rglob("*.kt"))
+        + sorted(TOOLS_DIR.glob("*.py"))
+        + sorted((TOOLS_DIR / "hooks").glob("*.py"))
+    )
 
 
 def _line_counts():
     return {
         str(file.relative_to(ROOT)): len(file.read_text(encoding="utf-8").splitlines())
-        for file in sorted(SOURCE_DIR.rglob("*.kt"))
+        for file in _sources()
     }
 
 
