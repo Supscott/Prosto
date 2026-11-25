@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Sourced by verify.sh and preview.sh. A new git worktree lacks the git-ignored files that Gradle
+# Sourced by verify.sh and preview.sh; run directly it copies the files in the current worktree
+# (`tools/ensure_worktree_files.sh`). A new git worktree lacks the git-ignored files that Gradle
 # (local.properties: SDK path) and check_invariants.py (TASKS.md) need; copy them from the main
 # checkout, or stop with a one-line message saying what is missing.
 ensure_worktree_files() {
@@ -22,3 +23,14 @@ ensure_worktree_files() {
         return 1
     fi
 }
+
+# Executed directly: work on the worktree this script lives in.
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+    if [[ -e "$root/local.properties" && -e "$root/TASKS.md" ]]; then
+        echo "==> Worktree files already present (local.properties, TASKS.md); nothing to copy"
+    else
+        ensure_worktree_files "$root"
+        exit $?
+    fi
+fi
