@@ -47,9 +47,32 @@ gradle_lock() {
     trap "rm -rf '$dir'" EXIT
 }
 
+# Runs the command under GRADLE_TIMEOUT seconds, when set. The clock starts after the lock is taken,
+# so a lock wait never counts. Uses timeout (or gtimeout); without either it runs unbounded.
+run_with_timeout() {
+    local limit="${GRADLE_TIMEOUT:-}" bin="" rc=0
+    if [[ -z "$limit" ]]; then
+        "$@"
+        return $?
+    fi
+    command -v timeout >/dev/null 2>&1 && bin=timeout
+    [[ -n "$bin" ]] || { command -v gtimeout >/dev/null 2>&1 && bin=gtimeout; }
+    if [[ -z "$bin" ]]; then
+        echo "==> gradle_lock: no timeout or gtimeout found, GRADLE_TIMEOUT=$limit ignored" >&2
+        "$@"
+        return $?
+    fi
+    "$bin" "$limit" "$@" || rc=$?
+    if (( rc == 124 )); then
+        echo "gradle_lock: command timed out after ${limit}s (lock wait not counted)" >&2
+    fi
+    return $rc
+}
+
 # Run directly: take the lock, run the given command, release on exit.
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
     [[ $# -ge 1 ]] || { echo "usage: tools/gradle_lock.sh <command...>" >&2; exit 2; }
     gradle_lock "$@"
-    "$@"
+    run_with_timeout "$@"
+    exit $?
 fi
