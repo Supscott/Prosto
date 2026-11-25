@@ -42,7 +42,12 @@ print("All architectural invariants satisfied (stub).")
 """
 
 EDITED = "tools/check_invariants.py"
-COUNT_LINE = "invariants: {} other failure(s) elsewhere; run python3 tools/check_invariants.py when done"
+COUNT_LINE = "invariants: {} other {} elsewhere; run python3 tools/check_invariants.py when done"
+
+
+def count_line(count):
+    """The hook's count line for COUNT failures elsewhere: singular for one, plural otherwise."""
+    return COUNT_LINE.format(count, "failure" if count == 1 else "failures")
 
 
 def git(cwd, *args):
@@ -131,7 +136,7 @@ class InvariantsAfterEditTest(unittest.TestCase):
         self.assertIn(f"FAIL: {EDITED}: local invariant broke", result.stderr)
         self.assertNotIn("elsewhere invariant broke", result.stderr)
         self.assertNotIn("suffix match only", result.stderr)
-        self.assertIn(COUNT_LINE.format(2), result.stderr)
+        self.assertIn(count_line(2), result.stderr)
 
     def test_only_other_failures_give_the_count_line_once(self):
         self.write_failures("app/src/main/Other.kt:3: elsewhere invariant broke")
@@ -140,7 +145,7 @@ class InvariantsAfterEditTest(unittest.TestCase):
         first = self.run_hook(edit)
         self.assertEqual(first.returncode, 2)
         self.assertNotIn("FAIL:", first.stderr)
-        self.assertIn(COUNT_LINE.format(1), first.stderr)
+        self.assertIn(count_line(1), first.stderr)
 
         second = self.run_hook(edit)
         self.assertEqual(second.returncode, 0)

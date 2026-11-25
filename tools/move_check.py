@@ -10,12 +10,25 @@ is the code that was added or removed. Import lines and blank lines are ignored.
   before comparing, for renames the refactoring made on purpose, e.g.
   --sub "_uiState.update=updateUiState" --sub "onEvent(=dispatch(".
 
+Files: *.kt and *.py by default (--files replaces that list).
+
+Blind spots, by design:
+- Import lines are dropped, so an import change that the refactoring needed is not listed.
+- Matching is by exact text (after --sub) across the whole diff, not per file: a line removed
+  in one file cancels an identical line added in another, even when it was really edited.
+- Identifiers are not normalised: a rename (`_code_lines` -> `code_lines`) shows as residual
+  lines, so every renamed definition and call site is listed, and needs a --sub to cancel.
+
 Exit code 0 always; the output is for review. The last line counts residual lines.
 """
 
 import argparse
 import collections
+import re
 import subprocess
+
+# Kotlin `import x.y` and Python `import x` / `from x import y` lines.
+IMPORT_LINE = re.compile(r"(import |from \S+ import )")
 
 
 def diff_lines(base, head, globs):
@@ -37,7 +50,8 @@ def main():
     parser.add_argument("base")
     parser.add_argument("head", nargs="?")
     parser.add_argument("--sub", action="append", default=[], help="OLD=NEW applied to both sides")
-    parser.add_argument("--files", action="append", default=None, help="pathspec, default *.kt")
+    parser.add_argument("--files", action="append", default=None,
+                        help="pathspec, default *.kt and *.py (repeat for more)")
     args = parser.parse_args()
 
     subs = [tuple(s.split("=", 1)) for s in args.sub]
@@ -49,8 +63,8 @@ def main():
 
     rows = [
         (sign, path, norm(text))
-        for sign, path, text in diff_lines(args.base, args.head, args.files or ["*.kt"])
-        if text and not text.startswith("import ")
+        for sign, path, text in diff_lines(args.base, args.head, args.files or ["*.kt", "*.py"])
+        if text and not IMPORT_LINE.match(text)
     ]
     pool = {"+": collections.Counter(), "-": collections.Counter()}
     for sign, _, text in rows:

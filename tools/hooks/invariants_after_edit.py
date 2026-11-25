@@ -99,7 +99,8 @@ def main():
     if more:
         print(f"  ... and {more} more", file=sys.stderr)
     if elsewhere:
-        print(f"invariants: {elsewhere} other failure(s) elsewhere; run python3 tools/check_invariants.py "
+        noun = "failure" if elsewhere == 1 else "failures"
+        print(f"invariants: {elsewhere} other {noun} elsewhere; run python3 tools/check_invariants.py "
               "when done", file=sys.stderr)
     return 2
 

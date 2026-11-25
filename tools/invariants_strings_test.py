@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Self-tests for the hardcoded UI string rule in check_invariants.py."""
+"""Self-tests for the hardcoded UI string rule in invariants_strings.py (run by check_invariants.py)."""
 
 import tempfile
 import unittest
