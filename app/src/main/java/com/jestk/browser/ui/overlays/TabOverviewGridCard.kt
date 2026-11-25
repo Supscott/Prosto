@@ -59,6 +59,7 @@ import com.jestk.browser.ui.components.tabDisplayTitle
 import com.jestk.browser.ui.theme.DarkBackground
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
+import com.jestk.browser.ui.theme.DarkMutedIcon
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.ui.theme.LocalProstoTypography
@@ -215,7 +216,7 @@ internal fun GridTabCard(
                         Icon(
                             imageVector = Icons.Default.Close,
                             contentDescription = stringResource(R.string.close_tab),
-                            tint = if (isActive) activeContent else ProstoMutedSlate,
+                            tint = if (isActive) activeContent else if (isDark) DarkMutedIcon else ProstoMutedSlate,
                             modifier = Modifier.size(14.dp),
                         )
                     }

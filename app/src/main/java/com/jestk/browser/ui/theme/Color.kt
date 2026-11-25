@@ -87,6 +87,12 @@ val DarkOnErrorContainer = Color(0xFFFFDAD6)
 val DarkDockSurface = Color(0xFF0C1A18)
 val DarkTextHighContrast = Color(0xFFF8FAFC)
 
+// Muted icon on the dark Tabs Overview header (~#2B3332): 3.5:1, where ProstoMutedSlate gives 2.4:1 (PRO-143).
+val DarkMutedIcon = Color(0xFF7A8886)
+
+// Destructive prompt buttons, delete rows and failure text, same in light and dark themes (PRO-145).
+val ProstoDestructive = Color(0xFFEF4444)
+
 // Incognito marks: deep violet dock and accent ring/badge, same in light and dark themes
 val IncognitoDockSurface = Color(0xFF1E1631)
 val IncognitoActivePill = Color(0xFF2A2040)

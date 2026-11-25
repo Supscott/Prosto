@@ -774,7 +774,7 @@ internal fun ReorderableSearchEngineRow(
                     Icon(
                         imageVector = Icons.Default.DeleteOutline,
                         contentDescription = stringResource(R.string.a11y_delete_provider),
-                        tint = if (canDelete) Color(0xFFEF4444) else if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1),
+                        tint = if (canDelete) com.jestk.browser.ui.theme.ProstoDestructive else if (isDark) Color(0xFF475569) else Color(0xFFCBD5E1),
                         modifier = Modifier.size(18.dp)
                     )
                 }

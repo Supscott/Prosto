@@ -24,9 +24,10 @@ import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoDestructive
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 
-private val FieldErrorColor = Color(0xFFEF4444)
+private val FieldErrorColor = ProstoDestructive
 
 /** Returns a callback that reads the clipboard text and passes the trimmed, non-blank text to [onText]. */
 @Composable

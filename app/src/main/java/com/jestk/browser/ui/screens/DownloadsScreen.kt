@@ -386,7 +386,7 @@ private fun DownloadItemCard(
                                     LocalProstoTypography.current.bodySm.copy(
                                         fontWeight = FontWeight.SemiBold,
                                     ),
-                                color = Color(0xFFEF4444),
+                                color = com.jestk.browser.ui.theme.ProstoDestructive,
                             )
                         }
 

@@ -46,6 +46,7 @@ import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoDestructive
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
 
@@ -214,13 +215,13 @@ fun TabGridContextMenuBottomSheet(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.close_tab),
-                        tint = Color(0xFFEF4444),
+                        tint = ProstoDestructive,
                         modifier = Modifier.size(20.dp),
                     )
                     Text(
                         text = stringResource(R.string.close_tab),
                         style = typography.bodyMd.copy(fontWeight = FontWeight.Medium),
-                        color = Color(0xFFEF4444),
+                        color = ProstoDestructive,
                     )
                 }
             }

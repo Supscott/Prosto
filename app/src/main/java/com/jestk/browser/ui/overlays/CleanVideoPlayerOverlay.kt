@@ -55,6 +55,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.jestk.browser.ui.theme.ProstoDestructive
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -229,7 +230,7 @@ fun CleanVideoPlayerOverlay(
                             Icon(
                                 imageVector = Icons.Default.PlayArrow,
                                 contentDescription = null,
-                                tint = Color(0xFFEF4444),
+                                tint = ProstoDestructive,
                                 modifier = Modifier.size(16.dp),
                             )
                             Spacer(modifier = Modifier.width(4.dp))
@@ -408,7 +409,7 @@ fun CleanVideoPlayerOverlay(
                                 Button(
                                     onClick = { onOpenOnWeb(originalUrl) },
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFFEF4444),
+                                        containerColor = ProstoDestructive,
                                         contentColor = Color.White,
                                     ),
                                     shape = RoundedCornerShape(20.dp),

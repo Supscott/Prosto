@@ -65,6 +65,7 @@ import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoDestructive
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
 
@@ -357,9 +358,9 @@ fun WorkspaceEditBottomSheet(
                                 .testTag("workspace_delete_button"),
                             shape = ProstoShapes.Pill,
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = Color(0xFFEF4444),
+                                contentColor = ProstoDestructive,
                             ),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFEF4444).copy(alpha = 0.5f)),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, ProstoDestructive.copy(alpha = 0.5f)),
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Delete,
