@@ -3,7 +3,6 @@ package com.jestk.browser.engine
 import android.content.Context
 import android.content.pm.ApplicationInfo
 import android.util.Log
-import android.webkit.WebResourceResponse
 import com.jestk.browser.domain.repository.BlockedRequestStats
 import com.jestk.browser.engine.adblock.AuthDomainAllowlist
 import com.jestk.browser.engine.adblock.AdblockLatency

@@ -14,7 +14,6 @@ import com.jestk.browser.data.repository.TabFolderRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.data.repository.WorkspaceRepositoryImpl
 import com.jestk.browser.domain.model.Tab
-import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.engine.FaviconManager
 import kotlinx.coroutines.Dispatchers

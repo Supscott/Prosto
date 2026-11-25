@@ -2,12 +2,7 @@ package com.jestk.browser.ui.viewmodel
 
 import android.net.Uri
 import android.util.Log
-import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.ExternalAppPrompt
-import com.jestk.browser.domain.model.SearchEngine
-import com.jestk.browser.domain.model.Tab
-import com.jestk.browser.domain.model.TabFolder
-import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.TabFolderRepository

@@ -7,7 +7,6 @@ import com.jestk.browser.domain.model.DownloadConfirmRequest
 import com.jestk.browser.domain.model.DownloadItem
 import com.jestk.browser.domain.model.FeedbackPromptState
 import com.jestk.browser.domain.model.InsecureNavigationTarget
-import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.repository.DownloadRepository
 import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository

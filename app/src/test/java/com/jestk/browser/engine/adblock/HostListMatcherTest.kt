@@ -5,8 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.jestk.browser.engine.AdBlockerEngine
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.channels.Channel
 import org.junit.After
 import org.junit.Before
 import org.junit.Test

@@ -1,6 +1,5 @@
 package com.jestk.browser.util
 
-import android.app.Activity
 import android.content.ContextWrapper
 import androidx.activity.ComponentActivity
 import androidx.test.core.app.ApplicationProvider

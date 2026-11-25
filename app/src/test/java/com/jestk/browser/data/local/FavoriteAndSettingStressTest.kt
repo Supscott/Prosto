@@ -9,7 +9,6 @@ import com.jestk.browser.data.local.dao.FavoriteDao
 import com.jestk.browser.data.local.dao.SettingDao
 import com.jestk.browser.data.local.entity.FavoriteEntity
 import com.jestk.browser.data.local.entity.SettingEntity
-import com.jestk.browser.data.local.entity.SettingKeys
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll

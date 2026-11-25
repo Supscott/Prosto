@@ -10,7 +10,6 @@ import com.jestk.browser.data.repository.HistoryRepositoryImpl
 import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
-import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.repository.SearchEngineRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

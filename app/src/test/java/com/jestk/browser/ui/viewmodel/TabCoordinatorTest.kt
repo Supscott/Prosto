@@ -13,7 +13,6 @@ import com.jestk.browser.data.repository.TabRepositoryImpl
 import com.jestk.browser.domain.model.BrowserSettings
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.SearchEngine
-import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.engine.FaviconManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

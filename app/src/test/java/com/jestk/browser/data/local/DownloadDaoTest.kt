@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.arch.core.executor.testing.InstantTaskExecutorRule
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
-import com.jestk.browser.R
 import com.jestk.browser.data.local.dao.DownloadDao
 import com.jestk.browser.data.local.entity.DownloadEntity
 import kotlinx.coroutines.flow.first

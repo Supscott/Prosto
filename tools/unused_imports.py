@@ -7,13 +7,12 @@ Comments and string literals are not stripped, so a name used only in KDoc or a 
 used: the check errs on the side of not flagging. Star imports are skipped, and operator or delegate
 names (`getValue`, `plus`, `component1`, ...) are never flagged because Kotlin uses them implicitly.
 
-Enforced by check_invariants.py on the Kotlin files changed vs main (the whole tree has a backlog).
+Enforced by check_invariants.py on every app/src Kotlin file (the whole tree is clean).
 
 Usage: unused_imports.py [file ...]   (no arguments: every app/src/**/*.kt file)
 """
 
 import re
-import subprocess
 import sys
 from pathlib import Path
 
@@ -48,23 +47,10 @@ def kotlin_files():
     return sorted((ROOT / "app" / "src").glob("**/*.kt"))
 
 
-def _git_lines(*args):
-    result = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True)
-    return result.stdout.splitlines()
-
-
-def changed_kotlin_files():
-    """Kotlin files under app/src that differ from main (or HEAD without a main branch), plus untracked ones."""
-    base = (_git_lines("merge-base", "HEAD", "main") or ["HEAD"])[0]
-    paths = set(_git_lines("diff", "--name-only", base)) | set(_git_lines("ls-files", "--others", "--exclude-standard"))
-    return [ROOT / path for path in sorted(paths)
-            if path.startswith("app/src/") and path.endswith(".kt") and (ROOT / path).is_file()]
-
-
 def check_unused_imports():
-    """Error lines for unused imports in the Kotlin files changed vs main (check_invariants.py entry point)."""
+    """Error lines for unused imports in every app/src Kotlin file (check_invariants.py entry point)."""
     errors = []
-    for file in changed_kotlin_files():
+    for file in kotlin_files():
         for number, line in unused_imports(file.read_text(encoding="utf-8")):
             errors.append(f"{file.relative_to(ROOT)}:{number}: unused {line}")
     return errors
