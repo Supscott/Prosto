@@ -25,7 +25,7 @@ import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.navigation.SearchEngineSwitcherEditPopup
 import com.jestk.browser.ui.navigation.SearchEngineSwitcherRow
-import com.jestk.browser.ui.screens.SearchPageProvidersDialog
+import com.jestk.browser.ui.screens.SearchPageProvidersDialogContent
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.testing.CoilIdleTracker
 import org.junit.After
@@ -229,7 +229,8 @@ class SearchEngineSwitcherEditPreviewTest {
                         .padding(16.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    SearchPageProvidersDialog(
+                    // The Dialog wrapper opens its own window, which a ComposeView draw does not capture.
+                    SearchPageProvidersDialogContent(
                         engines = sampleEngines,
                         hiddenEngineIds = setOf("yahoo", "ecosia"),
                         isDark = false,
