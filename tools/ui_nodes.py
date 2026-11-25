@@ -60,17 +60,16 @@ def webview_bounds(root):
 _VIEW_LINE = re.compile(r"^(\s*)([\w.$]+)\{[0-9a-f]+ (\S+) \S+ (-?\d+),(-?\d+)-(-?\d+),(-?\d+)")
 
 
-def webview_from_dumpsys(text):
-    """Screen bounds (l, t, r, b) of the largest visible WebView in a `dumpsys activity <component>` dump.
+def dumpsys_views(text):
+    """(class name, visible, (l, t, r, b)) per view of a `dumpsys activity <component>` dump, in drawing order.
 
     The "View Hierarchy:" section lists every view with bounds relative to its parent, so the absolute
-    position is the sum of the offsets along the path from the window's root. A view hidden (invisible
-    or gone) anywhere on that path does not count: the pool keeps one WebView per tab, most of them
-    hidden. Scroll offsets are ignored (the layouts above the WebView do not scroll). The window is
-    assumed to start at the screen's origin, as the full-screen activity does. Returns None when no
-    WebView is visible. Unlike `uiautomator dump`, this keeps working on a very tall page (PRO-148).
+    position is the sum of the offsets along the path from the window's root. `visible` is False when the
+    view or an ancestor is invisible or gone (the pool keeps one WebView per tab, most of them hidden).
+    Scroll offsets are ignored (the layouts above the WebView do not scroll). The window is assumed to
+    start at the screen's origin, as the full-screen activity does. A later view is drawn above an earlier
+    one. Unlike `uiautomator dump`, this keeps working on a very tall page (PRO-148).
     """
-    best = None
     section_indent = None
     stack = []  # (indent, abs_left, abs_top, visible) of the open ancestors
     for line in text.splitlines():
@@ -95,10 +94,21 @@ def webview_from_dumpsys(text):
         abs_left, abs_top = base_left + left, base_top + top
         visible = parent_visible and match.group(3)[0] == "V"
         stack.append((view_indent, abs_left, abs_top, visible))
-        if visible and match.group(2).endswith("WebView"):
-            area = (right - left) * (bottom - top)
-            if area > 0 and (best is None or area > best[0]):
-                best = (area, (abs_left, abs_top, abs_left + right - left, abs_top + bottom - top))
+        yield match.group(2), visible, (abs_left, abs_top, abs_left + right - left, abs_top + bottom - top)
+
+
+def webview_from_dumpsys(text):
+    """Screen bounds (l, t, r, b) of the largest visible WebView in a `dumpsys activity <component>` dump.
+
+    Returns None when no WebView is visible (see dumpsys_views for how the bounds are computed).
+    """
+    best = None
+    for name, visible, box in dumpsys_views(text):
+        if not visible or not name.endswith("WebView"):
+            continue
+        area = (box[2] - box[0]) * (box[3] - box[1])
+        if area > 0 and (best is None or area > best[0]):
+            best = (area, box)
     return best[1] if best else None
 
 

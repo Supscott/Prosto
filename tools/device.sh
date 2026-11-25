@@ -21,7 +21,9 @@
 #                                   touch (the page sees a user gesture); matches whose centre is covered
 #                                   by another element are skipped; fails when nothing matches or the
 #                                   centre is still off screen. The WebView's bounds come from
-#                                   `dumpsys activity` (uiautomator is the fallback)
+#                                   `dumpsys activity` (uiautomator is the fallback). A native overlay over
+#                                   the centre (the dock, the "Group N tabs" pill) is scrolled clear of, or
+#                                   the tap fails naming it (PRO-166)
 #   tools/device.sh taps x1,y1 x2,y2 ...   rapid taps at device pixels, sent in ONE adb shell call
 #                                   (no round trip between taps; every pair is validated first)
 #   tools/device.sh ui [--compressed]  labelled UI nodes on screen: text | content-desc | bounds; checkable
@@ -178,7 +180,7 @@ sys.exit(0 if printed else 1)
 # <url>. The page reports the element's CSS rect; the WebView's bounds on screen map CSS pixels to
 # device pixels (x = left + cssX * dpr). adb sends a real touch, so the page sees a user gesture.
 tap_selector() {
-    local url="$1" selector="$2" sel_json js page wv xy dump first
+    local url="$1" selector="$2" sel_json js page wv xy uia_xml="" first tap_x tap_y verdict_line scroll_dy label index
     sel_json="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$selector")"
     # Walks every match and takes the first one that is shown (not display:none or visibility:hidden,
     # non-empty box). It is scrolled into view, then waits one frame, capped at 300 ms so a hidden page
@@ -189,21 +191,64 @@ tap_selector() {
     js="(async()=>{const S=$sel_json;const all=[...document.querySelectorAll(S)];if(!all.length)return JSON.stringify(null);const sx=scrollX,sy=scrollY;const frame=()=>Promise.race([new Promise(r=>requestAnimationFrame(()=>r())),new Promise(r=>setTimeout(r,300))]);let skipped=0;for(const e of all){const cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'){skipped++;continue;}const r0=e.getBoundingClientRect();if(!r0.width||!r0.height){skipped++;continue;}e.scrollIntoView({block:'center',inline:'center'});await frame();const b=e.getBoundingClientRect();const cx=b.left+b.width/2,cy=b.top+b.height/2;if(cx<0||cy<0||cx>innerWidth||cy>innerHeight){scrollTo(sx,sy);await frame();skipped++;continue;}const hit=document.elementFromPoint(cx,cy);if(!hit||!(e===hit||e.contains(hit))){scrollTo(sx,sy);await frame();skipped++;continue;}return JSON.stringify([cx,cy,innerWidth,innerHeight,devicePixelRatio,skipped]);}return JSON.stringify({total:all.length,selector:S});})()"
     forward_cdp
     page="$(node "$ROOT/tools/cdp_eval.mjs" "$url" "$js" "$CDP_PORT")" || die "could not read the page at $url"
+    # The temp files outlive this function only until the tap (or a die): the EXIT trap removes them.
+    TAP_TMP="$(mktemp -d)"
+    trap 'rm -rf "$TAP_TMP"' EXIT
     # Only the WebView's bounds are needed. The activity's view hierarchy gives them without uiautomator,
     # which returns nothing on a very tall page (PRO-148); uiautomator is the fallback, retried once
     # with --compressed (that drops the page's subtree but keeps the WebView).
-    if ! wv="$(adb shell "dumpsys activity $PKG/$ACTIVITY" 2>/dev/null | tr -d '\r' \
-        | python3 "$ROOT/tools/ui_nodes.py" webview-from-dumpsys 2>/dev/null)"; then
+    adb shell "dumpsys activity $PKG/$ACTIVITY" 2>/dev/null | tr -d '\r' > "$TAP_TMP/dumpsys" || true
+    if ! wv="$(python3 "$ROOT/tools/ui_nodes.py" webview-from-dumpsys < "$TAP_TMP/dumpsys" 2>/dev/null)"; then
         if ! ui_dump_try full; then
             first="$UI_DUMP_PROBLEM"
             ui_dump_try compressed || die "tap: $UI_DUMP_PROBLEM (full dump: $first; dumpsys found no WebView)"
         fi
-        dump="$UI_DUMP"
-        wv="$(printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" webview)" || die "no WebView on screen (is the page visible?)"
+        uia_xml="$UI_DUMP"
+        wv="$(printf '%s\n' "$uia_xml" | python3 "$ROOT/tools/ui_nodes.py" webview)" || die "no WebView on screen (is the page visible?)"
     fi
+    # Compose draws the dock and the pills inside one view, so dumpsys cannot show them: the compressed
+    # uiautomator dump is read for them too (PRO-166). Without it only the view hierarchy is checked.
+    if [[ -z "$uia_xml" ]]; then
+        if ui_dump_try compressed; then
+            uia_xml="$UI_DUMP"
+        else
+            echo "tap: no UI dump, so native overlays are not checked ($UI_DUMP_PROBLEM)" >&2
+        fi
+    fi
+    printf '%s\n' "$uia_xml" > "$TAP_TMP/uia.xml"
     xy="$(python3 "$ROOT/tools/ui_nodes.py" tap-point "$wv" "$page")" || exit 1
-    # shellcheck disable=SC2086
-    adb shell input tap $xy
+    read -r tap_x tap_y <<< "$xy"
+    verdict_line="$(overlay_verdict "$wv" "$tap_x" "$tap_y")"
+    if [[ "$verdict_line" != clear ]]; then
+        # Scroll the element so its centre moves into the part of the WebView the overlay leaves clear,
+        # then measure it again. Scrolling is one step: a point still covered after it is refused.
+        IFS=$'\t' read -r _ scroll_dy label <<< "$verdict_line"
+        [[ "$scroll_dy" != "-" ]] || die "tap: $label covers the element, and the WebView has no part clear of it to scroll into"
+        index="$(python3 "$ROOT/tools/tap_overlays.py" index "$page")" || die "tap: could not read the chosen match"
+        page="$(node "$ROOT/tools/cdp_eval.mjs" "$url" "$(scroll_js "$sel_json" "$index" "$scroll_dy")" "$CDP_PORT")" \
+            || die "could not read the page at $url"
+        xy="$(python3 "$ROOT/tools/ui_nodes.py" tap-point "$wv" "$page")" || exit 1
+        read -r tap_x tap_y <<< "$xy"
+        verdict_line="$(overlay_verdict "$wv" "$tap_x" "$tap_y")"
+        if [[ "$verdict_line" != clear ]]; then
+            IFS=$'\t' read -r _ _ label <<< "$verdict_line"
+            die "tap: $label still covers the element after scrolling it into the WebView; it cannot be tapped"
+        fi
+    fi
+    adb shell input tap "$tap_x" "$tap_y"
+}
+
+# Prints "clear", or "covered<TAB>scroll-dy<TAB>label" for the device point x y (tap_overlays.py plan).
+overlay_verdict() {
+    python3 "$ROOT/tools/tap_overlays.py" plan "$1" "$2" "$3" "$TAP_TMP/dumpsys" "$TAP_TMP/uia.xml" \
+        || die "tap: could not check the native overlays"
+}
+
+# The page script that scrolls the match at index $2 by $3 device pixels (down when positive) and
+# measures it again, in the same shape as the first script in tap_selector.
+scroll_js() {
+    local sel_json="$1" index="$2" dy="$3"
+    printf '%s' "(async()=>{const e=document.querySelectorAll($sel_json)[$index];if(!e)return JSON.stringify(null);scrollBy(0,$dy/devicePixelRatio);await Promise.race([new Promise(r=>requestAnimationFrame(()=>r())),new Promise(r=>setTimeout(r,300))]);const b=e.getBoundingClientRect();return JSON.stringify([b.left+b.width/2,b.top+b.height/2,innerWidth,innerHeight,devicePixelRatio,$index]);})()"
 }
 
 # The accessibility timeout that holds undo pills on screen (PRO-134). "pill-timeout <ms>" saves the
