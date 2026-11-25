@@ -14,6 +14,13 @@ How to keep it useful:
 - Keep the file under ~60 lines.
 
 ## Entries
+- 2026-11-25 — Grouping 3 small issues per Sonnet agent: 1487k and 1418k units for 3 and 2 issues
+  (67–68 turns), ~470–700k per issue, in line with the single-issue baseline; both were cut off
+  by the 5-hour usage limit and resumed by SendMessage without loss. Haiku harness agent (2 issues,
+  device.sh + Python): 758k Haiku units, 31 turns. Device agents (Sonnet): 152–304k; a BLOCKED
+  (locked phone) run costs ~19k, so launching and retrying is cheap. Opus orchestrator: 72 turns,
+  1369k units for 8 issues. Miss: a coder that ran only the default verify set let a lint crash
+  through (PRO-180) → coders finish with `verify.sh --changed`.
 - 2026-11-25 — PRO-140…160 (11 Todo + 10 follow-ups closed or merged; phone absent, so 9 wait
   in In Review). Haiku harness 89–313k/8–25 turns (one 3-issue split 610k); Sonnet 260k (one pill
   issue), 375k (3 small UI issues); Sonnet 1082k/62 turns for 3 unrelated test issues, one of

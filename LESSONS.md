@@ -42,32 +42,32 @@ Active, non-obvious gotchas that cannot yet be prevented by static typing or lin
 - **Do:** Set the active item explicitly before starting the animation and hold a short guard that ignores scroll-driven selection until the programmatic scroll settles.
 - **Don't:** Let a scroll listener infer the active item while a programmatic smooth-scroll animation is still running.
 
-## 7. Kotlin LSP serves stale module snapshots, so its diagnostics on edited files are false positives
-- **Cause:** The pi-lens Kotlin analysis server (fwcd kotlin-language-server 1.3.13) caches the project module snapshot (source file list, R class, Gradle classpath) at startup. After new source files, new string resources or a new Gradle dependency are added, it keeps analysing edited files against the old snapshot and reports phantom 'Unresolved reference' errors for brand-new symbols, new R fields and even the whole test classpath (junit/truth/robolectric).
-- **Do:** Verify with the real compiler first (./gradlew :app:compileDebugKotlin and :app:testDebugUnitTest) and, when the LSP still disagrees, restart the analysis server (kill the kotlin-language-server java process) so it re-imports the project; only then trust its diagnostics.
-- **Don't:** Do not chase LSP 'Unresolved reference' errors on freshly added files or resources, and do not rewrite correct code to satisfy them - a green Gradle compile plus a green test suite is the authority.
-
-## 8. A data class that carries a ByteArray compares by reference, so equal domain states look different
+## 7. A data class that carries a ByteArray compares by reference, so equal domain states look different
 - **Cause:** Kotlin generates equals/hashCode for a data class by comparing each property with ==. For a ByteArray that is reference equality, so two domain objects built from identical bytes are not equal and hash differently. Anything that compares such an object - a UI state equality check, a distinctUntilChanged on a flow, a recomposition key - then reads an unchanged value as a change (or misses a real one). The same trap applies to Bitmap and to every other array-like type that does not implement structural equality.
 - **Do:** Wrap binary payloads in a small value class that compares with contentEquals and contentHashCode (see domain/model/AppIcon.kt, which carries the app icon as PNG bytes so that the domain layer stays free of android.graphics.Bitmap), and keep the raw array out of the data class property list.
 - **Don't:** Do not put a ByteArray - or a Bitmap, or any other type without structural equality - directly into a data class that participates in equality, and do not rely on the generated equals/hashCode for arrays.
 
-## 9. Anti-bot checks see every artefact an injected script leaves on the page
+## 8. Anti-bot checks see every artefact an injected script leaves on the page
 - **Cause:** Cloudflare/WAF scripts compare the page with real Chrome: `Function.prototype.toString.call(fn)` reveals replaced natives (an own `toString` override does not help), `Object.getOwnPropertyNames(window)` lists every injected global (also non-enumerable ones), and the Cloudflare "Just a moment..." interstitial is served on the protected site's own domain, so a host allowlist does not exempt it. Client Hints were already correct; the injected `matchMedia` polyfill and ad-block stubs were the signals.
 - **Do:** Keep Client Hints native (rename only "Android WebView"), keep injected scripts free of `window.*` names and native replacements, patch a native only while it is needed, skip pages whose title is "Just a moment...", and re-run the CDP fingerprint probe (review spec §5) against Chrome on the same device after touching any injected script.
 - **Don't:** Never add globals or `toString` "stealth", never polyfill `matchMedia` for the theme (use the Activity theme), and never assume a challenge is only on challenges.cloudflare.com. `X-Requested-With` and the missing `window.chrome` are WebView-inherent (DuckDuckGo has them too); do not fake them.
 
-## 10. Pages restored from the back/forward cache never call onPageFinished
+## 9. Pages restored from the back/forward cache never call onPageFinished
 - **Cause:** With WebSettingsCompat.setBackForwardCacheEnabled, Back restores the frozen page: WebView reports onPageStarted, onPageCommitVisible and 100% progress, but no onPageFinished. Everything hung on onPageFinished (tab snapshot, title and history update, theme color, PageLoadTiming) silently skips, so the tab snapshot keeps showing the page the user went back from.
 - **Do:** Treat 100% progress without onPageFinished as a finished load: JestkWebViewClient.onProgressComplete runs the end-of-load work once after a short delay and ignores a late real onPageFinished for the same navigation. Re-check Back on a real device after touching page lifecycle code.
 - **Don't:** Do not assume onPageStarted and onPageFinished come in pairs, and do not put work that must run after every visible navigation only in onPageFinished.
 
-## 11. doUpdateVisitedHistory reports the previous page's title during a cross-document navigation
+## 10. doUpdateVisitedHistory reports the previous page's title during a cross-document navigation
 - **Cause:** WebView calls doUpdateVisitedHistory when the new URL commits, but for a cross-document load WebView.title still returns the old document's title until the new one parses its <title>. onPageStarted may arrive just before or just after the callback. Recording the title there gave history visits and tabs the previous page's title (PRO-42).
 - **Do:** Take the title in doUpdateVisitedHistory only for same-document (history API) navigations, decided after both callbacks ran (view.post, see JestkWebViewClient.doUpdateVisitedHistory); for cross-document loads take it from onReceivedTitle or onPageFinished.
 - **Don't:** Do not read view.title in doUpdateVisitedHistory or onPageStarted and store it as the new page's title.
 
-## 12. Chromium suspends a playing video natively when the WebView window is hidden
+## 11. Chromium suspends a playing video natively when the WebView window is hidden
 - **Cause:** When the WebView's window becomes invisible (screen off, app in background), Chromium pauses <video> elements below JavaScript: play() from a script cannot resume them, while <audio> keeps playing. YouTube also unloads its player on visibilitychange to hidden. JS tricks (faking document.visibilityState, re-calling play()) do not help (PRO-23).
 - **Do:** Keep the page visible to Chromium during background playback through onWindowVisibilityChanged (NestedWebView.setKeepPageVisible), and verify on a device with the screen off: unit tests and Robolectric cannot see this.
 - **Don't:** Do not try to keep background video alive from injected JS (visibility overrides, play() loops), and do not assume <audio> behaviour applies to <video>.
+
+## 12. Extra Gradle script plugins belong in gradle/, not in a module directory
+- **Cause:** Lint parses every *.gradle.kts in the module as a build script and crashed on top-level val/fun (PRO-180)
+- **Do:** Put extra Gradle script plugins (apply(from=...)) in gradle/, with no top-level properties
+- **Don't:** Do not put a *.gradle.kts with top-level val or fun in a module directory, and do not verify a Gradle change with the default verify set alone (run verify.sh --changed)

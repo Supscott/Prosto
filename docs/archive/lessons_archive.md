@@ -64,3 +64,10 @@ Retired lessons that are permanently guarded by automated tests, assertions, or 
 - **Cause:** `System.currentTimeMillis()` has millisecond resolution. High-speed insertions in automated tests or rapid actions yield identical timestamps, producing unpredictable row order with `ORDER BY timestamp DESC`.
 - **Do:** Always specify a secondary deterministic tie-breaker in SQL queries: `ORDER BY timestamp DESC, id DESC`.
 - **Don't:** Order SQLite queries or pagination solely by timestamp without an auto-incrementing secondary tie-breaker.
+
+## Retired Lesson: Kotlin LSP serves stale module snapshots, so its diagnostics on edited files are false positives
+- **Graduated On:** 2026-11-25
+- **Graduation Reason:** Editor LSP false positives are a per-session tooling quirk, not a repo gotcha; the budget is full and PRO-180 needs the slot.
+- **Cause:** The pi-lens Kotlin analysis server (fwcd kotlin-language-server 1.3.13) caches the project module snapshot (source file list, R class, Gradle classpath) at startup. After new source files, new string resources or a new Gradle dependency are added, it keeps analysing edited files against the old snapshot and reports phantom 'Unresolved reference' errors for brand-new symbols, new R fields and even the whole test classpath (junit/truth/robolectric).
+- **Do:** Verify with the real compiler first (./gradlew :app:compileDebugKotlin and :app:testDebugUnitTest) and, when the LSP still disagrees, restart the analysis server (kill the kotlin-language-server java process) so it re-imports the project; only then trust its diagnostics.
+- **Don't:** Do not chase LSP 'Unresolved reference' errors on freshly added files or resources, and do not rewrite correct code to satisfy them - a green Gradle compile plus a green test suite is the authority.
