@@ -48,6 +48,11 @@ def mentions(line, rel):
     return re.search(r"(?<![\w./-])" + re.escape(rel) + r"(?![\w./-])", line) is not None
 
 
+def is_unused_import(line):
+    """True for an unused-import failure ('FAIL: <path>:<line>: unused import <name>', from tools/unused_imports.py)."""
+    return re.search(r"FAIL: \S+?:\d+: unused import ", line) is not None
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -89,9 +94,18 @@ def main():
     if result.returncode == 0 or not failures or current == previous:
         return 0
     local = [line for line in failures if mentions(line, rel)]
-    elsewhere = len(failures) - len(local)
-    shown = local[:MAX_LINES]
-    more = len(local) - len(shown)
+    elsewhere_lines = [line for line in failures if not mentions(line, rel)]
+    local_unused = [line for line in local if is_unused_import(line)]
+    local_real = [line for line in local if not is_unused_import(line)]
+    if local_unused:
+        print(f"invariants: {len(local_unused)} unused import(s) in {rel} (fine mid-edit; "
+              "check_invariants.py enforces them at the end)", file=sys.stderr)
+    # Unused imports never block mid-edit: only other failures do.
+    if not local_real and not any(not is_unused_import(line) for line in elsewhere_lines):
+        return 0
+    elsewhere = len(elsewhere_lines)
+    shown = local_real[:MAX_LINES]
+    more = len(local_real) - len(shown)
     print("tools/check_invariants.py fails after this edit (may be transient mid-change; "
           "must pass before you finish):", file=sys.stderr)
     for line in shown:

@@ -138,6 +138,24 @@ class InvariantsAfterEditTest(unittest.TestCase):
         self.assertNotIn("suffix match only", result.stderr)
         self.assertIn(count_line(2), result.stderr)
 
+    def test_unused_import_in_edited_file_does_not_block(self):
+        self.write_failures(f"{EDITED}:3: unused import java.io.File")
+        result = self.run_hook(self.worktree / "tools" / "check_invariants.py")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stderr.strip(),
+            f"invariants: 1 unused import(s) in {EDITED} (fine mid-edit; "
+            "check_invariants.py enforces them at the end)",
+        )
+
+    def test_unused_import_with_a_real_failure_still_blocks(self):
+        self.write_failures(f"{EDITED}:3: unused import java.io.File", f"{EDITED}: real invariant broke")
+        result = self.run_hook(self.worktree / "tools" / "check_invariants.py")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(f"FAIL: {EDITED}: real invariant broke", result.stderr)
+        self.assertNotIn("unused import", result.stderr.split("\n", 1)[1])
+        self.assertIn("invariants: 1 unused import(s) in", result.stderr)
+
     def test_only_other_failures_give_the_count_line_once(self):
         self.write_failures("app/src/main/Other.kt:3: elsewhere invariant broke")
         edit = self.worktree / "tools" / "check_invariants.py"
