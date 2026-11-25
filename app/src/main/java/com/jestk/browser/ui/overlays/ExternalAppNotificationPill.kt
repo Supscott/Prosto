@@ -75,16 +75,18 @@ fun ExternalAppNotificationPill(
         containsIcons = true,
         containsControls = true,
     )
-    var remainingTimeMs by remember(prompt.id) { mutableLongStateOf(timeoutMs) }
+    // Time spent untouched. The limit is compared against the live timeout, so a changed
+    // accessibility timeout applies to the prompt already on screen.
+    var elapsedMs by remember(prompt.id) { mutableLongStateOf(0L) }
 
-    // Auto-dismiss timer: counts down every 100ms when not touched/interacting
-    LaunchedEffect(prompt.id, isInteracting) {
-        if (!isInteracting && remainingTimeMs > 0L) {
-            while (remainingTimeMs > 0L) {
+    // Auto-dismiss timer: counts up every 100ms when not touched/interacting
+    LaunchedEffect(prompt.id, timeoutMs, isInteracting) {
+        if (!isInteracting) {
+            while (elapsedMs < timeoutMs) {
                 delay(100L)
                 if (!isInteracting) {
-                    remainingTimeMs = (remainingTimeMs - 100L).coerceAtLeast(0L)
-                    if (remainingTimeMs <= 0L) {
+                    elapsedMs += 100L
+                    if (elapsedMs >= timeoutMs) {
                         currentOnTimeout()
                         break
                     }
