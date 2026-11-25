@@ -172,5 +172,45 @@ class MassFailureTest(unittest.TestCase):
         self.assertEqual(remaining[:2], ["19990103-000000", "19990104-000000"])
 
 
+class WatchdogTimeoutTest(unittest.TestCase):
+    """The Gradle watchdog (app/test-watchdog.gradle.kts) writes build/test-timeout.txt when it kills a hung test."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.build = Path(self.tmp.name) / "app" / "build"
+        self.results = self.build / "test-results" / "testDebugUnitTest"
+        self.results.mkdir(parents=True)
+        original = test_summary.RESULTS
+        test_summary.RESULTS = self.results
+        self.addCleanup(setattr, test_summary, "RESULTS", original)
+
+    def run_main(self, started="0"):
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output):
+            self.assertEqual(test_summary.main([started]), 0)
+        return output.getvalue()
+
+    def test_timeout_without_reports_prints_a_readable_fail_line(self):
+        (self.build / "test-timeout.txt").write_text(
+            "com.jestk.browser.ui.overlays.SearchOverlayPreviewTest.spinner\t240\n", encoding="utf-8")
+        output = self.run_main()
+        self.assertIn("cut short by the per-test timeout", output)
+        self.assertIn("  FAIL SearchOverlayPreviewTest.spinner: timed out after 240s, the test worker was killed",
+                      output)
+
+    def test_timeout_is_listed_after_the_failures_of_the_reports(self):
+        write_report(self.results, "TEST-a.xml", [(ASSERTION, "")], passing=1)
+        (self.build / "test-timeout.txt").write_text("com.jestk.browser.FooTest.hang\t60\n", encoding="utf-8")
+        output = self.run_main()
+        self.assertIn("==> Tests: 1/2 passed in 1 classes, 1 FAILED", output)
+        self.assertLess(output.index("FAIL Sample.test0"), output.index("FAIL FooTest.hang: timed out after 60s"))
+
+    def test_timeout_report_from_an_older_run_is_ignored(self):
+        (self.build / "test-timeout.txt").write_text("com.jestk.browser.FooTest.hang\t60\n", encoding="utf-8")
+        output = self.run_main(started=str(time.time() + 3600))
+        self.assertNotIn("timed out", output)
+
+
 if __name__ == "__main__":
     unittest.main()

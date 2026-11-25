@@ -129,6 +129,18 @@ def is_stale_build(raw_messages):
     return len(raw_messages) >= STALE_MIN_FAILURES and linkage / len(raw_messages) >= STALE_MIN_SHARE
 
 
+def timeout_line(started):
+    """A FAIL line for the test the Gradle watchdog killed in this run (app/test-watchdog.gradle.kts
+    writes 'Class.method<TAB>seconds' to build/test-timeout.txt), or None."""
+    report = RESULTS.parent.parent / "test-timeout.txt"
+    if not report.is_file() or report.stat().st_mtime < started:
+        return None
+    name, _, seconds = report.read_text(encoding="utf-8").strip().partition("\t")
+    short = ".".join(name.rsplit(".", 2)[-2:])
+    return (f"  FAIL {short}: timed out after {seconds or '?'}s, the test worker was killed "
+            "(rerun it alone: tools/preview.sh Class.method; limit: ORG_GRADLE_PROJECT_testTimeoutSeconds=N)")
+
+
 def main(argv):
     stale_check = "--stale-check" in argv
     args = [arg for arg in argv if arg != "--stale-check"]
@@ -137,7 +149,12 @@ def main(argv):
     if stale_check:
         _, _, failures = collect(reports)
         return STALE_EXIT_CODE if is_stale_build([raw for _, raw in failures]) else 0
+    timed_out = timeout_line(started)
     if not reports:
+        if timed_out:
+            print("==> Tests: the run was cut short by the per-test timeout, no reports were written")
+            print(timed_out)
+            return 0
         print("==> Tests: no new reports (Gradle found the tests up to date, or compilation failed above)")
         return 0
     total, skipped, failures = collect(reports)
@@ -152,6 +169,8 @@ def main(argv):
         print(f"  FAIL {label}")
     if len(failures) > MAX_LISTED_FAILURES:
         print(f"  ... and {len(failures) - MAX_LISTED_FAILURES} more")
+    if timed_out:
+        print(timed_out)
     return 0
 
 

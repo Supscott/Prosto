@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Render Compose Previews to PNG using Robolectric native graphics
+# Render Compose Previews to PNG using Robolectric native graphics.
+# Usage: tools/preview.sh [TestClass | TestClass.method]   (default BottomBarPreviewTest)
+# The target goes to Gradle as --tests "*TARGET*", so a single method works too
+# (tools/preview.sh SearchOverlayPreviewTest.renderLoading): use it to bisect a hung test.
+# A test running longer than 240 s is killed by app/test-watchdog.gradle.kts; change the limit with
+# ORG_GRADLE_PROJECT_testTimeoutSeconds=N in the environment.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 # shellcheck source=tools/ensure_worktree_files.sh

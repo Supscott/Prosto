@@ -104,10 +104,12 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
-// A hung test JVM once held the Gradle lock for 23 minutes (PRO-97): fail the task after 15 minutes.
+// A hung test JVM once held the Gradle lock for 23 minutes (PRO-97): fail the task after 15 minutes
+// (the backstop for the whole task). One hung test is cut much earlier by test-watchdog.gradle.kts (PRO-164).
 tasks.withType<Test>().configureEach {
     timeout.set(Duration.ofMinutes(15))
 }
+apply(from = "test-watchdog.gradle.kts")
 
 dependencies {
     // Network & HTTP Client
