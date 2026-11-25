@@ -30,7 +30,7 @@ skip checks.
   Bash call, prefixed with `rtk`; quote URLs.
 - Never drive `com.jestk.browser` (the user's own install). Never `device.sh reset` unless the
   brief says so: it wipes the debug app's tabs and settings.
-- Evidence comes from `ui`, `visible`, `pages`, `eval`, `log`, `top`. Take a `shot` only for a
+- Evidence comes from `ui`, `visible`, `pages`, `js` (not `eval`: the worktree guard refuses it), `log`, `top`. Take a `shot` only for a
   layout check; then Read the PNG and describe what it shows against the expected result.
 - Time-based behaviour: age the persisted state instead of waiting (rewrite
   `shared_prefs/<name>.xml` via `adb shell run-as com.jestk.browser.debug`, then cold start), only

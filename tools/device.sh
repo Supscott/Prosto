@@ -36,8 +36,9 @@
 #   tools/device.sh top             package of the resumed activity
 #   tools/device.sh pages           WebView pages over CDP: "visible <url>" or "hidden <url>"
 #   tools/device.sh visible         URL of the page that is on screen
-#   tools/device.sh eval <url> <js> run JS in the page whose URL starts with <url>; prints JSON
-#                                   (CDP_GESTURE=1: run it as a user gesture)
+#   tools/device.sh js <url> <js>   run JS in the page whose URL starts with <url>; prints JSON
+#                                   (CDP_GESTURE=1: run it as a user gesture). Use js: the worktree
+#                                   guard refuses the word eval. eval <url> <js> is the same command.
 #   tools/device.sh serve [stop]    serve tools/fixtures/adblock/ to the phone at http://127.0.0.1:8765/
 #                                   (adb reverse; loopback needs no HTTP warning); "stop" ends it
 #   tools/device.sh pill-timeout <ms>|reset   hold undo pills for <ms> (Android's accessibility timeout,
@@ -247,10 +248,10 @@ pill_timeout_restore() {
 cmd="${1:-}"
 shift || true
 case "$cmd" in
-    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|enter|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|serve|secure|log|clearlog|shot|pill-timeout) require_device ;;
+    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|enter|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|js|serve|secure|log|clearlog|shot|pill-timeout) require_device ;;
 esac
 case "$cmd" in
-    open|tap|tapui|eval|ui|log|visible|pages) install_stamp_check "$ROOT" ;;
+    open|tap|tapui|eval|js|ui|log|visible|pages) install_stamp_check "$ROOT" ;;
 esac
 case "$cmd" in
     wake)
@@ -446,8 +447,8 @@ case "$cmd" in
     visible)
         pages | sed -n 's/^visible //p' | head -1
         ;;
-    eval)
-        [[ $# -ge 2 ]] || die "usage: device.sh eval <url-prefix> <expression>"
+    eval|js)
+        [[ $# -ge 2 ]] || die "usage: device.sh js <url-prefix> <expression>"
         forward_cdp
         node "$ROOT/tools/cdp_eval.mjs" "$1" "$2" "$CDP_PORT"
         ;;

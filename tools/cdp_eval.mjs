@@ -1,5 +1,5 @@
 // Evaluates a JS expression in the WebView page whose URL starts with <urlPrefix> over CDP and
-// prints the JSON result. Used by `tools/device.sh eval`, which forwards the CDP port first.
+// prints the JSON result. Used by `tools/device.sh js` (alias `eval`), which forwards the CDP port first.
 //
 //   node tools/cdp_eval.mjs <urlPrefix> <expression> [port]
 //

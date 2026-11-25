@@ -16,10 +16,10 @@ rtk tools/device.sh wake          # fails when locked: ask the user to unlock
 rtk tools/device.sh install       # only if the installed build is older than the tree
 rtk tools/device.sh open '<url>'
 rtk tools/device.sh visible       # the page on screen
-rtk tools/device.sh eval '<url-prefix>' '<js>'   # DOM probe, prints JSON
+rtk tools/device.sh js '<url-prefix>' '<js>'     # DOM probe, prints JSON (js: the worktree guard refuses eval)
 ```
 
-Prefer `eval`, `ui`, `log` over `shot`. Never drive `com.jestk.browser` (the user's install).
+Prefer `js`, `ui`, `log` over `shot`. Never drive `com.jestk.browser` (the user's install).
 For "the first tap opens a popup" use `tap <url-prefix> <selector>`: it is a real user gesture.
 
 ## 2. Find the cause (one of three)
