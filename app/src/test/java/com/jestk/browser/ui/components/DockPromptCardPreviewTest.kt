@@ -23,6 +23,7 @@ import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.domain.model.ThemeMode
 import androidx.compose.ui.unit.Dp
 import com.jestk.browser.domain.model.SearchEngine
+import com.jestk.browser.testing.CoilPreviewRule
 import com.jestk.browser.ui.overlays.AddEditSearchEnginePrompt
 import com.jestk.browser.ui.overlays.AddFavoritePrompt
 import com.jestk.browser.ui.overlays.ClearHistoryConfirmPrompt
@@ -31,6 +32,7 @@ import com.jestk.browser.ui.overlays.DownloadConfirmPrompt
 import com.jestk.browser.ui.overlays.DuplicateDownloadPrompt
 import com.jestk.browser.ui.overlays.InsecureHttpWarningPrompt
 import com.jestk.browser.ui.theme.JestkBrowserTheme
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -42,6 +44,9 @@ import java.io.FileOutputStream
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class DockPromptCardPreviewTest {
+    @get:Rule
+    val coil = CoilPreviewRule()
+
     @Test
     fun renderPromptPreviews() {
         render("dock_prompt_duplicate_light.png", isDark = false, fontScale = 1.0f) { dark ->
@@ -178,6 +183,7 @@ class DockPromptCardPreviewTest {
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
         )
         composeView.layout(0, 0, width, height)
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
         val outputFile = File("build/$fileName")

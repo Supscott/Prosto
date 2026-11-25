@@ -2,6 +2,7 @@ package com.jestk.browser.testing
 
 import android.content.Context
 import android.os.Looper
+import android.view.View
 import coil.Coil
 import coil.EventListener
 import coil.ImageLoader
@@ -43,7 +44,7 @@ class CoilIdleTracker private constructor() {
         }
 
     /** Pumps the main looper until every started request has finished, then lets Compose redraw. */
-    fun awaitIdle(timeoutMs: Long = 10_000) {
+    fun awaitIdle(timeoutMs: Long = 10_000, failOnTimeout: Boolean = true) {
         val looper = shadowOf(Looper.getMainLooper())
         val deadline = System.nanoTime() + timeoutMs * 1_000_000
         do {
@@ -51,10 +52,23 @@ class CoilIdleTracker private constructor() {
             if (started.get() == finished.get()) break
             Thread.sleep(10)
         } while (System.nanoTime() < deadline)
-        check(started.get() == finished.get()) {
+        check(!failOnTimeout || started.get() == finished.get()) {
             "Coil requests still in flight after ${timeoutMs}ms: started=${started.get()} finished=${finished.get()}"
         }
         looper.idleFor(Duration.ofMillis(200))
+    }
+
+    /**
+     * [awaitIdle], then measures and lays [view] out again so the loaded images are in the next draw.
+     * Best effort: the favicon service is a real network call, so a slow answer must not fail a preview.
+     */
+    fun awaitIdle(view: View, width: Int, height: Int) {
+        awaitIdle(failOnTimeout = false)
+        view.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
+        )
+        view.layout(0, 0, width, height)
     }
 
     companion object {

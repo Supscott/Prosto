@@ -18,9 +18,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.testing.CoilPreviewRule
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.util.VibrationFeedback
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -33,6 +35,9 @@ import java.io.FileOutputStream
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 /** Renders the search engine dropdown card (moved out of the old add/edit dialog preview test, PRO-84). */
 class SearchEngineDropdownCardPreviewTest {
+    @get:Rule
+    val coil = CoilPreviewRule()
+
     @Test
     fun renderSearchEngineDropdownCardPreview() {
         val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
@@ -138,6 +143,7 @@ class SearchEngineDropdownCardPreviewTest {
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
@@ -244,6 +250,7 @@ class SearchEngineDropdownCardPreviewTest {
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 

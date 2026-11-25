@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.testing.CoilPreviewRule
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.util.VibrationFeedback
 import kotlinx.coroutines.launch
@@ -29,6 +30,7 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -40,6 +42,8 @@ import java.io.FileOutputStream
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SearchEngineCarouselTest {
+    @get:Rule
+    val coil = CoilPreviewRule()
 
     private val testFrameClock = object : androidx.compose.runtime.MonotonicFrameClock {
         override suspend fun <R> withFrameNanos(onFrame: (frameTimeNanos: Long) -> R): R {
@@ -413,6 +417,7 @@ class SearchEngineCarouselTest {
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 

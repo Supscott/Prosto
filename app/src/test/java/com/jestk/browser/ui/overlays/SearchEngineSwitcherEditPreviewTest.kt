@@ -27,15 +27,13 @@ import com.jestk.browser.ui.navigation.SearchEngineSwitcherEditPopup
 import com.jestk.browser.ui.navigation.SearchEngineSwitcherRow
 import com.jestk.browser.ui.screens.SearchPageProvidersDialogContent
 import com.jestk.browser.ui.theme.JestkBrowserTheme
-import com.jestk.browser.testing.CoilIdleTracker
-import org.junit.After
+import com.jestk.browser.testing.CoilPreviewRule
 import org.junit.Assert.assertTrue
-import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.FileOutputStream
@@ -44,6 +42,8 @@ import java.io.FileOutputStream
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SearchEngineSwitcherEditPreviewTest {
 
+    // Extra engines use the same favicon-service URL form as the built-in ones (SearchEngine.DEFAULT_ENGINES);
+    // there are no bundled engine icons under android_asset.
     private val sampleEngines = listOf(
         SearchEngine.GOOGLE,
         SearchEngine.DUCKDUCKGO,
@@ -52,7 +52,7 @@ class SearchEngineSwitcherEditPreviewTest {
             id = "yandex",
             displayName = "Yandex",
             searchUrlTemplate = "https://yandex.ru/search/?text=%s",
-            iconUrl = "file:///android_asset/icons/yandex.svg",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=yandex.ru",
             shortcut = "y",
             orderPosition = 3
         ),
@@ -60,7 +60,7 @@ class SearchEngineSwitcherEditPreviewTest {
             id = "yahoo",
             displayName = "Yahoo",
             searchUrlTemplate = "https://search.yahoo.com/search?p=%s",
-            iconUrl = "file:///android_asset/icons/yahoo.svg",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=yahoo.com",
             shortcut = "yh",
             orderPosition = 4
         ),
@@ -68,23 +68,14 @@ class SearchEngineSwitcherEditPreviewTest {
             id = "ecosia",
             displayName = "Ecosia",
             searchUrlTemplate = "https://www.ecosia.org/search?q=%s",
-            iconUrl = "file:///android_asset/icons/ecosia.svg",
+            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=ecosia.org",
             shortcut = "e",
             orderPosition = 5
         )
     )
 
-    private lateinit var coilIdle: CoilIdleTracker
-
-    @Before
-    fun installCoilTracker() {
-        coilIdle = CoilIdleTracker.install(RuntimeEnvironment.getApplication())
-    }
-
-    @After
-    fun uninstallCoilTracker() {
-        CoilIdleTracker.uninstall()
-    }
+    @get:Rule
+    val coil = CoilPreviewRule()
 
     private fun renderToBitmap(width: Int, height: Int, content: @Composable () -> Unit): Bitmap {
         val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
@@ -102,12 +93,7 @@ class SearchEngineSwitcherEditPreviewTest {
         )
         composeView.layout(0, 0, width, height)
         // Engine badges load through Coil off the main thread: wait for them, or the capture races.
-        coilIdle.awaitIdle()
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
+        coil.awaitIdle(composeView, width, height)
 
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))

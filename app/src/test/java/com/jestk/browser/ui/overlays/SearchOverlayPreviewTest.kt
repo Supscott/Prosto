@@ -29,6 +29,7 @@ import com.jestk.browser.domain.model.HistoryItem
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.testing.CoilPreviewRule
 import com.jestk.browser.ui.navigation.SearchEngineSwitcherRow
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
@@ -36,6 +37,7 @@ import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.util.VibrationFeedback
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -47,6 +49,8 @@ import java.io.FileOutputStream
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class SearchOverlayPreviewTest {
+    @get:Rule
+    val coil = CoilPreviewRule()
 
     @Test
     fun renderSearchOverlayLightAndDarkPreview() {
@@ -117,6 +121,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
@@ -193,6 +198,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
@@ -277,6 +283,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
@@ -328,6 +335,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
+        // No coil.awaitIdle here: the loading spinner animates forever, and pumping the looper never ends.
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
@@ -442,6 +450,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
@@ -537,6 +546,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
@@ -619,6 +629,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
@@ -813,6 +824,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
@@ -979,6 +991,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
@@ -1161,6 +1174,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 
