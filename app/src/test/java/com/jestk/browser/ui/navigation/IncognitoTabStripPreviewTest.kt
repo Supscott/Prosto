@@ -51,7 +51,7 @@ class IncognitoTabStripPreviewTest {
         val tabs =
             listOf(
                 Tab(id = "regular", title = "Example", url = "https://example.com"),
-                Tab(id = "secret", title = "Secret page", url = "https://secret.example", faviconUrl = "https://secret.example/favicon.ico", isIncognito = true),
+                Tab(id = "secret", title = "Secret page", url = "https://secret.example", isIncognito = true),
                 Tab(id = "secret_home", title = "", url = "", isIncognito = true),
             )
         val state = BrowserUiState(tabs = tabs.map { it.copy(isActive = it.id == activeId) }, activeTabId = activeId)

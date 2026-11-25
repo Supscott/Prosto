@@ -442,7 +442,9 @@ val width = 440
         }
 
         activity.setContentView(composeView)
-val width = 440
+        // Two 210dp dropdown cards plus padding need ~520dp: at 440 the right column is squeezed to a
+        // zero-size constraint, where Coil's AsyncImage never resolves a size and the request hangs.
+        val width = 560
         val height = 650
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
