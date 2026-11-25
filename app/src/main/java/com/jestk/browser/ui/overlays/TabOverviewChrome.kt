@@ -33,6 +33,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -50,6 +51,11 @@ import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
+
+internal const val TAB_OVERVIEW_BOTTOM_BAR_TAG = "tab_overview_bottom_bar"
+
+/** Clear space kept between the last grid row and the floating bottom bar at scroll end. */
+internal val TAB_OVERVIEW_BOTTOM_BAR_GAP = 20.dp
 
 @Composable
 internal fun TabOverviewTopBar(
@@ -276,6 +282,7 @@ internal fun TabOverviewBottomBar(
         modifier =
             modifier
                 .fillMaxWidth()
+                .testTag(TAB_OVERVIEW_BOTTOM_BAR_TAG)
                 .padding(horizontal = 20.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,

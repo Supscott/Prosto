@@ -129,6 +129,7 @@ fun TabOverviewGrid(
     val vibration = LocalVibrationFeedback.current
     val density = LocalDensity.current
     var gridWidthPx by remember { mutableStateOf(0) }
+    var bottomBarHeightPx by remember { mutableStateOf(0) }
 
     Box(
         modifier =
@@ -181,7 +182,13 @@ fun TabOverviewGrid(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(3),
                     state = gridState,
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 88.dp),
+                    contentPadding =
+                        PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 8.dp,
+                            bottom = with(density) { bottomBarHeightPx.toDp() } + TAB_OVERVIEW_BOTTOM_BAR_GAP,
+                        ),
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier =
@@ -375,7 +382,13 @@ fun TabOverviewGrid(
             }
         }
 
-        TabOverviewBottomBar(isDark, onEvent, modifier = Modifier.align(Alignment.BottomCenter))
+        // The bar and the grid share this Box, which already applies the navigation-bar inset, so
+        // the measured bar height is all the grid needs to clear it at scroll end.
+        TabOverviewBottomBar(
+            isDark,
+            onEvent,
+            modifier = Modifier.align(Alignment.BottomCenter).onSizeChanged { bottomBarHeightPx = it.height },
+        )
 
         val contextTab = uiState.tabs.find { it.id == contextMenuTabId }
         if (contextTab != null) {
