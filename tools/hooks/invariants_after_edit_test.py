@@ -41,6 +41,9 @@ if failures:
 print("All architectural invariants satisfied (stub).")
 """
 
+EDITED = "tools/check_invariants.py"
+COUNT_LINE = "invariants: {} other failure(s) elsewhere; run python3 tools/check_invariants.py when done"
+
 
 def git(cwd, *args):
     """Runs git with the caller's GIT_* variables removed and hooks and signing disabled."""
@@ -88,6 +91,9 @@ class InvariantsAfterEditTest(unittest.TestCase):
             env=env, timeout=120,
         )
 
+    def write_failures(self, *lines):
+        (self.worktree / "FAILS").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
     def test_copies_missing_worktree_files_and_passes(self):
         self.assertFalse((self.worktree / "TASKS.md").exists())
         result = self.run_hook(self.worktree / "tools" / "check_invariants.py")
@@ -97,22 +103,48 @@ class InvariantsAfterEditTest(unittest.TestCase):
         self.assertTrue((self.worktree / "local.properties").exists())
 
     def test_repeated_identical_failures_are_reported_once(self):
-        (self.worktree / "FAILS").write_text("sample invariant broke\n", encoding="utf-8")
+        self.write_failures(f"{EDITED}: sample invariant broke")
         edit = self.worktree / "tools" / "check_invariants.py"
 
         first = self.run_hook(edit)
         self.assertEqual(first.returncode, 2)
-        self.assertIn("FAIL: sample invariant broke", first.stderr)
+        self.assertIn(f"FAIL: {EDITED}: sample invariant broke", first.stderr)
 
         second = self.run_hook(edit)
         self.assertEqual(second.returncode, 0)
-        self.assertNotIn("FAIL:", second.stderr)
+        self.assertEqual(second.stderr, "")
 
         # A different failure set is reported again.
-        (self.worktree / "FAILS").write_text("another invariant broke\n", encoding="utf-8")
+        self.write_failures(f"{EDITED}: another invariant broke")
         third = self.run_hook(edit)
         self.assertEqual(third.returncode, 2)
-        self.assertIn("FAIL: another invariant broke", third.stderr)
+        self.assertIn(f"FAIL: {EDITED}: another invariant broke", third.stderr)
+
+    def test_failure_in_edited_file_is_shown_and_others_collapse_to_a_count(self):
+        self.write_failures(
+            f"{EDITED}: local invariant broke",
+            "app/src/main/Other.kt:3: elsewhere invariant broke",
+            "vendor/tools/check_invariants.py: suffix match only",
+        )
+        result = self.run_hook(self.worktree / "tools" / "check_invariants.py")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn(f"FAIL: {EDITED}: local invariant broke", result.stderr)
+        self.assertNotIn("elsewhere invariant broke", result.stderr)
+        self.assertNotIn("suffix match only", result.stderr)
+        self.assertIn(COUNT_LINE.format(2), result.stderr)
+
+    def test_only_other_failures_give_the_count_line_once(self):
+        self.write_failures("app/src/main/Other.kt:3: elsewhere invariant broke")
+        edit = self.worktree / "tools" / "check_invariants.py"
+
+        first = self.run_hook(edit)
+        self.assertEqual(first.returncode, 2)
+        self.assertNotIn("FAIL:", first.stderr)
+        self.assertIn(COUNT_LINE.format(1), first.stderr)
+
+        second = self.run_hook(edit)
+        self.assertEqual(second.returncode, 0)
+        self.assertEqual(second.stderr, "")
 
 
 if __name__ == "__main__":

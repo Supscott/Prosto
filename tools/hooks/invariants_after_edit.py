@@ -4,10 +4,14 @@
 The repo root is found from the edited file, so an agent in a worktree checks its own worktree.
 Exit code 2 shows stderr to the model. The same failure set is reported once, not after every
 following edit (state in the temp dir, keyed by repo root).
+
+Quieter during multi-file edits: failures that name the edited file are printed in full, all
+others collapse into one count line, so an agent is not flooded by the rest of the tree.
 """
 
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -37,6 +41,11 @@ def ensure_worktree_files(root):
         )
     except (OSError, subprocess.SubprocessError):
         pass
+
+
+def mentions(line, rel):
+    """True when a failure line names the repo-relative path (a longer path ending in it does not count)."""
+    return re.search(r"(?<![\w./-])" + re.escape(rel) + r"(?![\w./-])", line) is not None
 
 
 def main():
@@ -79,14 +88,19 @@ def main():
 
     if result.returncode == 0 or not failures or current == previous:
         return 0
-    shown = failures[:MAX_LINES]
-    more = len(failures) - len(shown)
+    local = [line for line in failures if mentions(line, rel)]
+    elsewhere = len(failures) - len(local)
+    shown = local[:MAX_LINES]
+    more = len(local) - len(shown)
     print("tools/check_invariants.py fails after this edit (may be transient mid-change; "
           "must pass before you finish):", file=sys.stderr)
     for line in shown:
         print("  " + line, file=sys.stderr)
     if more:
         print(f"  ... and {more} more", file=sys.stderr)
+    if elsewhere:
+        print(f"invariants: {elsewhere} other failure(s) elsewhere; run python3 tools/check_invariants.py "
+              "when done", file=sys.stderr)
     return 2
 
 
