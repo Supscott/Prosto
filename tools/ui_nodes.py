@@ -52,18 +52,22 @@ def webview_bounds(root):
 
 
 def tap_point(webview, cdp_result):
-    """Device pixels for the centre of a selected element.
+    """Device pixels for the centre of a selected element, and how many matches were skipped.
 
     `cdp_result` is what cdp_eval.mjs prints: a JSON string holding "[cssX, cssY, innerWidth,
-    innerHeight, devicePixelRatio]", or "null" when no element matches. Raises ValueError with
-    the reason when the point cannot be tapped.
+    innerHeight, devicePixelRatio, skipped]" (skipped = hidden matches passed over; optional, 0 when
+    absent), "null" when no element matches, or {"total", "selector"} when matches exist but none is
+    shown. Raises ValueError with the reason when the point cannot be tapped.
     """
     value = json.loads(cdp_result)
     if isinstance(value, str):  # the expression returns JSON.stringify(...)
         value = json.loads(value)
     if value is None:
         raise ValueError("no element matches the selector")
-    css_x, css_y, view_w, view_h, dpr = value
+    if isinstance(value, dict):
+        raise ValueError(f"tap: {value['total']} match(es) for {value['selector']}, none visible")
+    css_x, css_y, view_w, view_h, dpr = value[:5]
+    skipped = value[5] if len(value) > 5 else 0
     if not (0 <= css_x <= view_w and 0 <= css_y <= view_h):
         raise ValueError(
             f"the centre of the element ({css_x:.0f}, {css_y:.0f}) is outside the viewport "
@@ -74,7 +78,7 @@ def tap_point(webview, cdp_result):
     y = top + round(css_y * dpr)
     if not (left <= x < right and top <= y < bottom):
         raise ValueError("the element's centre is outside the WebView (covered or off screen)")
-    return x, y
+    return x, y, skipped
 
 
 def main() -> int:
@@ -85,10 +89,12 @@ def main() -> int:
             print("tap-point: the WebView must be 'l t r b'", file=sys.stderr)
             return 2
         try:
-            x, y = tap_point(tuple(numbers), argv[2])
+            x, y, skipped = tap_point(tuple(numbers), argv[2])
         except ValueError as error:
             print(error, file=sys.stderr)
             return 1
+        if skipped:
+            print(f"tap: skipped {skipped} hidden match(es)", file=sys.stderr)
         print(x, y)
         return 0
 

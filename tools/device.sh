@@ -22,10 +22,12 @@
 #                                   or the centre is still off screen
 #   tools/device.sh taps x1,y1 x2,y2 ...   rapid taps at device pixels, sent in ONE adb shell call
 #                                   (no round trip between taps; every pair is validated first)
-#   tools/device.sh ui              labelled UI nodes on screen: text | content-desc | bounds; checkable
-#                                   nodes (switches) add " | checked=true|false"
-#   tools/device.sh tapui <label>   tap the node whose text or content-desc is exactly <label>; exit 1
-#                                   with a message when it is not on screen (dock tabs scroll out of view)
+#   tools/device.sh ui [--compressed]  labelled UI nodes on screen: text | content-desc | bounds; checkable
+#                                   nodes (switches) add " | checked=true|false". Plain = full view tree;
+#                                   --compressed = what TalkBack-style services see (accessibility checks)
+#   tools/device.sh tapui [--compressed] <label>  tap the node whose text or content-desc is exactly
+#                                   <label>; exit 1 with a message when it is not on screen (dock tabs scroll
+#                                   out of view). --compressed reads the same dump as "ui --compressed"
 #   tools/device.sh type <text>     type into the focused field (adb input text): printable ASCII only;
 #                                   "%" and non-ASCII are refused, nothing is sent
 #   tools/device.sh swipe <x1> <y1> <x2> <y2> [ms]   swipe at device pixels (default 400 ms)
@@ -90,16 +92,39 @@ require_device() {
 # The replacement is held in a variable: written inline, bash 3.2 (macOS) keeps its backslashes.
 device_quote() { local q="'\\''"; printf "'%s'" "${1//\'/$q}"; }
 
-# The current window hierarchy as uiautomator XML.
-ui_dump() { adb exec-out uiautomator dump /dev/tty 2>/dev/null | sed 's/UI hierchary dumped to.*//'; }
+# The one place that runs uiautomator dump. ui_dump_try <full|compressed> sets UI_DUMP to the XML and
+# returns 0 when it holds a <hierarchy>. Otherwise it returns 1 with UI_DUMP_PROBLEM saying why, with
+# uiautomator's exit status and its stderr (trimmed; a tall page makes it return nothing, PRO-148).
+# --compressed keeps only the views that accessibility services see.
+# Not run inside $(...): the globals must reach the caller.
+ui_dump_try() {
+    local mode="$1" errfile raw status=0 err
+    errfile="$(mktemp)"
+    if [[ "$mode" == compressed ]]; then
+        raw="$(adb exec-out uiautomator dump --compressed /dev/tty 2>"$errfile")" || status=$?
+    else
+        raw="$(adb exec-out uiautomator dump /dev/tty 2>"$errfile")" || status=$?
+    fi
+    err="$(tr '\r\n' '  ' < "$errfile" | sed -E 's/ +/ /g; s/^ //; s/ $//')"
+    rm -f "$errfile"
+    UI_DUMP="$(printf '%s\n' "$raw" | sed 's/UI hierchary dumped to.*//')"
+    UI_DUMP_PROBLEM=""
+    [[ "$UI_DUMP" == *"<hierarchy"* ]] && return 0
+    local detail="exit $status, stderr was empty"
+    [[ -n "$err" ]] && detail="exit $status, stderr: $err"
+    if [[ -z "${UI_DUMP//[[:space:]]/}" ]]; then
+        UI_DUMP_PROBLEM="uiautomator dump returned nothing ($detail)"
+    else
+        UI_DUMP_PROBLEM="uiautomator dump did not return a UI hierarchy ($detail)"
+    fi
+    return 1
+}
 
-# Captures the UI dump for command $1, or dies with "<command>: could not read the UI dump" when adb
-# fails or the dump is empty. Capturing first keeps these failures apart from "label not on screen".
+# Prints the UI dump for command $1 (mode: full, the default, or compressed), or dies with
+# "<command>: <reason>" (see ui_dump_try). Capturing first keeps these failures apart from "label not on screen".
 ui_dump_or_die() {
-    local dump
-    dump="$(ui_dump)" || die "$1: could not read the UI dump"
-    [[ -n "$dump" ]] || die "$1: could not read the UI dump"
-    printf '%s\n' "$dump"
+    ui_dump_try "${2:-full}" || die "$1: $UI_DUMP_PROBLEM"
+    printf '%s\n' "$UI_DUMP"
 }
 
 pid() { adb shell pidof "$PKG" | tr -d '\r'; }
@@ -112,11 +137,21 @@ forward_cdp() {
         || die "cannot forward CDP to port $CDP_PORT (in use: lsof -nP -iTCP:$CDP_PORT); set PROSTO_CDP_PORT"
 }
 
+# Lists the WebView pages over CDP. Dies with one line when CDP gives no JSON (app not running,
+# phone locked): the python step exits 1 without a traceback when the body is not a JSON list.
 pages() {
+    local body
     forward_cdp
-    curl -s --max-time 5 "http://127.0.0.1:$CDP_PORT/json/list" | python3 -c '
+    body="$(curl -s --max-time 5 "http://127.0.0.1:$CDP_PORT/json/list" || true)"
+    printf '%s' "$body" | python3 -c '
 import json, sys
-for target in json.load(sys.stdin):
+try:
+    targets = json.load(sys.stdin)
+except ValueError:
+    sys.exit(1)
+if not isinstance(targets, list):
+    sys.exit(1)
+for target in targets:
     if target.get("type") != "page":
         continue
     try:
@@ -125,22 +160,30 @@ for target in json.load(sys.stdin):
         info = {}
     shown = info.get("visible") and info.get("attached")
     print(("visible " if shown else "hidden  ") + target.get("url", ""))
-'
+' || die "no WebView page found (is the app running and the phone unlocked?)"
 }
 
-# Taps the centre of the first element matching <selector> in the page whose URL starts with
+# Taps the centre of the first visible element matching <selector> in the page whose URL starts with
 # <url>. The page reports the element's CSS rect; the WebView's bounds on screen map CSS pixels to
 # device pixels (x = left + cssX * dpr). adb sends a real touch, so the page sees a user gesture.
 tap_selector() {
-    local url="$1" selector="$2" sel_json js page wv xy
+    local url="$1" selector="$2" sel_json js page wv xy dump first
     sel_json="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$selector")"
-    # Scrolls the element into view first (a below-the-fold element would otherwise fail the viewport
-    # check), then waits one frame, capped at 300 ms so a hidden page cannot hang the tap. Awaited by
-    # cdp_eval.mjs (awaitPromise).
-    js="(async()=>{const e=document.querySelector($sel_json);if(!e)return JSON.stringify(null);e.scrollIntoView({block:'center',inline:'center'});await Promise.race([new Promise(r=>requestAnimationFrame(()=>r())),new Promise(r=>setTimeout(r,300))]);const b=e.getBoundingClientRect();return JSON.stringify([b.left+b.width/2,b.top+b.height/2,innerWidth,innerHeight,devicePixelRatio]);})()"
+    # Walks every match and takes the first one that is shown (not display:none or visibility:hidden,
+    # non-empty box). It is scrolled into view, then waits one frame, capped at 300 ms so a hidden page
+    # cannot hang the tap; its centre must then be inside the viewport. Returns [cssX, cssY, innerWidth,
+    # innerHeight, dpr, skipped], "null" when nothing matches, or {total, selector} when none is shown.
+    # Awaited by cdp_eval.mjs (awaitPromise).
+    js="(async()=>{const S=$sel_json;const all=[...document.querySelectorAll(S)];if(!all.length)return JSON.stringify(null);let skipped=0;for(const e of all){const cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'){skipped++;continue;}const r0=e.getBoundingClientRect();if(!r0.width||!r0.height){skipped++;continue;}e.scrollIntoView({block:'center',inline:'center'});await Promise.race([new Promise(r=>requestAnimationFrame(()=>r())),new Promise(r=>setTimeout(r,300))]);const b=e.getBoundingClientRect();const cx=b.left+b.width/2,cy=b.top+b.height/2;if(cx<0||cy<0||cx>innerWidth||cy>innerHeight){skipped++;continue;}return JSON.stringify([cx,cy,innerWidth,innerHeight,devicePixelRatio,skipped]);}return JSON.stringify({total:all.length,selector:S});})()"
     forward_cdp
     page="$(node "$ROOT/tools/cdp_eval.mjs" "$url" "$js" "$CDP_PORT")" || die "could not read the page at $url"
-    dump="$(ui_dump_or_die tap)" || exit 1
+    # The dump only supplies the WebView's bounds. A full dump of a very tall page can come back empty
+    # (PRO-148), so retry once with --compressed, which drops the page's subtree but keeps the WebView.
+    if ! ui_dump_try full; then
+        first="$UI_DUMP_PROBLEM"
+        ui_dump_try compressed || die "tap: $UI_DUMP_PROBLEM (full dump: $first)"
+    fi
+    dump="$UI_DUMP"
     wv="$(printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" webview)" || die "no WebView on screen (is the page visible?)"
     xy="$(python3 "$ROOT/tools/ui_nodes.py" tap-point "$wv" "$page")" || exit 1
     # shellcheck disable=SC2086
@@ -335,13 +378,20 @@ case "$cmd" in
         adb shell "$taps_script"
         ;;
     ui)
-        dump="$(ui_dump_or_die ui)" || exit 1
+        mode=full
+        [[ "${1:-}" == "--compressed" ]] && mode=compressed
+        dump="$(ui_dump_or_die ui "$mode")" || exit 1
         printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" list
         ;;
     tapui)
-        [[ $# -ge 1 ]] || die "usage: device.sh tapui <label>"
+        mode=full
+        if [[ "${1:-}" == "--compressed" ]]; then
+            mode=compressed
+            shift
+        fi
+        [[ $# -ge 1 ]] || die "usage: device.sh tapui [--compressed] <label>"
         # Exit 1 (die) when the label is missing: with 5 tabs open the dock scrolls Home out of view.
-        dump="$(ui_dump_or_die tapui)" || exit 1
+        dump="$(ui_dump_or_die tapui "$mode")" || exit 1
         status=0
         xy="$(printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" find "$1")" || status=$?
         case "$status" in
