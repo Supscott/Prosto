@@ -76,7 +76,7 @@ class ClearHistoryConfirmPromptTest {
         setScreen()
         composeRule.onNodeWithTag("clear_history_confirm_button").assertDoesNotExist()
 
-        composeRule.onNodeWithText(string(R.string.clear_history)).performClick()
+        composeRule.onNodeWithTag("search_history_clear").performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithText(string(R.string.clear_history_confirm_title)).assertIsDisplayed()
@@ -86,7 +86,7 @@ class ClearHistoryConfirmPromptTest {
     @Test
     fun confirmSendsClearAllHistoryOnce() {
         setScreen()
-        composeRule.onNodeWithText(string(R.string.clear_history)).performClick()
+        composeRule.onNodeWithTag("search_history_clear").performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("clear_history_confirm_button").performClick()
@@ -99,7 +99,7 @@ class ClearHistoryConfirmPromptTest {
     @Test
     fun cancelDismissesWithoutDeleting() {
         setScreen()
-        composeRule.onNodeWithText(string(R.string.clear_history)).performClick()
+        composeRule.onNodeWithTag("search_history_clear").performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag("clear_history_cancel_button").performClick()

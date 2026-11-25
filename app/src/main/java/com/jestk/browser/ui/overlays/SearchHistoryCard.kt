@@ -35,7 +35,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,6 +55,18 @@ import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoPaleBlue
 import com.jestk.browser.ui.theme.ProstoShapes
+
+/** Single-line label of a history header action; it never wraps inside the word. */
+@Composable
+private fun HistoryActionLabel(text: String) {
+    Text(
+        text = text,
+        style = LocalProstoTypography.current.labelMd.copy(fontSize = 11.sp),
+        color = ProstoBrandPrimary,
+        maxLines = 1,
+        softWrap = false
+    )
+}
 
 @Composable
 internal fun InsetGroupedHistoryCard(
@@ -76,6 +91,7 @@ internal fun InsetGroupedHistoryCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
+                modifier = Modifier.weight(1f, fill = false),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -88,7 +104,10 @@ internal fun InsetGroupedHistoryCard(
                 Text(
                     text = stringResource(R.string.search_history_title),
                     style = LocalProstoTypography.current.headlineSm.copy(fontSize = 13.sp),
-                    color = if (isDark) DarkOnSurface else ProstoDarkText
+                    color = if (isDark) DarkOnSurface else ProstoDarkText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false)
                 )
             }
 
@@ -96,33 +115,34 @@ internal fun InsetGroupedHistoryCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
+                val toggleDescription =
+                    if (isExpanded) stringResource(R.string.collapse_history) else stringResource(R.string.expand_history)
                 TextButton(
                     onClick = onToggleExpand,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier.semantics { contentDescription = toggleDescription }
                 ) {
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.CloseFullscreen else Icons.Default.OpenInFull,
-                        contentDescription = if (isExpanded) stringResource(R.string.collapse_history) else stringResource(R.string.expand_history),
+                        contentDescription = null,
                         tint = ProstoBrandPrimary,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (isExpanded) stringResource(R.string.collapse_history) else stringResource(R.string.expand_history),
-                        style = LocalProstoTypography.current.labelMd.copy(fontSize = 11.sp),
-                        color = ProstoBrandPrimary
+                    HistoryActionLabel(
+                        text = if (isExpanded) stringResource(R.string.collapse_history) else stringResource(R.string.search_history_show_all)
                     )
                 }
 
+                val clearDescription = stringResource(R.string.clear_history)
                 TextButton(
                     onClick = onClearHistory,
-                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+                    modifier = Modifier
+                        .testTag("search_history_clear")
+                        .semantics { contentDescription = clearDescription }
                 ) {
-                    Text(
-                        text = stringResource(R.string.clear_history),
-                        style = LocalProstoTypography.current.labelMd.copy(fontSize = 11.sp),
-                        color = ProstoBrandPrimary
-                    )
+                    HistoryActionLabel(text = stringResource(R.string.search_history_clear))
                 }
             }
         }

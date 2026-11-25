@@ -10,6 +10,8 @@
     <string name="clear_history_confirm_message">Все посещённые страницы в этом пространстве будут удалены. Это действие нельзя отменить.</string>
     <string name="clear_history_confirm">Очистить</string>
     <string name="search_history_title">История поиска</string>
+    <string name="search_history_show_all">Все</string>
+    <string name="search_history_clear">Очистить</string>
     <string name="expand_history">Вся история</string>
     <string name="collapse_history">Свернуть</string>
     <string name="loading_more_history">Загрузка…</string>
