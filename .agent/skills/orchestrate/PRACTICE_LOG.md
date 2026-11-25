@@ -14,6 +14,13 @@ How to keep it useful:
 - Keep the file under ~60 lines.
 
 ## Entries
+- 2026-11-25 — PRO-140…160 (11 Todo + 10 follow-ups closed or merged; phone absent, so 9 wait
+  in In Review). Haiku harness 89–313k/8–25 turns (one 3-issue split 610k); Sonnet 260k (one pill
+  issue), 375k (3 small UI issues); Sonnet 1082k/62 turns for 3 unrelated test issues, one of
+  which hung a Gradle worker on an endless spinner (→ PRO-164). Opus orchestrator 1590k/74 turns,
+  half of the calls Linear writes. → Group only issues that share files; filing each agent's
+  findings and launching a fresh small Haiku agent per follow-up kept every fix cheap. Two
+  AGENTS.md rebase conflicts (parallel edits to adjacent bullets) were resolved by a scripted merge.
 - 2026-11-24 — PRO-121…139 (15 Todo issues closed, 1 already done): Sonnet 189–817k (UI pair
   233k/25, Room test 189k/17), PRO-121 SDK move 1016k with 308 Edits over 74 files, Haiku harness
   485–504k, device 833k/148 over 3 runs (one BLOCKED on a locked phone), Opus orchestrator
