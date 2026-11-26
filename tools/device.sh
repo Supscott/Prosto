@@ -76,6 +76,9 @@ ACTIVITY="com.jestk.browser.ui.MainActivity"
 # checks would then read the desktop browser (or nothing) instead of the phone.
 CDP_PORT="${PROSTO_CDP_PORT:-9333}"
 SHOT_DIR="${PROSTO_SHOT_DIR:-$ROOT/build/device}"
+# Saved user settings (screen timeout, undo-pill timeout) live in the git common dir, so every worktree
+# sees the same saved value and a wake in one checkout cannot save another checkout's wake value (PRO-186).
+STATE_DIR="$(cd "$ROOT" && cd "$(git rev-parse --git-common-dir)" && pwd)/device-state" || STATE_DIR="$SHOT_DIR/state"
 
 if [[ "$PKG" == "com.jestk.browser" && "${PROSTO_ALLOW_MAIN_APP:-0}" != "1" ]]; then
     echo "Refusing to drive com.jestk.browser (the user's own install). Use the debug build." >&2
@@ -231,7 +234,7 @@ read_uia_if_band() {
 # <url>. The page reports the element's CSS rect; the WebView's bounds on screen map CSS pixels to
 # device pixels (x = left + cssX * dpr). adb sends a real touch, so the page sees a user gesture.
 tap_selector() {
-    local url="$1" selector="$2" sel_json js page before wv xy first tap_x tap_y verdict_line scroll_dy label index
+    local url="$1" selector="$2" sel_json js page before wv xy first tap_x tap_y verdict_line scroll_dy label index moved_verdict
     local dumpsys_pid uia_xml="" uia_checked=0
     sel_json="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$selector")"
     # Walks every match and takes the first one that is shown (not display:none or visibility:hidden,
@@ -313,7 +316,7 @@ scroll_js() {
 # The accessibility timeout that holds undo pills on screen (PRO-134). "pill-timeout <ms>" saves the
 # current value once, into its own file; "reset" and "sleep" restore it. Written through a temp file,
 # like wake's screen timeout, so a failed adb read leaves no empty saved value.
-PILL_SAVED="$SHOT_DIR/pill_timeout"
+PILL_SAVED="$STATE_DIR/pill_timeout"
 PILL_KEY=accessibility_interactive_ui_timeout_ms
 
 pill_timeout_save_once() {
@@ -323,7 +326,7 @@ pill_timeout_save_once() {
     fi
     now="$(adb shell settings get secure "$PILL_KEY" 2>/dev/null | tr -d '\r[:space:]')" || now=""
     if [[ "$now" == "null" || "$now" =~ ^[1-9][0-9]*$ ]]; then
-        mkdir -p "$SHOT_DIR"
+        mkdir -p "$STATE_DIR"
         printf '%s\n' "$now" > "$PILL_SAVED.tmp" && mv "$PILL_SAVED.tmp" "$PILL_SAVED"
     else
         die "could not read the undo-pill timeout (adb answered '${now:-nothing}'): nothing changed"
@@ -363,17 +366,17 @@ case "$cmd" in
         adb shell svc power stayon usb
         # "stayon usb" needs a USB cable; over wireless adb the phone locked after its 60 s timeout
         # while an install waited for the Gradle lock. Raise the timeout too; sleep restores it.
-        mkdir -p "$SHOT_DIR"
+        mkdir -p "$STATE_DIR"
         # Saved only when no value is saved yet, and the current value is not the wake value already (1800000,
         # set by a wake in this or another checkout: saving it would make sleep "restore" the wake value; PRO-186).
         # Saved only when adb answered with a number or "null" (unset, which sleep deletes again), through
         # a temp file: a failed read leaves no empty file for sleep to report as a saved value.
-        if [[ ! -s "$SHOT_DIR/screen_timeout" ]]; then
+        if [[ ! -s "$STATE_DIR/screen_timeout" ]]; then
             saved_now="$(adb shell settings get system screen_off_timeout 2>/dev/null | tr -d '\r[:space:]')" || saved_now=""
             if [[ "$saved_now" == "1800000" ]]; then
                 : # already the wake value: the original is unknown, so nothing is saved
             elif [[ "$saved_now" == "null" || "$saved_now" =~ ^[1-9][0-9]*$ ]]; then
-                printf '%s\n' "$saved_now" > "$SHOT_DIR/screen_timeout.tmp" && mv "$SHOT_DIR/screen_timeout.tmp" "$SHOT_DIR/screen_timeout"
+                printf '%s\n' "$saved_now" > "$STATE_DIR/screen_timeout.tmp" && mv "$STATE_DIR/screen_timeout.tmp" "$STATE_DIR/screen_timeout"
             else
                 echo "could not read the screen timeout (adb answered '${saved_now:-nothing}'): not saved; sleep will restore nothing" >&2
             fi
@@ -391,25 +394,25 @@ case "$cmd" in
         ;;
     sleep)
         adb shell svc power stayon false
-        if [[ -s "$SHOT_DIR/screen_timeout" ]]; then
-            saved_ms="$(tr -d '[:space:]' < "$SHOT_DIR/screen_timeout")"
+        if [[ -s "$STATE_DIR/screen_timeout" ]]; then
+            saved_ms="$(tr -d '[:space:]' < "$STATE_DIR/screen_timeout")"
             # The saved value is removed only after adb succeeds, so a dropped connection can retry.
             # Android answers "null" when the setting was never set: delete it, do not write "null".
             if [[ "$saved_ms" == "null" ]]; then
                 adb shell settings delete system screen_off_timeout
-                rm -f "$SHOT_DIR/screen_timeout"
+                rm -f "$STATE_DIR/screen_timeout"
                 echo "normal screen timeout restored: the setting was unset before wake, so it is unset again"
             elif [[ "$saved_ms" == "1800000" ]]; then
                 # Only a wake value can be saved this way (wake does not save 1800000): the original is lost.
                 # Leave the setting as it is rather than guess a default.
-                rm -f "$SHOT_DIR/screen_timeout"
+                rm -f "$STATE_DIR/screen_timeout"
                 echo "WARN: saved screen timeout is 1800000 ms (the wake value), so the original is unknown: left at 1800000 ms; set it in Settings > Display if needed" >&2
             elif [[ "$saved_ms" =~ ^[1-9][0-9]*$ ]]; then
                 adb shell settings put system screen_off_timeout "$saved_ms"
-                rm -f "$SHOT_DIR/screen_timeout"
+                rm -f "$STATE_DIR/screen_timeout"
                 echo "normal screen timeout restored: $saved_ms ms"
             else
-                rm -f "$SHOT_DIR/screen_timeout"
+                rm -f "$STATE_DIR/screen_timeout"
                 echo "saved screen timeout '$saved_ms' is not a positive integer: nothing written (the file is removed)" >&2
                 exit 1
             fi
