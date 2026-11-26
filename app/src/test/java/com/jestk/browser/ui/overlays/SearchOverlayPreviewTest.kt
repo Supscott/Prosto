@@ -1,8 +1,5 @@
 package com.jestk.browser.ui.overlays
 
-import android.graphics.Bitmap
-import android.view.View
-import androidx.activity.ComponentActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -15,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -30,6 +26,7 @@ import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.testing.CoilPreviewRule
+import com.jestk.browser.testing.renderComposePreview
 import com.jestk.browser.ui.navigation.SearchEngineSwitcherRow
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
@@ -40,11 +37,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.GraphicsMode
-import java.io.File
-import java.io.FileOutputStream
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -54,9 +48,6 @@ class SearchOverlayPreviewTest {
 
     @Test
     fun renderSearchOverlayLightAndDarkPreview() {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
-
         val sampleState = BrowserUiState(
             searchQuery = "",
             settings = BrowserSettings(searchEngine = SearchEngine.DUCKDUCKGO),
@@ -72,142 +63,94 @@ class SearchOverlayPreviewTest {
             )
         )
 
-        val composeView = ComposeView(activity).apply {
-            setContent {
-                Row(
+        renderComposePreview("search_overlay_preview.png", width = 440, height = 900, coil = coil) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF8E8E93))
+            ) {
+                // Light Theme half
+                Box(
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxSize()
-                        .background(Color(0xFF8E8E93))
                 ) {
-                    // Light Theme half
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxSize()
-                    ) {
-                        JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                            SearchOverlay(
-                                uiState = sampleState,
-                                onEvent = {}
-                            )
-                        }
+                    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                        SearchOverlay(
+                            uiState = sampleState,
+                            onEvent = {}
+                        )
                     }
+                }
 
-                    // Dark Theme half with Bing
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxSize()
-                    ) {
-                        JestkBrowserTheme(themeMode = ThemeMode.DARK) {
-                            SearchOverlay(
-                                uiState = sampleState.copy(
-                                    settings = BrowserSettings(searchEngine = SearchEngine.BRAVE)
-                                ),
-                                onEvent = {}
-                            )
-                        }
+                // Dark Theme half with Bing
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize()
+                ) {
+                    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                        SearchOverlay(
+                            uiState = sampleState.copy(
+                                settings = BrowserSettings(searchEngine = SearchEngine.BRAVE)
+                            ),
+                            onEvent = {}
+                        )
                     }
                 }
             }
         }
-
-        activity.setContentView(composeView)
-        val width = 440
-        val height = 900
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
-
-        coil.awaitIdle(composeView, width, height)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/search_overlay_preview.png")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        assertTrue(outputFile.exists())
     }
 
     @Test
     fun renderBadgesAndSwitcherChipsPreview() {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
-
-        val composeView = ComposeView(activity).apply {
-            setContent {
-                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFFFF8F8))
-                            .padding(24.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text("Search Engine Badges (32dp Hero)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                            SearchEngine.entries.forEach { engine ->
-                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                    SearchEngineBadge(engine = engine, size = 32.dp, isDark = false)
-                                    Text(engine.displayName, fontSize = 11.sp)
-                                }
+        renderComposePreview(
+            "search_badges_preview.png", width = 440, height = 600, coil = coil, settleMainLooper = true,
+        ) {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFFFF8F8))
+                        .padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text("Search Engine Badges (32dp Hero)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                        SearchEngine.entries.forEach { engine ->
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                SearchEngineBadge(engine = engine, size = 32.dp, isDark = false)
+                                Text(engine.displayName, fontSize = 11.sp)
                             }
                         }
+                    }
 
-                        Text("Switcher Row Light (Google Active)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        SearchEngineSwitcherRow(
-                            selectedEngine = SearchEngine.GOOGLE,
-                            onSelectEngine = {},
-                            isDark = false
-                        )
+                    Text("Switcher Row Light (Google Active)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    SearchEngineSwitcherRow(
+                        selectedEngine = SearchEngine.GOOGLE,
+                        onSelectEngine = {},
+                        isDark = false
+                    )
 
-                        Text("Switcher Row Dark (Brave Active)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        JestkBrowserTheme(themeMode = ThemeMode.DARK) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color(0xFF161314))
-                                    .padding(12.dp)
-                            ) {
-                                SearchEngineSwitcherRow(
-                                    selectedEngine = SearchEngine.BRAVE,
-                                    onSelectEngine = {},
-                                    isDark = true
-                                )
-                            }
+                    Text("Switcher Row Dark (Brave Active)", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(Color(0xFF161314))
+                                .padding(12.dp)
+                        ) {
+                            SearchEngineSwitcherRow(
+                                selectedEngine = SearchEngine.BRAVE,
+                                onSelectEngine = {},
+                                isDark = true
+                            )
                         }
                     }
                 }
             }
         }
-
-        activity.setContentView(composeView)
-        Thread.sleep(200)
-        org.robolectric.shadows.ShadowLooper.idleMainLooper()
-
-        val width = 440
-        val height = 600
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
-
-        coil.awaitIdle(composeView, width, height)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/search_badges_preview.png")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        assertTrue(outputFile.exists())
     }
 
     @Test
@@ -246,9 +189,6 @@ class SearchOverlayPreviewTest {
 
     @Test
     fun renderSearchOverlayExpandedHistoryPreview() {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
-
         val expandedState = BrowserUiState(
             searchQuery = "",
             isSearchHistoryExpanded = true,
@@ -263,43 +203,18 @@ class SearchOverlayPreviewTest {
             )
         )
 
-        val composeView = ComposeView(activity).apply {
-            setContent {
-                JestkBrowserTheme(themeMode = ThemeMode.DARK) {
-                    SearchOverlay(
-                        uiState = expandedState,
-                        onEvent = {}
-                    )
-                }
+        renderComposePreview("search_overlay_expanded_preview.png", width = 440, height = 956, coil = coil) {
+            JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                SearchOverlay(
+                    uiState = expandedState,
+                    onEvent = {}
+                )
             }
         }
-
-        activity.setContentView(composeView)
-        val width = 440
-        val height = 956
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
-
-        coil.awaitIdle(composeView, width, height)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/search_overlay_expanded_preview.png")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        assertTrue(outputFile.exists())
     }
 
     @Test
     fun renderSearchOverlayExpandedHistoryLoadingMorePreview() {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
-
         val loadingMoreState = BrowserUiState(
             searchQuery = "",
             isSearchHistoryExpanded = true,
@@ -315,256 +230,183 @@ class SearchOverlayPreviewTest {
             )
         )
 
-        val composeView = ComposeView(activity).apply {
-            setContent {
-                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                    SearchOverlay(
-                        uiState = loadingMoreState,
-                        onEvent = {}
-                    )
-                }
+        renderComposePreview("search_overlay_loading_more_preview.png", width = 440, height = 956, coil = coil) {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                SearchOverlay(
+                    uiState = loadingMoreState,
+                    onEvent = {}
+                )
             }
         }
-
-        activity.setContentView(composeView)
-        val width = 440
-        val height = 956
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
-
-        coil.awaitIdle(composeView, width, height)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/search_overlay_loading_more_preview.png")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        assertTrue(outputFile.exists())
     }
 
     @Test
     fun renderSearchEngineSelectorAndDropdownPreview() {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
         val density = Density(1f)
 
-        val composeView = ComposeView(activity).apply {
-            setContent {
-                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFDFF7F3))
-                            .padding(24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.Top
+        // Two 210dp dropdown cards plus padding need ~520dp: at 440 the right column is squeezed to a
+        // zero-size constraint, where Coil's AsyncImage never resolves a size and the request hangs.
+        renderComposePreview("search_selector_dropdown_preview.png", width = 560, height = 650, coil = coil) {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFDFF7F3))
+                        .padding(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    // Light Mode section
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        // Light Mode section
+                        Text("Light Mode Selector (Closed & Open)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            SearchEngineSelectorButton(
+                                selectedEngine = SearchEngine.GOOGLE,
+                                isMenuOpen = false,
+                                isDark = false,
+                                density = density,
+                                onClick = {},
+                                onSwipeLeft = {},
+                                onSwipeRight = {}
+                            )
+                            SearchEngineSelectorButton(
+                                selectedEngine = SearchEngine.GOOGLE,
+                                isMenuOpen = true,
+                                isDark = false,
+                                density = density,
+                                onClick = {},
+                                onSwipeLeft = {},
+                                onSwipeRight = {}
+                            )
+                        }
+                        Text("Dropdown (Google Selected)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        SearchEngineDropdownCard(
+                            selectedEngine = SearchEngine.GOOGLE,
+                            onSelectEngine = {},
+                            isDark = false
+                        )
+                    }
+
+                    // Dark Mode section
+                    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
                         Column(
+                            modifier = Modifier
+                                .background(Color(0xFF0E1513))
+                                .padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("Light Mode Selector (Closed & Open)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Dark Mode Selector (Closed & Open)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 SearchEngineSelectorButton(
-                                    selectedEngine = SearchEngine.GOOGLE,
+                                    selectedEngine = SearchEngine.DUCKDUCKGO,
                                     isMenuOpen = false,
-                                    isDark = false,
+                                    isDark = true,
                                     density = density,
                                     onClick = {},
                                     onSwipeLeft = {},
                                     onSwipeRight = {}
                                 )
                                 SearchEngineSelectorButton(
-                                    selectedEngine = SearchEngine.GOOGLE,
+                                    selectedEngine = SearchEngine.DUCKDUCKGO,
                                     isMenuOpen = true,
-                                    isDark = false,
+                                    isDark = true,
                                     density = density,
                                     onClick = {},
                                     onSwipeLeft = {},
                                     onSwipeRight = {}
                                 )
                             }
-                            Text("Dropdown (Google Selected)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                            Text("Dropdown (DDG Selected)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color.White)
                             SearchEngineDropdownCard(
-                                selectedEngine = SearchEngine.GOOGLE,
+                                selectedEngine = SearchEngine.DUCKDUCKGO,
                                 onSelectEngine = {},
-                                isDark = false
+                                isDark = true
                             )
-                        }
-
-                        // Dark Mode section
-                        JestkBrowserTheme(themeMode = ThemeMode.DARK) {
-                            Column(
-                                modifier = Modifier
-                                    .background(Color(0xFF0E1513))
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text("Dark Mode Selector (Closed & Open)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
-                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                    SearchEngineSelectorButton(
-                                        selectedEngine = SearchEngine.DUCKDUCKGO,
-                                        isMenuOpen = false,
-                                        isDark = true,
-                                        density = density,
-                                        onClick = {},
-                                        onSwipeLeft = {},
-                                        onSwipeRight = {}
-                                    )
-                                    SearchEngineSelectorButton(
-                                        selectedEngine = SearchEngine.DUCKDUCKGO,
-                                        isMenuOpen = true,
-                                        isDark = true,
-                                        density = density,
-                                        onClick = {},
-                                        onSwipeLeft = {},
-                                        onSwipeRight = {}
-                                    )
-                                }
-                                Text("Dropdown (DDG Selected)", fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = Color.White)
-                                SearchEngineDropdownCard(
-                                    selectedEngine = SearchEngine.DUCKDUCKGO,
-                                    onSelectEngine = {},
-                                    isDark = true
-                                )
-                            }
                         }
                     }
                 }
             }
         }
-
-        activity.setContentView(composeView)
-        // Two 210dp dropdown cards plus padding need ~520dp: at 440 the right column is squeezed to a
-        // zero-size constraint, where Coil's AsyncImage never resolves a size and the request hangs.
-        val width = 560
-        val height = 650
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
-
-        coil.awaitIdle(composeView, width, height)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/search_selector_dropdown_preview.png")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        assertTrue(outputFile.exists())
     }
 
     @Test
     fun renderSearchEngineSelectorScrollToFirstPreview() {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
         val density = Density(1f)
 
-        val composeView = ComposeView(activity).apply {
-            setContent {
-                val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
-                val carouselStateBefore = remember(density) {
-                    SearchEngineCarouselState(
-                        initialEngine = SearchEngine.BRAVE,
-                        density = density,
-                        coroutineScope = coroutineScope,
-                        vibration = object : VibrationFeedback {
-                            override fun tick() {}
-                            override fun confirm() {}
-                        },
-                        engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
-                        onEngineSelected = {}
-                    )
-                }
-                val carouselStateAfter = remember(density) {
-                    SearchEngineCarouselState(
-                        initialEngine = SearchEngine.GOOGLE,
-                        density = density,
-                        coroutineScope = coroutineScope,
-                        vibration = object : VibrationFeedback {
-                            override fun tick() {}
-                            override fun confirm() {}
-                        },
-                        engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
-                        onEngineSelected = {}
-                    )
-                }
+        renderComposePreview("search_selector_scroll_to_first_preview.png", width = 540, height = 180, coil = coil) {
+            val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+            val carouselStateBefore = remember(density) {
+                SearchEngineCarouselState(
+                    initialEngine = SearchEngine.BRAVE,
+                    density = density,
+                    coroutineScope = coroutineScope,
+                    vibration = object : VibrationFeedback {
+                        override fun tick() {}
+                        override fun confirm() {}
+                    },
+                    engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
+                    onEngineSelected = {}
+                )
+            }
+            val carouselStateAfter = remember(density) {
+                SearchEngineCarouselState(
+                    initialEngine = SearchEngine.GOOGLE,
+                    density = density,
+                    coroutineScope = coroutineScope,
+                    vibration = object : VibrationFeedback {
+                        override fun tick() {}
+                        override fun confirm() {}
+                    },
+                    engines = listOf(SearchEngine.GOOGLE, SearchEngine.DUCKDUCKGO, SearchEngine.BRAVE),
+                    onEngineSelected = {}
+                )
+            }
 
-                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFDFF7F3))
-                            .padding(24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.Top
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFDFF7F3))
+                        .padding(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("Before Double-Tap (Brave)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            SearchEngineSelectorButton(
-                                carouselState = carouselStateBefore,
-                                isMenuOpen = false,
-                                isDark = false,
-                                onClick = {}
-                            )
-                        }
+                        Text("Before Double-Tap (Brave)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        SearchEngineSelectorButton(
+                            carouselState = carouselStateBefore,
+                            isMenuOpen = false,
+                            isDark = false,
+                            onClick = {}
+                        )
+                    }
 
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text("After Double-Tap (Scrolled to First: Google)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            SearchEngineSelectorButton(
-                                carouselState = carouselStateAfter,
-                                isMenuOpen = false,
-                                isDark = false,
-                                onClick = {}
-                            )
-                        }
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text("After Double-Tap (Scrolled to First: Google)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        SearchEngineSelectorButton(
+                            carouselState = carouselStateAfter,
+                            isMenuOpen = false,
+                            isDark = false,
+                            onClick = {}
+                        )
                     }
                 }
             }
         }
-
-        activity.setContentView(composeView)
-        val width = 540
-        val height = 180
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
-
-        coil.awaitIdle(composeView, width, height)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/search_selector_scroll_to_first_preview.png")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        assertTrue(outputFile.exists())
     }
 
     @Test
     fun renderSearchOverlayWithDropdownOpenPreview() {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
-
         val sampleState = BrowserUiState(
             searchQuery = "",
             settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE),
@@ -580,67 +422,45 @@ class SearchOverlayPreviewTest {
             )
         )
 
-        val composeView = ComposeView(activity).apply {
-            setContent {
-                Row(
+        renderComposePreview("search_overlay_dropdown_open_preview.png", width = 440, height = 956, coil = coil) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF8E8E93))
+            ) {
+                // Light Theme half with dropdown open
+                Box(
                     modifier = Modifier
+                        .weight(1f)
                         .fillMaxSize()
-                        .background(Color(0xFF8E8E93))
                 ) {
-                    // Light Theme half with dropdown open
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxSize()
-                    ) {
-                        JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                            SearchOverlay(
-                                uiState = sampleState,
-                                onEvent = {},
-                                initialDropdownOpen = true
-                            )
-                        }
+                    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                        SearchOverlay(
+                            uiState = sampleState,
+                            onEvent = {},
+                            initialDropdownOpen = true
+                        )
                     }
+                }
 
-                    // Dark Theme half with dropdown open
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxSize()
-                    ) {
-                        JestkBrowserTheme(themeMode = ThemeMode.DARK) {
-                            SearchOverlay(
-                                uiState = sampleState.copy(
-                                    settings = BrowserSettings(searchEngine = SearchEngine.DUCKDUCKGO)
-                                ),
-                                onEvent = {},
-                                initialDropdownOpen = true
-                            )
-                        }
+                // Dark Theme half with dropdown open
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize()
+                ) {
+                    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                        SearchOverlay(
+                            uiState = sampleState.copy(
+                                settings = BrowserSettings(searchEngine = SearchEngine.DUCKDUCKGO)
+                            ),
+                            onEvent = {},
+                            initialDropdownOpen = true
+                        )
                     }
                 }
             }
         }
-
-        activity.setContentView(composeView)
-        val width = 440
-        val height = 956
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
-
-        coil.awaitIdle(composeView, width, height)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/search_overlay_dropdown_open_preview.png")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        assertTrue(outputFile.exists())
     }
 
     @Test
@@ -731,8 +551,6 @@ class SearchOverlayPreviewTest {
 
     @Test
     fun renderSearchEngineCarouselScrollingPreview() {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
         val density = Density(1f)
 
         val dummyVibration = object : VibrationFeedback {
@@ -740,102 +558,80 @@ class SearchOverlayPreviewTest {
             override fun confirm() {}
         }
 
-        val composeView = ComposeView(activity).apply {
-            setContent {
-                val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
-                val carouselStateLight = remember(density) {
-                    SearchEngineCarouselState(
-                        initialEngine = SearchEngine.GOOGLE,
-                        density = density,
-                        coroutineScope = coroutineScope,
-                        vibration = dummyVibration,
-                        onEngineSelected = {}
-                    ).apply {
-                        isDragging = true
-                        coroutineScope.launch {
-                            animOffset.snapTo(-30f)
-                        }
+        renderComposePreview("search_carousel_scrolling_preview.png", width = 440, height = 300, coil = coil) {
+            val coroutineScope = androidx.compose.runtime.rememberCoroutineScope()
+            val carouselStateLight = remember(density) {
+                SearchEngineCarouselState(
+                    initialEngine = SearchEngine.GOOGLE,
+                    density = density,
+                    coroutineScope = coroutineScope,
+                    vibration = dummyVibration,
+                    onEngineSelected = {}
+                ).apply {
+                    isDragging = true
+                    coroutineScope.launch {
+                        animOffset.snapTo(-30f)
                     }
                 }
+            }
 
-                val carouselStateDark = remember(density) {
-                    SearchEngineCarouselState(
-                        initialEngine = SearchEngine.DUCKDUCKGO,
-                        density = density,
-                        coroutineScope = coroutineScope,
-                        vibration = dummyVibration,
-                        onEngineSelected = {}
-                    ).apply {
-                        isDragging = true
-                        coroutineScope.launch {
-                            animOffset.snapTo(30f)
-                        }
+            val carouselStateDark = remember(density) {
+                SearchEngineCarouselState(
+                    initialEngine = SearchEngine.DUCKDUCKGO,
+                    density = density,
+                    coroutineScope = coroutineScope,
+                    vibration = dummyVibration,
+                    onEngineSelected = {}
+                ).apply {
+                    isDragging = true
+                    coroutineScope.launch {
+                        animOffset.snapTo(30f)
                     }
                 }
+            }
 
-                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Color(0xFFDFF7F3))
-                            .padding(24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
-                        verticalAlignment = Alignment.Top
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(Color(0xFFDFF7F3))
+                        .padding(24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(32.dp, Alignment.CenterHorizontally),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        Text("Carousel Dragging (Light)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        SearchEngineSelectorButton(
+                            carouselState = carouselStateLight,
+                            isMenuOpen = false,
+                            isDark = false,
+                            onClick = {}
+                        )
+                    }
+
+                    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
                         Column(
+                            modifier = Modifier
+                                .background(Color(0xFF0E1513))
+                                .padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("Carousel Dragging (Light)", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Carousel Dragging (Dark)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
                             SearchEngineSelectorButton(
-                                carouselState = carouselStateLight,
+                                carouselState = carouselStateDark,
                                 isMenuOpen = false,
-                                isDark = false,
+                                isDark = true,
                                 onClick = {}
                             )
-                        }
-
-                        JestkBrowserTheme(themeMode = ThemeMode.DARK) {
-                            Column(
-                                modifier = Modifier
-                                    .background(Color(0xFF0E1513))
-                                    .padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Text("Carousel Dragging (Dark)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
-                                SearchEngineSelectorButton(
-                                    carouselState = carouselStateDark,
-                                    isMenuOpen = false,
-                                    isDark = true,
-                                    onClick = {}
-                                )
-                            }
                         }
                     }
                 }
             }
         }
-
-        activity.setContentView(composeView)
-        val width = 440
-        val height = 300
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
-
-        coil.awaitIdle(composeView, width, height)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/search_carousel_scrolling_preview.png")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        assertTrue(outputFile.exists())
     }
 
     private val testFrameClock = object : androidx.compose.runtime.MonotonicFrameClock {
@@ -946,9 +742,6 @@ class SearchOverlayPreviewTest {
 
     @Test
     fun renderSearchOverlayPrefilledTextPreview() {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
-
         val state = BrowserUiState(
             searchQuery = "https://typography-preview.org/query_with_descenders_gypqj",
             settings = BrowserSettings(searchEngine = SearchEngine.DUCKDUCKGO),
@@ -958,51 +751,29 @@ class SearchOverlayPreviewTest {
             )
         )
 
-        val composeView = ComposeView(activity).apply {
-            setContent {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(0xFF8E8E93))
-                ) {
-                    Box(modifier = Modifier.weight(1f).fillMaxSize()) {
-                        JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                            SearchOverlay(uiState = state, onEvent = {})
-                        }
+        renderComposePreview("search_overlay_prefilled_preview.png", width = 824, height = 892, coil = coil) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color(0xFF8E8E93))
+            ) {
+                Box(modifier = Modifier.weight(1f).fillMaxSize()) {
+                    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                        SearchOverlay(uiState = state, onEvent = {})
                     }
-                    Box(modifier = Modifier.weight(1f).fillMaxSize()) {
-                        JestkBrowserTheme(themeMode = ThemeMode.DARK) {
-                            SearchOverlay(
-                                uiState = state.copy(
-                                    settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
-                                ),
-                                onEvent = {}
-                            )
-                        }
+                }
+                Box(modifier = Modifier.weight(1f).fillMaxSize()) {
+                    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                        SearchOverlay(
+                            uiState = state.copy(
+                                settings = BrowserSettings(searchEngine = SearchEngine.GOOGLE)
+                            ),
+                            onEvent = {}
+                        )
                     }
                 }
             }
         }
-
-        activity.setContentView(composeView)
-        val width = 824
-        val height = 892
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
-
-        coil.awaitIdle(composeView, width, height)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/search_overlay_prefilled_preview.png")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        assertTrue(outputFile.exists())
     }
 
     @Test
@@ -1133,59 +904,34 @@ class SearchOverlayPreviewTest {
 
     @Test
     fun renderOpenTabSwitchCarouselVisualPreview() {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
-
         val sampleTabs = listOf(
             Tab(id = "1", url = "https://youtube.com/watch?v=123", title = "YouTube Video"),
             Tab(id = "2", url = "https://github.com/torvalds/linux", title = "GitHub - Linux"),
         )
 
-        val composeView = ComposeView(activity).apply {
-            setContent {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                ) {
-                    JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
-                        OpenTabSwitchCarousel(
-                            tabs = sampleTabs,
-                            isDark = false,
-                            onTabClick = {},
-                        )
-                    }
-                    JestkBrowserTheme(themeMode = ThemeMode.DARK) {
-                        OpenTabSwitchCarousel(
-                            tabs = sampleTabs,
-                            isDark = true,
-                            onTabClick = {},
-                        )
-                    }
+        renderComposePreview("open_tab_switch_carousel_preview.png", width = 440, height = 200, coil = coil) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    OpenTabSwitchCarousel(
+                        tabs = sampleTabs,
+                        isDark = false,
+                        onTabClick = {},
+                    )
+                }
+                JestkBrowserTheme(themeMode = ThemeMode.DARK) {
+                    OpenTabSwitchCarousel(
+                        tabs = sampleTabs,
+                        isDark = true,
+                        onTabClick = {},
+                    )
                 }
             }
         }
-
-        activity.setContentView(composeView)
-        val width = 440
-        val height = 200
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
-        )
-        composeView.layout(0, 0, width, height)
-
-        coil.awaitIdle(composeView, width, height)
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/open_tab_switch_carousel_preview.png")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        }
-        assertTrue(outputFile.exists())
     }
 }
 

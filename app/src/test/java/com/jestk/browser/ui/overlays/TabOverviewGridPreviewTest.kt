@@ -1,12 +1,6 @@
 package com.jestk.browser.ui.overlays
 
 import android.graphics.Bitmap
-import android.view.View
-import androidx.activity.ComponentActivity
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -15,12 +9,12 @@ import androidx.compose.ui.test.onNodeWithText
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.testing.renderComposePreview
 import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
@@ -162,48 +156,17 @@ class TabOverviewGridPreviewTest {
         themeMode: ThemeMode,
         fontScale: Float,
     ) {
-        val controller = Robolectric.buildActivity(ComponentActivity::class.java).setup()
-        val activity = controller.get()
-
-        val composeView =
-            ComposeView(activity).apply {
-                setContent {
-                    CompositionLocalProvider(
-                        LocalDensity provides Density(LocalDensity.current.density, fontScale),
-                    ) {
-                        JestkBrowserTheme(themeMode = themeMode) {
-                            TabOverviewGrid(
-                                uiState =
-                                    BrowserUiState(
-                                        tabs = tabs(4),
-                                        activeTabId = "1",
-                                    ),
-                                onEvent = {},
-                            )
-                        }
-                    }
-                }
+        renderComposePreview(fileName, width = 412, height = 800, fontScale = fontScale) {
+            JestkBrowserTheme(themeMode = themeMode) {
+                TabOverviewGrid(
+                    uiState =
+                        BrowserUiState(
+                            tabs = tabs(4),
+                            activeTabId = "1",
+                        ),
+                    onEvent = {},
+                )
             }
-        activity.setContentView(composeView)
-
-        val width = 412
-        val height = 800
-        composeView.measure(
-            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
-            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
-        )
-        composeView.layout(0, 0, width, height)
-
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        composeView.draw(android.graphics.Canvas(bitmap))
-
-        val outputFile = File("build/$fileName")
-        outputFile.parentFile?.mkdirs()
-        FileOutputStream(outputFile).use { out ->
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
         }
-
-        assertThat(outputFile.exists()).isTrue()
-        assertThat(outputFile.length()).isGreaterThan(0L)
     }
 }
