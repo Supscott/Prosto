@@ -88,7 +88,8 @@ internal fun BoxScope.DownloadFailedPill(
                 restartKey = shown.id,
                 baseTimeoutMs = DOWNLOAD_FAILED_PILL_TIMEOUT_MS,
                 containsIcons = true,
-                containsControls = false,
+                // Swipe-dismissable, so Android's interactive timeout applies (like FavoriteNoticePill).
+                containsControls = true,
                 onDismiss = { currentOnEvent(DismissDownloadFailure) },
             )
             val reason = shown.message.ifBlank { shown.fileName.orEmpty() }
