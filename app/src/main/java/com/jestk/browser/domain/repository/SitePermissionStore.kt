@@ -16,4 +16,7 @@ interface SitePermissionStore {
     fun clear(origin: String)
 
     fun clearAll()
+
+    /** Every origin that has at least one grant, with its resources. */
+    fun allGrants(): Map<String, Set<SiteResource>>
 }

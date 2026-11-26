@@ -43,6 +43,10 @@ internal class SitePermissionController(
 
     private var pending: Pending? = null
 
+    init {
+        publishGrants()
+    }
+
     /** Set by the Activity; a replaced bridge cannot report back, so an open system dialog is denied. */
     var osPermissions: SiteOsPermissions? = null
         set(value) {
@@ -57,7 +61,21 @@ internal class SitePermissionController(
             is OnSitePermissionRequest -> onRequest(event.tabId, event.request)
             is OnSitePermissionCanceled -> onCanceled(event.request)
             is ResolveSitePermissionPrompt -> resolve(event.choice)
+            is RemoveSitePermissionSite -> {
+                store?.clear(event.origin)
+                publishGrants()
+            }
+            is RemoveAllSitePermissionSites -> {
+                store?.clearAll()
+                publishGrants()
+            }
         }
+    }
+
+    /** Mirrors the store's grants into the UI state, which Settings lists. */
+    private fun publishGrants() {
+        val grants = store?.allGrants().orEmpty()
+        updateUiState { if (it.sitePermissionGrants == grants) it else it.copy(sitePermissionGrants = grants) }
     }
 
     fun onRequest(tabId: String, request: SitePermissionRequest) {
@@ -138,7 +156,10 @@ internal class SitePermissionController(
             return
         }
         entry.request.grant(allowed)
-        if (remember) store?.allow(entry.request.origin, allowed)
+        if (remember) {
+            store?.allow(entry.request.origin, allowed)
+            publishGrants()
+        }
     }
 
     private fun denyAndClear(entry: Pending) {

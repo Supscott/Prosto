@@ -45,6 +45,8 @@ data class BrowserUiState(
     val externalAppPrompt: ExternalAppPrompt? = null,
     /** The camera / microphone request a page of the active tab waits on; see [SitePermissionController]. */
     val sitePermissionPrompt: com.jestk.browser.domain.model.SitePermissionPrompt? = null,
+    /** Origins with a remembered camera / microphone grant ("Allow always"), for Settings. */
+    val sitePermissionGrants: Map<String, Set<com.jestk.browser.domain.model.SiteResource>> = emptyMap(),
     val openInAppExclusionPrompt: OpenInAppExclusionPrompt? = null,
     // Active Viewport / Overlay
     val activeOverlay: OverlayType = OverlayType.NONE,

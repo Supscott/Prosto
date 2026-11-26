@@ -28,6 +28,11 @@ class SharedPrefsSitePermissionStore(private val prefs: SharedPreferences) : Sit
         prefs.edit().clear().apply()
     }
 
+    override fun allGrants(): Map<String, Set<SiteResource>> =
+        prefs.all.keys
+            .associateWith { read(it) }
+            .filterValues { it.isNotEmpty() }
+
     private fun read(origin: String): Set<SiteResource> =
         prefs.getStringSet(origin, null).orEmpty()
             .mapNotNull { name -> SiteResource.entries.firstOrNull { it.name == name } }

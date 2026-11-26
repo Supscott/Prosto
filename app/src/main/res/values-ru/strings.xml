@@ -405,5 +405,13 @@
     <string name="site_permission_allow_always">Разрешать всегда</string>
     <string name="site_permission_allow_once">Разрешить сейчас</string>
     <string name="site_permission_block">Заблокировать</string>
+    <string name="site_permissions_settings_title">Разрешения сайтов</string>
+    <string name="site_permissions_settings_none">Нет</string>
+    <string name="site_permissions_settings_empty">Ни у одного сайта нет доступа к камере и микрофону</string>
+    <string name="site_permissions_settings_remove">Отозвать доступ для %1$s</string>
+    <string name="site_permissions_settings_remove_all">Отозвать все</string>
+    <string name="site_permissions_settings_close">Закрыть</string>
+    <string name="site_permissions_resource_camera">Камера</string>
+    <string name="site_permissions_resource_microphone">Микрофон</string>
     <string name="cb_scope_workspace_number">Рабочее пространство %1$d</string>
 </resources>

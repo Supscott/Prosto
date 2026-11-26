@@ -72,6 +72,35 @@ class SharedPrefsSitePermissionStoreTest {
     }
 
     @Test
+    fun allGrants_listsEveryOriginWithItsResources() {
+        assertThat(store.allGrants()).isEmpty()
+        store.allow("https://a.com", setOf(SiteResource.CAMERA))
+        store.allow("https://a.com", setOf(SiteResource.MICROPHONE))
+        store.allow("http://127.0.0.1:8765", setOf(SiteResource.MICROPHONE))
+
+        assertThat(store.allGrants()).containsExactly(
+            "https://a.com", setOf(SiteResource.CAMERA, SiteResource.MICROPHONE),
+            "http://127.0.0.1:8765", setOf(SiteResource.MICROPHONE),
+        )
+
+        store.clear("https://a.com")
+
+        assertThat(store.allGrants()).containsExactly("http://127.0.0.1:8765", setOf(SiteResource.MICROPHONE))
+
+        store.clearAll()
+
+        assertThat(store.allGrants()).isEmpty()
+    }
+
+    @Test
+    fun allGrants_skipsEntriesWithoutAKnownResource() {
+        context.getSharedPreferences("site_permissions", Context.MODE_PRIVATE).edit()
+            .putStringSet("https://old.com", setOf("RETIRED_RESOURCE")).apply()
+
+        assertThat(store.allGrants()).isEmpty()
+    }
+
+    @Test
     fun emptyInput_isIgnored() {
         store.allow("", setOf(SiteResource.CAMERA))
         store.allow("https://example.com", emptySet())

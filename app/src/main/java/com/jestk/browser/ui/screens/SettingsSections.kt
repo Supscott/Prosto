@@ -56,6 +56,8 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.HomeUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.IncludeOpenInAppSite
+import com.jestk.browser.ui.viewmodel.RemoveAllSitePermissionSites
+import com.jestk.browser.ui.viewmodel.RemoveSitePermissionSite
 import com.jestk.browser.ui.viewmodel.SetAskBeforeDownloadEnabled
 import com.jestk.browser.ui.viewmodel.SetBackgroundPlaybackEnabled
 import com.jestk.browser.util.DefaultBrowserHelper
@@ -276,6 +278,18 @@ internal fun SettingsPrivacySection(
             checked = uiState.settings.isCleanYouTubePlayerEnabled,
             onCheckedChange = { onEvent(BrowserUiEvent.SetCleanYouTubePlayerEnabled(it)) },
             isDark = isDark,
+        )
+
+        HorizontalDivider(
+            color = if (isDark) DarkSurfaceVariant else Color(0xFFF1F5F9),
+            modifier = Modifier.padding(start = 56.dp),
+        )
+
+        SitePermissionsRow(
+            grants = uiState.sitePermissionGrants,
+            isDark = isDark,
+            onRemove = { onEvent(RemoveSitePermissionSite(it)) },
+            onRemoveAll = { onEvent(RemoveAllSitePermissionSites) },
         )
     }
 }

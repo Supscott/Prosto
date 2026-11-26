@@ -48,6 +48,8 @@ private class FakeStore(initial: Map<String, Set<SiteResource>> = emptyMap()) : 
     }
 
     override fun clearAll() = grants.clear()
+
+    override fun allGrants(): Map<String, Set<SiteResource>> = grants.toMap()
 }
 
 private class FakeOs(
@@ -365,6 +367,64 @@ class SitePermissionControllerTest {
         controller.onStateChanged(state.copy(loadingProgress = 0.5f))
 
         assertThat(request.denied).isFalse()
+        assertThat(state.sitePermissionPrompt).isNotNull()
+    }
+
+    @Test
+    fun storedGrants_areMirroredIntoTheStateAtStart() {
+        store = FakeStore(mapOf(ORIGIN to both, "http://127.0.0.1:8765" to setOf(SiteResource.MICROPHONE)))
+
+        controller()
+
+        assertThat(state.sitePermissionGrants).containsExactly(
+            ORIGIN, both,
+            "http://127.0.0.1:8765", setOf(SiteResource.MICROPHONE),
+        )
+    }
+
+    @Test
+    fun allowAlways_addsTheOriginToTheMirroredGrants() {
+        val controller = controller()
+        assertThat(state.sitePermissionGrants).isEmpty()
+        controller.onRequest("t1", FakeRequest(setOf(SiteResource.CAMERA)))
+
+        controller.resolve(SitePermissionChoice.ALLOW_ALWAYS)
+
+        assertThat(state.sitePermissionGrants).containsExactly(ORIGIN, setOf(SiteResource.CAMERA))
+    }
+
+    @Test
+    fun removeSite_forgetsOnlyThatOrigin() {
+        store = FakeStore(mapOf(ORIGIN to both, "https://other.org" to setOf(SiteResource.CAMERA)))
+        val controller = controller()
+
+        controller.handle(RemoveSitePermissionSite(ORIGIN))
+
+        assertThat(store!!.grants.keys).containsExactly("https://other.org")
+        assertThat(state.sitePermissionGrants.keys).containsExactly("https://other.org")
+    }
+
+    @Test
+    fun removeAll_forgetsEveryGrant() {
+        store = FakeStore(mapOf(ORIGIN to both, "https://other.org" to setOf(SiteResource.CAMERA)))
+        val controller = controller()
+
+        controller.handle(RemoveAllSitePermissionSites)
+
+        assertThat(store!!.grants).isEmpty()
+        assertThat(state.sitePermissionGrants).isEmpty()
+    }
+
+    @Test
+    fun removedGrant_promptsAgainOnTheNextRequest() {
+        store = FakeStore(mapOf(ORIGIN to both))
+        val controller = controller()
+        controller.handle(RemoveSitePermissionSite(ORIGIN))
+        val request = FakeRequest(both)
+
+        controller.onRequest("t1", request)
+
+        assertThat(request.granted).isNull()
         assertThat(state.sitePermissionPrompt).isNotNull()
     }
 }

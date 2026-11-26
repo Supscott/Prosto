@@ -396,4 +396,12 @@
     <string name="site_permission_allow_always">Allow always</string>
     <string name="site_permission_allow_once">Allow this time</string>
     <string name="site_permission_block">Block</string>
+    <string name="site_permissions_settings_title">Site permissions</string>
+    <string name="site_permissions_settings_none">None</string>
+    <string name="site_permissions_settings_empty">No sites have camera or microphone access</string>
+    <string name="site_permissions_settings_remove">Remove access for %1$s</string>
+    <string name="site_permissions_settings_remove_all">Remove all</string>
+    <string name="site_permissions_settings_close">Close</string>
+    <string name="site_permissions_resource_camera">Camera</string>
+    <string name="site_permissions_resource_microphone">Microphone</string>
 </resources>
