@@ -376,7 +376,7 @@ fun ActiveTabPill(
                 onCopyUrl = {
                     copyUrlToClipboard(context, url)
                 },
-                onAddFavorite = {
+                onToggleFavorite = {
                     if (url.isNotBlank() && !url.startsWith("about:")) {
                         onAddFavorite(title, url)
                         Toast.makeText(context, R.string.toast_added_to_favorites, Toast.LENGTH_SHORT).show()
@@ -385,8 +385,7 @@ fun ActiveTabPill(
                     }
                 },
                 onShareLink = { onShare(url) },
-                isReloadVisible = !isHome && url.isNotBlank() && !url.startsWith("about:"),
-                onReload = onReload,
+                onReload = if (!isHome && url.isNotBlank() && !url.startsWith("about:")) onReload else null,
                 folderId = folderId,
                 availableFolders = availableFolders,
                 onCreateFolder = onCreateFolder,

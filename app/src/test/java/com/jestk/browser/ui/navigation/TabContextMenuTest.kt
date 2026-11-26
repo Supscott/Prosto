@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
@@ -137,8 +138,8 @@ class TabContextMenuTest {
         }
 
         composeTestRule.onNodeWithText("Close tab").assertExists()
-        composeTestRule.onNodeWithText("Copy URL").assertExists()
-        composeTestRule.onNodeWithText("Add to Favorites").assertExists()
+        composeTestRule.onNodeWithContentDescription("Copy URL").assertExists()
+        composeTestRule.onNodeWithContentDescription("Add to favorites").assertExists()
     }
 
     @Test
@@ -155,16 +156,14 @@ class TabContextMenuTest {
                         isDark = false,
                         onCloseTab = {},
                         onCopyUrl = {},
-                        onAddFavorite = {},
-                        isReloadVisible = true,
                         onReload = { reloadCalled = true },
                     )
                 }
             }
         }
 
-        composeTestRule.onNodeWithText("Reload").assertExists()
-        composeTestRule.onNodeWithText("Reload").performClick()
+        composeTestRule.onNodeWithContentDescription("Reload").assertExists()
+        composeTestRule.onNodeWithContentDescription("Reload").performClick()
 
         assertTrue("Expected onReload callback to be invoked", reloadCalled)
         assertTrue("Expected onDismissRequest to be invoked when clicked", dismissCalled)
@@ -181,15 +180,13 @@ class TabContextMenuTest {
                         isDark = false,
                         onCloseTab = {},
                         onCopyUrl = {},
-                        onAddFavorite = {},
-                        isReloadVisible = false,
-                        onReload = {},
+                        onReload = null,
                     )
                 }
             }
         }
 
-        composeTestRule.onNodeWithText("Reload").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("Reload").assertDoesNotExist()
         composeTestRule.onNodeWithText("Close tab").assertExists()
     }
 
@@ -220,7 +217,6 @@ class TabContextMenuTest {
                         isDark = false,
                         onCloseTab = {},
                         onCopyUrl = {},
-                        onAddFavorite = {},
                     )
                 }
             }
@@ -283,7 +279,6 @@ class TabContextMenuTest {
                         isDark = false,
                         onCloseTab = {},
                         onCopyUrl = {},
-                        onAddFavorite = {},
                         availableWorkspaces = listOf(targetWorkspace),
                         onMoveToWorkspace = { selectedWorkspaceId = it },
                     )
@@ -315,7 +310,6 @@ class TabContextMenuTest {
                         isDark = false,
                         onCloseTab = {},
                         onCopyUrl = {},
-                        onAddFavorite = {},
                         availableWorkspaces = emptyList(),
                         onMoveToWorkspace = {},
                     )

@@ -181,7 +181,7 @@ fun InactiveTabButton(
                 onCopyUrl = {
                     copyUrlToClipboard(context, tab.url)
                 },
-                onAddFavorite = {
+                onToggleFavorite = {
                     if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
                         onAddFavorite(tab.title, tab.url)
                         Toast.makeText(context, R.string.toast_added_to_favorites, Toast.LENGTH_SHORT).show()

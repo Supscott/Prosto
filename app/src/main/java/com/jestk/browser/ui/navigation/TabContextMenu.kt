@@ -1,74 +1,55 @@
 package com.jestk.browser.ui.navigation
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.FilterNone
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import androidx.compose.ui.window.PopupProperties
 import com.jestk.browser.R
-import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.TabFolder
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.ui.components.workspaceDisplayName
 import com.jestk.browser.ui.theme.DarkSurface
-import com.jestk.browser.ui.theme.LocalProstoTypography
 import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoCardSurface
-import com.jestk.browser.ui.theme.ProstoDarkText
 import com.jestk.browser.ui.theme.ProstoShapes
-import kotlinx.coroutines.isActive
 
 /**
- * Contextual dropdown menu on tabs (active or inactive).
+ * Contextual dropdown menu on tabs (active or inactive); every action applies to that tab.
+ * Layout, top to bottom: an icon row (Reload, Copy link, Share, Favorite toggle), the Site group
+ * (blocking toggle), the Organize group (folders, workspace) and Close tab in red.
+ * A null callback hides its item (Reload on home pages, Favorite and blocking on non-web URLs).
  * Adheres to Prosto Canvas:
  * - Floating card with 24px radius (ProstoShapes.Card), pure solid surface.
  * - Rim border and Level 2 elevation shadow.
- * - 48px touch targets for menu rows.
+ * - 48px touch targets for menu rows and icon buttons.
  * - Hairline dividers 1px solid #F1F5F9 (Dark: 1px solid #334155).
- * - Clean Manrope title typography.
  * - NO BLUR.
  */
 @Composable
@@ -78,9 +59,11 @@ fun TabContextMenu(
     isDark: Boolean,
     onCloseTab: () -> Unit,
     onCopyUrl: () -> Unit,
-    onAddFavorite: () -> Unit,
+    isFavorite: Boolean = false,
+    onToggleFavorite: (() -> Unit)? = null,
+    isSiteAllowlisted: Boolean = false,
+    onToggleBlocking: (() -> Unit)? = null,
     onShareLink: (() -> Unit)? = null,
-    isReloadVisible: Boolean = false,
     onReload: (() -> Unit)? = null,
     folderId: String? = null,
     availableFolders: List<TabFolder> = emptyList(),
@@ -94,17 +77,8 @@ fun TabContextMenu(
 
     BackHandler(enabled = true, onBack = onDismissRequest)
 
-    val menuBg = if (isDark) DarkSurface else ProstoCardSurface
-    val menuBorder = ProstoBorders.floatingBorder(isDark)
-    val dividerColor = if (isDark) Color(0xFF334155) else Color(0xFFF1F5F9)
     val density = LocalDensity.current
-    val typography = LocalProstoTypography.current
-    var showFolderPicker by remember { mutableStateOf(false) }
-    var showWorkspacePicker by remember { mutableStateOf(false) }
-
-    val popupPositionProvider = remember(density) {
-        TabContextMenuPositionProvider(density)
-    }
+    val popupPositionProvider = remember(density) { TabContextMenuPositionProvider(density) }
 
     Popup(
         onDismissRequest = onDismissRequest,
@@ -132,259 +106,196 @@ fun TabContextMenu(
                         }
                     },
         ) {
-            Surface(
-                shape = ProstoShapes.Card,
-                color = menuBg,
-                shadowElevation = 12.dp,
-                border = menuBorder,
-                modifier = Modifier.width(188.dp),
-            ) {
-                Column(
-                    modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    if (showWorkspacePicker) {
+            TabContextMenuCard(
+                onDismissRequest = onDismissRequest,
+                isDark = isDark,
+                onCloseTab = onCloseTab,
+                onCopyUrl = onCopyUrl,
+                isFavorite = isFavorite,
+                onToggleFavorite = onToggleFavorite,
+                isSiteAllowlisted = isSiteAllowlisted,
+                onToggleBlocking = onToggleBlocking,
+                onShareLink = onShareLink,
+                onReload = onReload,
+                folderId = folderId,
+                availableFolders = availableFolders,
+                onCreateFolder = onCreateFolder,
+                onAddToFolder = onAddToFolder,
+                onRemoveFromFolder = onRemoveFromFolder,
+                availableWorkspaces = availableWorkspaces,
+                onMoveToWorkspace = onMoveToWorkspace,
+            )
+        }
+    }
+}
+
+/** The menu card without the popup window, so previews can render it inline. */
+@Composable
+internal fun TabContextMenuCard(
+    onDismissRequest: () -> Unit,
+    isDark: Boolean,
+    onCloseTab: () -> Unit,
+    onCopyUrl: () -> Unit,
+    isFavorite: Boolean,
+    onToggleFavorite: (() -> Unit)?,
+    isSiteAllowlisted: Boolean,
+    onToggleBlocking: (() -> Unit)?,
+    onShareLink: (() -> Unit)?,
+    onReload: (() -> Unit)?,
+    folderId: String?,
+    availableFolders: List<TabFolder>,
+    onCreateFolder: (() -> Unit)?,
+    onAddToFolder: ((folderId: String) -> Unit)?,
+    onRemoveFromFolder: (() -> Unit)?,
+    availableWorkspaces: List<Workspace>,
+    onMoveToWorkspace: ((workspaceId: String) -> Unit)?,
+) {
+    var showFolderPicker by remember { mutableStateOf(false) }
+    var showWorkspacePicker by remember { mutableStateOf(false) }
+
+    Surface(
+        shape = ProstoShapes.Card,
+        color = if (isDark) DarkSurface else ProstoCardSurface,
+        shadowElevation = 12.dp,
+        border = ProstoBorders.floatingBorder(isDark),
+        modifier = Modifier.widthIn(min = ACTION_MENU_MIN_WIDTH, max = ACTION_MENU_MAX_WIDTH).width(IntrinsicSize.Max),
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 4.dp, horizontal = 4.dp),
+            verticalArrangement = Arrangement.Center,
+        ) {
+            if (showWorkspacePicker) {
+                PopupMenuItem(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    label = stringResource(R.string.tab_context_move_to_workspace_title),
+                    isActive = false,
+                    isDark = isDark,
+                    onClick = { showWorkspacePicker = false },
+                    modifier = Modifier.testTag("tab_context_workspace_back"),
+                )
+                TabMenuHairline(isDark)
+                availableWorkspaces.forEach { ws ->
+                    TabMenuPickerRow(ws.color, workspaceDisplayName(ws), isDark, "tab_context_pick_workspace_${ws.id}") {
+                        onDismissRequest()
+                        onMoveToWorkspace?.invoke(ws.id)
+                    }
+                }
+            } else if (showFolderPicker) {
+                PopupMenuItem(
+                    icon = Icons.AutoMirrored.Filled.ArrowBack,
+                    label = stringResource(R.string.tab_context_add_to_folder),
+                    isActive = false,
+                    isDark = isDark,
+                    onClick = { showFolderPicker = false },
+                    modifier = Modifier.testTag("tab_context_folder_back"),
+                )
+                TabMenuHairline(isDark)
+                availableFolders.forEach { folder ->
+                    TabMenuPickerRow(
+                        color = folder.color,
+                        title = folder.title.ifBlank { stringResource(R.string.folder_new_title) },
+                        isDark = isDark,
+                        testTag = "tab_context_pick_folder_${folder.id}",
+                    ) {
+                        onDismissRequest()
+                        onAddToFolder?.invoke(folder.id)
+                    }
+                }
+            } else {
+                TabMenuActionRow(
+                    isDark = isDark,
+                    onCopyUrl = {
+                        onDismissRequest()
+                        onCopyUrl()
+                    },
+                    onReload = onReload?.let { reload -> { onDismissRequest(); reload() } },
+                    onShareLink = onShareLink?.let { share -> { onDismissRequest(); share() } },
+                    isFavorite = isFavorite,
+                    onToggleFavorite = onToggleFavorite?.let { toggle -> { onDismissRequest(); toggle() } },
+                )
+
+                if (onToggleBlocking != null) {
+                    TabMenuHairline(isDark)
+                    PopupMenuItem(
+                        icon = Icons.Default.Shield,
+                        label = stringResource(if (isSiteAllowlisted) R.string.menu_enable_blocking else R.string.menu_disable_blocking),
+                        isActive = isSiteAllowlisted,
+                        isDark = isDark,
+                        onClick = {
+                            onDismissRequest()
+                            onToggleBlocking()
+                        },
+                        modifier = Modifier.testTag("tab_context_blocking"),
+                    )
+                }
+
+                val canMove = availableWorkspaces.isNotEmpty() && onMoveToWorkspace != null
+                val canNewFolder = folderId == null && onCreateFolder != null
+                val canAddToFolder = folderId == null && availableFolders.isNotEmpty() && onAddToFolder != null
+                val canRemoveFromFolder = folderId != null && onRemoveFromFolder != null
+                if (canMove || canNewFolder || canAddToFolder || canRemoveFromFolder) {
+                    TabMenuGroupGap(isDark)
+                    if (canNewFolder) {
                         PopupMenuItem(
-                            icon = Icons.AutoMirrored.Filled.ArrowBack,
-                            label = stringResource(R.string.tab_context_move_to_workspace_title),
+                            icon = Icons.Default.Add,
+                            label = stringResource(R.string.tab_context_new_folder),
                             isActive = false,
                             isDark = isDark,
-                            onClick = { showWorkspacePicker = false },
-                            modifier = Modifier.testTag("tab_context_workspace_back"),
+                            onClick = {
+                                onDismissRequest()
+                                onCreateFolder?.invoke()
+                            },
+                            modifier = Modifier.testTag("tab_context_new_folder"),
                         )
-
-                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
-
-                        availableWorkspaces.forEachIndexed { idx, ws ->
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.Transparent,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        onDismissRequest()
-                                        onMoveToWorkspace?.invoke(ws.id)
-                                    }
-                                    .testTag("tab_context_pick_workspace_${ws.id}"),
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(horizontal = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(ws.color)),
-                                    )
-                                    Text(
-                                        text = workspaceDisplayName(ws),
-                                        style = typography.bodyMd.copy(fontWeight = FontWeight.Medium),
-                                        color = if (isDark) Color(0xFFF1F5F9) else ProstoDarkText,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                            if (idx < availableWorkspaces.lastIndex) {
-                                HorizontalDivider(color = dividerColor, thickness = 1.dp)
-                            }
-                        }
-                    } else if (showFolderPicker) {
+                    }
+                    if (canAddToFolder) {
                         PopupMenuItem(
-                            icon = Icons.AutoMirrored.Filled.ArrowBack,
+                            icon = Icons.Default.FilterNone,
                             label = stringResource(R.string.tab_context_add_to_folder),
                             isActive = false,
                             isDark = isDark,
-                            onClick = { showFolderPicker = false },
-                            modifier = Modifier.testTag("tab_context_folder_back"),
+                            onClick = { showFolderPicker = true },
+                            modifier = Modifier.testTag("tab_context_add_to_folder"),
                         )
-
-                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
-
-                        availableFolders.forEachIndexed { idx, folder ->
-                            Surface(
-                                shape = RoundedCornerShape(12.dp),
-                                color = Color.Transparent,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(48.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .clickable {
-                                        onDismissRequest()
-                                        onAddToFolder?.invoke(folder.id)
-                                    }
-                                    .testTag("tab_context_pick_folder_${folder.id}"),
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .padding(horizontal = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(10.dp)
-                                            .clip(CircleShape)
-                                            .background(Color(folder.color)),
-                                    )
-                                    Text(
-                                        text = folder.title.ifBlank { stringResource(R.string.folder_new_title) },
-                                        style = typography.bodyMd.copy(fontWeight = FontWeight.Medium),
-                                        color = if (isDark) Color(0xFFF1F5F9) else ProstoDarkText,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                            if (idx < availableFolders.lastIndex) {
-                                HorizontalDivider(color = dividerColor, thickness = 1.dp)
-                            }
-                        }
-                    } else {
-                        // Reload (First item when isReloadVisible is true)
-                        if (isReloadVisible && onReload != null) {
-                            PopupMenuItem(
-                                icon = Icons.Default.Refresh,
-                                label = stringResource(R.string.reload_tab),
-                                isActive = false,
-                                isDark = isDark,
-                                onClick = {
-                                    onDismissRequest()
-                                    onReload()
-                                },
-                            )
-
-                            HorizontalDivider(color = dividerColor, thickness = 1.dp)
-                        }
-
-                        // Close Tab
+                    }
+                    if (canRemoveFromFolder) {
                         PopupMenuItem(
                             icon = Icons.Default.Close,
-                            label = stringResource(R.string.a11y_close_tab),
+                            label = stringResource(R.string.tab_context_remove_from_folder),
                             isActive = false,
                             isDark = isDark,
                             onClick = {
                                 onDismissRequest()
-                                onCloseTab()
+                                onRemoveFromFolder?.invoke()
                             },
+                            modifier = Modifier.testTag("tab_context_remove_from_folder"),
                         )
-
-                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
-
-                        // Move to Workspace
-                        if (availableWorkspaces.isNotEmpty() && onMoveToWorkspace != null) {
-                            PopupMenuItem(
-                                icon = Icons.AutoMirrored.Filled.ArrowForward,
-                                label = stringResource(R.string.tab_context_move_to_workspace),
-                                isActive = false,
-                                isDark = isDark,
-                                onClick = {
-                                    showWorkspacePicker = true
-                                },
-                                modifier = Modifier.testTag("tab_context_move_to_workspace"),
-                            )
-
-                            HorizontalDivider(color = dividerColor, thickness = 1.dp)
-                        }
-
-                        // Folder options
-                        if (folderId == null) {
-                            if (onCreateFolder != null) {
-                                PopupMenuItem(
-                                    icon = Icons.Default.Add,
-                                    label = stringResource(R.string.tab_context_new_folder),
-                                    isActive = false,
-                                    isDark = isDark,
-                                    onClick = {
-                                        onDismissRequest()
-                                        onCreateFolder()
-                                    },
-                                    modifier = Modifier.testTag("tab_context_new_folder"),
-                                )
-
-                                HorizontalDivider(color = dividerColor, thickness = 1.dp)
-                            }
-
-                            if (availableFolders.isNotEmpty() && onAddToFolder != null) {
-                                PopupMenuItem(
-                                    icon = Icons.Default.FilterNone,
-                                    label = stringResource(R.string.tab_context_add_to_folder),
-                                    isActive = false,
-                                    isDark = isDark,
-                                    onClick = {
-                                        showFolderPicker = true
-                                    },
-                                    modifier = Modifier.testTag("tab_context_add_to_folder"),
-                                )
-
-                                HorizontalDivider(color = dividerColor, thickness = 1.dp)
-                            }
-                        } else if (onRemoveFromFolder != null) {
-                            PopupMenuItem(
-                                icon = Icons.Default.Close,
-                                label = stringResource(R.string.tab_context_remove_from_folder),
-                                isActive = false,
-                                isDark = isDark,
-                                onClick = {
-                                    onDismissRequest()
-                                    onRemoveFromFolder()
-                                },
-                                modifier = Modifier.testTag("tab_context_remove_from_folder"),
-                            )
-
-                            HorizontalDivider(color = dividerColor, thickness = 1.dp)
-                        }
-
-                        // Copy URL
+                    }
+                    if (canMove) {
                         PopupMenuItem(
-                            icon = Icons.Default.ContentCopy,
-                            label = stringResource(R.string.copy_link_url),
+                            icon = Icons.AutoMirrored.Filled.ArrowForward,
+                            label = stringResource(R.string.tab_context_move_to_workspace),
                             isActive = false,
                             isDark = isDark,
-                            onClick = {
-                                onDismissRequest()
-                                onCopyUrl()
-                            },
+                            onClick = { showWorkspacePicker = true },
+                            modifier = Modifier.testTag("tab_context_move_to_workspace"),
                         )
-
-                        HorizontalDivider(color = dividerColor, thickness = 1.dp)
-
-                        // Add to Favorites
-                        PopupMenuItem(
-                            icon = Icons.Default.Bookmark,
-                            label = stringResource(R.string.add_favorite_dialog_title),
-                            isActive = false,
-                            isDark = isDark,
-                            onClick = {
-                                onDismissRequest()
-                                onAddFavorite()
-                            },
-                        )
-
-                        // Share Link
-                        if (onShareLink != null) {
-                            HorizontalDivider(color = dividerColor, thickness = 1.dp)
-
-                            PopupMenuItem(
-                                icon = Icons.Default.Share,
-                                label = stringResource(R.string.share_link),
-                                isActive = false,
-                                isDark = isDark,
-                                onClick = {
-                                    onDismissRequest()
-                                    onShareLink()
-                                },
-                            )
-                        }
                     }
                 }
+
+                TabMenuGroupGap(isDark)
+                PopupMenuItem(
+                    icon = Icons.Default.Close,
+                    label = stringResource(R.string.a11y_close_tab),
+                    isActive = false,
+                    isDark = isDark,
+                    destructive = true,
+                    onClick = {
+                        onDismissRequest()
+                        onCloseTab()
+                    },
+                    modifier = Modifier.testTag("tab_context_close"),
+                )
             }
         }
     }

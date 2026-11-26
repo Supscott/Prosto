@@ -50,6 +50,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
@@ -67,6 +68,7 @@ import com.jestk.browser.ui.theme.ProstoBorders
 import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoCardSurface
 import com.jestk.browser.ui.theme.ProstoDarkText
+import com.jestk.browser.ui.theme.ProstoDestructive
 import com.jestk.browser.ui.theme.ProstoMutedSlate
 import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.theme.prostoFloatingSurface
@@ -361,10 +363,11 @@ fun PopupMenuItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     trailingLabel: String? = null,
+    destructive: Boolean = false,
 ) {
     val activeBg = if (isDark) Color(0x2656DBCF) else ProstoBrandPrimary.copy(alpha = 0.10f)
     val activeTint = if (isDark) ProstoAccent else ProstoBrandPrimary
-    val normalTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
+    val normalTint = if (destructive) ProstoDestructive else if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
     val typography = LocalProstoTypography.current
 
     Surface(
@@ -374,7 +377,8 @@ fun PopupMenuItem(
             modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .clickable(onClick = onClick),
+                // One merged node: the row text is the label, the icon stays decorative (PRO-192).
+                .clickable(role = Role.Button, onClick = onClick),
     ) {
         Row(
             modifier =
@@ -387,7 +391,7 @@ fun PopupMenuItem(
         ) {
             Icon(
                 imageVector = icon,
-                contentDescription = label,
+                contentDescription = null,
                 tint = if (isActive) activeTint else normalTint,
                 modifier = Modifier.size(20.dp),
             )
@@ -404,6 +408,8 @@ fun PopupMenuItem(
                 color =
                     if (isActive) {
                         activeTint
+                    } else if (destructive) {
+                        ProstoDestructive
                     } else if (isDark) {
                         Color(0xFFF1F5F9)
                     } else {

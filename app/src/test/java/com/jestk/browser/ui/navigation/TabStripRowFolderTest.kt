@@ -532,7 +532,6 @@ class TabStripRowFolderTest {
                     isDark = false,
                     onCloseTab = {},
                     onCopyUrl = {},
-                    onAddFavorite = {},
                     folderId = null,
                     availableFolders = listOf(
                         TabFolder(id = "f1", title = "Work", color = 0xFF2196F3.toInt())
@@ -562,7 +561,6 @@ class TabStripRowFolderTest {
                     isDark = false,
                     onCloseTab = {},
                     onCopyUrl = {},
-                    onAddFavorite = {},
                     folderId = "f1",
                     onRemoveFromFolder = { removeClicked = true },
                 )
