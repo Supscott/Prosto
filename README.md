@@ -162,7 +162,7 @@ Prosto follows Clean Architecture principles with Jetpack Compose.
 ## Planned
 
 - [ ] **Smart tab auto-grouping** *(partly done)*: Prosto already suggests a folder for tabs of one site; automatic grouping by topic is next.
-- [ ] **Cross-device sync:** secure cloud synchronization for open tabs, bookmarks and settings.
+- [ ] **Cross-device sync:** secure cloud synchronization for open tabs, favorites and settings.
 - [ ] **Plugins and mods:** user-scriptable extensions and community add-ons.
 
 ---

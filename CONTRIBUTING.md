@@ -10,10 +10,10 @@ This project adheres to the Contributor Covenant [Code of Conduct](CODE_OF_CONDU
 
 1. Fork the repository and clone your fork locally:
    ```bash
-   git clone https://github.com/<your-username>/browser.git
-   cd browser
+   git clone https://github.com/<your-username>/Prosto.git
+   cd Prosto
    ```
-2. Open the project in **Android Studio Ladybug (or newer)**.
+2. Open the project in a recent **Android Studio**.
 3. Ensure JDK 17 or JDK 23 is configured as your Gradle JDK.
 4. Run `./gradlew assembleDebug` to verify that everything builds cleanly.
 

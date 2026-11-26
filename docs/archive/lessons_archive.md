@@ -71,3 +71,10 @@ Retired lessons that are permanently guarded by automated tests, assertions, or 
 - **Cause:** The pi-lens Kotlin analysis server (fwcd kotlin-language-server 1.3.13) caches the project module snapshot (source file list, R class, Gradle classpath) at startup. After new source files, new string resources or a new Gradle dependency are added, it keeps analysing edited files against the old snapshot and reports phantom 'Unresolved reference' errors for brand-new symbols, new R fields and even the whole test classpath (junit/truth/robolectric).
 - **Do:** Verify with the real compiler first (./gradlew :app:compileDebugKotlin and :app:testDebugUnitTest) and, when the LSP still disagrees, restart the analysis server (kill the kotlin-language-server java process) so it re-imports the project; only then trust its diagnostics.
 - **Don't:** Do not chase LSP 'Unresolved reference' errors on freshly added files or resources, and do not rewrite correct code to satisfy them - a green Gradle compile plus a green test suite is the authority.
+
+## Retired Lesson: awaitEachGesture early return before suspending pointer method causes 100% CPU freeze (ANR)
+- **Graduated On:** 2026-11-26
+- **Graduation Reason:** stalest of 12 active lessons; retired to make room for the Coil/runBlocking lesson (budget 10-12)
+- **Cause:** `awaitEachGesture` wraps an internal `while (currentCoroutineContext().isActive)` loop. If a condition exits the lambda before calling a suspending pointer method, the loop spins indefinitely without suspending on the main thread.
+- **Do:** Ensure the very first statement inside `awaitEachGesture` is a suspending call (such as `awaitFirstDown()`), and suspend on `awaitPointerEvent` until pointers release if waiting for an ongoing animation.
+- **Don't:** Return early from `awaitEachGesture` before a suspending pointer method is invoked.

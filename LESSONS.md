@@ -12,62 +12,62 @@ Active, non-obvious gotchas that cannot yet be prevented by static typing or lin
 > [`docs/archive/lessons_archive.md`](docs/archive/lessons_archive.md); the pre-Harness^2 log is
 > frozen in [`docs/archive/lessons_legacy.md`](docs/archive/lessons_legacy.md) and must not be edited.
 
-## 1. awaitEachGesture early return before suspending pointer method causes 100% CPU freeze (ANR)
-- **Cause:** `awaitEachGesture` wraps an internal `while (currentCoroutineContext().isActive)` loop. If a condition exits the lambda before calling a suspending pointer method, the loop spins indefinitely without suspending on the main thread.
-- **Do:** Ensure the very first statement inside `awaitEachGesture` is a suspending call (such as `awaitFirstDown()`), and suspend on `awaitPointerEvent` until pointers release if waiting for an ongoing animation.
-- **Don't:** Return early from `awaitEachGesture` before a suspending pointer method is invoked.
-
-## 2. Host long-lived drag gestures on the stable list node, never inside a reorderable LazyList item
+## 1. Host long-lived drag gestures on the stable list node, never inside a reorderable LazyList item
 - **Cause:** Child clickables consume `Main`-pass events, so a parent drag handler must observe `PointerEventPass.Initial`. Worse, reordering changes a slot's content type (active pill vs. inactive circle), so `LazyList` disposes and recreates the dragged item's `LayoutNode`; that detach path calls `HitPathTracker.removePointerInputModifierNode` -> `Node.dispatchCancel`, synthesizing a pointer cancel that aborts the drag mid-reorder and springs the item back. The gesture node is destroyed, so no `onDragEnd` follows.
 - **Do:** Host the long-press/drag loop on the stable `LazyRow`/list node, resolve the item id from the down position via `LazyListState.layoutInfo`, observe `PointerEventPass.Initial`, and consume only after the long-press timeout or touch slop. Keep item composables free of drag state and drag callbacks.
 - **Don't:** Put a long-lived `awaitEachGesture` loop inside a `LazyList` item that can be reordered, or rely on `PointerEventPass.Main` when the item contains clickable children.
 
-## 3. Kotlin default parameter evaluation trap with mutable state during drag-and-drop reorder
+## 2. Kotlin default parameter evaluation trap with mutable state during drag-and-drop reorder
 - **Cause:** Kotlin evaluates default arguments at the call site before entering the function body. Mutating state inside the function before using a default-initialized parameter binds to the stale pre-mutation state.
 - **Do:** Declare the parameter as nullable (`arg: Type? = null`) and resolve it inside the function body (`val effective = arg ?: mutableState`) after prerequisite mutations run.
 - **Don't:** Use mutable state properties directly as default function argument values when the function mutates that state.
 
-## 4. External-app handoffs bypass `shouldOverrideUrlLoading` for programmatic loads and subframes
+## 3. External-app handoffs bypass `shouldOverrideUrlLoading` for programmatic loads and subframes
 - **Cause:** WebKit calls the callback only for renderer-initiated navigations: it is skipped for app-initiated `loadUrl()` (address bar, incoming `ACTION_VIEW`) and subframe requests arrive with `isForMainFrame == false`. An early main-frame or http-only return silently swallows a site's `intent://` / `tg://` handoff.
 - **Do:** Route every entry point (main-frame clicks, subframe custom schemes, programmatic loads) through one resolver, resolve in `onPageStarted` / `doUpdateVisitedHistory` for direct loads, and load the site-declared `S.browser_fallback_url` when no app matches.
 - **Don't:** Gate external-app resolution on `request.isForMainFrame`, or expect custom-scheme URLs to reach `onPageStarted`.
 
-## 5. Auto-dismissed transient hints must not become permanent suppression
+## 4. Auto-dismissed transient hints must not become permanent suppression
 - **Cause:** A 5 s auto-timeout that records the domain as "dismissed" makes a later deliberate tap on the site's own "Open in app" control a silent no-op (`tg:resolve`, `intent://applink.instagram.com`); the page stays unchanged, so it looks like a broken button.
 - **Do:** Keep separate suppression tiers for explicit dismissal and for timeouts, pass whether the navigation came from a user gesture (`WebResourceRequest.hasGesture()`), and let gesture-initiated offers bypass timeout suppression.
 - **Don't:** Treat `onTimeout` and the user pressing "✕" as the same state, or let a timeout block a subsequent explicit handoff.
 
-## 6. Programmatic smooth scroll can override the selected carousel item
+## 5. Programmatic smooth scroll can override the selected carousel item
 - **Cause:** Calling scrollTo({ behavior: 'smooth' }) to reveal an explicitly selected item fires intermediate scroll events. A scroll-position handler that infers the active item can then overwrite the selection, especially when the target is clamped at the rail edge.
 - **Do:** Set the active item explicitly before starting the animation and hold a short guard that ignores scroll-driven selection until the programmatic scroll settles.
 - **Don't:** Let a scroll listener infer the active item while a programmatic smooth-scroll animation is still running.
 
-## 7. A data class that carries a ByteArray compares by reference, so equal domain states look different
+## 6. A data class that carries a ByteArray compares by reference, so equal domain states look different
 - **Cause:** Kotlin generates equals/hashCode for a data class by comparing each property with ==. For a ByteArray that is reference equality, so two domain objects built from identical bytes are not equal and hash differently. Anything that compares such an object - a UI state equality check, a distinctUntilChanged on a flow, a recomposition key - then reads an unchanged value as a change (or misses a real one). The same trap applies to Bitmap and to every other array-like type that does not implement structural equality.
 - **Do:** Wrap binary payloads in a small value class that compares with contentEquals and contentHashCode (see domain/model/AppIcon.kt, which carries the app icon as PNG bytes so that the domain layer stays free of android.graphics.Bitmap), and keep the raw array out of the data class property list.
 - **Don't:** Do not put a ByteArray - or a Bitmap, or any other type without structural equality - directly into a data class that participates in equality, and do not rely on the generated equals/hashCode for arrays.
 
-## 8. Anti-bot checks see every artefact an injected script leaves on the page
+## 7. Anti-bot checks see every artefact an injected script leaves on the page
 - **Cause:** Cloudflare/WAF scripts compare the page with real Chrome: `Function.prototype.toString.call(fn)` reveals replaced natives (an own `toString` override does not help), `Object.getOwnPropertyNames(window)` lists every injected global (also non-enumerable ones), and the Cloudflare "Just a moment..." interstitial is served on the protected site's own domain, so a host allowlist does not exempt it. Client Hints were already correct; the injected `matchMedia` polyfill and ad-block stubs were the signals.
 - **Do:** Keep Client Hints native (rename only "Android WebView"), keep injected scripts free of `window.*` names and native replacements, patch a native only while it is needed, skip pages whose title is "Just a moment...", and re-run the CDP fingerprint probe (review spec §5) against Chrome on the same device after touching any injected script.
 - **Don't:** Never add globals or `toString` "stealth", never polyfill `matchMedia` for the theme (use the Activity theme), and never assume a challenge is only on challenges.cloudflare.com. `X-Requested-With` and the missing `window.chrome` are WebView-inherent (DuckDuckGo has them too); do not fake them.
 
-## 9. Pages restored from the back/forward cache never call onPageFinished
+## 8. Pages restored from the back/forward cache never call onPageFinished
 - **Cause:** With WebSettingsCompat.setBackForwardCacheEnabled, Back restores the frozen page: WebView reports onPageStarted, onPageCommitVisible and 100% progress, but no onPageFinished. Everything hung on onPageFinished (tab snapshot, title and history update, theme color, PageLoadTiming) silently skips, so the tab snapshot keeps showing the page the user went back from.
 - **Do:** Treat 100% progress without onPageFinished as a finished load: JestkWebViewClient.onProgressComplete runs the end-of-load work once after a short delay and ignores a late real onPageFinished for the same navigation. Re-check Back on a real device after touching page lifecycle code.
 - **Don't:** Do not assume onPageStarted and onPageFinished come in pairs, and do not put work that must run after every visible navigation only in onPageFinished.
 
-## 10. doUpdateVisitedHistory reports the previous page's title during a cross-document navigation
+## 9. doUpdateVisitedHistory reports the previous page's title during a cross-document navigation
 - **Cause:** WebView calls doUpdateVisitedHistory when the new URL commits, but for a cross-document load WebView.title still returns the old document's title until the new one parses its <title>. onPageStarted may arrive just before or just after the callback. Recording the title there gave history visits and tabs the previous page's title (PRO-42).
 - **Do:** Take the title in doUpdateVisitedHistory only for same-document (history API) navigations, decided after both callbacks ran (view.post, see JestkWebViewClient.doUpdateVisitedHistory); for cross-document loads take it from onReceivedTitle or onPageFinished.
 - **Don't:** Do not read view.title in doUpdateVisitedHistory or onPageStarted and store it as the new page's title.
 
-## 11. Chromium suspends a playing video natively when the WebView window is hidden
+## 10. Chromium suspends a playing video natively when the WebView window is hidden
 - **Cause:** When the WebView's window becomes invisible (screen off, app in background), Chromium pauses <video> elements below JavaScript: play() from a script cannot resume them, while <audio> keeps playing. YouTube also unloads its player on visibilitychange to hidden. JS tricks (faking document.visibilityState, re-calling play()) do not help (PRO-23).
 - **Do:** Keep the page visible to Chromium during background playback through onWindowVisibilityChanged (NestedWebView.setKeepPageVisible), and verify on a device with the screen off: unit tests and Robolectric cannot see this.
 - **Don't:** Do not try to keep background video alive from injected JS (visibility overrides, play() loops), and do not assume <audio> behaviour applies to <video>.
 
-## 12. Extra Gradle script plugins belong in gradle/, not in a module directory
+## 11. Extra Gradle script plugins belong in gradle/, not in a module directory
 - **Cause:** Lint parses every *.gradle.kts in the module as a build script and crashed on top-level val/fun (PRO-180)
 - **Do:** Put extra Gradle script plugins (apply(from=...)) in gradle/, with no top-level properties
 - **Don't:** Do not put a *.gradle.kts with top-level val or fun in a module directory, and do not verify a Gradle change with the default verify set alone (run verify.sh --changed)
+
+## 12. Coil ImageLoader.execute() inside runBlocking on the Robolectric main thread deadlocks
+- **Cause:** Coil completes its requests on Dispatchers.Main, so a blocking runBlocking waiting on execute() on the Robolectric main looper never returns
+- **Do:** Use imageLoader.enqueue() and CoilIdleTracker.awaitIdle, or run the load off the main thread
+- **Don't:** Call ImageLoader.execute() inside runBlocking in a Robolectric test on the main thread

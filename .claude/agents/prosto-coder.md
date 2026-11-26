@@ -41,7 +41,7 @@ and the commit message. Follow the brief where it is more specific than this fil
 - Mass Robolectric native errors (UnsatisfiedLinkError, SQLite open) across unrelated classes:
   rerun once with `LOW_MEM=1`, then report; do not chase them. On a Kotlin OOM use `LOW_MEM=1`.
 - Final verification: `rtk tools/verify.sh --changed` (it runs Lint when a Gradle script or manifest changed), plus `rtk tools/verify.sh` (or `--ui` for UI work). The default set alone misses Lint.
-- Run new test classes alone first, with `GRADLE_TIMEOUT=300` (the clock starts after the lock). Do not pass `-i`; verify.sh prints the summary.
+- Run new test classes alone first, with `GRADLE_TIMEOUT=600` (the timeout includes the Kotlin test compile, ~3 min in a fresh worktree; the clock starts after the lock). Do not pass `-i`; verify.sh prints the summary.
 - `CLAUDE.md` is a symlink that the Edit tool refuses: edit `AGENTS.md` instead.
 
 ## UI work

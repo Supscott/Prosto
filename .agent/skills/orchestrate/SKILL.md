@@ -43,7 +43,7 @@ while the agents work.
   lock (`tools/gradle_lock.sh`), so agents overlap only in reading/editing. Main-session builds
   queue too. Shell/Python harness agents that do not run Gradle can be a third.
 - **One shared test run (user's rule).** Parallel coding agents run only their own new/edited
-  test classes (with `GRADLE_TIMEOUT=300`, which starts after the lock; no `-i`), previews and invariants, then commit; no full
+  test classes (with `GRADLE_TIMEOUT=600`, which starts after the lock (the timeout includes the Kotlin test compile, ~3 min in a fresh worktree); no `-i`), previews and invariants, then commit; no full
   `verify.sh`. The orchestrator merges all branches and runs `verify.sh --all` once on main.
   If an agent's build idles at 0% CPU while others wait on the lock, kill its test JVM.
 - **Model:** Haiku for shell/Python harness scripts, Sonnet for Kotlin/Compose features and for

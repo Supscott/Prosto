@@ -15,103 +15,56 @@ How to keep it useful:
 
 ## Entries
 - 2026-11-26 — Orchestrator 57 turns, 1245k Opus units for 7 issues (2026-11-20: 189 turns,
-  4950k): device checks and late edits were delegated, findings filed in Linear as they came.
-  `prosto-reviewer` on a 1177-line Kotlin branch (PRO-172): 8 turns, 115k Sonnet units, 9
-  findings, 2 real bugs (a grant after the tab closed during the OS dialog; Chromium's
-  grant(subset) is a deny), both confirmed in code and fixed by a 6-min SendMessage fix-up.
-  → Run the reviewer on every Kotlin branch over ~100 lines. `prosto-device` with 13 checks
-  (smoke + 9 permission + 4 favorites): 187 turns, 1237k Sonnet, the session's most expensive
-  agent; 6 checks took 29 turns/114k, a 2-check recheck 16 turns/57k → one device run under ~8
-  checks, split longer lists. Coders: PRO-172 feature (26 files) 54 turns 1159k; PRO-179 menu
-  item 34 turns 656k; tests PRO-177/178 50 turns 753k; README 19 turns 271k; Haiku device.sh
-  harness 37 turns 748k Haiku. A device check found what no unit test could: WebView
-  getUserMedia audio failed with NotReadableError until MODIFY_AUDIO_SETTINGS was declared.
-  → Permission checks need a reset of the user-fixed flag between runs (PRO-186).
-- 2026-11-25 — Grouping 3 small issues per Sonnet agent: 1487k and 1418k units for 3 and 2 issues
-  (67–68 turns), ~470–700k per issue, in line with the single-issue baseline; both were cut off
-  by the 5-hour usage limit and resumed by SendMessage without loss. Haiku harness agent (2 issues,
-  device.sh + Python): 758k Haiku units, 31 turns. Device agents (Sonnet): 152–304k; a BLOCKED
-  (locked phone) run costs ~19k, so launching and retrying is cheap. Opus orchestrator: 72 turns,
-  1369k units for 8 issues. Miss: a coder that ran only the default verify set let a lint crash
-  through (PRO-180) → coders finish with `verify.sh --changed`.
-- 2026-11-25 — PRO-140…160 (11 Todo + 10 follow-ups closed or merged; phone absent, so 9 wait
-  in In Review). Haiku harness 89–313k/8–25 turns (one 3-issue split 610k); Sonnet 260k (one pill
-  issue), 375k (3 small UI issues); Sonnet 1082k/62 turns for 3 unrelated test issues, one of
-  which hung a Gradle worker on an endless spinner (→ PRO-164). Opus orchestrator 1590k/74 turns,
-  half of the calls Linear writes. → Group only issues that share files; filing each agent's
-  findings and launching a fresh small Haiku agent per follow-up kept every fix cheap. Two
-  AGENTS.md rebase conflicts (parallel edits to adjacent bullets) were resolved by a scripted merge.
-- 2026-11-24 — PRO-121…139 (15 Todo issues closed, 1 already done): Sonnet 189–817k (UI pair
-  233k/25, Room test 189k/17), PRO-121 SDK move 1016k with 308 Edits over 74 files, Haiku harness
-  485–504k, device 833k/148 over 3 runs (one BLOCKED on a locked phone), Opus orchestrator
-  1665k/72. PRO-127's brief assumed `NO_HIDE_DESCENDANTS` suffices; it shipped green and failed
-  on the phone (uncompressed dumps ignore importance); a SendMessage fix-up + TEMP log fixed it.
-  Reading harness diffs again found 2 bugs (a leaked temp dir, a `*preview*` name filter that
-  hid most PNGs). → Skill step 4: a11y fetch flags; scripted step for mass mechanical edits.
-- 2026-11-24 — PRO-106…124 (17 issues closed): Haiku harness 229–459k/20–39 turns, Sonnet UI and
-  data 325–764k, mover 359k, reviewer 127k/9, device 618–671k/113–121, Opus orchestrator
-  2586k/87. Reading the Haiku harness diffs found 3 bugs their own checks missed (a pathspec that
-  skipped 2 of 3 tests, `tapui ""` tapping a switch, a saved timeout lost on an adb failure).
-  PRO-112's first fix passed its reproduction and was closed, then 232 failures came back: the
-  real cause was a race (concurrent native loads), found by a Sonnet run (1150k/82). → Keep
-  reading harness diffs; never close a flaky failure on one green reproduction, repeat it and
-  prove the mechanism.
-- 2026-11-23 — PRO-95…105 (11 issues): Sonnet downloads 489k/41 turns, UI 198k/20, mover 231k/18,
-  Haiku harness 484k/44, device 572k/97, Opus orchestrator 2179k/72. First `prosto-reviewer` run
-  (158k, 11 turns): 4 of its findings fixed (boxing on the main thread, TalkBack stops, unconsumed
-  hint, name limit), 1 rejected (`isTrusted` would drop names on `a.click()`). → Keep step 6.0.
-- 2026-11-22 — PRO-93 (Sonnet, 59 turns, 913k) hung its test JVM twice at 0% CPU (its test used
-  the TestScope as the engine scope; a `withContext(Main)` hop deadlocked the Robolectric looper)
-  and held the Gradle lock ~26 min, so PRO-94 (Sonnet, 35 turns, 436k) waited; the user saw it
-  first. Haiku PRO-91+92: 246k. After the user asked, both agents committed after their own tests
-  and one `verify.sh --all` on main passed 1671/1671. → "One shared test run" rule; PRO-97
-  (Gradle test timeout).
-- 2026-11-20 — Main-session transcript of the 2026-11-20 orchestration (`agent_cost.py` works on
-  it): 189 turns, 40M cache reads, 4950k Opus units. Of 228 Bash calls about half were device
-  commands (`device.sh`/`smoke.sh`/adb); of 92 edits, 80 were skills, docs and `tools/`, 13 were
-  `app/`. Per `/cost`, one main call cost ~$0.067, more than the whole Haiku run ($0.04).
-  → `prosto-device` agent (Sonnet) runs the checks; no late harness edits in the orchestrator,
-  batch them to one Haiku agent; measure the orchestrator from its transcript. Not measured
-  yet: the first `prosto-device` run's cost and whether the auto-mode classifier lets a
-  subagent run adb.
-- 2026-11-20 — `/cost` for the whole session: $14.43, of which the Opus main session $11.25
-  (78%): 35.4M cache-read tokens over 169 requests, about 210k of context per call. Sonnet agents
-  $3.13, Haiku $0.04. The orchestrator, not the agents, was the cost; it did device checks, two
-  small fixes and harness edits late, at full context, and took three unrelated follow-up tasks
-  without a /clear. Per the usage report, unused skills added ~15k tokens per request.
-  → Measure the orchestrator; small fixes in the main session only while its context is small;
-  /clear after the pipeline; the `prosto-coder` agent type holds the standing brief rules;
-  unused plugins and skills turned off in `.claude/settings.local.json`.
-- 2026-11-20 — PRO-84 and PRO-86 built at the same time on the 8 GB machine: a 34 min preview
-  run, a Kotlin OOM, a stall the user saw; 932k and 989k units, driven by build length (Yield
-  was the cheapest way to wait). After the lock, PRO-82 ran with no OOM; the main session's
-  install queued 125 s. → `tools/gradle_lock.sh` in verify/preview/install.
-- 2026-11-20 — The phone was on battery (`dumpsys battery`: no USB/AC power) over wireless adb,
-  so `stayon usb` had no effect, and its 60 s screen timeout locked it while an install waited
-  for the lock. → `wake` raises `screen_off_timeout`; `sleep` restores it.
-- 2026-11-20 — PRO-83 (new prompt card + 5 dialogs moved onto it), Sonnet, 24 turns, 519k. Three
-  fixes after the agent: the dim over the dock (my brief said "whole screen"; the user disliked
-  it on the phone), a lone primary button wrapped onto its own line (the brief said only "wrap"),
-  grey text in dark theme (the agent skipped the dark PNG). All three would have shown up in one
-  preview before the migration. → Mock first for new visual components, edge-case layout in the
-  brief, visual self-check in the template.
-- 2026-11-20 — PRO-77…80 with pre-located briefs: numbers in *Baselines*; a research agent as a
-  third parallel agent cost no memory. Its follow-ups (stale classes, FLAG_SECURE) became PRO-81/82.
-- 2026-11-19 — PRO-75 incognito (35 files) on one Sonnet agent: 79 turns, 2008k units. Haiku did
-  two harness issues (PRO-70+71) for 375k. Green tests plus lint missed that
-  `ProfileStore.deleteProfile` refuses any profile loaded in this process; the brief's design
-  assumed it worked. The agent's "platform assumptions" list named it, and the device check
-  confirmed it. → Check platform API contracts before designing; split features of more than
-  25 files.
-- 2026-11-19 — Device checks found 3 bugs that 1572 green tests missed: quick tiles clipped at font
-  scale 1.15 (fixed height), the per-site exclusion skipped every userInitiated offer (link taps are
-  userInitiated), the folder chip covered the open menu. → UI brief rules; never mark a UI issue
-  Done before the phone check.
-- 2026-11-19 — PRO-66 polled its background Gradle 20 times with Monitor (593k, repeated
-  hand-backs); PRO-64 chased 188 failures caused by a concurrent Gradle run (902k). → Foreground
-  Gradle, LOW_MEM=1 rerun instead of chasing; the first sign of what the Gradle lock now prevents.
-  Worktrees started 18 commits behind main → `git merge --ff-only main` first.
+  4950k). `prosto-reviewer` on a 1177-line branch (PRO-172): 8 turns, 115k Sonnet, 9 findings,
+  2 real bugs (both fixed by a SendMessage fix-up) → review every Kotlin branch over ~100 lines.
+  `prosto-device` with 13 checks: 187 turns, 1237k Sonnet; 6 checks 29 turns/114k; a 2-check
+  recheck 16 turns/57k → one device run under ~8 checks. Coders: PRO-172 feature (26 files)
+  54 turns 1159k; PRO-179 menu item 34 turns 656k; tests PRO-177/178 50 turns 753k; README
+  19 turns 271k; Haiku device.sh harness 37 turns 748k. A device check found what no unit test
+  could (WebView getUserMedia failed until MODIFY_AUDIO_SETTINGS was declared) → permission
+  checks reset the user-fixed flag between runs (PRO-186).
+- 2026-11-25 — Grouping 2–3 small issues per Sonnet agent: 67–68 turns, ~470–700k per issue.
+  Haiku harness agent (2 issues): 758k, 31 turns. Device agents 152–304k; a BLOCKED run (locked
+  phone) costs ~19k. Miss: a coder that ran only the default verify set let a lint crash through
+  (PRO-180) → coders finish with `verify.sh --changed`.
+- 2026-11-25 — PRO-140…160: Haiku harness 89–313k; Sonnet 260–375k for small UI issues; Sonnet
+  1082k/62 turns for 3 unrelated test issues, one hung a Gradle worker (→ PRO-164). → Group only
+  issues that share files; a fresh small Haiku agent per follow-up kept fixes cheap.
+- 2026-11-24 — PRO-106…139 (32 issues): Haiku harness 229–504k; Sonnet UI/data 189–817k; device
+  833k/148 over 3 runs; Opus orchestrator 1665–2586k/72–87 turns. PRO-127's brief assumed
+  `NO_HIDE_DESCENDANTS` hides views from TalkBack; it shipped green and failed on the phone
+  (uncompressed dumps ignore importance) → a11y fetch flags in the brief. Reading Haiku harness
+  diffs found 3 bugs their own checks missed (→ keep reading harness diffs). PRO-112's first fix
+  passed one reproduction, then 232 failures came back: a race (concurrent native loads) → never
+  close a flaky failure on one green run; prove the mechanism.
+- 2026-11-23 — PRO-95…105: Sonnet downloads 489k/41 turns, UI 198k/20; Haiku harness 484k/44;
+  device 572k/97; Opus orchestrator 2179k/72. First `prosto-reviewer` run (158k, 11 turns): 4 of
+  5 findings fixed, 1 rejected (`isTrusted` would drop names on `a.click()`) → keep the review step.
+- 2026-11-22 — PRO-93 (Sonnet, 59 turns, 913k) hung its test JVM twice at 0% CPU (the TestScope
+  was used as the engine scope; a `withContext(Main)` hop deadlocked the Robolectric looper) and
+  held the Gradle lock ~26 min; the user saw it first → "One shared test run" rule; PRO-97.
+- 2026-11-20 — The orchestrator's own transcript: 189 turns, 40M cache reads, 4950k units; half
+  of its 228 Bash calls were device commands, and 80 of 92 edits were skills, docs and `tools/`
+  → `prosto-device` agent runs the checks; late harness edits go to one Haiku agent. Session
+  `/cost` $14.43, of which the Opus main session $11.25 (~210k context per call); Haiku $0.04.
+- 2026-11-20 — Two builds at once on the 8 GB machine: a 34 min preview run and a Kotlin OOM
+  (932k and 989k units) → `tools/gradle_lock.sh` in verify, preview and install.
+- 2026-11-20 — On battery over wireless adb, `stayon usb` had no effect and the 60 s screen
+  timeout locked the phone mid-install → `wake` raises `screen_off_timeout`; `sleep` restores it.
+- 2026-11-20 — PRO-83 (new prompt card, Sonnet, 24 turns, 519k): three fixes after the agent (a
+  dim over the dock the user disliked, a lone button wrapped onto its own line, grey text in dark
+  theme). One preview before the migration would have shown all three → mock first for new
+  visual components; edge-case layout in the brief.
+- 2026-11-20 — PRO-77…80 with pre-located briefs: a research agent as a third parallel agent
+  cost no memory. → pre-located briefs (*Baselines*).
+- 2026-11-19 — PRO-75 incognito (35 files) on one Sonnet agent: 79 turns, 2008k units; its
+  design assumed `ProfileStore.deleteProfile` worked for a loaded profile, which it refuses; the
+  device check confirmed it → check platform API contracts before the design; split >25 files.
+- 2026-11-19 — Device checks found 3 bugs that 1572 green tests missed (quick tiles clipped at
+  font scale 1.15; per-site exclusion skipped link taps; folder chip covered an open menu) →
+  never mark a UI issue Done before the phone check.
+- 2026-11-19 — Background Gradle polled 20 times with Monitor (593k); a concurrent Gradle run
+  caused 188 failures (902k) → foreground Gradle, LOW_MEM=1 rerun instead of chasing.
 - 2026-11-18 — PRO-51…60: the token-discipline block cut Sonnet runs to 328k from 462–773k; a
-  continued agent ~750k; Haiku harness correct (→ now in `prosto-coder.md` and *Baselines*).
-- 2026-11-18 — `--changed` missed related tests (→ `related_tests.py`, `--all` after the last
-  merge); an agent put a BROWSABLE debug filter in the main manifest (→ review step 6.1).
+  continued agent ~750k; Haiku harness correct. `--changed` missed related tests (→
+  `related_tests.py`); an agent put a BROWSABLE debug filter in the main manifest (→ review step 6.1).

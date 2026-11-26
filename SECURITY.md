@@ -2,10 +2,7 @@
 
 ## Supported Versions
 
-| Version | Supported          |
-| ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
-| < 0.1   | :x:                |
+Only the latest release of Prosto Browser receives security fixes. Update to the latest release before reporting an issue.
 
 ## Reporting a Vulnerability
 
