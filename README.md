@@ -71,7 +71,7 @@
 - **Open in app:** links that have an app (Telegram, Instagram and others) offer to open it. You can turn the offer off per site.
 - **Downloads:** pause, resume and cancel. Interrupted transfers resume via HTTP `Range`. Prosto asks before downloading a file you already have, and a failed download says so in an in-app pill.
 - **Settings and tour:** settings are grouped into categories with their own screens, plus quick-toggle tiles for the switches you use most. A short stories-style tour shows the gestures; start it from the Home screen card or from Settings → About.
-- **In-app updates:** Prosto checks GitHub Releases for a new version, shows an update card and downloads the APK for you to install.
+- **In-app updates:** Prosto checks GitHub Releases for a new version, shows an update card and opens the release page to download it.
 
 ---
 
