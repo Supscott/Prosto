@@ -127,6 +127,8 @@ data class BrowserUiState(
     val contentBlocking: com.jestk.browser.engine.adblock.ContentBlockingStatus = com.jestk.browser.engine.adblock.ContentBlockingStatus(),
     /** The site the "Disable blocking" prompt is asking about; null while it is closed. */
     val siteBlockingPromptHost: String? = null,
+    /** The workspace of the tab that opened the prompt: a "this workspace" switch-off is scoped to it. */
+    val siteBlockingPromptWorkspaceId: String? = null,
 ) {
     val visibleSearchPageEngines: List<SearchEngine>
         get() = searchEngines.filter { it.id !in settings.hiddenSearchPageEngineIds }

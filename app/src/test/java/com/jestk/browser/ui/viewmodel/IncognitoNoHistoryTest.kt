@@ -9,11 +9,15 @@ import com.jestk.browser.data.repository.FavoriteRepositoryImpl
 import com.jestk.browser.data.repository.HistoryRepositoryImpl
 import com.jestk.browser.data.repository.IncognitoAwareTabRepository
 import com.jestk.browser.data.repository.TabRepositoryImpl
+import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.WebViewPool
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -107,5 +111,28 @@ class IncognitoNoHistoryTest {
         advanceUntilIdle()
 
         assertThat(historyRepo.getAllHistory().first().map { it.url }).containsExactly(url)
+    }
+
+    @Test
+    fun favorites_refuseIncognitoAndNonWebTabs_andSaveARegularTabToItsOwnWorkspace() = runTest(testDispatcher) {
+        val incognito = Tab(id = "i", url = "https://secret.example/", title = "Secret", isIncognito = true)
+        val local = Tab(id = "f", url = "file:///sdcard/a.html", title = "Local")
+        val web = Tab(id = "w", url = "https://example.com/", title = "Example", workspaceId = Workspace.DEFAULT_WORK_ID)
+        uiState = uiState.copy(tabs = listOf(incognito, local, web), activeTabId = "i", currentUrl = incognito.url)
+
+        coordinator.favorites.addTabToFavorites("i")
+        coordinator.favorites.addTabToFavorites("f")
+        coordinator.favorites.addCurrentToFavorites()
+        coordinator.favorites.addTabToFavorites("w")
+        advanceUntilIdle()
+        val dao = db.favoriteDao()
+        repeat(300) {
+            if (dao.getAllFavorites(Workspace.DEFAULT_WORK_ID).isNotEmpty()) return@repeat
+            withContext(Dispatchers.Default) { delay(10) }
+            advanceUntilIdle()
+        }
+
+        assertThat(dao.getAllFavorites(Workspace.DEFAULT_WORK_ID).map { it.url }).containsExactly("https://example.com/")
+        assertThat(dao.getAllFavorites(Workspace.DEFAULT_PERSONAL_ID)).isEmpty()
     }
 }

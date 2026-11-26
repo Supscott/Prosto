@@ -45,18 +45,20 @@ internal class SiteAllowlistEventHandler(
         when (event) {
             is OpenDisableBlockingPrompt -> {
                 val site = allowlistSiteOf(event.url) ?: return
-                updateUiState { it.copy(siteBlockingPromptHost = site) }
+                updateUiState { it.copy(siteBlockingPromptHost = site, siteBlockingPromptWorkspaceId = event.workspaceId) }
             }
 
             is ConfirmDisableBlocking -> {
                 val state = getCurrentState()
                 val site = state.siteBlockingPromptHost ?: return
-                updateUiState { it.copy(siteBlockingPromptHost = null) }
-                val workspaceId = if (event.allWorkspaces) null else state.activeWorkspaceId
+                updateUiState { it.copy(siteBlockingPromptHost = null, siteBlockingPromptWorkspaceId = null) }
+                // The workspace of the tab that opened the prompt, not the active one.
+                val workspaceId = if (event.allWorkspaces) null else state.siteBlockingPromptWorkspaceId ?: state.activeWorkspaceId
                 change(reload = state.currentAllowlistSite == site) { it.add(site, workspaceId) }
             }
 
-            is DismissDisableBlockingPrompt -> updateUiState { it.copy(siteBlockingPromptHost = null) }
+            is DismissDisableBlockingPrompt ->
+                updateUiState { it.copy(siteBlockingPromptHost = null, siteBlockingPromptWorkspaceId = null) }
 
             is EnableBlockingForSite -> {
                 val state = getCurrentState()
@@ -64,7 +66,7 @@ internal class SiteAllowlistEventHandler(
                 // The tab menu acts on any tab; only the active tab can be reloaded, the others pick it up on their next load.
                 change(reload = state.currentAllowlistSite == site) { repo ->
                     repo.observe().first()
-                        .filter { it.covers(site, state.activeWorkspaceId) }
+                        .filter { it.covers(site, event.workspaceId) }
                         .forEach { repo.remove(it.host, it.workspaceId) }
                 }
             }

@@ -25,7 +25,6 @@ import com.jestk.browser.ui.theme.JestkBrowserTheme
 import com.jestk.browser.util.LocalVibrationFeedback
 import com.jestk.browser.util.VibrationFeedback
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -213,17 +212,51 @@ class TabContextMenuTest {
     }
 
     @Test
-    fun isReloadVisible_evaluatesCorrectlyForWebpageVsHome() {
-        fun computeIsReloadVisible(isHome: Boolean, url: String): Boolean =
-            !isHome && url.isNotBlank() && !url.startsWith("about:")
+    fun activeTabPillMenu_showsReloadOnAWebPage() {
+        showPillMenu(isHome = false, url = "https://example.com")
 
-        // Active webpage tab
-        assertTrue(computeIsReloadVisible(isHome = false, url = "https://example.com"))
+        composeTestRule.onNodeWithContentDescription("Reload").assertExists()
+    }
 
-        // Home tab or blank
-        assertFalse(computeIsReloadVisible(isHome = true, url = "https://example.com"))
-        assertFalse(computeIsReloadVisible(isHome = false, url = ""))
-        assertFalse(computeIsReloadVisible(isHome = false, url = "about:blank"))
+    @Test
+    fun activeTabPillMenu_hidesReloadOnHomeAndAboutPages() {
+        showPillMenu(isHome = true, url = "https://example.com")
+
+        composeTestRule.onNodeWithContentDescription("Reload").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("Copy URL").assertExists()
+    }
+
+    @Test
+    fun activeTabPillMenu_hidesReloadOnAboutBlank() {
+        showPillMenu(isHome = false, url = "about:blank")
+
+        composeTestRule.onNodeWithContentDescription("Reload").assertDoesNotExist()
+    }
+
+    private fun showPillMenu(isHome: Boolean, url: String) {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVibrationFeedback provides testVibration) {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        ActiveTabPill(
+                            title = "Example",
+                            domain = "example.com",
+                            url = url,
+                            faviconUrl = null,
+                            isHome = isHome,
+                            backgroundColor = androidx.compose.ui.graphics.Color.White,
+                            isDark = false,
+                            onOpenSearch = {},
+                            onClose = {},
+                            onShare = {},
+                            onReload = {},
+                            menuExpanded = true,
+                            onMenuDismiss = {},
+                        )
+                    }
+                }
+            }
+        }
     }
 
     @Test

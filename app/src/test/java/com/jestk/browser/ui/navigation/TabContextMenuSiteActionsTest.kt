@@ -116,7 +116,7 @@ class TabContextMenuSiteActionsTest {
 
         composeRule.onNodeWithText(string(R.string.menu_disable_blocking)).performClick()
 
-        assertThat(events).containsExactly(OpenDisableBlockingPrompt("https://www.other.test/x"))
+        assertThat(events).containsExactly(OpenDisableBlockingPrompt("https://www.other.test/x", Workspace.DEFAULT_PERSONAL_ID))
     }
 
     @Test
@@ -128,7 +128,40 @@ class TabContextMenuSiteActionsTest {
         composeRule.onNodeWithText(string(R.string.menu_disable_blocking)).assertDoesNotExist()
         composeRule.onNodeWithText(string(R.string.menu_enable_blocking)).performClick()
 
-        assertThat(events).containsExactly(EnableBlockingForSite("https://www.other.test/x"))
+        assertThat(events).containsExactly(EnableBlockingForSite("https://www.other.test/x", Workspace.DEFAULT_PERSONAL_ID))
+    }
+
+    @Test
+    fun blockingStateFollowsTheClickedTabsWorkspaceNotTheActiveOne() {
+        // The active workspace is Personal and the site is switched off there only; the tab lives in Work.
+        val entry = SiteAllowlistEntry("other.test", Workspace.DEFAULT_PERSONAL_ID, 1L)
+        val workTab = Tab(id = "w", url = "https://www.other.test/x", title = "Other", workspaceId = Workspace.DEFAULT_WORK_ID)
+        val state =
+            BrowserUiState(
+                currentUrl = "https://example.com/a",
+                tabs = listOf(Tab(id = "a", url = "https://example.com/a", isActive = true), workTab),
+                activeTabId = "a",
+                activeWorkspaceId = Workspace.DEFAULT_PERSONAL_ID,
+                siteAllowlist = listOf(entry),
+            )
+
+        val actions = tabMenuSiteActions(workTab, state) { events += it }
+
+        assertThat(actions.isSiteAllowlisted).isFalse()
+        actions.onToggleBlocking!!.invoke()
+        assertThat(events).containsExactly(OpenDisableBlockingPrompt("https://www.other.test/x", Workspace.DEFAULT_WORK_ID))
+    }
+
+    @Test
+    fun incognitoTabHasNoStarButKeepsTheBlockingRow() {
+        val incognito = Tab(id = "i", url = "https://secret.example/", title = "Secret", isIncognito = true)
+        val state = BrowserUiState(currentUrl = "https://example.com/a", tabs = listOf(incognito), activeTabId = "x")
+
+        val actions = tabMenuSiteActions(incognito, state) {}
+
+        assertThat(actions.onToggleFavorite).isNull()
+        assertThat(actions.isFavorite).isFalse()
+        assertThat(actions.onToggleBlocking).isNotNull()
     }
 
     @Test

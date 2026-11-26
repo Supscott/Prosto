@@ -20,12 +20,15 @@ internal fun BrowserUiState.pageUrlOf(tab: Tab): String =
     if (tab.id == activeTabId) currentUrl.ifEmpty { tab.url } else tab.url
 
 /** The URL of the page in [tab] when it is an http(s) page; null on Home and internal pages. */
-fun BrowserUiState.favoritablePageUrl(tab: Tab): String? {
+fun BrowserUiState.webPageUrl(tab: Tab): String? {
     if (tab.id == activeTabId && isHome) return null
     val url = pageUrlOf(tab).trim()
     val isWebPage = url.startsWith("http://", ignoreCase = true) || url.startsWith("https://", ignoreCase = true)
     return url.takeIf { isWebPage }
 }
+
+/** [webPageUrl] of [tab], except that incognito tabs are never saved to favorites. */
+fun BrowserUiState.favoritablePageUrl(tab: Tab): String? = if (tab.isIncognito) null else webPageUrl(tab)
 
 /** The favorite of the tab's workspace that holds the tab's page, or null when it is not saved. */
 fun BrowserUiState.favoriteOf(tab: Tab): FavoriteItem? {

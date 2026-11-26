@@ -1,8 +1,8 @@
 package com.jestk.browser.ui.viewmodel.tabs
 
 import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.ui.viewmodel.favoritablePageUrl
 import com.jestk.browser.ui.viewmodel.normalizeFavoriteUrl
-import com.jestk.browser.ui.viewmodel.pageUrlOf
 import com.jestk.browser.ui.viewmodel.tabById
 import kotlinx.coroutines.launch
 
@@ -15,24 +15,14 @@ internal class TabFavorites(
     private val ioDispatcher = ctx.ioDispatcher
 
     fun addCurrentToFavorites() {
-        val current = getCurrentState()
-        if (current.currentUrl.isNotEmpty() && !current.currentUrl.startsWith("about:")) {
-            val activeTab = current.tabs.find { it.id == current.activeTabId }
-            save(
-                url = current.currentUrl,
-                title = current.pageTitle,
-                tabFavicon = activeTab?.faviconUrl,
-                targetWorkspace = activeTab?.workspaceId ?: current.activeWorkspaceId,
-            )
-        }
+        addTabToFavorites(getCurrentState().activeTabId ?: return)
     }
 
-    /** Saves the page of the tab [tabId] (active or not) to that tab's workspace. */
+    /** Saves the http(s) page of the tab [tabId] (active or not, never incognito) to that tab's workspace. */
     fun addTabToFavorites(tabId: String) {
         val current = getCurrentState()
         val tab = current.tabById(tabId) ?: return
-        val url = current.pageUrlOf(tab)
-        if (url.isEmpty() || url.startsWith("about:")) return
+        val url = current.favoritablePageUrl(tab) ?: return
         val title = if (tab.id == current.activeTabId) current.pageTitle else tab.title
         save(url = url, title = title, tabFavicon = tab.faviconUrl, targetWorkspace = tab.workspaceId)
     }
