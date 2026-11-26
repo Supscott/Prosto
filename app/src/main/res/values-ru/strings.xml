@@ -312,8 +312,6 @@
     <string name="workspace_home_tab">Главная</string>
     <string name="menu_tabs">Вкладки</string>
     <string name="folder_untitled">Папка</string>
-    <string name="toast_added_to_favorites">Добавлено в избранное</string>
-    <string name="toast_cannot_add_home_to_favorites">Главную нельзя добавить в избранное</string>
     <string name="toast_no_url_to_copy">Нет адреса для копирования</string>
     <string name="toast_no_url_to_share">Нет адреса, чтобы поделиться</string>
     <string name="toast_share_failed">Не удалось поделиться ссылкой</string>

@@ -58,7 +58,6 @@ class DockRefinementsTest {
                             loadingProgress = 0.65f,
                             onOpenSearch = {},
                             onClose = {},
-                            onAddFavorite = { _, _ -> },
                             onShare = {},
                             modifier = Modifier.width(200.dp)
                         )

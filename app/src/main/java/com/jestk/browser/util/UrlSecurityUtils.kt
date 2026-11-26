@@ -39,7 +39,8 @@ object UrlSecurityUtils {
         }
     }
 
-    private val LOOPBACK_IPV4 = Regex("""127(\.\d{1,3}){3}""")
+    /** 127.x.y.z with every octet 0..255 and no leading zeros (a leading zero reads as octal in some parsers). */
+    private val LOOPBACK_IPV4 = Regex("""127(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}""")
 
     /**
      * True for hosts that never leave the device: localhost, *.localhost, 127.0.0.0/8 and ::1.

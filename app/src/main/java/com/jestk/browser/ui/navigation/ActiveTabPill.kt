@@ -1,6 +1,5 @@
 package com.jestk.browser.ui.navigation
 
-import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
@@ -105,9 +104,9 @@ fun ActiveTabPill(
     isDark: Boolean,
     onOpenSearch: () -> Unit,
     onClose: () -> Unit,
-    onAddFavorite: (String, String) -> Unit,
     onShare: (String) -> Unit,
     modifier: Modifier = Modifier,
+    siteActions: TabMenuSiteActions = TabMenuSiteActions.None,
     border: BorderStroke? = null,
     isLoading: Boolean = false,
     loadingProgress: Float = 0f,
@@ -376,14 +375,10 @@ fun ActiveTabPill(
                 onCopyUrl = {
                     copyUrlToClipboard(context, url)
                 },
-                onToggleFavorite = {
-                    if (url.isNotBlank() && !url.startsWith("about:")) {
-                        onAddFavorite(title, url)
-                        Toast.makeText(context, R.string.toast_added_to_favorites, Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, R.string.toast_cannot_add_home_to_favorites, Toast.LENGTH_SHORT).show()
-                    }
-                },
+                isFavorite = siteActions.isFavorite,
+                onToggleFavorite = siteActions.onToggleFavorite,
+                isSiteAllowlisted = siteActions.isSiteAllowlisted,
+                onToggleBlocking = siteActions.onToggleBlocking,
                 onShareLink = { onShare(url) },
                 onReload = if (!isHome && url.isNotBlank() && !url.startsWith("about:")) onReload else null,
                 folderId = folderId,

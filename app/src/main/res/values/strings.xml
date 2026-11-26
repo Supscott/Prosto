@@ -304,8 +304,6 @@
     <string name="workspace_home_tab">Home</string>
     <string name="menu_tabs">Tabs</string>
     <string name="folder_untitled">Folder</string>
-    <string name="toast_added_to_favorites">Added to Favorites</string>
-    <string name="toast_cannot_add_home_to_favorites">Home can\'t be added to Favorites</string>
     <string name="toast_no_url_to_copy">No URL to copy</string>
     <string name="toast_no_url_to_share">No URL to share</string>
     <string name="toast_share_failed">Could not share link</string>

@@ -156,6 +156,10 @@ internal fun LazyItemScope.TabStripDockItem(
                     )
                 }
 
+            // Only built while this tab's menu is open: it scans the favorites list.
+            val menuSiteActions =
+                if (contextMenuTabId == tab.id) tabMenuSiteActions(tab, uiState, onEvent) else TabMenuSiteActions.None
+
             Box(
                 modifier = Modifier
                     .fillMaxHeight()
@@ -198,9 +202,7 @@ internal fun LazyItemScope.TabStripDockItem(
                         onClose = {
                             onEvent(BrowserUiEvent.CloseTab(tab.id))
                         },
-                        onAddFavorite = { favTitle, favUrl ->
-                            onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
-                        },
+                        siteActions = menuSiteActions,
                         onShare = { urlToShare ->
                             shareWebpageUrl(context, urlToShare)
                         },
@@ -245,9 +247,7 @@ internal fun LazyItemScope.TabStripDockItem(
                         onClose = {
                             onEvent(BrowserUiEvent.CloseTab(tab.id))
                         },
-                        onAddFavorite = { favTitle, favUrl ->
-                            onEvent(BrowserUiEvent.AddFavorite(favTitle, favUrl))
-                        },
+                        siteActions = menuSiteActions,
                         modifier =
                             Modifier
                                 .testTag("tab_${tab.id}")

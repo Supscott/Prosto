@@ -13,12 +13,9 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import com.google.common.truth.Truth.assertThat
 import com.jestk.browser.R
-import com.jestk.browser.domain.model.FavoriteItem
-import com.jestk.browser.domain.model.SiteAllowlistEntry
-import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.ui.theme.JestkBrowserTheme
-import com.jestk.browser.ui.viewmodel.BrowserUiState
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -27,38 +24,42 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-/** The three-dots menu grows to its widest label, so no label is cut with an ellipsis (PRO-187). */
+/** The tab menu grows to its widest label, so no label is cut with an ellipsis (PRO-187, moved from the three-dots menu). */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w412dp-h915dp-xhdpi")
-class ActionPopupMenuWidthTest {
+class TabContextMenuWidthTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private val page = "https://example.com/a"
-
-    private fun state(
-        saved: Boolean,
-        blockingOff: Boolean,
-    ) = BrowserUiState(
-        currentUrl = page,
-        pageTitle = "Example",
-        tabs = listOf(Tab(id = "t", url = page, title = "Example", isActive = true)),
-        activeTabId = "t",
-        favorites = if (saved) listOf(FavoriteItem(id = 1, title = "Example", url = page)) else emptyList(),
-        siteAllowlist = if (blockingOff) listOf(SiteAllowlistEntry("example.com", null, 1L)) else emptyList(),
-    )
-
     private fun show(
-        state: BrowserUiState,
+        allowlisted: Boolean,
         fontScale: Float,
     ) {
         composeRule.setContent {
             val base = LocalDensity.current
             JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
                 CompositionLocalProvider(LocalDensity provides Density(base.density, fontScale)) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
-                        ActionPopupMenu(expanded = true, uiState = state, isDark = false, onEvent = {})
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+                        TabContextMenuCard(
+                            onDismissRequest = {},
+                            isDark = false,
+                            onCloseTab = {},
+                            onCopyUrl = {},
+                            isFavorite = false,
+                            onToggleFavorite = {},
+                            isSiteAllowlisted = allowlisted,
+                            onToggleBlocking = {},
+                            onShareLink = {},
+                            onReload = {},
+                            folderId = null,
+                            availableFolders = emptyList(),
+                            onCreateFolder = {},
+                            onAddToFolder = null,
+                            onRemoveFromFolder = null,
+                            availableWorkspaces = listOf(Workspace(id = "w", name = "Work", color = 0)),
+                            onMoveToWorkspace = {},
+                        )
                     }
                 }
             }
@@ -77,38 +78,37 @@ class ActionPopupMenuWidthTest {
         }
     }
 
-    private val savedAndBlocking = listOf(R.string.menu_remove_from_favorites, R.string.menu_disable_blocking)
-    private val unsavedAndAllowed = listOf(R.string.menu_add_to_favorites, R.string.menu_enable_blocking)
+    private val labels = listOf(R.string.menu_disable_blocking, R.string.tab_context_move_to_workspace, R.string.tab_context_new_folder)
 
     @Test
     fun englishLabelsAreNotCutAtLargeFontScale() {
-        show(state(saved = true, blockingOff = false), fontScale = 1.3f)
-        assertLabelsNotCut(savedAndBlocking)
+        show(allowlisted = false, fontScale = 1.3f)
+        assertLabelsNotCut(labels)
     }
 
     @Test
     fun englishEnableBlockingIsNotCutAtLargeFontScale() {
-        show(state(saved = false, blockingOff = true), fontScale = 1.3f)
-        assertLabelsNotCut(unsavedAndAllowed)
+        show(allowlisted = true, fontScale = 1.3f)
+        assertLabelsNotCut(listOf(R.string.menu_enable_blocking))
     }
 
     @Test
     @Config(qualifiers = "ru-w412dp-h915dp-xhdpi")
     fun russianLabelsAreNotCutAtLargeFontScale() {
-        show(state(saved = true, blockingOff = false), fontScale = 1.3f)
-        assertLabelsNotCut(savedAndBlocking)
+        show(allowlisted = false, fontScale = 1.3f)
+        assertLabelsNotCut(labels)
     }
 
     @Test
     @Config(qualifiers = "ru-w412dp-h915dp-xhdpi")
     fun russianEnableBlockingIsNotCutAtLargeFontScale() {
-        show(state(saved = false, blockingOff = true), fontScale = 1.3f)
-        assertLabelsNotCut(unsavedAndAllowed)
+        show(allowlisted = true, fontScale = 1.3f)
+        assertLabelsNotCut(listOf(R.string.menu_enable_blocking))
     }
 
     @Test
     fun defaultScaleShowsEveryLabelUncut() {
-        show(state(saved = false, blockingOff = false), fontScale = 1f)
-        assertLabelsNotCut(listOf(R.string.menu_add_to_favorites, R.string.menu_disable_blocking))
+        show(allowlisted = false, fontScale = 1f)
+        assertLabelsNotCut(labels)
     }
 }

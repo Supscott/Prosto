@@ -1,6 +1,5 @@
 package com.jestk.browser.ui.navigation
 
-import android.widget.Toast
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -60,8 +59,8 @@ fun InactiveTabButton(
     removeProgress: Float = 0f,
     onClick: () -> Unit,
     onClose: () -> Unit,
-    onAddFavorite: (String, String) -> Unit,
     modifier: Modifier = Modifier,
+    siteActions: TabMenuSiteActions = TabMenuSiteActions.None,
     menuExpanded: Boolean = false,
     onMenuDismiss: () -> Unit = {},
     folderId: String? = tab.folderId,
@@ -181,14 +180,10 @@ fun InactiveTabButton(
                 onCopyUrl = {
                     copyUrlToClipboard(context, tab.url)
                 },
-                onToggleFavorite = {
-                    if (tab.url.isNotBlank() && !tab.url.startsWith("about:")) {
-                        onAddFavorite(tab.title, tab.url)
-                        Toast.makeText(context, R.string.toast_added_to_favorites, Toast.LENGTH_SHORT).show()
-                    } else {
-                        Toast.makeText(context, R.string.toast_cannot_add_home_to_favorites, Toast.LENGTH_SHORT).show()
-                    }
-                },
+                isFavorite = siteActions.isFavorite,
+                onToggleFavorite = siteActions.onToggleFavorite,
+                isSiteAllowlisted = siteActions.isSiteAllowlisted,
+                onToggleBlocking = siteActions.onToggleBlocking,
                 onShareLink = {
                     shareWebpageUrl(context, tab.url)
                 },

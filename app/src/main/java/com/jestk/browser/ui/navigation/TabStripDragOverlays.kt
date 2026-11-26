@@ -153,7 +153,6 @@ internal fun TabStripDragOverlays(
                 loadingProgress = uiState.loadingProgress,
                 onOpenSearch = {},
                 onClose = {},
-                onAddFavorite = { _, _ -> },
                 onShare = {},
                 onReload = {},
                 modifier =
@@ -199,7 +198,6 @@ internal fun TabStripDragOverlays(
                 removeProgress = tabRemoveProgress,
                 onClick = {},
                 onClose = {},
-                onAddFavorite = { _, _ -> },
                 modifier =
                     Modifier
                         .zIndex(20f)

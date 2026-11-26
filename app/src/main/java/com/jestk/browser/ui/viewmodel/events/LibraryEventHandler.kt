@@ -9,7 +9,7 @@ import com.jestk.browser.ui.viewmodel.LibraryUiEvent
 import com.jestk.browser.ui.viewmodel.RequestClearHistory
 import com.jestk.browser.ui.viewmodel.SearchCoordinator
 import com.jestk.browser.ui.viewmodel.TabCoordinator
-import com.jestk.browser.ui.viewmodel.ToggleCurrentPageFavorite
+import com.jestk.browser.ui.viewmodel.ToggleTabFavorite
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -27,7 +27,7 @@ internal class LibraryEventHandler(
 
     fun handle(event: LibraryUiEvent) {
         when (event) {
-            is ToggleCurrentPageFavorite -> pageFavorite.toggle()
+            is ToggleTabFavorite -> pageFavorite.toggle(event.tabId)
 
             is DismissFavoriteNotice -> pageFavorite.dismissNotice()
 

@@ -60,13 +60,15 @@ class PageFavoriteToggleTest {
     }
 
     private val state get() = viewModel.uiState.value
+    private val activeTab get() = state.tabs.first { it.id == state.activeTabId }
+    private val currentPageFavorite get() = state.favoriteOf(activeTab)
 
     @Test
     fun toggleOnHomeDoesNothing() =
         runTest(testDispatcher) {
             advanceUntilIdle()
 
-            viewModel.onEvent(ToggleCurrentPageFavorite)
+            viewModel.onEvent(ToggleTabFavorite(state.activeTabId.orEmpty()))
             advanceUntilIdle()
 
             assertThat(state.favorites).isEmpty()
@@ -79,21 +81,21 @@ class PageFavoriteToggleTest {
             advanceUntilIdle()
             viewModel.onEvent(BrowserUiEvent.LoadUrl("https://kotlinlang.org"))
             advanceUntilIdle()
-            assertThat(state.currentPageFavorite).isNull()
+            assertThat(currentPageFavorite).isNull()
 
-            viewModel.onEvent(ToggleCurrentPageFavorite)
+            viewModel.onEvent(ToggleTabFavorite(activeTab.id))
             advanceUntilIdle()
 
             assertThat(state.favorites.map { it.url }).containsExactly("https://kotlinlang.org")
-            assertThat(state.currentPageFavorite).isNotNull()
+            assertThat(currentPageFavorite).isNotNull()
             assertThat(state.favoriteNotice?.added).isTrue()
             val addedId = state.favoriteNotice!!.id
 
-            viewModel.onEvent(ToggleCurrentPageFavorite)
+            viewModel.onEvent(ToggleTabFavorite(activeTab.id))
             advanceUntilIdle()
 
             assertThat(state.favorites).isEmpty()
-            assertThat(state.currentPageFavorite).isNull()
+            assertThat(currentPageFavorite).isNull()
             assertThat(state.favoriteNotice?.added).isFalse()
             assertThat(state.favoriteNotice!!.id).isNotEqualTo(addedId)
         }
@@ -104,7 +106,7 @@ class PageFavoriteToggleTest {
             advanceUntilIdle()
             viewModel.onEvent(BrowserUiEvent.LoadUrl("https://kotlinlang.org"))
             advanceUntilIdle()
-            viewModel.onEvent(ToggleCurrentPageFavorite)
+            viewModel.onEvent(ToggleTabFavorite(activeTab.id))
             advanceUntilIdle()
             assertThat(state.favoriteNotice).isNotNull()
 
@@ -141,9 +143,9 @@ class PageFavoriteToggleTest {
             viewModel.onEvent(BrowserUiEvent.LoadUrl("https://kotlinlang.org"))
             advanceUntilIdle()
 
-            assertThat(state.currentPageFavorite?.title).isEqualTo("Kotlin")
+            assertThat(currentPageFavorite?.title).isEqualTo("Kotlin")
 
-            viewModel.onEvent(ToggleCurrentPageFavorite)
+            viewModel.onEvent(ToggleTabFavorite(activeTab.id))
             advanceUntilIdle()
 
             assertThat(state.favorites).isEmpty()
@@ -169,10 +171,10 @@ class PageFavoriteToggleTest {
             )
 
         val elsewhere = FavoriteItem(id = 1, title = "Kotlin", url = page, workspaceId = Workspace.DEFAULT_WORK_ID)
-        assertThat(base.copy(favorites = listOf(elsewhere)).currentPageFavorite).isNull()
+        assertThat(base.copy(favorites = listOf(elsewhere)).favoriteOf(tab)).isNull()
 
         val here = elsewhere.copy(id = 2, workspaceId = Workspace.DEFAULT_PERSONAL_ID)
-        assertThat(base.copy(favorites = listOf(elsewhere, here)).currentPageFavorite).isEqualTo(here)
+        assertThat(base.copy(favorites = listOf(elsewhere, here)).favoriteOf(tab)).isEqualTo(here)
     }
 
     @Test
@@ -180,9 +182,27 @@ class PageFavoriteToggleTest {
         val tab = Tab(id = "t", url = "about:blank", title = "", isActive = true)
         listOf("about:blank", "chrome://version", "file:///sdcard/a.html", "").forEach { url ->
             val state = BrowserUiState(currentUrl = url, tabs = listOf(tab), activeTabId = "t")
-            assertThat(state.favoritablePageUrl).isNull()
+            assertThat(state.favoritablePageUrl(tab)).isNull()
         }
         val web = BrowserUiState(currentUrl = "http://example.com/x", tabs = listOf(tab), activeTabId = "t")
-        assertThat(web.favoritablePageUrl).isEqualTo("http://example.com/x")
+        assertThat(web.favoritablePageUrl(tab)).isEqualTo("http://example.com/x")
+    }
+
+    @Test
+    fun inactiveTabUsesItsStoredUrlNotTheCurrentPage() {
+        val active = Tab(id = "a", url = "https://active.test", title = "Active", isActive = true)
+        val other = Tab(id = "b", url = "https://other.test/x", title = "Other")
+        val saved = FavoriteItem(id = 3, title = "Other", url = "https://other.test/x", workspaceId = other.workspaceId)
+        val state =
+            BrowserUiState(
+                currentUrl = "https://active.test",
+                tabs = listOf(active, other),
+                activeTabId = "a",
+                favorites = listOf(saved),
+            )
+
+        assertThat(state.favoritablePageUrl(other)).isEqualTo("https://other.test/x")
+        assertThat(state.favoriteOf(other)).isEqualTo(saved)
+        assertThat(state.favoriteOf(active)).isNull()
     }
 }

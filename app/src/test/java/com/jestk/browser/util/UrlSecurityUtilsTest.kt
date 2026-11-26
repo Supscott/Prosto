@@ -44,10 +44,11 @@ class UrlSecurityUtilsTest {
 
     @Test
     fun isLoopbackHost_acceptsOnlyHostsThatNeverLeaveTheDevice() {
-        for (host in listOf("localhost", "LOCALHOST", "app.localhost", "127.0.0.1", "127.1.2.3", "[::1]", "::1")) {
+        for (host in listOf("localhost", "LOCALHOST", "app.localhost", "127.0.0.1", "127.1.2.3", "127.255.255.255", "[::1]", "::1")) {
             assertThat(UrlSecurityUtils.isLoopbackHost(host)).isTrue()
         }
-        for (host in listOf("", "localhost.example", "127.0.0.1.evil.example", "128.0.0.1", "192.168.1.1", "example.com", "[::2]")) {
+        val outOfRange = listOf("127.256.0.1", "127.0.999.1", "127.0.0.300", "127.0.0.01", "127.000.0.1")
+        for (host in listOf("", "localhost.example", "127.0.0.1.evil.example", "128.0.0.1", "192.168.1.1", "example.com", "[::2]") + outOfRange) {
             assertThat(UrlSecurityUtils.isLoopbackHost(host)).isFalse()
         }
     }

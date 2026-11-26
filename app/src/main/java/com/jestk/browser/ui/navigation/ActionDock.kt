@@ -31,11 +31,7 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FilterNone
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Shield
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -74,13 +70,6 @@ import com.jestk.browser.ui.theme.ProstoShapes
 import com.jestk.browser.ui.theme.prostoFloatingSurface
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
-import com.jestk.browser.ui.viewmodel.EnableBlockingForCurrentSite
-import com.jestk.browser.ui.viewmodel.OpenDisableBlockingPrompt
-import com.jestk.browser.ui.viewmodel.ToggleCurrentPageFavorite
-import com.jestk.browser.ui.viewmodel.currentAllowlistSite
-import com.jestk.browser.ui.viewmodel.currentPageFavorite
-import com.jestk.browser.ui.viewmodel.favoritablePageUrl
-import com.jestk.browser.ui.viewmodel.isCurrentSiteAllowlisted
 
 /** The three-dots menu is at least this wide, grows to its widest label, and never past the max. */
 internal val ACTION_MENU_MIN_WIDTH = 172.dp
@@ -152,20 +141,6 @@ fun ActionPopupMenu(
 
                 HorizontalDivider(color = dividerColor, thickness = 1.dp)
 
-                // Search
-                PopupMenuItem(
-                    icon = Icons.Default.Search,
-                    label = stringResource(R.string.dock_search),
-                    isActive = uiState.activeOverlay == OverlayType.SEARCH,
-                    isDark = isDark,
-                    onClick = {
-                        onEvent(BrowserUiEvent.OpenSearch(prefilledUrl = null, openInNewTab = true))
-                        onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                    },
-                )
-
-                HorizontalDivider(color = dividerColor, thickness = 1.dp)
-
                 // Tabs
                 PopupMenuItem(
                     icon = Icons.Default.FilterNone,
@@ -194,40 +169,6 @@ fun ActionPopupMenu(
                 )
 
                 HorizontalDivider(color = dividerColor, thickness = 1.dp)
-
-                // One-tap favorite of the current page (http(s) pages only)
-                if (uiState.favoritablePageUrl != null) {
-                    val isFavorite = uiState.currentPageFavorite != null
-                    PopupMenuItem(
-                        icon = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
-                        label = stringResource(if (isFavorite) R.string.menu_remove_from_favorites else R.string.menu_add_to_favorites),
-                        isActive = isFavorite,
-                        isDark = isDark,
-                        onClick = {
-                            onEvent(ToggleCurrentPageFavorite)
-                            onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                        },
-                    )
-
-                    HorizontalDivider(color = dividerColor, thickness = 1.dp)
-                }
-
-                // Per-site content blocking switch (web pages only)
-                if (uiState.currentAllowlistSite != null) {
-                    val isAllowlisted = uiState.isCurrentSiteAllowlisted
-                    PopupMenuItem(
-                        icon = Icons.Default.Shield,
-                        label = stringResource(if (isAllowlisted) R.string.menu_enable_blocking else R.string.menu_disable_blocking),
-                        isActive = isAllowlisted,
-                        isDark = isDark,
-                        onClick = {
-                            onEvent(if (isAllowlisted) EnableBlockingForCurrentSite else OpenDisableBlockingPrompt)
-                            onEvent(BrowserUiEvent.SetMenuExpanded(false))
-                        },
-                    )
-
-                    HorizontalDivider(color = dividerColor, thickness = 1.dp)
-                }
 
                 // Settings
                 PopupMenuItem(

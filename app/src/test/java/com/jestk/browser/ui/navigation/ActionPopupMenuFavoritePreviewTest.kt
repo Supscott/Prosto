@@ -22,8 +22,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.jestk.browser.domain.model.FavoriteItem
-import com.jestk.browser.domain.model.SiteAllowlistEntry
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.app.FavoriteNoticePill
@@ -43,24 +41,18 @@ import java.io.FileOutputStream
 class ActionPopupMenuFavoritePreviewTest {
     private val page = "https://example.com/a"
 
-    private fun state(
-        saved: Boolean,
-        blockingOff: Boolean = false,
-    ) = BrowserUiState(
-        currentUrl = page,
-        pageTitle = "Example",
-        tabs = listOf(Tab(id = "t", url = page, title = "Example", isActive = true)),
-        activeTabId = "t",
-        favorites = if (saved) listOf(FavoriteItem(id = 1, title = "Example", url = page)) else emptyList(),
-        siteAllowlist = if (blockingOff) listOf(SiteAllowlistEntry("example.com", null, 1L)) else emptyList(),
-    )
+    private fun state() =
+        BrowserUiState(
+            currentUrl = page,
+            pageTitle = "Example",
+            tabs = listOf(Tab(id = "t", url = page, title = "Example", isActive = true)),
+            activeTabId = "t",
+        )
 
     @Composable
     private fun Frame(
         mode: ThemeMode,
-        saved: Boolean,
         fontScale: Float = 1f,
-        blockingOff: Boolean = false,
         frameWidth: Dp = 230.dp,
     ) {
         val base = LocalDensity.current
@@ -71,12 +63,12 @@ class ActionPopupMenuFavoritePreviewTest {
                     modifier =
                         Modifier
                             .width(frameWidth)
-                            .height(520.dp)
+                            .height(300.dp)
                             .background(if (dark) Color(0xFF0E1513) else Color(0xFFE9F6F2)),
                     contentAlignment = Alignment.BottomEnd,
                 ) {
                     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionPopupMenu(expanded = true, uiState = state(saved, blockingOff), isDark = dark, onEvent = {})
+                        ActionPopupMenu(expanded = true, uiState = state(), isDark = dark, onEvent = {})
                     }
                 }
             }
@@ -116,10 +108,10 @@ class ActionPopupMenuFavoritePreviewTest {
                 setContent {
                     Column(modifier = Modifier.fillMaxSize().padding(4.dp)) {
                         Row {
-                            Frame(ThemeMode.LIGHT, saved = false)
-                            Frame(ThemeMode.LIGHT, saved = true)
-                            Frame(ThemeMode.DARK, saved = false)
-                            Frame(ThemeMode.DARK, saved = true, fontScale = 1.3f)
+                            Frame(ThemeMode.LIGHT)
+                            Frame(ThemeMode.DARK)
+                            Frame(ThemeMode.LIGHT, fontScale = 1.3f)
+                            Frame(ThemeMode.DARK, fontScale = 1.3f)
                         }
                         Row {
                             PillFrame(ThemeMode.LIGHT, added = true)
@@ -159,16 +151,16 @@ class ActionPopupMenuFavoritePreviewTest {
             ComposeView(activity).apply {
                 setContent {
                     Row(modifier = Modifier.fillMaxSize().padding(4.dp)) {
-                        Frame(ThemeMode.LIGHT, saved = true, fontScale = 1.3f, frameWidth = 270.dp)
-                        Frame(ThemeMode.DARK, saved = false, fontScale = 1.3f, blockingOff = true, frameWidth = 270.dp)
-                        Frame(ThemeMode.LIGHT, saved = true, fontScale = 1f, frameWidth = 270.dp)
+                        Frame(ThemeMode.LIGHT, fontScale = 1.3f, frameWidth = 270.dp)
+                        Frame(ThemeMode.DARK, fontScale = 1.3f, frameWidth = 270.dp)
+                        Frame(ThemeMode.LIGHT, fontScale = 1f, frameWidth = 270.dp)
                     }
                 }
             }
         activity.setContentView(composeView)
 
         val width = 810
-        val height = 540
+        val height = 320
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),

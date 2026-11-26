@@ -13,6 +13,6 @@ internal fun allowlistSiteOf(url: String): String? {
 val BrowserUiState.currentAllowlistSite: String?
     get() = if (isHome) null else allowlistSiteOf(currentUrl.ifEmpty { activeTab?.url.orEmpty() })
 
-/** Whether blocking is off for the current page in the active workspace (by its own or an all-workspaces entry). */
-val BrowserUiState.isCurrentSiteAllowlisted: Boolean
-    get() = currentAllowlistSite?.let { siteAllowlist.covers(it, activeWorkspaceId) } == true
+/** Whether blocking is off for the site of [url] in the active workspace (by its own or an all-workspaces entry). */
+fun BrowserUiState.isSiteAllowlisted(url: String): Boolean =
+    allowlistSiteOf(url)?.let { siteAllowlist.covers(it, activeWorkspaceId) } == true

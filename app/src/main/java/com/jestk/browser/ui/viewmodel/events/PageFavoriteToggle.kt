@@ -3,10 +3,11 @@ package com.jestk.browser.ui.viewmodel.events
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.FavoriteNotice
 import com.jestk.browser.ui.viewmodel.TabCoordinator
-import com.jestk.browser.ui.viewmodel.currentPageFavorite
+import com.jestk.browser.ui.viewmodel.favoriteOf
 import com.jestk.browser.ui.viewmodel.favoritablePageUrl
+import com.jestk.browser.ui.viewmodel.tabById
 
-/** The menu's "Add to / Remove from favorites" item and the pill that confirms it. */
+/** The tab menu's favorite star and the pill that confirms it. */
 internal class PageFavoriteToggle(
     private val tabCoordinator: TabCoordinator,
     private val getCurrentState: () -> BrowserUiState,
@@ -18,17 +19,18 @@ internal class PageFavoriteToggle(
      */
     private var lastNoticeId = 0L
 
-    fun toggle() {
+    fun toggle(tabId: String) {
         val state = getCurrentState()
-        val saved = state.currentPageFavorite
+        val tab = state.tabById(tabId) ?: return
+        val saved = state.favoriteOf(tab)
         val added =
             when {
                 saved != null -> {
                     tabCoordinator.favorites.deleteFavorite(saved.id)
                     false
                 }
-                state.favoritablePageUrl != null -> {
-                    tabCoordinator.favorites.addCurrentToFavorites()
+                state.favoritablePageUrl(tab) != null -> {
+                    tabCoordinator.favorites.addTabToFavorites(tabId)
                     true
                 }
                 else -> return

@@ -126,8 +126,8 @@ class TabContextMenuTest {
                                 isDark = false,
                                 onOpenSearch = {},
                                 onClose = {},
-                                onAddFavorite = { _, _ -> },
                                 onShare = {},
+                                siteActions = TabMenuSiteActions(onToggleFavorite = {}),
                                 menuExpanded = true,
                                 onMenuDismiss = {},
                             )
@@ -188,6 +188,28 @@ class TabContextMenuTest {
 
         composeTestRule.onNodeWithContentDescription("Reload").assertDoesNotExist()
         composeTestRule.onNodeWithText("Close tab").assertExists()
+    }
+
+    @Test
+    fun tabContextMenu_whenSiteCallbacksAreNull_hidesStarAndBlockingRow() {
+        composeTestRule.setContent {
+            CompositionLocalProvider(LocalVibrationFeedback provides testVibration) {
+                JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                    TabContextMenu(
+                        expanded = true,
+                        onDismissRequest = {},
+                        isDark = false,
+                        onCloseTab = {},
+                        onCopyUrl = {},
+                    )
+                }
+            }
+        }
+
+        composeTestRule.onNodeWithContentDescription("Add to favorites").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("Remove from favorites").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Disable blocking on this site").assertDoesNotExist()
+        composeTestRule.onNodeWithContentDescription("Copy URL").assertExists()
     }
 
     @Test

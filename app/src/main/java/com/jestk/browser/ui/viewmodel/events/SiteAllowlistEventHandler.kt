@@ -6,7 +6,7 @@ import com.jestk.browser.engine.adblock.SiteAllowlist
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.ConfirmDisableBlocking
 import com.jestk.browser.ui.viewmodel.DismissDisableBlockingPrompt
-import com.jestk.browser.ui.viewmodel.EnableBlockingForCurrentSite
+import com.jestk.browser.ui.viewmodel.EnableBlockingForSite
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.viewmodel.OpenDisableBlockingPrompt
 import com.jestk.browser.ui.viewmodel.RemoveSiteAllowlistEntry
@@ -44,8 +44,8 @@ internal class SiteAllowlistEventHandler(
     fun handle(event: SiteAllowlistUiEvent) {
         when (event) {
             is OpenDisableBlockingPrompt -> {
-                val site = getCurrentState().currentAllowlistSite ?: return
-                updateUiState { it.copy(siteBlockingPromptHost = site, isMenuExpanded = false) }
+                val site = allowlistSiteOf(event.url) ?: return
+                updateUiState { it.copy(siteBlockingPromptHost = site) }
             }
 
             is ConfirmDisableBlocking -> {
@@ -53,16 +53,16 @@ internal class SiteAllowlistEventHandler(
                 val site = state.siteBlockingPromptHost ?: return
                 updateUiState { it.copy(siteBlockingPromptHost = null) }
                 val workspaceId = if (event.allWorkspaces) null else state.activeWorkspaceId
-                change(reload = true) { it.add(site, workspaceId) }
+                change(reload = state.currentAllowlistSite == site) { it.add(site, workspaceId) }
             }
 
             is DismissDisableBlockingPrompt -> updateUiState { it.copy(siteBlockingPromptHost = null) }
 
-            is EnableBlockingForCurrentSite -> {
+            is EnableBlockingForSite -> {
                 val state = getCurrentState()
-                val site = state.currentAllowlistSite ?: return
-                updateUiState { it.copy(isMenuExpanded = false) }
-                change(reload = true) { repo ->
+                val site = allowlistSiteOf(event.url) ?: return
+                // The tab menu acts on any tab; only the active tab can be reloaded, the others pick it up on their next load.
+                change(reload = state.currentAllowlistSite == site) { repo ->
                     repo.observe().first()
                         .filter { it.covers(site, state.activeWorkspaceId) }
                         .forEach { repo.remove(it.host, it.workspaceId) }

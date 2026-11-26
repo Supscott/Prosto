@@ -1,0 +1,143 @@
+package com.jestk.browser.ui.navigation
+
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
+import com.google.common.truth.Truth.assertThat
+import com.jestk.browser.R
+import com.jestk.browser.domain.model.FavoriteItem
+import com.jestk.browser.domain.model.SiteAllowlistEntry
+import com.jestk.browser.domain.model.Tab
+import com.jestk.browser.domain.model.ThemeMode
+import com.jestk.browser.domain.model.Workspace
+import com.jestk.browser.ui.theme.JestkBrowserTheme
+import com.jestk.browser.ui.viewmodel.BrowserUiEvent
+import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.EnableBlockingForSite
+import com.jestk.browser.ui.viewmodel.OpenDisableBlockingPrompt
+import com.jestk.browser.ui.viewmodel.ToggleTabFavorite
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.GraphicsMode
+
+/** The favorite star and the blocking row of the tab long-tap menu (moved out of the three-dots menu, PRO-194). */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+class TabContextMenuSiteActionsTest {
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    private val events = mutableListOf<BrowserUiEvent>()
+    private var dismissed = false
+
+    private fun string(id: Int): String = RuntimeEnvironment.getApplication().getString(id)
+
+    private fun show(state: BrowserUiState, tab: Tab) {
+        composeRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                val actions = tabMenuSiteActions(tab, state) { events += it }
+                TabContextMenu(
+                    expanded = true,
+                    onDismissRequest = { dismissed = true },
+                    isDark = false,
+                    onCloseTab = {},
+                    onCopyUrl = {},
+                    isFavorite = actions.isFavorite,
+                    onToggleFavorite = actions.onToggleFavorite,
+                    isSiteAllowlisted = actions.isSiteAllowlisted,
+                    onToggleBlocking = actions.onToggleBlocking,
+                )
+            }
+        }
+    }
+
+    /** The active tab is "a"; an optional inactive tab is "b". Returns the state and its tabs. */
+    private fun stateOf(
+        activeUrl: String,
+        inactiveUrl: String? = null,
+        favorites: List<FavoriteItem> = emptyList(),
+        allowlist: List<SiteAllowlistEntry> = emptyList(),
+    ): Pair<BrowserUiState, List<Tab>> {
+        val active = Tab(id = "a", url = activeUrl, title = "Active", isActive = true)
+        val inactive = inactiveUrl?.let { Tab(id = "b", url = it, title = "Other") }
+        val tabs = listOfNotNull(active, inactive)
+        val state =
+            BrowserUiState(
+                currentUrl = activeUrl,
+                pageTitle = "Active",
+                tabs = tabs,
+                activeTabId = "a",
+                favorites = favorites,
+                siteAllowlist = allowlist,
+            )
+        return state to tabs
+    }
+
+    @Test
+    fun webTabOffersAddAndTapTogglesThatTabThenDismisses() {
+        val (state, tabs) = stateOf("https://example.com/a")
+        show(state, tabs.first())
+
+        composeRule.onNodeWithContentDescription(string(R.string.menu_add_to_favorites)).performClick()
+
+        assertThat(events).containsExactly(ToggleTabFavorite("a"))
+        assertThat(dismissed).isTrue()
+    }
+
+    @Test
+    fun savedPageOffersRemove() {
+        val saved = FavoriteItem(id = 7, title = "Page", url = "https://example.com/a", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+        val (state, tabs) = stateOf("https://example.com/a", favorites = listOf(saved))
+        show(state, tabs.first())
+
+        composeRule.onNodeWithContentDescription(string(R.string.menu_remove_from_favorites)).assertExists()
+        composeRule.onNodeWithContentDescription(string(R.string.menu_add_to_favorites)).assertDoesNotExist()
+    }
+
+    @Test
+    fun inactiveTabActsOnItsOwnPageNotTheActiveOne() {
+        val saved = FavoriteItem(id = 7, title = "Other", url = "https://other.test/x", workspaceId = Workspace.DEFAULT_PERSONAL_ID)
+        val (state, tabs) = stateOf("https://example.com/a", inactiveUrl = "https://other.test/x", favorites = listOf(saved))
+        show(state, tabs.last())
+
+        composeRule.onNodeWithContentDescription(string(R.string.menu_remove_from_favorites)).performClick()
+
+        assertThat(events).containsExactly(ToggleTabFavorite("b"))
+    }
+
+    @Test
+    fun blockingRowOfAnInactiveTabNamesThatTabsSite() {
+        val (state, tabs) = stateOf("https://example.com/a", inactiveUrl = "https://www.other.test/x")
+        show(state, tabs.last())
+
+        composeRule.onNodeWithText(string(R.string.menu_disable_blocking)).performClick()
+
+        assertThat(events).containsExactly(OpenDisableBlockingPrompt("https://www.other.test/x"))
+    }
+
+    @Test
+    fun allowlistedSiteOffersEnableBlocking() {
+        val entry = SiteAllowlistEntry("other.test", null, 1L)
+        val (state, tabs) = stateOf("https://example.com/a", inactiveUrl = "https://www.other.test/x", allowlist = listOf(entry))
+        show(state, tabs.last())
+
+        composeRule.onNodeWithText(string(R.string.menu_disable_blocking)).assertDoesNotExist()
+        composeRule.onNodeWithText(string(R.string.menu_enable_blocking)).performClick()
+
+        assertThat(events).containsExactly(EnableBlockingForSite("https://www.other.test/x"))
+    }
+
+    @Test
+    fun homeAndInternalTabsHaveNeitherStarNorBlockingRow() {
+        for (url in listOf("", "about:blank", "chrome://version")) {
+            val (state, tabs) = stateOf("https://example.com/a", inactiveUrl = url)
+            val actions = tabMenuSiteActions(tabs.last(), state) {}
+            assertThat(actions.onToggleFavorite).isNull()
+            assertThat(actions.onToggleBlocking).isNull()
+        }
+    }
+}

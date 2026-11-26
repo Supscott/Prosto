@@ -73,28 +73,40 @@ class SiteAllowlistEventsTest {
     private suspend fun entries() = repository.observe().first().map { it.host to it.workspaceId }
 
     @Test
-    fun menuItemOpensTheDialogForTheRegistrableDomainAndClosesTheMenu() = runTest(dispatcher) {
-        handler().handle(OpenDisableBlockingPrompt)
+    fun menuItemOpensTheDialogForTheRegistrableDomainOfTheGivenUrl() = runTest(dispatcher) {
+        handler().handle(OpenDisableBlockingPrompt("https://www.news.example.com/story"))
 
         assertThat(state.siteBlockingPromptHost).isEqualTo("example.com")
-        assertThat(state.isMenuExpanded).isFalse()
     }
 
     @Test
-    fun noDialogOnHomeOrNonWebPages() = runTest(dispatcher) {
-        state = state.copy(currentUrl = "")
-        handler().handle(OpenDisableBlockingPrompt)
+    fun noDialogForNonWebUrls() = runTest(dispatcher) {
+        handler().handle(OpenDisableBlockingPrompt(""))
         assertThat(state.siteBlockingPromptHost).isNull()
-        assertThat(state.currentAllowlistSite).isNull()
+        handler().handle(OpenDisableBlockingPrompt("about:blank"))
+        assertThat(state.siteBlockingPromptHost).isNull()
 
         state = state.copy(currentUrl = "about:blank", activeOverlay = OverlayType.NONE)
         assertThat(state.currentAllowlistSite).isNull()
     }
 
     @Test
+    fun dialogForAnotherTabNamesThatTabsSiteAndDoesNotReloadTheActiveTab() = runTest(dispatcher) {
+        val handler = handler()
+        handler.handle(OpenDisableBlockingPrompt("https://shop.other.test/cart"))
+        assertThat(state.siteBlockingPromptHost).isEqualTo("other.test")
+
+        handler.handle(ConfirmDisableBlocking(allWorkspaces = false))
+        settle { snapshot.isAllowlisted("https://other.test/", Workspace.DEFAULT_WORK_ID) }
+
+        assertThat(entries()).containsExactly("other.test" to Workspace.DEFAULT_WORK_ID)
+        assertThat(commands).isEmpty()
+    }
+
+    @Test
     fun confirmAddsTheActiveWorkspaceEntryRefreshesTheSnapshotAndReloads() = runTest(dispatcher) {
         val handler = handler()
-        handler.handle(OpenDisableBlockingPrompt)
+        handler.handle(OpenDisableBlockingPrompt("https://www.news.example.com/story"))
 
         handler.handle(ConfirmDisableBlocking(allWorkspaces = false))
         settle { commands.isNotEmpty() }
@@ -109,7 +121,7 @@ class SiteAllowlistEventsTest {
     @Test
     fun confirmWithAllWorkspacesStoresTheNullScope() = runTest(dispatcher) {
         val handler = handler()
-        handler.handle(OpenDisableBlockingPrompt)
+        handler.handle(OpenDisableBlockingPrompt("https://www.news.example.com/story"))
 
         handler.handle(ConfirmDisableBlocking(allWorkspaces = true))
         settle { snapshot.isAllowlisted("https://example.com/", null) }
@@ -121,7 +133,7 @@ class SiteAllowlistEventsTest {
     @Test
     fun dismissClosesTheDialogWithoutChanges() = runTest(dispatcher) {
         val handler = handler()
-        handler.handle(OpenDisableBlockingPrompt)
+        handler.handle(OpenDisableBlockingPrompt("https://www.news.example.com/story"))
 
         handler.handle(DismissDisableBlockingPrompt)
         advanceUntilIdle()
@@ -139,14 +151,26 @@ class SiteAllowlistEventsTest {
         repository.add("other.test", Workspace.DEFAULT_WORK_ID)
         snapshot.update(repository.observe().first())
         state = state.copy(siteAllowlist = repository.observe().first())
-        assertThat(state.isCurrentSiteAllowlisted).isTrue()
+        assertThat(state.isSiteAllowlisted("https://www.news.example.com/story")).isTrue()
 
-        handler().handle(EnableBlockingForCurrentSite)
+        handler().handle(EnableBlockingForSite("https://www.news.example.com/story"))
         settle { commands.isNotEmpty() }
 
         assertThat(entries()).containsExactly("example.com" to Workspace.DEFAULT_PERSONAL_ID, "other.test" to Workspace.DEFAULT_WORK_ID)
         assertThat(snapshot.isAllowlisted("https://example.com/", Workspace.DEFAULT_WORK_ID)).isFalse()
         assertThat(commands).containsExactly(NavigationCommand.Reload)
+    }
+
+    @Test
+    fun enableForAnotherTabsSiteDoesNotReloadTheActiveTab() = runTest(dispatcher) {
+        repository.add("other.test", Workspace.DEFAULT_WORK_ID)
+        snapshot.update(repository.observe().first())
+
+        handler().handle(EnableBlockingForSite("https://www.other.test/x"))
+        settle { !snapshot.isAllowlisted("https://other.test/", Workspace.DEFAULT_WORK_ID) }
+
+        assertThat(entries()).isEmpty()
+        assertThat(commands).isEmpty()
     }
 
     @Test
@@ -178,6 +202,6 @@ class SiteAllowlistEventsTest {
         settle { state.siteAllowlist.isNotEmpty() }
 
         assertThat(state.siteAllowlist.map { it.host }).containsExactly("example.com")
-        assertThat(state.isCurrentSiteAllowlisted).isTrue()
+        assertThat(state.isSiteAllowlisted(state.currentUrl)).isTrue()
     }
 }
