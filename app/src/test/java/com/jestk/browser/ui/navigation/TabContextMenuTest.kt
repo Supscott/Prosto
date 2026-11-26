@@ -207,33 +207,29 @@ class TabContextMenuTest {
 
         composeTestRule.onNodeWithContentDescription("Add to favorites").assertDoesNotExist()
         composeTestRule.onNodeWithContentDescription("Remove from favorites").assertDoesNotExist()
-        composeTestRule.onNodeWithText("Disable blocking on this site").assertDoesNotExist()
+        composeTestRule.onNodeWithText("Disable blocking").assertDoesNotExist()
         composeTestRule.onNodeWithContentDescription("Copy URL").assertExists()
     }
 
     @Test
-    fun activeTabPillMenu_showsReloadOnAWebPage() {
-        showPillMenu(isHome = false, url = "https://example.com")
+    fun activeTabPillMenu_showsReloadFromTheSiteActions() {
+        var reloaded = false
+        showPillMenu(url = "https://example.com", siteActions = TabMenuSiteActions(onReload = { reloaded = true }))
 
-        composeTestRule.onNodeWithContentDescription("Reload").assertExists()
+        composeTestRule.onNodeWithContentDescription("Reload").performClick()
+
+        assertTrue("Expected the site actions' reload to run", reloaded)
     }
 
     @Test
-    fun activeTabPillMenu_hidesReloadOnHomeAndAboutPages() {
-        showPillMenu(isHome = true, url = "https://example.com")
+    fun activeTabPillMenu_hidesReloadWithoutSiteActions() {
+        showPillMenu(url = "about:blank", siteActions = TabMenuSiteActions.None)
 
         composeTestRule.onNodeWithContentDescription("Reload").assertDoesNotExist()
         composeTestRule.onNodeWithContentDescription("Copy URL").assertExists()
     }
 
-    @Test
-    fun activeTabPillMenu_hidesReloadOnAboutBlank() {
-        showPillMenu(isHome = false, url = "about:blank")
-
-        composeTestRule.onNodeWithContentDescription("Reload").assertDoesNotExist()
-    }
-
-    private fun showPillMenu(isHome: Boolean, url: String) {
+    private fun showPillMenu(url: String, siteActions: TabMenuSiteActions) {
         composeTestRule.setContent {
             CompositionLocalProvider(LocalVibrationFeedback provides testVibration) {
                 JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
@@ -243,13 +239,13 @@ class TabContextMenuTest {
                             domain = "example.com",
                             url = url,
                             faviconUrl = null,
-                            isHome = isHome,
+                            isHome = false,
                             backgroundColor = androidx.compose.ui.graphics.Color.White,
                             isDark = false,
                             onOpenSearch = {},
                             onClose = {},
                             onShare = {},
-                            onReload = {},
+                            siteActions = siteActions,
                             menuExpanded = true,
                             onMenuDismiss = {},
                         )

@@ -5,6 +5,7 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.viewmodel.PageUiEvent
+import com.jestk.browser.ui.viewmodel.ReloadTab
 import com.jestk.browser.ui.viewmodel.SearchCoordinator
 import com.jestk.browser.ui.viewmodel.TabCoordinator
 import com.jestk.browser.util.YouTubeUrlHelper
@@ -59,6 +60,8 @@ internal class PageEventHandler(
                 Log.d(TAG, "Navigation command: reload")
                 emitNavigation(NavigationCommand.Reload)
             }
+
+            is ReloadTab -> emitNavigation(NavigationCommand.ReloadTab(event.tabId))
 
             is BrowserUiEvent.StopLoading -> {
                 Log.d(TAG, "Navigation command: stop loading")

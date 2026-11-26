@@ -42,7 +42,7 @@ import com.jestk.browser.ui.theme.ProstoShapes
 
 /**
  * Contextual dropdown menu on tabs (active or inactive); every action applies to that tab.
- * Layout, top to bottom: an icon row (Reload, Copy link, Share, Favorite toggle), the Site group
+ * Layout, top to bottom: an icon row (Copy link, Share, Favorite toggle, Reload), the Site group
  * (blocking toggle), the Organize group (folders, workspace) and Close tab in red.
  * A null callback hides its item (Reload on home pages, Favorite and blocking on non-web URLs).
  * Adheres to Prosto Canvas:
@@ -221,6 +221,7 @@ internal fun TabContextMenuCard(
                         label = stringResource(if (isSiteAllowlisted) R.string.menu_enable_blocking else R.string.menu_disable_blocking),
                         isActive = isSiteAllowlisted,
                         isDark = isDark,
+                        activeTile = false,
                         onClick = {
                             onDismissRequest()
                             onToggleBlocking()

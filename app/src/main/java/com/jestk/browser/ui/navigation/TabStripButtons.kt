@@ -187,6 +187,7 @@ fun InactiveTabButton(
                 onShareLink = {
                     shareWebpageUrl(context, tab.url)
                 },
+                onReload = siteActions.onReload,
                 folderId = folderId,
                 availableFolders = availableFolders,
                 onCreateFolder = onCreateFolder,

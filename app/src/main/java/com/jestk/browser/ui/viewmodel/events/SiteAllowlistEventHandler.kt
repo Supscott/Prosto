@@ -12,7 +12,6 @@ import com.jestk.browser.ui.viewmodel.OpenDisableBlockingPrompt
 import com.jestk.browser.ui.viewmodel.RemoveSiteAllowlistEntry
 import com.jestk.browser.ui.viewmodel.SiteAllowlistUiEvent
 import com.jestk.browser.ui.viewmodel.allowlistSiteOf
-import com.jestk.browser.ui.viewmodel.currentAllowlistSite
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.first
@@ -54,17 +53,15 @@ internal class SiteAllowlistEventHandler(
                 updateUiState { it.copy(siteBlockingPromptHost = null, siteBlockingPromptWorkspaceId = null) }
                 // The workspace of the tab that opened the prompt, not the active one.
                 val workspaceId = if (event.allWorkspaces) null else state.siteBlockingPromptWorkspaceId ?: state.activeWorkspaceId
-                change(reload = state.currentAllowlistSite == site) { it.add(site, workspaceId) }
+                change(reload = true) { it.add(site, workspaceId) }
             }
 
             is DismissDisableBlockingPrompt ->
                 updateUiState { it.copy(siteBlockingPromptHost = null, siteBlockingPromptWorkspaceId = null) }
 
             is EnableBlockingForSite -> {
-                val state = getCurrentState()
                 val site = allowlistSiteOf(event.url) ?: return
-                // The tab menu acts on any tab; only the active tab can be reloaded, the others pick it up on their next load.
-                change(reload = state.currentAllowlistSite == site) { repo ->
+                change(reload = true) { repo ->
                     repo.observe().first()
                         .filter { it.covers(site, event.workspaceId) }
                         .forEach { repo.remove(it.host, it.workspaceId) }
@@ -82,12 +79,18 @@ internal class SiteAllowlistEventHandler(
         change(reload = false) { it.add(site, workspaceId) }
     }
 
+    /** With [reload], every open tab whose blocking state the change flipped reloads (active or not). */
     private fun change(reload: Boolean, block: suspend (SiteAllowlistRepository) -> Unit) {
         val repo = repository ?: return
         scope.launch(ioDispatcher) {
+            val before = if (reload) repo.observe().first() else emptyList()
             block(repo)
-            snapshot.update(repo.observe().first())
-            if (reload) emitNavigation(NavigationCommand.Reload)
+            val after = repo.observe().first()
+            snapshot.update(after)
+            if (reload) {
+                tabsAffectedByAllowlistChange(getCurrentState(), before, after)
+                    .forEach { emitNavigation(NavigationCommand.ReloadTab(it)) }
+            }
         }
     }
 }

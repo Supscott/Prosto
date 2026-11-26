@@ -206,9 +206,6 @@ internal fun LazyItemScope.TabStripDockItem(
                         onShare = { urlToShare ->
                             shareWebpageUrl(context, urlToShare)
                         },
-                        onReload = {
-                            onEvent(BrowserUiEvent.Reload)
-                        },
                         modifier =
                             Modifier
                                 .layoutWidth { tabSwitch.pillWidth }

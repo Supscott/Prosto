@@ -5,6 +5,7 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.EnableBlockingForSite
 import com.jestk.browser.ui.viewmodel.OpenDisableBlockingPrompt
+import com.jestk.browser.ui.viewmodel.ReloadTab
 import com.jestk.browser.ui.viewmodel.ToggleTabFavorite
 import com.jestk.browser.ui.viewmodel.favoriteOf
 import com.jestk.browser.ui.viewmodel.favoritablePageUrl
@@ -12,14 +13,15 @@ import com.jestk.browser.ui.viewmodel.isSiteAllowlisted
 import com.jestk.browser.ui.viewmodel.webPageUrl
 
 /**
- * The state and callbacks behind the favorite star and the blocking row of a tab's long-tap menu.
- * A null callback hides its item: both are for http(s) pages only, and the star is never offered on incognito tabs.
+ * The state and callbacks behind the reload and favorite buttons and the blocking row of a tab's long-tap menu.
+ * A null callback hides its item: all are for http(s) pages only, and the star is never offered on incognito tabs.
  */
 data class TabMenuSiteActions(
     val isFavorite: Boolean = false,
     val onToggleFavorite: (() -> Unit)? = null,
     val isSiteAllowlisted: Boolean = false,
     val onToggleBlocking: (() -> Unit)? = null,
+    val onReload: (() -> Unit)? = null,
 ) {
     companion object {
         val None = TabMenuSiteActions()
@@ -44,5 +46,6 @@ fun tabMenuSiteActions(
                 if (allowlisted) EnableBlockingForSite(url, tab.workspaceId) else OpenDisableBlockingPrompt(url, tab.workspaceId),
             )
         },
+        onReload = { onEvent(ReloadTab(tab.id)) },
     )
 }

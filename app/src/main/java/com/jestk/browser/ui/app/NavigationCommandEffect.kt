@@ -31,6 +31,12 @@ internal fun NavigationCommandEffect(
                 context.findActivity()?.moveTaskToBack(true)
                 return@collectLatest
             }
+            if (command is NavigationCommand.ReloadTab) {
+                val state = viewModel.uiState.value
+                val tab = state.allTabs.find { it.id == command.tabId } ?: state.tabs.find { it.id == command.tabId }
+                reloadTab(webViewPool, command.tabId, tab?.url)
+                return@collectLatest
+            }
             val activeId = viewModel.uiState.value.activeTabId ?: return@collectLatest
             val currentTab = viewModel.uiState.value.allTabs.find { it.id == activeId } ?: viewModel.uiState.value.tabs.find { it.id == activeId }
             val activeWorkspaceId = currentTab?.workspaceId ?: viewModel.uiState.value.activeWorkspaceId
@@ -81,7 +87,7 @@ internal fun NavigationCommandEffect(
                     }
                 }
 
-                is NavigationCommand.ExitApp, NavigationCommand.ReturnToCallerApp -> {
+                is NavigationCommand.ReloadTab, is NavigationCommand.ExitApp, NavigationCommand.ReturnToCallerApp -> {
                     Unit
                 }
             }

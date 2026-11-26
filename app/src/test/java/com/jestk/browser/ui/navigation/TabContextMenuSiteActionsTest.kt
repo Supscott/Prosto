@@ -1,5 +1,6 @@
 package com.jestk.browser.ui.navigation
 
+import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -16,6 +17,7 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.EnableBlockingForSite
 import com.jestk.browser.ui.viewmodel.OpenDisableBlockingPrompt
+import com.jestk.browser.ui.viewmodel.ReloadTab
 import com.jestk.browser.ui.viewmodel.ToggleTabFavorite
 import org.junit.Rule
 import org.junit.Test
@@ -50,6 +52,8 @@ class TabContextMenuSiteActionsTest {
                     onToggleFavorite = actions.onToggleFavorite,
                     isSiteAllowlisted = actions.isSiteAllowlisted,
                     onToggleBlocking = actions.onToggleBlocking,
+                    onShareLink = {},
+                    onReload = actions.onReload,
                 )
             }
         }
@@ -86,6 +90,47 @@ class TabContextMenuSiteActionsTest {
 
         assertThat(events).containsExactly(ToggleTabFavorite("a"))
         assertThat(dismissed).isTrue()
+    }
+
+    @Test
+    fun inactiveTabMenuOffersReloadForThatTabAndDismisses() {
+        val (state, tabs) = stateOf("https://example.com/a", inactiveUrl = "https://other.test/x")
+        show(state, tabs.last())
+
+        composeRule.onNodeWithContentDescription(string(R.string.reload_tab)).performClick()
+
+        assertThat(events).containsExactly(ReloadTab("b"))
+        assertThat(dismissed).isTrue()
+    }
+
+    @Test
+    fun activeTabMenuReloadIsTiedToItsTabId() {
+        val (state, tabs) = stateOf("https://example.com/a")
+        show(state, tabs.first())
+
+        composeRule.onNodeWithContentDescription(string(R.string.reload_tab)).performClick()
+
+        assertThat(events).containsExactly(ReloadTab("a"))
+    }
+
+    @Test
+    fun iconRowOrderIsCopyShareFavoriteReload() {
+        val (state, tabs) = stateOf("https://example.com/a", inactiveUrl = "https://other.test/x")
+        show(state, tabs.last())
+
+        fun x(description: Int) =
+            composeRule.onNodeWithContentDescription(string(description)).fetchSemanticsNode().positionInRoot.x
+
+        val order = listOf(R.string.copy_link_url, R.string.share_link, R.string.menu_add_to_favorites, R.string.reload_tab)
+        assertThat(order.map(::x)).isInStrictOrder()
+    }
+
+    @Test
+    fun blockingLabelsDropOnThisSite() {
+        val (state, tabs) = stateOf("https://example.com/a")
+        show(state, tabs.first())
+        composeRule.onNodeWithText("Disable blocking").assertExists()
+        assertThat(string(R.string.menu_enable_blocking)).isEqualTo("Enable blocking")
     }
 
     @Test
@@ -171,6 +216,7 @@ class TabContextMenuSiteActionsTest {
             val actions = tabMenuSiteActions(tabs.last(), state) {}
             assertThat(actions.onToggleFavorite).isNull()
             assertThat(actions.onToggleBlocking).isNull()
+            assertThat(actions.onReload).isNull()
         }
     }
 }

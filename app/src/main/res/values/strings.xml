@@ -147,8 +147,8 @@
     <string name="open_in_app_excluded_sites_empty">No sites. Swipe away the open-in-app pill of a site a few times to be asked.</string>
     <string name="open_in_app_excluded_sites_remove">Offer apps again for %1$s</string>
     <string name="open_in_app_excluded_sites_close">Close</string>
-    <string name="menu_disable_blocking">Disable blocking on this site</string>
-    <string name="menu_enable_blocking">Enable blocking on this site</string>
+    <string name="menu_disable_blocking">Disable blocking</string>
+    <string name="menu_enable_blocking">Enable blocking</string>
     <string name="menu_add_to_favorites">Add to favorites</string>
     <string name="menu_remove_from_favorites">Remove from favorites</string>
     <string name="favorite_added_pill">Added to favorites</string>

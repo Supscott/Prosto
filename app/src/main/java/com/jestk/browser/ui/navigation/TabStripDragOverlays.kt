@@ -154,7 +154,6 @@ internal fun TabStripDragOverlays(
                 onOpenSearch = {},
                 onClose = {},
                 onShare = {},
-                onReload = {},
                 modifier =
                     Modifier
                         .width(renderedOverlayActiveWidth)

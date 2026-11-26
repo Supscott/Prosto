@@ -305,6 +305,8 @@ fun PopupMenuItem(
     modifier: Modifier = Modifier,
     trailingLabel: String? = null,
     destructive: Boolean = false,
+    // The tab menu shows an active row by its accent tint alone, without the tile.
+    activeTile: Boolean = true,
 ) {
     val activeBg = if (isDark) Color(0x2656DBCF) else ProstoBrandPrimary.copy(alpha = 0.10f)
     val activeTint = if (isDark) ProstoAccent else ProstoBrandPrimary
@@ -313,7 +315,7 @@ fun PopupMenuItem(
 
     Surface(
         shape = RoundedCornerShape(12.dp),
-        color = if (isActive) activeBg else Color.Transparent,
+        color = if (isActive && activeTile) activeBg else Color.Transparent,
         modifier =
             modifier
                 .fillMaxWidth()

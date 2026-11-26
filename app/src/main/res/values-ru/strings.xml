@@ -147,8 +147,8 @@
     <string name="open_in_app_excluded_sites_empty">Пусто. Несколько раз смахните плашку «Открыть в приложении» на сайте, и приложение спросит.</string>
     <string name="open_in_app_excluded_sites_remove">Снова предлагать приложение для %1$s</string>
     <string name="open_in_app_excluded_sites_close">Закрыть</string>
-    <string name="menu_disable_blocking">Отключить блокировку на этом сайте</string>
-    <string name="menu_enable_blocking">Включить блокировку на этом сайте</string>
+    <string name="menu_disable_blocking">Отключить блокировку</string>
+    <string name="menu_enable_blocking">Включить блокировку</string>
     <string name="menu_add_to_favorites">В избранное</string>
     <string name="menu_remove_from_favorites">Убрать из избранного</string>
     <string name="favorite_added_pill">Добавлено в избранное</string>

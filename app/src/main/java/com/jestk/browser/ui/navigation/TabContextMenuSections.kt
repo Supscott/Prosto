@@ -62,7 +62,7 @@ internal fun TabMenuGroupGap(isDark: Boolean) {
 }
 
 /**
- * Icon-only quick actions on top of the tab menu: Reload, Copy link, Share, Favorite toggle.
+ * Icon-only quick actions on top of the tab menu: Copy link, Share, Favorite toggle, Reload.
  * A null callback hides its button; the remaining buttons stay evenly spaced.
  */
 @Composable
@@ -79,9 +79,6 @@ internal fun TabMenuActionRow(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (onReload != null) {
-            TabMenuIconButton(Icons.Default.Refresh, stringResource(R.string.reload_tab), false, isDark, onReload, "tab_context_reload")
-        }
         TabMenuIconButton(Icons.Default.ContentCopy, stringResource(R.string.copy_link_url), false, isDark, onCopyUrl, "tab_context_copy_link")
         if (onShareLink != null) {
             TabMenuIconButton(Icons.Default.Share, stringResource(R.string.share_link), false, isDark, onShareLink, "tab_context_share")
@@ -96,10 +93,13 @@ internal fun TabMenuActionRow(
                 testTag = "tab_context_favorite",
             )
         }
+        if (onReload != null) {
+            TabMenuIconButton(Icons.Default.Refresh, stringResource(R.string.reload_tab), false, isDark, onReload, "tab_context_reload")
+        }
     }
 }
 
-/** 48dp touch target with the dock icon look: muted tint, accent tint plus soft fill when active. */
+/** 48dp touch target with the dock icon look: muted tint, accent tint with no tile behind it when active (a filled star). */
 @Composable
 private fun TabMenuIconButton(
     icon: ImageVector,
@@ -109,7 +109,6 @@ private fun TabMenuIconButton(
     onClick: () -> Unit,
     testTag: String,
 ) {
-    val activeBg = if (isDark) Color(0x2656DBCF) else ProstoBrandPrimary.copy(alpha = 0.10f)
     val activeTint = if (isDark) ProstoAccent else ProstoBrandPrimary
     val normalTint = if (isDark) DarkOnSurfaceVariant else ProstoMutedSlate
     Box(
@@ -117,7 +116,6 @@ private fun TabMenuIconButton(
             Modifier
                 .size(48.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (isActive) activeBg else Color.Transparent)
                 .clickable(role = Role.Button, onClick = onClick)
                 .testTag(testTag),
         contentAlignment = Alignment.Center,
