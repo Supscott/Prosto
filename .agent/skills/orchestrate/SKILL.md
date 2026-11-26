@@ -16,6 +16,7 @@ description: "Work through the Linear Todo queue (team PRO) as an orchestrator: 
 ### 1. Read the queue
 - `list_issues(team="PRO", state="Todo", fields=["id","title","priority","labels"])` first: titles
   only, cheap. Then `get_issue(id, fields=["description"])` only for the issues you will work on.
+- Before briefing an older issue, check that it is still open in code: `git log --oneline -S'<api or file>'` (PRO-177 items 1–2 were already on main).
 - If the user named an order ("first PRO-58, PRO-59, then the rest"), keep it. Otherwise sort by
   priority, then put `verif` issues before unverified ones.
 - Look at `git status` too: uncommitted user changes may belong to one of the issues. Ask, and
@@ -60,7 +61,7 @@ while the agents work.
 - **Mechanical edits over many files** (e.g. dropping 74 annotations): allow one reviewed script
   for that step in the brief, instead of Edit only; per-file Edits cost PRO-121 308 calls and 1016k.
 - **Split a feature that spans data, engine and UI** (>25 files) into two agents (data+engine,
-  then UI with the first one's API named); one agent for all of it ran 79 turns.
+  then UI with the first one's API named); one agent for all of it ran 79 turns. Also when it starts with a mock: the mock and the wiring are still one feature (PRO-194: 2099k).
 - **Small fixes yourself only while your context is small.** Every main-session call re-reads
   the whole context on Opus: 2026-11-20 it was ~$0.067 per call at ~210k, while a whole Haiku
   agent run cost $0.04. So inline only in the first few dozen calls. After that, file each fix

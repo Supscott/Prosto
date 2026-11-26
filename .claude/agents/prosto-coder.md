@@ -11,7 +11,7 @@ and the commit message. Follow the brief where it is more specific than this fil
 
 ## Setup
 
-1. `git merge --ff-only main`, then `git log -1 --oneline` must show the commit the brief names. In a fresh worktree run `tools/ensure_worktree_files.sh` (copies the git-ignored `TASKS.md` and `local.properties`) before any `check_invariants.py` or Gradle run.
+1. `git merge --ff-only main`, then `git log -1 --oneline` must show the commit the brief names. In a fresh worktree run `bash tools/ensure_worktree_files.sh`, not through rtk (rtk fails on it with "Permission denied", PRO-198) (copies the git-ignored `TASKS.md` and `local.properties`) before any `check_invariants.py` or Gradle run.
 2. Read `CLAUDE.md` sections you need, not the whole file. Do not call Linear: the brief has the
    issue text.
 
