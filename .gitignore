@@ -31,3 +31,6 @@ native/adblock-jni/target/
 # Local task notes (not shared)
 TASKS.md
 USER-TASKS.md
+
+# Local agent skills (not published)
+.agent/
