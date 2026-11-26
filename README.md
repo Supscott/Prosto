@@ -1,5 +1,9 @@
 <div align="center">
 
+  <img src="assets/banner.png" alt="Prosto, a browser for Android: your tabs always in sight. One-handed, fast, private." width="800" />
+
+  [![Download APK](https://img.shields.io/badge/Download-prosto.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/Prosto/releases/latest/download/prosto.apk)
+
   [![Release](https://img.shields.io/github/v/release/Supscott/Prosto?style=flat-square&color=2563EB&label=Release)](https://github.com/Supscott/Prosto/releases)
   [![License: GPL v3](https://img.shields.io/badge/License-GPL_v3-3B82F6.svg?style=flat-square)](https://www.gnu.org/licenses/gpl-3.0)
   [![Android Min SDK](https://img.shields.io/badge/Android-8.0%2B%20(API%2026)-34D399.svg?style=flat-square)](https://developer.android.com/about/versions/oreo)
@@ -7,108 +11,122 @@
   [![Jetpack Compose](https://img.shields.io/badge/Jetpack%20Compose-BOM%202025.12-4285F4.svg?style=flat-square&logo=jetpackcompose&logoColor=white)](https://developer.android.com/jetpack/compose)
   [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat-square)](CONTRIBUTING.md)
 
-  <img src="assets/banner.png" alt="Prosto, a browser for Android: your tabs always in sight. One-handed, fast, private." width="800" />
-
-  [![Download APK](https://img.shields.io/badge/Download-prosto.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/Prosto/releases/latest/download/prosto.apk)
-
   <sub>Android 8.0+ · free · GPL-3.0 · no telemetry</sub>
 
   <sub>If Prosto is useful to you, a ⭐ helps others find it.</sub>
 
+  [Features](#features) · [Install](#install) · [Privacy](#privacy) · [Known limitations](#known-limitations) · [Build](#build-from-source) · [Contributing](#contributing)
+
 </div>
 
-<table align="center">
+**Prosto is a free, open-source browser for Android that keeps your tabs in sight.** The dock at the bottom of the screen shows them all, so you switch with one tap or swipe, with one hand.
+
+**It is for people who keep many tabs open.** Ads and trackers are blocked by a real engine with standard filter lists, and the app sends no telemetry.
+
+---
+
+## Features
+
+<table>
   <tr>
-    <td align="center"><img src="assets/switch-tabs.gif" alt="Switching tabs in the dock" width="240" /><br/><sub>Tabs always on the dock</sub></td>
-    <td align="center"><img src="assets/folder.gif" alt="Opening and closing a folder in the tab grid" width="240" /><br/><sub>Folders open in place</sub></td>
-    <td align="center"><img src="assets/workspaces.gif" alt="Switching between workspaces" width="240" /><br/><sub>Swipe up to pick a workspace</sub></td>
+    <td valign="top">
+      <b>Your tabs are always on the dock.</b><br/>
+      Tap a tab to switch. Drag to reorder with spring physics, or drag a tab up off the dock to close it. The dock hides while you scroll down and returns on a slight upward flick.
+    </td>
+    <td align="center" width="260">
+      <a href="assets/switch-tabs.gif"><img src="assets/switch-tabs.gif" alt="Switching tabs in the dock" width="240" /></a><br/><sub>Tabs always on the dock</sub>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <b>Folders open in place.</b><br/>
+      Group tabs into folders in the dock and in the tab grid. In the grid a folder opens right there, not in a modal dialog. When three or more tabs are open on the same site, Prosto offers to group them.
+    </td>
+    <td align="center" width="260">
+      <a href="assets/folder.gif"><img src="assets/folder.gif" alt="Opening and closing a folder in the tab grid" width="240" /></a><br/><sub>Folders open in place</sub>
+    </td>
+  </tr>
+  <tr>
+    <td valign="top">
+      <b>Workspaces keep your contexts apart.</b><br/>
+      Each workspace has its own tabs, favorites, history and recently closed tabs, with isolated cookies and logins. Pick a color per workspace and the whole interface is tinted to match. Swipe up on the dock to choose one from a carousel, like picking an app in Android Recents.
+    </td>
+    <td align="center" width="260">
+      <a href="assets/workspaces.gif"><img src="assets/workspaces.gif" alt="Switching between workspaces" width="240" /></a><br/><sub>Swipe up to pick a workspace</sub>
+    </td>
   </tr>
 </table>
 
-> **Join the closed test.** Prosto is coming to Google Play, and Google requires 12 testers for 14 days first. If you are on Android 8.0+, [sign up here](https://forms.gle/2txbUY8orJMC7czk6) (one minute). You will get a Play opt-in link by email; staying opted in for 14 days is all it takes.
+### And also
 
----
-
-## 💡 Why Prosto?
-
-Most mobile browsers hide your tabs behind a button. Prosto is built around one idea: **make working with the browser more convenient**.
-
-- **Tabs always in sight:** the dock at the bottom of the screen shows your open tabs, so you switch between them with one tap or swipe.
-- **Instant feel:** a warm engine, preconnect and a last-frame hold make new tabs open and tab switches happen without a blank flash.
-- **Privacy by default:** a real ad-blocking engine with standard filter lists, incognito tabs, zero telemetry, no analytics.
-
----
-
-## ✨ Key Features
-
-### 🗂️ Tabs & Folders
-- **Dock-first tabs:** open tabs stay on the dock; drag to reorder with spring physics, or drag a tab up off the dock to close it.
-- **Folders in the dock and the tab grid:** group tabs into folders. In the tab grid a folder opens in place, not in a modal dialog.
-- **Folder suggestions:** when three or more tabs are open on the same site, Prosto offers to group them into a folder.
 - **Incognito tabs:** long-press "+" and pick an incognito tab. It runs in a separate profile, keeps its cookies and storage apart, saves no history, blocks screenshots and is wiped when you close it. A violet dock and a mask badge show you are in one.
 - **Fresh start:** come back after 30 minutes away and a new tab is waiting, with a pill that takes you back to the last one.
-- **Gesture dock:** the dock hides while you scroll down and returns on a slight upward flick.
-
-### 🎨 Workspaces
-- **Independent spaces:** each workspace has its own tabs, favorites, history and recently closed tabs, with isolated cookies and logins.
-- **Your color:** pick a color per workspace and the whole interface is tinted to match.
-- **Swipe-up switcher:** swipe up on the dock to pick a workspace from a carousel, just like choosing an app in Android Recents.
-
-### ⚡ Instant Loading
-- **Warm engine and preconnect** so pages start loading right away.
-- **Tab history restored** and a **back/forward cache** for instant Back.
-- **No flashing:** the previous frame stays on screen until the new page paints.
-
-### 🔍 Search
-- **Engine carousel:** fling across search engines right in the omnibox.
-- **Inline autocomplete** from your history, and a shortcut to switch to a tab that already has the page open.
-- **Power prefixes:** switch engines as you type (e.g. `g <query>`, `d <query>`, `k <query>`).
-- **Custom providers** with your own URL templates.
-
-### 🛡️ Ad & Tracker Blocking
-- **Native engine:** requests are filtered by [adblock-rust](https://github.com/brave/adblock-rust), the engine behind Brave, compiled into the app.
-- **Standard filter lists:** EasyList, EasyPrivacy, uBlock Origin filters, AdGuard mobile and tracking lists and RU AdList, updated in the background.
-- **Cosmetic filtering and scriptlets:** hides ad containers without layout shifts and runs uBlock Origin scriptlets for sites that need them.
-- **Popup and popunder blocking**, with a one-tap "Allow for this site".
-- **Cookie banners dismissed for you:** tracking cookies are rejected automatically (can be turned off).
-- **Per-site allowlist** in each workspace, and **live statistics** of blocked ads and trackers on the Home screen.
+- **Instant loading:** a warm engine and preconnect start pages right away. Tab history is restored, a back/forward cache makes Back instant, and the previous frame stays on screen until the new page paints, so there is no blank flash.
+- **Search:** fling across search engines in the omnibox, or switch as you type with a prefix (`g <query>`, `d <query>`, `k <query>`). Autocomplete comes from your history, with a shortcut to a tab that already has the page open. You can add providers with your own URL templates.
+- **Ad and tracker blocking:** requests are filtered by [adblock-rust](https://github.com/brave/adblock-rust), the engine behind Brave, compiled into the app. It uses EasyList, EasyPrivacy, uBlock Origin filters, AdGuard mobile and tracking lists and RU AdList, updated in the background.
+- **Cosmetic filtering and scriptlets:** ad containers are hidden without layout shifts, and uBlock Origin scriptlets run on the sites that need them.
+- **Popups, cookie banners, allowlist:** popups and popunders are blocked, with a one-tap "Allow for this site". Cookie banners are dismissed by rejecting tracking cookies (you can turn this off). Each workspace has a per-site allowlist, and the Home screen shows live statistics of blocked ads and trackers.
 - **Sites still work:** sign-ins and Cloudflare security checks are never touched by blocking or injected scripts.
-
-### 🎧 Video & Apps
-- **Clean YouTube Player:** open a YouTube video in a distraction-free, ad-free player.
-- **Background playback:** turn it on in Settings and audio and video keep playing with the screen off or the app in the background.
-- **Picture-in-picture:** a fullscreen video continues in a floating window when you leave the app.
-- **Fullscreen rotation:** fullscreen videos turn to landscape on their own.
-- **Open in app:** links that have an app (Telegram, Instagram and others) offer to open it; turn the offer off per site.
-
-### 📥 Downloads
-- Pause, resume and cancel; interrupted transfers resume via HTTP `Range`.
-- Prosto asks before downloading a file you already have.
-- A failed download says so in an in-app pill instead of failing silently.
-
-### ⚙️ Settings & Updates
-- **Quick tour:** a short stories-style tour with animated scenes shows the gestures; start it from the Home screen card or from Settings → About.
-- **Organised settings:** categories with their own screens, and quick-toggle tiles for the switches you use most.
+- **Video:** open a YouTube video in the Clean YouTube Player, without distractions or ads. Turn on background playback in Settings and audio and video keep playing with the screen off. Fullscreen video continues in picture-in-picture when you leave the app, and turns to landscape on its own.
+- **Open in app:** links that have an app (Telegram, Instagram and others) offer to open it. You can turn the offer off per site.
+- **Downloads:** pause, resume and cancel. Interrupted transfers resume via HTTP `Range`. Prosto asks before downloading a file you already have, and a failed download says so in an in-app pill.
+- **Settings and tour:** settings are grouped into categories with their own screens, plus quick-toggle tiles for the switches you use most. A short stories-style tour shows the gestures; start it from the Home screen card or from Settings → About.
 - **In-app updates:** Prosto checks GitHub Releases for a new version, shows an update card and downloads the APK for you to install.
 
 ---
 
-## 📥 Download & Installation
+## Install
 
-Get the latest release directly from GitHub:
+| Source | Link | Notes |
+| --- | --- | --- |
+| GitHub release | [prosto.apk](https://github.com/Supscott/Prosto/releases/latest/download/prosto.apk) | Android 8.0+ (API 26+). All versions and checksums are on the [Releases page](https://github.com/Supscott/Prosto/releases). |
+| Google Play | Closed test, [sign up below](#join-the-closed-test) | Not public yet. |
+| Source | [Build from source](#build-from-source) | No Rust needed. |
 
-[![Download APK](https://img.shields.io/badge/Download-prosto.apk-2563EB?style=for-the-badge&logo=android&logoColor=white)](https://github.com/Supscott/Prosto/releases/latest/download/prosto.apk)
+### Join the closed test
 
-> Requires **Android 8.0+ (Oreo, API 26+)**. See all versions and checksums on the [Releases page](https://github.com/Supscott/Prosto/releases).
+Prosto is coming to Google Play, and Google requires 12 testers for 14 days first. If you are on Android 8.0+, [sign up here](https://forms.gle/2txbUY8orJMC7czk6) (one minute). You will get a Play opt-in link by email; staying opted in for 14 days is all it takes.
 
 ---
 
-## 🛠️ Building from Source
+## Privacy
 
-### Prerequisites
+Prosto has no analytics and no telemetry. Your tabs, history, favorites and settings stay on your phone. These are the network requests Prosto makes besides loading the pages you open:
+
+| What | Goes to | When |
+| --- | --- | --- |
+| Update check | `api.github.com` and `github.com` (Prosto releases) | Automatically, while **Check for updates** in Settings is on (it is on by default). You can also check by hand. |
+| Filter lists | The list publishers: `easylist.to`, `ublockorigin.github.io`, `filters.adtidy.org` (AdGuard), `secure.fanboy.co.nz`, `easylist-downloads.adblockplus.org` | About once a day on an unmetered connection, or when you tap "Update filter lists now". The lists also ship inside the APK. |
+| Site icons | Google's favicon service, `www.google.com/s2/favicons` | When a site gives no icon of its own, and for the icons of the default search engines. The request carries the site's domain. Local addresses (`localhost`, `192.168.x.x` and similar) are skipped. |
+
+Also good to know:
+
+- Prosto asks for the list of installed apps, only to find an app that can open a link ("Open in app").
+- Plain HTTP pages are allowed. Prosto warns you when a connection is not encrypted.
+- Incognito tabs save no history and are wiped when you close them. The sites you visit still see your connection, as in any browser.
+
+---
+
+## Known limitations
+
+- **The engine is Android WebView, not our own Chromium.** Page compatibility and speed follow the WebView version on your phone. Keep Android System WebView updated.
+- **No extensions.** Ad blocking is built in, with the standard lists. User scripts and add-ons are [planned](#planned).
+- **No sync.** Tabs, favorites and settings live on one phone. Cross-device sync is [planned](#planned).
+- **Android 8.0 (API 26) and newer only.** There is no iOS or desktop version.
+- **Not on Google Play yet.** Install the APK from GitHub or join the [closed test](#join-the-closed-test). Updates come from GitHub Releases.
+- **The blocking library is prebuilt for three ABIs:** `arm64-v8a`, `armeabi-v7a` and `x86_64`.
+- **Blocking is not perfect.** A filter can break a site or miss an ad. Use "Allow for this site" when a page does not work.
+- **Prosto is at version 0.x.** Things still change between releases.
+
+---
+
+## Build from source
+
+You need:
+
 - **JDK:** OpenJDK 17 or JDK 23
 - **Android SDK:** Compile SDK 35, Build Tools 35.0.0
-- **Gradle:** Wrapper included
+- **Gradle:** the wrapper is included
 - **Rust:** not needed. The native blocking library ships prebuilt for `arm64-v8a`, `armeabi-v7a` and `x86_64`; see [`native/adblock-jni/README.md`](native/adblock-jni/README.md) to rebuild it.
 
 ```bash
@@ -125,41 +143,38 @@ Get the latest release directly from GitHub:
 python3 tools/check_invariants.py
 ```
 
----
+### Tech stack
 
-## 🏗️ Architecture & Tech Stack
+Prosto follows Clean Architecture principles with Jetpack Compose.
 
-Prosto follows Clean Architecture principles with Jetpack Compose:
-- **UI:** Jetpack Compose with Material 3 (BOM `2025.12.00`)
-- **Engine:** Android WebView (AndroidX WebKit) with a warm WebView pool, separate profiles per workspace and for incognito, and nested scroll integration
-- **Content blocking:** [adblock-rust](https://crates.io/crates/adblock) `0.13.5` through a JNI bridge (`native/adblock-jni`)
-- **Database:** AndroidX Room 2.6
-- **Networking:** OkHttp 4.12 & Coil 2.7
-- **Concurrency:** Kotlin Coroutines & `StateFlow`
-- **Domain Purity:** The `domain/` layer is pure Kotlin with zero Android framework dependencies.
-
----
-
-## 🗺️ Planned Features
-
-- [ ] **Smart Tab Auto-Grouping** *(partly done)*: Prosto already suggests a folder for tabs of one site; automatic grouping by topic is next.
-- [ ] **Cross-Device Sync:** Secure cloud synchronization for open tabs, bookmarks, and settings.
-- [ ] **Plugins & Mods:** User-scriptable extensions and community add-ons.
+| Layer | Choice |
+| --- | --- |
+| UI | Jetpack Compose with Material 3 (BOM `2025.12.00`) |
+| Engine | Android WebView (AndroidX WebKit) with a warm WebView pool, separate profiles per workspace and for incognito, and nested scroll integration |
+| Content blocking | [adblock-rust](https://crates.io/crates/adblock) `0.13.5` through a JNI bridge (`native/adblock-jni`) |
+| Database | AndroidX Room 2.6 |
+| Networking | OkHttp 4.12 and Coil 2.7 |
+| Concurrency | Kotlin Coroutines and `StateFlow` |
+| Domain | The `domain/` layer is pure Kotlin with zero Android framework dependencies |
 
 ---
 
-## 🤝 Contributing
+## Planned
 
-Contributions are welcome! Whether it's reporting a bug, proposing a new feature, or submitting a pull request:
-1. Check existing [Issues](https://github.com/Supscott/Prosto/issues) or create a new one.
-2. Read our [Contributing Guidelines](CONTRIBUTING.md).
-3. Ensure all tests pass before submitting (`./gradlew :app:testDebugUnitTest`).
+- [ ] **Smart tab auto-grouping** *(partly done)*: Prosto already suggests a folder for tabs of one site; automatic grouping by topic is next.
+- [ ] **Cross-device sync:** secure cloud synchronization for open tabs, bookmarks and settings.
+- [ ] **Plugins and mods:** user-scriptable extensions and community add-ons.
 
 ---
 
-## 📜 License
+## Contributing
+
+Bug reports, ideas and pull requests are welcome. Check the existing [issues](https://github.com/Supscott/Prosto/issues) or open a new one. [CONTRIBUTING.md](CONTRIBUTING.md) covers the dev setup, tests, commit style and how to report a bug. To report a security problem, follow [SECURITY.md](SECURITY.md) instead of opening a public issue.
+
+---
+
+## License
 
 Prosto Browser is licensed under the [GNU General Public License v3.0 (GPL-3.0)](LICENSE).
 
-
-The native content-blocking library (`native/adblock-jni`) statically links [adblock-rust](https://crates.io/crates/adblock/0.13.5) (Brave Software), licensed under the [Mozilla Public License 2.0](LICENSES/MPL-2.0.txt). Its exact source is the crates.io release `adblock 0.13.5`.
+The native content-blocking library (`native/adblock-jni`) statically links [adblock-rust](https://crates.io/crates/adblock/0.13.5) (Brave Software), licensed under the [Mozilla Public License 2.0](LICENSES/MPL-2.0.txt). Its exact source is the crates.io release `adblock 0.13.5`. The bundled filter lists and their licences are listed in [`LICENSES/filter-lists.md`](LICENSES/filter-lists.md).
