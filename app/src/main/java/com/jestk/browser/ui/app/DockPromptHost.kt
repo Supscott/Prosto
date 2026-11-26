@@ -11,6 +11,7 @@ import com.jestk.browser.ui.overlays.DownloadConfirmHost
 import com.jestk.browser.ui.overlays.DuplicateDownloadHost
 import com.jestk.browser.ui.overlays.ExternalAppConfirmPrompt
 import com.jestk.browser.ui.overlays.InsecureHttpWarningPrompt
+import com.jestk.browser.ui.overlays.SitePermissionHost
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.ConfirmDisableBlocking
@@ -27,6 +28,7 @@ internal fun hasDockPrompt(uiState: BrowserUiState): Boolean =
         uiState.siteBlockingPromptHost != null ||
         uiState.duplicateDownloadPrompt != null ||
         uiState.downloadConfirmPrompt != null ||
+        uiState.sitePermissionPrompt != null ||
         uiState.externalAppPrompt?.requiresConfirmation == true
 
 /**
@@ -78,6 +80,7 @@ internal fun DockPromptHost(uiState: BrowserUiState, onEvent: (BrowserUiEvent) -
         )
         uiState.duplicateDownloadPrompt != null -> DuplicateDownloadHost(uiState, isDark, onEvent)
         uiState.downloadConfirmPrompt != null -> DownloadConfirmHost(uiState, isDark, onEvent)
+        uiState.sitePermissionPrompt != null -> SitePermissionHost(uiState, isDark, onEvent)
         // Cancel and Close tab dismiss transiently so a later tap is offered again.
         external != null -> ExternalAppConfirmPrompt(
             isDark = isDark,

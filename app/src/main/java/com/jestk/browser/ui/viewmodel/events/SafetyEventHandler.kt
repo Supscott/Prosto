@@ -18,6 +18,8 @@ import com.jestk.browser.ui.viewmodel.NavigationCommand
 import com.jestk.browser.ui.viewmodel.SafetyUiEvent
 import com.jestk.browser.ui.viewmodel.ShowPopupBlocked
 import com.jestk.browser.ui.viewmodel.SiteAllowlistUiEvent
+import com.jestk.browser.ui.viewmodel.SitePermissionController
+import com.jestk.browser.ui.viewmodel.SitePermissionUiEvent
 import com.jestk.browser.ui.viewmodel.TabCoordinator
 import com.jestk.browser.ui.viewmodel.withDocumentAllowed
 import com.jestk.browser.util.UrlSecurityUtils
@@ -32,6 +34,7 @@ internal class SafetyEventHandler(
     private val emitNavigation: (NavigationCommand) -> Unit = {},
     private val allowPopupsForSite: (openerUrl: String) -> Unit = WindowTransportHandler.sessionPopupAllowlist::allow,
     private val siteAllowlistEvents: SiteAllowlistEventHandler? = null,
+    private val sitePermissions: SitePermissionController? = null,
 ) {
     fun handle(event: SafetyUiEvent) {
         when (event) {
@@ -161,6 +164,8 @@ internal class SafetyEventHandler(
             }
 
             is SiteAllowlistUiEvent -> siteAllowlistEvents?.handle(event)
+
+            is SitePermissionUiEvent -> sitePermissions?.handle(event)
 
             is DismissPopupBlocked -> updateUiState { it.copy(popupBlocked = null) }
 

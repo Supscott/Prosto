@@ -172,10 +172,13 @@ fun DockPromptCard(
                         content = content,
                     )
                 }
-                PromptActions(
-                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
-                ) {
-                    actions.sortedBy { it.primary }.forEach { action -> PromptButton(action, isDark) }
+                // A card whose content draws its own buttons passes no actions and gets no gap.
+                if (actions.isNotEmpty()) {
+                    PromptActions(
+                        modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                    ) {
+                        actions.sortedBy { it.primary }.forEach { action -> PromptButton(action, isDark) }
+                    }
                 }
             }
         }

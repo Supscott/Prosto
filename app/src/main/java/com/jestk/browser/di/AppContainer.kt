@@ -12,6 +12,7 @@ import com.jestk.browser.data.repository.IncognitoAwareTabRepository
 import com.jestk.browser.data.repository.SearchEngineRepositoryImpl
 import com.jestk.browser.data.repository.SettingsBlockedRequestStats
 import com.jestk.browser.data.repository.SettingsRepositoryImpl
+import com.jestk.browser.data.repository.SharedPrefsSitePermissionStore
 import com.jestk.browser.data.repository.SiteAllowlistRepositoryImpl
 import com.jestk.browser.data.repository.TabFolderRepositoryImpl
 import com.jestk.browser.data.repository.TabRepositoryImpl
@@ -134,6 +135,7 @@ class DefaultAppContainer(
                     workspaceRepository = workspaceRepository,
                     siteAllowlistRepository = siteAllowlistRepository,
                     contentBlockingControls = FilterListControls.create(context),
+                    sitePermissionStore = SharedPrefsSitePermissionStore(context),
                     historyRepository = historyRepository,
                     favoriteRepository = favoriteRepository,
                     settingsRepository = settingsRepository,

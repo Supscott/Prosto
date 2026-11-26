@@ -390,4 +390,10 @@
     <string name="about_licenses_title">Open-source licences</string>
     <string name="about_licenses_summary">Blocking engine and filter lists</string>
     <string name="cb_scope_workspace_number">Workspace %1$d</string>
+    <string name="site_permission_title_camera">%1$s wants to use your camera</string>
+    <string name="site_permission_title_microphone">%1$s wants to use your microphone</string>
+    <string name="site_permission_title_camera_microphone">%1$s wants to use your camera and microphone</string>
+    <string name="site_permission_allow_always">Allow always</string>
+    <string name="site_permission_allow_once">Allow this time</string>
+    <string name="site_permission_block">Block</string>
 </resources>

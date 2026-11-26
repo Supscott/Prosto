@@ -43,6 +43,8 @@ data class BrowserUiState(
     val recentlyClosedTab: Tab? = null,
     val showUndoTabCloseSnackbar: Boolean = false,
     val externalAppPrompt: ExternalAppPrompt? = null,
+    /** The camera / microphone request a page of the active tab waits on; see [SitePermissionController]. */
+    val sitePermissionPrompt: com.jestk.browser.domain.model.SitePermissionPrompt? = null,
     val openInAppExclusionPrompt: OpenInAppExclusionPrompt? = null,
     // Active Viewport / Overlay
     val activeOverlay: OverlayType = OverlayType.NONE,

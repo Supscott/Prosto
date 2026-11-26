@@ -11,6 +11,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Vibration feedback for gestures (tab drag, long press, engine carousel). -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Sites ask for the camera and microphone (getUserMedia); the user is prompted per request. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- Package installation for downloaded APK files -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- A browser must see every app a site can hand off to (intent://, custom schemes such as

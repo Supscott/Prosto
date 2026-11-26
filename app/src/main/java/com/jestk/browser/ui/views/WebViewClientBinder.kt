@@ -15,6 +15,8 @@ import com.jestk.browser.ui.viewmodel.AllowBlockedDocument
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.GoBackFromBlockedDocument
+import com.jestk.browser.ui.viewmodel.OnSitePermissionCanceled
+import com.jestk.browser.ui.viewmodel.OnSitePermissionRequest
 import com.jestk.browser.ui.viewmodel.ShowPopupBlocked
 import com.jestk.browser.ui.viewmodel.allowsDocument
 import com.jestk.browser.ui.viewmodel.isSameDomain
@@ -117,6 +119,8 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
             val handler = webView.context.findActivity() as? FileChooserHandler
             handler?.openFileChooser(callback, params) ?: false
         },
+        onSitePermissionRequest = { request -> onEvent(OnSitePermissionRequest(tabId, request)) },
+        onSitePermissionCanceled = { request -> onEvent(OnSitePermissionCanceled(request)) },
         onCreateWindowRequest = { originView, _, isUserGesture, resultMsg ->
             val state = deps.uiState()
             val openerTab = state.tabs.find { it.id == tabId }

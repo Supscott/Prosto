@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera and microphone</title>
+<link rel="stylesheet" href="/fx.css">
+</head>
+<body>
+<h1>Camera and microphone</h1>
+<p>Each button calls <code>getUserMedia</code>; the result line shows <code>granted: ...</code> or the error name.</p>
+<p>
+  <button id="camera" type="button">Camera</button>
+  <button id="microphone" type="button">Microphone</button>
+  <button id="both" type="button">Camera and microphone</button>
+</p>
+<pre id="result">idle</pre>
+<script>
+function ask(constraints) {
+  var result = document.getElementById('result');
+  result.textContent = 'asking...';
+  navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+    var kinds = stream.getTracks().map(function (track) { return track.kind; });
+    stream.getTracks().forEach(function (track) { track.stop(); });
+    result.textContent = 'granted: ' + kinds.join(', ');
+  }).catch(function (error) {
+    result.textContent = error.name;
+  });
+}
+document.getElementById('camera').onclick = function () { ask({video: true}); };
+document.getElementById('microphone').onclick = function () { ask({audio: true}); };
+document.getElementById('both').onclick = function () { ask({video: true, audio: true}); };
+</script>
+</body>
+</html>

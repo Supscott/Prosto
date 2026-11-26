@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.net.Uri
 import android.os.Message
 import android.view.View
+import android.webkit.PermissionRequest
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
@@ -19,6 +20,8 @@ class JestkWebChromeClient(
     private val onVideoPlayingStateChanged: (isPlaying: Boolean) -> Unit,
     private val onFaviconReceived: ((tabId: String, icon: Bitmap, pageUrl: String?) -> Unit)? = null,
     private val onShowFileChooser: ((ValueCallback<Array<Uri>>?, FileChooserParams?) -> Boolean)? = null,
+    private val onSitePermissionRequest: ((SitePermissionRequest) -> Unit)? = null,
+    private val onSitePermissionCanceled: ((SitePermissionRequest) -> Unit)? = null,
     private val onCreateWindowRequest: ((view: WebView?, isDialog: Boolean, isUserGesture: Boolean, resultMsg: Message?) -> Boolean)? = null,
     private val onCloseWindowRequest: ((tabId: String) -> Unit)? = null,
     private val onFullscreenOrientationChanged: ((orientation: Int) -> Unit)? = null
@@ -33,6 +36,23 @@ class JestkWebChromeClient(
         fileChooserParams: FileChooserParams?
     ): Boolean {
         return onShowFileChooser?.invoke(filePathCallback, fileChooserParams) ?: false
+    }
+
+    /** Only camera and microphone are offered to the user; every other resource is never granted. */
+    override fun onPermissionRequest(request: PermissionRequest?) {
+        request ?: return
+        val handler = onSitePermissionRequest
+        val wrapped = WebViewSitePermissionRequest(request)
+        if (handler == null || wrapped.resources.isEmpty()) {
+            request.deny()
+            return
+        }
+        handler(wrapped)
+    }
+
+    override fun onPermissionRequestCanceled(request: PermissionRequest?) {
+        request ?: return
+        onSitePermissionCanceled?.invoke(WebViewSitePermissionRequest(request))
     }
 
     override fun onCreateWindow(

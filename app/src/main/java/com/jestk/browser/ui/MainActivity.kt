@@ -95,6 +95,8 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
             filePathCallback = null
         }
 
+    private val siteOsPermissions = SiteOsPermissionBridge(this)
+
     private val notificationPermissionLauncher =
         registerForActivityResult(
             ActivityResultContracts.RequestPermission(),
@@ -166,6 +168,7 @@ class MainActivity : ComponentActivity(), FileChooserHandler, FullscreenViewHost
         backgroundPlayback = BackgroundPlaybackController(this, container.webViewPool)
         viewModel.updateDefaultBrowserStatus(DefaultBrowserHelper.isDefaultBrowser(this))
         checkNotificationPermission()
+        viewModel.sitePermissions.osPermissions = siteOsPermissions
 
         // A recreated Activity (theme change, process restore) or a relaunch from Recents gets
         // the original intent again; its tab is already open.

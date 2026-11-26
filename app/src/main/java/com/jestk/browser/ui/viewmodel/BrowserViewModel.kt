@@ -12,6 +12,7 @@ import com.jestk.browser.domain.repository.FavoriteRepository
 import com.jestk.browser.domain.repository.HistoryRepository
 import com.jestk.browser.domain.repository.SearchEngineRepository
 import com.jestk.browser.domain.repository.SettingsRepository
+import com.jestk.browser.domain.repository.SitePermissionStore
 import com.jestk.browser.domain.repository.SiteAllowlistRepository
 import com.jestk.browser.domain.repository.TabFolderRepository
 import com.jestk.browser.domain.repository.TabRepository
@@ -65,6 +66,7 @@ class BrowserViewModel(
     val workspaceRepository: WorkspaceRepository? = null,
     private val siteAllowlistRepository: SiteAllowlistRepository? = null,
     private val contentBlockingControls: ContentBlockingControls? = null,
+    sitePermissionStore: SitePermissionStore? = null,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val currentTimeProvider: () -> Long = { System.currentTimeMillis() },
 ) : ViewModel() {
@@ -233,6 +235,13 @@ class BrowserViewModel(
             ioDispatcher = ioDispatcher,
         )
 
+    internal val sitePermissions =
+        SitePermissionController(
+            store = sitePermissionStore,
+            getState = { _uiState.value },
+            updateUiState = { transform -> _uiState.update(transform) },
+        )
+
     private val safetyEvents =
         SafetyEventHandler(
             tabCoordinator = tabCoordinator,
@@ -241,6 +250,7 @@ class BrowserViewModel(
             loadUrl = this::loadUrl,
             emitNavigation = { cmd -> _navigationCommands.tryEmit(cmd) },
             siteAllowlistEvents = siteAllowlistEvents,
+            sitePermissions = sitePermissions,
         )
 
     private val mediaEvents =
@@ -270,6 +280,7 @@ class BrowserViewModel(
     init {
         webViewPool?.let { viewModelScope.bindWebViewPool(it, _uiState, downloadCoordinator) }
         viewModelScope.launchDomainGroupSuggestions(_uiState, ioDispatcher)
+        viewModelScope.launch { _uiState.collect(sitePermissions::onStateChanged) }
         viewModelScope.launch(ioDispatcher) {
             restoreSession(
                 workspaceRepository,

@@ -399,5 +399,11 @@
     <string name="cb_allowlist_remove">Снова включить блокировку для %1$s</string>
     <string name="about_licenses_title">Лицензии открытого ПО</string>
     <string name="about_licenses_summary">Движок блокировки и списки фильтров</string>
+    <string name="site_permission_title_camera">%1$s запрашивает доступ к камере</string>
+    <string name="site_permission_title_microphone">%1$s запрашивает доступ к микрофону</string>
+    <string name="site_permission_title_camera_microphone">%1$s запрашивает доступ к камере и микрофону</string>
+    <string name="site_permission_allow_always">Разрешать всегда</string>
+    <string name="site_permission_allow_once">Разрешить сейчас</string>
+    <string name="site_permission_block">Заблокировать</string>
     <string name="cb_scope_workspace_number">Рабочее пространство %1$d</string>
 </resources>
