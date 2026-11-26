@@ -122,12 +122,12 @@ class PageFavoriteToggleTest {
             viewModel.onEvent(BrowserUiEvent.LoadUrl("https://kotlinlang.org"))
             advanceUntilIdle()
 
-            viewModel.onEvent(ToggleCurrentPageFavorite)
+            viewModel.onEvent(ToggleTabFavorite(activeTab.id))
             advanceUntilIdle()
             val first = state.favoriteNotice!!.id
             viewModel.onEvent(DismissFavoriteNotice)
 
-            viewModel.onEvent(ToggleCurrentPageFavorite)
+            viewModel.onEvent(ToggleTabFavorite(activeTab.id))
             advanceUntilIdle()
 
             assertThat(state.favoriteNotice!!.id).isGreaterThan(first)
