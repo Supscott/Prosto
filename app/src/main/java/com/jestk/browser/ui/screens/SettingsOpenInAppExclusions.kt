@@ -72,7 +72,7 @@ internal fun OpenInAppExcludedSitesList(
             Text(
                 text = stringResource(R.string.open_in_app_excluded_sites_empty),
                 style = LocalProstoTypography.current.bodySm,
-                color = ProstoMutedSlate,
+                color = if (isDark) DarkOnSurface.copy(alpha = 0.72f) else ProstoMutedSlate,
                 modifier = Modifier.padding(vertical = 4.dp),
             )
         }
@@ -88,7 +88,7 @@ internal fun OpenInAppExcludedSitesList(
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.open_in_app_excluded_sites_remove, site),
-                        tint = ProstoMutedSlate,
+                        tint = if (isDark) DarkOnSurface.copy(alpha = 0.72f) else ProstoMutedSlate,
                         modifier = Modifier.size(20.dp),
                     )
                 }

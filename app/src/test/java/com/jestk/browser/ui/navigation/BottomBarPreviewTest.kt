@@ -370,7 +370,7 @@ class BottomBarPreviewTest {
             activeTabId = "1"
         )
 
-val width = 440
+        val width = 440
         val height = 956
 
         // 1. Render Visible State: bottom bar visible, webview padded by 86dp (62dp + 24dp nav)

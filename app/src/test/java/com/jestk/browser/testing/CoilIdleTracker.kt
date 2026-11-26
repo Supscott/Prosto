@@ -5,8 +5,6 @@ import android.os.Looper
 import android.view.View
 import coil.Coil
 import coil.EventListener
-import coil.ImageLoader
-import coil.decode.SvgDecoder
 import coil.request.ErrorResult
 import coil.request.ImageRequest
 import coil.request.SuccessResult
@@ -90,11 +88,7 @@ class CoilIdleTracker private constructor() {
         fun install(context: Context): CoilIdleTracker {
             val tracker = CoilIdleTracker()
             Coil.setImageLoader(
-                ImageLoader.Builder(context.applicationContext)
-                    .components {
-                        add(FakeFaviconFetcher.Factory())
-                        add(SvgDecoder.Factory())
-                    }
+                offlineImageLoaderBuilder(context)
                     .eventListener(tracker.listener)
                     .build(),
             )

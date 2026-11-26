@@ -2,7 +2,6 @@ package com.jestk.browser.testing
 
 import coil.ImageLoader
 import coil.ImageLoaderFactory
-import coil.decode.SvgDecoder
 import com.jestk.browser.JestkApplication
 
 /**
@@ -13,11 +12,5 @@ import com.jestk.browser.JestkApplication
  * image loads.
  */
 class OfflineImageApplication : JestkApplication(), ImageLoaderFactory {
-    override fun newImageLoader(): ImageLoader =
-        ImageLoader.Builder(this)
-            .components {
-                add(FakeFaviconFetcher.Factory())
-                add(SvgDecoder.Factory())
-            }
-            .build()
+    override fun newImageLoader(): ImageLoader = offlineImageLoaderBuilder(this).build()
 }

@@ -43,7 +43,7 @@ class DownloadsScreenPreviewTest {
         }
 
         activity.setContentView(composeView)
-val width = 440
+        val width = 440
         val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
@@ -118,7 +118,7 @@ val width = 440
         }
 
         activity.setContentView(composeView)
-val width = 440
+        val width = 440
         val height = 956
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
