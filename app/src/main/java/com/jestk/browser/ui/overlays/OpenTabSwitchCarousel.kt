@@ -111,7 +111,9 @@ private fun OpenTabSwitchCapsule(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             // Favicon
-            val faviconUrl = tab.faviconUrl ?: FaviconManager.extractFallbackFaviconUrl(tab.url)
+            // An incognito tab never asks its site for an icon: it shows the letter tile instead.
+            val faviconUrl =
+                tab.faviconUrl ?: if (tab.isIncognito) null else FaviconManager.extractFallbackFaviconUrl(tab.url)
             SiteFavicon(
                 faviconUrl = faviconUrl,
                 imageSize = 20.dp,

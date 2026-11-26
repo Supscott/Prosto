@@ -38,6 +38,35 @@ class SiteIconTest {
     }
 
     @Test
+    fun isPrivateHost_coversReservedIpv4Ranges() {
+        listOf("100.64.0.1", "100.127.255.254", "192.0.0.8", "169.254.169.254", "0.0.0.0", "224.0.0.1", "255.255.255.255")
+            .forEach { assertThat(SiteIcon.isPrivateHost(it)).isTrue() }
+        listOf("100.63.0.1", "100.128.0.1", "192.0.2.1", "172.15.0.1", "172.32.0.1", "11.0.0.1", "93.184.216.34")
+            .forEach { assertThat(SiteIcon.isPrivateHost(it)).isFalse() }
+    }
+
+    @Test
+    fun isPrivateHost_treatsEveryIpv6LiteralAsUnsafe() {
+        listOf("::1", "[::1]", "fe80::1", "[fe80::abcd]", "fc00::1", "fd12:3456::1", "[2001:db8::1]")
+            .forEach { assertThat(SiteIcon.isPrivateHost(it)).isTrue() }
+    }
+
+    @Test
+    fun isPrivateHost_rejectsNumericIpv4FormsThatAreNotPlainDottedDecimal() {
+        // 127.0.0.1 as a single integer, in hex, in octal, and with a leading zero or an extra part
+        listOf("2130706433", "0x7f000001", "0x7f.0.0.1", "0177.0.0.1", "127.1", "010.0.0.1", "1.2.3", "1.2.3.4.5", "999.1.1.1")
+            .forEach { assertThat(SiteIcon.isPrivateHost(it)).isTrue() }
+    }
+
+    @Test
+    fun isPrivateHost_coversSuffixesAndSingleLabelNames() {
+        listOf("printer.local", "nas.lan", "svc.internal", "router.home.arpa", "app.test", "a.localhost", "localhost", "localhost.", "intranet")
+            .forEach { assertThat(SiteIcon.isPrivateHost(it)).isTrue() }
+        listOf("example.com", "www.example.co.uk", "test.example.org", "local.example.com", "lan.io")
+            .forEach { assertThat(SiteIcon.isPrivateHost(it)).isFalse() }
+    }
+
+    @Test
     fun candidateUrls_tryTheTouchIconBeforeFavicon() {
         assertThat(SiteIcon.candidateUrls("http://example.com:8080")).containsExactly(
             "http://example.com:8080/apple-touch-icon.png",

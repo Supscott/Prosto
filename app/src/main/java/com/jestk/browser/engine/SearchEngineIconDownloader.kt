@@ -27,7 +27,9 @@ object SearchEngineIconDownloader {
     suspend fun downloadIconForEngine(
         context: Context,
         engine: SearchEngine,
-        fetchIcon: suspend (origin: String) -> SiteIconBytes? = { SiteIconDownloader.fetch(it) },
+        fetchIcon: suspend (origin: String) -> SiteIconBytes? = {
+            SiteIconDownloader.fetch(it, cache = SiteIconDiskCache.forContext(context))
+        },
     ): String? =
         withContext(Dispatchers.IO) {
             val targetFile = getIconFile(context, engine.id)
