@@ -47,6 +47,37 @@ def check_stable_favicon_paths():
     return []
 
 
+THIRD_PARTY_FAVICON_SERVICES = (
+    "s2/favicons",
+    "gstatic.com/faviconV2",
+    "icons.duckduckgo.com",
+    "favicon.yandex.net",
+    "favicon.im",
+)
+# Recognises the URLs older versions stored, so they can be mapped to the site's own icon (PRO-184).
+FAVICON_SERVICE_ALLOWED = {"SiteIcon.kt"}
+
+
+def check_no_third_party_favicon_service():
+    """Verify no source under app/src/main names a third-party favicon service.
+
+    A favicon service learns every domain it is asked about, so site icons come from the site itself
+    (PRO-184). Only the legacy-URL mapper may name Google's, to recognise rows stored by old versions.
+    """
+    errors = []
+    for path in sorted((MAIN_DIR / "java").rglob("*.kt")):
+        if path.name in FAVICON_SERVICE_ALLOWED:
+            continue
+        content = path.read_text(encoding="utf-8")
+        for service in THIRD_PARTY_FAVICON_SERVICES:
+            if service in content:
+                errors.append(
+                    f"{path.relative_to(ROOT)}: must not name the favicon service '{service}'; "
+                    "load the icon from the site itself (SiteIcon)"
+                )
+    return errors
+
+
 def check_webview_client_no_favicon():
     """Verify JestkWebViewClient never handles or delegates favicon callbacks.
 

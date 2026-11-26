@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,10 +39,10 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.ui.components.SiteLetterTile
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalProstoTypography
-import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.theme.ProstoCanvasFloor
 import com.jestk.browser.ui.theme.ProstoDarkText
 import kotlinx.coroutines.launch
@@ -117,12 +116,7 @@ internal fun FavoriteSquircleCard(
                         }
 
                     if (!isFaviconSuccess) {
-                        Icon(
-                            imageVector = item.icon,
-                            contentDescription = item.title,
-                            tint = ProstoBrandPrimary,
-                            modifier = Modifier.size(20.dp),
-                        )
+                        SiteLetterTile(site = item.url, size = 24.dp)
                     }
 
                     if (imageModel != null) {

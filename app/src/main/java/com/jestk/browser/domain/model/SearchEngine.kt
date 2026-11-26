@@ -106,7 +106,7 @@ data class SearchEngine(
             id = "google",
             displayName = "Google",
             searchUrlTemplate = "https://www.google.com/search?q=%s",
-            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=google.com",
+            iconUrl = "bundled:engine/google",
             shortcut = "g",
             orderPosition = 0,
             isBuiltIn = true
@@ -116,7 +116,7 @@ data class SearchEngine(
             id = "duckduckgo",
             displayName = "DuckDuckGo",
             searchUrlTemplate = "https://duckduckgo.com/?q=%s",
-            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=duckduckgo.com",
+            iconUrl = "bundled:engine/duckduckgo",
             shortcut = "d",
             orderPosition = 1,
             isBuiltIn = true
@@ -126,7 +126,7 @@ data class SearchEngine(
             id = "brave",
             displayName = "Brave",
             searchUrlTemplate = "https://search.brave.com/search?q=%s",
-            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=brave.com",
+            iconUrl = "bundled:engine/brave",
             shortcut = "b",
             orderPosition = 2,
             isBuiltIn = true
@@ -136,7 +136,7 @@ data class SearchEngine(
             id = "kagi",
             displayName = "Kagi",
             searchUrlTemplate = "https://kagi.com/search?q=%s",
-            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=kagi.com",
+            iconUrl = "bundled:engine/kagi",
             shortcut = "k",
             orderPosition = 3,
             isBuiltIn = true
@@ -146,7 +146,7 @@ data class SearchEngine(
             id = "ecosia",
             displayName = "Ecosia",
             searchUrlTemplate = "https://www.ecosia.org/search?q=%s",
-            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=ecosia.org",
+            iconUrl = "bundled:engine/ecosia",
             shortcut = "e",
             orderPosition = 4,
             isBuiltIn = true
@@ -156,7 +156,7 @@ data class SearchEngine(
             id = "startpage",
             displayName = "Startpage",
             searchUrlTemplate = "https://www.startpage.com/sp/search?query=%s",
-            iconUrl = "https://www.google.com/s2/favicons?sz=128&domain=startpage.com",
+            iconUrl = "bundled:engine/startpage",
             shortcut = "s",
             orderPosition = 5,
             isBuiltIn = true

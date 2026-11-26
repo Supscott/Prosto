@@ -20,6 +20,7 @@ from invariants_data import (
 )
 from invariants_engine import (
     check_injected_script_stealth,
+    check_no_third_party_favicon_service,
     check_secure_window_switch_debug_only,
     check_security_challenge_protection,
     check_single_browser_activity,
@@ -63,7 +64,10 @@ CHECKS = (
     Check((check_webkit_crash_resilience,), "WebKit Crash Resilience"),
     Check((check_domain_layer_purity,), "Domain Purity"),
     # Two calls, one summary name.
-    Check((check_stable_favicon_paths, check_webview_client_no_favicon), "Favicon Safety"),
+    Check(
+        (check_stable_favicon_paths, check_webview_client_no_favicon, check_no_third_party_favicon_service),
+        "Favicon Safety",
+    ),
     Check((check_no_continuous_effect_keys,)),
     Check((check_localization_parity,), "Localization"),
     Check((check_no_hardcoded_ui_strings,)),

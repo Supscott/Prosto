@@ -1,6 +1,9 @@
 package com.jestk.browser
 
 import android.app.Application
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import com.jestk.browser.engine.addSiteIcons
 import com.jestk.browser.di.AppContainer
 import com.jestk.browser.di.DefaultAppContainer
 import com.jestk.browser.domain.model.registrableDomain
@@ -15,9 +18,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
-open class JestkApplication : Application() {
+open class JestkApplication : Application(), ImageLoaderFactory {
     lateinit var container: AppContainer
         private set
+
+    /** Coil's default loader plus the fetcher that loads a site's own icon (PRO-184). */
+    override fun newImageLoader(): ImageLoader =
+        ImageLoader.Builder(this).components { addSiteIcons() }.build()
 
     override fun onCreate() {
         super.onCreate()

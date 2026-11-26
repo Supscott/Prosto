@@ -29,19 +29,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
 import com.jestk.browser.R
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.ui.components.DockPromptAction
 import com.jestk.browser.ui.components.DockPromptCard
+import com.jestk.browser.ui.components.SiteFavicon
+import com.jestk.browser.ui.components.SiteLetterTile
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
 import com.jestk.browser.ui.theme.LocalProstoTypography
@@ -116,10 +116,11 @@ fun AddEditSearchEnginePrompt(
                 placeholder = stringResource(R.string.search_engine_title_hint),
                 leadingIcon = {
                     if (!previewFaviconUrl.isNullOrBlank()) {
-                        AsyncImage(
-                            model = previewFaviconUrl,
-                            contentDescription = stringResource(R.string.favicon_content_description),
-                            modifier = Modifier.size(22.dp).clip(CircleShape),
+                        SiteFavicon(
+                            faviconUrl = previewFaviconUrl,
+                            imageSize = 22.dp,
+                            shape = CircleShape,
+                            placeholder = { SiteLetterTile(site = trimmedUrl, size = 22.dp, shape = CircleShape) },
                         )
                     } else {
                         Icon(Icons.Default.Title, null, tint = ProstoMutedSlate, modifier = Modifier.size(20.dp))

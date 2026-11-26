@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -37,6 +36,7 @@ import coil.compose.AsyncImage
 import com.jestk.browser.domain.model.FavoriteItem
 import com.jestk.browser.R
 import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.ui.components.SiteLetterTile
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.DarkSurfaceVariant
@@ -148,12 +148,7 @@ internal fun SearchFavoriteSquircleCard(
                 var isImageSuccess by remember(faviconUrl) { mutableStateOf(false) }
 
                 if (!isImageSuccess) {
-                    Icon(
-                        imageVector = Icons.Default.Public,
-                        contentDescription = item.title,
-                        tint = ProstoBrandPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
+                    SiteLetterTile(site = item.url, size = 24.dp)
                 }
 
                 val imageModel = remember(faviconUrl) {

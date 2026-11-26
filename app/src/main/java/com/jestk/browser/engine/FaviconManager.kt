@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.Uri
 import android.util.Log
+import androidx.annotation.DrawableRes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -27,6 +28,12 @@ sealed interface FaviconImageModel {
 
     /** A remote image that has to be downloaded before it can be displayed. */
     data class Remote(val url: String) : FaviconImageModel
+
+    /** The site's own icon at [origin] (`apple-touch-icon.png`, then `/favicon.ico`), see [SiteIcon]. */
+    data class Site(val origin: String) : FaviconImageModel
+
+    /** A drawable shipped in the app (the icons of the default search engines). */
+    data class Bundled(@DrawableRes val resId: Int) : FaviconImageModel
 }
 
 object FaviconManager {
@@ -193,29 +200,12 @@ object FaviconManager {
         isDomainCacheIndexed = false
     }
 
-    fun extractFallbackFaviconUrl(url: String?): String? {
-        if (url.isNullOrBlank()) return null
-        return try {
-            val uri = Uri.parse(url)
-            val scheme = uri.scheme?.lowercase() ?: return null
-            if (scheme != "http" && scheme != "https") return null
-            val host = uri.host?.lowercase() ?: return null
-            if (host.isBlank()) return null
-            if (host == "localhost" ||
-                host.startsWith("127.") ||
-                host.startsWith("10.") ||
-                host.startsWith("192.168.") ||
-                host.startsWith("172.16.") ||
-                host.endsWith(".local")
-            ) {
-                return null
-            }
-            "https://www.google.com/s2/favicons?sz=128&domain=${host.removePrefix("www.")}"
-        } catch (e: Throwable) {
-            Log.w(TAG, "Failed to build fallback favicon URL", e)
-            null
-        }
-    }
+    /**
+     * The icon reference to use for a page that reported no icon of its own: the site's origin
+     * (see [SiteIcon]), or null for pages without a public http(s) origin (private hosts, `about:`).
+     * No third-party favicon service is involved.
+     */
+    fun extractFallbackFaviconUrl(url: String?): String? = SiteIcon.refForPage(url)
 
     /**
      * Persists the favicon of a tab under a stable per-tab path (`favicon_<tabId>.png`).
@@ -337,10 +327,19 @@ object FaviconManager {
      * - `file:///android_asset/...` or `file:/android_asset/...` -> [FaviconImageModel.Asset]
      * - `/android_asset/...` -> [FaviconImageModel.Asset] carrying a `file://` URI
      * - a path starting with `/` or `file://` -> [FaviconImageModel.LocalFile]
+     * - `bundled:engine/<id>` -> [FaviconImageModel.Bundled] (null when unknown)
+     * - `siteicon:<origin>`, or a legacy Google `s2` favicon URL stored by an older version ->
+     *   [FaviconImageModel.Site] (null for a private host); the Google URL is never requested
      * - anything else -> [FaviconImageModel.Remote]
      */
     fun toFaviconImageModel(urlOrPath: String?): FaviconImageModel? {
         if (urlOrPath.isNullOrBlank()) return null
+        if (BundledSearchIcons.isBundledRef(urlOrPath)) {
+            return BundledSearchIcons.resIdOf(urlOrPath)?.let { FaviconImageModel.Bundled(it) }
+        }
+        if (SiteIcon.isRef(urlOrPath)) {
+            return SiteIcon.originOfRef(urlOrPath)?.let { FaviconImageModel.Site(it) }
+        }
         if (urlOrPath.startsWith("file:///android_asset/") || urlOrPath.startsWith("file:/android_asset/")) {
             return FaviconImageModel.Asset(Uri.parse(urlOrPath))
         }
@@ -408,11 +407,14 @@ object FaviconManager {
 
 /**
  * Maps the typed favicon model to the runtime value Coil accepts as an image model:
- * a `Uri` for packaged assets, a `File` for local files and the URL string for remote images.
+ * a `Uri` for packaged assets, a `File` for local files, the URL string for remote images, a
+ * [SiteIconModel] for a site's own icon and the drawable id (`Int`) for a bundled icon.
  */
 fun FaviconImageModel.toCoilModel(): Any =
     when (this) {
         is FaviconImageModel.Asset -> uri
         is FaviconImageModel.LocalFile -> file
         is FaviconImageModel.Remote -> url
+        is FaviconImageModel.Site -> SiteIconModel(origin)
+        is FaviconImageModel.Bundled -> resId
     }

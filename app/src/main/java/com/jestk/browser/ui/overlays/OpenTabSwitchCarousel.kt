@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FilterNone
-import androidx.compose.material.icons.filled.Language
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,6 +36,7 @@ import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SearchInputAutocompleteMatcher
 import com.jestk.browser.ui.components.SiteFavicon
+import com.jestk.browser.ui.components.SiteLetterTile
 import com.jestk.browser.ui.theme.DarkOnSurface
 import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.LocalProstoTypography
@@ -116,14 +116,7 @@ private fun OpenTabSwitchCapsule(
                 faviconUrl = faviconUrl,
                 imageSize = 20.dp,
                 shape = CircleShape,
-                placeholder = {
-                    Icon(
-                        imageVector = Icons.Default.Language,
-                        contentDescription = null,
-                        tint = ProstoMutedSlate,
-                        modifier = Modifier.size(16.dp),
-                    )
-                },
+                placeholder = { SiteLetterTile(site = tab.url, size = 20.dp, shape = CircleShape) },
             )
 
             // Title & Domain

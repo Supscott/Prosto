@@ -97,7 +97,7 @@ Prosto has no analytics and no telemetry. Your tabs, history, favorites and sett
 | --- | --- | --- |
 | Update check | `api.github.com` and `github.com` (Prosto releases) | Automatically, while **Check for updates** in Settings is on (it is on by default). You can also check by hand. |
 | Filter lists | The list publishers: `easylist.to`, `ublockorigin.github.io`, `filters.adtidy.org` (AdGuard), `secure.fanboy.co.nz`, `easylist-downloads.adblockplus.org` | About once a day on an unmetered connection, or when you tap "Update filter lists now". The lists also ship inside the APK. |
-| Site icons | Google's favicon service, `www.google.com/s2/favicons` | When a site gives no icon of its own, and for the icons of the default search engines. The request carries the site's domain. Local addresses (`localhost`, `192.168.x.x` and similar) are skipped. |
+| Site icons | The site itself (`/apple-touch-icon.png`, then `/favicon.ico`) | When a page gives no icon of its own, for example on a favorite you have not opened lately. The request carries no cookies. Google is not contacted: the default search engines use icons bundled in the app, and a site with no icon gets a letter tile. Local addresses (`localhost`, `192.168.x.x` and similar) are skipped. |
 
 Also good to know:
 

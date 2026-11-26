@@ -12,6 +12,7 @@ import coil.decode.SvgDecoder
 fun offlineImageLoaderBuilder(context: Context): ImageLoader.Builder =
     ImageLoader.Builder(context.applicationContext)
         .components {
+            add(FakeFaviconFetcher.SiteIconMapper())
             add(FakeFaviconFetcher.Factory())
             add(SvgDecoder.Factory())
         }

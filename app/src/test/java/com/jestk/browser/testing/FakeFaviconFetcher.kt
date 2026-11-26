@@ -11,7 +11,9 @@ import coil.decode.DataSource
 import coil.fetch.DrawableResult
 import coil.fetch.FetchResult
 import coil.fetch.Fetcher
+import coil.map.Mapper
 import coil.request.Options
+import com.jestk.browser.engine.SiteIconModel
 
 /**
  * Serves every http(s) image request of a preview test from a generated bitmap, so previews never
@@ -30,6 +32,14 @@ class FakeFaviconFetcher(
             isSampled = false,
             dataSource = DataSource.NETWORK,
         )
+    }
+
+    /**
+     * Turns the model of a site's own icon into the origin URL, which [Factory] then serves from a
+     * generated bitmap: the real fetcher would reach the network (PRO-184).
+     */
+    class SiteIconMapper : Mapper<SiteIconModel, Uri> {
+        override fun map(data: SiteIconModel, options: Options): Uri = Uri.parse(data.origin)
     }
 
     class Factory : Fetcher.Factory<Uri> {

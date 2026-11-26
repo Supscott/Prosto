@@ -213,7 +213,7 @@ internal class SearchCoordinator(
         } else {
             FaviconManager.extractFallbackFaviconUrl(finalUrl)
                 ?: existing?.iconUrl
-                ?: "https://www.google.com/s2/favicons?sz=128&domain=google.com"
+                ?: "" // no public site to ask: the badge draws a letter tile
         }
 
         val engineToSave = if (existing != null) {

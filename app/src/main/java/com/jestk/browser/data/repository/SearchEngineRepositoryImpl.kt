@@ -6,6 +6,7 @@ import com.jestk.browser.data.mapper.toDomain
 import com.jestk.browser.data.mapper.toEntity
 import com.jestk.browser.domain.model.SearchEngine
 import com.jestk.browser.domain.repository.SearchEngineRepository
+import com.jestk.browser.engine.BundledSearchIcons
 import com.jestk.browser.engine.FaviconManager
 import com.jestk.browser.engine.SearchEngineIconDownloader
 import kotlinx.coroutines.CoroutineDispatcher
@@ -103,11 +104,17 @@ class SearchEngineRepositoryImpl(
                 searchEngineDao.insertAll(toInsert)
             }
 
-            // Migrate any legacy asset URLs
             existing.forEach { entity ->
-                if (entity.iconUrl.contains("android_asset")) {
-                    val fallback = SearchEngine.DEFAULT_ENGINES.firstOrNull { it.id == entity.id }?.iconUrl
-                        ?: FaviconManager.extractFallbackFaviconUrl(entity.searchUrlTemplate)
+                val default = SearchEngine.DEFAULT_ENGINES.firstOrNull {
+                    it.id == entity.id && it.searchUrlTemplate == entity.searchUrlTemplate
+                }
+                if (default != null && entity.iconUrl != default.iconUrl) {
+                    // A default engine shows its bundled icon; rows from older versions hold a downloaded
+                    // copy or a Google favicon-service URL (PRO-184).
+                    searchEngineDao.update(entity.copy(iconUrl = default.iconUrl))
+                } else if (entity.iconUrl.contains("android_asset")) {
+                    // Migrate any legacy asset URLs
+                    val fallback = FaviconManager.extractFallbackFaviconUrl(entity.searchUrlTemplate)
                     if (fallback != null) {
                         searchEngineDao.update(entity.copy(iconUrl = fallback))
                     }
@@ -126,6 +133,7 @@ class SearchEngineRepositoryImpl(
         try {
             val allEngines = searchEngineDao.getAllSearchEngines().map { it.toDomain() }
             for (engine in allEngines) {
+                if (BundledSearchIcons.isBundledRef(engine.iconUrl)) continue
                 if (engine.iconUrl.startsWith("file://") || engine.iconUrl.startsWith("/")) {
                     val localPath = engine.iconUrl.removePrefix("file://")
                     val localFile = File(localPath)

@@ -9,12 +9,12 @@ import org.robolectric.RobolectricTestRunner
 class FaviconManagerTest {
 
     @Test
-    fun extractFallbackFaviconUrl_withValidHttpHttps_returnsGoogleFaviconUrl() {
+    fun extractFallbackFaviconUrl_withValidHttpHttps_returnsTheSiteOwnReference() {
         val result1 = FaviconManager.extractFallbackFaviconUrl("https://example.com/page")
-        assertThat(result1).isEqualTo("https://www.google.com/s2/favicons?sz=128&domain=example.com")
+        assertThat(result1).isEqualTo("siteicon:https://example.com")
 
-        val result2 = FaviconManager.extractFallbackFaviconUrl("http://www.sub.github.com/repo")
-        assertThat(result2).isEqualTo("https://www.google.com/s2/favicons?sz=128&domain=sub.github.com")
+        val result2 = FaviconManager.extractFallbackFaviconUrl("http://www.sub.github.com:8080/repo")
+        assertThat(result2).isEqualTo("siteicon:http://www.sub.github.com:8080")
     }
 
     @Test
