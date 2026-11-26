@@ -3,6 +3,8 @@
 
     ui_nodes.py list            one line per labelled node: text | content-desc | bounds, plus
                                 " | checked=true|false" for checkable nodes (switches)
+    ui_nodes.py list --native   the same without the nodes inside a WebView (page content): only
+                                the native views (dock, pills, prompts) stay (PRO-186)
     ui_nodes.py find <label>    centre "x y" of the first node whose text or content-desc
                                 equals <label>; exit 1 when there is none
     ui_nodes.py webview         "l t r b" of the largest android.webkit.WebView; exit 1 when none
@@ -20,18 +22,38 @@ import sys
 import xml.etree.ElementTree as ET
 
 
-def nodes(root):
+def _labelled(elements):
     """(text, desc, bounds, checked) per node that has a label or is checkable.
 
     `checked` is "true" or "false" for checkable nodes (uiautomator's `checkable` attribute)
     and None for the others.
     """
-    for node in root.iter("node"):
+    for node in elements:
         text, desc = node.get("text", ""), node.get("content-desc", "")
         checkable = node.get("checkable") == "true"
         if text or desc or checkable:
             checked = node.get("checked", "false") if checkable else None
             yield text, desc, node.get("bounds", ""), checked
+
+
+def nodes(root):
+    """Labelled nodes of the whole dump, page content included."""
+    return _labelled(root.iter("node"))
+
+
+def _outside_webview(element):
+    """Nodes in document order that are not inside a WebView (the WebView node itself is kept)."""
+    for child in element:
+        if child.tag != "node":
+            continue
+        yield child
+        if child.get("class") != "android.webkit.WebView":
+            yield from _outside_webview(child)
+
+
+def native_nodes(root):
+    """Labelled nodes outside every WebView: the dock, the pills and the prompts (ui --native, PRO-186)."""
+    return _labelled(_outside_webview(root))
 
 
 def parse_bounds(bounds):
@@ -173,8 +195,9 @@ def main() -> int:
         # Exit 2 (not 1): callers read exit 1 as "the label is not on screen".
         print(f"ui_nodes: the UI dump is not valid XML ({error})", file=sys.stderr)
         return 2
-    if argv == ["list"]:
-        for text, desc, bounds, checked in nodes(root):
+    if argv in (["list"], ["list", "--native"]):
+        listed = native_nodes(root) if argv[-1] == "--native" else nodes(root)
+        for text, desc, bounds, checked in listed:
             suffix = "" if checked is None else f" | checked={checked}"
             print(f"{text} | {desc} | {bounds}{suffix}")
         return 0

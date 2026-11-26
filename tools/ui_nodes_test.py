@@ -8,6 +8,7 @@ import json
 import subprocess
 import sys
 import unittest
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parent / "ui_nodes.py"
@@ -69,6 +70,40 @@ class TapPointCliTest(unittest.TestCase):
         done = self.run_tap_point({"total": 1, "selector": "#x"})
         self.assertEqual(done.returncode, 1)
         self.assertEqual(done.stderr.strip(), "tap: 1 match(es) for #x, none visible")
+
+
+NATIVE_DUMP = (
+    '<hierarchy rotation="0">'
+    '<node class="android.widget.FrameLayout" text="" content-desc="" clickable="false" bounds="[0,0][1080,2400]">'
+    '<node class="android.webkit.WebView" text="" content-desc="" clickable="false" bounds="[0,100][1080,2000]">'
+    '<node class="android.view.View" text="Page link" content-desc="" clickable="true" bounds="[0,300][500,400]" />'
+    '</node>'
+    '<node class="android.view.View" text="Home" content-desc="" clickable="true" bounds="[0,2100][300,2300]" />'
+    '<node class="android.view.View" text="" content-desc="" clickable="true" checkable="true" checked="true" bounds="[0,0][50,50]" />'
+    '</node>'
+    '</hierarchy>'
+)
+
+
+class NativeNodesTest(unittest.TestCase):
+    def test_full_list_keeps_the_page_content(self):
+        texts = [text for text, _desc, _bounds, _checked in ui_nodes.nodes(ET.fromstring(NATIVE_DUMP))]
+        self.assertEqual(texts, ["Page link", "Home", ""])
+
+    def test_native_list_drops_the_nodes_inside_the_webview(self):
+        listed = list(ui_nodes.native_nodes(ET.fromstring(NATIVE_DUMP)))
+        self.assertEqual([text for text, *_ in listed], ["Home", ""])
+        self.assertEqual(listed[1][3], "true")
+
+    def test_cli_list_native_flag(self):
+        done = subprocess.run(
+            [sys.executable, str(SCRIPT), "list", "--native"], input=NATIVE_DUMP, capture_output=True, text=True,
+        )
+        self.assertEqual(done.returncode, 0)
+        self.assertEqual(
+            done.stdout.splitlines(),
+            ["Home |  | [0,2100][300,2300]", " |  | [0,0][50,50] | checked=true"],
+        )
 
 
 DUMPSYS_SAMPLE = SCRIPT.parent / "testdata" / "dumpsys_activity_component.txt"

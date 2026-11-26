@@ -11,6 +11,8 @@
 #   tools/device.sh start | stop    launch from the launcher | force-stop
 #   tools/device.sh kill            kill the process in the background (simulates process death)
 #   tools/device.sh reset           wipe the app's data (tabs, settings) and pre-grant notifications
+#   tools/device.sh perms reset [perm...]  revoke runtime permissions and clear their "don't ask again"
+#                                   flags (default CAMERA RECORD_AUDIO; names without android.permission.)
 #   tools/device.sh open <url>      open a link the way another app does (ACTION_VIEW)
 #   tools/device.sh caller          open Settings: a stand-in for "the app the link came from"
 #   tools/device.sh back | home     press Back | Home
@@ -26,9 +28,11 @@
 #                                   the tap fails naming it (PRO-166)
 #   tools/device.sh taps x1,y1 x2,y2 ...   rapid taps at device pixels, sent in ONE adb shell call
 #                                   (no round trip between taps; every pair is validated first)
-#   tools/device.sh ui [--compressed]  labelled UI nodes on screen: text | content-desc | bounds; checkable
-#                                   nodes (switches) add " | checked=true|false". Plain = full view tree;
-#                                   --compressed = what TalkBack-style services see (accessibility checks)
+#   tools/device.sh ui [--compressed] [--native]  labelled UI nodes on screen: text | content-desc | bounds;
+#                                   checkable nodes (switches) add " | checked=true|false". Plain = full view
+#                                   tree; --compressed = what TalkBack-style services see (accessibility checks);
+#                                   --native drops the nodes inside a WebView (page content), so only the dock,
+#                                   pills and prompts remain (PRO-186)
 #   tools/device.sh tapui [--compressed] <label>  tap the node whose text or content-desc is exactly
 #                                   <label>; exit 1 with a message when it is not on screen (dock tabs scroll
 #                                   out of view). --compressed reads the same dump as "ui --compressed"
@@ -46,7 +50,9 @@
 #                                   finish loading first (CDP_WAIT=0 skips the wait; PRO-171)
 #   tools/device.sh bounds [n] [interval_ms] [class]  n samples (default 10, 100 ms apart) of the bounds of
 #                                   the visible view of <class> (default NestedWebView): "<ms> <l,t,r,b>" or
-#                                   "none". One adb shell call runs them all (PRO-169)
+#                                   "none". <class> is the simple name (NestedWebView) or the fully qualified
+#                                   one (com.jestk.browser.engine.NestedWebView). One adb shell call runs them
+#                                   all (PRO-169)
 #   DEVICE_TIMING=1 (any tap/js/bounds command) prints each adb or CDP step's time to stderr (PRO-170)
 #   tools/device.sh serve [stop]    serve tools/fixtures/adblock/ to the phone at http://127.0.0.1:8765/
 #                                   (adb reverse; loopback needs no HTTP warning); "stop" ends it
@@ -273,7 +279,9 @@ tap_selector() {
         page="$(timed cdp node "$ROOT/tools/cdp_eval.mjs" "$url" "$(scroll_js "$sel_json" "$index" "$scroll_dy")" "$CDP_PORT")" \
             || die "could not read the page at $url"
         # A scroll that leaves the centre where it was means the page is at its end in that direction.
-        [[ "$(python3 "$ROOT/tools/tap_overlays.py" moved "$before" "$page")" == moved ]] \
+        # "moved" prints "element no longer in the page" (exit 3) when the element is gone (PRO-186).
+        moved_verdict="$(python3 "$ROOT/tools/tap_overlays.py" moved "$before" "$page")" || die "tap: $moved_verdict"
+        [[ "$moved_verdict" == moved ]] \
             || die "tap: $label still covers the element and the page cannot scroll further, so it cannot be tapped"
         xy="$(python3 "$ROOT/tools/ui_nodes.py" tap-point "$wv" "$page")" || exit 1
         read -r tap_x tap_y <<< "$xy"
@@ -285,6 +293,7 @@ tap_selector() {
         fi
     fi
     timed input adb shell input tap "$tap_x" "$tap_y"
+    echo "tapped $selector at $tap_x,$tap_y"
 }
 
 # Prints "clear", or "covered<TAB>scroll-dy<TAB>label" for the device point x y (tap_overlays.py plan).
@@ -343,7 +352,7 @@ pill_timeout_restore() {
 cmd="${1:-}"
 shift || true
 case "$cmd" in
-    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|enter|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|js|serve|secure|log|clearlog|shot|pill-timeout|bounds) require_device ;;
+    wake|sleep|install|start|stop|kill|reset|perms|open|caller|back|home|enter|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|js|serve|secure|log|clearlog|shot|pill-timeout|bounds) require_device ;;
 esac
 case "$cmd" in
     open|tap|tapui|eval|js|ui|log|visible|pages) install_stamp_check "$ROOT" ;;
@@ -355,11 +364,15 @@ case "$cmd" in
         # "stayon usb" needs a USB cable; over wireless adb the phone locked after its 60 s timeout
         # while an install waited for the Gradle lock. Raise the timeout too; sleep restores it.
         mkdir -p "$SHOT_DIR"
+        # Saved only when no value is saved yet, and the current value is not the wake value already (1800000,
+        # set by a wake in this or another checkout: saving it would make sleep "restore" the wake value; PRO-186).
         # Saved only when adb answered with a number or "null" (unset, which sleep deletes again), through
         # a temp file: a failed read leaves no empty file for sleep to report as a saved value.
         if [[ ! -s "$SHOT_DIR/screen_timeout" ]]; then
             saved_now="$(adb shell settings get system screen_off_timeout 2>/dev/null | tr -d '\r[:space:]')" || saved_now=""
-            if [[ "$saved_now" == "null" || "$saved_now" =~ ^[1-9][0-9]*$ ]]; then
+            if [[ "$saved_now" == "1800000" ]]; then
+                : # already the wake value: the original is unknown, so nothing is saved
+            elif [[ "$saved_now" == "null" || "$saved_now" =~ ^[1-9][0-9]*$ ]]; then
                 printf '%s\n' "$saved_now" > "$SHOT_DIR/screen_timeout.tmp" && mv "$SHOT_DIR/screen_timeout.tmp" "$SHOT_DIR/screen_timeout"
             else
                 echo "could not read the screen timeout (adb answered '${saved_now:-nothing}'): not saved; sleep will restore nothing" >&2
@@ -386,6 +399,11 @@ case "$cmd" in
                 adb shell settings delete system screen_off_timeout
                 rm -f "$SHOT_DIR/screen_timeout"
                 echo "normal screen timeout restored: the setting was unset before wake, so it is unset again"
+            elif [[ "$saved_ms" == "1800000" ]]; then
+                # Only a wake value can be saved this way (wake does not save 1800000): the original is lost.
+                # Leave the setting as it is rather than guess a default.
+                rm -f "$SHOT_DIR/screen_timeout"
+                echo "WARN: saved screen timeout is 1800000 ms (the wake value), so the original is unknown: left at 1800000 ms; set it in Settings > Display if needed" >&2
             elif [[ "$saved_ms" =~ ^[1-9][0-9]*$ ]]; then
                 adb shell settings put system screen_off_timeout "$saved_ms"
                 rm -f "$SHOT_DIR/screen_timeout"
@@ -453,6 +471,22 @@ case "$cmd" in
         adb shell pm grant "$PKG" android.permission.POST_NOTIFICATIONS 2>/dev/null || true
         echo "cleared $PKG"
         ;;
+    perms)
+        [[ "${1:-}" == reset ]] || die "usage: device.sh perms reset [permission...] (default CAMERA RECORD_AUDIO)"
+        shift
+        perms_list=("$@")
+        [[ ${#perms_list[@]} -gt 0 ]] || perms_list=(CAMERA RECORD_AUDIO)
+        # Every name is checked before anything is revoked.
+        for perm in "${perms_list[@]}"; do
+            [[ "$perm" =~ ^[A-Z][A-Z0-9_]*$ ]] || die "perms: '$perm' is not a permission name (e.g. CAMERA; android.permission. is added)"
+        done
+        for perm in "${perms_list[@]}"; do
+            # pm revoke fails when the permission was never granted: that is the state we want, so go on.
+            adb shell pm revoke "$PKG" "android.permission.$perm" 2>/dev/null || true
+            adb shell pm clear-permission-flags "$PKG" "android.permission.$perm" user-fixed user-set
+            echo "reset android.permission.$perm for $PKG"
+        done
+        ;;
     open)
         [[ $# -ge 1 ]] || die "usage: device.sh open <url>"
         adb shell "am start -a android.intent.action.VIEW -d $(device_quote "$1") $PKG" >/dev/null
@@ -490,9 +524,16 @@ case "$cmd" in
         ;;
     ui)
         mode=full
-        [[ "${1:-}" == "--compressed" ]] && mode=compressed
+        native=""
+        for arg in "$@"; do
+            case "$arg" in
+                --compressed) mode=compressed ;;
+                --native) native="--native" ;;
+                *) die "usage: device.sh ui [--compressed] [--native]" ;;
+            esac
+        done
         dump="$(ui_dump_or_die ui "$mode")" || exit 1
-        printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" list
+        printf '%s\n' "$dump" | python3 "$ROOT/tools/ui_nodes.py" list $native
         ;;
     tapui)
         mode=full
@@ -548,7 +589,7 @@ case "$cmd" in
         cls="${3:-NestedWebView}"
         [[ "$n" =~ ^[1-9][0-9]*$ ]] || die "usage: device.sh bounds [n=10] [interval_ms=100] [class=NestedWebView]"
         [[ "$interval" =~ ^[0-9]+$ ]] || die "bounds: the interval is a whole number of milliseconds"
-        [[ "$cls" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "bounds: the class is a simple class name, e.g. NestedWebView"
+        [[ "$cls" =~ ^[A-Za-z_][A-Za-z0-9_.]*$ ]] || die "bounds: the class is a simple or fully qualified class name, e.g. NestedWebView"
         # One adb shell call runs every sample, so no adb round trip separates two reads. Each sample starts
         # with the device uptime ("@@ <seconds>", /proc/uptime: 10 ms steps); the pause is fractional seconds.
         pause="$(printf '%d.%03d' $((interval / 1000)) $((interval % 1000)))"

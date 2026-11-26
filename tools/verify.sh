@@ -126,6 +126,15 @@ py_status=0
 while IFS= read -r py_test; do
     py_out=$(python3 "$py_test" 2>&1) || { echo "$py_out"; echo "FAIL $py_test"; py_status=1; }
 done < <(git ls-files ':(glob)tools/**/*_test.py')
+# Node tests of the CDP helpers (node --test; PRO-186). A missing node skips them with a note.
+if command -v node >/dev/null 2>&1; then
+    echo "==> Running the Node tool tests (tools/**/*_test.mjs)..."
+    while IFS= read -r mjs_test; do
+        mjs_out=$(node --test "$mjs_test" 2>&1) || { echo "$mjs_out"; echo "FAIL $mjs_test"; py_status=1; }
+    done < <(git ls-files ':(glob)tools/**/*_test.mjs')
+else
+    echo "==> Skipping the Node tool tests: node is not installed"
+fi
 if [[ $py_status -ne 0 ]]; then
     echo "==> Python tool tests FAILED"
     exit 1

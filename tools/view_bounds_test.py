@@ -34,6 +34,13 @@ class VisibleBoundsTest(unittest.TestCase):
     def test_a_hidden_view_of_the_class_does_not_count(self):
         self.assertIsNone(view_bounds.visible_bounds(dump(HIDDEN), "NestedWebView"))
 
+    def test_the_fully_qualified_class_name_matches_too(self):
+        cls = "com.jestk.browser.engine.NestedWebView"
+        self.assertEqual(view_bounds.visible_bounds(dump(WEB), cls), (0, 128, 1220, 2486))
+
+    def test_a_different_package_with_the_same_simple_name_does_not_match(self):
+        self.assertIsNone(view_bounds.visible_bounds(dump(WEB), "other.NestedWebView"))
+
 
 class SamplesCliTest(unittest.TestCase):
     def test_one_line_per_sample_with_ms_since_the_first(self):
@@ -46,6 +53,14 @@ class SamplesCliTest(unittest.TestCase):
     def test_no_sample_is_an_error(self):
         done = subprocess.run([sys.executable, str(SCRIPT), "NestedWebView"], input="", capture_output=True, text=True)
         self.assertEqual(done.returncode, 1)
+
+    def test_a_non_numeric_uptime_is_a_one_line_error_not_a_traceback(self):
+        done = subprocess.run(
+            [sys.executable, str(SCRIPT), "NestedWebView"], input="@@ garbage\n", capture_output=True, text=True,
+        )
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual(len(done.stderr.strip().splitlines()), 1)
+        self.assertNotIn("Traceback", done.stderr)
 
 
 if __name__ == "__main__":

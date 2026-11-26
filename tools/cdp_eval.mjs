@@ -4,7 +4,8 @@
 //   node tools/cdp_eval.mjs <urlPrefix> <expression> [port]
 //
 // The visible page is preferred when several match (cdp_targets.mjs, PRO-171). Before evaluating, the
-// script waits up to 5 s for document.readyState === 'complete' (PRO-171); CDP_WAIT=0 skips the wait.
+// script waits up to 5 s for document.readyState to be 'interactive' or 'complete' (PRO-171, PRO-186);
+// CDP_WAIT=0 skips the wait.
 // CDP_GESTURE=1 runs the expression as a user gesture (window.open, link clicks that need one).
 import { pickTarget } from './cdp_targets.mjs';
 
@@ -33,14 +34,15 @@ ws.onmessage = (m) => {
     if (resolve) { pending.delete(reply.id); resolve(reply); }
 };
 
-// Polls readyState until 'complete' or waitMs passes; a page still loading is evaluated anyway, with a warning.
+// Polls readyState until it is 'interactive' or 'complete', or waitMs passes; a page still loading is
+// evaluated anyway, with a warning. 'interactive' is enough: the DOM is parsed and the scripts can run.
 async function waitForLoad() {
     const deadline = Date.now() + waitMs;
     let state = 'unknown';
     while (Date.now() < deadline) {
         const reply = await call('Runtime.evaluate', { expression: 'document.readyState', returnByValue: true });
         state = reply.result?.result?.value ?? 'unknown';
-        if (state === 'complete') return;
+        if (state === 'interactive' || state === 'complete') return;
         await new Promise(resolve => setTimeout(resolve, 100));
     }
     console.error(`cdp: the page is still loading after ${waitMs / 1000} s (readyState ${state}); evaluating anyway`);

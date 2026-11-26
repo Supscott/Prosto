@@ -7,6 +7,10 @@ Reads the output of one device loop: a line "@@ <uptime seconds>" before each `d
 The last visible view in drawing order wins (the topmost one).
 
     view_bounds.py <class-name> < samples.txt
+
+<class-name> is the simple name (NestedWebView) or the fully qualified one
+(com.jestk.browser.engine.NestedWebView); both match the same views (PRO-186).
+A marker whose uptime is not a number is a one-line error (exit 1), not a traceback.
 """
 import sys
 from pathlib import Path
@@ -18,7 +22,8 @@ MARK = "@@ "
 
 
 def samples(lines):
-    """(uptime seconds, dump text) for each marked sample; text before the first marker is ignored."""
+    """(uptime seconds, dump text) for each marked sample; text before the first marker is ignored.
+    Raises ValueError when a marker's uptime is not a number."""
     out = []
     for line in lines:
         if line.startswith(MARK):
@@ -29,10 +34,10 @@ def samples(lines):
 
 
 def visible_bounds(text, cls):
-    """(l, t, r, b) of the last visible view whose simple class name is cls, or None."""
+    """(l, t, r, b) of the last visible view whose class is cls (simple or fully qualified name), or None."""
     found = None
     for name, visible, box in ui_nodes.dumpsys_views(text):
-        if visible and name.rsplit(".", 1)[-1] == cls:
+        if visible and (name == cls or name.rsplit(".", 1)[-1] == cls):
             found = box
     return found
 
@@ -41,7 +46,11 @@ def main(argv):
     if len(argv) != 2:
         print(__doc__, file=sys.stderr)
         return 2
-    rows = samples(sys.stdin.read().splitlines())
+    try:
+        rows = samples(sys.stdin.read().splitlines())
+    except ValueError:
+        print("bounds: a sample marker has no numeric uptime (the device loop printed something else)", file=sys.stderr)
+        return 1
     if not rows:
         print("bounds: no sample came back from the device", file=sys.stderr)
         return 1

@@ -172,6 +172,14 @@ class MaxScrollTest(unittest.TestCase):
         done = subprocess.run([sys.executable, str(SCRIPT), "moved", before, after], capture_output=True, text=True)
         self.assertEqual(done.stdout.strip(), "stuck")
 
+    def test_a_null_result_means_the_element_is_gone(self):
+        before = json.dumps(json.dumps([10, 500, 400, 800, 2.6, 0]))
+        after = json.dumps("null")  # JSON.stringify(null), as the scroll script returns it
+        self.assertIsNone(tap_overlays.centre_y(after))
+        done = subprocess.run([sys.executable, str(SCRIPT), "moved", before, after], capture_output=True, text=True)
+        self.assertEqual((done.returncode, done.stdout.strip()), (3, "element no longer in the page"))
+        self.assertEqual(done.stderr, "")
+
 
 class PlanCliTest(unittest.TestCase):
     def test_cli_reads_the_dump_files_and_prints_the_verdict(self):

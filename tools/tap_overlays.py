@@ -19,7 +19,8 @@ Both are in drawing order: a later entry is drawn above an earlier one.
                         and the pills sit (the only place uiautomator is read for, PRO-170); exit 1 otherwise
     tap_overlays.py moved <before-cdp-result> <after-cdp-result>
                         "moved" when the element's centre changed after a scroll, "stuck" when the page
-                        could not scroll any further (PRO-170)
+                        could not scroll any further (PRO-170); exit 3 and "element no longer in the
+                        page" when either result is null (the element is gone; PRO-186)
 """
 import json
 import re
@@ -115,10 +116,13 @@ def in_bottom_band(webview, y):
 
 
 def centre_y(cdp_result):
-    """The element's centre Y (CSS px) from a cdp_eval.mjs page result (the same shape chosen_index reads)."""
+    """The element's centre Y (CSS px) from a cdp_eval.mjs page result (the same shape chosen_index reads),
+    or None when the result is null: the element is no longer in the page."""
     value = json.loads(cdp_result)
     if isinstance(value, str):  # the expression returns JSON.stringify(...)
         value = json.loads(value)
+    if not isinstance(value, list) or len(value) < 2:
+        return None
     return value[1]
 
 
@@ -165,8 +169,11 @@ def main(argv):
             return 2
         return 0 if in_bottom_band(webview, int(argv[3])) else 1
     if len(argv) == 4 and argv[1] == "moved":
-        moved = abs(centre_y(argv[3]) - centre_y(argv[2])) >= 1
-        print("moved" if moved else "stuck")
+        before, after = centre_y(argv[2]), centre_y(argv[3])
+        if before is None or after is None:
+            print("element no longer in the page")
+            return 3
+        print("moved" if abs(after - before) >= 1 else "stuck")
         return 0
     if len(argv) == 7 and argv[1] == "plan":
         webview = tuple(int(n) for n in argv[2].split())

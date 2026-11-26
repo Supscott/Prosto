@@ -56,9 +56,11 @@ install_stamp_label() {
 }
 
 # Warns on stderr when the stamp of repo $1 differs from its working tree, or notes that none exists.
-# Always returns 0.
+# The stale warning is printed at most once per 10 minutes for the same recorded build: the last one
+# is kept in build/device/stale_warned (line 1: the recorded stamp on one line, line 2: epoch seconds;
+# PRO-186). Always returns 0.
 install_stamp_check() {
-    local root="$1" now stamp recorded
+    local root="$1" now stamp recorded key marker warned_key warned_at now_s
     now="$(install_stamp_state "$root" 2>/dev/null)" || return 0
     [[ -n "$now" ]] || return 0
     stamp="$root/build/device/installed.txt"
@@ -68,6 +70,15 @@ install_stamp_check() {
     fi
     recorded="$(cat "$stamp" 2>/dev/null || true)"
     if [[ "$recorded" != "$now" ]]; then
+        key="$(printf '%s' "$recorded" | tr '\n' ' ')"
+        marker="$root/build/device/stale_warned"
+        warned_key="$(sed -n 1p "$marker" 2>/dev/null || true)"
+        warned_at="$(sed -n 2p "$marker" 2>/dev/null || true)"
+        now_s="$(date +%s)"
+        if [[ "$warned_key" == "$key" && "$warned_at" =~ ^[0-9]+$ ]] && (( now_s - warned_at < 600 )); then
+            return 0
+        fi
+        printf '%s\n%s\n' "$key" "$now_s" > "$marker" 2>/dev/null || true
         echo "WARN: installed build is older than the working tree (installed $(install_stamp_label "$recorded"), now $(install_stamp_label "$now")) — run tools/device.sh install" >&2
     fi
     return 0

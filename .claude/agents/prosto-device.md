@@ -29,7 +29,8 @@ skip checks.
   files the brief names. No Edit/Write, no commits, no other Gradle commands. One command per
   Bash call, prefixed with `rtk`; quote URLs.
 - Never drive `com.jestk.browser` (the user's own install). Never `device.sh reset` unless the
-  brief says so: it wipes the debug app's tabs and settings.
+  brief says so: it wipes the debug app's tabs and settings. `device.sh perms reset [perm...]`
+  re-arms runtime permission prompts (CAMERA, RECORD_AUDIO by default) when the brief asks.
 - Evidence comes from `ui`, `visible`, `pages`, `js` (not `eval`: the worktree guard refuses it), `log`, `top`. Take a `shot` only for a
   layout check; then Read the PNG and describe what it shows against the expected result.
 - Time-based behaviour: age the persisted state instead of waiting (rewrite
