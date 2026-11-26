@@ -23,7 +23,8 @@ internal interface SiteOsPermissions {
  * Rules: a request from a tab that is not the visible active tab is denied; so is a request that
  * arrives while another one is pending. A remembered grant ("Allow always", never in an
  * incognito tab) is granted without a prompt. A resource is granted only when the matching
- * Android permission is held or has just been granted; "Allow always" stores only those.
+ * Android permission is held or has just been granted; if any requested resource lacks it, the
+ * whole request is denied (Chromium denies a partial grant anyway) and nothing is stored.
  * Every method runs on the main thread, where WebView delivers its callbacks.
  */
 internal class SitePermissionController(
@@ -98,9 +99,12 @@ internal class SitePermissionController(
         }
     }
 
-    /** Denies the open prompt when its tab is gone or is no longer the active one. */
+    /**
+     * Denies the pending request when its tab is gone or is no longer the active one, also while
+     * the system dialog is up (its late result then finds no pending request and is ignored).
+     */
     fun onStateChanged(state: BrowserUiState) {
-        val entry = pending?.takeIf { !it.awaitingOs } ?: return
+        val entry = pending ?: return
         if (state.tabs.none { it.id == entry.tabId } || state.activeTabId != entry.tabId) {
             updateUiState { it.copy(sitePermissionPrompt = null) }
             denyAndClear(entry)
@@ -127,7 +131,9 @@ internal class SitePermissionController(
     private fun finish(entry: Pending, allowed: Set<SiteResource>, remember: Boolean) {
         if (pending !== entry) return
         pending = null
-        if (allowed.isEmpty()) {
+        // Chromium grants only when the subset covers every requested resource and denies the whole
+        // request otherwise, so a partial result is a denial; nothing is remembered then.
+        if (allowed != entry.resources) {
             entry.request.deny()
             return
         }

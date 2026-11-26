@@ -66,6 +66,8 @@ internal fun DockPromptHost(uiState: BrowserUiState, onEvent: (BrowserUiEvent) -
             onDismiss = { onEvent(DismissClearHistoryPrompt) },
             onConfirm = { onEvent(BrowserUiEvent.ClearAllHistory) },
         )
+        // Ahead of every other confirmation: the page waits on this answer, so it must never sit hidden.
+        uiState.sitePermissionPrompt != null -> SitePermissionHost(uiState, isDark, onEvent)
         insecure != null -> InsecureHttpWarningPrompt(
             isDark = isDark,
             url = insecure.url,
@@ -80,7 +82,6 @@ internal fun DockPromptHost(uiState: BrowserUiState, onEvent: (BrowserUiEvent) -
         )
         uiState.duplicateDownloadPrompt != null -> DuplicateDownloadHost(uiState, isDark, onEvent)
         uiState.downloadConfirmPrompt != null -> DownloadConfirmHost(uiState, isDark, onEvent)
-        uiState.sitePermissionPrompt != null -> SitePermissionHost(uiState, isDark, onEvent)
         // Cancel and Close tab dismiss transiently so a later tap is offered again.
         external != null -> ExternalAppConfirmPrompt(
             isDark = isDark,

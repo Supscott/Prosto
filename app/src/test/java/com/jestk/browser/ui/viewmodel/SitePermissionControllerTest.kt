@@ -243,7 +243,7 @@ class SitePermissionControllerTest {
     }
 
     @Test
-    fun mixedOsResult_grantsTheAllowedSubset_andStoresOnlyThat() {
+    fun mixedOsResult_deniesTheWholeRequest_andStoresNothing() {
         val os = FakeOs(held = mutableSetOf(SiteResource.CAMERA), userGrants = emptySet())
         val request = FakeRequest(both)
         val controller = controller(os)
@@ -252,8 +252,25 @@ class SitePermissionControllerTest {
         controller.resolve(SitePermissionChoice.ALLOW_ALWAYS)
 
         assertThat(os.asked).containsExactly(SiteResource.MICROPHONE)
-        assertThat(request.granted).containsExactly(SiteResource.CAMERA)
-        assertThat(store!!.grants[ORIGIN]).containsExactly(SiteResource.CAMERA)
+        assertThat(request.granted).isNull()
+        assertThat(request.denied).isTrue()
+        assertThat(store!!.writes).isEqualTo(0)
+    }
+
+    @Test
+    fun tabClosedWhileSystemDialogIsUp_deniesAndIgnoresTheLateGrant() {
+        val os = FakeOs(userGrants = both, answerAtOnce = false)
+        val request = FakeRequest(both)
+        val controller = controller(os)
+        controller.onRequest("t1", request)
+        controller.resolve(SitePermissionChoice.ALLOW_ALWAYS)
+
+        controller.onStateChanged(state.copy(tabs = emptyList(), activeTabId = null))
+        os.answerNow()
+
+        assertThat(request.denied).isTrue()
+        assertThat(request.granted).isNull()
+        assertThat(store!!.writes).isEqualTo(0)
     }
 
     @Test
