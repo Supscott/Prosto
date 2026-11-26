@@ -22,7 +22,9 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -44,6 +46,10 @@ private const val FLY_OUT_MS = 150
  * pill with an auto-dismiss timer can pause it.
  *
  * [resetKey] restarts the gesture state when the pill shows new content.
+ *
+ * The pill is one accessibility node announced as a polite live region (PRO-190): its message texts
+ * merge into that node, so a screen reader and `uiautomator dump` see them. A button inside the
+ * pill (its own click target) stays a node of its own.
  */
 @Composable
 fun Modifier.swipeToDismissPill(
@@ -97,7 +103,9 @@ fun Modifier.swipeToDismissPill(
                 }
             },
         )
-        .semantics {
+        .semantics(mergeDescendants = true) {
+            // A pill appears without focus: the polite live region makes TalkBack read its text.
+            liveRegion = LiveRegionMode.Polite
             customActions = listOf(
                 CustomAccessibilityAction(dismissLabel) {
                     currentOnDismiss()
