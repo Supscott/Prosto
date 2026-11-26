@@ -81,6 +81,7 @@ internal class TabOverviewReorderState(
     private var maxScrollPxPerSecond = 0f
 
     private var lastReorderTargetKey: String? = null
+    private var lastReorderTargetRect: Rect? = null
 
     fun onDragStart(
         key: String,
@@ -176,6 +177,8 @@ internal class TabOverviewReorderState(
             } ?: return clearTarget()
 
         val targetKey = target.key.toString()
+        // The target card has moved since the swap: the layout caught up, so a new decision is due.
+        if (targetKey == lastReorderTargetKey && itemRect(target) != lastReorderTargetRect) lastReorderTargetKey = null
         val zone =
             decideTabOverviewDropZone(
                 ghostRect = ghost,
@@ -203,6 +206,7 @@ internal class TabOverviewReorderState(
                 clearGrouping()
                 if (targetKey != lastReorderTargetKey) {
                     lastReorderTargetKey = targetKey
+                    lastReorderTargetRect = itemRect(target)
                     val (reorderedTabs, reorderedFolders) =
                         reorderOverviewGrid(
                             tabs = workingTabs,

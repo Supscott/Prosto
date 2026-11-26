@@ -329,6 +329,12 @@ fun TabOverviewGrid(
                                     )
                                 }
                             }
+                            GroupingHintScrim(
+                                visible = reorderState.hoverGroupingKey == item.key,
+                                joinsFolder =
+                                    item is OverviewGridItem.FolderCard || item is OverviewGridItem.FolderTabCard,
+                                isDark = isDark,
+                            )
                         }
                     }
                 }

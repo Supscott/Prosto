@@ -2,6 +2,8 @@ package com.jestk.browser.ui.overlays
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTouchInput
@@ -105,5 +107,85 @@ class TabOverviewDragZonesTest {
         assertThat(events.filterIsInstance<BrowserUiEvent.CreateFolderFromTabs>()).isEmpty()
         val reorder = events.filterIsInstance<BrowserUiEvent.ReorderTabs>().firstOrNull()
         assertThat(reorder?.orderedTabs?.map { it.id }).containsExactly("t2", "t1").inOrder()
+    }
+
+    /**
+     * PRO-199. Zone rules: the half the ghost enters a card from (along the drag direction) is the
+     * grouping half, the far half reorders. After 2 -> 1 swapped the cards, tab 1 sits in slot 2 and
+     * the ghost comes back from the left: its left half is the near half. Landing in the right half
+     * (a fast move, no event in between) reorders back, so the original order is restored.
+     */
+    @Test
+    fun dragSecondOntoFirst_swapThenBackIntoFarHalfOfSameCard_restoresOrder() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val ctx = setUpTwoTabs(events)
+
+        ctx.dragTo(ctx.t1.left + 0.2f * ctx.t1.width)
+        // Tab 1 now sits in slot 2; tab 2's placeholder is in slot 1.
+        ctx.dragTo(ctx.t2.left + 0.8f * ctx.t2.width, release = true)
+
+        assertThat(events.filterIsInstance<BrowserUiEvent.CreateFolderFromTabs>()).isEmpty()
+        assertThat(events.filterIsInstance<BrowserUiEvent.ReorderTabs>()).isEmpty()
+    }
+
+    /** PRO-199, near-half variant: coming back onto the swapped card from the left offers grouping. */
+    @Test
+    fun dragSecondOntoFirst_swapThenBackIntoNearHalfOfSameCard_groups() {
+        val events = mutableListOf<BrowserUiEvent>()
+        val ctx = setUpTwoTabs(events)
+
+        ctx.dragTo(ctx.t1.left + 0.2f * ctx.t1.width)
+        ctx.dragTo(ctx.t2.left + 0.2f * ctx.t2.width, release = true)
+
+        val create = events.filterIsInstance<BrowserUiEvent.CreateFolderFromTabs>().firstOrNull()
+        assertThat(create?.tabId1).isEqualTo("t2")
+        assertThat(create?.tabId2).isEqualTo("t1")
+    }
+
+    private class TwoTabDrag(
+        val rule: ComposeTestRule,
+        val t1: Rect,
+        val t2: Rect,
+    ) {
+        private var started = false
+
+        /** Moves the finger (grabbed at the centre of tab 2, so the ghost centre follows it) to [x]. */
+        fun dragTo(
+            x: Float,
+            release: Boolean = false,
+        ) {
+            val grid = rule.onNodeWithTag("overview_grid")
+            if (!started) {
+                started = true
+                grid.performTouchInput { down(t2.center) }
+                rule.mainClock.advanceTimeBy(700)
+                grid.performTouchInput { moveTo(t2.center + Offset(-12f, 0f)) }
+                rule.mainClock.advanceTimeBy(32)
+            }
+            grid.performTouchInput { moveTo(Offset(x, t1.center.y)) }
+            rule.mainClock.advanceTimeBy(200)
+            if (release) {
+                grid.performTouchInput { up() }
+                rule.waitForIdle()
+            }
+        }
+    }
+
+    private fun setUpTwoTabs(events: MutableList<BrowserUiEvent>): TwoTabDrag {
+        composeTestRule.setContent {
+            JestkBrowserTheme(themeMode = ThemeMode.LIGHT) {
+                TabOverviewGrid(
+                    uiState = BrowserUiState(tabs = tabs, activeTabId = "t1"),
+                    onEvent = { events.add(it) },
+                )
+            }
+        }
+        composeTestRule.waitForIdle()
+        val gridTopLeft = composeTestRule.onNodeWithTag("overview_grid").fetchSemanticsNode().boundsInRoot.topLeft
+        val t1 = composeTestRule.onNodeWithTag("tab_card_t1", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.translate(-gridTopLeft)
+        val t2 = composeTestRule.onNodeWithTag("tab_card_t2", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.translate(-gridTopLeft)
+        return TwoTabDrag(composeTestRule, t1, t2)
     }
 }
