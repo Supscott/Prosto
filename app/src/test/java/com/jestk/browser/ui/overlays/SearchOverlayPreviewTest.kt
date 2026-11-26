@@ -335,7 +335,7 @@ val width = 440
         )
         composeView.layout(0, 0, width, height)
 
-        // No coil.awaitIdle here: the loading spinner animates forever, and pumping the looper never ends.
+        coil.awaitIdle(composeView, width, height)
         val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
         composeView.draw(android.graphics.Canvas(bitmap))
 

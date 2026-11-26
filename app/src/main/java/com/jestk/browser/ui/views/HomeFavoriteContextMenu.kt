@@ -59,11 +59,13 @@ internal fun HomeFavoriteContextMenu(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     initialWorkspacePicker: Boolean = false,
+    animateIn: Boolean = true,
 ) {
     FloatingContextMenuContainer(
         anchor = anchor,
         onDismiss = onDismiss,
         modifier = modifier,
+        animateIn = animateIn,
     ) {
         HomeFavoriteContextMenuContent(
             availableWorkspaces = availableWorkspaces,

@@ -5,6 +5,8 @@ set -euo pipefail
 # Usage: tools/preview.sh [TestClass | TestClass.method]   (default BottomBarPreviewTest)
 # The target goes to Gradle as --tests "*TARGET*", so a single method works too
 # (tools/preview.sh SearchOverlayPreviewTest.renderLoading): use it to bisect a hung test.
+# A trailing $ drops the closing wildcard, so a name that prefixes another test runs alone
+# (tools/preview.sh 'FooTest.bar$' runs FooTest.bar but not FooTest.barDark).
 # A test running longer than 240 s is killed by gradle/test-watchdog.gradle.kts; change the limit with
 # ORG_GRADLE_PROJECT_testTimeoutSeconds=N in the environment.
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -29,7 +31,11 @@ echo "==> Rendering previews for target: $TARGET"
 MARKER="$ROOT/build/preview-run-start"
 mkdir -p "$ROOT/build"
 touch "$MARKER"
-run_with_timeout ./gradlew testDebugUnitTest --tests "*$TARGET*" --rerun ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"}
+TEST_FILTER="*$TARGET*"
+if [[ "$TARGET" == *'$' ]]; then
+  TEST_FILTER="*${TARGET%\$}"
+fi
+run_with_timeout ./gradlew testDebugUnitTest --tests "$TEST_FILTER" --rerun ${LOW_MEM_ARGS[@]+"${LOW_MEM_ARGS[@]}"}
 
 new_pngs="$(bash "$ROOT/tools/list_new_pngs.sh" "$ROOT/app/build" "$MARKER")"
 if [[ -n "$new_pngs" ]]; then

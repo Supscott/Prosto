@@ -68,15 +68,18 @@ fun FloatingContextMenuContainer(
     anchor: Offset?,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    animateIn: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val isDark = LocalIsDarkTheme.current
     val density = LocalDensity.current
 
-    val animScale = remember { Animatable(0.92f) }
-    val animAlpha = remember { Animatable(0f) }
+    // animateIn = false shows the card fully opaque at once (a static preview draws one frame).
+    val animScale = remember { Animatable(if (animateIn) 0.92f else 1f) }
+    val animAlpha = remember { Animatable(if (animateIn) 0f else 1f) }
 
     LaunchedEffect(Unit) {
+        if (!animateIn) return@LaunchedEffect
         launch {
             animAlpha.animateTo(1f, tween(180, easing = FastOutSlowInEasing))
         }

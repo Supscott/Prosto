@@ -11,10 +11,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
@@ -22,10 +22,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.domain.model.Workspace
-import com.jestk.browser.ui.theme.DarkSurface
 import com.jestk.browser.ui.theme.JestkBrowserTheme
-import com.jestk.browser.ui.theme.ProstoBorders
-import com.jestk.browser.ui.theme.ProstoShapes
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
@@ -55,36 +52,30 @@ class HomeFavoriteContextMenuPreviewTest {
     ) {
         val base = LocalDensity.current
         val dark = mode == ThemeMode.DARK
-        Box(modifier = Modifier.width(400.dp).height(300.dp)) {
+        Box(modifier = Modifier.width(400.dp).height(400.dp)) {
             JestkBrowserTheme(themeMode = mode) {
                 CompositionLocalProvider(LocalDensity provides Density(base.density, fontScale)) {
                     Box(
                         modifier =
                             Modifier
                                 .fillMaxSize()
-                                .background(if (dark) Color(0xFF0E1513) else Color(0xFFE9F6F2))
-                                .padding(16.dp),
+                                .background(if (dark) Color(0xFF0E1513) else Color(0xFFE9F6F2)),
                     ) {
-                        // The container animates in from alpha 0, so the card is drawn directly
-                        // (like the link and image menu previews); positioning is covered by
-                        // FloatingContextMenuContainerTest.
-                        Surface(
-                            shape = ProstoShapes.Card,
-                            color = if (dark) DarkSurface else Color.White,
-                            border = ProstoBorders.floatingBorder(dark),
-                            shadowElevation = 8.dp,
-                            modifier = Modifier.width(300.dp),
-                        ) {
-                            HomeFavoriteContextMenuContent(
-                                availableWorkspaces = workspaces,
-                                canMove = true,
-                                canDelete = true,
-                                onCopyUrl = {},
-                                onMoveToWorkspace = {},
-                                onDelete = {},
-                                initialWorkspacePicker = picker,
-                            )
-                        }
+                        // The real container (scrim, positioning, card) with the enter animation
+                        // off, so one frame shows the card. The Popup that hosts it in the app
+                        // opens its own window, which a View draw does not capture.
+                        HomeFavoriteContextMenu(
+                            anchor = Offset(200f, 60f),
+                            availableWorkspaces = workspaces,
+                            canMove = true,
+                            canDelete = true,
+                            onCopyUrl = {},
+                            onMoveToWorkspace = {},
+                            onDelete = {},
+                            onDismiss = {},
+                            initialWorkspacePicker = picker,
+                            animateIn = false,
+                        )
                     }
                 }
             }
@@ -112,7 +103,7 @@ class HomeFavoriteContextMenuPreviewTest {
         activity.setContentView(composeView)
 
         val width = 808
-        val height = 608
+        val height = 808
         composeView.measure(
             View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),

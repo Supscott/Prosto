@@ -72,11 +72,13 @@ fun LinkContextMenuModal(
     onEvent: (BrowserUiEvent) -> Unit,
     anchor: Offset? = null,
     modifier: Modifier = Modifier,
+    animateIn: Boolean = true,
 ) {
     FloatingContextMenuContainer(
         anchor = anchor,
         onDismiss = { onEvent(BrowserUiEvent.DismissLinkContextMenu) },
         modifier = modifier,
+        animateIn = animateIn,
     ) {
         LinkContextMenuContent(
             url = url,

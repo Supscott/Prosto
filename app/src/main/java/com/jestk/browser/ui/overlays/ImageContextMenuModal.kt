@@ -76,11 +76,13 @@ fun ImageContextMenuModal(
     anchor: Offset? = null,
     onDownloadImage: ((String) -> Unit)? = null,
     modifier: Modifier = Modifier,
+    animateIn: Boolean = true,
 ) {
     FloatingContextMenuContainer(
         anchor = anchor,
         onDismiss = { onEvent(BrowserUiEvent.DismissImageContextMenu) },
         modifier = modifier,
+        animateIn = animateIn,
     ) {
         ImageContextMenuContent(
             imageUrl = imageUrl,
