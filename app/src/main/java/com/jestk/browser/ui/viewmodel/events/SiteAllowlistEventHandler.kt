@@ -79,16 +79,19 @@ internal class SiteAllowlistEventHandler(
         change(reload = false) { it.add(site, workspaceId) }
     }
 
-    /** With [reload], every open tab whose blocking state the change flipped reloads (active or not). */
+    /**
+     * With [reload], every open tab whose blocking state the change flipped reloads (active or not).
+     * The entries and the tab list are read when the user acts, so a tab switch while the write runs cannot skew them.
+     */
     private fun change(reload: Boolean, block: suspend (SiteAllowlistRepository) -> Unit) {
         val repo = repository ?: return
+        val stateAtClick = getCurrentState()
         scope.launch(ioDispatcher) {
-            val before = if (reload) repo.observe().first() else emptyList()
             block(repo)
             val after = repo.observe().first()
             snapshot.update(after)
             if (reload) {
-                tabsAffectedByAllowlistChange(getCurrentState(), before, after)
+                tabsAffectedByAllowlistChange(stateAtClick, stateAtClick.siteAllowlist, after)
                     .forEach { emitNavigation(NavigationCommand.ReloadTab(it)) }
             }
         }

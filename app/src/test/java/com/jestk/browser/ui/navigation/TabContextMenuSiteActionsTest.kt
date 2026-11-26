@@ -210,6 +210,18 @@ class TabContextMenuSiteActionsTest {
     }
 
     @Test
+    fun homeAndAboutTabsOfferNoReload() {
+        // The active tab on Home (no URL) and tabs on about: or other non-web pages: no Reload button.
+        for (url in listOf("", "about:blank", "about:home", "chrome://version")) {
+            val (state, tabs) = stateOf(url)
+            assertThat(tabMenuSiteActions(tabs.first(), state) {}.onReload).isNull()
+        }
+        val (state, tabs) = stateOf("https://example.com/a", inactiveUrl = "about:blank")
+        assertThat(tabMenuSiteActions(tabs.last(), state) {}.onReload).isNull()
+        assertThat(tabMenuSiteActions(tabs.first(), state) {}.onReload).isNotNull()
+    }
+
+    @Test
     fun homeAndInternalTabsHaveNeitherStarNorBlockingRow() {
         for (url in listOf("", "about:blank", "chrome://version")) {
             val (state, tabs) = stateOf("https://example.com/a", inactiveUrl = url)

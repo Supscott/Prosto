@@ -33,8 +33,12 @@ internal fun NavigationCommandEffect(
             }
             if (command is NavigationCommand.ReloadTab) {
                 val state = viewModel.uiState.value
-                val tab = state.allTabs.find { it.id == command.tabId } ?: state.tabs.find { it.id == command.tabId }
-                reloadTab(webViewPool, command.tabId, tab?.url)
+                // A tab closed since the request has nothing to reload.
+                val tab = state.allTabs.find { it.id == command.tabId } ?: state.tabs.find { it.id == command.tabId } ?: return@collectLatest
+                reloadTab(webViewPool, command.tabId, tab.url, isActive = command.tabId == state.activeTabId) {
+                    val profile = profileNameFor(tab, state.workspaces, tab.workspaceId)
+                    webViewPool.getOrCreateWebView(command.tabId, context, profileName = profile)
+                }
                 return@collectLatest
             }
             val activeId = viewModel.uiState.value.activeTabId ?: return@collectLatest

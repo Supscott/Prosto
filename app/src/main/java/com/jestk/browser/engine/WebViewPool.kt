@@ -198,16 +198,17 @@ class WebViewPool(
     }
 
     /**
-     * Restores the saved history of [tabId] into its fresh [webView] when the saved current page
-     * is [url]. Returns true when that restore already loads [url]; otherwise the caller loads
-     * [url] itself (after a mismatching restore the new page lands on top of the restored history).
+     * Restores the saved history of [tabId] into [webView] when its current page is [url] (then a
+     * pending reload runs once); returns true when that loads [url]. Otherwise the caller loads
+     * [url] itself, on top of any restored history, and a pending reload is dropped.
      */
     fun restoreSavedState(tabId: String, webView: WebView, url: String): Boolean {
+        val reloadPending = WebViewStateStore.takeReloadPending(tabId)
         if (!WebViewStateStore.restore(tabId, webView)) return false
-        val restoredUrl = webView.url ?: return false
-        if (!isSameDocument(restoredUrl, url)) return false
+        val restoredUrl = webView.url?.takeIf { isSameDocument(it, url) } ?: return false
         (webView as? NestedWebView)?.loadedUrl = restoredUrl
         PageLoadTimer.onLoadRequested(tabId, restoredUrl)
+        if (reloadPending) webView.reload()
         Log.d(TAG, "Restored saved history of tab $tabId")
         return true
     }
@@ -217,10 +218,7 @@ class WebViewPool(
         return !url.isNullOrBlank() && url != "about:blank"
     }
 
-    private fun isSameDocument(a: String, b: String): Boolean {
-        fun normalize(url: String) = url.substringBefore('#').trimEnd('/')
-        return normalize(a) == normalize(b)
-    }
+    private fun isSameDocument(a: String, b: String): Boolean = a.substringBefore('#').trimEnd('/') == b.substringBefore('#').trimEnd('/')
 
     fun isTabLoaded(tabId: String): Boolean = pool.containsKey(tabId)
     fun getLoadedTabIds(): Set<String> = pool.keys.toSet()

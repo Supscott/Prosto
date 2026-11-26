@@ -59,11 +59,10 @@ object WebViewStateStore {
      * none or it cannot be applied, and the caller then loads the tab URL. Main thread only.
      */
     fun restore(tabId: String, webView: WebView): Boolean {
-        val reloadPending = reloadPendingTabIds.remove(tabId)
         val bundle = memory[tabId] ?: readBundle(tabId) ?: return false
         return try {
             val history = webView.restoreState(bundle)
-            (history != null && history.size > 0).also { restored -> if (restored && reloadPending) webView.reload() }
+            history != null && history.size > 0
         } catch (t: Throwable) {
             Log.w(TAG, "restoreState failed for tab $tabId", t)
             false
@@ -73,13 +72,17 @@ object WebViewStateStore {
     private val reloadPendingTabIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     /**
-     * A reload was requested for [tabId], which has no live WebView: its next [restore] reloads the
-     * restored current entry once, keeping the history. Without saved state the tab loads fresh
-     * anyway and the mark is dropped. In memory only; it does not survive the process.
+     * A reload was requested for [tabId], which has no live WebView. The caller that creates its
+     * WebView consumes the mark with [takeReloadPending] and, after a restore that lands on the
+     * tab's URL, reloads once; it does not reload when it navigates anyway or has nothing to
+     * restore. In memory only; it does not survive the process.
      */
     fun markReloadPending(tabId: String) {
         reloadPendingTabIds.add(tabId)
     }
+
+    /** Whether a reload is pending for [tabId]; clears the mark. */
+    fun takeReloadPending(tabId: String): Boolean = reloadPendingTabIds.remove(tabId)
 
     private const val MAX_CLOSED_STATES = 3
     private val closedTabIds = ArrayDeque<String>()
@@ -99,6 +102,7 @@ object WebViewStateStore {
     @Synchronized
     fun move(fromTabId: String, toTabId: String) {
         closedTabIds.remove(fromTabId)
+        if (reloadPendingTabIds.remove(fromTabId)) reloadPendingTabIds.add(toTabId)
         val bundle = memory.remove(fromTabId) ?: readBundle(fromTabId)?.also { memory.remove(fromTabId) } ?: return
         memory[toTabId] = bundle
         val dir = directory ?: return
@@ -115,6 +119,7 @@ object WebViewStateStore {
 
     fun deleteAll() {
         memory.clear()
+        reloadPendingTabIds.clear()
         val dir = directory ?: return
         diskExecutor.execute { dir.listFiles()?.forEach { it.delete() } }
     }
@@ -122,6 +127,7 @@ object WebViewStateStore {
     /** Drops saved states of tabs that no longer exist (closed while the process was gone). */
     fun retainOnly(tabIds: Set<String>) {
         memory.keys.retainAll(tabIds)
+        reloadPendingTabIds.retainAll(tabIds)
         val dir = directory ?: return
         val keep = tabIds.mapTo(HashSet()) { fileName(it) }
         diskExecutor.execute { dir.listFiles()?.filter { it.name !in keep }?.forEach { it.delete() } }

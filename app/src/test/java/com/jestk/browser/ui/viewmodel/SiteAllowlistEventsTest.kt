@@ -218,12 +218,27 @@ class SiteAllowlistEventsTest {
     fun enableForAnotherTabsSiteReloadsThatSiteOnlyNotTheActiveTab() = runTest(dispatcher) {
         repository.add("other.test", Workspace.DEFAULT_WORK_ID)
         snapshot.update(repository.observe().first())
+        state = state.copy(siteAllowlist = repository.observe().first())
         openTabs(tab("a", "https://www.news.example.com/story"), tab("b", "https://www.other.test/x"))
 
         handler().handle(EnableBlockingForSite("https://www.other.test/x", Workspace.DEFAULT_WORK_ID))
         settle { commands.isNotEmpty() }
 
         assertThat(entries()).isEmpty()
+        assertThat(reloaded()).containsExactly("b")
+    }
+
+    @Test
+    fun theTabListIsReadWhenTheUserActsNotWhenTheWriteFinishes() = runTest(dispatcher) {
+        openTabs(tab("a", "https://www.news.example.com/story"), tab("b", "https://shop.other.test/cart"))
+        val handler = handler()
+        handler.handle(OpenDisableBlockingPrompt("https://shop.other.test/cart", Workspace.DEFAULT_WORK_ID))
+
+        handler.handle(ConfirmDisableBlocking(allWorkspaces = false))
+        // The tab closes before the write finishes: the reload still targets the tab the user acted on.
+        state = state.copy(tabs = emptyList(), allTabs = emptyList())
+        settle { commands.isNotEmpty() }
+
         assertThat(reloaded()).containsExactly("b")
     }
 
