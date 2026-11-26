@@ -14,6 +14,8 @@
     <!-- Sites ask for the camera and microphone (getUserMedia); the user is prompted per request. -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- WebView's WebRTC audio input sets the audio mode; without it getUserMedia audio fails with NotReadableError. -->
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
     <!-- Package installation for downloaded APK files -->
