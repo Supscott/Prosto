@@ -54,6 +54,7 @@ import com.jestk.browser.ui.theme.ProstoBrandPrimary
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.FirstPaintPlaceholder
+import com.jestk.browser.ui.viewmodel.ReloadTab
 import com.jestk.browser.ui.components.SnapshotImage
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -227,7 +228,7 @@ fun WebViewContainer(
                         setProgressBackgroundColorSchemeColor(surfaceColor)
                         descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
                         setOnPullRefreshListener {
-                            currentOnEvent(BrowserUiEvent.Reload)
+                            currentOnEvent(ReloadTab(currentActiveTabId))
                         }
                         onRefreshTriggerReached = {
                             vibration.confirm()

@@ -7,9 +7,9 @@ import com.jestk.browser.engine.WebViewStateStore
  * Reloads [tabId] whether or not it is the active tab.
  * - A live WebView with a page reloads in place.
  * - A live WebView that never loaded (or sits on about:blank) loads [tabUrl].
- * - A tab without a WebView (evicted or not opened since the app started) drops its saved history,
- *   so the WebView created when the tab becomes active loads [tabUrl] fresh instead of restoring
- *   the stale page.
+ * - A tab without a WebView (evicted or not opened since the app started) is marked reload-pending:
+ *   the WebView created when it becomes active restores the saved history and reloads once, or
+ *   loads the tab URL when there is no saved state.
  */
 internal fun reloadTab(
     webViewPool: WebViewPool,
@@ -18,7 +18,7 @@ internal fun reloadTab(
 ) {
     val webView = webViewPool.getWebView(tabId)
     if (webView == null) {
-        WebViewStateStore.delete(tabId)
+        WebViewStateStore.markReloadPending(tabId)
         return
     }
     val loadedUrl = webView.url

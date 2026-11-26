@@ -103,8 +103,6 @@ sealed interface BrowserUiEvent {
 
     data object GoForward : PageUiEvent
 
-    data object Reload : PageUiEvent
-
     data object StopLoading : PageUiEvent
 
     data class SwitchSearchEngineForQuery(

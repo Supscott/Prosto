@@ -56,11 +56,6 @@ internal class PageEventHandler(
                 emitNavigation(NavigationCommand.GoForward)
             }
 
-            is BrowserUiEvent.Reload -> {
-                Log.d(TAG, "Navigation command: reload")
-                emitNavigation(NavigationCommand.Reload)
-            }
-
             is ReloadTab -> emitNavigation(NavigationCommand.ReloadTab(event.tabId))
 
             is BrowserUiEvent.StopLoading -> {

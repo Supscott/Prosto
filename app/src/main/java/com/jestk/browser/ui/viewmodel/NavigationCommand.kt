@@ -4,8 +4,6 @@ sealed interface NavigationCommand {
     data class LoadUrl(val url: String) : NavigationCommand
     data object GoBack : NavigationCommand
     data object GoForward : NavigationCommand
-    data object Reload : NavigationCommand
-
     /** Reloads the WebView of [tabId], which need not be the active tab. */
     data class ReloadTab(val tabId: String) : NavigationCommand
     data object StopLoading : NavigationCommand

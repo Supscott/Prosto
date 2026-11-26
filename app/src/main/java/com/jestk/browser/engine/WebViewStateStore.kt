@@ -59,14 +59,26 @@ object WebViewStateStore {
      * none or it cannot be applied, and the caller then loads the tab URL. Main thread only.
      */
     fun restore(tabId: String, webView: WebView): Boolean {
+        val reloadPending = reloadPendingTabIds.remove(tabId)
         val bundle = memory[tabId] ?: readBundle(tabId) ?: return false
         return try {
             val history = webView.restoreState(bundle)
-            history != null && history.size > 0
+            (history != null && history.size > 0).also { restored -> if (restored && reloadPending) webView.reload() }
         } catch (t: Throwable) {
             Log.w(TAG, "restoreState failed for tab $tabId", t)
             false
         }
+    }
+
+    private val reloadPendingTabIds: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /**
+     * A reload was requested for [tabId], which has no live WebView: its next [restore] reloads the
+     * restored current entry once, keeping the history. Without saved state the tab loads fresh
+     * anyway and the mark is dropped. In memory only; it does not survive the process.
+     */
+    fun markReloadPending(tabId: String) {
+        reloadPendingTabIds.add(tabId)
     }
 
     private const val MAX_CLOSED_STATES = 3
@@ -96,6 +108,7 @@ object WebViewStateStore {
     /** The tab is gone for good: its history must not come back. */
     fun delete(tabId: String) {
         memory.remove(tabId)
+        reloadPendingTabIds.remove(tabId)
         val dir = directory ?: return
         diskExecutor.execute { File(dir, fileName(tabId)).delete() }
     }
