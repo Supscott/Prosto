@@ -80,7 +80,6 @@ internal class TabOverviewReorderState(
     private var edgeZonePx = 0f
     private var maxScrollPxPerSecond = 0f
 
-    private var lastPointer = Offset.Zero
     private var lastReorderTargetKey: String? = null
 
     fun onDragStart(
@@ -100,7 +99,6 @@ internal class TabOverviewReorderState(
         grabOffset = initialPointer - sourceBounds.topLeft
         ghostSize = IntSize(sourceBounds.width.toInt(), sourceBounds.height.toInt())
         ghostTopLeft = currentPointer - grabOffset
-        lastPointer = currentPointer
         initialTabs = tabs
         initialFolders = folders
         workingTabs = tabs
@@ -118,9 +116,8 @@ internal class TabOverviewReorderState(
         visibleItems: List<LazyGridItemInfo>,
     ) {
         if (!isDragging) return
-        lastPointer = pointer
         ghostTopLeft = pointer - grabOffset
-        updateTarget(pointer, visibleItems)
+        updateTarget(visibleItems)
         updateAutoScroll()
     }
 
@@ -162,10 +159,7 @@ internal class TabOverviewReorderState(
         reset()
     }
 
-    private fun updateTarget(
-        pointer: Offset,
-        visibleItems: List<LazyGridItemInfo>,
-    ) {
+    private fun updateTarget(visibleItems: List<LazyGridItemInfo>) {
         val dragged = draggedKey ?: return
         val feedback = vibration ?: return
         val ghost = Rect(ghostTopLeft, Size(ghostSize.width.toFloat(), ghostSize.height.toFloat()))
@@ -174,67 +168,63 @@ internal class TabOverviewReorderState(
         val gapRect =
             visibleItems.firstOrNull { it.key.toString() == dragged }?.let { itemRect(it) }
 
+        // The target is the card under the ghost centre (what the user watches), not the finger.
         val target =
             visibleItems.firstOrNull { item ->
                 val key = item.key.toString()
-                key != dragged &&
-                    !key.startsWith("folder_spacer_") &&
-                    (itemRect(item).contains(ghostCenter) || itemRect(item).contains(pointer))
-            } ?: return clearGrouping()
+                key != dragged && !key.startsWith("folder_spacer_") && itemRect(item).contains(ghostCenter)
+            } ?: return clearTarget()
 
         val targetKey = target.key.toString()
-        val targetRect = itemRect(target)
-        val isGroupable = isEligibleForGrouping(dragged, targetKey, workingTabs)
-
-        if (isGroupable) {
-            val halfW = targetRect.width / 2f
-            val halfH = targetRect.height / 2f
-            val cx = targetRect.left + halfW
-            val cy = targetRect.top + halfH
-            val isCenterZone =
-                abs(pointer.x - cx) <= halfW * 0.7f &&
-                    abs(pointer.y - cy) <= halfH * 0.7f
-
-            if (isCenterZone) {
+        val zone =
+            decideTabOverviewDropZone(
+                ghostRect = ghost,
+                targetRect = itemRect(target),
+                referenceCenter = gapRect?.center ?: ghostCenter,
+                eligibleForGrouping = isEligibleForGrouping(dragged, targetKey, workingTabs),
+                previous =
+                    when (targetKey) {
+                        hoverGroupingKey -> TabOverviewDropZone.Group
+                        lastReorderTargetKey -> TabOverviewDropZone.Reorder
+                        else -> TabOverviewDropZone.None
+                    },
+            )
+        when (zone) {
+            TabOverviewDropZone.None -> clearTarget()
+            TabOverviewDropZone.Group -> {
+                // Back on a near half: a later far-half entry on this card may reorder again.
+                lastReorderTargetKey = null
                 if (hoverGroupingKey != targetKey) {
                     hoverGroupingKey = targetKey
                     feedback.tick()
                 }
-                return
             }
-
-            val referenceCenter = gapRect?.center ?: ghostCenter
-            val dx = pointer.x - referenceCenter.x
-            val dy = pointer.y - referenceCenter.y
-            val hasMovedPast =
-                if (abs(dx) >= abs(dy)) {
-                    if (dx > 0) pointer.x > cx + halfW * 0.4f else pointer.x < cx - halfW * 0.4f
-                } else {
-                    if (dy > 0) pointer.y > cy + halfH * 0.4f else pointer.y < cy - halfH * 0.4f
+            TabOverviewDropZone.Reorder -> {
+                clearGrouping()
+                if (targetKey != lastReorderTargetKey) {
+                    lastReorderTargetKey = targetKey
+                    val (reorderedTabs, reorderedFolders) =
+                        reorderOverviewGrid(
+                            tabs = workingTabs,
+                            folders = workingFolders,
+                            draggedKey = dragged,
+                            targetKey = targetKey,
+                        )
+                    workingTabs = reorderedTabs
+                    workingFolders = reorderedFolders
                 }
-
-            if (!hasMovedPast) {
-                return
             }
-        }
-
-        if (targetKey != lastReorderTargetKey) {
-            lastReorderTargetKey = targetKey
-            clearGrouping()
-            val (reorderedTabs, reorderedFolders) =
-                reorderOverviewGrid(
-                    tabs = workingTabs,
-                    folders = workingFolders,
-                    draggedKey = dragged,
-                    targetKey = targetKey,
-                )
-            workingTabs = reorderedTabs
-            workingFolders = reorderedFolders
         }
     }
 
     private fun clearGrouping() {
         hoverGroupingKey = null
+    }
+
+    /** The ghost is over no card: nothing to group with, and the next reorder may fire again. */
+    private fun clearTarget() {
+        hoverGroupingKey = null
+        lastReorderTargetKey = null
     }
 
     private fun updateAutoScroll() {
@@ -267,7 +257,7 @@ internal class TabOverviewReorderState(
                     delay(AUTO_SCROLL_FRAME_MS)
                     val grid = gridState ?: break
                     grid.scrollBy(autoScrollVelocity * AUTO_SCROLL_FRAME_MS / 1000f)
-                    updateTarget(lastPointer, grid.layoutInfo.visibleItemsInfo)
+                    updateTarget(grid.layoutInfo.visibleItemsInfo)
                 }
             }
     }
