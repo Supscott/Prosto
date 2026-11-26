@@ -51,6 +51,15 @@ object UrlSecurityUtils {
     }
 
     /**
+     * Whether plain HTTP to [urlOrHost] needs no warning: a loopback host, or one the user chose to
+     * continue to ([allowedHosts]). Every warning decision goes through here (PRO-189).
+     */
+    fun isInsecureHostAllowed(urlOrHost: String, allowedHosts: Set<String>): Boolean {
+        val host = extractHost(urlOrHost)
+        return host.isNotEmpty() && (isLoopbackHost(host) || allowedHosts.contains(host))
+    }
+
+    /**
      * Extracts host and custom port (e.g. "localhost:8080" or "example.com:8443")
      * for displaying clear, honest target host information in security modals.
      */

@@ -366,8 +366,7 @@ class BrowserViewModel(
     }
 
     fun isInsecureHostAllowed(urlOrHost: String): Boolean {
-        val host = UrlSecurityUtils.extractHost(urlOrHost)
-        return host.isNotEmpty() && (UrlSecurityUtils.isLoopbackHost(host) || _uiState.value.allowedInsecureHosts.contains(host))
+        return UrlSecurityUtils.isInsecureHostAllowed(urlOrHost, _uiState.value.allowedInsecureHosts)
     }
 
     fun shouldWarnForInsecureUrl(url: String): Boolean {

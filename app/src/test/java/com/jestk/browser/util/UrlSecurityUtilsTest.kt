@@ -41,4 +41,34 @@ class UrlSecurityUtilsTest {
         assertThat(UrlSecurityUtils.isSameSite("", "https://example.com")).isFalse()
         assertThat(UrlSecurityUtils.isSameSite("about:blank", "https://example.com")).isFalse()
     }
+
+    @Test
+    fun isLoopbackHost_acceptsOnlyHostsThatNeverLeaveTheDevice() {
+        for (host in listOf("localhost", "LOCALHOST", "app.localhost", "127.0.0.1", "127.1.2.3", "[::1]", "::1")) {
+            assertThat(UrlSecurityUtils.isLoopbackHost(host)).isTrue()
+        }
+        for (host in listOf("", "localhost.example", "127.0.0.1.evil.example", "128.0.0.1", "192.168.1.1", "example.com", "[::2]")) {
+            assertThat(UrlSecurityUtils.isLoopbackHost(host)).isFalse()
+        }
+    }
+
+    @Test
+    fun isInsecureHostAllowed_loopbackNeverNeedsConfirmation() {
+        val none = emptySet<String>()
+        for (url in listOf("http://127.0.0.1:8765/", "http://localhost:3000/a", "http://[::1]:8080/", "http://dev.localhost/", "127.0.0.1")) {
+            assertThat(UrlSecurityUtils.isInsecureHostAllowed(url, none)).isTrue()
+        }
+        assertThat(UrlSecurityUtils.isInsecureHostAllowed("http://192.168.1.1/", none)).isFalse()
+        assertThat(UrlSecurityUtils.isInsecureHostAllowed("http://example.com/", none)).isFalse()
+        assertThat(UrlSecurityUtils.isInsecureHostAllowed("", none)).isFalse()
+    }
+
+    @Test
+    fun isInsecureHostAllowed_remembersHostsTheUserContinuedTo() {
+        val allowed = setOf("example.com")
+
+        assertThat(UrlSecurityUtils.isInsecureHostAllowed("http://example.com/x", allowed)).isTrue()
+        assertThat(UrlSecurityUtils.isInsecureHostAllowed("example.com", allowed)).isTrue()
+        assertThat(UrlSecurityUtils.isInsecureHostAllowed("http://other.example.com/", allowed)).isFalse()
+    }
 }

@@ -73,8 +73,7 @@ internal fun bindWebViewClients(webView: WebView, tabId: String, deps: WebViewCl
         isTrackingProtectionEnabled = { deps.uiState().settings.isTrackingProtectionEnabled },
         onInsecureHttpWarning = { id, url -> onEvent(BrowserUiEvent.ShowInsecureHttpWarning(url = url, tabId = id)) },
         isInsecureHostAllowed = { urlOrHost ->
-            val host = UrlSecurityUtils.extractHost(urlOrHost)
-            host.isNotEmpty() && deps.uiState().allowedInsecureHosts.contains(host)
+            UrlSecurityUtils.isInsecureHostAllowed(urlOrHost, deps.uiState().allowedInsecureHosts)
         },
         isCleanPlayerEnabled = { deps.uiState().settings.isCleanYouTubePlayerEnabled },
         onCleanPlayerRequested = { url -> openCleanPlayerIfIntercepted(url, deps) },
