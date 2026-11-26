@@ -142,6 +142,37 @@ class ChosenIndexTest(unittest.TestCase):
         self.assertEqual(tap_overlays.chosen_index(json.dumps(json.dumps([1, 2, 3, 4, 2]))), 0)
 
 
+class BottomBandTest(unittest.TestCase):
+    # WEBVIEW is 128..2486 (height 2358): the bottom quarter starts at 128 + 1768.5 = 1896.5.
+    def test_the_bottom_quarter_is_in_the_band(self):
+        self.assertTrue(tap_overlays.in_bottom_band(WEBVIEW, 2300))
+        self.assertTrue(tap_overlays.in_bottom_band(WEBVIEW, 1897))
+
+    def test_the_rows_above_the_bottom_quarter_are_not(self):
+        self.assertFalse(tap_overlays.in_bottom_band(WEBVIEW, 1896))
+        self.assertFalse(tap_overlays.in_bottom_band(WEBVIEW, 1000))
+
+    def test_cli_exit_status_tells_the_band(self):
+        inside = subprocess.run([sys.executable, str(SCRIPT), "band", "0 128 1220 2486", "2300"], capture_output=True)
+        outside = subprocess.run([sys.executable, str(SCRIPT), "band", "0 128 1220 2486", "1000"], capture_output=True)
+        self.assertEqual((inside.returncode, outside.returncode), (0, 1))
+
+
+class MaxScrollTest(unittest.TestCase):
+    def test_a_moved_centre_is_moved(self):
+        before = json.dumps(json.dumps([10, 500, 400, 800, 2.6, 0]))
+        after = json.dumps(json.dumps([10, 420, 400, 800, 2.6, 0]))
+        self.assertEqual(tap_overlays.centre_y(before), 500)
+        done = subprocess.run([sys.executable, str(SCRIPT), "moved", before, after], capture_output=True, text=True)
+        self.assertEqual(done.stdout.strip(), "moved")
+
+    def test_an_unchanged_centre_is_stuck_at_the_end_of_the_page(self):
+        before = json.dumps(json.dumps([10, 500, 400, 800, 2.6, 0]))
+        after = json.dumps(json.dumps([10, 500.4, 400, 800, 2.6, 0]))
+        done = subprocess.run([sys.executable, str(SCRIPT), "moved", before, after], capture_output=True, text=True)
+        self.assertEqual(done.stdout.strip(), "stuck")
+
+
 class PlanCliTest(unittest.TestCase):
     def test_cli_reads_the_dump_files_and_prints_the_verdict(self):
         with tempfile.TemporaryDirectory() as tmp:

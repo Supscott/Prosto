@@ -1,14 +1,57 @@
 // Evaluates a JS expression in the WebView page whose URL starts with <urlPrefix> over CDP and
-// prints the JSON result. Used by `tools/device.sh js` (alias `eval`), which forwards the CDP port first.
+// prints the JSON result. Used by `tools/device.sh js` (alias `eval`) and `tap`, which forward the CDP port first.
 //
 //   node tools/cdp_eval.mjs <urlPrefix> <expression> [port]
 //
+// The visible page is preferred when several match (cdp_targets.mjs, PRO-171). Before evaluating, the
+// script waits up to 5 s for document.readyState === 'complete' (PRO-171); CDP_WAIT=0 skips the wait.
 // CDP_GESTURE=1 runs the expression as a user gesture (window.open, link clicks that need one).
+import { pickTarget } from './cdp_targets.mjs';
+
 const [prefix, expr, port = '9333'] = process.argv.slice(2);
-setTimeout(() => { console.error('timeout: the page did not answer (app frozen or busy?)'); process.exit(2); }, 8000);
+const waitMs = process.env.CDP_WAIT === '0' ? 0 : 5000;
+setTimeout(() => { console.error('timeout: the page did not answer (app frozen or busy?)'); process.exit(2); }, 8000 + waitMs);
 const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-const t = list.find(x => x.type === 'page' && x.url.startsWith(prefix));
-if (!t) { console.error('no target'); process.exit(1); }
-const ws = new WebSocket(t.webSocketDebuggerUrl);
-ws.onopen = () => ws.send(JSON.stringify({ id: 1, method: 'Runtime.evaluate', params: { expression: expr, returnByValue: true, awaitPromise: true, userGesture: process.env.CDP_GESTURE === '1' } }));
-ws.onmessage = (m) => { const r = JSON.parse(m.data); if (r.id === 1) { console.log(JSON.stringify(r.result.result.value ?? r.result)); ws.close(); process.exit(0); } };
+const picked = pickTarget(list, prefix);
+if (!picked) { console.error('no target'); process.exit(1); }
+if (picked.hidden) console.error(`cdp: only hidden pages match ${prefix}; using ${picked.target.url}`);
+const ws = new WebSocket(picked.target.webSocketDebuggerUrl);
+
+let nextId = 1;
+const pending = new Map();
+// Sends one CDP command and resolves with its reply.
+function call(method, params) {
+    return new Promise(resolve => {
+        const id = nextId++;
+        pending.set(id, resolve);
+        ws.send(JSON.stringify({ id, method, params }));
+    });
+}
+ws.onmessage = (m) => {
+    const reply = JSON.parse(m.data);
+    const resolve = pending.get(reply.id);
+    if (resolve) { pending.delete(reply.id); resolve(reply); }
+};
+
+// Polls readyState until 'complete' or waitMs passes; a page still loading is evaluated anyway, with a warning.
+async function waitForLoad() {
+    const deadline = Date.now() + waitMs;
+    let state = 'unknown';
+    while (Date.now() < deadline) {
+        const reply = await call('Runtime.evaluate', { expression: 'document.readyState', returnByValue: true });
+        state = reply.result?.result?.value ?? 'unknown';
+        if (state === 'complete') return;
+        await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    console.error(`cdp: the page is still loading after ${waitMs / 1000} s (readyState ${state}); evaluating anyway`);
+}
+
+ws.onopen = async () => {
+    if (waitMs > 0) await waitForLoad();
+    const reply = await call('Runtime.evaluate', {
+        expression: expr, returnByValue: true, awaitPromise: true, userGesture: process.env.CDP_GESTURE === '1',
+    });
+    console.log(JSON.stringify(reply.result.result.value ?? reply.result));
+    ws.close();
+    process.exit(0);
+};

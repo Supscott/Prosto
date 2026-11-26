@@ -41,6 +41,13 @@
 #   tools/device.sh js <url> <js>   run JS in the page whose URL starts with <url>; prints JSON
 #                                   (CDP_GESTURE=1: run it as a user gesture). Use js: the worktree
 #                                   guard refuses the word eval. eval <url> <js> is the same command.
+#                                   Several pages can match: the visible one is used (a warning names a
+#                                   hidden one when only hidden ones match). Waits up to 5 s for the page to
+#                                   finish loading first (CDP_WAIT=0 skips the wait; PRO-171)
+#   tools/device.sh bounds [n] [interval_ms] [class]  n samples (default 10, 100 ms apart) of the bounds of
+#                                   the visible view of <class> (default NestedWebView): "<ms> <l,t,r,b>" or
+#                                   "none". One adb shell call runs them all (PRO-169)
+#   DEVICE_TIMING=1 (any tap/js/bounds command) prints each adb or CDP step's time to stderr (PRO-170)
 #   tools/device.sh serve [stop]    serve tools/fixtures/adblock/ to the phone at http://127.0.0.1:8765/
 #                                   (adb reverse; loopback needs no HTTP warning); "stop" ends it
 #   tools/device.sh pill-timeout <ms>|reset   hold undo pills for <ms> (Android's accessibility timeout,
@@ -137,6 +144,24 @@ ui_dump_or_die() {
 
 pid() { adb shell pidof "$PKG" | tr -d '\r'; }
 
+# now_ms prints the wall clock in milliseconds (macOS date has no %N).
+now_ms() { python3 -c 'import time; print(int(time.time() * 1000))'; }
+
+# timed <label> <command...> runs the command and returns its status. With DEVICE_TIMING=1 it also prints
+# "timing: <label> <ms>" to stderr (PRO-170). Stdout passes through, so $(...) and redirections still work.
+timed() {
+    local label="$1" started status=0
+    shift
+    if [[ "${DEVICE_TIMING:-0}" != 1 ]]; then
+        "$@" || status=$?
+        return "$status"
+    fi
+    started="$(now_ms)"
+    "$@" || status=$?
+    echo "timing: $label $(( $(now_ms) - started )) ms" >&2
+    return "$status"
+}
+
 forward_cdp() {
     local p
     # pidof exits 1 when the app is not running; under set -e that would end the script silently (PRO-151).
@@ -176,11 +201,32 @@ sys.exit(0 if printed else 1)
 ' || die "no WebView page found (is the app running and the phone unlocked?)"
 }
 
+# Writes the activity's view hierarchy to $TAP_TMP/dumpsys; tap_selector runs it in the background (PRO-170).
+# A failure leaves an empty file, and the WebView lookup then falls back to uiautomator.
+dumpsys_job() {
+    timed dumpsys adb shell "dumpsys activity $PKG/$ACTIVITY" 2>/dev/null > "$TAP_TMP/dumpsys.raw" || true
+    tr -d '\r' < "$TAP_TMP/dumpsys.raw" > "$TAP_TMP/dumpsys"
+}
+
+# Reads the compressed uiautomator dump (the dock and the pills, PRO-166) only when device row $1 is in the
+# WebView's bottom band (tap_overlays.py band, PRO-170). Uses the caller's locals wv, uia_xml, uia_checked.
+read_uia_if_band() {
+    [[ "$uia_checked" == 0 ]] || return 0
+    python3 "$ROOT/tools/tap_overlays.py" band "$wv" "$1" || return 0
+    uia_checked=1
+    if timed uiautomator ui_dump_try compressed; then
+        uia_xml="$UI_DUMP"
+    else
+        echo "tap: no UI dump, so native overlays are not checked ($UI_DUMP_PROBLEM)" >&2
+    fi
+}
+
 # Taps the centre of the first visible element matching <selector> in the page whose URL starts with
 # <url>. The page reports the element's CSS rect; the WebView's bounds on screen map CSS pixels to
 # device pixels (x = left + cssX * dpr). adb sends a real touch, so the page sees a user gesture.
 tap_selector() {
-    local url="$1" selector="$2" sel_json js page wv xy uia_xml="" first tap_x tap_y verdict_line scroll_dy label index
+    local url="$1" selector="$2" sel_json js page before wv xy first tap_x tap_y verdict_line scroll_dy label index
+    local dumpsys_pid uia_xml="" uia_checked=0
     sel_json="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1]))' "$selector")"
     # Walks every match and takes the first one that is shown (not display:none or visibility:hidden,
     # non-empty box). It is scrolled into view, then waits one frame, capped at 300 ms so a hidden page
@@ -190,34 +236,32 @@ tap_selector() {
     # Awaited by cdp_eval.mjs (awaitPromise).
     js="(async()=>{const S=$sel_json;const all=[...document.querySelectorAll(S)];if(!all.length)return JSON.stringify(null);const sx=scrollX,sy=scrollY;const frame=()=>Promise.race([new Promise(r=>requestAnimationFrame(()=>r())),new Promise(r=>setTimeout(r,300))]);let skipped=0;for(const e of all){const cs=getComputedStyle(e);if(cs.display==='none'||cs.visibility==='hidden'){skipped++;continue;}const r0=e.getBoundingClientRect();if(!r0.width||!r0.height){skipped++;continue;}e.scrollIntoView({block:'center',inline:'center'});await frame();const b=e.getBoundingClientRect();const cx=b.left+b.width/2,cy=b.top+b.height/2;if(cx<0||cy<0||cx>innerWidth||cy>innerHeight){scrollTo(sx,sy);await frame();skipped++;continue;}const hit=document.elementFromPoint(cx,cy);if(!hit||!(e===hit||e.contains(hit))){scrollTo(sx,sy);await frame();skipped++;continue;}return JSON.stringify([cx,cy,innerWidth,innerHeight,devicePixelRatio,skipped]);}return JSON.stringify({total:all.length,selector:S});})()"
     forward_cdp
-    page="$(node "$ROOT/tools/cdp_eval.mjs" "$url" "$js" "$CDP_PORT")" || die "could not read the page at $url"
     # The temp files outlive this function only until the tap (or a die): the EXIT trap removes them.
     TAP_TMP="$(mktemp -d)"
     trap 'rm -rf "$TAP_TMP"' EXIT
+    # dumpsys and the page scan are independent adb and CDP calls, so they run side by side (PRO-170).
+    dumpsys_job &
+    dumpsys_pid=$!
+    page="$(timed cdp node "$ROOT/tools/cdp_eval.mjs" "$url" "$js" "$CDP_PORT")" || die "could not read the page at $url"
+    wait "$dumpsys_pid" || true
     # Only the WebView's bounds are needed. The activity's view hierarchy gives them without uiautomator,
     # which returns nothing on a very tall page (PRO-148); uiautomator is the fallback, retried once
     # with --compressed (that drops the page's subtree but keeps the WebView).
-    adb shell "dumpsys activity $PKG/$ACTIVITY" 2>/dev/null | tr -d '\r' > "$TAP_TMP/dumpsys" || true
     if ! wv="$(python3 "$ROOT/tools/ui_nodes.py" webview-from-dumpsys < "$TAP_TMP/dumpsys" 2>/dev/null)"; then
-        if ! ui_dump_try full; then
+        if ! timed uiautomator ui_dump_try full; then
             first="$UI_DUMP_PROBLEM"
-            ui_dump_try compressed || die "tap: $UI_DUMP_PROBLEM (full dump: $first; dumpsys found no WebView)"
+            timed uiautomator ui_dump_try compressed || die "tap: $UI_DUMP_PROBLEM (full dump: $first; dumpsys found no WebView)"
         fi
         uia_xml="$UI_DUMP"
+        uia_checked=1
         wv="$(printf '%s\n' "$uia_xml" | python3 "$ROOT/tools/ui_nodes.py" webview)" || die "no WebView on screen (is the page visible?)"
     fi
     # Compose draws the dock and the pills inside one view, so dumpsys cannot show them: the compressed
-    # uiautomator dump is read for them too (PRO-166). Without it only the view hierarchy is checked.
-    if [[ -z "$uia_xml" ]]; then
-        if ui_dump_try compressed; then
-            uia_xml="$UI_DUMP"
-        else
-            echo "tap: no UI dump, so native overlays are not checked ($UI_DUMP_PROBLEM)" >&2
-        fi
-    fi
-    printf '%s\n' "$uia_xml" > "$TAP_TMP/uia.xml"
+    # uiautomator dump is read for them too (PRO-166), but only for a tap in the WebView's bottom band
+    # (PRO-170). Without it only the view hierarchy is checked.
     xy="$(python3 "$ROOT/tools/ui_nodes.py" tap-point "$wv" "$page")" || exit 1
     read -r tap_x tap_y <<< "$xy"
+    read_uia_if_band "$tap_y"
     verdict_line="$(overlay_verdict "$wv" "$tap_x" "$tap_y")"
     if [[ "$verdict_line" != clear ]]; then
         # Scroll the element so its centre moves into the part of the WebView the overlay leaves clear,
@@ -225,21 +269,27 @@ tap_selector() {
         IFS=$'\t' read -r _ scroll_dy label <<< "$verdict_line"
         [[ "$scroll_dy" != "-" ]] || die "tap: $label covers the element, and the WebView has no part clear of it to scroll into"
         index="$(python3 "$ROOT/tools/tap_overlays.py" index "$page")" || die "tap: could not read the chosen match"
-        page="$(node "$ROOT/tools/cdp_eval.mjs" "$url" "$(scroll_js "$sel_json" "$index" "$scroll_dy")" "$CDP_PORT")" \
+        before="$page"
+        page="$(timed cdp node "$ROOT/tools/cdp_eval.mjs" "$url" "$(scroll_js "$sel_json" "$index" "$scroll_dy")" "$CDP_PORT")" \
             || die "could not read the page at $url"
+        # A scroll that leaves the centre where it was means the page is at its end in that direction.
+        [[ "$(python3 "$ROOT/tools/tap_overlays.py" moved "$before" "$page")" == moved ]] \
+            || die "tap: $label still covers the element and the page cannot scroll further, so it cannot be tapped"
         xy="$(python3 "$ROOT/tools/ui_nodes.py" tap-point "$wv" "$page")" || exit 1
         read -r tap_x tap_y <<< "$xy"
+        read_uia_if_band "$tap_y"
         verdict_line="$(overlay_verdict "$wv" "$tap_x" "$tap_y")"
         if [[ "$verdict_line" != clear ]]; then
             IFS=$'\t' read -r _ _ label <<< "$verdict_line"
             die "tap: $label still covers the element after scrolling it into the WebView; it cannot be tapped"
         fi
     fi
-    adb shell input tap "$tap_x" "$tap_y"
+    timed input adb shell input tap "$tap_x" "$tap_y"
 }
 
 # Prints "clear", or "covered<TAB>scroll-dy<TAB>label" for the device point x y (tap_overlays.py plan).
 overlay_verdict() {
+    printf '%s\n' "$uia_xml" > "$TAP_TMP/uia.xml"
     python3 "$ROOT/tools/tap_overlays.py" plan "$1" "$2" "$3" "$TAP_TMP/dumpsys" "$TAP_TMP/uia.xml" \
         || die "tap: could not check the native overlays"
 }
@@ -293,7 +343,7 @@ pill_timeout_restore() {
 cmd="${1:-}"
 shift || true
 case "$cmd" in
-    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|enter|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|js|serve|secure|log|clearlog|shot|pill-timeout) require_device ;;
+    wake|sleep|install|start|stop|kill|reset|open|caller|back|home|enter|tap|taps|ui|tapui|type|swipe|top|pages|visible|eval|js|serve|secure|log|clearlog|shot|pill-timeout|bounds) require_device ;;
 esac
 case "$cmd" in
     open|tap|tapui|eval|js|ui|log|visible|pages) install_stamp_check "$ROOT" ;;
@@ -491,6 +541,19 @@ case "$cmd" in
         ;;
     visible)
         pages | sed -n 's/^visible //p' | head -1
+        ;;
+    bounds)
+        n="${1:-10}"
+        interval="${2:-100}"
+        cls="${3:-NestedWebView}"
+        [[ "$n" =~ ^[1-9][0-9]*$ ]] || die "usage: device.sh bounds [n=10] [interval_ms=100] [class=NestedWebView]"
+        [[ "$interval" =~ ^[0-9]+$ ]] || die "bounds: the interval is a whole number of milliseconds"
+        [[ "$cls" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || die "bounds: the class is a simple class name, e.g. NestedWebView"
+        # One adb shell call runs every sample, so no adb round trip separates two reads. Each sample starts
+        # with the device uptime ("@@ <seconds>", /proc/uptime: 10 ms steps); the pause is fractional seconds.
+        pause="$(printf '%d.%03d' $((interval / 1000)) $((interval % 1000)))"
+        loop="i=0; while [ \$i -lt $n ]; do echo \"@@ \$(cut -d' ' -f1 /proc/uptime)\"; dumpsys activity $PKG/$ACTIVITY; i=\$((i + 1)); if [ \$i -lt $n ]; then sleep $pause; fi; done"
+        adb shell "$loop" | tr -d '\r' | python3 "$ROOT/tools/view_bounds.py" "$cls"
         ;;
     eval|js)
         [[ $# -ge 2 ]] || die "usage: device.sh js <url-prefix> <expression>"

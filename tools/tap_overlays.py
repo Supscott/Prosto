@@ -14,6 +14,12 @@ Both are in drawing order: a later entry is drawn above an earlier one.
                         into the larger band of the WebView the overlay leaves clear, "-" when none.
     tap_overlays.py index <cdp-result>
                         the index of the element tap chose (the sixth value of the page result)
+    tap_overlays.py band "<l t r b>" <y>
+                        exit 0 when device row y is in the bottom quarter of the WebView, where the dock
+                        and the pills sit (the only place uiautomator is read for, PRO-170); exit 1 otherwise
+    tap_overlays.py moved <before-cdp-result> <after-cdp-result>
+                        "moved" when the element's centre changed after a scroll, "stuck" when the page
+                        could not scroll any further (PRO-170)
 """
 import json
 import re
@@ -102,6 +108,20 @@ def scroll_dy(webview, box, y):
     return y - (top + bottom) // 2
 
 
+def in_bottom_band(webview, y):
+    """True when device row y is in the bottom quarter of the WebView (the dock and the pills live there)."""
+    top, bottom = webview[1], webview[3]
+    return y >= top + (bottom - top) * 3 / 4
+
+
+def centre_y(cdp_result):
+    """The element's centre Y (CSS px) from a cdp_eval.mjs page result (the same shape chosen_index reads)."""
+    value = json.loads(cdp_result)
+    if isinstance(value, str):  # the expression returns JSON.stringify(...)
+        value = json.loads(value)
+    return value[1]
+
+
 def describe(overlay):
     """One line naming the overlay: class, resource id, text, content description and bounds."""
     left, top, right, bottom = overlay["box"]
@@ -137,6 +157,16 @@ def chosen_index(cdp_result):
 def main(argv):
     if len(argv) == 3 and argv[1] == "index":
         print(chosen_index(argv[2]))
+        return 0
+    if len(argv) == 4 and argv[1] == "band":
+        webview = tuple(int(n) for n in argv[2].split())
+        if len(webview) != 4:
+            print("tap_overlays: the WebView must be 'l t r b'", file=sys.stderr)
+            return 2
+        return 0 if in_bottom_band(webview, int(argv[3])) else 1
+    if len(argv) == 4 and argv[1] == "moved":
+        moved = abs(centre_y(argv[3]) - centre_y(argv[2])) >= 1
+        print("moved" if moved else "stuck")
         return 0
     if len(argv) == 7 and argv[1] == "plan":
         webview = tuple(int(n) for n in argv[2].split())
