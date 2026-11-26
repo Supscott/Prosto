@@ -149,6 +149,10 @@
     <string name="open_in_app_excluded_sites_close">Закрыть</string>
     <string name="menu_disable_blocking">Отключить блокировку на этом сайте</string>
     <string name="menu_enable_blocking">Включить блокировку на этом сайте</string>
+    <string name="menu_add_to_favorites">В избранное</string>
+    <string name="menu_remove_from_favorites">Убрать из избранного</string>
+    <string name="favorite_added_pill">Добавлено в избранное</string>
+    <string name="favorite_removed_pill">Удалено из избранного</string>
     <string name="disable_blocking_title">Отключить блокировку?</string>
     <string name="disable_blocking_message">Реклама, трекеры и всплывающие окна больше не будут блокироваться на %1$s. Страница перезагрузится.</string>
     <string name="disable_blocking_all_workspaces">Для всех рабочих пространств</string>

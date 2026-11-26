@@ -45,6 +45,7 @@ private fun BrowserUiState.hasTransientPill(): Boolean =
         externalAppPrompt != null ||
         lastTabPrompt != null ||
         popupBlocked != null ||
+        favoriteNotice != null ||
         blockedAdNavigation != null ||
         insecureHttpPrompt != null
 

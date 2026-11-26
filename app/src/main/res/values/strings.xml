@@ -149,6 +149,10 @@
     <string name="open_in_app_excluded_sites_close">Close</string>
     <string name="menu_disable_blocking">Disable blocking on this site</string>
     <string name="menu_enable_blocking">Enable blocking on this site</string>
+    <string name="menu_add_to_favorites">Add to favorites</string>
+    <string name="menu_remove_from_favorites">Remove from favorites</string>
+    <string name="favorite_added_pill">Added to favorites</string>
+    <string name="favorite_removed_pill">Removed from favorites</string>
     <string name="disable_blocking_title">Disable blocking?</string>
     <string name="disable_blocking_message">Ads, trackers and popups will no longer be blocked on %1$s. The page reloads.</string>
     <string name="disable_blocking_all_workspaces">Apply to all workspaces</string>

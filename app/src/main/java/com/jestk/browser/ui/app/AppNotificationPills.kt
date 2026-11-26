@@ -241,6 +241,7 @@ internal fun BoxScope.AppNotificationPills(
     }
 
     DownloadFailedPill(uiState, onEvent, isDark, activeWorkspaceColor, snackbarBaseBottomOffset)
+    FavoriteNoticePillHost(uiState, onEvent, isDark, activeWorkspaceColor, snackbarBaseBottomOffset)
 
     // External App Floating Notification Pill
     AnimatedVisibility(

@@ -4,10 +4,12 @@ import com.jestk.browser.domain.repository.SettingsRepository
 import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.DismissClearHistoryPrompt
+import com.jestk.browser.ui.viewmodel.DismissFavoriteNotice
 import com.jestk.browser.ui.viewmodel.LibraryUiEvent
 import com.jestk.browser.ui.viewmodel.RequestClearHistory
 import com.jestk.browser.ui.viewmodel.SearchCoordinator
 import com.jestk.browser.ui.viewmodel.TabCoordinator
+import com.jestk.browser.ui.viewmodel.ToggleCurrentPageFavorite
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -21,8 +23,14 @@ internal class LibraryEventHandler(
     private val scope: CoroutineScope,
     private val ioDispatcher: CoroutineDispatcher,
 ) {
+    private val pageFavorite = PageFavoriteToggle(tabCoordinator, getCurrentState, updateUiState)
+
     fun handle(event: LibraryUiEvent) {
         when (event) {
+            is ToggleCurrentPageFavorite -> pageFavorite.toggle()
+
+            is DismissFavoriteNotice -> pageFavorite.dismissNotice()
+
             is BrowserUiEvent.ShowAddFavoritePrompt -> {
                 updateUiState { it.copy(showAddFavoritePrompt = true) }
             }

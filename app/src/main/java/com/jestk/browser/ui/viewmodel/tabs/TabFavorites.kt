@@ -1,6 +1,7 @@
 package com.jestk.browser.ui.viewmodel.tabs
 
 import com.jestk.browser.engine.FaviconManager
+import com.jestk.browser.ui.viewmodel.normalizeFavoriteUrl
 import kotlinx.coroutines.launch
 
 internal class TabFavorites(
@@ -38,11 +39,7 @@ internal class TabFavorites(
 
     fun addFavorite(title: String, url: String, workspaceId: String? = null) {
         scope.launch(ioDispatcher) {
-            val trimmed = url.trim()
-            val normalizedUrl = when {
-                trimmed.startsWith("http://") || trimmed.startsWith("https://") -> trimmed
-                else -> "https://$trimmed"
-            }
+            val normalizedUrl = normalizeFavoriteUrl(url)
             val derivedTitle = title.trim().ifBlank {
                 normalizedUrl.removePrefix("https://").removePrefix("http://").removePrefix("www.").substringBefore('/')
             }

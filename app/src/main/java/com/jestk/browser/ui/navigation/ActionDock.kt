@@ -33,6 +33,8 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -71,7 +73,10 @@ import com.jestk.browser.ui.viewmodel.BrowserUiEvent
 import com.jestk.browser.ui.viewmodel.BrowserUiState
 import com.jestk.browser.ui.viewmodel.EnableBlockingForCurrentSite
 import com.jestk.browser.ui.viewmodel.OpenDisableBlockingPrompt
+import com.jestk.browser.ui.viewmodel.ToggleCurrentPageFavorite
 import com.jestk.browser.ui.viewmodel.currentAllowlistSite
+import com.jestk.browser.ui.viewmodel.currentPageFavorite
+import com.jestk.browser.ui.viewmodel.favoritablePageUrl
 import com.jestk.browser.ui.viewmodel.isCurrentSiteAllowlisted
 
 /**
@@ -180,6 +185,23 @@ fun ActionPopupMenu(
                 )
 
                 HorizontalDivider(color = dividerColor, thickness = 1.dp)
+
+                // One-tap favorite of the current page (http(s) pages only)
+                if (uiState.favoritablePageUrl != null) {
+                    val isFavorite = uiState.currentPageFavorite != null
+                    PopupMenuItem(
+                        icon = if (isFavorite) Icons.Filled.Star else Icons.Outlined.StarBorder,
+                        label = stringResource(if (isFavorite) R.string.menu_remove_from_favorites else R.string.menu_add_to_favorites),
+                        isActive = isFavorite,
+                        isDark = isDark,
+                        onClick = {
+                            onEvent(ToggleCurrentPageFavorite)
+                            onEvent(BrowserUiEvent.SetMenuExpanded(false))
+                        },
+                    )
+
+                    HorizontalDivider(color = dividerColor, thickness = 1.dp)
+                }
 
                 // Per-site content blocking switch (web pages only)
                 if (uiState.currentAllowlistSite != null) {
