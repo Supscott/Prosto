@@ -17,13 +17,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
@@ -79,6 +80,10 @@ import com.jestk.browser.ui.viewmodel.currentPageFavorite
 import com.jestk.browser.ui.viewmodel.favoritablePageUrl
 import com.jestk.browser.ui.viewmodel.isCurrentSiteAllowlisted
 
+/** The three-dots menu is at least this wide, grows to its widest label, and never past the max. */
+internal val ACTION_MENU_MIN_WIDTH = 172.dp
+internal val ACTION_MENU_MAX_WIDTH = 240.dp
+
 /**
  * Animated popup actions card anchored above the Menu button.
  * Adheres to Prosto Canvas design system:
@@ -117,7 +122,9 @@ fun ActionPopupMenu(
             modifier =
                 Modifier
                     .padding(bottom = 8.dp, end = 16.dp)
-                    .width(172.dp)
+                    // Follows the widest label (also at a large font scale), within the clamp.
+                    .widthIn(min = ACTION_MENU_MIN_WIDTH, max = ACTION_MENU_MAX_WIDTH)
+                    .width(IntrinsicSize.Max)
                     .prostoFloatingSurface(
                         shape = ProstoShapes.Card,
                         isDark = isDark,
@@ -366,15 +373,15 @@ fun PopupMenuItem(
         modifier =
             modifier
                 .fillMaxWidth()
-                .height(48.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .clickable(onClick = onClick),
     ) {
         Row(
             modifier =
                 Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 12.dp),
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
@@ -387,7 +394,8 @@ fun PopupMenuItem(
             Text(
                 text = label,
                 modifier = Modifier.weight(1f),
-                maxLines = 2,
+                // The longest Russian label needs a third line at font scale 1.3 within the 240dp cap.
+                maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
                 style =
                     typography.bodyMd.copy(

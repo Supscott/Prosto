@@ -5,6 +5,7 @@ import com.jestk.browser.domain.model.DomainGroupSuggestion
 import com.jestk.browser.domain.model.OverlayType
 import com.jestk.browser.domain.model.Workspace
 import com.jestk.browser.ui.viewmodel.BrowserUiState
+import com.jestk.browser.ui.viewmodel.DownloadFailure
 import org.junit.Test
 
 class DomainGroupChipVisibilityTest {
@@ -40,6 +41,15 @@ class DomainGroupChipVisibilityTest {
     @Test
     fun hiddenWhileTheMenuIsOpen() {
         assertThat(state(activeTabId = "1").copy(isMenuExpanded = true).shouldShowDomainGroupChip(isBottomBarVisible = true)).isFalse()
+    }
+
+    @Test
+    fun hiddenWhileTheDownloadFailedPillIsUp() {
+        val failed = state(activeTabId = "1").copy(downloadFailure = DownloadFailure(id = 1L, fileName = "a.zip", message = "failed"))
+
+        assertThat(failed.hasTransientPill()).isTrue()
+        assertThat(failed.shouldShowDomainGroupChip(isBottomBarVisible = true)).isFalse()
+        assertThat(state(activeTabId = "1").hasTransientPill()).isFalse()
     }
 
     @Test

@@ -20,8 +20,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jestk.browser.domain.model.FavoriteItem
+import com.jestk.browser.domain.model.SiteAllowlistEntry
 import com.jestk.browser.domain.model.Tab
 import com.jestk.browser.domain.model.ThemeMode
 import com.jestk.browser.ui.app.FavoriteNoticePill
@@ -31,6 +33,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import java.io.File
 import java.io.FileOutputStream
@@ -40,20 +43,25 @@ import java.io.FileOutputStream
 class ActionPopupMenuFavoritePreviewTest {
     private val page = "https://example.com/a"
 
-    private fun state(saved: Boolean) =
-        BrowserUiState(
-            currentUrl = page,
-            pageTitle = "Example",
-            tabs = listOf(Tab(id = "t", url = page, title = "Example", isActive = true)),
-            activeTabId = "t",
-            favorites = if (saved) listOf(FavoriteItem(id = 1, title = "Example", url = page)) else emptyList(),
-        )
+    private fun state(
+        saved: Boolean,
+        blockingOff: Boolean = false,
+    ) = BrowserUiState(
+        currentUrl = page,
+        pageTitle = "Example",
+        tabs = listOf(Tab(id = "t", url = page, title = "Example", isActive = true)),
+        activeTabId = "t",
+        favorites = if (saved) listOf(FavoriteItem(id = 1, title = "Example", url = page)) else emptyList(),
+        siteAllowlist = if (blockingOff) listOf(SiteAllowlistEntry("example.com", null, 1L)) else emptyList(),
+    )
 
     @Composable
     private fun Frame(
         mode: ThemeMode,
         saved: Boolean,
         fontScale: Float = 1f,
+        blockingOff: Boolean = false,
+        frameWidth: Dp = 230.dp,
     ) {
         val base = LocalDensity.current
         val dark = mode == ThemeMode.DARK
@@ -62,13 +70,13 @@ class ActionPopupMenuFavoritePreviewTest {
                 Box(
                     modifier =
                         Modifier
-                            .width(230.dp)
+                            .width(frameWidth)
                             .height(520.dp)
                             .background(if (dark) Color(0xFF0E1513) else Color(0xFFE9F6F2)),
                     contentAlignment = Alignment.BottomEnd,
                 ) {
                     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ActionPopupMenu(expanded = true, uiState = state(saved), isDark = dark, onEvent = {})
+                        ActionPopupMenu(expanded = true, uiState = state(saved, blockingOff), isDark = dark, onEvent = {})
                     }
                 }
             }
@@ -136,6 +144,41 @@ class ActionPopupMenuFavoritePreviewTest {
         composeView.draw(android.graphics.Canvas(bitmap))
 
         val outputFile = File("build/favorite_menu_item_preview.png")
+        outputFile.parentFile?.mkdirs()
+        FileOutputStream(outputFile).use { out ->
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        }
+    }
+
+    /** PRO-187: the menu follows its widest label (172..240dp), so nothing ends in an ellipsis. */
+    @Test
+    @Config(qualifiers = "ru")
+    fun renderMenuWidthRussianLargeFontPreview() {
+        val activity = Robolectric.buildActivity(ComponentActivity::class.java).setup().get()
+        val composeView =
+            ComposeView(activity).apply {
+                setContent {
+                    Row(modifier = Modifier.fillMaxSize().padding(4.dp)) {
+                        Frame(ThemeMode.LIGHT, saved = true, fontScale = 1.3f, frameWidth = 270.dp)
+                        Frame(ThemeMode.DARK, saved = false, fontScale = 1.3f, blockingOff = true, frameWidth = 270.dp)
+                        Frame(ThemeMode.LIGHT, saved = true, fontScale = 1f, frameWidth = 270.dp)
+                    }
+                }
+            }
+        activity.setContentView(composeView)
+
+        val width = 810
+        val height = 540
+        composeView.measure(
+            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
+            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY),
+        )
+        composeView.layout(0, 0, width, height)
+
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        composeView.draw(android.graphics.Canvas(bitmap))
+
+        val outputFile = File("build/action_menu_width_ru_preview.png")
         outputFile.parentFile?.mkdirs()
         FileOutputStream(outputFile).use { out ->
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)

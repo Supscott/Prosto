@@ -39,12 +39,13 @@ internal val OVERLAYS_WITHOUT_CHIP = setOf(
 )
 
 /** A transient pill is on screen; the suggestion waits so that the two never overlap. */
-private fun BrowserUiState.hasTransientPill(): Boolean =
+internal fun BrowserUiState.hasTransientPill(): Boolean =
     (showUndoTabCloseSnackbar && recentlyClosedTab != null) ||
         (showDownloadSnackbar && lastDownloadNotification != null) ||
         externalAppPrompt != null ||
         lastTabPrompt != null ||
         popupBlocked != null ||
+        downloadFailure != null ||
         favoriteNotice != null ||
         blockedAdNavigation != null ||
         insecureHttpPrompt != null
