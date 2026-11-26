@@ -49,7 +49,7 @@
   <tr>
     <td valign="top">
       <b>Workspaces keep your contexts apart.</b><br/>
-      Each workspace has its own tabs, favorites, history and recently closed tabs, with isolated cookies and logins. Pick a color per workspace and the whole interface is tinted to match. Swipe up on the dock to choose one from a carousel, like picking an app in Android Recents.
+      Each workspace has its own tabs, favorites, history, with isolated cookies and logins. Pick a color per workspace and the whole interface is tinted to match. Swipe up on the dock to choose one from a carousel, like picking an app in Android Recents.
     </td>
     <td align="center" width="260">
       <a href="assets/workspaces.gif"><img src="assets/workspaces.gif" alt="Switching between workspaces" width="240" /></a><br/><sub>Swipe up to pick a workspace</sub>
@@ -59,6 +59,8 @@
 
 ### And also
 
+- **Tab menu:** long-press a tab to copy or share its link, add it to favorites or reload it, turn blocking off for the site, put it in a folder, move it to another workspace or close it.
+- **Camera and microphone:** Prosto asks before a site can use them. Allow once, always or block, and revoke access in Settings.
 - **Incognito tabs:** long-press "+" and pick an incognito tab. It runs in a separate profile, keeps its cookies and storage apart, saves no history, blocks screenshots and is wiped when you close it. A violet dock and a mask badge show you are in one.
 - **Fresh start:** come back after 30 minutes away and a new tab is waiting, with a pill that takes you back to the last one.
 - **Instant loading:** a warm engine and preconnect start pages right away. Tab history is restored, a back/forward cache makes Back instant, and the previous frame stays on screen until the new page paints, so there is no blank flash.
@@ -69,7 +71,7 @@
 - **Sites still work:** sign-ins and Cloudflare security checks are never touched by blocking or injected scripts.
 - **Video:** open a YouTube video in the Clean YouTube Player, without distractions or ads. Turn on background playback in Settings and audio and video keep playing with the screen off. Fullscreen video continues in picture-in-picture when you leave the app, and turns to landscape on its own.
 - **Open in app:** links that have an app (Telegram, Instagram and others) offer to open it. You can turn the offer off per site.
-- **Downloads:** pause, resume and cancel. Interrupted transfers resume via HTTP `Range`. Prosto asks before downloading a file you already have, and a failed download says so in an in-app pill.
+- **Downloads:** a download started by a page waits for your confirmation. Pause, resume and cancel. Interrupted transfers resume via HTTP `Range`. Prosto asks before downloading a file you already have, and a failed download says so in an in-app pill.
 - **Settings and tour:** settings are grouped into categories with their own screens, plus quick-toggle tiles for the switches you use most. A short stories-style tour shows the gestures; start it from the Home screen card or from Settings → About.
 - **In-app updates:** Prosto checks GitHub Releases for a new version, shows an update card and opens the release page to download it.
 
