@@ -82,6 +82,12 @@ changed_test_args() {
     done
 }
 
+# The classes --changed runs, simple names joined with ", ": the final list after the related and
+# extra rules, so it can be matched with the "related tests:" notes and the count line (PRO-193).
+class_names_from_args() {
+    grep -v -x -e '--tests' | sed 's/.*\.//' | paste -sd, - | sed 's/,/, /g'
+}
+
 CORE_TESTS=(
     --tests "com.jestk.browser.ui.viewmodel.TabCoordinatorTest"
     --tests "com.jestk.browser.ui.viewmodel.BrowserViewModelTest"
@@ -95,6 +101,7 @@ if [[ "${1:-}" == --changed && "${2:-}" == --dry-run ]]; then
         echo "(no changed test classes: --changed would run the core set)"
     else
         echo "$dry_list"
+        echo "classes ($(printf '%s\n' "$dry_list" | wc -l | tr -d ' ')): $(printf '%s\n' "$dry_list" | tr ' ' '\n' | class_names_from_args)"
     fi
     lint_why="$(changed_lint_reason)"
     if [[ -n "$lint_why" ]]; then echo "lint: would run ($lint_why)"; else echo "lint: skipped"; fi
@@ -178,6 +185,7 @@ case "${1:-}" in
             test_args=("${CORE_TESTS[@]}")
         else
             echo "==> Running the $(( ${#changed[@]} / 2 )) test classes changed on this branch..."
+            echo "    classes: $(printf '%s\n' "${changed[@]}" | class_names_from_args)"
             test_args=("${changed[@]}")
         fi
         ;;

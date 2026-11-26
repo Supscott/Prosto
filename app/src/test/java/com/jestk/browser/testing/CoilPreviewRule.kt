@@ -20,10 +20,14 @@ class CoilPreviewRule : ExternalResource() {
     private var tracker: CoilIdleTracker? = null
 
     override fun before() {
+        // Animations snap to their end state: a static capture wants that, and an infinite one (a
+        // loading spinner) would keep the frame clock busy while awaitIdle waits (PRO-193).
+        ReducedMotion.disableAnimations(RuntimeEnvironment.getApplication())
         tracker = CoilIdleTracker.install(RuntimeEnvironment.getApplication())
     }
 
     override fun after() {
+        ReducedMotion.set(RuntimeEnvironment.getApplication(), 1f)
         CoilIdleTracker.uninstall()
         tracker = null
     }
