@@ -82,12 +82,15 @@ internal fun BoxScope.FavoriteNoticePillHost(
             ),
     ) {
         if (shown != null) {
+            // The timer runs only while a notice is current (not while the last one fades out), and a
+            // new notice (new id) restarts it. The pill is swipe-dismissable, so it asks Android for
+            // the interactive timeout, the one "Time to take action" (and `device.sh pill-timeout`) sets.
             PillAutoDismissEffect(
-                active = true,
+                active = notice != null,
                 restartKey = shown.id,
                 baseTimeoutMs = FAVORITE_NOTICE_PILL_TIMEOUT_MS,
                 containsIcons = true,
-                containsControls = false,
+                containsControls = true,
                 onDismiss = { currentOnEvent(DismissFavoriteNotice) },
             )
             FavoriteNoticePill(

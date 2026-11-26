@@ -12,6 +12,12 @@ internal class PageFavoriteToggle(
     private val getCurrentState: () -> BrowserUiState,
     private val updateUiState: ((BrowserUiState) -> BrowserUiState) -> Unit,
 ) {
+    /**
+     * Never reused, even after the notice was dismissed: the pill restarts its timer on a new id, and a
+     * notice that reuses the id of one still fading out would inherit the old timer.
+     */
+    private var lastNoticeId = 0L
+
     fun toggle() {
         val state = getCurrentState()
         val saved = state.currentPageFavorite
@@ -27,7 +33,8 @@ internal class PageFavoriteToggle(
                 }
                 else -> return
             }
-        updateUiState { it.copy(favoriteNotice = FavoriteNotice((it.favoriteNotice?.id ?: 0L) + 1, added)) }
+        val noticeId = ++lastNoticeId
+        updateUiState { it.copy(favoriteNotice = FavoriteNotice(noticeId, added)) }
     }
 
     fun dismissNotice() {

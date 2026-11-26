@@ -114,6 +114,24 @@ class PageFavoriteToggleTest {
         }
 
     @Test
+    fun noticeIdsAreNeverReusedAfterADismissal() =
+        runTest(testDispatcher) {
+            advanceUntilIdle()
+            viewModel.onEvent(BrowserUiEvent.LoadUrl("https://kotlinlang.org"))
+            advanceUntilIdle()
+
+            viewModel.onEvent(ToggleCurrentPageFavorite)
+            advanceUntilIdle()
+            val first = state.favoriteNotice!!.id
+            viewModel.onEvent(DismissFavoriteNotice)
+
+            viewModel.onEvent(ToggleCurrentPageFavorite)
+            advanceUntilIdle()
+
+            assertThat(state.favoriteNotice!!.id).isGreaterThan(first)
+        }
+
+    @Test
     fun favoriteAddedWithoutSchemeIsRecognisedOnItsPage() =
         runTest(testDispatcher) {
             advanceUntilIdle()
