@@ -92,11 +92,10 @@ Platform assumptions to list: <what the device check will need, e.g. IME insets,
 ```
 
 ### 6. Review and merge each branch as it finishes
-0. For a Kotlin branch of more than ~100 changed lines, first run a `prosto-reviewer` agent
-   (Sonnet, read-only) with the worktree, the base commit and the issue summary; then confirm its
-   findings in the main session instead of reading the whole diff. Not measured yet: compare
-   its cost and hit rate with `tools/agent_cost.py` on the first runs and log it in
-   `PRACTICE_LOG.md`.
+0. For a Kotlin branch of more than ~100 changed lines, run a `prosto-reviewer` agent (Sonnet,
+   read-only) with the worktree, the base commit and the issue summary; then confirm its findings
+   in the main session instead of reading the whole diff. Measured: 9 findings, 2 real bugs, 115k
+   units (`PRACTICE_LOG.md`, 2026-11-26).
 1. `git diff --stat main...<branch>`, then read only the key files. Look for: release-build
    exposure (debug-only code in `src/main`, BROWSABLE intent filters), missing failure paths,
    leftovers the report admits ("not covered: …"), and deleted test files: list their `@Test`s
@@ -122,6 +121,11 @@ Opus context. Hand them off:
   `isolation` (it runs in the main checkout), `run_in_background: true`. One at a time, and do not
   run `device.sh` yourself while it runs. Check `adb devices` first; ask the user to plug in or
   unlock now, not after a BLOCKED report.
+- Keep one device run under ~8 checks; split a longer list into two runs (one feature each): cost
+  grows with turns × context (13 checks: 187 turns).
+- Permission checks: after a "Don't allow", Android marks the permission user-fixed; reset it with
+  `adb shell pm clear-permission-flags <pkg> <perm> user-fixed user-set` (until `device.sh` has a
+  helper, PRO-186).
 - Judge the report: FAIL → a fix-up for the coding agent or a new issue; BLOCKED → ask the user.
   Never mark a UI issue Done without a PASS from the phone.
 - Who calls a WebView callback? Have a coding agent add a temporary
@@ -167,3 +171,6 @@ Opus context. Hand them off:
   × price with `/cost`.
 - Orchestrator, 2026-11-20 transcript via `agent_cost.py`: 189 turns, 40M cache reads, 4950k
   Opus units. Target: device checks and late edits moved out (steps 4 and 7).
+- Orchestrator, 2026-11-26: 57 turns, 1245k Opus units for 7 issues (device checks and late edits
+  delegated). Reviewer (`prosto-reviewer`, Sonnet): 8 turns, 115k on a 1177-line branch.
+- Device agent (Sonnet): 13 checks 1237k/187 turns; 6 checks 114k/29 turns; a 2-check recheck 57k.

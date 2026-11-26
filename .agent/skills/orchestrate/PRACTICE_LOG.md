@@ -14,6 +14,19 @@ How to keep it useful:
 - Keep the file under ~60 lines.
 
 ## Entries
+- 2026-11-26 — Orchestrator 57 turns, 1245k Opus units for 7 issues (2026-11-20: 189 turns,
+  4950k): device checks and late edits were delegated, findings filed in Linear as they came.
+  `prosto-reviewer` on a 1177-line Kotlin branch (PRO-172): 8 turns, 115k Sonnet units, 9
+  findings, 2 real bugs (a grant after the tab closed during the OS dialog; Chromium's
+  grant(subset) is a deny), both confirmed in code and fixed by a 6-min SendMessage fix-up.
+  → Run the reviewer on every Kotlin branch over ~100 lines. `prosto-device` with 13 checks
+  (smoke + 9 permission + 4 favorites): 187 turns, 1237k Sonnet, the session's most expensive
+  agent; 6 checks took 29 turns/114k, a 2-check recheck 16 turns/57k → one device run under ~8
+  checks, split longer lists. Coders: PRO-172 feature (26 files) 54 turns 1159k; PRO-179 menu
+  item 34 turns 656k; tests PRO-177/178 50 turns 753k; README 19 turns 271k; Haiku device.sh
+  harness 37 turns 748k Haiku. A device check found what no unit test could: WebView
+  getUserMedia audio failed with NotReadableError until MODIFY_AUDIO_SETTINGS was declared.
+  → Permission checks need a reset of the user-fixed flag between runs (PRO-186).
 - 2026-11-25 — Grouping 3 small issues per Sonnet agent: 1487k and 1418k units for 3 and 2 issues
   (67–68 turns), ~470–700k per issue, in line with the single-issue baseline; both were cut off
   by the 5-hour usage limit and resumed by SendMessage without loss. Haiku harness agent (2 issues,
